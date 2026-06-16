@@ -48,6 +48,22 @@ const char* ToString( RenderGraphQueueType queue )
 }
 
 
+const char* ToString( RenderGraphBarrierPolicy policy )
+{
+    switch ( policy )
+    {
+    case RenderGraphBarrierPolicy::DiagnosticOnly:
+        return "DiagnosticOnly";
+    case RenderGraphBarrierPolicy::GraphValidated:
+        return "GraphValidated";
+    case RenderGraphBarrierPolicy::GraphOwned:
+        return "GraphOwned";
+    default:
+        return "Unknown";
+    }
+}
+
+
 const char* ToString( RenderGraphResourceAccess access )
 {
     switch ( access )
@@ -110,7 +126,7 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, Re
 }
 
 
-uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
+uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, RenderGraphBarrierPolicy barrierPolicy )
 {
     // A pass is a named unit of frame work. It does not record commands in this
     // first slice. It records intent, so future code can compare pass order and
@@ -118,6 +134,7 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
     RenderGraphPassDesc pass;
     pass.name = ( name && name[0] != '\0' ) ? name : "UnnamedPass";
     pass.queue = queue;
+    pass.barrierPolicy = barrierPolicy;
 
     const uint32_t index = static_cast<uint32_t>( m_passes.size() );
     m_passes.push_back( pass );
@@ -173,7 +190,9 @@ std::string RenderGraph::DumpText() const
     for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
-        out << "  [" << passIndex << "] " << pass.name << " queue=" << ToString( pass.queue ) << "\n";
+        out << "  [" << passIndex << "] " << pass.name
+            << " queue=" << ToString( pass.queue )
+            << " barriers=" << ToString( pass.barrierPolicy ) << "\n";
 
         for ( const RenderGraphResourceUse& read : pass.reads )
         {
