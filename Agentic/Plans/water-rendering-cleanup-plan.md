@@ -1,9 +1,9 @@
 # Water Rendering Cleanup Plan
 
-Status: planning draft  
-Created: 2026-06-11  
-Scope: water shaders, reflection modes, water material/style data, known water rendering bugs  
-Implementation status: planning draft; legacy `water.*` shader files were removed in the cleanup pass
+Status: implementation review
+Created: 2026-06-11
+Scope: water shaders, reflection modes, water material/style data, known water rendering bugs
+Implementation status: phases 2-5 are partially implemented on `codex/post-pr73-roadmap`; legacy `water.*` shader files remain removed; phase 6 is under review after the first water-depth/blend-state mitigation and intentional DX12 baseline refresh.
 
 Retirement note: code-heavy water cleanup should use the DX12-only renderer
 validation gate. Do not reintroduce OpenGL or DX11 water paths.
@@ -32,7 +32,7 @@ Current water pieces:
 
 Reflection rendering is scheduled in the main frame function. Water consumes the reflection result later. This is logical, but the contract is not explicit.
 
-Needed explicit output:
+Implemented explicit output:
 
 ```cpp
 struct WaterReflectionInput
@@ -186,39 +186,40 @@ Validation:
 
 Tasks:
 
-1. Introduce `WaterReflectionInput` or equivalent.
-2. Make reflection pass output explicit.
-3. Pass reflection texture and sample VP into water pass.
-4. No visual behavior change.
+1. Introduced `WaterReflectionInput`.
+2. Made reflection texture/sample VP/no-reflect state explicit at the water call boundary.
+3. Passed reflection input through `WaterPass`.
+4. Visual behavior changed later in phase 6 when water depth-write behavior was adjusted.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat`.
+- Covered by `tools\validate_full.bat` on `codex/post-pr73-roadmap`.
 
 ### Phase 3: Water Style Params Binder
 
 Tasks:
 
-1. Add `WaterStyleParams` helper.
-2. Bind calm/ocean water uniforms through one function.
-3. Keep existing uniform names for now.
-4. Keep existing behavior.
+1. Added `WaterStyleParams`.
+2. Bound calm/ocean water uniforms through shared helpers.
+3. Kept existing shader uniform names.
+4. Preserved style inputs apart from the phase 6 water-depth visual change.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat`.
+- Covered by `tools\validate_full.bat` on `codex/post-pr73-roadmap`.
 
 ### Phase 4: Water Pass Extraction
 
 Tasks:
 
-1. Move water mode decision and draw calls into `WaterPass`.
-2. Keep `WorldEnvironment` as mesh/resource owner until resource plan catches up.
-3. Return debug info if useful.
+1. `WaterPass` now owns water draw ordering and state setup around `WorldEnvironment::RenderFluid`.
+2. `WorldEnvironment` remains mesh/resource owner.
+3. Debug info was not added.
+4. Follow-up review found render-state restore gaps that must be fixed before calling this phase complete.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat`.
+- Covered by `tools\validate_full.bat` on `codex/post-pr73-roadmap`.
 
 ### Phase 5: Legacy Shader Cleanup
 
@@ -235,15 +236,15 @@ Validation:
 
 Tasks:
 
-1. Create a focused scene for sphere/water intersection.
-2. Capture DX12 screenshots and compare against committed baselines.
-3. Check depth/blend states around water pass.
-4. Test candidate fix behind a narrow change.
+1. Reused existing `water_ball_test` and `solver_smoke` DX12 captures.
+2. Captured DX12 screenshots and compared against committed baselines.
+3. Changed water to depth-test while depth-write is disabled.
+4. Intentionally refreshed affected DX12 baselines after visual inspection.
+5. Review follow-up: restore depth-write and blend-function state from their real previous values, not from depth-test/blend-enable proxies.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat`.
-- Add or update visual baseline only with explicit intent.
+- `tools\validate_full.bat` passed after the intentional baseline update.
 
 ## Validation Matrix
 
@@ -269,8 +270,8 @@ Validation:
 
 ## Success Criteria
 
-- Water pass has explicit inputs and outputs.
+- Water pass has explicit reflection/style inputs.
 - Water style params are bound from one place.
 - Legacy water shader files have a documented status.
 - Reflection source selection is clear.
-- Known water intersection bug has a focused investigation path.
+- Known water intersection bug has DX12 baseline coverage and an active state-restore follow-up.
