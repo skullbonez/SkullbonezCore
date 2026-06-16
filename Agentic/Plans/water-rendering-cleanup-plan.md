@@ -3,7 +3,7 @@
 Status: implementation review
 Created: 2026-06-11
 Scope: water shaders, reflection modes, water material/style data, known water rendering bugs
-Implementation status: phases 2-5 are partially implemented on `codex/post-pr73-roadmap`; legacy `water.*` shader files remain removed; phase 6 is under review after the first water-depth/blend-state mitigation and intentional DX12 baseline refresh.
+Implementation status: phases 2-5 are partially implemented on `codex/post-pr73-roadmap`; legacy `water.*` shader files remain removed; phase 6 includes the first water-depth/blend-state mitigation, exact render-state restore, and intentional DX12 baseline refresh.
 
 Retirement note: code-heavy water cleanup should use the DX12-only renderer
 validation gate. Do not reintroduce OpenGL or DX11 water paths.
@@ -215,7 +215,7 @@ Tasks:
 1. `WaterPass` now owns water draw ordering and state setup around `WorldEnvironment::RenderFluid`.
 2. `WorldEnvironment` remains mesh/resource owner.
 3. Debug info was not added.
-4. Follow-up review found render-state restore gaps that must be fixed before calling this phase complete.
+4. Water render-state restore now uses exact depth-write and blend-function queries instead of depth-test/blend-enable proxies.
 
 Validation:
 
@@ -240,7 +240,7 @@ Tasks:
 2. Captured DX12 screenshots and compared against committed baselines.
 3. Changed water to depth-test while depth-write is disabled.
 4. Intentionally refreshed affected DX12 baselines after visual inspection.
-5. Review follow-up: restore depth-write and blend-function state from their real previous values, not from depth-test/blend-enable proxies.
+5. Restored depth-write and blend-function state from their real previous values, not from depth-test/blend-enable proxies.
 
 Validation:
 
@@ -274,4 +274,4 @@ Validation:
 - Water style params are bound from one place.
 - Legacy water shader files have a documented status.
 - Reflection source selection is clear.
-- Known water intersection bug has DX12 baseline coverage and an active state-restore follow-up.
+- Known water intersection bug has DX12 baseline coverage and exact water render-state restore.

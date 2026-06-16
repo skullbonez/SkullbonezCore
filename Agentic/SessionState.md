@@ -44,7 +44,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Bug | Area | Status |
 |-----|------|--------|
-| Water renders through back faces of spheres when intersecting the water surface. | Rendering / Water | Mitigating on `codex/post-pr73-roadmap`; render-state ownership is under review. |
+| Water renders through back faces of spheres when intersecting the water surface. | Rendering / Water | Mitigated on `codex/post-pr73-roadmap`; water now depth-tests with depth-write disabled and restores depth-write/blend-function state exactly. |
 
 Additional bug notes live in `Agentic/Bugs.md`.
 

@@ -1897,9 +1897,22 @@ bool RenderBackendDX12::IsDepthTestEnabled() const
 }
 
 
+bool RenderBackendDX12::IsDepthWriteEnabled() const
+{
+    return m_depthWriteEnabled;
+}
+
+
 bool RenderBackendDX12::IsBlendEnabled() const
 {
     return m_blendEnabled;
+}
+
+
+void RenderBackendDX12::GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const
+{
+    outSrc = m_blendSrc;
+    outDst = m_blendDst;
 }
 
 
