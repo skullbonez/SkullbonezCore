@@ -56,10 +56,10 @@
     },
     {
       "id": "dx12-render-graph-completion",
-      "plan": "Agentic/Plans/dx12-render-graph-completion-plan.md",
-      "state": "ready",
+      "plan": "Agentic/Plans/Done/dx12-render-graph-completion-plan.md",
+      "state": "done",
       "priority": 20,
-      "branch": "codex/dx12-render-graph-completion",
+      "branch": "codex/dx12-render-graph-completion-second-look",
       "parent_branch": "codex/non-cinematic-photoreal-lighting",
       "impact_area": [
         "DX12",
@@ -82,7 +82,7 @@
       "state": "ready",
       "priority": 30,
       "branch": "codex/architecture-pass-2026-06-02",
-      "parent_branch": "codex/dx12-render-graph-completion",
+      "parent_branch": "codex/dx12-render-graph-completion-second-look",
       "impact_area": [
         "architecture",
         "runtime",

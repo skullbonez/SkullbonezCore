@@ -51,7 +51,7 @@ targeted pre-commit/PR gates, not commands to run during normal iteration:
 |----------|------|--------------|------------------------|
 | High | Runtime subsystem extraction | `SkullbonezRun` is split across focused files and has pass objects, but it still owns scene loading, simulation policy, input command handling, diagnostics, UI command application, and capture orchestration. Next slices should extract `SceneRuntime`, then `SimulationSystem`, then `RuntimeDiagnostics`/`InputController` as facades first. | `tools\validate_full.bat` for runtime movement. |
 | High | Physics data boundary | `PhysicsWorld` exists, but the real body store is still `std::vector<GameModel>` inside `GameModelCollection`, and render/collider/rigid-body data are still coupled through `GameModel`. Next slices should split body/collider/render snapshots, isolate legacy solver behavior behind a solver strategy, and move toward data-oriented body arrays only after adapter behavior is stable. | `tools\validate_physics.bat`; add `tools\validate_perf.bat` for storage/hot-loop changes. |
-| High | Render graph/resource-state ownership | `RenderGraph` is still diagnostic, but transitions now carry native resource pointers so graph/live barrier comparison can match real resources instead of relying only on names. The live DX12 backend still records barriers manually in clears, framebuffer bind/unbind, DXR reflection, mip generation, readback, and present paths. The next render-architecture step is to move from diagnostic matching toward graph-owned transition validation/execution. | `tools\validate_dx12_renderer.bat`; verify `dx12_validation.txt` stays zero-error. |
+| High | Render graph/resource-state ownership | PR #78 and the second-look branch moved production DX12 transition/UAV barriers behind graph-owned helpers and added an actual executed-frame graph dump. The next render-architecture step is pass-callback ownership and broader state tracking, not another manual-barrier migration. | `tools\validate_dx12_renderer.bat`; verify `dx12_validation.txt` stays zero-error. |
 | Medium-high | Render backend interface split | `RenderCapabilities` exists, but `IRenderBackend` still exposes DXR, GPU timers, dynamic VBs, debug lines, capture, instancing, textures, meshes, framebuffers, and state control in one interface. Split only when a future backend, render graph, or tooling slice needs the sharper boundary. | `tools\validate_dx12_renderer.bat`. |
 | Medium | Asset system maturation | Source records and logical shader names exist. Remaining work is cache/invalidation policy, material/mesh records, hot reload hooks, and explicit source-vs-GPU lifetime integration with pass/resource ownership. | `tools\validate_dx12_renderer.bat` for renderer assets; `tools\validate_full.bat` if routed through runtime lifecycle. |
 | Medium | Scene/config schema cleanup | CLI/config are much better, and scene dispatch is table-driven, but object, physics, cinematic, and style directives still rely on specialized token helpers and fixed arrays. Add richer diagnostics, typed directive schemas, and serializer-friendly metadata only in focused parser slices. | `tools\validate_fast.bat`; use `tools\validate_full.bat` if launch or scene-load semantics can change. |
@@ -111,7 +111,7 @@ the next deep renderer boundaries.
 | Pass implementations | `SkullbonezSource/SkullbonezRunPasses.cpp:118` |
 | UI/text pass | `SkullbonezSource/SkullbonezRunUiTextPass.cpp:28` |
 | DX12 descriptor/upload helpers | `SkullbonezSource/SkullbonezRenderDeviceDX12.h:337`, `SkullbonezSource/SkullbonezRenderDeviceDX12.h:541` |
-| Diagnostic render graph | `SkullbonezSource/SkullbonezRenderGraph.h:217`, `SkullbonezSource/SkullbonezRenderBackendDX12.cpp:482` |
+| Render graph/barrier diagnostics | `SkullbonezSource/SkullbonezRenderGraph.h:217`, `SkullbonezSource/SkullbonezRenderBackendDX12.cpp:482`, `SkullbonezSource/SkullbonezRunRender.cpp:52` |
 
 The current code has already fixed several older audit concerns. DX12 has
 frame-indexed command allocators, descriptor allocators, per-frame upload
@@ -120,8 +120,8 @@ pressure point is now the live backend contract: `IRenderBackend` is still a
 render device, swap chain, texture registry, shader factory, mesh factory, FBO
 factory, screenshot capture service, state machine, DXR dispatcher, GPU timer
 provider, dynamic vertex buffer manager, debug line renderer, and instancing
-API. The render graph is also diagnostic-only; hand-written DX12 barriers remain
-the production path.
+API. The render graph now owns the DX12 barrier helper path, while pass command
+recording still lives in extracted runtime pass classes.
 
 ### Physics and Game Objects
 
@@ -244,10 +244,10 @@ Current status: the first render-pipeline layer is implemented. `DrawPrimitives(
 is now a short ordered list of named pass objects with explicit input/output
 bundles. Do not reopen this as another mechanical pass extraction task.
 
-The remaining render architecture work is to move from named pass order to
-explicit resource-state ownership. `RenderGraph` currently describes pass and
-resource intent, but the live DX12 backend still owns command recording and
-barriers manually.
+The remaining render architecture work is to move from named pass order plus
+graph-owned barrier helpers toward graph-owned pass callbacks and broader
+resource-state tracking. `RenderGraph` describes pass/resource intent and DX12
+barrier access terms, while the live runtime still owns command recording.
 
 The longer-term shape is still:
 
@@ -279,9 +279,9 @@ The first pass extraction produced the practical versions of these passes:
 | WaterPass | FBO or DXR reflection texture input |
 | DebugOverlayPass | Collision and broadphase visualizers |
 
-This now sets the engine up for live render graph work. The next slice should
-compare graph transitions against the current hand-written DX12 barriers before
-moving barriers or command recording into the graph.
+This now sets the engine up for pass-callback render graph work. The next slice
+should use the actual executed-frame graph dump and graph-owned barrier trace as
+the safety net before moving command recording into graph callbacks.
 
 Priority: High for graph/resource-state ownership. Effort: Medium-high. Risk:
 High, because barrier mistakes are GPU correctness bugs.
@@ -566,9 +566,10 @@ baselines can diverge from small storage/order changes.
 
 ### Phase 4: Make Render Resource State Explicit
 
-1. Use the existing `RenderGraph` declarations to compare expected pass/resource
-   transitions with the hand-written DX12 barriers.
-2. Move barrier ownership into the graph only after diagnostics prove parity.
+1. Use the actual executed-frame graph dump and graph-owned barrier trace to
+   compare expected pass/resource transitions with emitted DX12 barriers.
+2. Move pass command recording into graph callbacks only after diagnostics prove
+   the current extracted pass order.
 3. Split `IRenderBackend` capability interfaces when a graph/backend/tooling
    slice needs that narrower contract.
 4. Revisit descriptor/root-signature layout only when material/post/water work
@@ -603,4 +604,3 @@ more responsibility to `SkullbonezRun` or `GameModelCollection`.
 | Spatial grid, worker pool, hot path storage | `tools\validate_physics.bat` plus `tools\validate_perf.bat` |
 | Scene parser/config behavior | `tools\validate_fast.bat` for pure parser cleanup, `tools\validate_full.bat` if scenes can load differently |
 | Asset cache/source-record changes | `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` if runtime lifecycle or scene loading changes |
-

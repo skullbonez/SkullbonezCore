@@ -85,7 +85,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
         m_backBufferIsRT ? RenderGraphResourceAccess::RenderTarget : RenderGraphResourceAccess::Present;
 
     // Transition backbuffer to COPY_SOURCE for readback.
-    ExecuteGraphTransitionBarrier( "BackbufferReadbackBegin", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], backBufferAccessBeforeCopy, RenderGraphResourceAccess::CopySource );
+    ExecuteGraphTransition( "BackbufferReadbackBegin", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], backBufferAccessBeforeCopy, RenderGraphResourceAccess::CopySource );
 
     // Get copyable footprint
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
@@ -122,7 +122,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
-    ExecuteGraphTransitionBarrier( "BackbufferReadbackRestore", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::CopySource, backBufferAccessBeforeCopy );
+    ExecuteGraphTransition( "BackbufferReadbackRestore", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::CopySource, backBufferAccessBeforeCopy );
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );

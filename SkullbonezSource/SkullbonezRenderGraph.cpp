@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezRenderGraph.cpp
 Purpose:
-  Records intended render passes and resource transitions for the DX12 migration.
+  Records render pass/resource intent and transition diagnostics for DX12.
 
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
@@ -146,8 +146,8 @@ void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resourc
 {
     // A read means this pass expects the previous contents of the resource to
     // already exist and be visible to the shader or fixed-function GPU stage.
-    // Future graph compilation can compare this read against the previous write
-    // and insert the correct barrier before the pass records commands.
+    // Graph compilation compares this read against the previous write and emits
+    // a transition record before the pass that needs the new access.
     CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
@@ -158,10 +158,9 @@ void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resourc
 void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access )
 {
     // A write means this pass produces or overwrites contents in the resource.
-    // Future graph compilation can remember this as the latest known resource
-    // state, then transition the resource before the next incompatible read or
-    // write. This is how scattered hand-written barriers eventually become a
-    // single pass/resource scheduling problem.
+    // Graph compilation remembers this as the latest known resource state, then
+    // transitions the resource before the next incompatible read or write. This
+    // is the API-neutral shape the DX12 executor maps to concrete barriers.
     CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
@@ -172,9 +171,8 @@ void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resour
 std::string RenderGraph::DumpText() const
 {
     // Human-readable dumps are an early diagnostic tool. Before a render graph
-    // compiler starts inserting barriers, a text dump lets an engineer confirm
-    // the frame is declared in the intended order and that each pass uses the
-    // expected resources.
+    // text dump lets an engineer confirm the frame is declared in the intended
+    // order and that each pass uses the expected resources.
     std::ostringstream out;
     out << "RenderGraph\n";
     out << "Resources:\n";
@@ -236,9 +234,10 @@ RenderGraphCompileResult RenderGraph::Compile() const
     //    emit a transition record before that pass.
     // 5. Remember the new access as the resource's current state.
     //
-    // That mirrors the core DX12 barrier problem in API-neutral terms. Once live
-    // passes are declared through the graph, the DX12 backend can translate this
-    // list into ResourceBarrier calls and compare it against hand-coded barriers.
+    // That mirrors the core DX12 barrier problem in API-neutral terms. The DX12
+    // backend translates these records into barrier candidates, while production
+    // live transitions use the same graph access vocabulary through the
+    // graph-owned helper path.
     RenderGraphCompileResult result;
     std::vector<RenderGraphResourceAccess> currentAccess;
     currentAccess.reserve( m_resources.size() );

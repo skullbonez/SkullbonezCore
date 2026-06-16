@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/SkullbonezRenderGraph.h
 Purpose:
-  Records intended render passes and resource transitions for the DX12 migration.
+  Records render pass/resource intent and feeds DX12 graph-owned barrier
+  diagnostics.
 
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
@@ -67,8 +68,9 @@ namespace Rendering
     - whether each pass reads or writes a resource,
     - what DX12-style access the pass expects.
 
-    The current renderer can keep drawing exactly as it does today while future
-    slices move pass setup and barrier ownership into this graph.
+    The current renderer keeps pass bodies in the existing runtime order while
+    DX12 transition and UAV barriers route through graph-owned helper APIs.
+    Future slices can move command callbacks into the same pass/resource model.
 ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 // A queue is a lane of GPU work.
@@ -96,8 +98,9 @@ enum class RenderGraphQueueType
 };
 
 // Barrier policy names whether a pass is plain diagnostics or a reviewed
-// handoff marker. The current graph does not execute DX12 barriers; it records
-// intent for comparison with live backend barriers.
+// handoff marker. Live transition emission now goes through the DX12 graph
+// executor helpers, while this pass list still serves as the high-level frame
+// intent dump until command callbacks move into the graph.
 enum class RenderGraphBarrierPolicy
 {
     DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
@@ -193,10 +196,9 @@ struct RenderGraphResourceUse
 // - Which resources does it read?
 // - Which resources does it write?
 //
-// It does not yet store a callback. That is deliberate. The first architecture
-// step is to make pass/resource intent explicit without moving draw code at the
-// same time. Command recording will come after the current backend's pass
-// boundaries are visible.
+// It does not yet store a callback. That is deliberate: barrier execution can be
+// centralized before draw code moves. Command recording can come later once
+// current pass boundaries and graph-owned barrier diagnostics are stable.
 struct RenderGraphPassDesc
 {
     std::string name;
@@ -226,9 +228,11 @@ struct RenderGraphTransitionDesc
 
 // Result of the first simple graph compile step.
 //
-// This is intentionally only a transition list for now. Later compile output can
-// add transient texture allocation, last-writer diagnostics, queue ownership,
-// and callback execution order without changing the pass/resource declarations.
+// This is intentionally only a transition list for now. The DX12 graph executor
+// can translate these records into barrier candidates, while direct live helper
+// calls emit production barriers for current pass code. Later compile output can
+// add transient texture allocation, queue ownership, and callback execution
+// order without changing the pass/resource declarations.
 struct RenderGraphCompileResult
 {
     std::vector<RenderGraphTransitionDesc> transitions;
