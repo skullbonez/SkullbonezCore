@@ -100,7 +100,7 @@ enum class RenderGraphQueueType
 // intent for comparison with live backend barriers.
 enum class RenderGraphBarrierPolicy
 {
-    DiagnosticOnly, // The graph documents intent; hand-written backend barriers still own execution.
+    DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
     HandoffValidated // The pass/resource declaration is reviewed as a migration handoff marker, not executed by the graph.
 };
 
