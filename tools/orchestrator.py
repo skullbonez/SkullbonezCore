@@ -35,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -135,15 +136,24 @@ def codex_exec_log_paths(output_path: Path) -> tuple[Path, Path]:
     )
 
 
+def codex_exec_transcript_path(output_path: Path) -> Path:
+    return output_path.with_name(output_path.name + ".transcript.log")
+
+
 def codex_exec_artifacts(repo: Path, output_path: Path) -> list[str]:
     raw_path = output_path.with_name(output_path.name + ".raw")
-    paths = [path for path in (*codex_exec_log_paths(output_path), raw_path) if path.exists()]
+    paths = [
+        path
+        for path in (*codex_exec_log_paths(output_path), codex_exec_transcript_path(output_path), raw_path)
+        if path.exists()
+    ]
     return [repo_relative(repo, path) for path in paths]
 
 
 def codex_exec_failure_detail(output_path: Path) -> str:
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
-    for path in (stderr_log, stdout_log):
+    transcript_log = codex_exec_transcript_path(output_path)
+    for path in (stderr_log, transcript_log, stdout_log):
         if path.exists():
             text = path.read_text(encoding="utf-8", errors="ignore")
             detail = tail_lines(text)
@@ -174,6 +184,41 @@ def ensure_result_payload(path: Path, payload: dict[str, Any], required_fields: 
         return
     preserve_result_before_overwrite(path)
     write_json(path, payload)
+
+
+def tee_stream(
+    stream: Any,
+    console: Any,
+    stream_log: Any,
+    transcript_log: Any,
+    transcript_lock: threading.Lock,
+    stream_name: str,
+) -> None:
+    transcript_buffer: list[str] = []
+
+    def flush_transcript_buffer() -> None:
+        if not transcript_buffer:
+            return
+        text = "".join(transcript_buffer)
+        transcript_buffer.clear()
+        with transcript_lock:
+            transcript_log.write(f"[{stream_name}] {text}")
+            if not text.endswith("\n"):
+                transcript_log.write("\n")
+            transcript_log.flush()
+
+    while True:
+        chunk = stream.read(1)
+        if not chunk:
+            break
+        console.write(chunk)
+        console.flush()
+        stream_log.write(chunk)
+        stream_log.flush()
+        transcript_buffer.append(chunk)
+        if chunk == "\n":
+            flush_transcript_buffer()
+    flush_transcript_buffer()
 
 
 def normalize_state(state: str) -> str:
@@ -982,30 +1027,63 @@ def run_codex_exec(
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
-    try:
-        result = subprocess.run(
+    transcript_log = codex_exec_transcript_path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with (
+        stdout_log.open("w", encoding="utf-8") as stdout_file,
+        stderr_log.open("w", encoding="utf-8") as stderr_file,
+        transcript_log.open("w", encoding="utf-8") as transcript_file,
+    ):
+        process = subprocess.Popen(
             command,
-            input=prompt,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             cwd=repo,
-            check=False,
-            capture_output=True,
-            timeout=timeout_seconds,
+            bufsize=1,
         )
-    except subprocess.TimeoutExpired as exc:
-        raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
-    stdout_log.write_text(result.stdout or "", encoding="utf-8")
-    stderr_log.write_text(result.stderr or "", encoding="utf-8")
-    if result.returncode != 0:
-        print(f"codex exec exited {result.returncode}.")
+        if process.stdout is None or process.stderr is None or process.stdin is None:
+            raise OrchestratorError("codex exec did not expose expected stdio pipes.")
+        transcript_lock = threading.Lock()
+        stdout_thread = threading.Thread(
+            target=tee_stream,
+            args=(process.stdout, sys.stdout, stdout_file, transcript_file, transcript_lock, "stdout"),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=tee_stream,
+            args=(process.stderr, sys.stderr, stderr_file, transcript_file, transcript_lock, "stderr"),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        try:
+            process.stdin.write(prompt)
+            process.stdin.close()
+        except BrokenPipeError:
+            pass
+        try:
+            returncode = process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired as exc:
+            process.kill()
+            process.wait()
+            stdout_thread.join(timeout=5)
+            stderr_thread.join(timeout=5)
+            raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
+        stdout_thread.join()
+        stderr_thread.join()
+    if returncode != 0:
+        print(f"codex exec exited {returncode}.")
         print(f"  stdout: {repo_relative(repo, stdout_log)}")
         print(f"  stderr: {repo_relative(repo, stderr_log)}")
+        print(f"  transcript: {repo_relative(repo, transcript_log)}")
         detail = codex_exec_failure_detail(output_path)
         if detail:
             print("Last codex output:")
             for line in detail.splitlines():
                 print(f"  {line}")
-    return result.returncode
+    return returncode
 
 
 def run_worker_agent(
