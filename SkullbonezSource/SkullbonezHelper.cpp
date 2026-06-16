@@ -9,6 +9,13 @@ Mental model:
   when that state changes.
 
 Glossary:
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render stages.
+  Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
+  Material table: Fixed t4 texture that stores default per-kind material response
+  values for object shaders.
+  Instance payload: Per-object data appended after the model matrix in an
+  instanced draw stream.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -65,6 +72,10 @@ static bool sBoxBatchReady = false;
 static bool sPineBatchReady = false;
 static uint32_t sMaterialTableTexture = 0;
 
+// Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
+// SetConstantBufferBytes rejects this block if the reflected shader size drifts,
+// which turns C++/HLSL packing mistakes into a skipped draw plus Debug log event
+// instead of visually corrupting every object in the batch.
 struct PrimitiveBatchShaderConstants
 {
     Matrix4 view;
@@ -84,6 +95,9 @@ struct PrimitiveBatchShaderConstants
     float shadowFlags[4];
 };
 
+// Layout contract: mirrors the Uniforms cbuffer in shadow_depth_instanced.hlsl.
+// These matrices are the light-space view/projection for object shadow casters,
+// not the viewer camera used by the visible object pass.
 struct InstancedShadowDepthConstants
 {
     Matrix4 view;
@@ -112,11 +126,21 @@ static void EndPrimitiveBatchTransparency( bool wasTransparent )
 
 static uint8_t MaterialByte( float value )
 {
+    // The material table is an 8-bit texture, so clamp and round normalized
+    // material parameters at the CPU boundary before the shader samples them.
     return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
 }
 
 static void EnsureMaterialTableTexture()
 {
+    // Concept: the current object material table is a tiny texture, not a
+    // structured buffer or bindless descriptor table.
+    //
+    // Each texel row stores default roughness, metallic, specular, and
+    // stylization for one RenderMaterialKind. The per-instance payload still
+    // carries draw-local values; the t4 table gives shaders a stable fallback
+    // and a validation-visible binding point without expanding the resource
+    // model beyond the ordinary raster ABI.
     if ( sMaterialTableTexture != 0 )
     {
         Gfx().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
@@ -141,6 +165,10 @@ static void EnsureMaterialTableTexture()
 
 static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
 {
+    // Contract: every primitive batch uses the same instance stream layout:
+    // model matrix columns followed by material0/material1/material2. The DX12
+    // input layout and both instanced shaders must stay in lockstep with this
+    // packing order.
     const float* md = model.Data();
     out.insert( out.end(), md, md + INSTANCE_MATRIX_FLOATS );
     const RenderMaterialInstancePayload payload = PackRenderMaterialInstancePayload( material );

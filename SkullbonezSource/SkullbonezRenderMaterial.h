@@ -5,21 +5,25 @@ Purpose:
 
 Mental model:
   Render materials describe visual intent before a backend packs that intent
-  into shader constants, instance streams, or future material tables.
+  into shader constants, instance streams, or the current object material table.
 
 Glossary:
   Material kind: Small render-facing category that chooses the current object
   shader's visual branch, such as matte, metal, foliage, or shore.
-  Legacy tint bridge: Temporary path that packs render intent into the existing
-  per-instance tint.rgb and tint.a payload while material-table work is still
-  future architecture.
+  Material instance payload: Three float4 rows appended after each instance
+  model matrix and consumed by lit_textured_instanced.hlsl.
+  Material table: Fixed t4 texture storing default material response values by
+  material kind for the current object shader.
+  Legacy tint bridge: Compatibility path that maps old tint/colorOverride scene
+  values into material0.rgb and material0.w.
   Backend-neutral: Data that belongs to engine rendering intent, not to a DX12
   descriptor, root parameter, shader register, or GPU buffer layout.
 
 Invariants:
   - Render materials are separate from physics/contact material ids.
-  - The compatibility textureMode value preserves the existing tint.a shader
-    bridge until the object instance payload is expanded.
+  - textureMode preserves old tint.a material-mode semantics inside material0.w
+    so legacy scenes and generated objects keep their visual branch.
+  - material2.w carries the material-kind row sampled from the fixed t4 table.
 
 Related:
   - Agentic/Reference/shader-inventory.md
@@ -56,10 +60,10 @@ struct RenderMaterial
     char name[32] = {};
     RenderMaterialKind kind = RenderMaterialKind::Textured;
 
-    // Compatibility payload: object shaders still receive the color through
-    // the existing instance tint fields. Future GPU material tables should move
-    // these values into a structured material buffer without changing scene
-    // authoring again.
+    // Compatibility payload: object shaders receive color and material mode
+    // through the material0 row. This keeps old scene tint/colorOverride
+    // authoring stable while adding typed roughness, specular, and emissive
+    // values through the expanded material rows.
     float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float emissiveColor[3] = { 0.0f, 0.0f, 0.0f };
     float emissiveStrength = 0.0f;
@@ -154,9 +158,9 @@ inline uint32_t RenderMaterialKindIndex( RenderMaterialKind kind )
     return index <= static_cast<uint32_t>( RenderMaterialKind::Pine ) ? index : 0u;
 }
 
-// Returns the material mode value that still has to be mirrored into tint.a.
-// This is deliberately narrow: when material v1 expands the GPU payload, this
-// function is the compatibility point to retire.
+// Returns the material mode value mirrored into material0.w. The value keeps
+// the old tint.a shader decision tree alive while newer fields carry typed
+// material response data in material1/material2.
 inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
 {
     if ( material.kind != RenderMaterialKind::Textured )
@@ -166,6 +170,9 @@ inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
     return material.textureMode;
 }
 
+// Applies the default shader response for a material kind. Scene/material
+// authoring can override these fields later, but the generated t4 material table
+// uses the same defaults so CPU payloads and shader table rows stay coherent.
 inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
 {
     material.roughness = 0.72f;
@@ -236,6 +243,11 @@ inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
     }
 }
 
+// Instance payload consumed by lit_textured_instanced.hlsl:
+//
+// material0 = base rgb plus legacy material mode in w.
+// material1 = roughness, metallic, specular, emissive strength.
+// material2 = emissive rgb plus t4 material-table row in w.
 struct RenderMaterialInstancePayload
 {
     float material0[4];
@@ -243,6 +255,9 @@ struct RenderMaterialInstancePayload
     float material2[4];
 };
 
+// Packs CPU render intent into the exact per-instance float layout declared by
+// the object shader input layout. Keep this mapping in lockstep with
+// lit_textured_instanced.hlsl and the CreateInstancedMesh attribute list.
 inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const RenderMaterial& material )
 {
     RenderMaterialInstancePayload payload = {};

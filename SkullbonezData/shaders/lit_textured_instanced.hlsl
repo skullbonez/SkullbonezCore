@@ -11,6 +11,14 @@ Mental model:
 Glossary:
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures or
+  buffers.
+  TEXCOORD semantic: Named vertex/interpolator channel shared between the input
+  layout and shader stages.
+  Material table: Fixed t4 texture that stores default material response values
+  by material kind.
+  Material payload: Three per-instance float4 rows named material0, material1,
+  and material2.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -75,6 +83,13 @@ Texture2D    uMaterialTable : register(t4);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
+// Concept: object material data arrives through two small channels.
+//
+// The per-instance stream carries draw-local color and response values in
+// material0/material1/material2. The t4 material table carries defaults by
+// material kind, sampled through material2.w. Keeping both channels lets legacy
+// tint/colorOverride authoring keep working while the shader gains typed
+// roughness, specular, and emissive controls.
 struct VS_IN
 {
     float3 position : POSITION;   // Per-vertex: object-space position
@@ -134,12 +149,19 @@ VS_OUT main_vs(VS_IN input)
 
 float4 SampleMaterialTable(float materialRow)
 {
+    // Material rows are stored in a 16x1 texture. Sample at texel centers and
+    // clamp out-of-range kinds to keep bad authoring data from reading a
+    // neighboring descriptor or wrap-filtered value.
     float row = clamp(floor(materialRow + 0.5f), 0.0f, 15.0f);
     return uMaterialTable.SampleLevel(sSampler3, float2((row + 0.5f) / 16.0f, 0.5f), 0.0f);
 }
 
 int ResolveMaterialMode(float legacyMode, int objectStyle)
 {
+    // Compatibility contract: material0.w still follows the old tint.a rules.
+    // Negative means textured beachball, large positive values are explicit
+    // material kinds, small positive values mean matte, and zero falls back to
+    // the current object style.
     if (legacyMode < -0.5f)
         return 0;
     if (legacyMode > 1.25f)
@@ -410,6 +432,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     float3 R = reflect(-L, N);
     float4 tableParams = SampleMaterialTable(input.material2.w);
+    // Blend mostly per-instance values with a small table contribution. The
+    // instance payload remains authoritative for scene-specific overrides, while
+    // the table keeps material-kind defaults visible to the shader contract.
     float roughness = saturate(input.material1.x * 0.80f + tableParams.x * 0.20f);
     float materialSpecular = saturate(input.material1.z * 0.80f + tableParams.z * 0.20f);
     float specPower = lerp(112.0f, 18.0f, roughness);

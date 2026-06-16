@@ -599,6 +599,11 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
     {
         return false;
     }
+
+    // Invariant: typed upload structs are a binary mirror of the HLSL cbuffer,
+    // not a partial update API. Require the reflected byte size exactly so field
+    // order, padding, and matrix packing cannot silently drift between C++ and
+    // shader code.
     if ( size != m_cbReflectedSize )
     {
 #ifdef _DEBUG
@@ -619,6 +624,9 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
 #ifdef _DEBUG
     if ( m_contract )
     {
+        // Typed blocks replace per-uniform setters for this activation. Mark
+        // all contract uniforms as set so Debug diagnostics still catch stale
+        // reflected layouts without falsely reporting every field in the block.
         if ( m_contractUniformsSet.size() != m_contract->uniformCount )
         {
             m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 1 ) );

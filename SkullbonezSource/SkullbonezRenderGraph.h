@@ -153,6 +153,11 @@ struct RenderGraphResourceHandle
 // External means the object is owned outside the graph, such as the swap-chain
 // back buffer or an existing backend texture. Later graph-owned transient
 // resources can use the same declaration shape but set external=false.
+//
+// Lifetime: nativeResource is optional diagnostic identity only. It is a
+// borrowed backend pointer used to match graph transitions against live DX12
+// barrier logs; the graph must never dereference, retain ownership of, or
+// release that object.
 struct RenderGraphResourceDesc
 {
     std::string name;
@@ -197,6 +202,8 @@ struct RenderGraphPassDesc
 // it from state A to state B." This struct avoids D3D12_RESOURCE_STATES on
 // purpose. The render graph should speak in engine access concepts; the DX12
 // backend can translate those concepts into concrete D3D12 barrier flags later.
+// nativeResource is copied from the resource declaration only so diagnostics can
+// prefer exact pointer identity over name-only matching.
 struct RenderGraphTransitionDesc
 {
     uint32_t passIndex = 0;

@@ -111,11 +111,14 @@ struct InstancedMeshDX12
 // PSO cache key.
 //
 // A graphics PSO is expensive to create and must match the exact shader pair,
-// vertex layout, blend/depth/cull flags, polygon offset, and render-target
-// format. This key is the "recipe fingerprint" used to reuse compatible PSOs
-// instead of compiling a new one for every draw.
+// root signature, vertex layout, blend/depth/cull flags, polygon offset, and
+// render-target format. This key is the "recipe fingerprint" used to reuse
+// compatible PSOs instead of compiling a new one for every draw.
 struct PSOKey12
 {
+    // Borrowed identity only. The root signature owns the shader binding
+    // contract; two PSOs with identical shaders but different root signatures
+    // are not compatible cache entries.
     const void* rootSignature;
     const void* shaderVS;
     const void* shaderPS;
