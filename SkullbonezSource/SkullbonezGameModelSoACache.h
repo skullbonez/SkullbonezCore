@@ -34,6 +34,10 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
+// Borrowed views over GameModelSoACache arrays. They make physics/render call
+// sites explicit about the fields they read, but they are not independent
+// physics or render storage. GameModelCollection still owns the authoritative
+// GameModel vector and invalidates this cache after mutations.
 struct GameModelBodyStream
 {
     const Math::Vector::Vector3* positions = nullptr;

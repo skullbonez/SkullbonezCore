@@ -120,6 +120,12 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 `--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene directives such as `world`, `flat_slope`, `solver_balls`, or `time_scale`.
 
+## Runtime Facades And Streams
+
+`ConstSceneRuntime` and `SceneRuntime` are local helpers inside `SkullbonezRunScene.cpp`. They centralize scene queue/index reads and mutations, but they are not an extracted runtime subsystem yet; `SkullbonezRun` still owns `RunSceneState`, the scene queue, scene loading, reset policy, UI override application, and capture coordination.
+
+`GameModelBodyStream` and `GameModelRenderStream` are borrowed views over `GameModelCollection`'s `GameModelSoACache`. They make current physics and render call sites explicit about which fields they consume, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat them as a boundary marker for future data separation, not as the final physics/render storage split.
+
 ## Scene Directives
 
 Scene files are plain text. Blank lines and lines beginning with `#` are ignored.

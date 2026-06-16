@@ -219,6 +219,11 @@ SkullbonezRun *-- CollisionVisualizer
 SkullbonezRun *-- PhysicsDebugVisualizer
 ```
 
+`ConstSceneRuntime` and `SceneRuntime` are intentionally absent from this
+ownership diagram because they are local helpers in `SkullbonezRunScene.cpp`,
+not separately owned subsystems. They wrap current scene queue/index operations
+while `SkullbonezRun` remains the owner of scene state and load/reset policy.
+
 ## Rendering Interfaces And Backend Family
 
 `IRenderBackend` is the engine-facing renderer facade. DX12 is now the only

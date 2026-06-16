@@ -38,7 +38,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
 | Cinematic volumetric rendering | Recent | Use `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. |
-| Post-PR73 roadmap follow-up | Review fixes in progress | Branch `codex/post-pr73-roadmap` contains the five requested slices plus formatting and intentional DX12 water baseline refresh. User review found stale audit docs, render-state restore gaps, graph-ownership overclaiming, missing material parser coverage, early-stage scope wording, and stale validation notes. |
+| Post-PR73 roadmap follow-up | Review fixes in progress | Branch `codex/post-pr73-roadmap` contains the five requested slices plus formatting and intentional DX12 water baseline refresh. User review found stale audit docs, render-state restore gaps, graph-ownership overclaiming, missing material parser coverage, early-stage runtime/model-stream scope wording, and stale validation notes. The runtime slice is a local `SkullbonezRunScene.cpp` facade, and model streams are cache views over current `GameModel`/SoA storage rather than the final physics/render data split. |
 
 ## Known Bugs
 

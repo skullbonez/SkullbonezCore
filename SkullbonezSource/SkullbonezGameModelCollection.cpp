@@ -146,6 +146,8 @@ const std::vector<GameModel>& GameModelCollection::Models() const
 
 GameModelBodyStream GameModelCollection::GetBodyStream()
 {
+    // Body streams expose a validated cache snapshot for hot loops. They remain
+    // views over m_soaCache rather than a split physics data model.
     const int modelCount = static_cast<int>( m_gameModels.size() );
     if ( !m_soaCache.bodyDataValid || m_soaCache.activeCount != modelCount )
     {
@@ -162,6 +164,8 @@ GameModelBodyStream GameModelCollection::GetBodyStream()
 
 GameModelRenderStream GameModelCollection::GetRenderStream()
 {
+    // Render streams expose matrix/shape views over the same derived cache. They
+    // do not transfer ownership away from GameModelCollection.
     EnsureSoAModelMatrices();
     return GameModelRenderStream{
         m_soaCache.isBox.data(),

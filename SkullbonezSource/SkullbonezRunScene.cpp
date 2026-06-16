@@ -69,6 +69,9 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "cine_" ) == name;
 }
 
+// Local facade over SkullbonezRun's scene fields. This is a reviewable step
+// toward extraction, not an owned runtime subsystem; SkullbonezRun still owns
+// the RunSceneState and scene queue storage.
 class ConstSceneRuntime
 {
   public:
@@ -167,6 +170,9 @@ class ConstSceneRuntime
     const std::vector<std::string>& m_queue;
 };
 
+// Mutable companion for the local scene facade above. Keep this helper narrow:
+// it centralizes queue/index mutations in this translation unit without
+// changing subsystem ownership.
 class SceneRuntime
 {
   public:
