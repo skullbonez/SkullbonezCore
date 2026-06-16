@@ -384,8 +384,14 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
         Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
         Gfx().SetDepthWrite( false );
     }
-    DrawInstances( m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData );
-    DrawInstances( m_boxInstMesh, m_boxVertexCount, m_boxInstanceData );
+    {
+        DRAW_CALL_TRACE_SCOPE( "CollisionSpheres" );
+        DrawInstances( m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData );
+    }
+    {
+        DRAW_CALL_TRACE_SCOPE( "CollisionBoxes" );
+        DrawInstances( m_boxInstMesh, m_boxVertexCount, m_boxInstanceData );
+    }
     if ( translucent )
     {
         Gfx().SetDepthWrite( true );

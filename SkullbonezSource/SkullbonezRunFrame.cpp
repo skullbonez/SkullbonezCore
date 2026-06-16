@@ -50,7 +50,7 @@ void SkullbonezRun::Run()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            Gfx().ResetFrameDrawCallCount();
+            Gfx().ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
@@ -102,7 +102,10 @@ void SkullbonezRun::Run()
             }
 
             PROFILE_BEGIN( "Frame/Render" );
-            Render();
+            {
+                DRAW_CALL_TRACE_SCOPE( "Frame/Render" );
+                Render();
+            }
             PROFILE_END( "Frame/Render" );
 
             if ( m_uiTextPass.ShouldRender() )

@@ -325,6 +325,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
     int m_frameDrawCallCount = 0;
+    DrawCallTrace m_drawCallTrace;
 
     bool m_depthTestEnabled = true;
     bool m_depthWriteEnabled = true;
@@ -485,17 +486,35 @@ class RenderBackendDX12 : public IRenderBackend
         return capabilities;
     }
 
-    void ResetFrameDrawCallCount() override
+    void ResetFrameDrawCalls() override
     {
         m_frameDrawCallCount = 0;
+        m_drawCallTrace.BeginFrame();
     }
-    void NoteDrawCall() override
+    void RecordDrawCall( const DrawCallRecord& record ) override
     {
         ++m_frameDrawCallCount;
+        m_drawCallTrace.RecordDrawCall( record );
+    }
+    void RecordDrawCall()
+    {
+        RecordDrawCall( DrawCallRecord() );
     }
     int GetFrameDrawCallCount() const override
     {
         return m_frameDrawCallCount;
+    }
+    DrawCallTraceSnapshot GetFrameDrawCallTrace() const override
+    {
+        return m_drawCallTrace.Snapshot();
+    }
+    void PushDrawCallTraceScope( const char* fullPathOrLeaf, uint32_t hash ) override
+    {
+        m_drawCallTrace.PushScope( fullPathOrLeaf, hash );
+    }
+    void PopDrawCallTraceScope( uint32_t hash ) override
+    {
+        m_drawCallTrace.PopScope( hash );
     }
 
     void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances ) override;

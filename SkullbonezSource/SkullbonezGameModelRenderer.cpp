@@ -21,6 +21,7 @@ Related:
 #include "SkullbonezConfig.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezHelper.h"
+#include "SkullbonezIRenderBackend.h"
 #include "SkullbonezProfiler.h"
 
 #include <algorithm>
@@ -88,16 +89,19 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool transparentMaterial = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
 
-    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
-    for ( int x = 0; x < modelCount; ++x )
     {
-        if ( !renderStream.isBox[x] )
+        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        for ( int x = 0; x < modelCount; ++x )
         {
-            RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
-            SkullbonezHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
+            if ( !renderStream.isBox[x] )
+            {
+                RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
+                SkullbonezHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
+            }
         }
+        SkullbonezHelper::DrawSphereBatchEnd();
     }
-    SkullbonezHelper::DrawSphereBatchEnd();
 
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass )
@@ -128,12 +132,16 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
         }
     };
 
-    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
-    appendBoxLikeModels( false );
-    SkullbonezHelper::DrawBoxBatchEnd();
+    {
+        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        appendBoxLikeModels( false );
+        SkullbonezHelper::DrawBoxBatchEnd();
+    }
 
     if ( hasPineVisualModels )
     {
+        DRAW_CALL_TRACE_SCOPE( "Pines" );
         SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawPineBatchEnd();
@@ -157,6 +165,7 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Spheres" );
+        DRAW_CALL_TRACE_SCOPE( "Spheres" );
 
         SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
         for ( int x = 0; x < modelCount; ++x )
@@ -200,6 +209,7 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Boxes" );
+        DRAW_CALL_TRACE_SCOPE( "Boxes" );
 
         SkullbonezHelper::DrawShadowDepthBoxBatchBegin( view, proj );
         appendBoxLikeModels( false );
@@ -209,6 +219,7 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
     if ( hasPineVisualModels )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Pines" );
+        DRAW_CALL_TRACE_SCOPE( "Pines" );
 
         SkullbonezHelper::DrawShadowDepthPineBatchBegin( view, proj );
         appendBoxLikeModels( true );

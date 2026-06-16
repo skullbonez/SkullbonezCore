@@ -558,6 +558,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::ShadowPass::BuildObjec
 void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
     {
@@ -598,6 +599,7 @@ void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target
     if ( renderTerrain && cinematic.shadowTerrainCasts && !m_run.m_debug.isTerrainHidden && m_run.m_systems.terrain )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
@@ -609,6 +611,7 @@ void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target
     if ( renderObjects && cinematic.shadowObjectsCast && !m_run.m_debug.isCollisionVisualizer )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // collection keeps separate instanced batches so each caster shape uses
@@ -639,18 +642,22 @@ SkullbonezRun::ShadowPassOutput SkullbonezRun::ShadowPass::Render( const ShadowP
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
         PROFILE_SCOPED( "Frame/Shadows" );
+        DRAW_CALL_TRACE_SCOPE( "Frame/Shadows" );
         PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
-        Vector3 lightDirection( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
-        EnsureGpuResources( inputs.frame, *inputs.cinematic );
-        shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
-        if ( shadows.terrainTarget )
         {
-            RenderShadowMap( *shadows.terrainTarget, shadows.terrainFrame, *inputs.cinematic, true, true );
-        }
-        shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
-        if ( shadows.objectTarget )
-        {
-            RenderShadowMap( *shadows.objectTarget, shadows.objectFrame, *inputs.cinematic, false, true );
+            DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap" );
+            Vector3 lightDirection( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
+            EnsureGpuResources( inputs.frame, *inputs.cinematic );
+            shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
+            if ( shadows.terrainTarget )
+            {
+                RenderShadowMap( *shadows.terrainTarget, shadows.terrainFrame, *inputs.cinematic, true, true );
+            }
+            shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
+            if ( shadows.objectTarget )
+            {
+                RenderShadowMap( *shadows.objectTarget, shadows.objectFrame, *inputs.cinematic, false, true );
+            }
         }
         PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
     }
@@ -726,7 +733,10 @@ void SkullbonezRun::SceneTargetPass::Begin( const RenderFrameContext& frame, Sky
     Gfx().Clear( true, true );
 
     PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
-    skyPass.Render( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
+    {
+        DRAW_CALL_TRACE_SCOPE( "Frame/Render/CinematicSky" );
+        skyPass.Render( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
+    }
     PROFILE_GPU_END( "Frame/Render/CinematicSky" );
 }
 
@@ -740,6 +750,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
     // path rebuilds the raytracing TLAS and writes a screen-space reflection
     // texture directly. Both feed the same water shader later.
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection" );
     const auto renderCapabilities = Gfx().GetCapabilities();
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
                                   m_run.m_debug.isWaterRTReflect &&
@@ -809,13 +820,17 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
-        skyPass.Render( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
+        {
+            DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection/Skybox" );
+            skyPass.Render( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
+        }
         PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
 
         // Why: clip at the water surface so the reflection texture contains only
         // the above-water portion of models. The water shader supplies the
         // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+        DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection/Balls" );
         Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_run.m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
@@ -859,6 +874,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
 void SkullbonezRun::ObjectPass::Render( const ObjectPassInputs& inputs )
 {
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Balls" );
 
     if ( inputs.collisionStateColorsVisible )
     {
@@ -908,6 +924,7 @@ void SkullbonezRun::TerrainPass::Render( const TerrainPassInputs& inputs )
     }
 
     PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Terrain" );
     // Pass contract: terrain reads ground albedo from slot 0 and optional
     // shadow depth from slot 3.
     ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
@@ -949,6 +966,7 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     }
 
     PROFILE_GPU_BEGIN( "Frame/Render/Water" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
     ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_1 );
     float waterTime = inputs.freezeTime
@@ -1005,18 +1023,22 @@ void SkullbonezRun::DebugOverlayPass::Render( const DebugOverlayPassInputs& inpu
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/DebugOverlay" );
     if ( m_run.m_debug.isBroadphaseOverlay )
     {
+        DRAW_CALL_TRACE_SCOPE( "Broadphase" );
         m_run.m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
     }
 
     if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField )
     {
+        DRAW_CALL_TRACE_SCOPE( "TornadoField" );
         m_run.m_cGameModelCollection.RenderTornadoFieldVectors( inputs.frame.viewProjection );
     }
 
     if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
+        DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
         m_run.m_physicsDebugVisualizer.SetFlags( m_run.m_debug.physicsDebugFlags );
         m_run.m_physicsDebugVisualizer.SetPipelineStageCursor( m_run.m_debug.physicsDebugPipelineStageCursor );
         m_run.m_physicsDebugVisualizer.Render( m_run.m_cGameModelCollection, inputs.frame.viewProjection, m_run.m_systems.terrain.get() );
@@ -1087,6 +1109,7 @@ void SkullbonezRun::VolumetricPass::ReleaseGpuResources()
 
 bool SkullbonezRun::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
 {
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/VolumetricLight" );
     const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
@@ -1160,6 +1183,7 @@ void SkullbonezRun::TonemapPass::ReleaseGpuResources()
 
 void SkullbonezRun::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAlreadyUnbound, bool volumetricReady )
 {
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
     TonemapPassResources& tonemap = m_run.m_systems.renderPasses.tonemap;

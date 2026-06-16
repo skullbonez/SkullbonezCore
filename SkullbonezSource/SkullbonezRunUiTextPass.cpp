@@ -241,10 +241,16 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
         const int UIDrawCallStart = UIData.drawCallsBeforeUI;
-        m_run.m_UI.Draw( UIData );
-        PROFILE_BEGIN( "Frame/UI/PostFlushText" );
-        Text2d::FlushText();
-        PROFILE_END( "Frame/UI/PostFlushText" );
+        {
+            DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
+            m_run.m_UI.Draw( UIData );
+            PROFILE_BEGIN( "Frame/UI/PostFlushText" );
+            {
+                DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
+                Text2d::FlushText();
+            }
+            PROFILE_END( "Frame/UI/PostFlushText" );
+        }
         const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
         m_run.m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
         return;

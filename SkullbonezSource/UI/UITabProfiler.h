@@ -57,8 +57,11 @@ struct UIProfilerTabState
 {
     uint32_t expandedHashes[MAX_MARKERS] = {};
     int expandedHashCount = 0;
+    uint32_t drawExpandedHashes[MAX_MARKERS] = {};
+    int drawExpandedHashCount = 0;
     bool expandAllMarkers = false;
     bool defaultExpansionApplied = false;
+    bool drawDefaultExpansionApplied = false;
     bool timelineEnabled = false;
     bool performanceHistogramEnabled = false;
     PerformanceHistogramSample histogramSamples[HISTOGRAM_SAMPLE_COUNT] = {};

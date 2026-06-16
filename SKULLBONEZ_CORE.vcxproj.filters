@@ -212,6 +212,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezDrawCallTrace.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTornadoField.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -399,6 +402,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezContactSolverCommon.h">
       <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezDrawCallTrace.h">
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h">
       <Filter>Header Files\GameObjects</Filter>
