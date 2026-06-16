@@ -225,7 +225,7 @@
     {
       "id": "draw-call-trace-tree",
       "plan": "Agentic/Plans/draw-call-trace-tree-plan.md",
-      "state": "ready",
+      "state": "running",
       "priority": 50,
       "branch": "codex/draw-call-trace-tree",
       "impact_area": [
