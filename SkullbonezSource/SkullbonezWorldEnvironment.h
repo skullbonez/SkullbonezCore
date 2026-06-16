@@ -47,6 +47,34 @@ class GameModel;
 
 namespace Environment
 {
+struct WaterReflectionInput
+{
+    Math::Transformation::Matrix4 sampleViewProjection;
+    uint32_t textureHandle = 0;
+    bool noReflection = false;
+    bool raytraced = false;
+};
+
+struct WaterStyleParams
+{
+    float tintR = 0.05f;
+    float tintG = 0.15f;
+    float tintB = 0.42f;
+    float alpha = 0.65f;
+    float reflectionStrength = 0.35f;
+    float glintStrength = 0.0f;
+    float sunR = 1.0f;
+    float sunG = 1.0f;
+    float sunB = 1.0f;
+    int mode = 2;
+    float basinCenterX = 620.0f;
+    float basinCenterZ = 615.0f;
+    float basinRadiusX = 205.0f;
+    float basinRadiusZ = 145.0f;
+    float basinFeather = 1.0f;
+    bool cinematic = false;
+};
+
 /* -- World Environment ------------------------------------------------------------------------------------------------------------------------------------------
 
     Encapsulates the physical properties of the simulation world and applies
@@ -81,7 +109,7 @@ class WorldEnvironment
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
     void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                                                                                                                                                                              // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Math::Transformation::Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false, bool cinematic = false, const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
+    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const WaterReflectionInput& reflection, float time, bool flatWater = false, bool cinematic = false, const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
     void ResetRenderResources();                                                                                                                                                                                                                                                                                                          // Rebuilds GPU resources after renderer reset/switch
     float GetFluidSurfaceHeight();                                                                                                                                                                                                                                                                                                        // Returns the fluid surface height
     void SetFluidSurfaceHeight( float height );                                                                                                                                                                                                                                                                                           // Sets the fluid surface height
@@ -106,6 +134,11 @@ class WorldEnvironment
     std::unique_ptr<Rendering::IShader> m_oceanShader;
 
     void BuildFluidMesh(); // Builds calm and ocean meshes
+    WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
+    WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
+    void BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const WaterReflectionInput& reflection ) const;
+    void BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const;
+    void BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
 
     float CalculateGravity( float objectMass );                                                                                                                          // F_g = m * g  (returns negative Y Newtons = downward)
     float CalculateBuoyancy( float submergedObjectVolume );                                                                                                              // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
