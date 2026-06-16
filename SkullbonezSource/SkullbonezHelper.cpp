@@ -430,15 +430,15 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     // used by the low-poly beachball style.
     const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
     sSphereBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                                 { view,
-                                                   proj,
-                                                   lightPos,
-                                                   sClipPlane,
-                                                   cinematic,
-                                                   shadow,
-                                                   PRIMITIVE_SHAPE_SPHERE,
-                                                   receiveSphereShadows,
-                                                   materialAlpha } );
+                                                  { view,
+                                                    proj,
+                                                    lightPos,
+                                                    sClipPlane,
+                                                    cinematic,
+                                                    shadow,
+                                                    PRIMITIVE_SHAPE_SPHERE,
+                                                    receiveSphereShadows,
+                                                    materialAlpha } );
     sphereInstanceData.clear();
 }
 
@@ -577,15 +577,15 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     BeginPrimitiveBatchTransparency( isTransparent );
 
     sBoxBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                              { view,
-                                                proj,
-                                                lightPos,
-                                                sClipPlane,
-                                                cinematic,
-                                                shadow,
-                                                PRIMITIVE_SHAPE_MESH,
-                                                shadow ? shadow->objectsReceive : false,
-                                                materialAlpha } );
+                                               { view,
+                                                 proj,
+                                                 lightPos,
+                                                 sClipPlane,
+                                                 cinematic,
+                                                 shadow,
+                                                 PRIMITIVE_SHAPE_MESH,
+                                                 shadow ? shadow->objectsReceive : false,
+                                                 materialAlpha } );
     boxInstanceData.clear();
 }
 
@@ -690,15 +690,15 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
     BeginPrimitiveBatchTransparency( isTransparent );
 
     sPineBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                               { view,
-                                                 proj,
-                                                 lightPos,
-                                                 sClipPlane,
-                                                 cinematic,
-                                                 shadow,
-                                                 PRIMITIVE_SHAPE_MESH,
-                                                 shadow ? shadow->objectsReceive : false,
-                                                 materialAlpha } );
+                                                { view,
+                                                  proj,
+                                                  lightPos,
+                                                  sClipPlane,
+                                                  cinematic,
+                                                  shadow,
+                                                  PRIMITIVE_SHAPE_MESH,
+                                                  shadow ? shadow->objectsReceive : false,
+                                                  materialAlpha } );
     pineInstanceData.clear();
 }
 
