@@ -69,6 +69,190 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "cine_" ) == name;
 }
 
+class ConstSceneRuntime
+{
+  public:
+    ConstSceneRuntime( const RunSceneState& state, const std::vector<std::string>& queue )
+        : m_state( state ), m_queue( queue )
+    {
+    }
+
+    bool HasEntry( int index ) const
+    {
+        return index >= 0 && index < static_cast<int>( m_queue.size() );
+    }
+
+    bool HasCurrentEntry() const
+    {
+        return HasEntry( m_state.currentSceneIndex );
+    }
+
+    const std::string* CurrentPath() const
+    {
+        return HasCurrentEntry() ? &m_queue[m_state.currentSceneIndex] : nullptr;
+    }
+
+    const std::string& PathAt( int index ) const
+    {
+        return m_queue[index];
+    }
+
+    int QueueSize() const
+    {
+        return static_cast<int>( m_queue.size() );
+    }
+
+    int CurrentIndex() const
+    {
+        return m_state.currentSceneIndex;
+    }
+
+    int NextIndex() const
+    {
+        return m_state.currentSceneIndex + 1;
+    }
+
+    int FindNormalizedPath( const std::string& normalizedPath ) const
+    {
+        for ( int i = 0; i < QueueSize(); ++i )
+        {
+            if ( NormalizeScenePath( m_queue[i] ) == normalizedPath )
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    int FindGeneratedDemo() const
+    {
+        for ( int i = 0; i < QueueSize(); ++i )
+        {
+            if ( m_queue[i].empty() )
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    bool CurrentQueueIsCinematicDeck() const
+    {
+        if ( !HasCurrentEntry() || m_queue.size() <= 1 )
+        {
+            return false;
+        }
+        for ( const std::string& queuedPath : m_queue )
+        {
+            if ( queuedPath.empty() || !IsCineScenePath( queuedPath ) )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    int AdjacentQueueIndex( int direction ) const
+    {
+        const int queueCount = QueueSize();
+        if ( queueCount <= 0 )
+        {
+            return -1;
+        }
+        return ( m_state.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
+    }
+
+  private:
+    const RunSceneState& m_state;
+    const std::vector<std::string>& m_queue;
+};
+
+class SceneRuntime
+{
+  public:
+    SceneRuntime( RunSceneState& state, std::vector<std::string>& queue )
+        : m_const( state, queue ), m_state( state ), m_queue( queue )
+    {
+    }
+
+    bool HasEntry( int index ) const
+    {
+        return m_const.HasEntry( index );
+    }
+
+    bool HasCurrentEntry() const
+    {
+        return m_const.HasCurrentEntry();
+    }
+
+    const std::string* CurrentPath() const
+    {
+        return m_const.CurrentPath();
+    }
+
+    const std::string& PathAt( int index ) const
+    {
+        return m_const.PathAt( index );
+    }
+
+    int QueueSize() const
+    {
+        return m_const.QueueSize();
+    }
+
+    int CurrentIndex() const
+    {
+        return m_const.CurrentIndex();
+    }
+
+    int NextIndex() const
+    {
+        return m_const.NextIndex();
+    }
+
+    void BeginLoad( int index )
+    {
+        m_state.currentSceneIndex = index;
+        ++m_state.loadCount;
+    }
+
+    void MarkManualReset()
+    {
+        ++m_state.manualResetCount;
+    }
+
+    int FindNormalizedPath( const std::string& normalizedPath ) const
+    {
+        return m_const.FindNormalizedPath( normalizedPath );
+    }
+
+    int FindGeneratedDemo() const
+    {
+        return m_const.FindGeneratedDemo();
+    }
+
+    int Append( std::string path )
+    {
+        m_queue.push_back( std::move( path ) );
+        return QueueSize() - 1;
+    }
+
+    bool CurrentQueueIsCinematicDeck() const
+    {
+        return m_const.CurrentQueueIsCinematicDeck();
+    }
+
+    int AdjacentQueueIndex( int direction ) const
+    {
+        return m_const.AdjacentQueueIndex( direction );
+    }
+
+  private:
+    ConstSceneRuntime m_const;
+    RunSceneState& m_state;
+    std::vector<std::string>& m_queue;
+};
+
 void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64_t touchedMask, const CinematicRenderConfig& c )
 {
     // Concept: save only values the UI actually touched.
@@ -510,19 +694,22 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
 bool SkullbonezRun::HasSceneQueueEntry( int index ) const
 {
-    return index >= 0 && index < static_cast<int>( m_sceneQueue.size() );
+    ConstSceneRuntime runtime( m_scene, m_sceneQueue );
+    return runtime.HasEntry( index );
 }
 
 
 bool SkullbonezRun::HasCurrentSceneQueueEntry() const
 {
-    return HasSceneQueueEntry( m_scene.currentSceneIndex );
+    ConstSceneRuntime runtime( m_scene, m_sceneQueue );
+    return runtime.HasCurrentEntry();
 }
 
 
 const std::string* SkullbonezRun::CurrentSceneQueuePath() const
 {
-    return HasCurrentSceneQueueEntry() ? &m_sceneQueue[m_scene.currentSceneIndex] : nullptr;
+    ConstSceneRuntime runtime( m_scene, m_sceneQueue );
+    return runtime.CurrentPath();
 }
 
 
@@ -623,9 +810,14 @@ void SkullbonezRun::ClearSceneRuntimeUIOverrides()
 
 void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
+    SceneRuntime runtime( m_scene, m_sceneQueue );
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
+    if ( !runtime.HasEntry( index ) )
+    {
+        return;
+    }
 
     if ( suppressExitOnComplete )
     {
@@ -636,7 +828,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.isInteractiveRun = true;
     }
     const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState && HasCurrentSceneQueueEntry();
+    const bool shouldPreserveRuntimeState = preserveRuntimeState && runtime.HasCurrentEntry();
     SceneRuntimeResetSnapshot resetSnapshot;
     if ( shouldPreserveRuntimeState )
     {
@@ -653,9 +845,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         Gfx().FlushGPU();
     }
 
-    m_scene.currentSceneIndex = index;
-    ++m_scene.loadCount;
-    const std::string& scenePath = m_sceneQueue[index];
+    runtime.BeginLoad( index );
+    const std::string& scenePath = runtime.PathAt( index );
     if ( !shouldPreserveRuntimeState )
     {
         m_selectedCineModeSceneIndex = ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
@@ -1415,6 +1606,7 @@ int SkullbonezRun::CurrentSceneBrowserIndex() const
 
 void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
 {
+    SceneRuntime runtime( m_scene, m_sceneQueue );
     if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
     {
         return;
@@ -1423,42 +1615,37 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
     EnterInteractiveSceneRun();
 
     const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
-    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    const int queuedIndex = runtime.FindNormalizedPath( selectedPath );
+    if ( queuedIndex >= 0 )
     {
-        if ( NormalizeScenePath( m_sceneQueue[i] ) == selectedPath )
+        if ( queuedIndex != runtime.CurrentIndex() )
         {
-            if ( i != m_scene.currentSceneIndex )
-            {
-                LoadScene( i, true, true );
-            }
-            else
-            {
-                m_scene.isExitOnComplete = false;
-                m_screenshot.isScreenshotAndExit = false;
-            }
-            return;
+            LoadScene( queuedIndex, true, true );
         }
+        else
+        {
+            m_scene.isExitOnComplete = false;
+            m_screenshot.isScreenshotAndExit = false;
+        }
+        return;
     }
 
-    m_sceneQueue.push_back( selectedPath );
-    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+    LoadScene( runtime.Append( selectedPath ), true, true );
 }
 
 
 void SkullbonezRun::LoadDemoSceneFromUI()
 {
+    SceneRuntime runtime( m_scene, m_sceneQueue );
     EnterInteractiveSceneRun();
-    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    const int demoIndex = runtime.FindGeneratedDemo();
+    if ( demoIndex >= 0 )
     {
-        if ( m_sceneQueue[i].empty() )
-        {
-            LoadScene( i, true, true );
-            return;
-        }
+        LoadScene( demoIndex, true, true );
+        return;
     }
 
-    m_sceneQueue.push_back( "" );
-    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+    LoadScene( runtime.Append( "" ), true, true );
 }
 
 
@@ -1647,25 +1834,16 @@ bool SkullbonezRun::ApplyAdjacentCinematicMode( int direction )
 
 void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 {
+    SceneRuntime runtime( m_scene, m_sceneQueue );
     if ( direction == 0 )
     {
         return;
     }
 
-    if ( HasCurrentSceneQueueEntry() && m_sceneQueue.size() > 1 )
+    if ( runtime.CurrentQueueIsCinematicDeck() )
     {
-        bool queueIsCinematicDeck = true;
-        for ( const std::string& queuedPath : m_sceneQueue )
-        {
-            queueIsCinematicDeck = queueIsCinematicDeck && !queuedPath.empty() && IsCineScenePath( queuedPath );
-        }
-        if ( queueIsCinematicDeck )
-        {
-            const int queueCount = static_cast<int>( m_sceneQueue.size() );
-            const int nextQueueIndex = ( m_scene.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
-            LoadScene( nextQueueIndex, true, true );
-            return;
-        }
+        LoadScene( runtime.AdjacentQueueIndex( direction ), true, true );
+        return;
     }
 
     const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
@@ -1716,13 +1894,14 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 
 void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    if ( !HasCurrentSceneQueueEntry() )
+    SceneRuntime runtime( m_scene, m_sceneQueue );
+    if ( !runtime.HasCurrentEntry() )
     {
         return;
     }
 
-    ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete, preserveRuntimeState );
+    runtime.MarkManualReset();
+    LoadScene( runtime.CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
@@ -1894,21 +2073,22 @@ void SkullbonezRun::UpdateWorldTerrainBounds()
 
 bool SkullbonezRun::AdvanceScene()
 {
+    SceneRuntime runtime( m_scene, m_sceneQueue );
     const bool preserveInteractiveUI = m_scene.isInteractiveRun;
 
     // For perf tests with 2 passes, the second pass re-runs the same scene
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
+        LoadScene( runtime.CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
         return true;
     }
 
     // Reset perf pass counter for next scene
     sPerfPass = 0;
 
-    int nextIndex = m_scene.currentSceneIndex + 1;
-    if ( !HasSceneQueueEntry( nextIndex ) )
+    const int nextIndex = runtime.NextIndex();
+    if ( !runtime.HasEntry( nextIndex ) )
     {
         return false;
     }
