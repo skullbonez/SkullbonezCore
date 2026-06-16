@@ -3,6 +3,24 @@ File: SkullbonezSource/SkullbonezDrawCallTrace.cpp
 Purpose:
   Implements fixed-capacity draw-call attribution storage for renderer diagnostics.
 
+Mental model:
+  The renderer builds a small tree while command lists are recorded. Each draw
+  increments the current leaf and every ancestor, then BeginFrame publishes a
+  previous-frame snapshot for the profiler UI.
+
+Glossary:
+  FNV (Fowler-Noll-Vo): Small string hash used here to identify stable scope
+    paths without storing dynamic lookup tables.
+  Leaf: Final component of a slash-delimited trace path, such as Water in
+    Frame/Render/Water.
+  Overflow: Count of trace nodes or draw events that exceeded the fixed budget;
+    totals remain partial instead of allocating in the hot path.
+
+Invariants:
+  - Current-frame arrays and snapshot arrays are separate so UI reads do not see
+    half-updated render data.
+  - Capacity overflow is reported explicitly and never grows storage mid-frame.
+
 Related:
   - SkullbonezSource/SkullbonezDrawCallTrace.h
   - Agentic/Plans/draw-call-trace-tree-plan.md

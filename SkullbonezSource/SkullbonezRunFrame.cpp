@@ -110,9 +110,19 @@ void SkullbonezRun::Run()
 
             if ( m_uiTextPass.ShouldRender() )
             {
+                const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
-                m_uiTextPass.Render( secondsPerFrame );
+                {
+                    DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
+                    m_uiTextPass.Render( secondsPerFrame );
+                }
                 PROFILE_END( "Frame/UI" );
+                const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
+                m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
+            }
+            else
+            {
+                m_timers.lastUIDrawCalls = 0;
             }
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );

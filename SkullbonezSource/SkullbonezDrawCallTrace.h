@@ -8,6 +8,18 @@ Mental model:
   pass code opens stable scopes so the profiler UI can explain the frame total
   without allocating, adding GPU timestamp queries, or creating per-draw markers.
 
+Glossary:
+  Draw call: One GPU command-list draw submission, such as DrawInstanced or a
+    dynamic vertex-buffer flush.
+  Trace scope: Stable render-pass or batch name that receives draw counts until
+    its scope exits.
+  Snapshot: Previous-frame copy read by the UI while the renderer records the
+    next frame.
+
+Invariants:
+  - Per-draw recording stays allocation-free and does not create GPU timers.
+  - Scope names must be string literals or otherwise stable for the frame.
+
 Related:
   - SkullbonezSource/SkullbonezDrawCallTrace.cpp
   - SkullbonezSource/SkullbonezIRenderBackend.h
