@@ -43,7 +43,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-constexpr int RENDER_TEXTURE_SLOT_COUNT = 4;
+constexpr int RENDER_TEXTURE_SLOT_COUNT = 5;
 constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
@@ -65,12 +65,13 @@ void ClearAllRenderTextureSlots()
     ClearRenderTextureSlotsExcept( 0u );
 }
 
-void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3 )
+void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0 )
 {
-    // Contract: ordinary raster shaders expose exactly t0..t3 today. Fullscreen
-    // passes often need a complete slot tuple, including zeros for unused
-    // inputs, so stale texture descriptors cannot bleed from an earlier pass.
-    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3 };
+    // Contract: ordinary raster shaders expose t0..t4. Slot t4 is reserved for
+    // the object material table, but pass hygiene still clears it to the typed
+    // null SRV; object batches bind the material table again immediately before
+    // drawing.
+    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4 };
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         Gfx().BindTexture( handles[slot], slot );

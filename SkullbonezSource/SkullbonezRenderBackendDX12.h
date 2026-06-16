@@ -343,6 +343,7 @@ class RenderBackendDX12 : public IRenderBackend
     // each persistent descriptor into a transient shader-visible row and binds
     // that transient GPU handle through the root signature.
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
+    UINT m_nullTextureSRVIndex = UINT_MAX; // Static null Texture2D SRV copied into cleared texture slots.
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;

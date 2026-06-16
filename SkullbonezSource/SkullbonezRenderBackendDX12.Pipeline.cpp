@@ -488,7 +488,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     }
 
     // Bind textures by copying their SRV descriptors to the shader-visible heap
-    // and pointing the root descriptor table at them. Root params [1..4] map to
+    // and pointing the root descriptor table at them. Root params [1..5] map to
     // texture slots t0..t4. The object pass uses t4 for the material table.
     //
     // Plain-language flow:
@@ -509,6 +509,10 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
             UINT srcIdx = m_boundTexSlot[slot];
+            if ( srcIdx == UINT_MAX )
+            {
+                srcIdx = m_nullTextureSRVIndex;
+            }
             if ( srcIdx != UINT_MAX )
             {
                 // The texture's persistent descriptor lives in the CPU-only

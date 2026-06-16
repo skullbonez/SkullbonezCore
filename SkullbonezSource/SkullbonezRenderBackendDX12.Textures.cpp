@@ -584,7 +584,7 @@ void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
     UINT newSlot;
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
-        newSlot = UINT_MAX;
+        newSlot = m_nullTextureSRVIndex;
     }
     else
     {

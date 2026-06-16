@@ -991,6 +991,18 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
+    // Cleared ordinary-raster texture slots still need a real descriptor table.
+    // BindTexture(0) maps to this typed null SRV so shaders that sample an
+    // intentionally empty slot read safe zero/default values instead of whatever
+    // descriptor was previously bound to the root parameter.
+    m_nullTextureSRVIndex = AllocateStaticSRV();
+    D3D12_SHADER_RESOURCE_VIEW_DESC nullTextureSrv = {};
+    nullTextureSrv.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    nullTextureSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    nullTextureSrv.Texture2D.MipLevels = 1;
+    m_device->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( m_nullTextureSRVIndex ) );
+
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
     // the image memory; CreateRenderTargetView overwrites the existing row with
@@ -1430,6 +1442,7 @@ void RenderBackendDX12::Shutdown()
         m_srvStagingHeap->Release();
     }
     m_srvDescriptors.Reset();
+    m_nullTextureSRVIndex = UINT_MAX;
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();
