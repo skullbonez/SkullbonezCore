@@ -932,7 +932,18 @@ void SkullbonezRun::TerrainPass::ReleaseGpuResources()
 
 void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
 {
-    if ( inputs.waterHidden || ( inputs.frame.cinematicEnabled && inputs.cinematic && inputs.cinematic->waterMode == 0 ) )
+    m_debugInfo = WaterPassDebugInfo();
+    m_debugInfo.skippedHidden = inputs.waterHidden;
+    m_debugInfo.skippedModeOff = inputs.frame.cinematicEnabled && inputs.cinematic && inputs.cinematic->waterMode == 0;
+    m_debugInfo.reflectionTextureHandle = inputs.reflection.reflectionTextureHandle;
+    m_debugInfo.reflectionValid = inputs.reflection.reflectionTextureHandle != 0;
+    m_debugInfo.reflectionRaytraced = inputs.reflection.usedDxr;
+    m_debugInfo.noReflection = inputs.noReflection;
+    m_debugInfo.flatWater = inputs.flatWater;
+    m_debugInfo.freezeTime = inputs.freezeTime;
+    m_debugInfo.styleWaterMode = inputs.cinematic ? inputs.cinematic->waterMode : -1;
+
+    if ( m_debugInfo.skippedHidden || m_debugInfo.skippedModeOff )
     {
         return;
     }
@@ -943,12 +954,15 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     float waterTime = inputs.freezeTime
                           ? inputs.frozenTime
                           : static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    m_debugInfo.rendered = true;
+    m_debugInfo.waterTime = waterTime;
     SkullbonezCore::Environment::WaterReflectionInput reflectionInput;
     reflectionInput.sampleViewProjection = inputs.reflection.reflectionSampleViewProjection;
     reflectionInput.textureHandle = inputs.reflection.reflectionTextureHandle;
     reflectionInput.noReflection = inputs.noReflection;
     reflectionInput.raytraced = inputs.reflection.usedDxr;
 
+    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
     const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
     const bool blendWasEnabled = Gfx().IsBlendEnabled();
     Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
@@ -956,6 +970,7 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     Gfx().GetBlendFunc( blendSrc, blendDst );
     Gfx().SetBlend( true );
     Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    Gfx().SetDepthTest( true );
     Gfx().SetDepthWrite( false );
     m_run.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
                                            inputs.frame.projection,
@@ -965,6 +980,7 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
                                            inputs.frame.cinematicEnabled,
                                            inputs.cinematic );
     Gfx().SetDepthWrite( depthWriteWasEnabled );
+    Gfx().SetDepthTest( depthTestWasEnabled );
     Gfx().SetBlendFunc( blendSrc, blendDst );
     Gfx().SetBlend( blendWasEnabled );
     PROFILE_GPU_END( "Frame/Render/Water" );

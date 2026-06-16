@@ -203,8 +203,8 @@
     },
     {
       "id": "water-rendering-cleanup",
-      "plan": "Agentic/Plans/water-rendering-cleanup-plan.md",
-      "state": "ready",
+      "plan": "Agentic/Plans/Done/water-rendering-cleanup-plan.md",
+      "state": "done",
       "priority": 40,
       "branch": "codex/water-rendering-cleanup",
       "impact_area": [

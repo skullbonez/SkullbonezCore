@@ -257,7 +257,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
         { "uReflectVP", ShaderValueType::Mat4, true },
         { "uColorTint", ShaderValueType::Vec4, true },
         { "uTime", ShaderValueType::Float, true },
-        { "uWaveHeight", ShaderValueType::Float, false },
+        { "uWaveHeight", ShaderValueType::Float, true },
         { "uReflectionStrength", ShaderValueType::Float, true },
         { "uPerturbStrength", ShaderValueType::Float, true },
         { "uFlatWater", ShaderValueType::Int, true },
