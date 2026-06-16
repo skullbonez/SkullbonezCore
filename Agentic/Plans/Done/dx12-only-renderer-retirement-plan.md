@@ -1,9 +1,19 @@
 # DX12-Only Renderer Retirement Plan
 
-Status: active
+Status: done on `main`; historical retirement plan
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: Phase 6 complete on branch `codex/dx12-only-renderer-retirement`; next work starts Phase 7 render-device interface cleanup
+Implementation status: DX12-only runtime retirement, DX12-only validation, and
+legacy GL/DX11 archival are complete. Remaining future backend/interface work
+should be tracked in focused active plans such as render graph completion,
+runtime architecture follow-up, or future backend portability work.
+
+## Completion Note
+
+This plan is archived because the renderer-retirement slice landed on `main`.
+Use it as historical context for why DX12 is now the only runtime renderer and
+why renderer regression evidence comes from DX12 screenshots plus the DX12
+validation log. Do not use this file as an active work queue.
 
 ## Goal
 

@@ -2,60 +2,91 @@
 
 Generated: 2026-06-16
 
-Scope: top-level `Agentic/Plans/*.md` files only. Completed, failed, rejected, and nested historical plans are excluded.
+Scope: top-level `Agentic/Plans/*.md` files plus completed foundational plans
+that future agents are likely to look for. Completed, failed, rejected, and
+nested historical plans should not be treated as runnable work unless this file
+explicitly says so.
 
-This order reflects the current product direction: DX12 is the official production renderer. GL and DX11 have been retired from runtime code; their final parity evidence is historical context only.
+DX12 is the official production renderer. GL and DX11 have been retired from
+runtime code; their final parity evidence is historical context only. Future
+Vulkan and Metal support should influence engine contracts without becoming the
+near-term implementation target.
 
-Future Vulkan and Metal support should influence the engine contracts without becoming the near-term implementation target. Express render passes, shader metadata, materials, resources, and synchronization in engine-owned terms first, then map those contracts to DX12 now and Vulkan/Metal later.
+## Completed Foundation
 
-Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as the replacement confidence stack for the retired cross-renderer parity checks.
+These plans have landed on `main` and are archived under
+`Agentic/Plans/Done`. Use them as history and design context, not as active work
+queues.
 
-## Tackle Order
-
-1. [`dx12-only-renderer-retirement-plan.md`](Plans/dx12-only-renderer-retirement-plan.md)
-   - Complete on branch: `codex/dx12-only-renderer-retirement`. Use as the retirement history and validation reference.
+1. [`dx12-only-renderer-retirement-plan.md`](Plans/Done/dx12-only-renderer-retirement-plan.md)
+   - DX12 is the only runtime renderer; final GL/DX11 parity evidence is
+     archived under `Agentic/Reports/2026-06-15/final-legacy-renderer-parity/`.
 
 2. [`dx12-only-engine-architecture-plan.md`](Plans/Done/dx12-only-engine-architecture-plan.md)
-   - Use as the umbrella architecture direction. The implementation now lives in smaller render/shader/resource slices rather than one rewrite.
+   - Historical umbrella direction for the DX12-first architecture. Smaller
+     render, shader, resource, and runtime slices now carry concrete work.
 
-3. [`render-resource-lifetime-plan.md`](Plans/render-resource-lifetime-plan.md)
-   - Follow immediately because resize, framebuffer, shader, mesh, descriptor, and eventual device-loss lifetimes are pressure points for DX12-only visual/runtime weirdness. Keep source-vs-GPU separation because it also preserves a future Vulkan/Metal path.
+3. [`render-resource-lifetime-plan.md`](Plans/Done/render-resource-lifetime-plan.md)
+   - Current lifecycle phases, pass-resource release hooks, source records, and
+     DX12 device-lost diagnostics are in place.
 
-4. [`shader-architecture-cleanup-plan.md`](Plans/shader-architecture-cleanup-plan.md)
-   - Merged through PR #69/#72 and completed further on `codex/engine-cleanup`: shader inputs, texture slots, uniform names, pass contracts, the CPU `RenderMaterial` bridge, expanded object material payloads, typed object/shadow CBV uploads, shader contract checking, and the `t4` material table. Treat HLSL/DXC reflection as canonical, while keeping metadata portable enough for later SPIR-V/MSL mapping.
+4. [`render-pipeline-extraction-plan.md`](Plans/Done/render-pipeline-extraction-plan.md)
+   - Frame orchestration and named render pass bodies/resources are split into
+     focused runtime files.
 
-5. [`dx12-descriptor-upload-root-signature-plan.md`](Plans/dx12-descriptor-upload-root-signature-plan.md)
-   - Merged through PR #70/#72 and completed further on `codex/engine-cleanup`: ordinary raster binding ABI and descriptor/upload lifetime constraints, now `b0 + t0..t4` with `t4` scoped to the object material table. Do not expand root signatures opportunistically; use this plan again only when a concrete descriptor-indexing, structured-buffer, or upload lifetime issue appears.
+5. [`shader-architecture-cleanup-plan.md`](Plans/Done/shader-architecture-cleanup-plan.md)
+   - Object material contracts, typed upload paths, shader contract checking,
+     and the `t4` material table landed on `main`.
 
-6. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
-   - Partially implemented on `codex/post-pr73-roadmap`: explicit reflection/style contracts, water pass state setup, exact depth-write/blend-function restore, and intentional DX12 water baseline refresh are in place. Continue with remaining water-material and intersection-quality work only as a focused renderer slice.
+6. [`dx12-descriptor-upload-root-signature-plan.md`](Plans/Done/dx12-descriptor-upload-root-signature-plan.md)
+   - The ordinary raster ABI is documented and named as `b0 + t0..t4`, with
+     descriptor/upload accounting in place.
 
-7. [`material-system-v1-implementation-plan.md`](Plans/material-system-v1-implementation-plan.md)
-   - Object-material v1 is implemented on `codex/engine-cleanup`. Use this plan next only for named material definitions, material asset records, terrain/water/post material unification, or a deliberate material-resource-model expansion.
+7. [`material-system-v1-implementation-plan.md`](Plans/Done/material-system-v1-implementation-plan.md)
+   - The object-material v1 slice is complete. Named material assets and
+     terrain/water/post material unification should be new focused plans.
 
-8. [`architecture_pass_2026-06-02.md`](Plans/architecture_pass_2026-06-02.md)
-   - Use as the broader checkpoint after the render-focused slices, then pull the next concrete runtime or physics boundary from it.
+## Active Tackle Order
 
-9. [`replay-system-plan.md`](Plans/replay-system-plan.md)
-   - Useful once render and physics boundaries are easier to observe. It should consume stable capture, scene, and diagnostic APIs rather than add more runtime coupling.
+1. [`agent-docs-alignment-plan.md`](Plans/agent-docs-alignment-plan.md)
+   - Current main-branch documentation task: align startup instructions,
+     session state, provider instructions, scoped guidance, and review rules.
 
-10. [`worker-system-plan.md`](Plans/worker-system-plan.md)
-   - High value, but wait until the physics/world/runtime boundaries are cleaner so deterministic parallelism has a safe data model.
+2. [`orchestration-framework-fix-plan.md`](Plans/orchestration-framework-fix-plan.md)
+   - Current orchestrator task: define the YAML-first state-machine contract,
+     migrate queue/policy data, and add the agent-loop YAML surface.
 
-11. [`tornado-mode-ui-cli-plan.md`](Plans/tornado-mode-ui-cli-plan.md)
-    - Useful workflow polish, but lower priority than render correctness, determinism, and architecture boundaries.
+3. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
+   - Continue only as focused water material/intersection-quality renderer work.
+     Use `tools\validate_dx12_renderer.bat` for renderer changes.
 
-12. [`autonomous-roadmap-orchestrator-plan.md`](Plans/autonomous-roadmap-orchestrator-plan.md)
-    - Process automation belongs last until the technical backlog is better sorted and the desired merge/PR rhythm is settled.
+4. [`dx12-render-graph-completion-plan.md`](Plans/dx12-render-graph-completion-plan.md)
+   - The next focused DX12 architecture slice for graph-owned resource-state
+     validation/execution.
+
+5. [`architecture_pass_2026-06-02.md`](Plans/architecture_pass_2026-06-02.md)
+   - Broad checkpoint for runtime scene/simulation ownership, physics data
+     separation, asset maturation, parser schemas, and global coupling.
+
+6. [`replay-system-plan.md`](Plans/replay-system-plan.md)
+   - Useful once render and physics boundaries are easier to observe. It should
+     consume stable capture, scene, and diagnostic APIs.
+
+7. [`worker-system-plan.md`](Plans/worker-system-plan.md)
+   - High value, but wait until physics/world/runtime boundaries are cleaner so
+     deterministic parallelism has a safe data model.
+
+8. [`tornado-mode-ui-cli-plan.md`](Plans/tornado-mode-ui-cli-plan.md)
+   - Workflow polish; lower priority than render correctness, determinism, and
+     architecture boundaries.
+
+9. [`autonomous-roadmap-orchestrator-plan.md`](Plans/autonomous-roadmap-orchestrator-plan.md)
+   - Superseded in direction by the YAML-first orchestration plan unless a
+     future process slice explicitly reopens it.
 
 ## Immediate Recommendation
 
-After `codex/post-pr73-roadmap`, the next concrete slice should either finish a
-remaining water-material/intersection item from `water-rendering-cleanup-plan.md`
-or continue the runtime/physics boundary work in
-`architecture_pass_2026-06-02.md`. Use
-`material-system-v1-implementation-plan.md` only for named material definitions,
-material asset records, terrain/water/post material unification, or a deliberate
-material-resource-model expansion. Keep changes small and validate renderer
-work with `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` for
-broad runtime/pass changes.
+Finish the current agent-docs and orchestrator YAML alignment first. After that,
+prefer either a focused water-rendering slice or the DX12 render graph
+completion plan. Use the broad architecture pass only to select the next small
+runtime, physics, asset, parser, or render-graph boundary.

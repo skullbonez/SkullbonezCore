@@ -1,6 +1,6 @@
 # Material System V1 Implementation Plan
 
-Status: object-material implementation complete on `codex/engine-cleanup`; validated 2026-06-16
+Status: done on `main`; object-material implementation validated 2026-06-16
 Created: 2026-06-11  
 Scope: render material data, scene/style material directives, object shader inputs, compatibility migration  
 Implementation status: CPU `RenderMaterial` data, compatibility tint mapping,
@@ -11,9 +11,16 @@ material unification remain future work.
 Validation: `tools\validate_shaders.bat` and `tools\validate_full.bat` passed
 for the object-material implementation slice.
 
-Retirement dependency: defer code-heavy material implementation until the
-DX12-only renderer validation gate exists. Material authoring must remain
-backend-neutral, but new feature work should not add OpenGL or DX11 surface area.
+## Completion Note
+
+This plan is archived because the object-material v1 slice landed on `main`.
+Named material definitions, material asset records, and terrain/water/post
+material unification remain future focused work.
+
+Renderer dependency: the DX12-only renderer validation gate now exists and is
+the required safety net for future material rendering changes. Material
+authoring must remain backend-neutral, but new feature work must not add OpenGL
+or DX11 surface area.
 
 ## Goal
 

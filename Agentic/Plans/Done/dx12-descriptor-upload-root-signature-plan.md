@@ -1,6 +1,6 @@
 # DX12 Descriptor Upload Root Signature Plan
 
-Status: implementation complete through object material-table expansion; validated 2026-06-16
+Status: done on `main`; validated 2026-06-16
 Created: 2026-06-11
 Scope: DX12 descriptor management, upload allocation, root signature strategy, material-system readiness
 Implementation status: descriptor/upload helper systems are in place; the
@@ -9,6 +9,13 @@ adds `t4` as the fixed material-table SRV slot while preserving
 `BindTexture(handle, slot)` compatibility.
 Validation: `tools\validate_full.bat` passed with DX12 validation errors 0,
 matching renderer baselines, byte-exact physics, and perf validation.
+
+## Completion Note
+
+This plan is archived because the descriptor/upload/root-signature foundation
+landed on `main`. Future descriptor indexing, structured-buffer material tables,
+or upload-lifetime changes should start from a focused active plan and keep the
+ordinary raster ABI explicit.
 
 ## Goal
 
