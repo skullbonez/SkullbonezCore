@@ -138,6 +138,41 @@ int GameModelCollection::GetModelCount() const
 }
 
 
+const std::vector<GameModel>& GameModelCollection::Models() const
+{
+    return m_gameModels;
+}
+
+
+GameModelBodyStream GameModelCollection::GetBodyStream()
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( !m_soaCache.bodyDataValid || m_soaCache.activeCount != modelCount )
+    {
+        RefreshSoABodyData();
+    }
+    return GameModelBodyStream{
+        m_soaCache.positions.data(),
+        m_soaCache.boundingRadii.data(),
+        m_soaCache.isBox.data(),
+        m_soaCache.isFixed.data(),
+        modelCount
+    };
+}
+
+
+GameModelRenderStream GameModelCollection::GetRenderStream()
+{
+    EnsureSoAModelMatrices();
+    return GameModelRenderStream{
+        m_soaCache.isBox.data(),
+        m_soaCache.isFixed.data(),
+        m_soaCache.modelMatrices.data(),
+        static_cast<int>( m_gameModels.size() )
+    };
+}
+
+
 GameModel& GameModelCollection::GetModelAtIndex( int index )
 {
     InvalidateSoA();

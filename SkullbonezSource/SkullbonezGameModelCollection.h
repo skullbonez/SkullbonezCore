@@ -56,7 +56,6 @@ class GameModelCollection
 {
   private:
     friend class SkullScope;
-    friend class GameModelRenderer;
     friend class SceneSnapshotWriter;
     friend class Physics::PhysicsDiagnosticsSink;
     friend class Physics::PhysicsWorld;
@@ -86,6 +85,9 @@ class GameModelCollection
     bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp );
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
+    const std::vector<GameModel>& Models() const;
+    GameModelBodyStream GetBodyStream();
+    GameModelRenderStream GetRenderStream();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
 

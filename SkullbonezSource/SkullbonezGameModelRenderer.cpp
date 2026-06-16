@@ -26,6 +26,7 @@ Related:
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <vector>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
@@ -75,28 +76,25 @@ RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool b
 
 void GameModelRenderer::RenderModels( GameModelCollection& collection, const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaIsBox = collection.m_soaCache.isBox;
-    auto& m_soaIsFixed = collection.m_soaCache.isFixed;
-    auto& m_soaModelMatrices = collection.m_soaCache.modelMatrices;
+    const std::vector<GameModel>& models = collection.Models();
 
-    if ( m_gameModels.empty() )
+    if ( models.empty() )
     {
         return;
     }
 
-    collection.EnsureSoAModelMatrices();
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const GameModelRenderStream renderStream = collection.GetRenderStream();
+    const int modelCount = renderStream.count;
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool transparentMaterial = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
 
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( !m_soaIsBox[x] )
+        if ( !renderStream.isBox[x] )
         {
-            RenderMaterial material = m_soaIsFixed[x] ? MaterialWithFixedContactHighlight( m_gameModels[x], false ) : m_gameModels[x].GetRenderMaterial();
-            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], material );
+            RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
+            SkullbonezHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
@@ -106,9 +104,9 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     {
         for ( int x = 0; x < modelCount; ++x )
         {
-            if ( m_soaIsBox[x] )
+            if ( renderStream.isBox[x] )
             {
-                RenderMaterial material = m_soaIsFixed[x] ? MaterialWithFixedContactHighlight( m_gameModels[x], true ) : m_gameModels[x].GetRenderMaterial();
+                RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], true ) : models[x].GetRenderMaterial();
                 const bool isPineVisual = IsPineVisualMaterial( material );
                 if ( isPineVisual )
                 {
@@ -120,11 +118,11 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
                 }
                 if ( pineVisualPass )
                 {
-                    SkullbonezHelper::DrawPineBatchModel( m_soaModelMatrices[x], material );
+                    SkullbonezHelper::DrawPineBatchModel( renderStream.modelMatrices[x], material );
                 }
                 else
                 {
-                    SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], material );
+                    SkullbonezHelper::DrawBoxBatchModel( renderStream.modelMatrices[x], material );
                 }
             }
         }
@@ -147,17 +145,15 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaIsBox = collection.m_soaCache.isBox;
-    auto& m_soaModelMatrices = collection.m_soaCache.modelMatrices;
+    const std::vector<GameModel>& models = collection.Models();
 
-    if ( m_gameModels.empty() )
+    if ( models.empty() )
     {
         return;
     }
 
-    collection.EnsureSoAModelMatrices();
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const GameModelRenderStream renderStream = collection.GetRenderStream();
+    const int modelCount = renderStream.count;
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Spheres" );
@@ -165,9 +161,9 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
         SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
         for ( int x = 0; x < modelCount; ++x )
         {
-            if ( !m_soaIsBox[x] )
+            if ( !renderStream.isBox[x] )
             {
-                SkullbonezHelper::DrawShadowDepthSphereBatchModel( m_soaModelMatrices[x] );
+                SkullbonezHelper::DrawShadowDepthSphereBatchModel( renderStream.modelMatrices[x] );
             }
         }
         SkullbonezHelper::DrawShadowDepthSphereBatchEnd();
@@ -178,11 +174,11 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
     {
         for ( int x = 0; x < modelCount; ++x )
         {
-            if ( !m_soaIsBox[x] )
+            if ( !renderStream.isBox[x] )
             {
                 continue;
             }
-            const bool isPineVisual = IsPineVisualMaterial( m_gameModels[x].GetRenderMaterial() );
+            const bool isPineVisual = IsPineVisualMaterial( models[x].GetRenderMaterial() );
             if ( isPineVisual )
             {
                 hasPineVisualModels = true;
@@ -193,11 +189,11 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
             }
             if ( pineVisualPass )
             {
-                SkullbonezHelper::DrawShadowDepthPineBatchModel( m_soaModelMatrices[x] );
+                SkullbonezHelper::DrawShadowDepthPineBatchModel( renderStream.modelMatrices[x] );
             }
             else
             {
-                SkullbonezHelper::DrawShadowDepthBoxBatchModel( m_soaModelMatrices[x] );
+                SkullbonezHelper::DrawShadowDepthBoxBatchModel( renderStream.modelMatrices[x] );
             }
         }
     };
@@ -225,22 +221,15 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaPositions = collection.m_soaCache.positions;
-    auto& m_soaBoundingRadii = collection.m_soaCache.boundingRadii;
+    const GameModelBodyStream bodyStream = collection.GetBodyStream();
 
-    if ( m_gameModels.empty() )
+    if ( bodyStream.Empty() )
     {
         return false;
     }
 
-    if ( !collection.m_soaCache.bodyDataValid )
-    {
-        collection.RefreshSoABodyData();
-    }
-
     const float queryDistance = (std::max)( maxDistance, 1.0f );
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = bodyStream.count;
     float minX = FLT_MAX;
     float minY = FLT_MAX;
     float minZ = FLT_MAX;
@@ -251,8 +240,8 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        const Vector3& pos = m_soaPositions[i];
-        const float radius = m_soaBoundingRadii[i];
+        const Vector3& pos = bodyStream.positions[i];
+        const float radius = bodyStream.boundingRadii[i];
         const float includeDistance = queryDistance + radius;
         const float dx = pos.x - focus.x;
         const float dz = pos.z - focus.z;

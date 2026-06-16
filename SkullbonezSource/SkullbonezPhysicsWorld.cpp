@@ -235,7 +235,7 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
         }
     }
 
-    collection.RefreshSoABodyData();
+    (void)collection.GetBodyStream();
     RunSolverPhysics( collection, fChangeInTime );
 
 #ifdef _DEBUG
@@ -329,12 +329,12 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
     auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaIsFixed = collection.m_soaCache.isFixed;
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const int modelCount = bodyStream.count;
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_soaIsFixed[i] )
+        if ( bodyStream.isFixed[i] )
         {
             continue;
         }
@@ -425,10 +425,8 @@ void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
 void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 {
     auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaPositions = collection.m_soaCache.positions;
-    auto& m_soaBoundingRadii = collection.m_soaCache.boundingRadii;
-    auto& m_soaIsFixed = collection.m_soaCache.isFixed;
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const int modelCount = bodyStream.count;
 
     // Sleep thresholds are config-backed because they directly trade CPU cost
     // against visible settling behavior. Higher thresholds keep bodies awake
@@ -450,7 +448,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -471,16 +469,16 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
-        const float radius = m_soaBoundingRadii[i];
+        const float radius = bodyStream.boundingRadii[i];
         const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
         const float displacementSq = Vector::VectorMagSquared( displacement );
-        if ( !m_soaIsFixed[i] && displacementSq > radius * radius )
+        if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
         {
-            m_spatialGrid.InsertSwept( i, m_soaPositions[i], displacement, radius );
+            m_spatialGrid.InsertSwept( i, bodyStream.positions[i], displacement, radius );
         }
         else
         {
-            m_spatialGrid.Insert( i, m_soaPositions[i], radius );
+            m_spatialGrid.Insert( i, bodyStream.positions[i], radius );
         }
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
@@ -560,7 +558,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // Waking re-enters the body into this frame rather than waiting for the
         // next tick. Applying forces immediately keeps gravity and other forces
         // consistent with an awake body that was never asleep.
-        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || m_soaIsFixed[sleepingIndex] || !m_sleepState[sleepingIndex] )
+        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || bodyStream.isFixed[sleepingIndex] || !m_sleepState[sleepingIndex] )
         {
             return;
         }
@@ -841,7 +839,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -910,7 +908,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -1014,7 +1012,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // also valid anchors: fixed objects are immovable world geometry, and a
         // sleeping dynamic body could only have reached sleep after satisfying the
         // same support gate in an earlier frame.
-        if ( m_soaIsFixed[x] ||
+        if ( bodyStream.isFixed[x] ||
              ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
              ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
         {
@@ -1024,7 +1022,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -1101,7 +1099,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -1126,7 +1124,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -1147,7 +1145,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }
@@ -1165,7 +1163,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_soaIsFixed[x] )
+        if ( bodyStream.isFixed[x] )
         {
             continue;
         }

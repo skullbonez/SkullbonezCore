@@ -34,6 +34,33 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
+struct GameModelBodyStream
+{
+    const Math::Vector::Vector3* positions = nullptr;
+    const float* boundingRadii = nullptr;
+    const uint8_t* isBox = nullptr;
+    const uint8_t* isFixed = nullptr;
+    int count = 0;
+
+    bool Empty() const
+    {
+        return count <= 0;
+    }
+};
+
+struct GameModelRenderStream
+{
+    const uint8_t* isBox = nullptr;
+    const uint8_t* isFixed = nullptr;
+    const Math::Transformation::Matrix4* modelMatrices = nullptr;
+    int count = 0;
+
+    bool Empty() const
+    {
+        return count <= 0;
+    }
+};
+
 class GameModelSoACache
 {
   public:
