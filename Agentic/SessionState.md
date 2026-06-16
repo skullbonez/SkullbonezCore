@@ -7,9 +7,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/post-pr73-roadmap` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Post-PR73 roadmap follow-up is pushed through `43c92573`: water contracts/baselines, scene runtime facade, graph transition policy diagnostics, model body/render streams, and object material authoring expansion. |
-| Pending work | Address the user review findings on audit docs, water render-state ownership, graph-ownership claims, parser coverage, scope wording, and validation notes. |
-| Uncommitted changes | Check `git status` before continuing; this handoff should stay clean after each issue-specific commit. |
+| Last committed milestone | Post-PR73 roadmap review fixes are complete on `codex/post-pr73-roadmap`; validation is recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
+| Pending work | No remaining local work for the six user review findings. |
+| Uncommitted changes | Expected clean after the validation-report commit; check `git status` before continuing. |
 
 ## Active Notes
 
@@ -38,7 +38,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
 | Cinematic volumetric rendering | Recent | Use `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. |
-| Post-PR73 roadmap follow-up | Review fixes in progress | Branch `codex/post-pr73-roadmap` contains the five requested slices plus formatting and intentional DX12 water baseline refresh. User review found stale audit docs, render-state restore gaps, graph-ownership overclaiming, missing material parser coverage, early-stage runtime/model-stream scope wording, and stale validation notes. The runtime slice is a local `SkullbonezRunScene.cpp` facade, and model streams are cache views over current `GameModel`/SoA storage rather than the final physics/render data split. |
+| Post-PR73 roadmap follow-up | Validated | Branch `codex/post-pr73-roadmap` contains the five requested slices plus review fixes for stale audit docs, water render-state restore, graph-ownership wording, material parser coverage, runtime/model-stream scope wording, and validation notes. The runtime slice is a local `SkullbonezRunScene.cpp` facade, and model streams are cache views over current `GameModel`/SoA storage rather than the final physics/render data split. Final evidence: `tools\validate_full.bat` passed with DX12 validation errors 0, matching screenshot baselines, byte-exact physics validation, and exit code 0; `tools\validate_scene_parser_tests.bat` passed. Perf machine-mismatch/regression warnings are recorded in the validation report. |
 
 ## Known Bugs
 
