@@ -69,6 +69,16 @@ Artifact commands:
 {{artifact_commands}}
 ```
 
+Prior verifier rounds:
+
+```text
+{{verification_round_paths}}
+```
+
+If this prompt is being rendered after a `needs_fixes` verifier verdict, read
+the latest verifier result first and address every blocking finding before
+claiming completion again.
+
 For physics diagnostics, use SkullScope queries and report query cost instead
 of pasting raw CSV, NDJSON, or SQLite artifacts.
 

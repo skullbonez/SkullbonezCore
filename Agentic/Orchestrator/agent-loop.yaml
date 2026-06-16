@@ -5,6 +5,8 @@ executable_state:
   policy: Agentic/Orchestrator/policy.json
   queue: Agentic/Orchestrator/queue.json
   item_machine: Agentic/Orchestrator/machines/roadmap-item.json
+  primary_command: tools/orchestrator.bat run-loop
+  finalize_command: tools/orchestrator.bat finalize
 default_for:
   - "Implementing any repository change from Agentic/Plans"
 not_required_for:

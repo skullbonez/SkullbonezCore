@@ -55,9 +55,10 @@ queues.
 
 1. [`orchestration-framework-fix-plan.md`](Plans/orchestration-framework-fix-plan.md)
    - Executable JSON policy, queue, state machine, `tools/orchestrator.py`,
-     Codex exec integration, plan archival, report drafting, and report-check
-     basics are in place. Use this plan next only for richer role, hook,
-     generated-doc, or workflow-eval tooling.
+     Codex exec integration, `run-loop`, verifier round handling, plan
+     archival, report finalization, and report-check hardening are in place.
+     Use this plan next only for richer role, hook, generated-doc, or
+     workflow-eval tooling.
 
 2. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
    - Continue only as focused water material/intersection-quality renderer work.

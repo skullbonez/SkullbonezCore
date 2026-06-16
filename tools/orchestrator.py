@@ -131,6 +131,19 @@ def git_status(repo: Path) -> str:
     return result.stdout.strip()
 
 
+def git_status_porcelain(repo: Path) -> str:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise OrchestratorError(result.stderr.strip() or "Unable to inspect worktree.")
+    return result.stdout.strip()
+
+
 def git_changed_files(repo: Path) -> list[str]:
     result = subprocess.run(
         ["git", "diff", "--name-only"],
@@ -185,6 +198,14 @@ def resolve_parent_branch(policy: dict[str, Any], items: dict[str, dict[str, Any
     return str(policy.get("base_branch", "main"))
 
 
+def default_worker_sandbox(policy: dict[str, Any]) -> str:
+    return str(nested_get(policy, "codex.worker_sandbox") or "workspace-write")
+
+
+def default_verifier_sandbox(policy: dict[str, Any]) -> str:
+    return str(nested_get(policy, "codex.verifier_sandbox") or "workspace-write")
+
+
 def create_or_switch_branch(repo: Path, branch: str, parent_branch: str, allow_dirty: bool) -> None:
     ensure_clean_for_branch(repo, allow_dirty)
     current = current_branch(repo)
@@ -237,6 +258,14 @@ def terminal_states(machine: dict[str, Any]) -> set[str]:
         state
         for state, cfg in machine.get("states", {}).items()
         if isinstance(cfg, dict) and str(cfg.get("kind", "")).startswith("terminal")
+    }
+
+
+def terminal_failure_states(machine: dict[str, Any]) -> set[str]:
+    return {
+        state
+        for state, cfg in machine.get("states", {}).items()
+        if isinstance(cfg, dict) and cfg.get("kind") == "terminal_failure"
     }
 
 
@@ -327,10 +356,11 @@ def validate_config(repo: Path, quiet: bool = False) -> tuple[list[str], list[st
                 continue
             dep_state = item_state(dep)
             if not dependency_satisfied(machine, dep_state, mode):
-                errors.append(
-                    f"{item_id}: dependency {dep_id} is {dep_state}, "
-                    f"not satisfied for mode {mode}."
-                )
+                message = f"{item_id}: dependency {dep_id} is {dep_state}, not satisfied for mode {mode}."
+                if state == "ready":
+                    warnings.append(message)
+                else:
+                    errors.append(message)
 
     if active_count > max_active:
         errors.append(f"Queue has {active_count} active items; max_active_items is {max_active}.")
@@ -615,6 +645,31 @@ def next_round_number(round_dir: Path) -> int:
         return len(existing) + 1
 
 
+def round_number_from_name(path: Path) -> int | None:
+    match = re.match(r"round-(\d+)-", path.name)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def next_verifier_result_number(round_dir: Path) -> int:
+    round_dir.mkdir(parents=True, exist_ok=True)
+    prompt_numbers = {
+        number
+        for path in round_dir.glob("round-*-verifier-prompt.md")
+        if (number := round_number_from_name(path)) is not None
+    }
+    result_numbers = {
+        number
+        for path in round_dir.glob("round-*-verifier-result.*")
+        if (number := round_number_from_name(path)) is not None
+    }
+    for number in sorted(prompt_numbers):
+        if number not in result_numbers:
+            return number
+    return max(prompt_numbers | result_numbers, default=0) + 1
+
+
 def write_verifier_prompt(repo: Path, policy: dict[str, Any], queue: dict[str, Any], item: dict[str, Any], run_dir: Path) -> Path:
     round_dir = run_dir / "verification-rounds"
     number = next_round_number(round_dir)
@@ -663,19 +718,24 @@ def save_transition_artifact(
         elif event in {"accepted", "needs_fixes", "blocked"}:
             round_dir = run_dir / "verification-rounds"
             round_dir.mkdir(parents=True, exist_ok=True)
-            number = next_round_number(round_dir)
-            suffix = source.suffix or ".md"
-            target = round_dir / f"round-{number:02d}-verifier-result{suffix}"
+            if source.parent.resolve() == round_dir.resolve() and "verifier-result" in source.name:
+                target = source
+            else:
+                number = next_verifier_result_number(round_dir)
+                suffix = source.suffix or ".md"
+                target = round_dir / f"round-{number:02d}-verifier-result{suffix}"
         else:
             target = run_dir / f"{event}-result.md"
-        shutil.copyfile(source, target)
+        if source.resolve() != target.resolve():
+            shutil.copyfile(source, target)
         artifacts["result"] = repo_relative(repo, target)
     if validation_log_path:
         source = resolve_repo_path(repo, validation_log_path)
         if not source.exists():
             raise OrchestratorError(f"Validation log path does not exist: {validation_log_path}")
         target = run_dir / "validation.log"
-        shutil.copyfile(source, target)
+        if source.resolve() != target.resolve():
+            shutil.copyfile(source, target)
         artifacts["validation_log"] = repo_relative(repo, target)
     return artifacts
 
@@ -693,59 +753,98 @@ def guard_passes(policy: dict[str, Any], guard: str, manual_guards: list[str]) -
     return True
 
 
+def apply_transition(
+    repo: Path,
+    item_id: str,
+    event: str,
+    result_path: str | None = None,
+    validation_log_path: str | None = None,
+    run_date_text: str | None = None,
+    force_guards: bool = False,
+) -> dict[str, Any]:
+    policy, queue, machine = load_state(repo)
+    items = items_by_id(queue)
+    item = items[item_id]
+    current = item_state(item)
+    transition = machine.get("states", {}).get(current, {}).get("on", {}).get(event)
+    if not transition:
+        events = sorted(machine.get("states", {}).get(current, {}).get("on", {}).keys())
+        raise OrchestratorError(
+            f"Illegal event {event!r} from {current}. Legal events: {', '.join(events) or '(none)'}"
+        )
+
+    manual_guards: list[str] = []
+    failed_guards = [
+        guard
+        for guard in transition.get("guards", [])
+        if not guard_passes(policy, str(guard), manual_guards)
+    ]
+    if failed_guards and not force_guards:
+        raise OrchestratorError(f"Guard(s) failed: {', '.join(failed_guards)}")
+
+    target = normalize_state(str(transition["target"]))
+    run_dir = ensure_run_dir(repo, policy, item_id, run_date_text)
+    run_state = load_run_state(run_dir)
+    artifacts = save_transition_artifact(repo, run_dir, event, result_path, validation_log_path)
+
+    generated: dict[str, str] = {}
+    if "prompt.write_verifier" in transition.get("actions", []):
+        prompt_path = write_verifier_prompt(repo, policy, queue, item, run_dir)
+        generated["verifier_prompt"] = repo_relative(repo, prompt_path)
+    if "validation.record_not_required" in transition.get("actions", []):
+        validation_path = run_dir / "validation.log"
+        validation_path.write_text("No repository validation script required for this transition.\n", encoding="utf-8")
+        generated["validation_log"] = repo_relative(repo, validation_path)
+
+    set_item_state(item, target)
+    write_json(repo / QUEUE_PATH, queue)
+    run_state["current_state"] = target
+    run_state.setdefault("transition_history", []).append(
+        {
+            "at": utc_now(),
+            "event": event,
+            "from": current,
+            "to": target,
+            "artifacts": artifacts,
+            "generated": generated,
+            "manual_guards": manual_guards,
+        }
+    )
+    if target in terminal_states(machine):
+        run_state["finished_at"] = utc_now()
+    save_run_state(run_dir, run_state)
+    return {
+        "item_id": item_id,
+        "from": current,
+        "to": target,
+        "event": event,
+        "artifacts": artifacts,
+        "generated": generated,
+        "manual_guards": manual_guards,
+        "run_dir": run_dir,
+    }
+
+
+def print_transition_result(result: dict[str, Any]) -> None:
+    print(f"Transitioned {result['item_id']}: {result['from']} --{result['event']}--> {result['to']}")
+    manual_guards = result.get("manual_guards", [])
+    if manual_guards:
+        print(f"Manual guard(s) acknowledged by operator: {', '.join(manual_guards)}")
+    for label, path in {**result.get("artifacts", {}), **result.get("generated", {})}.items():
+        print(f"{label}: {path}")
+
+
 def command_transition(args: argparse.Namespace) -> int:
     try:
-        policy, queue, machine = load_state(args.repo)
-        items = items_by_id(queue)
-        item = items[args.item_id]
-        current = item_state(item)
-        transition = machine.get("states", {}).get(current, {}).get("on", {}).get(args.event)
-        if not transition:
-            events = sorted(machine.get("states", {}).get(current, {}).get("on", {}).keys())
-            raise OrchestratorError(
-                f"Illegal event {args.event!r} from {current}. Legal events: {', '.join(events) or '(none)'}"
-            )
-
-        manual_guards: list[str] = []
-        failed_guards = [
-            guard
-            for guard in transition.get("guards", [])
-            if not guard_passes(policy, str(guard), manual_guards)
-        ]
-        if failed_guards and not args.force_guards:
-            raise OrchestratorError(f"Guard(s) failed: {', '.join(failed_guards)}")
-
-        target = normalize_state(str(transition["target"]))
-        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
-        run_state = load_run_state(run_dir)
-        artifacts = save_transition_artifact(args.repo, run_dir, args.event, args.result, args.validation_log)
-
-        generated: dict[str, str] = {}
-        if "prompt.write_verifier" in transition.get("actions", []):
-            prompt_path = write_verifier_prompt(args.repo, policy, queue, item, run_dir)
-            generated["verifier_prompt"] = repo_relative(args.repo, prompt_path)
-        if "validation.record_not_required" in transition.get("actions", []):
-            validation_path = run_dir / "validation.log"
-            validation_path.write_text("No repository validation script required for this transition.\n", encoding="utf-8")
-            generated["validation_log"] = repo_relative(args.repo, validation_path)
-
-        set_item_state(item, target)
-        write_json(args.repo / QUEUE_PATH, queue)
-        run_state["current_state"] = target
-        run_state.setdefault("transition_history", []).append(
-            {
-                "at": utc_now(),
-                "event": args.event,
-                "from": current,
-                "to": target,
-                "artifacts": artifacts,
-                "generated": generated,
-                "manual_guards": manual_guards,
-            }
+        result = apply_transition(
+            args.repo,
+            args.item_id,
+            args.event,
+            result_path=args.result,
+            validation_log_path=args.validation_log,
+            run_date_text=args.run_date,
+            force_guards=args.force_guards,
         )
-        if target in terminal_states(machine):
-            run_state["finished_at"] = utc_now()
-        save_run_state(run_dir, run_state)
     except KeyError:
         print(f"ERROR: Unknown item: {args.item_id}")
         return 1
@@ -753,11 +852,7 @@ def command_transition(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
 
-    print(f"Transitioned {args.item_id}: {current} --{args.event}--> {target}")
-    if manual_guards:
-        print(f"Manual guard(s) acknowledged by operator: {', '.join(manual_guards)}")
-    for label, path in {**artifacts, **generated}.items():
-        print(f"{label}: {path}")
+    print_transition_result(result)
     return 0
 
 
@@ -785,6 +880,7 @@ def run_codex_exec(
     schema_path: Path | None,
     sandbox: str,
     codex_bin: str | None,
+    timeout_seconds: int | None = None,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
@@ -800,39 +896,126 @@ def run_codex_exec(
     if schema_path:
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
-    result = subprocess.run(command, input=prompt, text=True, cwd=repo, check=False)
+    try:
+        result = subprocess.run(command, input=prompt, text=True, cwd=repo, check=False, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
     return result.returncode
+
+
+def run_worker_agent(
+    repo: Path,
+    item_id: str,
+    run_date_text: str | None,
+    sandbox: str | None,
+    codex_bin: str | None,
+    no_schema: bool,
+) -> tuple[int, Path]:
+    policy, queue, _ = load_state(repo)
+    item = items_by_id(queue)[item_id]
+    run_dir = ensure_run_dir(repo, policy, item_id, run_date_text)
+    prompt = render_worker_prompt(repo, policy, queue, item, run_dir)
+    schema = None if no_schema else resolve_repo_path(repo, WORKER_SCHEMA)
+    output = run_dir / ("worker-result.md" if no_schema else "worker-result.json")
+    sandbox_mode = sandbox or default_worker_sandbox(policy)
+    return run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin), output
+
+
+def run_verifier_agent(
+    repo: Path,
+    item_id: str,
+    run_date_text: str | None,
+    sandbox: str | None,
+    codex_bin: str | None,
+    no_schema: bool,
+    require_clean: bool,
+) -> tuple[int, Path]:
+    policy, queue, _ = load_state(repo)
+    item = items_by_id(queue)[item_id]
+    run_dir = ensure_run_dir(repo, policy, item_id, run_date_text)
+    prompt = render_verifier_prompt(repo, policy, queue, item, run_dir)
+    round_dir = run_dir / "verification-rounds"
+    number = next_verifier_result_number(round_dir)
+    schema = None if no_schema else resolve_repo_path(repo, VERIFIER_SCHEMA)
+    suffix = ".md" if no_schema else ".json"
+    output = round_dir / f"round-{number:02d}-verifier-result{suffix}"
+    before = git_status_porcelain(repo)
+    sandbox_mode = sandbox or default_verifier_sandbox(policy)
+    code = run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin)
+    after = git_status_porcelain(repo)
+    if require_clean and after != before:
+        raise OrchestratorError("Verifier changed the tracked worktree; inspect and revert/commit intentionally.")
+    return code, output
 
 
 def command_run_worker(args: argparse.Namespace) -> int:
     try:
-        policy, queue, _ = load_state(args.repo)
-        item = items_by_id(queue)[args.item_id]
-        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
-        prompt = render_worker_prompt(args.repo, policy, queue, item, run_dir)
-        schema = None if args.no_schema else resolve_repo_path(args.repo, WORKER_SCHEMA)
-        output = run_dir / ("worker-result.md" if args.no_schema else "worker-result.json")
-        return run_codex_exec(args.repo, prompt, output, schema, args.sandbox, args.codex_bin)
+        code, output = run_worker_agent(args.repo, args.item_id, args.run_date, args.sandbox, args.codex_bin, args.no_schema)
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
         return 1
+    print(f"Worker result: {repo_relative(args.repo, output)}")
+    return code
 
 
 def command_run_verifier(args: argparse.Namespace) -> int:
     try:
-        policy, queue, _ = load_state(args.repo)
-        item = items_by_id(queue)[args.item_id]
-        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
-        prompt = render_verifier_prompt(args.repo, policy, queue, item, run_dir)
-        round_dir = run_dir / "verification-rounds"
-        number = next_round_number(round_dir)
-        schema = None if args.no_schema else resolve_repo_path(args.repo, VERIFIER_SCHEMA)
-        suffix = ".md" if args.no_schema else ".json"
-        output = round_dir / f"round-{number:02d}-verifier-result{suffix}"
-        return run_codex_exec(args.repo, prompt, output, schema, args.sandbox, args.codex_bin)
+        policy, _, _ = load_state(args.repo)
+        require_clean = not args.allow_dirty_verifier and nested_get(policy, "verification.requires_clean_worktree") is not False
+        code, output = run_verifier_agent(
+            args.repo,
+            args.item_id,
+            args.run_date,
+            args.sandbox,
+            args.codex_bin,
+            args.no_schema,
+            require_clean,
+        )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
         return 1
+    print(f"Verifier result: {repo_relative(args.repo, output)}")
+    return code
+
+
+def codex_exec_smoke(repo: Path, codex: str, sandbox: str, timeout_seconds: int) -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        output = Path(temp) / "codex-smoke.txt"
+        prompt = (
+            "This is a SkullbonezCore orchestrator setup smoke test. "
+            "Use the shell to run `git status --short --branch` in the current repo. "
+            "If the command succeeds, reply with exactly ORCHESTRATOR_CODEX_SMOKE_OK. "
+            "If you cannot run the command, do not print that token."
+        )
+        command = [
+            codex,
+            "exec",
+            "--cd",
+            str(repo),
+            "--sandbox",
+            sandbox,
+            "--output-last-message",
+            str(output),
+            "-",
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                input=prompt,
+                cwd=repo,
+                check=False,
+                text=True,
+                capture_output=True,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise OrchestratorError(f"codex exec smoke timed out after {timeout_seconds}s for {sandbox}.") from exc
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            raise OrchestratorError(f"codex exec smoke failed for {sandbox}: {detail}")
+        text = output.read_text(encoding="utf-8", errors="ignore") if output.exists() else ""
+        if "ORCHESTRATOR_CODEX_SMOKE_OK" not in text:
+            raise OrchestratorError(f"codex exec smoke did not confirm shell access for {sandbox}.")
 
 
 def command_doctor(args: argparse.Namespace) -> int:
@@ -863,6 +1046,18 @@ def command_doctor(args: argparse.Namespace) -> int:
         print((exec_help.stderr or exec_help.stdout).strip())
         return exec_help.returncode or 1
 
+    policy, _, _ = load_state(args.repo)
+    if not args.skip_codex_smoke:
+        sandboxes = sorted({default_worker_sandbox(policy), default_verifier_sandbox(policy)})
+        for sandbox in sandboxes:
+            try:
+                codex_exec_smoke(args.repo, codex, sandbox, args.smoke_timeout)
+            except OrchestratorError as exc:
+                print(f"ERROR: {exc}")
+                print("Run `codex login` if this is an authentication failure.")
+                return 1
+            print(f"PASS: codex exec smoke passed for sandbox {sandbox}.")
+
     print("PASS: orchestrator config is valid.")
     print(f"PASS: codex executable: {codex}")
     print(f"PASS: {(version.stdout or version.stderr).strip()}")
@@ -872,6 +1067,7 @@ def command_doctor(args: argparse.Namespace) -> int:
 
 REPORT_RE = re.compile(r"^Agentic/Reports/\d{4}-\d{2}-\d{2}/[^/]+/report\.md$")
 IMAGE_RE = re.compile(r"^Agentic/Reports/\d{4}-\d{2}-\d{2}/[^/]+/images/[^/]+\.(?:png|jpg|jpeg)$", re.I)
+MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 
 
 def files_from_git(repo: Path, mode: str, rev: str) -> list[str]:
@@ -883,6 +1079,22 @@ def files_from_git(repo: Path, mode: str, rev: str) -> list[str]:
     if result.returncode != 0:
         raise OrchestratorError(result.stderr.strip() or f"git {mode} failed")
     return [line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()]
+
+
+def read_report_text_for_check(repo: Path, path: str, commit: str | None) -> str:
+    if commit:
+        result = subprocess.run(
+            ["git", "show", f"{commit}:{path}"],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise OrchestratorError(result.stderr.strip() or f"Unable to read {path} from {commit}.")
+        return result.stdout
+    report_path = resolve_repo_path(repo, path)
+    return report_path.read_text(encoding="utf-8", errors="ignore")
 
 
 def command_report_check(args: argparse.Namespace) -> int:
@@ -904,8 +1116,7 @@ def command_report_check(args: argparse.Namespace) -> int:
         if len(report_files) != 1:
             raise OrchestratorError("Report-only check requires exactly one report.md file.")
 
-        report_path = resolve_repo_path(args.repo, report_files[0])
-        report_text = report_path.read_text(encoding="utf-8", errors="ignore")
+        report_text = read_report_text_for_check(args.repo, report_files[0], args.commit)
         for image in image_files:
             image_name = Path(image).name
             if f"images/{image_name}" not in report_text:
@@ -916,6 +1127,28 @@ def command_report_check(args: argparse.Namespace) -> int:
 
     print(f"PASS: report-only file list is valid ({len(files)} file(s)).")
     return 0
+
+
+def referenced_report_files(repo: Path, report_path: Path) -> list[Path]:
+    report_text = report_path.read_text(encoding="utf-8", errors="ignore")
+    report_dir = report_path.parent
+    files = [report_path]
+    for match in MARKDOWN_IMAGE_RE.finditer(report_text):
+        target = match.group(1).strip()
+        if "://" in target or target.startswith("#"):
+            continue
+        target = target.strip("<>")
+        if not target.lower().startswith("images/"):
+            continue
+        image_path = (report_dir / target).resolve()
+        try:
+            image_path.relative_to(repo.resolve())
+        except ValueError as exc:
+            raise OrchestratorError(f"Report image escapes repository: {target}") from exc
+        if not image_path.exists():
+            raise OrchestratorError(f"Report references missing image: {target}")
+        files.append(image_path)
+    return sorted(set(files))
 
 
 def command_archive_plan(args: argparse.Namespace) -> int:
@@ -975,9 +1208,87 @@ def read_worker_result(run_dir: Path) -> str:
     return read_optional_text(run_dir / "worker-result.md")
 
 
+def read_result_json(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise OrchestratorError(f"Missing result file: {display_path(path)}") from exc
+    except json.JSONDecodeError as exc:
+        raise OrchestratorError(f"Invalid result JSON {display_path(path)}:{exc.lineno}: {exc.msg}") from exc
+
+
+def latest_verifier_result_path(run_dir: Path) -> Path | None:
+    round_dir = run_dir / "verification-rounds"
+    if not round_dir.exists():
+        return None
+    results = sorted(round_dir.glob("round-*-verifier-result.json"))
+    return results[-1] if results else None
+
+
+def validation_not_required(item: dict[str, Any]) -> bool:
+    gate = str(item.get("validation_gate", "")).strip().lower()
+    return gate in {"", "none", "no validation required", "n/a", "not required"}
+
+
+def run_validation_gate(repo: Path, item: dict[str, Any], run_dir: Path) -> tuple[str, Path]:
+    command_text = str(item.get("validation_gate", "")).strip()
+    if validation_not_required(item):
+        log_path = run_dir / "validation.log"
+        log_path.write_text("No repository validation script required for this item.\n", encoding="utf-8")
+        return "not_required", log_path
+    if not command_text:
+        raise OrchestratorError("Validation gate is empty; cannot run validation.")
+
+    started = utc_now()
+    result = subprocess.run(command_text, cwd=repo, shell=True, check=False, capture_output=True, text=True)
+    finished = utc_now()
+    log_path = run_dir / "validation.log"
+    log_path.write_text(
+        "\n".join(
+            [
+                f"command: {command_text}",
+                f"started_at: {started}",
+                f"finished_at: {finished}",
+                f"exit_code: {result.returncode}",
+                "",
+                "stdout:",
+                result.stdout,
+                "",
+                "stderr:",
+                result.stderr,
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return ("passed" if result.returncode == 0 else "failed"), log_path
+
+
 def latest_commit(repo: Path) -> str:
     result = run_git(repo, ["rev-parse", "--short", "HEAD"])
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def git_has_staged_changes(repo: Path) -> bool:
+    result = run_git(repo, ["diff", "--cached", "--quiet"])
+    return result.returncode == 1
+
+
+def commit_paths(repo: Path, paths: list[Path], message: str, allow_main: bool) -> str | None:
+    branch = current_branch(repo)
+    if branch == "main" and not allow_main:
+        raise OrchestratorError("Refusing to commit on main from orchestrator automation.")
+    rel_paths = [repo_relative(repo, path) for path in paths if path.exists()]
+    if not rel_paths:
+        return None
+    add = run_git(repo, ["add", *rel_paths])
+    if add.returncode != 0:
+        raise OrchestratorError(add.stderr.strip() or "git add failed.")
+    if not git_has_staged_changes(repo):
+        return None
+    commit = run_git(repo, ["commit", "-m", message])
+    if commit.returncode != 0:
+        raise OrchestratorError(commit.stderr.strip() or commit.stdout.strip() or "git commit failed.")
+    return latest_commit(repo)
 
 
 def command_report_draft(args: argparse.Namespace) -> int:
@@ -1049,6 +1360,262 @@ def command_report_draft(args: argparse.Namespace) -> int:
     return 0
 
 
+def transition_and_print(
+    repo: Path,
+    item_id: str,
+    event: str,
+    result_path: Path | None = None,
+    validation_log_path: Path | None = None,
+    run_date_text: str | None = None,
+    force_guards: bool = False,
+) -> dict[str, Any]:
+    result = apply_transition(
+        repo,
+        item_id,
+        event,
+        result_path=str(result_path) if result_path else None,
+        validation_log_path=str(validation_log_path) if validation_log_path else None,
+        run_date_text=run_date_text,
+        force_guards=force_guards,
+    )
+    print_transition_result(result)
+    return result
+
+
+def command_run_loop(args: argparse.Namespace) -> int:
+    try:
+        policy, queue, machine = load_state(args.repo)
+        errors, _ = validate_config(args.repo, quiet=True)
+        if errors:
+            raise OrchestratorError("; ".join(errors))
+        item = items_by_id(queue).get(args.item_id) if args.item_id else select_next_item(
+            policy,
+            queue,
+            machine,
+            args.allow_disabled,
+        )
+        if item is None:
+            raise OrchestratorError("No ready item selected.")
+        item_id = str(item["id"])
+
+        if item_state(item) == "ready":
+            start_args = argparse.Namespace(
+                repo=args.repo,
+                item_id=item_id,
+                allow_disabled=args.allow_disabled,
+                allow_dirty=args.allow_dirty,
+                no_branch=False,
+                run_date=args.run_date,
+            )
+            code = command_start(start_args)
+            if code != 0:
+                return code
+
+        verifier_rounds = 0
+        while True:
+            policy, queue, _ = load_state(args.repo)
+            item = items_by_id(queue)[item_id]
+            state = item_state(item)
+            run_dir = ensure_run_dir(args.repo, policy, item_id, args.run_date)
+
+            if state == "running":
+                code, worker_output = run_worker_agent(
+                    args.repo,
+                    item_id,
+                    args.run_date,
+                    args.worker_sandbox,
+                    args.codex_bin,
+                    no_schema=False,
+                )
+                print(f"Worker result: {repo_relative(args.repo, worker_output)}")
+                if code != 0:
+                    if not worker_output.exists():
+                        worker_output.write_text(
+                            json.dumps(
+                                {
+                                    "status": "failed",
+                                    "summary": f"codex exec returned {code}.",
+                                    "changed_files": git_changed_files(args.repo),
+                                    "validation": {"commands": [], "result": "not run"},
+                                    "plain_language_summary": "The implementation worker did not complete.",
+                                    "blockers": [f"codex exec returned {code}"],
+                                    "risks": [],
+                                },
+                                indent=2,
+                            )
+                            + "\n",
+                            encoding="utf-8",
+                        )
+                    transition_and_print(args.repo, item_id, "worker_failed", worker_output, run_date_text=args.run_date)
+                    return code or 1
+                worker_result = read_result_json(worker_output)
+                status = str(worker_result.get("status", "failed"))
+                if status == "completed":
+                    transition_and_print(args.repo, item_id, "worker_done", worker_output, run_date_text=args.run_date)
+                    transition_and_print(args.repo, item_id, "review_ready", run_date_text=args.run_date)
+                    continue
+                if status == "blocked":
+                    transition_and_print(args.repo, item_id, "worker_blocked", worker_output, run_date_text=args.run_date)
+                    return 2
+                transition_and_print(args.repo, item_id, "worker_failed", worker_output, run_date_text=args.run_date)
+                return 1
+
+            if state == "verifying":
+                if verifier_rounds >= args.max_verifier_rounds:
+                    raise OrchestratorError(f"Verifier exceeded max rounds: {args.max_verifier_rounds}")
+                verifier_rounds += 1
+                require_clean = nested_get(policy, "verification.requires_clean_worktree") is not False
+                code, verifier_output = run_verifier_agent(
+                    args.repo,
+                    item_id,
+                    args.run_date,
+                    args.verifier_sandbox,
+                    args.codex_bin,
+                    no_schema=False,
+                    require_clean=require_clean,
+                )
+                print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
+                if code != 0:
+                    if not verifier_output.exists():
+                        verifier_output.write_text(
+                            json.dumps(
+                                {
+                                    "verdict": "blocked",
+                                    "blocking_findings": [f"codex exec returned {code}"],
+                                    "non_blocking_suggestions": [],
+                                    "missing_evidence": [],
+                                    "validation_assessment": "not assessed",
+                                    "artifact_assessment": "not assessed",
+                                    "feedback_for_worker": "Verifier did not complete.",
+                                    "another_round_required": True,
+                                },
+                                indent=2,
+                            )
+                            + "\n",
+                            encoding="utf-8",
+                        )
+                    transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
+                    return code or 1
+                verifier_result = read_result_json(verifier_output)
+                verdict = str(verifier_result.get("verdict", "blocked"))
+                if verdict == "accepted":
+                    transition_and_print(args.repo, item_id, "accepted", verifier_output, run_date_text=args.run_date)
+                    continue
+                if verdict == "needs_fixes":
+                    transition_and_print(args.repo, item_id, "needs_fixes", verifier_output, run_date_text=args.run_date)
+                    continue
+                transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
+                return 2
+
+            if state == "validating":
+                if args.skip_validation:
+                    print(f"Validation pending for {item_id}; rerun with validation enabled or transition manually.")
+                    return 2
+                event, log_path = run_validation_gate(args.repo, item, run_dir)
+                transition_and_print(args.repo, item_id, event, validation_log_path=log_path, run_date_text=args.run_date)
+                continue
+
+            if state == "reporting":
+                if args.finalize:
+                    finalize_args = argparse.Namespace(
+                        repo=args.repo,
+                        item_id=item_id,
+                        run_date=args.run_date,
+                        commit=args.commit_finalize,
+                        allow_main_commit=args.allow_main_commit,
+                        archive_deferred=args.archive_deferred,
+                    )
+                    return command_finalize(finalize_args)
+                print(f"{item_id} is ready for finalization.")
+                return 0
+
+            print(f"{item_id} stopped in state {state}.")
+            if state in terminal_failure_states(machine):
+                return 2
+            return 0 if state in terminal_states(machine) else 2
+    except (KeyError, OrchestratorError) as exc:
+        print(f"ERROR: {exc}")
+        return 1
+
+
+def command_finalize(args: argparse.Namespace) -> int:
+    try:
+        policy, queue, _ = load_state(args.repo)
+        item = items_by_id(queue)[args.item_id]
+        state = item_state(item)
+        if state == "reporting":
+            transition_and_print(args.repo, args.item_id, "report_committed_no_pr", run_date_text=args.run_date)
+            policy, queue, _ = load_state(args.repo)
+            item = items_by_id(queue)[args.item_id]
+        elif state not in {"done", "pr_open", "merged", "blocked", "failed", "skipped"}:
+            raise OrchestratorError(f"{args.item_id} is {state}; finalize requires reporting or terminal state.")
+
+        plan_paths: list[Path] = [args.repo / QUEUE_PATH]
+        plan_path = str(item.get("plan", ""))
+        plan_posix = plan_path.replace("\\", "/")
+        successful = item_state(item) in {"done", "pr_open", "merged"}
+        if successful and plan_posix.startswith("Agentic/Plans/") and not plan_posix.startswith("Agentic/Plans/Done/"):
+            if "archive_deferred" in item and not args.archive_deferred:
+                print(f"Plan archive deferred for {args.item_id}: {item['archive_deferred'].get('reason', '')}")
+            else:
+                archive_args = argparse.Namespace(repo=args.repo, item_id=args.item_id, force=False)
+                code = command_archive_plan(archive_args)
+                if code != 0:
+                    return code
+                _, queue, _ = load_state(args.repo)
+                item = items_by_id(queue)[args.item_id]
+                plan_paths.append(resolve_repo_path(args.repo, item["plan"]))
+
+        state_commit = None
+        if args.commit:
+            state_commit = commit_paths(
+                args.repo,
+                plan_paths,
+                f"docs: finalize {args.item_id} orchestration state",
+                args.allow_main_commit,
+            )
+            if state_commit:
+                print(f"State commit: {state_commit}")
+
+        report_args = argparse.Namespace(repo=args.repo, item_id=args.item_id, run_date=args.run_date)
+        code = command_report_draft(report_args)
+        if code != 0:
+            return code
+        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        report_root = resolve_repo_path(
+            args.repo,
+            nested_get(policy, "artifact_retention.report_root") or "Agentic/Reports",
+        )
+        report_dir = report_root / run_dir.parent.name / args.item_id
+        report_path = report_dir / "report.md"
+        report_files = referenced_report_files(args.repo, report_path)
+        check_args = argparse.Namespace(
+            repo=args.repo,
+            files=[repo_relative(args.repo, path).replace("\\", "/") for path in report_files],
+            commit=None,
+            diff_range=None,
+        )
+        code = command_report_check(check_args)
+        if code != 0:
+            return code
+        if args.commit:
+            report_commit = commit_paths(
+                args.repo,
+                report_files,
+                f"docs: add {args.item_id} orchestration report",
+                args.allow_main_commit,
+            )
+            if report_commit:
+                print(f"Report commit: {report_commit}")
+                verify_args = argparse.Namespace(repo=args.repo, files=[], commit="HEAD", diff_range=None)
+                return command_report_check(verify_args)
+        print(f"Report path: {repo_relative(args.repo, report_path)}")
+        return 0
+    except (KeyError, OrchestratorError) as exc:
+        print(f"ERROR: {exc}")
+        return 1
+
+
 def command_self_test(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory() as temp:
         repo = Path(temp)
@@ -1104,6 +1671,31 @@ def command_self_test(args: argparse.Namespace) -> int:
             for error in errors:
                 print(f"ERROR: self-test config: {error}")
             return 1
+        run_dir = item_run_dir(repo, load_json(repo / POLICY_PATH), "active", "2026-06-16")
+        (run_dir / "verification-rounds").mkdir(parents=True)
+        verifier_result = run_dir / "verification-rounds" / "round-01-verifier-result.json"
+        verifier_result.write_text(
+            json.dumps(
+                {
+                    "verdict": "accepted",
+                    "blocking_findings": [],
+                    "non_blocking_suggestions": [],
+                    "validation_assessment": "ok",
+                    "artifact_assessment": "ok",
+                    "feedback_for_worker": "ok",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        artifacts = save_transition_artifact(repo, run_dir, "accepted", str(verifier_result), None)
+        if artifacts.get("result", "").replace("\\", "/") != "Agentic/Runs/2026-06-16/active/verification-rounds/round-01-verifier-result.json":
+            print("ERROR: self-test verifier result artifact was renumbered.")
+            return 1
+        if (run_dir / "verification-rounds" / "round-02-verifier-result.json").exists():
+            print("ERROR: self-test duplicated verifier result into a new round.")
+            return 1
         policy, queue, machine = load_state(repo)
         item = select_next_item(policy, queue, machine, allow_disabled=False)
         if item is None or item["id"] != "active":
@@ -1115,13 +1707,37 @@ def command_self_test(args: argparse.Namespace) -> int:
         image_dir.mkdir(parents=True)
         (report_dir / "report.md").write_text("![Image](images/a.png)\n", encoding="utf-8")
         (image_dir / "a.png").write_text("fake", encoding="utf-8")
+        (image_dir / "unreferenced.png").write_text("fake", encoding="utf-8")
+        referenced = [repo_relative(repo, path).replace("\\", "/") for path in referenced_report_files(repo, report_dir / "report.md")]
+        if "Agentic/Reports/2026-06-16/item/images/unreferenced.png" in referenced:
+            print("ERROR: self-test included an unreferenced report image.")
+            return 1
         args.repo = repo
-        args.files = [
-            "Agentic/Reports/2026-06-16/item/report.md",
-            "Agentic/Reports/2026-06-16/item/images/a.png",
-        ]
+        args.files = referenced
         args.commit = None
         args.diff_range = None
+        if command_report_check(args) != 0:
+            return 1
+        init = run_git(repo, ["init"])
+        if init.returncode != 0:
+            print(init.stderr.strip() or "ERROR: self-test git init failed.")
+            return 1
+        for key, value in {"user.email": "orchestrator@example.invalid", "user.name": "Orchestrator Self Test"}.items():
+            config = run_git(repo, ["config", key, value])
+            if config.returncode != 0:
+                print(config.stderr.strip() or f"ERROR: self-test git config {key} failed.")
+                return 1
+        add = run_git(repo, ["add", "Agentic/Reports/2026-06-16/item/report.md", "Agentic/Reports/2026-06-16/item/images/a.png"])
+        if add.returncode != 0:
+            print(add.stderr.strip() or "ERROR: self-test git add failed.")
+            return 1
+        commit = run_git(repo, ["commit", "-m", "report"])
+        if commit.returncode != 0:
+            print(commit.stderr.strip() or commit.stdout.strip() or "ERROR: self-test git commit failed.")
+            return 1
+        (report_dir / "report.md").write_text("working tree no longer references image\n", encoding="utf-8")
+        args.files = []
+        args.commit = "HEAD"
         if command_report_check(args) != 0:
             return 1
 
@@ -1173,7 +1789,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_worker = sub.add_parser("run-worker", help="Render worker prompt and call codex exec.")
     run_worker.add_argument("item_id")
     run_worker.add_argument("--run-date")
-    run_worker.add_argument("--sandbox", default="workspace-write", choices=["read-only", "workspace-write", "danger-full-access"])
+    run_worker.add_argument("--sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_worker.add_argument("--codex-bin")
     run_worker.add_argument("--no-schema", action="store_true")
     run_worker.set_defaults(func=command_run_worker)
@@ -1181,13 +1797,16 @@ def build_parser() -> argparse.ArgumentParser:
     run_verifier = sub.add_parser("run-verifier", help="Render verifier prompt and call codex exec.")
     run_verifier.add_argument("item_id")
     run_verifier.add_argument("--run-date")
-    run_verifier.add_argument("--sandbox", default="read-only", choices=["read-only", "workspace-write", "danger-full-access"])
+    run_verifier.add_argument("--sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_verifier.add_argument("--codex-bin")
     run_verifier.add_argument("--no-schema", action="store_true")
+    run_verifier.add_argument("--allow-dirty-verifier", action="store_true")
     run_verifier.set_defaults(func=command_run_verifier)
 
     doctor = sub.add_parser("doctor", help="Check orchestrator config and Codex CLI availability.")
     doctor.add_argument("--codex-bin")
+    doctor.add_argument("--skip-codex-smoke", action="store_true")
+    doctor.add_argument("--smoke-timeout", type=int, default=180)
     doctor.set_defaults(func=command_doctor)
 
     report_check = sub.add_parser("report-check", help="Validate report-only commit file lists.")
@@ -1205,6 +1824,30 @@ def build_parser() -> argparse.ArgumentParser:
     report_draft.add_argument("item_id")
     report_draft.add_argument("--run-date")
     report_draft.set_defaults(func=command_report_draft)
+
+    run_loop = sub.add_parser("run-loop", help="Run the formal worker/verifier/validation loop for one queue item.")
+    run_loop.add_argument("item_id", nargs="?")
+    run_loop.add_argument("--allow-disabled", action="store_true")
+    run_loop.add_argument("--allow-dirty", action="store_true")
+    run_loop.add_argument("--run-date")
+    run_loop.add_argument("--worker-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
+    run_loop.add_argument("--verifier-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
+    run_loop.add_argument("--codex-bin")
+    run_loop.add_argument("--max-verifier-rounds", type=int, default=5)
+    run_loop.add_argument("--skip-validation", action="store_true")
+    run_loop.add_argument("--finalize", action="store_true")
+    run_loop.add_argument("--commit-finalize", action="store_true")
+    run_loop.add_argument("--allow-main-commit", action="store_true")
+    run_loop.add_argument("--archive-deferred", action="store_true")
+    run_loop.set_defaults(func=command_run_loop)
+
+    finalize = sub.add_parser("finalize", help="Move reporting item to terminal success, archive plan, draft report, and optionally commit.")
+    finalize.add_argument("item_id")
+    finalize.add_argument("--run-date")
+    finalize.add_argument("--commit", action="store_true")
+    finalize.add_argument("--allow-main-commit", action="store_true")
+    finalize.add_argument("--archive-deferred", action="store_true")
+    finalize.set_defaults(func=command_finalize)
 
     return parser
 

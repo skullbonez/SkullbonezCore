@@ -90,7 +90,7 @@ items:
     validation_gate: tools\validate_dx12_renderer.bat
     validation_notes: "Render graph/resource-state ownership requires DX12 validation and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat for hot barrier scheduling changes."
     depends_on:
-      - orchestration-framework-yaml-foundation
+      - water-rendering-cleanup
     dependency_mode: normal
     report_required: true
     artifact_commands: []
@@ -109,7 +109,7 @@ items:
     validation_gate: tools\validate_full.bat
     validation_notes: "Use this broad plan only to select a smaller concrete slice; validation depends on the selected files."
     depends_on:
-      - orchestration-framework-yaml-foundation
+      - dx12-render-graph-completion
     dependency_mode: normal
     report_required: true
     artifact_commands: []

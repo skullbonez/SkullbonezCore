@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Executable orchestrator policy consumed by tools/orchestrator.py. YAML files are human-readable mirrors until YAML parser support is added.",
-  "enabled": false,
+  "enabled": true,
   "base_branch": "main",
   "branch_prefix": "codex/",
   "max_active_items": 1,
@@ -21,7 +21,7 @@
   },
   "pull_requests": {
     "allow_creation": true,
-    "creation_not_required": false,
+    "creation_not_required": true,
     "requires_enabled_policy": true,
     "requires_explicit_user_request": true
   },
@@ -36,7 +36,13 @@
     "requires_independent_verifier": true,
     "allow_same_agent_worker_fallback": true,
     "allow_same_agent_verifier_fallback": false,
-    "missing_verifier_blocks_success": true
+    "missing_verifier_blocks_success": true,
+    "requires_clean_worktree": true
+  },
+  "codex": {
+    "worker_sandbox": "danger-full-access",
+    "verifier_sandbox": "danger-full-access",
+    "doctor_smoke_test": true
   },
   "queue": {
     "stop_after_blocked": true,

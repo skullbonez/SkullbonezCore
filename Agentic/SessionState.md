@@ -8,12 +8,12 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Completed plan archival, agent documentation alignment, YAML-readable orchestrator config, and executable JSON orchestrator tooling on `main`; PR #74 previously landed the post-PR73 roadmap follow-up. |
+| Last committed milestone | Completed plan archival, agent documentation alignment, YAML-readable orchestrator config, and executable JSON orchestrator tooling on `main`; a rubber-duck pass is hardening the formal loop controls. |
 | Active objective | Main-branch agent documentation and orchestrator alignment. |
-| Pending work | No required local follow-up for the current user request. Future orchestrator role, hook, generated-doc, and workflow-eval tooling remains optional next work. |
+| Pending work | Commit the rubber-duck orchestrator hardening after validation. Future orchestrator role, hook, generated-doc, and workflow-eval tooling remains optional next work. |
 | Blockers | None known. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Current scope is documentation/config only, so no repository validation script is required. If code or `tools/*` changes are added, use the validation map in `AGENTS.md`. |
+| Validation | Current scope touches `tools/*`; use `tools\validate_fast.bat` plus `tools\orchestrator.bat check --self-test` and doctor checks before committing. |
 
 ## Active Notes
 
@@ -46,7 +46,7 @@ audits when it is still useful.
 | DX12 descriptor/upload/root-signature cleanup | Done | Archived in `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`; ordinary raster ABI is `b0 + t0..t4` with named descriptor/upload accounting. |
 | Material system v1 object slice | Done | Archived in `Agentic/Plans/Done/material-system-v1-implementation-plan.md`; named material assets and terrain/water/post unification should be new focused work. |
 | Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and plan-orchestration guidance are now centralized. |
-| Executable orchestrator loop | Done | `tools/orchestrator.bat` and `tools/orchestrator.py` enforce JSON policy/queue/machine state, render worker/verifier prompts, can call `codex exec`, archive plans, draft reports, and check report-only commits. YAML files remain human-readable mirrors. |
+| Executable orchestrator loop | Done | `tools/orchestrator.bat` and `tools/orchestrator.py` enforce JSON policy/queue/machine state, drive `run-loop`, run Codex worker/verifier rounds, archive plans, finalize reports, and check report-only commits. YAML files remain human-readable mirrors. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |

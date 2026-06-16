@@ -7,11 +7,12 @@ cross-agent instructions, orchestrator guardrails, worker/verifier handoff
 Implementation status: YAML/config foundation is present as a human-readable
 mirror, and `tools/orchestrator.py` now provides the executable JSON loop over
 `policy.json`, `queue.json`, and `machines/roadmap-item.json`. The helper checks
-queue state, selects the next item, creates run state, creates/switches item
-branches, renders worker/verifier prompts, can invoke `codex exec`, records
-legal transitions, archives successful plans, drafts reports, and checks
-report-only commits. Later richer role, hook, generated-doc, and workflow-eval
-automation remains future work.
+queue state, selects the next item, creates run state, creates/switches stacked
+item branches, renders worker/verifier prompts, can invoke `codex exec`, drives
+worker/verifier rounds through `run-loop`, records legal transitions, archives
+successful plans, finalizes report commits, and checks committed report
+content. Later richer role, hook, generated-doc, and workflow-eval automation
+remains future work.
 
 ## Implementation Update: 2026-06-16
 
@@ -33,15 +34,16 @@ The mandatory loop is:
 1. Orchestrator selects a ready plan-backed item and updates the queue to
    `running`.
 2. Orchestrator creates or switches to the item branch, then spawns a Codex
-   worker with `run-worker` or emits the worker prompt for manual dispatch.
+   worker with `run-loop` / `run-worker` or emits the worker prompt for manual
+   dispatch.
 3. Worker completion moves to review, then a rubber-duck verifier is spawned.
 4. Verifier `needs_fixes` returns to the worker; this repeats until
    `accepted`, `blocked`, or `failed`.
-5. Successful completion moves the queue to terminal success, archives the plan
-   with `archive-plan`, drafts/checks the report, and leaves the report as the
-   final branch commit.
-6. The next ready item starts as a child branch of the current or dependency
-   branch according to queue dependencies and branch policy.
+5. Successful completion moves the queue to terminal success through
+   `finalize`, archives the plan, drafts/checks the report, and can leave the
+   report-only commit as the final branch commit.
+6. The next ready item starts as a child branch of the previous queue item
+   through explicit queue dependencies and branch policy.
 
 ## Goal
 

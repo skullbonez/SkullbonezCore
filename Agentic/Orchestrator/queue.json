@@ -216,7 +216,7 @@
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [
-        "orchestrator-executable-loop"
+        "water-rendering-cleanup"
       ],
       "dependency_mode": "normal",
       "report_required": true
@@ -238,7 +238,7 @@
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [
-        "orchestrator-executable-loop"
+        "dx12-render-graph-completion"
       ],
       "dependency_mode": "normal",
       "report_required": true

@@ -39,10 +39,15 @@ destination:
 
 ## Current Safety Defaults
 
-- The orchestrator is disabled by default.
+- The orchestrator is enabled by default for implementation work from
+  `Agentic/Plans`; set `policy.json` `enabled` to `false` to pause the loop.
 - JSON files define executable policy, queue state, and legal transitions.
 - YAML files document the same shape for humans until parser support exists.
-- PR creation is allowed by policy, but only when the orchestrator is enabled.
+- Codex worker/verifier runs use the sandbox configured in `policy.json`;
+  current Windows CLI smoke tests require `danger-full-access`, with verifier
+  tracked-worktree comparison as the safety guard.
+- PR creation is allowed by policy only after explicit user authorization; the
+  default successful terminal path is `done` without PR creation.
 - Merge automation is disabled by default.
 - `AGENTS.md` still requires explicit user authorization for PR submission and
   merges, so policy alone cannot authorize them.
@@ -111,12 +116,14 @@ After pushing the report-only commit, return a GitHub web link to the committed
 tools\orchestrator.bat check
 tools\orchestrator.bat check --self-test
 tools\orchestrator.bat doctor
-tools\orchestrator.bat next --allow-disabled
+tools\orchestrator.bat next
 tools\orchestrator.bat start <item-id>
 tools\orchestrator.bat run-worker <item-id>
 tools\orchestrator.bat transition <item-id> worker_done --result <path>
 tools\orchestrator.bat verifier-prompt <item-id>
 tools\orchestrator.bat run-verifier <item-id>
+tools\orchestrator.bat run-loop [item-id] --finalize --commit-finalize
+tools\orchestrator.bat finalize <item-id> --commit
 tools\orchestrator.bat archive-plan <item-id>
 tools\orchestrator.bat report-draft <item-id>
 tools\orchestrator.bat report-check --commit <sha>

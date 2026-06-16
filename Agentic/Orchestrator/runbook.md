@@ -36,7 +36,7 @@ The worker owns only the assigned roadmap implementation.
 6. Read `Agentic/Orchestrator/machines/roadmap-item.json`.
 7. Use `Agentic/Orchestrator/agent-loop.yaml` as the human-readable loop map.
 8. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
-   for a dry-run setup step.
+   for a dry-run setup step or policy editing.
 9. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
    submission and merges.
 
@@ -50,8 +50,9 @@ The worker owns only the assigned roadmap implementation.
 3. Confirm no other item is in an active state from
    `machines/queue.yaml`.
 4. Mark the selected item `running` only through
-   `tools\orchestrator.bat start <item-id>`, which creates the run directory
-   and switches to the item branch.
+   `tools\orchestrator.bat start <item-id>` or
+   `tools\orchestrator.bat run-loop <item-id>`, which creates the run
+   directory and switches to the item branch.
 
 ## Run Directory
 
@@ -221,6 +222,12 @@ available, or render the prompt with `tools\orchestrator.bat worker-prompt
 
 The orchestrator should not begin another roadmap item while a worker is active.
 
+For the executable path, use `tools\orchestrator.bat run-loop [item-id]`.
+That command starts the selected queue item, runs the worker through `codex
+exec`, advances `worker-result.json` into the state machine, runs verifier
+rounds until `accepted`, runs the configured validation gate unless
+`--skip-validation` is supplied, and can call `finalize` with `--finalize`.
+
 ## Review, Evidence, And Validation
 
 After each worker completion, including a worker response to verifier feedback:
@@ -253,6 +260,13 @@ artifacts, commenting standards, and worker handoff.
 Generate each verifier prompt from
 `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
 `verification-rounds/`.
+
+The Codex verifier runs with the sandbox configured in `policy.json`. On this
+Windows Codex CLI setup, the repository default is `danger-full-access` because
+`workspace-write` fails during shell spawn setup. The orchestrator compares
+tracked worktree status before and after verifier execution. Any
+verifier-created tracked edit blocks success until inspected and handled
+intentionally.
 
 For each verification round:
 
@@ -302,7 +316,7 @@ commit.
 
 ## PR Handling
 
-If `allow_pr_creation` is true and the branch is ready:
+If `pull_requests.allow_creation` is true and the branch is ready:
 
 1. Commit the work with useful commit notes.
 2. Push the feature branch.
@@ -323,6 +337,11 @@ If `allow_pr_creation` is true and the branch is ready:
 11. Push the report-only commit.
 12. Post the generated report, including the report web URL, as a PR comment
     when the configured channel is available.
+
+Use `tools\orchestrator.bat finalize <item-id> --commit` to move a reporting
+item to `done`, archive its source plan, commit queue/archive state, draft the
+report, and make the final report-only commit. The command refuses automated
+commits on `main` unless `--allow-main-commit` is explicitly supplied.
 
 If `pull_requests.allow_creation` is false, successful items still run
 [Plan Archive](#plan-archive), set the queue state to `done`, commit and push

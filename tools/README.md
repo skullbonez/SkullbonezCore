@@ -50,7 +50,7 @@ tools\validate_select.bat fast build-profile
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
-| `orchestrator.bat` | Check/start/transition roadmap queue items, run setup doctor checks, render worker/verifier prompts, invoke `codex exec`, and validate report-only commits |
+| `orchestrator.bat` | Check/start/transition roadmap queue items, run setup doctor checks, drive `run-loop`, render worker/verifier prompts, invoke `codex exec`, finalize reports, and validate report-only commits |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |

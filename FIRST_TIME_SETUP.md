@@ -93,9 +93,13 @@ If `py` or `python` opens the Microsoft Store or says Python was not found, inst
 If Pillow is missing, renderer screenshot checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
 
 If `tools\orchestrator.bat doctor` reports that Codex is missing, install the
-CLI package with `python -m pip install --user openai-codex`. If the first real
-`run-worker` or `run-verifier` invocation reports an authentication problem, run
-`codex login` from the same Windows user account.
+CLI package with `python -m pip install --user openai-codex`. The doctor also
+runs a small `codex exec` smoke test with the configured orchestrator sandbox.
+If that smoke test reports an authentication problem, run `codex login` from
+the same Windows user account and rerun the doctor command. On the current
+Windows Codex CLI build, the orchestrator policy uses `danger-full-access`
+because narrower CLI sandboxes fail shell spawn setup; verifier runs are still
+checked for tracked worktree changes before and after execution.
 
 If perf analysis fails because `git` is missing, install Git with the `winget` command above. In the same shell, refresh PATH or open a new terminal.
 
