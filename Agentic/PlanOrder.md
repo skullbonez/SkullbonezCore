@@ -46,47 +46,49 @@ queues.
    - The object-material v1 slice is complete. Named material assets and
      terrain/water/post material unification should be new focused plans.
 
+8. [`agent-docs-alignment-plan.md`](Plans/Done/agent-docs-alignment-plan.md)
+   - The canonical startup contract, dirty-worktree guardrails,
+     plan-orchestration default, provider instructions, scoped local rules, and
+     review guidance are in place.
+
 ## Active Tackle Order
 
-1. [`agent-docs-alignment-plan.md`](Plans/agent-docs-alignment-plan.md)
-   - Current main-branch documentation task: align startup instructions,
-     session state, provider instructions, scoped guidance, and review rules.
-
-2. [`orchestration-framework-fix-plan.md`](Plans/orchestration-framework-fix-plan.md)
+1. [`orchestration-framework-fix-plan.md`](Plans/orchestration-framework-fix-plan.md)
    - Current orchestrator task: define the YAML-first state-machine contract,
      migrate queue/policy data, and add the agent-loop YAML surface.
 
-3. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
+2. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
    - Continue only as focused water material/intersection-quality renderer work.
      Use `tools\validate_dx12_renderer.bat` for renderer changes.
 
-4. [`dx12-render-graph-completion-plan.md`](Plans/dx12-render-graph-completion-plan.md)
+3. [`dx12-render-graph-completion-plan.md`](Plans/dx12-render-graph-completion-plan.md)
    - The next focused DX12 architecture slice for graph-owned resource-state
      validation/execution.
 
-5. [`architecture_pass_2026-06-02.md`](Plans/architecture_pass_2026-06-02.md)
+4. [`architecture_pass_2026-06-02.md`](Plans/architecture_pass_2026-06-02.md)
    - Broad checkpoint for runtime scene/simulation ownership, physics data
      separation, asset maturation, parser schemas, and global coupling.
 
-6. [`replay-system-plan.md`](Plans/replay-system-plan.md)
+5. [`replay-system-plan.md`](Plans/replay-system-plan.md)
    - Useful once render and physics boundaries are easier to observe. It should
      consume stable capture, scene, and diagnostic APIs.
 
-7. [`worker-system-plan.md`](Plans/worker-system-plan.md)
+6. [`worker-system-plan.md`](Plans/worker-system-plan.md)
    - High value, but wait until physics/world/runtime boundaries are cleaner so
      deterministic parallelism has a safe data model.
 
-8. [`tornado-mode-ui-cli-plan.md`](Plans/tornado-mode-ui-cli-plan.md)
+7. [`tornado-mode-ui-cli-plan.md`](Plans/tornado-mode-ui-cli-plan.md)
    - Workflow polish; lower priority than render correctness, determinism, and
      architecture boundaries.
 
-9. [`autonomous-roadmap-orchestrator-plan.md`](Plans/autonomous-roadmap-orchestrator-plan.md)
+8. [`autonomous-roadmap-orchestrator-plan.md`](Plans/autonomous-roadmap-orchestrator-plan.md)
    - Superseded in direction by the YAML-first orchestration plan unless a
      future process slice explicitly reopens it.
 
 ## Immediate Recommendation
 
-Finish the current agent-docs and orchestrator YAML alignment first. After that,
-prefer either a focused water-rendering slice or the DX12 render graph
-completion plan. Use the broad architecture pass only to select the next small
-runtime, physics, asset, parser, or render-graph boundary.
+Finish the current orchestrator YAML alignment first. After that, prefer either
+a focused water-rendering slice or the DX12 render graph completion plan. Use
+the broad architecture pass only to select the next small runtime, physics,
+asset, parser, or render-graph boundary. Implementation work sourced from
+`Agentic/Plans` defaults to the orchestrator workflow.

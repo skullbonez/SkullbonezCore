@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | PR #74 landed the post-PR73 roadmap follow-up on `main`, including runtime extraction review fixes and documentation updates. |
+| Last committed milestone | Completed plan archival and agent documentation alignment on `main`; PR #74 previously landed the post-PR73 roadmap follow-up. |
 | Active objective | Main-branch agent documentation and orchestrator alignment. |
-| Pending work | Finish `Agentic/Plans/agent-docs-alignment-plan.md`, then implement the YAML-first orchestrator plan in `Agentic/Plans/orchestration-framework-fix-plan.md`. |
+| Pending work | Implement the YAML-first orchestrator plan in `Agentic/Plans/orchestration-framework-fix-plan.md`, including an agent-loop YAML file. |
 | Blockers | None known. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
 | Validation | Current scope is documentation/config only, so no repository validation script is required. If code or `tools/*` changes are added, use the validation map in `AGENTS.md`. |
@@ -33,6 +33,7 @@ audits when it is still useful.
   launched.
 - Time user-requested work and report elapsed wall-clock time in the final
   answer or handoff.
+- Implementing work from `Agentic/Plans` defaults to the orchestrator workflow.
 
 ## Current Work Items
 
@@ -44,6 +45,7 @@ audits when it is still useful.
 | Shader architecture cleanup | Done | Archived in `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`; object material contracts, typed upload paths, shader contract checking, and the `t4` material table landed on `main`. |
 | DX12 descriptor/upload/root-signature cleanup | Done | Archived in `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`; ordinary raster ABI is `b0 + t0..t4` with named descriptor/upload accounting. |
 | Material system v1 object slice | Done | Archived in `Agentic/Plans/Done/material-system-v1-implementation-plan.md`; named material assets and terrain/water/post unification should be new focused work. |
+| Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and plan-orchestration guidance are now centralized. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |

@@ -4,14 +4,8 @@ This folder contains agent handoff state, task-specific skills, long-running pla
 
 ## Fresh Agent Start
 
-Read only:
-1. `../AGENTS.md`
-2. `../README.md`
-3. `SessionState.md`
-
-If tools are missing or validation cannot start, read `../FIRST_TIME_SETUP.md`.
-
-Load a skill from `Skills/` only when the current task calls for it.
+Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
+`Skills/` only when the current task calls for it.
 
 ## Contents
 
