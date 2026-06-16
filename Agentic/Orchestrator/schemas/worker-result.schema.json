@@ -7,7 +7,10 @@
     "summary",
     "changed_files",
     "validation",
+    "artifacts",
+    "timings",
     "plain_language_summary",
+    "commit_sha",
     "blockers",
     "risks"
   ],
@@ -52,15 +55,13 @@
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "default": []
+      }
     },
     "timings": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "default": []
+      }
     },
     "plain_language_summary": {
       "type": "string"

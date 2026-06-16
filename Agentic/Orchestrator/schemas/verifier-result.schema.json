@@ -6,9 +6,11 @@
     "verdict",
     "blocking_findings",
     "non_blocking_suggestions",
+    "missing_evidence",
     "validation_assessment",
     "artifact_assessment",
-    "feedback_for_worker"
+    "feedback_for_worker",
+    "another_round_required"
   ],
   "properties": {
     "verdict": {
@@ -35,8 +37,7 @@
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "default": []
+      }
     },
     "validation_assessment": {
       "type": "string"
@@ -48,8 +49,7 @@
       "type": "string"
     },
     "another_round_required": {
-      "type": "boolean",
-      "default": false
+      "type": "boolean"
     }
   },
   "additionalProperties": false
