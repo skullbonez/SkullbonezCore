@@ -71,9 +71,10 @@ snippets worth highlighting. Prefer PNG or JPG screenshots over BMP for any
 image the report should embed.
 
 Your implementation handoff is not the terminal roadmap state. The orchestrator
-must still generate the committed report, push the report-only commit, and set
-the queue item to a terminal status such as `done`, `pr-open`, `blocked`,
-`failed`, or `skipped`.
+must still hand your completed work to an independent verifier, feed any
+blocking verifier findings back to you, generate the committed report, push the
+report-only commit, and set the queue item to a terminal status such as `done`,
+`pr-open`, `blocked`, `failed`, or `skipped`.
 
 For image evidence, look for screenshots, focused zoom crops of important screen
 regions, heat maps, image diffs, or before/after architectural diagrams. The
@@ -108,4 +109,5 @@ Return:
 - interesting code snippets or file/line references worth highlighting,
 - commit SHA if you committed,
 - blockers or risks,
+- any questions or areas the verifier should inspect closely,
 - anything the orchestrator must do before PR creation.

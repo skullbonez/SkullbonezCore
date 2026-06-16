@@ -95,6 +95,15 @@ enum class RenderGraphQueueType
     Copy
 };
 
+// Barrier policy names whether a pass is plain diagnostics or a reviewed
+// handoff marker. The current graph does not execute DX12 barriers; it records
+// intent for comparison with live backend barriers.
+enum class RenderGraphBarrierPolicy
+{
+    DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
+    HandoffValidated // The pass/resource declaration is reviewed as a migration handoff marker, not executed by the graph.
+};
+
 // Resource access is the plain-English form of a future DX12 resource state.
 //
 // A resource is the actual image/buffer memory. Access describes what one pass
@@ -191,6 +200,7 @@ struct RenderGraphPassDesc
 {
     std::string name;
     RenderGraphQueueType queue = RenderGraphQueueType::Graphics;
+    RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly;
     std::vector<RenderGraphResourceUse> reads;
     std::vector<RenderGraphResourceUse> writes;
 };
@@ -229,7 +239,7 @@ class RenderGraph
     void Clear();
 
     RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess, const void* nativeResource = nullptr );
-    uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
+    uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly );
 
     void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );
     void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );
@@ -257,6 +267,7 @@ class RenderGraph
 };
 
 const char* ToString( RenderGraphQueueType queue );
+const char* ToString( RenderGraphBarrierPolicy policy );
 const char* ToString( RenderGraphResourceAccess access );
 
 } // namespace Rendering

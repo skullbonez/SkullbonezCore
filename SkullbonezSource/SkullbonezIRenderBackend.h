@@ -154,7 +154,9 @@ class IRenderBackend
     // --- State Queries (tracked internally, not queried from API) ---
 
     virtual bool IsDepthTestEnabled() const = 0;
+    virtual bool IsDepthWriteEnabled() const = 0;
     virtual bool IsBlendEnabled() const = 0;
+    virtual void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const = 0;
 
 
     // Runtime identity and optional feature flags. DX12 is the only renderer,

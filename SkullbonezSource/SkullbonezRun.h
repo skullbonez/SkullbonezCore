@@ -59,6 +59,9 @@ Related:
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
+#include "SkullbonezRuntimeDiagnostics.h"
+#include "SkullbonezSceneRuntime.h"
+#include "SkullbonezSimulationSystem.h"
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezWindow.h"
 #include "SkullbonezText.h"
@@ -85,34 +88,6 @@ namespace RunInternal
 {
 struct SceneRuntimeResetSnapshot;
 }
-
-struct RunPerfLogState
-{
-    bool isPerfTest = false;            // Performance logging mode
-    bool perfHeaderWritten = false;     // CSV header written for current perf run
-    char perfLogPath[256] = {};         // Output path for perf CSV (empty = none)
-    FILE* perfLogFile = nullptr;        // Open handle for perf CSV
-    bool isPerfLogFlushEnabled = false; // Flush perf CSV on each write (diagnostic mode)
-    int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
-    int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
-#ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
-    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
-#endif
-};
-
-#ifdef _DEBUG
-struct RunPhysicsDiagnosticsState
-{
-    char path[256] = {};                       // CLI --physics-diag path (empty = disabled)
-    char currentRunId[32] = {};                // Stable per-load id written into NDJSON rows
-    bool isEnabled = false;                    // True when a diagnostics path was provided
-    bool isRunActive = false;                  // True after a run row and before the matching end row
-    bool fixedStepForcedByDiagnostics = false; // True when --physics-diag forced fixed-step mode
-    int runSequence = 0;                       // Incremented on every scene/generated load
-};
-#endif
-
 
 struct RunRuntimeSettings
 {
@@ -141,9 +116,7 @@ struct RunTimerState
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
-    int lastUIDrawCalls = 0;               // Actual UI draw calls measured around Frame/UI last frame
-    float physicsAccumulator = 0.0f;       // Accumulated seconds for variable-step solver substeps
-    float fixedStepTickAccumulator = 0.0f; // Fractional fixed ticks owed by time_scale in fixed-step mode
+    int lastUIDrawCalls = 0; // Actual UI draw calls measured around Frame/UI last frame
 };
 
 // Concept: pass resource structs name ownership before the frame graph exists.
@@ -258,42 +231,6 @@ struct RunCameraState
     float autoCycleInterval = -1.0f; // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;     // Accumulated real-time seconds since last shot
     int autoCycleShotsTaken = 0;     // Number of per-ball screenshots taken so far
-};
-
-struct RunSceneState
-{
-    int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
-    int loadCount = 0;             // Number of scene/generated loads since startup
-    int manualResetCount = 0;      // Number of user-triggered resets since startup
-    bool isSceneMode = false;      // Scene file mode (deterministic, data-driven)
-    bool isScenePhysics = true;    // Physics enabled in scene mode
-    bool isSceneText = true;       // Text overlay enabled in scene mode
-    int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;          // Current frame counter for the loaded scene/generated run
-    int modelCount = 0;            // Number of models in the active scene
-    int solverBallCount = 0;       // Exact solver ball count when generated through solver_balls
-    int solverBoxCount = 0;        // Exact solver box count when generated through solver_boxes
-    unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
-    unsigned int rngState = 1;     // Local deterministic generator state for scene object setup
-    float timeScale = 1.0f;        // Physics time multiplier
-    bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
-    bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
-    bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
-    bool isFinishLogged = false;   // Debug event log guard for scene completion
-    bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
-
-    // Live cinematic scene state. Scene files can override only selected fields,
-    // while UI sliders mutate this copy at runtime so the user can tune the look
-    // without changing engine.cfg.
-    bool hasCinematicRenderingOverride = false;
-    bool isCinematicRenderingEnabled = false;
-    bool hasCinematicExposure = false;
-    float cinematicExposure = 1.0f;
-    bool hasCinematicGamma = false;
-    float cinematicGamma = 2.2f;
-    uint64_t cinematicOverrideMask = 0;
-    uint64_t uiCinematicOverrideMask = 0; // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
-    CinematicRenderConfig cinematicRender;
 };
 
 struct RunScreenshotState
@@ -802,7 +739,7 @@ class SkullbonezRun
         SkullbonezRun& m_run;
     };
 
-    std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
+    SceneRuntime m_sceneRuntime; // Owns scene queue and current scene-run state
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
     std::vector<const char*> m_sceneBrowserNamePtrs;
@@ -851,7 +788,7 @@ class SkullbonezRun
     RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and pass resource ownership
     RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
-    RunSceneState m_scene;                                    // Scene-mode execution state
+    SimulationSystem m_simulation;                            // Simulation timestep policy and physics accumulators
     RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle;                     // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
@@ -879,6 +816,8 @@ class SkullbonezRun
 
     inline static int sPerfPass = 0;
     void Render();                                                                                                                     // Main render method
+    RunSceneState& SceneState();                                                                                                       // Mutable scene-run state owned by SceneRuntime
+    const RunSceneState& SceneState() const;                                                                                           // Read-only scene-run state owned by SceneRuntime
     void RelativeUpdateCamera( uint32_t hash );                                                                                        // Relative update specified camera
     void UpdateLogic( float simulationDt, float cameraDt );                                                                            // Per-frame logic; cameraDt is unscaled wall time
     void TakeInput();                                                                                                                  // Take user input

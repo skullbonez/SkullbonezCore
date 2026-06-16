@@ -34,6 +34,36 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
+// Borrowed views over GameModelSoACache arrays. GameModelStreamProvider builds
+// these views so physics/render call sites are explicit about the fields they
+// read, but they are not independent physics or render storage.
+struct GameModelBodyStream
+{
+    const Math::Vector::Vector3* positions = nullptr;
+    const float* boundingRadii = nullptr;
+    const uint8_t* isBox = nullptr;
+    const uint8_t* isFixed = nullptr;
+    int count = 0;
+
+    bool Empty() const
+    {
+        return count <= 0;
+    }
+};
+
+struct GameModelRenderStream
+{
+    const uint8_t* isBox = nullptr;
+    const uint8_t* isFixed = nullptr;
+    const Math::Transformation::Matrix4* modelMatrices = nullptr;
+    int count = 0;
+
+    bool Empty() const
+    {
+        return count <= 0;
+    }
+};
+
 class GameModelSoACache
 {
   public:

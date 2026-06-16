@@ -15,6 +15,7 @@ universal agent rules.
 | `queue.json` | Explicit roadmap queue. Only listed items are eligible for orchestration. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
+| `templates/verifier-prompt.md` | Prompt template for the independent completion verifier. |
 | `templates/report.md` | Required report shape for every completed, failed, or blocked item. |
 
 To kick off the loop without pasting a one-off prompt, use
@@ -32,6 +33,10 @@ destination:
 - `AGENTS.md` still forbids merges and PR submission, so policy alone cannot
   authorize merges.
 - Queue execution is sequential: one active roadmap item at a time.
+- Successful completion requires an independent verifier pass after the worker
+  claims the task is done. Blocking verifier findings go back to the worker,
+  and the worker/verifier loop repeats until no blocking findings remain or the
+  item becomes blocked or failed.
 - Chained roadmap items use stacked child branches. If the user asks for tasks
   1-3 as one chain, task 1 branches from `main`, task 2 branches from task 1,
   and task 3 branches from task 2. Review each child PR against its parent until
@@ -46,8 +51,8 @@ Agentic/Runs/<yyyy-mm-dd>/<item-id>/
 ```
 
 Use that folder for generated prompts, worker results, validation logs,
-screenshots, artifacts, PR notes, and local orchestration state. This folder is
-not the user-facing report commit.
+verifier prompts/results, screenshots, artifacts, PR notes, and local
+orchestration state. This folder is not the user-facing report commit.
 
 ## Reports
 
@@ -61,6 +66,7 @@ Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/
 A roadmap item is not complete merely because implementation commits were
 pushed. Completion requires both:
 
+- a completed worker/verifier feedback loop with no blocking verifier findings,
 - a committed report under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, and
 - a terminal queue status: `done`, `pr-open`, `merged`, `blocked`, `failed`, or
   `skipped`.

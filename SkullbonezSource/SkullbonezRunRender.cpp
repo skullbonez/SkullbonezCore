@@ -58,13 +58,13 @@ using namespace SkullbonezCore::Basics::RunInternal;
 // current cinematic look" without caring where it was authored.
 CinematicRenderConfig& SkullbonezRun::ActiveCinematicConfig()
 {
-    return m_scene.isSceneMode ? m_scene.cinematicRender : Cfg().cinematicRender;
+    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
 }
 
 
 const CinematicRenderConfig& SkullbonezRun::ActiveCinematicConfig() const
 {
-    return m_scene.isSceneMode ? m_scene.cinematicRender : Cfg().cinematicRender;
+    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
 }
 
 
@@ -351,7 +351,7 @@ void SkullbonezRun::SetViewingOrientation()
 {
     // In scene mode, use the first camera without cycling.
     // If ball-tracking is active, keep the camera locked onto the selected ball.
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
         if ( m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < m_cGameModelCollection.GetModelCount() )
         {

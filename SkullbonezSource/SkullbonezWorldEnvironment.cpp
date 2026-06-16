@@ -88,13 +88,98 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 }
 
 
+WaterStyleParams WorldEnvironment::BuildCalmWaterStyle( bool cinematic, const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
+{
+    WaterStyleParams style;
+    style.cinematic = cinematic;
+    style.sunR = cinematicStyle.sunColorR;
+    style.sunG = cinematicStyle.sunColorG;
+    style.sunB = cinematicStyle.sunColorB;
+    style.mode = cinematic ? cinematicStyle.waterMode : 2;
+    style.basinCenterX = cinematicStyle.basinCenterX;
+    style.basinCenterZ = cinematicStyle.basinCenterZ;
+    style.basinRadiusX = cinematicStyle.basinRadiusX;
+    style.basinRadiusZ = cinematicStyle.basinRadiusZ;
+    style.basinFeather = cinematic ? cinematicStyle.basinFeather : 1.0f;
+
+    if ( cinematic )
+    {
+        style.tintR = cinematicStyle.waterTintR;
+        style.tintG = cinematicStyle.waterTintG;
+        style.tintB = cinematicStyle.waterTintB;
+        style.alpha = cinematicStyle.waterAlpha;
+        style.reflectionStrength = cinematicStyle.waterReflectionStrength;
+        style.glintStrength = cinematicStyle.waterGlintStrength;
+    }
+
+    return style;
+}
+
+
+WaterStyleParams WorldEnvironment::BuildOceanWaterStyle( bool cinematic, const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
+{
+    WaterStyleParams style;
+    style.cinematic = cinematic;
+    style.sunR = cinematicStyle.sunColorR;
+    style.sunG = cinematicStyle.sunColorG;
+    style.sunB = cinematicStyle.sunColorB;
+
+    if ( cinematic )
+    {
+        style.tintR = cinematicStyle.waterTintR;
+        style.tintG = cinematicStyle.waterTintG;
+        style.tintB = cinematicStyle.waterTintB;
+        style.alpha = cinematicStyle.waterAlpha;
+        style.reflectionStrength = cinematicStyle.waterReflectionStrength;
+        style.glintStrength = cinematicStyle.waterGlintStrength;
+    }
+    else
+    {
+        style.tintR = 0.02f;
+        style.tintG = 0.10f;
+        style.tintB = 0.35f;
+        style.alpha = 0.72f;
+        style.reflectionStrength = 0.25f;
+    }
+
+    return style;
+}
+
+
+void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const WaterReflectionInput& reflection ) const
+{
+    shader.SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
+    shader.SetMat4( "uReflectVP", reflection.sampleViewProjection );
+    shader.SetVec4( "uColorTint", style.tintR, style.tintG, style.tintB, style.alpha );
+    shader.SetFloat( "uReflectionStrength", style.reflectionStrength );
+    shader.SetInt( "uNoReflect", reflection.noReflection ? 1 : 0 );
+    shader.SetFloat( "uCinematicMode", style.cinematic ? 1.0f : 0.0f );
+    shader.SetVec3( "uSunColor", style.sunR, style.sunG, style.sunB );
+    shader.SetFloat( "uSunGlintStrength", style.glintStrength );
+}
+
+
+void WorldEnvironment::BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const
+{
+    shader.SetInt( "uWaterMode", style.mode );
+    shader.SetVec4( "uBasinMask", style.basinCenterX, style.basinCenterZ, style.basinRadiusX, style.basinRadiusZ );
+    shader.SetFloat( "uBasinMaskFeather", style.basinFeather );
+}
+
+
+void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& /*style*/, float time, bool flatWater ) const
+{
+    shader.SetFloat( "uTime", time );
+    shader.SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
+    shader.SetInt( "uFlatWater", flatWater ? 1 : 0 );
+}
+
+
 void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     const Matrix4& proj,
-                                    const Matrix4& reflectVP,
+                                    const WaterReflectionInput& reflection,
                                     float time,
-                                    uint32_t reflectionTex,
                                     bool flatWater,
-                                    bool noReflect,
                                     bool cinematic,
                                     const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
 {
@@ -108,40 +193,17 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         return;
     }
 
-    Gfx().SetBlend( true );
+    Gfx().BindTexture( reflection.textureHandle, 1 );
 
-    // Water reflections are rendered earlier into a texture. Both calm and ocean
-    // water sample that texture from slot 1 so the water can mirror the sky,
-    // balls, terrain, and cinematic light grade.
-    Gfx().BindTexture( reflectionTex, 1 );
+    const WaterStyleParams calmStyle = BuildCalmWaterStyle( cinematic, cinematicStyle );
+    const WaterStyleParams oceanStyle = BuildOceanWaterStyle( cinematic, cinematicStyle );
 
     // --- calm (inner) pass: flat, reflective unless disabled ---
     m_calmShader->Use();
-    m_calmShader->SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
-    m_calmShader->SetMat4( "uReflectVP", reflectVP );
-    if ( cinematic )
-    {
-        m_calmShader->SetVec4( "uColorTint", cinematicStyle.waterTintR, cinematicStyle.waterTintG, cinematicStyle.waterTintB, cinematicStyle.waterAlpha );
-        m_calmShader->SetFloat( "uReflectionStrength", cinematicStyle.waterReflectionStrength );
-    }
-    else
-    {
-        m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
-        m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
-    }
-    m_calmShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
-    m_calmShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
-    m_calmShader->SetInt( "uWaterMode", cinematic ? cinematicStyle.waterMode : 2 );
-    m_calmShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
-    m_calmShader->SetFloat( "uSunGlintStrength", cinematic ? cinematicStyle.waterGlintStrength : 0.0f );
-
-    // In cinematic mode the reference look has a small reflective pool inside
-    // the basin, not a full ocean plane cutting through the whole scene. The
-    // shader uses this oval mask to discard calm-water pixels outside the pool.
-    m_calmShader->SetVec4( "uBasinMask", cinematicStyle.basinCenterX, cinematicStyle.basinCenterZ, cinematicStyle.basinRadiusX, cinematicStyle.basinRadiusZ );
-    m_calmShader->SetFloat( "uBasinMaskFeather", cinematic ? cinematicStyle.basinFeather : 1.0f );
+    BindCommonWaterStyle( *m_calmShader, calmStyle, reflection );
+    BindCalmWaterStyle( *m_calmShader, calmStyle );
     m_calmMesh->Draw();
 
     if ( cinematic && cinematicStyle.waterMode != 2 )
@@ -149,36 +211,16 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         // Cinematic preview stops after the calm basin pool. Skipping the outer
         // ocean avoids a giant water sheet behind the shot and keeps attention on
         // the terrain bowl, balls, sunset, and fog.
-        Gfx().SetBlend( false );
         return;
     }
 
     // --- ocean (outer) pass: vertex displacement + UV perturbation ---
     m_oceanShader->Use();
-    m_oceanShader->SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     m_oceanShader->SetMat4( "uView", view );
     m_oceanShader->SetMat4( "uProjection", proj );
-    m_oceanShader->SetMat4( "uReflectVP", reflectVP );
-    m_oceanShader->SetFloat( "uTime", time );
-    m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
-    if ( cinematic )
-    {
-        m_oceanShader->SetVec4( "uColorTint", cinematicStyle.waterTintR, cinematicStyle.waterTintG, cinematicStyle.waterTintB, cinematicStyle.waterAlpha );
-        m_oceanShader->SetFloat( "uReflectionStrength", cinematicStyle.waterReflectionStrength );
-    }
-    else
-    {
-        m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
-        m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
-    }
-    m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
-    m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
-    m_oceanShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
-    m_oceanShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
-    m_oceanShader->SetFloat( "uSunGlintStrength", cinematic ? cinematicStyle.waterGlintStrength : 0.0f );
+    BindCommonWaterStyle( *m_oceanShader, oceanStyle, reflection );
+    BindOceanWaterStyle( *m_oceanShader, oceanStyle, time, flatWater );
     m_oceanMesh->Draw();
-
-    Gfx().SetBlend( false );
 }
 
 

@@ -120,6 +120,12 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 `--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene directives such as `world`, `flat_slope`, `solver_balls`, or `time_scale`.
 
+## Runtime Facades And Streams
+
+`SceneRuntime` lives in `SkullbonezSceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `CaptureSystem` lives in `SkullbonezCaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezRuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezInputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
+
+`GameModelStreamProvider` lives in `SkullbonezGameModelStreams.h/.cpp` and builds `GameModelBodyStream` and `GameModelRenderStream` as borrowed views over `GameModelCollection`'s `GameModelSoACache`. The provider owns stream construction and cache-validation policy, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat this as a model-data boundary marker for future data separation, not as the final physics/render storage split.
+
 ## Scene Directives
 
 Scene files are plain text. Blank lines and lines beginning with `#` are ignored.
@@ -132,11 +138,12 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Simulation | `physics`, `time_scale`, `seed`, `world` |
 | Objects | `ball`, `floating_ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `style`, `look`, `text`, `text_only`, `shadows`, `cinematic_*`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_terrain_contact`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `style`, `look`, `object_material`, `text`, `text_only`, `shadows`, `cinematic_*`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_terrain_contact`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
 `style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files hold render-look directives such as `cinematic_*` and `object_material`, can include shared style files with `style <name>`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing. Legacy `look <name>` and `cinematic_look <name>` directives are compatibility aliases that load the matching `.style` file instead of using hard-coded presets.
+`object_material` keeps the legacy positional form `object_material <target> <r> <g> <b> <mode>` and also accepts `object_material <target> <mode> tint=<r,g,b>`. Both forms can append material response options: `roughness=`, `metallic=`, `specular=`, `emissive=<r,g,b>`, `strength=`, `transmission=`, `stylization=`, `flags=`, and `name=`. Targets are `all`, `balls`, `boxes`, `prefix:<name>`, or an exact model name.
 The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic_*` overrides, so `.style` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.

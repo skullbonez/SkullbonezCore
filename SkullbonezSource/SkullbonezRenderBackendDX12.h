@@ -469,7 +469,9 @@ class RenderBackendDX12 : public IRenderBackend
     int GetHeight() const override;
 
     bool IsDepthTestEnabled() const override;
+    bool IsDepthWriteEnabled() const override;
     bool IsBlendEnabled() const override;
+    void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const override;
     const char* GetRendererName() const override
     {
         return "DirectX 12";

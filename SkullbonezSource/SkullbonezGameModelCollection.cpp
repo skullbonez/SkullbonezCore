@@ -73,21 +73,9 @@ void GameModelCollection::InvalidateSoA()
 }
 
 
-void GameModelCollection::RefreshSoABodyData()
-{
-    m_soaCache.RefreshBodyData( m_gameModels );
-}
-
-
-void GameModelCollection::EnsureSoAModelMatrices()
-{
-    m_soaCache.EnsureModelMatrices( m_gameModels );
-}
-
-
 void GameModelCollection::PrepareRenderStreams()
 {
-    EnsureSoAModelMatrices();
+    GameModelStreamProvider::PrepareRenderStreams( m_soaCache, m_gameModels );
 }
 
 
@@ -135,6 +123,24 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 int GameModelCollection::GetModelCount() const
 {
     return static_cast<int>( m_gameModels.size() );
+}
+
+
+const std::vector<GameModel>& GameModelCollection::Models() const
+{
+    return m_gameModels;
+}
+
+
+GameModelBodyStream GameModelCollection::GetBodyStream()
+{
+    return GameModelStreamProvider::GetBodyStream( m_soaCache, m_gameModels );
+}
+
+
+GameModelRenderStream GameModelCollection::GetRenderStream()
+{
+    return GameModelStreamProvider::GetRenderStream( m_soaCache, m_gameModels );
 }
 
 

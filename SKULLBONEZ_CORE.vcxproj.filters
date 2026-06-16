@@ -101,6 +101,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelStreams.cpp">
+      <Filter>Source Files\GameObjects</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelSoACache.cpp">
       <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
@@ -115,6 +118,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.cpp">
       <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezSceneRuntime.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezSimulationSystem.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp">
       <Filter>Source Files\Physics</Filter>
@@ -155,6 +164,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezInputController.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -177,6 +189,9 @@
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunUiTextPass.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp">
@@ -394,6 +409,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelRenderer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelStreams.h">
+      <Filter>Header Files\GameObjects</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h">
       <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
@@ -427,6 +445,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezInput.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezInputController.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -452,6 +473,15 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRunInternal.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezSceneRuntime.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezSimulationSystem.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h">

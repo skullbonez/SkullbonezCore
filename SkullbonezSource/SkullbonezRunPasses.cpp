@@ -943,15 +943,30 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     float waterTime = inputs.freezeTime
                           ? inputs.frozenTime
                           : static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    SkullbonezCore::Environment::WaterReflectionInput reflectionInput;
+    reflectionInput.sampleViewProjection = inputs.reflection.reflectionSampleViewProjection;
+    reflectionInput.textureHandle = inputs.reflection.reflectionTextureHandle;
+    reflectionInput.noReflection = inputs.noReflection;
+    reflectionInput.raytraced = inputs.reflection.usedDxr;
+
+    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+    Gfx().GetBlendFunc( blendSrc, blendDst );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    Gfx().SetDepthWrite( false );
     m_run.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
                                            inputs.frame.projection,
-                                           inputs.reflection.reflectionSampleViewProjection,
+                                           reflectionInput,
                                            waterTime,
-                                           inputs.reflection.reflectionTextureHandle,
                                            inputs.flatWater,
-                                           inputs.noReflection,
                                            inputs.frame.cinematicEnabled,
                                            inputs.cinematic );
+    Gfx().SetDepthWrite( depthWriteWasEnabled );
+    Gfx().SetBlendFunc( blendSrc, blendDst );
+    Gfx().SetBlend( blendWasEnabled );
     PROFILE_GPU_END( "Frame/Render/Water" );
 }
 

@@ -1,6 +1,6 @@
 ---
 name: skore-roadmap-orchestrator
-description: Kick off and run the SkullbonezCore roadmap orchestrator generically for one or more queued roadmap plans, including branch setup, worker delegation, validation gates, committed visual-rich run reports, PR handling, and policy-gated merge handling.
+description: Kick off and run the SkullbonezCore roadmap orchestrator generically for one or more queued roadmap plans, including branch setup, worker delegation, independent verifier feedback loops, validation gates, committed visual-rich run reports, PR handling, and policy-gated merge handling.
 ---
 
 # skore-roadmap-orchestrator
@@ -40,6 +40,10 @@ the file names.
 ## Safety Contract
 
 - Run one roadmap item at a time.
+- After the implementation worker claims completion, hand the work to a
+  separate verifier agent. Feed blocking verifier findings back to the worker
+  and repeat until the verifier accepts the result or the item becomes blocked
+  or failed.
 - Do not rebase, force-push, rewrite git history, or push directly to `main`.
 - Respect the current `AGENTS.md` and `policy.json` even if an old kickoff
   prompt claimed broader authority.
@@ -72,6 +76,9 @@ Run scope:
 - Merge mode: <do not merge | merge only when policy, checks, and user permission allow>
 
 Run the orchestrator loop sequentially, one roadmap item at a time.
+After each implementation worker claims completion, run an independent verifier
+agent. Send blocking verifier findings back to the worker and repeat until the
+verifier accepts the work or the item becomes blocked or failed.
 Produce a final report-only commit under Agentic/Reports for each item before
 any merge. The report commit must contain only report.md and images referenced
 by that Markdown file.
@@ -102,29 +109,44 @@ For each item:
    embeds; convert BMP captures to PNG before embedding in reports. Useful
    report visuals include screenshots, focused zoom crops, heat maps, image
    diffs, artifact previews, and before/after architectural diagrams.
-10. If the item reached a successful terminal state, archive the source plan:
+10. After the worker claims completion and current evidence is available,
+   generate a verifier prompt from
+   `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
+   `verification-rounds/round-XX-verifier-prompt.md`.
+11. Spawn a separate verifier agent to inspect the plan, diff, worker result,
+   validation evidence, and artifacts without editing files. If no separate
+   agent is available, stop and ask whether a same-agent verification fallback
+   is acceptable.
+12. Save verifier output under
+   `verification-rounds/round-XX-verifier-result.md`. If there are blocking
+   findings, send them back to the worker, save the worker response under
+   `verification-rounds/round-XX-worker-response.md`, refresh review,
+   validation, and artifacts as needed, then repeat with a new verifier round.
+13. Continue only after the verifier returns `accepted`, or mark the item
+    `blocked`/`failed` if the feedback loop cannot resolve blocking findings.
+14. If the item reached a successful terminal state, archive the source plan:
     move `Agentic/Plans/<file>.md` to `Agentic/Plans/Done/<file>.md`, update
     the queue entry's `plan` path, and record both original and archived paths
     in `run.json` and `report.md`. Successful terminal states are `pr-open`,
     `merged`, or explicit user-declared completion. Do not archive blocked or
     failed plans unless the user explicitly asks for that.
-11. Commit implementation changes, source-plan archive moves, queue updates,
+15. Commit implementation changes, source-plan archive moves, queue updates,
     and other task-state changes before the report commit.
-12. Push the branch and open/update the PR when permitted.
-13. Generate a visual-rich report from
+16. Push the branch and open/update the PR when permitted.
+17. Generate a visual-rich report from
     `Agentic/Orchestrator/templates/report.md` under
     `Agentic/Reports/<yyyy-mm-dd>/<task-id>/report.md`. Copy only PNG/JPG
     images referenced by the Markdown file into
     `Agentic/Reports/<yyyy-mm-dd>/<task-id>/images/`.
-14. Make the final feature-branch commit a report-only commit containing only
+18. Make the final feature-branch commit a report-only commit containing only
     the report Markdown and its referenced images. Do not include `Agentic/Runs`
     files, logs, queue updates, source-plan moves, source code, raw artifacts,
     or unreferenced images in this commit.
-15. Push the report-only commit and compute the GitHub web URL for
+19. Push the report-only commit and compute the GitHub web URL for
     `report.md`.
-16. Merge only after the final report-only commit is present on the PR and all
+20. Merge only after the final report-only commit is present on the PR and all
     merge gates pass.
-17. Sync local `main` after a successful merge and move to the next item only
+21. Sync local `main` after a successful merge and move to the next item only
     when policy allows.
 
 ## Run And Report Folders
@@ -136,6 +158,7 @@ Agentic/Runs/<yyyy-mm-dd>/<task-id>/
   run.json
   worker-prompt.md
   worker-result.md
+  verification-rounds/
   validation.log
   pr.md
   screenshots/
@@ -178,6 +201,8 @@ relative Markdown links from `report.md`.
 - conflicts and how they were handled,
 - residual risk,
 - exact sub-agent result summary and `worker-result.md` path,
+- verifier verdict, blocking findings resolved, non-blocking suggestions, and
+  `verification-rounds/` paths,
 - next queue action.
 
 The report-only commit happens before merge, so merge status may be pending in
@@ -200,5 +225,6 @@ After the requested run scope finishes or stops, summarize:
 - validation result,
 - report path,
 - worker-result path,
+- verifier result path and final verifier verdict,
 - remaining blocked work,
 - total elapsed wall-clock time.

@@ -17,6 +17,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezInputController.h"
 #include "UI/UILayout.h"
 
 using namespace SkullbonezCore::Basics;
@@ -29,33 +30,6 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-void ResetMouseLookInput( RunCameraState& camera )
-{
-    camera.input.xMove = 0;
-    camera.input.yMove = 0;
-    camera.hasMouseLookLastClient = false;
-    camera.needsMouseLookReset = true;
-    Input::ResetMouseLookDeltas();
-}
-
-
-void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY )
-{
-    const long absX = rawX < 0 ? -rawX : rawX;
-    const long absY = rawY < 0 ? -rawY : rawY;
-
-    if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
-    {
-        camera.input.xMove = 0;
-        camera.input.yMove = 0;
-        return;
-    }
-
-    camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
-    camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
-}
-
-
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -577,13 +551,7 @@ void SkullbonezRun::TakeInput()
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
-        m_camera.input = {};
-        m_camera.hasMouseLookLastClient = false;
-        m_camera.needsMouseLookReset = true;
-        Input::ResetMouseLookDeltas();
-        m_leftSceneCycleWasDown = false;
-        m_rightSceneCycleWasDown = false;
-        Input::ConsumeMouseWheelDelta();
+        InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
@@ -602,7 +570,7 @@ void SkullbonezRun::TakeInput()
         if ( !CameraMouseOwnsCursor() )
         {
             ReleaseCapture();
-            ResetMouseLookInput( m_camera );
+            InputController::ResetMouseLook( m_camera );
         }
     };
 
@@ -613,34 +581,31 @@ void SkullbonezRun::TakeInput()
     {
         // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
         bool prevFlyMode = m_camera.isFlyMode;
-        bool fNow = Input::IsKeyDown( 'F' );
-        if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
+        const RuntimeKeyEdge fEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::FWasDown, 'F' );
+        if ( fEdge.wasPressed )
         {
             m_camera.isFlyMode = !m_camera.isFlyMode;
             m_camera.isNudgeMode = false; // F-key fly never implies nudge
         }
-        m_camera.input.Set( InputState::FWasDown, fNow );
 
         // N key: toggle nudge mode — free camera with live simulation (edge-detected).
         // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
         {
-            bool nNow = Input::IsKeyDown( 'N' );
-            if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
+            const RuntimeKeyEdge nEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::NWasDown, 'N' );
+            if ( nEdge.wasPressed )
             {
                 m_camera.isNudgeMode = !m_camera.isNudgeMode;
                 m_camera.isFlyMode = m_camera.isNudgeMode;
             }
-            m_camera.input.Set( InputState::NWasDown, nNow );
         }
 
 #ifdef _DEBUG
         {
-            bool enterNow = Input::IsKeyDown( VK_RETURN );
-            if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
+            const RuntimeKeyEdge enterEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EnterWasDown, VK_RETURN );
+            if ( enterEdge.wasPressed && m_camera.isNudgeMode )
             {
                 WriteNudgeReproSnapshot();
             }
-            m_camera.input.Set( InputState::EnterWasDown, enterNow );
         }
 #endif
 
@@ -650,7 +615,7 @@ void SkullbonezRun::TakeInput()
             {
                 // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
                 // on the current camera so fly controls work without requiring CAMERA_FREE
-                if ( !m_scene.isSceneMode )
+                if ( !SceneState().isSceneMode )
                 {
                     m_systems.cameras->SelectCamera( CAMERA_FREE, false );
                 }
@@ -660,7 +625,7 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_xMax = 99999.9f;
                 unbounded.m_zMin = -99999.9f;
                 unbounded.m_zMax = 99999.9f;
-                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
                 if ( CameraMouseOwnsCursor() )
                 {
@@ -671,25 +636,25 @@ void SkullbonezRun::TakeInput()
                     ReleaseMouseToUI();
                     Input::SetSystemCursorVisible( true );
                 }
-                ResetMouseLookInput( m_camera );
+                InputController::ResetMouseLook( m_camera );
             }
             else
             {
                 // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
                 // the stock Windows cursor.
-                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
                 Input::SetSystemCursorVisible( true );
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
-                ResetMouseLookInput( m_camera );
+                InputController::ResetMouseLook( m_camera );
             }
         }
 
         // Water m_shader debug toggles
-        bool key1Now = Input::IsKeyDown( '1' );
-        if ( key1Now && !m_camera.input.Get( InputState::Key1WasDown ) )
+        const RuntimeKeyEdge key1Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key1WasDown, '1' );
+        if ( key1Edge.wasPressed )
         {
             m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
             if ( m_debug.isWaterFreezeDebug )
@@ -697,15 +662,13 @@ void SkullbonezRun::TakeInput()
                 m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
-        m_camera.input.Set( InputState::Key1WasDown, key1Now );
         // Key '2' cycles water reflection modes in a predictable loop:
         // FBO mirror rendering, then DXR raytraced reflection when supported,
         // then no reflection, then back to FBO. Machines without DXR skip the
         // unsupported mode instead of leaving the toggle in a dead state.
         {
             static bool s_key2WasDown = false;
-            bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
-            if ( s_key2Now && !s_key2WasDown )
+            if ( InputController::CaptureKeyPress( s_key2WasDown, '2' ) )
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
@@ -728,46 +691,41 @@ void SkullbonezRun::TakeInput()
                     m_debug.isWaterNoReflect = false;
                 }
             }
-            s_key2WasDown = s_key2Now;
         }
         {
-            bool key3Now = Input::IsKeyDown( '3' );
-            if ( key3Now && !m_camera.input.Get( InputState::Key3WasDown ) )
+            const RuntimeKeyEdge key3Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key3WasDown, '3' );
+            if ( key3Edge.wasPressed )
             {
                 m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
             }
-            m_camera.input.Set( InputState::Key3WasDown, key3Now );
         }
         {
-            bool key4Now = Input::IsKeyDown( '4' );
-            if ( key4Now && !m_camera.input.Get( InputState::Key4WasDown ) )
+            const RuntimeKeyEdge key4Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key4WasDown, '4' );
+            if ( key4Edge.wasPressed )
             {
                 m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
             }
-            m_camera.input.Set( InputState::Key4WasDown, key4Now );
         }
         {
-            bool key5Now = Input::IsKeyDown( '5' );
-            if ( key5Now && !m_camera.input.Get( InputState::Key5WasDown ) )
+            const RuntimeKeyEdge key5Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key5WasDown, '5' );
+            if ( key5Edge.wasPressed )
             {
                 m_debug.isWaterHidden = !m_debug.isWaterHidden;
             }
-            m_camera.input.Set( InputState::Key5WasDown, key5Now );
         }
         // V key: collision visualizer. Renders balls and boxes as solid debug colours.
         {
-            bool vNow = Input::IsKeyDown( 'V' );
-            if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
+            const RuntimeKeyEdge vEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::VWasDown, 'V' );
+            if ( vEdge.wasPressed )
             {
                 m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
             }
-            m_camera.input.Set( InputState::VWasDown, vNow );
         }
 
         // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
         {
-            bool cNow = Input::IsKeyDown( 'C' );
-            if ( cNow && !m_camera.input.Get( InputState::CKeyWasDown ) )
+            const RuntimeKeyEdge cEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::CKeyWasDown, 'C' );
+            if ( cEdge.wasPressed )
             {
                 switch ( m_debug.physicsDebugFlags )
                 {
@@ -788,18 +746,16 @@ void SkullbonezRun::TakeInput()
                     break;
                 }
             }
-            m_camera.input.Set( InputState::CKeyWasDown, cNow );
         }
 
         // O key: toggle the terrain polygon/contact probe. It is independent of
         // the C-key debug cycle so it can be layered over any other physics view.
         {
-            bool oNow = Input::IsKeyDown( 'O' );
-            if ( oNow && !m_camera.input.Get( InputState::OKeyWasDown ) )
+            const RuntimeKeyEdge oEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::OKeyWasDown, 'O' );
+            if ( oEdge.wasPressed )
             {
                 m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
             }
-            m_camera.input.Set( InputState::OKeyWasDown, oNow );
         }
 
         // F7/F8: step the physics pipeline visualizer through the bounded Catto
@@ -808,45 +764,39 @@ void SkullbonezRun::TakeInput()
         {
             static bool s_pipelinePrevWasDown = false;
             static bool s_pipelineNextWasDown = false;
-            const bool prevNow = Input::IsKeyDown( VK_F7 );
-            const bool nextNow = Input::IsKeyDown( VK_F8 );
-            if ( prevNow && !s_pipelinePrevWasDown )
+            if ( InputController::CaptureKeyPress( s_pipelinePrevWasDown, VK_F7 ) )
             {
                 StepPhysicsPipelineStage( -1 );
             }
-            if ( nextNow && !s_pipelineNextWasDown )
+            if ( InputController::CaptureKeyPress( s_pipelineNextWasDown, VK_F8 ) )
             {
                 StepPhysicsPipelineStage( 1 );
             }
-            s_pipelinePrevWasDown = prevNow;
-            s_pipelineNextWasDown = nextNow;
         }
 
         // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
         {
-            bool key6Now = Input::IsKeyDown( '6' );
-            if ( key6Now && !m_camera.input.Get( InputState::Key6WasDown ) )
+            const RuntimeKeyEdge key6Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key6WasDown, '6' );
+            if ( key6Edge.wasPressed )
             {
                 m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
             }
-            m_camera.input.Set( InputState::Key6WasDown, key6Now );
         }
 
         // Q key used to cycle legacy renderers; it now reports that DX12 is the only runtime renderer.
         {
-            bool isQNow = Input::IsKeyDown( 'Q' );
-            if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+            const RuntimeKeyEdge qEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::QKeyWasDown, 'Q' );
+            if ( qEdge.wasPressed )
             {
                 fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
             }
-            m_camera.input.Set( InputState::QKeyWasDown, isQNow );
         }
 
         // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
-        bool isGNow = Input::IsKeyDown( 'G' );
-        if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
+        const RuntimeKeyEdge gEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::GKeyWasDown, 'G' );
+        if ( gEdge.wasPressed )
         {
-            if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
+            if ( SceneState().isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
             {
                 int count = m_cGameModelCollection.GetModelCount();
                 if ( count > 0 )
@@ -859,13 +809,12 @@ void SkullbonezRun::TakeInput()
                 m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
             }
         }
-        m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
         // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
         // Edge-detected in both scene and generated demo modes; one toggle per keypress.
         {
-            bool key0Now = Input::IsKeyDown( '0' );
-            if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
+            const RuntimeKeyEdge key0Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key0WasDown, '0' );
+            if ( key0Edge.wasPressed )
             {
                 EnterInteractiveSceneRun();
                 m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
@@ -873,12 +822,9 @@ void SkullbonezRun::TakeInput()
                 ApplyCursorOwnership();
                 ReleaseMouseToUI();
             }
-            m_camera.input.Set( InputState::Key0WasDown, key0Now );
         }
 
-        const bool leftSceneNow = Input::IsKeyDown( VK_LEFT );
-        const bool rightSceneNow = Input::IsKeyDown( VK_RIGHT );
-        if ( leftSceneNow && !m_leftSceneCycleWasDown )
+        if ( InputController::CaptureKeyPress( m_leftSceneCycleWasDown, VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
             if ( !ApplyAdjacentCinematicMode( -1 ) )
@@ -886,7 +832,7 @@ void SkullbonezRun::TakeInput()
                 LoadAdjacentSceneFromBrowser( -1 );
             }
         }
-        if ( rightSceneNow && !m_rightSceneCycleWasDown )
+        if ( InputController::CaptureKeyPress( m_rightSceneCycleWasDown, VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
             if ( !ApplyAdjacentCinematicMode( 1 ) )
@@ -894,8 +840,6 @@ void SkullbonezRun::TakeInput()
                 LoadAdjacentSceneFromBrowser( 1 );
             }
         }
-        m_leftSceneCycleWasDown = leftSceneNow;
-        m_rightSceneCycleWasDown = rightSceneNow;
     }
     else
     {
@@ -926,8 +870,8 @@ void SkullbonezRun::TakeInput()
         // Run it after UI input processing so focused controls keep their local ESC
         // behavior first, such as closing the scene filter combo without also
         // hiding the whole diagnostics surface on the same frame.
-        const bool escapeNow = Input::IsKeyDown( VK_ESCAPE );
-        if ( escapeNow && !m_camera.input.Get( InputState::EscapeWasDown ) && !uiCommands.ui.userInteracted )
+        const RuntimeKeyEdge escapeEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EscapeWasDown, VK_ESCAPE );
+        if ( escapeEdge.wasPressed && !uiCommands.ui.userInteracted )
         {
             constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
             const double UINow = m_timers.simulationTimer.GetTotalTime();
@@ -945,7 +889,6 @@ void SkullbonezRun::TakeInput()
                 ReleaseMouseToUI();
             }
         }
-        m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
 
         if ( uiCommands.renderer.toggleVsync )
         {
@@ -1031,9 +974,8 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleFixedStep )
         {
-            m_scene.isFixedStep = !m_scene.isFixedStep;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+            SceneState().isFixedStep = !SceneState().isFixedStep;
+            m_simulation.Reset();
         }
         if ( uiCommands.sceneOptions.toggleTerrainHidden )
         {
@@ -1059,7 +1001,7 @@ void SkullbonezRun::TakeInput()
         {
             const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
             m_cmdHasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), m_scene, !shadowsActive );
+            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {
@@ -1082,14 +1024,13 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-            m_scene.timeScale = m_UITimeScaleOverride;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+            SceneState().timeScale = m_UITimeScaleOverride;
+            m_simulation.Reset();
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {
-            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
-            m_scene.rngState = m_scene.rngSeed;
+            SceneState().rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
+            SceneState().rngState = SceneState().rngSeed;
         }
         if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
         {
@@ -1105,12 +1046,12 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
-            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
+            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : SceneState().solverBoxCount;
             ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
-            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
+            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : SceneState().solverBallCount;
             ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight || uiCommands.water.requestWorldFluidDensity )
@@ -1130,12 +1071,12 @@ void SkullbonezRun::TakeInput()
             const bool currentlyEnabled = m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
             m_cmdHasCinematicRenderingOverride = false;
-            if ( m_scene.isSceneMode )
+            if ( SceneState().isSceneMode )
             {
-                m_scene.hasCinematicRenderingOverride = true;
-                m_scene.isCinematicRenderingEnabled = cinematic.enabled;
-                m_scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
-                m_scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+                SceneState().hasCinematicRenderingOverride = true;
+                SceneState().isCinematicRenderingEnabled = cinematic.enabled;
+                SceneState().cinematicOverrideMask |= SCENE_CINE_RENDERING;
+                SceneState().uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
             }
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
@@ -1149,12 +1090,12 @@ void SkullbonezRun::TakeInput()
             {
                 m_cmdHasCinematicShadowsOverride = false;
             }
-            ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
+            ToggleCinematicUIFeature( cinematic, SceneState(), uiCommands.cinematic.requestedFeature );
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-            ApplyCinematicUIParam( cinematic, m_scene, uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
+            ApplyCinematicUIParam( cinematic, SceneState(), uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
         }
         if ( uiCommands.scene.resetScene )
         {
@@ -1198,7 +1139,7 @@ void SkullbonezRun::TakeInput()
 
     if ( m_UI.BlocksKeyboard() )
     {
-        ResetMouseLookInput( m_camera );
+        InputController::ResetMouseLook( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
@@ -1209,8 +1150,8 @@ void SkullbonezRun::TakeInput()
 
     // F2: Save scene snapshot to Scenes/
     {
-        bool f2Now = Input::IsKeyDown( VK_F2 );
-        if ( f2Now && !m_camera.input.Get( InputState::F2WasDown ) )
+        const RuntimeKeyEdge f2Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::F2WasDown, VK_F2 );
+        if ( f2Edge.wasPressed )
         {
             CreateDirectoryA( "Scenes", nullptr );
             static int sSnapshotSeq = 0;
@@ -1221,21 +1162,20 @@ void SkullbonezRun::TakeInput()
                 sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
                 saved = m_cGameModelCollection.SaveSceneSnapshot(
                     path,
-                    m_scene.isScenePhysics,
-                    m_scene.isSceneText,
+                    SceneState().isScenePhysics,
+                    SceneState().isSceneText,
                     m_cWorldEnvironment,
                     m_systems.cameras->GetCameraTranslation(),
                     m_systems.cameras->GetCameraView(),
                     m_systems.cameras->GetCameraUp() );
             }
         }
-        m_camera.input.Set( InputState::F2WasDown, f2Now );
     }
 
     // F3: Save screenshot to Screenshots/
     {
-        bool f3Now = Input::IsKeyDown( VK_F3 );
-        if ( f3Now && !m_camera.input.Get( InputState::F3WasDown ) )
+        const RuntimeKeyEdge f3Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::F3WasDown, VK_F3 );
+        if ( f3Edge.wasPressed )
         {
             CreateDirectoryA( "Screenshots", nullptr );
             static int sScreenshotSeq = 0;
@@ -1251,28 +1191,25 @@ void SkullbonezRun::TakeInput()
                 }
             }
         }
-        m_camera.input.Set( InputState::F3WasDown, f3Now );
     }
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
-        bool rNow = Input::IsKeyDown( 'R' );
-        if ( rNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
+        const RuntimeKeyEdge rEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::RKeyWasDown, 'R' );
+        if ( rEdge.wasPressed )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
         }
-        m_camera.input.Set( InputState::RKeyWasDown, rNow );
     }
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
-        bool bsNow = Input::IsKeyDown( VK_BACK );
-        if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
+        const RuntimeKeyEdge backspaceEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::BackspaceWasDown, VK_BACK );
+        if ( backspaceEdge.wasPressed )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
         }
-        m_camera.input.Set( InputState::BackspaceWasDown, bsNow );
     }
 
     if ( m_camera.isFlyMode )
@@ -1282,12 +1219,12 @@ void SkullbonezRun::TakeInput()
         // remote-desktop friendly fallback when raw input is unavailable.
         if ( !Input::IsAppFocused() )
         {
-            ResetMouseLookInput( m_camera );
+            InputController::ResetMouseLook( m_camera );
         }
         else if ( !CameraMouseOwnsCursor() )
         {
             Input::SetSystemCursorVisible( true );
-            ResetMouseLookInput( m_camera );
+            InputController::ResetMouseLook( m_camera );
         }
         else
         {
@@ -1307,7 +1244,7 @@ void SkullbonezRun::TakeInput()
             }
             else if ( hasRawDelta )
             {
-                SetMouseLookDelta( m_camera, rawX, rawY );
+                InputController::SetMouseLookDelta( m_camera, rawX, rawY );
                 m_camera.mouseLookLastClient = currentClient;
                 m_camera.hasMouseLookLastClient = true;
             }
@@ -1320,9 +1257,9 @@ void SkullbonezRun::TakeInput()
             }
             else
             {
-                SetMouseLookDelta( m_camera,
-                                   currentClient.x - m_camera.mouseLookLastClient.x,
-                                   currentClient.y - m_camera.mouseLookLastClient.y );
+                InputController::SetMouseLookDelta( m_camera,
+                                                    currentClient.x - m_camera.mouseLookLastClient.x,
+                                                    currentClient.y - m_camera.mouseLookLastClient.y );
                 m_camera.mouseLookLastClient = currentClient;
             }
         }
@@ -1335,7 +1272,7 @@ void SkullbonezRun::TakeInput()
     }
     else
     {
-        ResetMouseLookInput( m_camera );
+        InputController::ResetMouseLook( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
@@ -1380,7 +1317,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_camera.isFlyMode && !m_scene.isSceneMode )
+    if ( !m_camera.isFlyMode && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;

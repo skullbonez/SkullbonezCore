@@ -26,9 +26,11 @@ flowchart TB
     subgraph Runtime["Runtime shell"]
         Window["SkullbonezWindow"]
         Input["Input / InputState"]
+        InputController["InputController"]
         Timers["Timer / RunTimerState"]
         Config["SkullbonezConfig\nWindowConfig / render flags / cinematic config"]
         Capture["CaptureSystem"]
+        RuntimeDiagnostics["RuntimeDiagnostics"]
         Text["Text2d"]
         Profiler["Profiler / ProfilerScope / GpuProfilerScope"]
         PlatformProfiler["PlatformProfiler"]
@@ -45,6 +47,7 @@ flowchart TB
         Terrain["Terrain\nrender mesh + collision surface"]
         SkyBox["SkyBox"]
         GameModelCollection["GameModelCollection\nphysics traffic controller"]
+        GameModelStreamProvider["GameModelStreamProvider"]
         GameModel["GameModel\nrenderable physical object"]
         RigidBody["RigidBody"]
         CollisionShape["CollisionShape\nvariant"]
@@ -96,6 +99,7 @@ flowchart TB
     App --> Config
     App --> AssetSystem
     App --> GameModelCollection
+    GameModelCollection -.-> GameModelStreamProvider
     App --> WorldEnvironment
     App --> InGameUI
     App -.-> TextureCollection
@@ -103,7 +107,9 @@ flowchart TB
     App -.-> SkyBox
     App -.-> TestScene
     App -.-> Input
+    App -.-> InputController
     App -.-> Capture
+    App -.-> RuntimeDiagnostics
     App -.-> Text
     App -.-> Profiler
     App -.-> PlatformProfiler
@@ -172,6 +178,10 @@ class RunRuntimeSettings
 class RunTimerState
 class RunSubsystemState
 class RunCameraState
+class SceneRuntime
+class SimulationSystem
+class RuntimeDiagnostics
+class InputController
 class RunSceneState
 class RunScreenshotState
 class RunLiveStyleControlState
@@ -186,6 +196,7 @@ class TextureCollection
 class SkyBox
 class SkullbonezWindow
 class GameModelCollection
+class GameModelStreamProvider
 class WorldEnvironment
 class InGameUI
 class BroadphaseVisualizer
@@ -198,7 +209,11 @@ SkullbonezRun *-- RunRuntimeSettings
 SkullbonezRun *-- RunTimerState
 SkullbonezRun *-- RunSubsystemState
 SkullbonezRun *-- RunCameraState
-SkullbonezRun *-- RunSceneState
+SkullbonezRun *-- SceneRuntime
+SkullbonezRun *-- SimulationSystem
+SkullbonezRun ..> RuntimeDiagnostics
+SkullbonezRun ..> InputController
+SceneRuntime *-- RunSceneState
 SkullbonezRun *-- RunScreenshotState
 SkullbonezRun *-- RunLiveStyleControlState
 SkullbonezRun *-- RunDebugState
@@ -212,12 +227,29 @@ RunSubsystemState o-- TextureCollection
 RunSubsystemState o-- SkyBox
 RunSubsystemState o-- SkullbonezWindow
 SkullbonezRun *-- GameModelCollection
+GameModelCollection ..> GameModelStreamProvider
 SkullbonezRun *-- WorldEnvironment
 SkullbonezRun *-- InGameUI
 SkullbonezRun *-- BroadphaseVisualizer
 SkullbonezRun *-- CollisionVisualizer
 SkullbonezRun *-- PhysicsDebugVisualizer
 ```
+
+`SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
+`RunSceneState`. `SimulationSystem` owns timestep policy and the physics
+accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
+BMP backbuffer readback plus scene screenshot/autocycle policy. `RuntimeDiagnostics`
+owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController`
+owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun`
+still applies input commands and capture completion actions such as scene
+advance, quit, or interactive hold, then coordinates the heavier load/reset side
+effects around that state, including object construction, terrain, cameras, UI
+defaults, diagnostics context, and renderer setup.
+
+`GameModelStreamProvider` builds cache-backed body/render streams for
+`GameModelCollection`. It does not own separate physics or render storage; the
+authoritative model storage remains the collection's `GameModel` vector plus the
+derived `GameModelSoACache`.
 
 ## Rendering Interfaces And Backend Family
 
@@ -628,13 +660,20 @@ subsystem rather than by dependency edge.
 - `RunFireState`
 - `RunUIStressState`
 - `SceneRuntimeResetSnapshot`
+- `RuntimeDiagnostics`
+- `RuntimePerfTickContext`
 - `GeneratedObjectTypeOverride`
 - `OverlayMode`
 - `SkullbonezWindow`
 - `InputState`
 - `Input`
+- `InputController`
+- `RuntimeKeyEdge`
 - `Timer`
 - `CaptureSystem`
+- `RuntimeCaptureSceneContext`
+- `RuntimeCaptureResult`
+- `RuntimeCaptureSink`
 - `SkullbonezConfig`
 - `WindowConfig`
 - `RuntimeRenderFlags`
@@ -752,6 +791,10 @@ subsystem rather than by dependency edge.
 
 - `GameModel`
 - `GameModelCollection`
+- `GameModelStreamProvider`
+- `GameModelBodyStream`
+- `GameModelRenderStream`
+- `GameModelSoACache`
 - `RigidBody`
 - `CollisionShape`
 - `BoundingSphere`

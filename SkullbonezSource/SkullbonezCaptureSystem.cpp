@@ -19,9 +19,11 @@ Related:
 #include "SkullbonezCaptureSystem.h"
 
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezRun.h"
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -59,6 +61,27 @@ void WriteExact( FILE* file, const void* data, size_t size, const char* path )
         sprintf_s( msg, sizeof( msg ), "Failed to write screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
         throw std::runtime_error( msg );
     }
+}
+
+RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCaptureAutomation automationWhenHeadless )
+{
+    return isInteractiveRun ? RuntimeCaptureAutomation::HoldInteractive : automationWhenHeadless;
+}
+
+void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t outPathSize )
+{
+    const char* slash = strrchr( scenePath, '/' );
+    const char* backslash = strrchr( scenePath, '\\' );
+    const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : scenePath );
+
+    char stem[256];
+    strcpy_s( stem, sizeof( stem ), name );
+    char* dot = strrchr( stem, '.' );
+    if ( dot )
+    {
+        *dot = '\0';
+    }
+    sprintf_s( outPath, outPathSize, "%s.bmp", stem );
 }
 } // namespace
 
@@ -124,6 +147,96 @@ void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderBackend& backend, const
     WriteExact( file.get(), fileHeader, sizeof( fileHeader ), path );
     WriteExact( file.get(), infoHeader, sizeof( infoHeader ), path );
     WriteExact( file.get(), pixels.data(), static_cast<size_t>( imageSize ), path );
+}
+
+RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
+                                                     const RuntimeCaptureSceneContext& context,
+                                                     RuntimeCaptureSink& sink )
+{
+    if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
+    {
+        if ( !context.currentScenePath )
+        {
+            return {};
+        }
+
+        char outPath[256];
+        BuildScreenshotAndExitPath( context.currentScenePath, outPath, sizeof( outPath ) );
+        sink.SaveScreenshot( outPath );
+        return { true,
+                 RuntimeCaptureCompletion::ScreenshotAndExit,
+                 CompletionAutomation( context.isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
+    }
+
+    if ( context.isSceneMode && screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
+    {
+        bool shouldCapture = false;
+
+        if ( screenshot.screenshotFrame > 0 && ( context.currentFrame + 1 ) >= screenshot.screenshotFrame )
+        {
+            shouldCapture = true;
+        }
+        if ( screenshot.screenshotMs > 0 && context.elapsedMs >= screenshot.screenshotMs )
+        {
+            shouldCapture = true;
+        }
+
+        if ( shouldCapture )
+        {
+            sink.SaveScreenshot( screenshot.screenshotPath );
+            screenshot.isScreenshotSaved = true;
+            return { true,
+                     RuntimeCaptureCompletion::Screenshot,
+                     CompletionAutomation( context.isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
+        }
+    }
+
+    if ( context.isSceneMode && screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' )
+    {
+        if ( ( context.currentFrame + 1 ) % screenshot.screenshotInterval == 0 )
+        {
+            ++screenshot.intervalCaptureCount;
+            char intervalPath[512];
+            sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", screenshot.screenshotDir, screenshot.intervalCaptureCount );
+            sink.SaveScreenshot( intervalPath );
+        }
+    }
+
+    return {};
+}
+
+RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
+                                                   bool isInteractiveRun,
+                                                   int ballCount,
+                                                   float& autoCycleInterval,
+                                                   float& autoCycleAccum,
+                                                   int& autoCycleShotsTaken,
+                                                   int& trackBallIndex,
+                                                   RuntimeCaptureSink& sink )
+{
+    if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
+    {
+        return {};
+    }
+
+    char shotPath[256];
+    sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", autoCycleShotsTaken );
+    sink.SaveScreenshot( shotPath );
+    fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", autoCycleShotsTaken, trackBallIndex, shotPath );
+    fflush( stdout );
+
+    ++autoCycleShotsTaken;
+    autoCycleAccum = 0.0f;
+
+    if ( autoCycleShotsTaken >= ballCount )
+    {
+        return { false,
+                 RuntimeCaptureCompletion::AutoCycle,
+                 CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
+    }
+
+    trackBallIndex = ( trackBallIndex + 1 ) % ballCount;
+    return {};
 }
 } // namespace Basics
 } // namespace SkullbonezCore

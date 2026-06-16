@@ -154,9 +154,8 @@ void SkullbonezRun::RunUIStressActions()
         case 13:
             if ( allowRuntimeChurn )
             {
-                m_scene.isFixedStep = !m_scene.isFixedStep;
-                m_timers.physicsAccumulator = 0.0f;
-                m_timers.fixedStepTickAccumulator = 0.0f;
+                SceneState().isFixedStep = !SceneState().isFixedStep;
+                m_simulation.Reset();
             }
             break;
         case 14:
@@ -203,9 +202,8 @@ void SkullbonezRun::RunUIStressActions()
             if ( allowRuntimeChurn )
             {
                 m_UITimeScaleOverride = timeScale;
-                m_scene.timeScale = m_UITimeScaleOverride;
-                m_timers.physicsAccumulator = 0.0f;
-                m_timers.fixedStepTickAccumulator = 0.0f;
+                SceneState().timeScale = m_UITimeScaleOverride;
+                m_simulation.Reset();
             }
             break;
         }

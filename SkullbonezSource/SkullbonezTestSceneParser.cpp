@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTestScene.h"
+#include <algorithm>
 #include <cerrno>
 #include <climits>
 #include <cstdarg>
@@ -434,6 +435,148 @@ class TestSceneParser
         }
 
         Fail( "Invalid %s material mode at line %d: %s", directive, m_lineNumber, value ? value : "" );
+    }
+
+    bool SplitKeyValueToken( const char* token, char* key, size_t keySize, const char*& value ) const
+    {
+        const char* equals = strchr( token, '=' );
+        if ( !equals || equals == token || equals[1] == '\0' || keySize == 0 )
+        {
+            return false;
+        }
+
+        const size_t keyLen = static_cast<size_t>( equals - token );
+        if ( keyLen >= keySize )
+        {
+            return false;
+        }
+
+        memcpy( key, token, keyLen );
+        key[keyLen] = '\0';
+        value = equals + 1;
+        return true;
+    }
+
+    float ParseMaterialOptionFloat( const char* key, const char* value )
+    {
+        float parsed = 0.0f;
+        if ( !TryParseFloat( value, parsed ) )
+        {
+            Fail( "Invalid object_material %s value at line %d: %s", key, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    float ParseMaterialOptionUnitFloat( const char* key, const char* value )
+    {
+        return std::clamp( ParseMaterialOptionFloat( key, value ), 0.0f, 1.0f );
+    }
+
+    void ParseMaterialOptionVec3( const char* key, const char* value, float& outR, float& outG, float& outB )
+    {
+        char local[128] = {};
+        strcpy_s( local, sizeof( local ), value );
+
+        char* context = nullptr;
+        char* partR = strtok_s( local, ",", &context );
+        char* partG = strtok_s( nullptr, ",", &context );
+        char* partB = strtok_s( nullptr, ",", &context );
+        char* extra = strtok_s( nullptr, ",", &context );
+        if ( !partR || !partG || !partB || extra )
+        {
+            Fail( "Invalid object_material %s value at line %d (expected r,g,b): %s", key, m_lineNumber, value ? value : "" );
+        }
+
+        outR = ParseMaterialOptionFloat( key, partR );
+        outG = ParseMaterialOptionFloat( key, partG );
+        outB = ParseMaterialOptionFloat( key, partB );
+    }
+
+    void SetObjectMaterialBaseColor( SceneObjectMaterialOverride& material, float r, float g, float b )
+    {
+        const bool mirrorEmissiveToBase =
+            material.material.kind == Rendering::RenderMaterialKind::Emissive &&
+            material.material.emissiveColor[0] == material.material.baseColor[0] &&
+            material.material.emissiveColor[1] == material.material.baseColor[1] &&
+            material.material.emissiveColor[2] == material.material.baseColor[2];
+
+        material.tintR = r;
+        material.tintG = g;
+        material.tintB = b;
+        material.material.baseColor[0] = r;
+        material.material.baseColor[1] = g;
+        material.material.baseColor[2] = b;
+        material.material.baseColor[3] = 1.0f;
+
+        if ( mirrorEmissiveToBase )
+        {
+            material.material.emissiveColor[0] = r;
+            material.material.emissiveColor[1] = g;
+            material.material.emissiveColor[2] = b;
+        }
+    }
+
+    void ApplyObjectMaterialOption( SceneObjectMaterialOverride& material, const char* token )
+    {
+        char key[64] = {};
+        const char* value = nullptr;
+        if ( !SplitKeyValueToken( token, key, sizeof( key ), value ) )
+        {
+            Fail( "Invalid object_material option at line %d (expected key=value): %s", m_lineNumber, token ? token : "" );
+        }
+
+        if ( strcmp( key, "tint" ) == 0 || strcmp( key, "base" ) == 0 || strcmp( key, "base_color" ) == 0 )
+        {
+            float r = 1.0f;
+            float g = 1.0f;
+            float b = 1.0f;
+            ParseMaterialOptionVec3( key, value, r, g, b );
+            SetObjectMaterialBaseColor( material, r, g, b );
+        }
+        else if ( strcmp( key, "roughness" ) == 0 )
+        {
+            material.material.roughness = ParseMaterialOptionUnitFloat( key, value );
+        }
+        else if ( strcmp( key, "metallic" ) == 0 || strcmp( key, "metalness" ) == 0 )
+        {
+            material.material.metallic = ParseMaterialOptionUnitFloat( key, value );
+        }
+        else if ( strcmp( key, "specular" ) == 0 )
+        {
+            material.material.specular = ParseMaterialOptionUnitFloat( key, value );
+        }
+        else if ( strcmp( key, "transmission" ) == 0 )
+        {
+            material.material.transmission = ParseMaterialOptionUnitFloat( key, value );
+        }
+        else if ( strcmp( key, "stylization" ) == 0 || strcmp( key, "style" ) == 0 )
+        {
+            material.material.stylization = ParseMaterialOptionUnitFloat( key, value );
+        }
+        else if ( strcmp( key, "emissive" ) == 0 || strcmp( key, "emissive_color" ) == 0 || strcmp( key, "emit_color" ) == 0 )
+        {
+            ParseMaterialOptionVec3( key,
+                                     value,
+                                     material.material.emissiveColor[0],
+                                     material.material.emissiveColor[1],
+                                     material.material.emissiveColor[2] );
+        }
+        else if ( strcmp( key, "strength" ) == 0 || strcmp( key, "emissive_strength" ) == 0 || strcmp( key, "emit" ) == 0 )
+        {
+            material.material.emissiveStrength = (std::max)( 0.0f, ParseMaterialOptionFloat( key, value ) );
+        }
+        else if ( strcmp( key, "flags" ) == 0 )
+        {
+            material.material.flags = static_cast<uint32_t>( ParseIntValue( key, value ) );
+        }
+        else if ( strcmp( key, "name" ) == 0 )
+        {
+            strncpy_s( material.material.name, sizeof( material.material.name ), value, _TRUNCATE );
+        }
+        else
+        {
+            Fail( "Unknown object_material option at line %d: %s", m_lineNumber, key );
+        }
     }
 
     void ParsePhysics( const char* args )
@@ -1278,7 +1421,7 @@ class TestSceneParser
 
     void ParseObjectMaterial( const char* args )
     {
-        const char* expected = "object_material <name|all|balls|boxes|prefix:...> <r> <g> <b> <mode>";
+        const char* expected = "object_material <target> <r> <g> <b> <mode> [key=value...] or object_material <target> <mode> tint=<r,g,b> [key=value...]";
         const char* cursor = RequireArgs( "object_material", args, expected );
 
         SceneObjectMaterialOverride material;
@@ -1288,15 +1431,35 @@ class TestSceneParser
         material.tintB = 1.0f;
         material.materialMode = 1.0f;
 
-        char mode[64] = {};
         ParseNextToken( "object_material", cursor, material.target, sizeof( material.target ), expected );
-        material.tintR = ParseNextFloatToken( "object_material", cursor, expected );
-        material.tintG = ParseNextFloatToken( "object_material", cursor, expected );
-        material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
-        ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
-        material.materialMode = ParseMaterialModeValue( "object_material", mode );
+        char firstValue[64] = {};
+        ParseNextToken( "object_material", cursor, firstValue, sizeof( firstValue ), expected );
+
+        float firstTint = 0.0f;
+        if ( TryParseFloat( firstValue, firstTint ) )
+        {
+            material.tintR = firstTint;
+            material.tintG = ParseNextFloatToken( "object_material", cursor, expected );
+            material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
+
+            char mode[64] = {};
+            ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
+            material.materialMode = ParseMaterialModeValue( "object_material", mode );
+        }
+        else
+        {
+            material.materialMode = ParseMaterialModeValue( "object_material", firstValue );
+        }
+
         material.material = Rendering::MakeRenderMaterialFromLegacyTint( material.tintR, material.tintG, material.tintB, material.materialMode );
         strcpy_s( material.material.name, sizeof( material.material.name ), Rendering::RenderMaterialKindName( material.material.kind ) );
+
+        char option[128] = {};
+        while ( ReadToken( cursor, option, sizeof( option ) ) )
+        {
+            ApplyObjectMaterialOption( material, option );
+        }
+
         m_scene.m_objectMaterials.push_back( material );
     }
 
@@ -1600,7 +1763,7 @@ class TestSceneParser
 
         static const SceneDirective directives[] = {
             { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
-            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
+            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
         };
 
         const char* args = nullptr;
@@ -1671,7 +1834,7 @@ class TestSceneParser
             { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
             { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
             { "look", &TestSceneParser::ParseLook, "look <name|path>" },
-            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
+            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
             { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
         };

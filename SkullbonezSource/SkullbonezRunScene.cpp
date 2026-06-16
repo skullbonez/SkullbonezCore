@@ -204,29 +204,29 @@ void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64
 
 void SkullbonezRun::SetUpGameModels( int count )
 {
-    m_scene.modelCount = count;
-    m_scene.solverBallCount = 0;
-    m_scene.solverBoxCount = 0;
+    SceneState().modelCount = count;
+    SceneState().solverBallCount = 0;
+    SceneState().solverBoxCount = 0;
 
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( m_scene.rngState ) % range ); };
+    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
     auto randSigned = [&]( int range ) -> float
     {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % range );
-        return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? mag : -mag;
+        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
+        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float
-    { return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
+    { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
-    for ( int x = 0; x < m_scene.modelCount; ++x )
+    for ( int x = 0; x < SceneState().modelCount; ++x )
     {
         float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -243,15 +243,15 @@ void SkullbonezRun::SetUpGameModels( int count )
         {
             // ~30% of generated objects are boxes, giving the default demo a
             // mixed collision workload without requiring explicit scene bodies.
-            makeBox = ( NextSceneRand( m_scene.rngState ) % 10 ) < 3;
+            makeBox = ( NextSceneRand( SceneState().rngState ) % 10 ) < 3;
         }
 
         if ( makeBox )
         {
-            float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 3 ) ) * 0.6f;
-            float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
+            float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
+            float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
             float hy = halfExtent;
-            float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
+            float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
 
             // Box inertia: I = m/3 * (hy^2 + hz^2) etc.
             float hx2 = hx * hx;
@@ -271,7 +271,7 @@ void SkullbonezRun::SetUpGameModels( int count )
         else
         {
             float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-            float radius = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
+            float radius = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
 
             GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
             gameModel.SetCoefficientRestitution( restitution );
@@ -304,21 +304,21 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         boxes = totalObjects;
     }
 
-    m_scene.modelCount = balls + boxes;
-    m_scene.solverBallCount = balls;
-    m_scene.solverBoxCount = boxes;
+    SceneState().modelCount = balls + boxes;
+    SceneState().solverBallCount = balls;
+    SceneState().solverBoxCount = boxes;
 
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( m_scene.rngState ) % range ); };
+    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
     auto randSigned = [&]( int range ) -> float
     {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % range );
-        return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? mag : -mag;
+        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
+        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float
-    { return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
+    { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
@@ -327,9 +327,9 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
+        float radius = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -352,14 +352,14 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 3 ) ) * 0.6f;
-        float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
+        float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
+        float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
         float hy = halfExtent;
-        float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
+        float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
 
         float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
         float m3 = mass / 3.0f;
@@ -373,7 +373,7 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 
-    m_scene.modelCount = balls + boxes;
+    SceneState().modelCount = balls + boxes;
 }
 
 
@@ -401,7 +401,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    m_scene.modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount();
+    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -510,19 +510,19 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
 bool SkullbonezRun::HasSceneQueueEntry( int index ) const
 {
-    return index >= 0 && index < static_cast<int>( m_sceneQueue.size() );
+    return m_sceneRuntime.HasEntry( index );
 }
 
 
 bool SkullbonezRun::HasCurrentSceneQueueEntry() const
 {
-    return HasSceneQueueEntry( m_scene.currentSceneIndex );
+    return m_sceneRuntime.HasCurrentEntry();
 }
 
 
 const std::string* SkullbonezRun::CurrentSceneQueuePath() const
 {
-    return HasCurrentSceneQueueEntry() ? &m_sceneQueue[m_scene.currentSceneIndex] : nullptr;
+    return m_sceneRuntime.CurrentPath();
 }
 
 
@@ -535,27 +535,27 @@ SceneRuntimeResetSnapshot SkullbonezRun::CaptureSceneRuntimeResetSnapshot()
     SceneRuntimeResetSnapshot snapshot;
     snapshot.runtimeSettings = m_runtimeSettings;
     snapshot.debug = m_debug;
-    snapshot.isScenePhysics = m_scene.isScenePhysics;
-    snapshot.isSceneText = m_scene.isSceneText;
-    snapshot.isFixedStep = m_scene.isFixedStep;
-    snapshot.isExitOnComplete = m_scene.isExitOnComplete;
-    snapshot.isInteractiveRun = m_scene.isInteractiveRun;
-    snapshot.targetFrameCount = m_scene.targetFrameCount;
-    snapshot.timeScale = m_scene.timeScale;
+    snapshot.isScenePhysics = SceneState().isScenePhysics;
+    snapshot.isSceneText = SceneState().isSceneText;
+    snapshot.isFixedStep = SceneState().isFixedStep;
+    snapshot.isExitOnComplete = SceneState().isExitOnComplete;
+    snapshot.isInteractiveRun = SceneState().isInteractiveRun;
+    snapshot.targetFrameCount = SceneState().targetFrameCount;
+    snapshot.timeScale = SceneState().timeScale;
     snapshot.worldGravity = m_cWorldEnvironment.GetGravity();
     snapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
     snapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
     // Preserve live Cine-tab edits across a scene reset/reload. Without this,
     // pressing reset would snap the visual look back to the file/defaults.
-    snapshot.hasCinematicRenderingOverride = m_scene.hasCinematicRenderingOverride;
-    snapshot.isCinematicRenderingEnabled = m_scene.isCinematicRenderingEnabled;
-    snapshot.hasCinematicExposure = m_scene.hasCinematicExposure;
-    snapshot.cinematicExposure = m_scene.cinematicExposure;
-    snapshot.hasCinematicGamma = m_scene.hasCinematicGamma;
-    snapshot.cinematicGamma = m_scene.cinematicGamma;
-    snapshot.cinematicOverrideMask = m_scene.cinematicOverrideMask;
-    snapshot.uiCinematicOverrideMask = m_scene.uiCinematicOverrideMask;
-    snapshot.cinematicRender = m_scene.cinematicRender;
+    snapshot.hasCinematicRenderingOverride = SceneState().hasCinematicRenderingOverride;
+    snapshot.isCinematicRenderingEnabled = SceneState().isCinematicRenderingEnabled;
+    snapshot.hasCinematicExposure = SceneState().hasCinematicExposure;
+    snapshot.cinematicExposure = SceneState().cinematicExposure;
+    snapshot.hasCinematicGamma = SceneState().hasCinematicGamma;
+    snapshot.cinematicGamma = SceneState().cinematicGamma;
+    snapshot.cinematicOverrideMask = SceneState().cinematicOverrideMask;
+    snapshot.uiCinematicOverrideMask = SceneState().uiCinematicOverrideMask;
+    snapshot.cinematicRender = SceneState().cinematicRender;
     snapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
     snapshot.uiModelCountOverride = m_UIModelCountOverride;
     snapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
@@ -576,29 +576,29 @@ void SkullbonezRun::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSna
     // object transforms stay reset because they belong to the simulation run itself.
     m_runtimeSettings = snapshot.runtimeSettings;
     m_debug = snapshot.debug;
-    m_scene.isScenePhysics = snapshot.isScenePhysics;
-    m_scene.isSceneText = snapshot.isSceneText;
-    m_scene.timeScale = snapshot.timeScale;
-    m_scene.isFixedStep = snapshot.isFixedStep;
-    m_scene.isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
-    m_scene.isExitOnComplete = m_scene.isInteractiveRun ? false : snapshot.isExitOnComplete;
-    m_scene.targetFrameCount = snapshot.targetFrameCount;
+    SceneState().isScenePhysics = snapshot.isScenePhysics;
+    SceneState().isSceneText = snapshot.isSceneText;
+    SceneState().timeScale = snapshot.timeScale;
+    SceneState().isFixedStep = snapshot.isFixedStep;
+    SceneState().isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
+    SceneState().isExitOnComplete = SceneState().isInteractiveRun ? false : snapshot.isExitOnComplete;
+    SceneState().targetFrameCount = snapshot.targetFrameCount;
     // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
-    m_scene.hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
-    m_scene.isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
-    m_scene.hasCinematicExposure = snapshot.hasCinematicExposure;
-    m_scene.cinematicExposure = snapshot.cinematicExposure;
-    m_scene.hasCinematicGamma = snapshot.hasCinematicGamma;
-    m_scene.cinematicGamma = snapshot.cinematicGamma;
-    m_scene.cinematicOverrideMask = snapshot.cinematicOverrideMask;
-    m_scene.uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
-    m_scene.cinematicRender = snapshot.cinematicRender;
+    SceneState().hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
+    SceneState().isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
+    SceneState().hasCinematicExposure = snapshot.hasCinematicExposure;
+    SceneState().cinematicExposure = snapshot.cinematicExposure;
+    SceneState().hasCinematicGamma = snapshot.hasCinematicGamma;
+    SceneState().cinematicGamma = snapshot.cinematicGamma;
+    SceneState().cinematicOverrideMask = snapshot.cinematicOverrideMask;
+    SceneState().uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
+    SceneState().cinematicRender = snapshot.cinematicRender;
     m_UITimeScaleOverride = snapshot.uiTimeScaleOverride;
     m_UIModelCountOverride = snapshot.uiModelCountOverride;
     m_UISolverBallCountOverride = snapshot.uiSolverBallCountOverride;
     m_UISolverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
     m_camera.trackHeight = snapshot.trackHeight;
-    m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < m_scene.modelCount )
+    m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < SceneState().modelCount )
                                   ? snapshot.trackBallIndex
                                   : -1;
     m_camera.autoCycleInterval = snapshot.autoCycleInterval;
@@ -623,20 +623,25 @@ void SkullbonezRun::ClearSceneRuntimeUIOverrides()
 
 void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
+    SceneRuntime& runtime = m_sceneRuntime;
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
+    if ( !runtime.HasEntry( index ) )
+    {
+        return;
+    }
 
     if ( suppressExitOnComplete )
     {
-        m_scene.isInteractiveRun = true;
+        SceneState().isInteractiveRun = true;
     }
     if ( m_cmdInteractiveSceneRun )
     {
-        m_scene.isInteractiveRun = true;
+        SceneState().isInteractiveRun = true;
     }
-    const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState && HasCurrentSceneQueueEntry();
+    const bool suppressAutomationExit = SceneState().isInteractiveRun || suppressExitOnComplete;
+    const bool shouldPreserveRuntimeState = preserveRuntimeState && runtime.HasCurrentEntry();
     SceneRuntimeResetSnapshot resetSnapshot;
     if ( shouldPreserveRuntimeState )
     {
@@ -653,9 +658,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         Gfx().FlushGPU();
     }
 
-    m_scene.currentSceneIndex = index;
-    ++m_scene.loadCount;
-    const std::string& scenePath = m_sceneQueue[index];
+    runtime.BeginLoad( index );
+    const std::string& scenePath = runtime.PathAt( index );
     if ( !shouldPreserveRuntimeState )
     {
         m_selectedCineModeSceneIndex = ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
@@ -675,29 +679,28 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     }
 
     // Reset scene config to defaults
-    m_scene.isScenePhysics = true;
-    m_scene.isSceneText = true;
+    SceneState().isScenePhysics = true;
+    SceneState().isSceneText = true;
     m_perfLogState.isPerfTest = false;
     m_perfLogState.perfHeaderWritten = false;
     m_screenshot.isScreenshotSaved = false;
     m_screenshot.isScreenshotAndExit = false;
-    m_scene.targetFrameCount = -1;
-    m_scene.currentFrame = 0;
-    m_scene.solverBallCount = 0;
-    m_scene.solverBoxCount = 0;
-    m_scene.hasCinematicRenderingOverride = false;
-    m_scene.isCinematicRenderingEnabled = false;
-    m_scene.hasCinematicExposure = false;
-    m_scene.cinematicExposure = Cfg().cinematicRender.exposure;
-    m_scene.hasCinematicGamma = false;
-    m_scene.cinematicGamma = Cfg().cinematicRender.gamma;
-    m_scene.cinematicOverrideMask = 0;
-    m_scene.uiCinematicOverrideMask = 0;
-    m_scene.cinematicRender = Cfg().cinematicRender;
-    m_scene.isTestComplete = false;
-    m_scene.isFinishLogged = false;
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
+    SceneState().targetFrameCount = -1;
+    SceneState().currentFrame = 0;
+    SceneState().solverBallCount = 0;
+    SceneState().solverBoxCount = 0;
+    SceneState().hasCinematicRenderingOverride = false;
+    SceneState().isCinematicRenderingEnabled = false;
+    SceneState().hasCinematicExposure = false;
+    SceneState().cinematicExposure = Cfg().cinematicRender.exposure;
+    SceneState().hasCinematicGamma = false;
+    SceneState().cinematicGamma = Cfg().cinematicRender.gamma;
+    SceneState().cinematicOverrideMask = 0;
+    SceneState().uiCinematicOverrideMask = 0;
+    SceneState().cinematicRender = Cfg().cinematicRender;
+    SceneState().isTestComplete = false;
+    SceneState().isFinishLogged = false;
+    m_simulation.Reset();
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
     m_screenshot.screenshotPath[0] = '\0';
@@ -738,9 +741,9 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_debug.reproSnapshotMessage[0] = '\0';
     m_debug.reproSnapshotMessageUntil = 0.0;
 #endif
-    m_scene.timeScale = 1.0f;
-    m_scene.isFixedStep = false;
-    m_scene.isExitOnComplete = false;
+    SceneState().timeScale = 1.0f;
+    SceneState().isFixedStep = false;
+    SceneState().isExitOnComplete = false;
     m_debug.frozenWaterTime = 0.0f;
     m_camera.trackBallIndex = -1;
     m_camera.trackHeight = 300.0f;
@@ -770,8 +773,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
     // overrides can still pin this exactly for repro.
     unsigned int rngSeed = static_cast<unsigned int>( time( nullptr ) );
-    rngSeed ^= static_cast<unsigned int>( m_scene.loadCount ) * 2654435761u;
-    rngSeed ^= static_cast<unsigned int>( m_scene.manualResetCount ) * 2246822519u;
+    rngSeed ^= static_cast<unsigned int>( SceneState().loadCount ) * 2654435761u;
+    rngSeed ^= static_cast<unsigned int>( SceneState().manualResetCount ) * 2246822519u;
     if ( rngSeed == 0 )
     {
         rngSeed = 1;
@@ -784,8 +787,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             rngSeed = m_cmdSeedOverride;
         }
-        m_scene.rngSeed = rngSeed;
-        m_scene.rngState = rngSeed;
+        SceneState().rngSeed = rngSeed;
+        SceneState().rngState = rngSeed;
         UseDefaultTerrain();
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
@@ -795,7 +798,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
         }
 
-        m_scene.isSceneMode = false;
+        SceneState().isSceneMode = false;
         SetUpCameras();
         if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
         {
@@ -813,10 +816,10 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     }
     else
     {
-        m_scene.isSceneMode = true;
+        SceneState().isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
-        m_scene.isScenePhysics = scene.IsPhysicsEnabled();
-        m_scene.isSceneText = scene.IsTextEnabled();
+        SceneState().isScenePhysics = scene.IsPhysicsEnabled();
+        SceneState().isSceneText = scene.IsTextEnabled();
         m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
         m_perfLogState.perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
@@ -845,19 +848,19 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
         }
-        m_scene.timeScale = scene.GetTimeScale();
-        m_scene.isFixedStep = scene.IsFixedStep();
+        SceneState().timeScale = scene.GetTimeScale();
+        SceneState().isFixedStep = scene.IsFixedStep();
         // Start with engine.cfg defaults, then apply only the cinematic fields
         // that the .scene file explicitly authored.
-        m_scene.hasCinematicRenderingOverride = scene.HasCinematicRenderingOverride();
-        m_scene.isCinematicRenderingEnabled = scene.IsCinematicRenderingEnabled();
-        m_scene.hasCinematicExposure = scene.HasCinematicExposure();
-        m_scene.cinematicExposure = scene.GetCinematicExposure();
-        m_scene.hasCinematicGamma = scene.HasCinematicGamma();
-        m_scene.cinematicGamma = scene.GetCinematicGamma();
-        m_scene.cinematicOverrideMask = scene.GetCinematicOverrideMask();
-        m_scene.cinematicRender = Cfg().cinematicRender;
-        ApplyCinematicSceneOverrides( m_scene.cinematicRender, m_scene.cinematicOverrideMask, scene.GetCinematicRenderConfig() );
+        SceneState().hasCinematicRenderingOverride = scene.HasCinematicRenderingOverride();
+        SceneState().isCinematicRenderingEnabled = scene.IsCinematicRenderingEnabled();
+        SceneState().hasCinematicExposure = scene.HasCinematicExposure();
+        SceneState().cinematicExposure = scene.GetCinematicExposure();
+        SceneState().hasCinematicGamma = scene.HasCinematicGamma();
+        SceneState().cinematicGamma = scene.GetCinematicGamma();
+        SceneState().cinematicOverrideMask = scene.GetCinematicOverrideMask();
+        SceneState().cinematicRender = Cfg().cinematicRender;
+        ApplyCinematicSceneOverrides( SceneState().cinematicRender, SceneState().cinematicOverrideMask, scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
         const double UINow = m_timers.simulationTimer.GetTotalTime();
@@ -969,8 +972,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             m_uiStress.actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
         }
-        m_scene.targetFrameCount = scene.GetFrameCount();
-        m_scene.isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
+        SceneState().targetFrameCount = scene.GetFrameCount();
+        SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
         m_screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
@@ -1018,8 +1021,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             rngSeed = m_cmdSeedOverride;
         }
-        m_scene.rngSeed = rngSeed;
-        m_scene.rngState = rngSeed;
+        SceneState().rngSeed = rngSeed;
+        SceneState().rngState = rngSeed;
 
         // Scene terrain is authoritative.  A flat-slope test scene must not leak
         // its analytic terrain into the next height-map scene.
@@ -1110,15 +1113,15 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // CLI --time-scale and --fixed-step override anything the scene file sets.
     if ( m_cmdTimeScaleOverride > 0.0f )
     {
-        m_scene.timeScale = m_cmdTimeScaleOverride;
+        SceneState().timeScale = m_cmdTimeScaleOverride;
     }
     if ( m_UITimeScaleOverride > 0.0f )
     {
-        m_scene.timeScale = m_UITimeScaleOverride;
+        SceneState().timeScale = m_UITimeScaleOverride;
     }
     if ( m_cmdFixedStep )
     {
-        m_scene.isFixedStep = true;
+        SceneState().isFixedStep = true;
     }
     if ( !shouldPreserveRuntimeState )
     {
@@ -1137,8 +1140,8 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_cmdFrameCountOverride > 0 )
     {
-        m_scene.targetFrameCount = m_cmdFrameCountOverride;
-        m_scene.isExitOnComplete = true;
+        SceneState().targetFrameCount = m_cmdFrameCountOverride;
+        SceneState().isExitOnComplete = true;
     }
     if ( m_cmdUIStress )
     {
@@ -1151,7 +1154,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     if ( m_cmdHasCinematicShadowsOverride )
     {
         ActiveCinematicConfig().shadowsEnabled = m_cmdCinematicShadows;
-        m_scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+        SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
     if ( m_cmdHasPhysicsDebugFlagsOverride )
     {
@@ -1172,16 +1175,16 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
 #ifdef _DEBUG
     Log().WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u fixed_step=%d physics=%d text=%d models=%d",
-                       m_scene.currentSceneIndex,
-                       m_scene.loadCount,
+                       SceneState().currentSceneIndex,
+                       SceneState().loadCount,
                        scenePath.empty() ? "generated" : scenePath.c_str(),
                        IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                       m_scene.targetFrameCount,
-                       m_scene.rngSeed,
-                       m_scene.isFixedStep ? 1 : 0,
-                       m_scene.isScenePhysics ? 1 : 0,
-                       m_scene.isSceneText ? 1 : 0,
-                       m_scene.modelCount );
+                       SceneState().targetFrameCount,
+                       SceneState().rngSeed,
+                       SceneState().isFixedStep ? 1 : 0,
+                       SceneState().isScenePhysics ? 1 : 0,
+                       SceneState().isSceneText ? 1 : 0,
+                       SceneState().modelCount );
 #endif
 
 #ifdef _DEBUG
@@ -1233,7 +1236,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 bool SkullbonezRun::SaveCurrentSceneDefaults()
 {
     const std::string* scenePath = CurrentSceneQueuePath();
-    if ( !m_scene.isSceneMode || !scenePath || scenePath->empty() )
+    if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
     }
@@ -1256,8 +1259,8 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     }
 
     char buf[128] = {};
-    SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( m_scene.isScenePhysics ), true );
-    SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( m_scene.isSceneText ), true );
+    SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( SceneState().isScenePhysics ), true );
+    SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( SceneState().isSceneText ), true );
     SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
     SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
     SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
@@ -1267,19 +1270,19 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "legacy_balls", "", false );
     SetSceneDirective( lines, "physics_mode", "", false );
     SetSceneDirective( lines, "roll_align", "", false );
-    SetSceneDirective( lines, "fixed_step", "fixed_step", m_scene.isFixedStep );
-    if ( m_scene.targetFrameCount > 0 )
+    SetSceneDirective( lines, "fixed_step", "fixed_step", SceneState().isFixedStep );
+    if ( SceneState().targetFrameCount > 0 )
     {
-        snprintf( buf, sizeof( buf ), "frames %d", m_scene.targetFrameCount );
+        snprintf( buf, sizeof( buf ), "frames %d", SceneState().targetFrameCount );
     }
     else
     {
         strcpy_s( buf, sizeof( buf ), "frames unlimited" );
     }
     SetSceneDirective( lines, "frames", buf, true );
-    snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, m_scene.rngSeed ) );
+    snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, SceneState().rngSeed ) );
     SetSceneDirective( lines, "seed", buf, true );
-    SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", m_scene.isExitOnComplete );
+    SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", SceneState().isExitOnComplete );
     SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
@@ -1290,7 +1293,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "physics_debug_alpha", buf, true );
     snprintf( buf, sizeof( buf ), "physics_debug_contact_linger %.2f", m_debug.physicsDebugContactLinger );
     SetSceneDirective( lines, "physics_debug_contact_linger", buf, true );
-    snprintf( buf, sizeof( buf ), "time_scale %.2f", m_scene.timeScale );
+    snprintf( buf, sizeof( buf ), "time_scale %.2f", SceneState().timeScale );
     SetSceneDirective( lines, "time_scale", buf, true );
     SetSceneDirective( lines, "collision_visualizer", std::string( "collision_visualizer " ) + OnOff( m_debug.isCollisionVisualizer ), true );
     SetSceneDirective( lines, "broadphase_overlay", std::string( "broadphase_overlay " ) + OnOff( m_debug.isBroadphaseOverlay ), true );
@@ -1319,7 +1322,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     }
     snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
     SetSceneDirective( lines, "world", buf, true );
-    SetTouchedCinematicSceneDirectives( lines, m_scene.uiCinematicOverrideMask, m_scene.cinematicRender );
+    SetTouchedCinematicSceneDirectives( lines, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
     if ( m_UIModelCountOverride >= 0 )
     {
@@ -1327,11 +1330,11 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         SetSceneDirective( lines, "solver_balls", buf, true );
         SetSceneDirective( lines, "solver_boxes", "", false );
     }
-    else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
     {
-        snprintf( buf, sizeof( buf ), "solver_balls %d", m_scene.solverBallCount );
+        snprintf( buf, sizeof( buf ), "solver_balls %d", SceneState().solverBallCount );
         SetSceneDirective( lines, "solver_balls", buf, true );
-        snprintf( buf, sizeof( buf ), "solver_boxes %d", m_scene.solverBoxCount );
+        snprintf( buf, sizeof( buf ), "solver_boxes %d", SceneState().solverBoxCount );
         SetSceneDirective( lines, "solver_boxes", buf, true );
     }
 
@@ -1415,6 +1418,7 @@ int SkullbonezRun::CurrentSceneBrowserIndex() const
 
 void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
 {
+    SceneRuntime& runtime = m_sceneRuntime;
     if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
     {
         return;
@@ -1423,42 +1427,37 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
     EnterInteractiveSceneRun();
 
     const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
-    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    const int queuedIndex = runtime.FindNormalizedPath( selectedPath );
+    if ( queuedIndex >= 0 )
     {
-        if ( NormalizeScenePath( m_sceneQueue[i] ) == selectedPath )
+        if ( queuedIndex != runtime.CurrentIndex() )
         {
-            if ( i != m_scene.currentSceneIndex )
-            {
-                LoadScene( i, true, true );
-            }
-            else
-            {
-                m_scene.isExitOnComplete = false;
-                m_screenshot.isScreenshotAndExit = false;
-            }
-            return;
+            LoadScene( queuedIndex, true, true );
         }
+        else
+        {
+            SceneState().isExitOnComplete = false;
+            m_screenshot.isScreenshotAndExit = false;
+        }
+        return;
     }
 
-    m_sceneQueue.push_back( selectedPath );
-    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+    LoadScene( runtime.Append( selectedPath ), true, true );
 }
 
 
 void SkullbonezRun::LoadDemoSceneFromUI()
 {
+    SceneRuntime& runtime = m_sceneRuntime;
     EnterInteractiveSceneRun();
-    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    const int demoIndex = runtime.FindGeneratedDemo();
+    if ( demoIndex >= 0 )
     {
-        if ( m_sceneQueue[i].empty() )
-        {
-            LoadScene( i, true, true );
-            return;
-        }
+        LoadScene( demoIndex, true, true );
+        return;
     }
 
-    m_sceneQueue.push_back( "" );
-    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+    LoadScene( runtime.Append( "" ), true, true );
 }
 
 
@@ -1496,16 +1495,16 @@ bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
     if ( index < 0 )
     {
         cinematic = m_defaultCinematicRender;
-        if ( m_scene.isSceneMode )
+        if ( SceneState().isSceneMode )
         {
-            m_scene.hasCinematicRenderingOverride = false;
-            m_scene.isCinematicRenderingEnabled = cinematic.enabled;
-            m_scene.hasCinematicExposure = false;
-            m_scene.cinematicExposure = cinematic.exposure;
-            m_scene.hasCinematicGamma = false;
-            m_scene.cinematicGamma = cinematic.gamma;
-            m_scene.cinematicOverrideMask = 0;
-            m_scene.uiCinematicOverrideMask = 0;
+            SceneState().hasCinematicRenderingOverride = false;
+            SceneState().isCinematicRenderingEnabled = cinematic.enabled;
+            SceneState().hasCinematicExposure = false;
+            SceneState().cinematicExposure = cinematic.exposure;
+            SceneState().hasCinematicGamma = false;
+            SceneState().cinematicGamma = cinematic.gamma;
+            SceneState().cinematicOverrideMask = 0;
+            SceneState().uiCinematicOverrideMask = 0;
         }
         resetObjectMaterials();
         m_selectedCineModeSceneIndex = -1;
@@ -1520,16 +1519,16 @@ bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
     TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowserPaths[index].c_str() );
     cinematic = m_defaultCinematicRender;
     ApplyCinematicSceneOverrides( cinematic, lookScene.GetCinematicOverrideMask(), lookScene.GetCinematicRenderConfig() );
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
-        m_scene.hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
-        m_scene.isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
-        m_scene.hasCinematicExposure = lookScene.HasCinematicExposure();
-        m_scene.cinematicExposure = lookScene.GetCinematicExposure();
-        m_scene.hasCinematicGamma = lookScene.HasCinematicGamma();
-        m_scene.cinematicGamma = lookScene.GetCinematicGamma();
-        m_scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
-        m_scene.uiCinematicOverrideMask = 0;
+        SceneState().hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
+        SceneState().isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
+        SceneState().hasCinematicExposure = lookScene.HasCinematicExposure();
+        SceneState().cinematicExposure = lookScene.GetCinematicExposure();
+        SceneState().hasCinematicGamma = lookScene.HasCinematicGamma();
+        SceneState().cinematicGamma = lookScene.GetCinematicGamma();
+        SceneState().cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
+        SceneState().uiCinematicOverrideMask = 0;
     }
     applyObjectMaterials( lookScene );
     m_selectedCineModeSceneIndex = index;
@@ -1562,16 +1561,16 @@ void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
     CinematicRenderConfig& cinematic = ActiveCinematicConfig();
     cinematic = m_defaultCinematicRender;
     ApplyCinematicSceneOverrides( cinematic, styleScene.GetCinematicOverrideMask(), styleScene.GetCinematicRenderConfig() );
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
-        m_scene.hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
-        m_scene.isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
-        m_scene.hasCinematicExposure = styleScene.HasCinematicExposure();
-        m_scene.cinematicExposure = styleScene.GetCinematicExposure();
-        m_scene.hasCinematicGamma = styleScene.HasCinematicGamma();
-        m_scene.cinematicGamma = styleScene.GetCinematicGamma();
-        m_scene.cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
-        m_scene.uiCinematicOverrideMask = 0;
+        SceneState().hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
+        SceneState().isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
+        SceneState().hasCinematicExposure = styleScene.HasCinematicExposure();
+        SceneState().cinematicExposure = styleScene.GetCinematicExposure();
+        SceneState().hasCinematicGamma = styleScene.HasCinematicGamma();
+        SceneState().cinematicGamma = styleScene.GetCinematicGamma();
+        SceneState().cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
+        SceneState().uiCinematicOverrideMask = 0;
     }
     m_selectedCineModeSceneIndex = -1;
 }
@@ -1579,7 +1578,7 @@ void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
 
 void SkullbonezRun::ApplyDemoHeroStyleOverride()
 {
-    if ( !m_cmdDemoHeroStyle || m_scene.isSceneMode )
+    if ( !m_cmdDemoHeroStyle || SceneState().isSceneMode )
     {
         return;
     }
@@ -1647,25 +1646,16 @@ bool SkullbonezRun::ApplyAdjacentCinematicMode( int direction )
 
 void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 {
+    SceneRuntime& runtime = m_sceneRuntime;
     if ( direction == 0 )
     {
         return;
     }
 
-    if ( HasCurrentSceneQueueEntry() && m_sceneQueue.size() > 1 )
+    if ( runtime.CurrentQueueIsCinematicDeck() )
     {
-        bool queueIsCinematicDeck = true;
-        for ( const std::string& queuedPath : m_sceneQueue )
-        {
-            queueIsCinematicDeck = queueIsCinematicDeck && !queuedPath.empty() && IsCineScenePath( queuedPath );
-        }
-        if ( queueIsCinematicDeck )
-        {
-            const int queueCount = static_cast<int>( m_sceneQueue.size() );
-            const int nextQueueIndex = ( m_scene.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
-            LoadScene( nextQueueIndex, true, true );
-            return;
-        }
+        LoadScene( runtime.AdjacentQueueIndex( direction ), true, true );
+        return;
     }
 
     const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
@@ -1716,13 +1706,14 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 
 void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    if ( !HasCurrentSceneQueueEntry() )
+    SceneRuntime& runtime = m_sceneRuntime;
+    if ( !runtime.HasCurrentEntry() )
     {
         return;
     }
 
-    ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete, preserveRuntimeState );
+    runtime.MarkManualReset();
+    LoadScene( runtime.CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
@@ -1742,20 +1733,19 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
-    m_scene.currentFrame = 0;
-    m_scene.isTestComplete = false;
+    m_simulation.Reset();
+    SceneState().currentFrame = 0;
+    SceneState().isTestComplete = false;
     if ( m_UIModelCountOverride <= 0 )
     {
-        m_scene.modelCount = 0;
+        SceneState().modelCount = 0;
         m_camera.trackBallIndex = -1;
         PROFILE_SCHEDULE_RESET();
         return;
     }
 
-    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
-    m_scene.rngState = seed;
+    const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
+    SceneState().rngState = seed;
     SetUpGameModels( m_UIModelCountOverride );
     if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
     {
@@ -1787,21 +1777,20 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
-    m_scene.currentFrame = 0;
-    m_scene.isTestComplete = false;
+    m_simulation.Reset();
+    SceneState().currentFrame = 0;
+    SceneState().isTestComplete = false;
 
-    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
-    m_scene.rngState = seed;
+    const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
+    SceneState().rngState = seed;
     SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
-    if ( m_scene.modelCount <= 0 )
+    if ( SceneState().modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;
     }
-    else if ( m_camera.trackBallIndex >= m_scene.modelCount )
+    else if ( m_camera.trackBallIndex >= SceneState().modelCount )
     {
-        m_camera.trackBallIndex = m_scene.modelCount - 1;
+        m_camera.trackBallIndex = SceneState().modelCount - 1;
     }
     PROFILE_SCHEDULE_RESET();
 }
@@ -1894,21 +1883,22 @@ void SkullbonezRun::UpdateWorldTerrainBounds()
 
 bool SkullbonezRun::AdvanceScene()
 {
-    const bool preserveInteractiveUI = m_scene.isInteractiveRun;
+    SceneRuntime& runtime = m_sceneRuntime;
+    const bool preserveInteractiveUI = SceneState().isInteractiveRun;
 
     // For perf tests with 2 passes, the second pass re-runs the same scene
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
+        LoadScene( runtime.CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
         return true;
     }
 
     // Reset perf pass counter for next scene
     sPerfPass = 0;
 
-    int nextIndex = m_scene.currentSceneIndex + 1;
-    if ( !HasSceneQueueEntry( nextIndex ) )
+    const int nextIndex = runtime.NextIndex();
+    if ( !runtime.HasEntry( nextIndex ) )
     {
         return false;
     }
