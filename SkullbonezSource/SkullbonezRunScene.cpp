@@ -700,8 +700,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     SceneState().cinematicRender = Cfg().cinematicRender;
     SceneState().isTestComplete = false;
     SceneState().isFinishLogged = false;
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
+    m_simulation.Reset();
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
     m_screenshot.screenshotPath[0] = '\0';
@@ -1734,8 +1733,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
+    m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
     if ( m_UIModelCountOverride <= 0 )
@@ -1779,8 +1777,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
-    m_timers.physicsAccumulator = 0.0f;
-    m_timers.fixedStepTickAccumulator = 0.0f;
+    m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
 

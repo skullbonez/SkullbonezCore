@@ -122,7 +122,7 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 ## Runtime Facades And Streams
 
-`SceneRuntime` lives in `SkullbonezSceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SkullbonezRun` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics, screenshots, and render/backend setup. Treat this as the first runtime subsystem extraction, not the final runtime split; `SimulationSystem`, `RuntimeDiagnostics`, `CaptureSystem`, and `InputController` remain future extraction boundaries.
+`SceneRuntime` lives in `SkullbonezSceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `SkullbonezRun` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics, screenshots, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split; `RuntimeDiagnostics`, `CaptureSystem`, and `InputController` remain future extraction boundaries.
 
 `GameModelBodyStream` and `GameModelRenderStream` are borrowed views over `GameModelCollection`'s `GameModelSoACache`. They make current physics and render call sites explicit about which fields they consume, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat them as a boundary marker for future data separation, not as the final physics/render storage split.
 

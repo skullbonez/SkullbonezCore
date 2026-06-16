@@ -98,8 +98,6 @@ inline constexpr float CAMERA_PROJECTILE_PARK_BASE = -5000.0f;
 inline constexpr float CAMERA_PROJECTILE_SILVER_R = 1.0f;
 inline constexpr float CAMERA_PROJECTILE_SILVER_G = 1.0f;
 inline constexpr float CAMERA_PROJECTILE_SILVER_B = 1.0f;
-inline constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
-
 #ifdef _DEBUG
 inline constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
 inline constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;

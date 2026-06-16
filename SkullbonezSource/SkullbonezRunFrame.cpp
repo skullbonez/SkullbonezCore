@@ -173,72 +173,19 @@ void SkullbonezRun::Run()
 
 void SkullbonezRun::TickPhysics( double secondsPerFrame )
 {
-    if ( SceneState().isSceneMode && !SceneState().isScenePhysics )
+    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
+        secondsPerFrame,
+        SceneState().timeScale,
+        SceneState().isSceneMode,
+        SceneState().isScenePhysics,
+        SceneState().isFixedStep,
+        m_camera.isFlyMode,
+        m_camera.isNudgeMode,
+        Input::IsKeyDown( VK_SPACE ),
+        &m_cGameModelCollection } );
+    if ( tick.shouldUpdateLogic )
     {
-        return;
-    }
-
-    if ( SceneState().isFixedStep )
-    {
-        // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
-        // Ignores wall-clock time entirely — produces identical results every run.
-        //
-        // Accumulate fractional fixed ticks so 0.5x, 1.5x, and 10x all remain
-        // deterministic while using the exact fixed simulation delta.
-        m_timers.fixedStepTickAccumulator += (std::max)( 0.0f, SceneState().timeScale );
-        const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_timers.fixedStepTickAccumulator ) ), FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
-        m_timers.fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
-        if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
-        {
-            PROFILE_BEGIN( "Frame/Physics" );
-            for ( int tick = 0; tick < ticksThisFrame; ++tick )
-            {
-                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
-            }
-            PROFILE_END( "Frame/Physics" );
-        }
-        // Keep deterministic scene time and presentation time separate.
-        //
-        // Fixed-step scenes intentionally advance simulation by an exact tick count
-        // that is independent of wall-clock time. Camera input and camera tweens are
-        // not part of that deterministic simulation contract: they should feel the
-        // same at 30 Hz, 144 Hz, or when time_scale is cranked for diagnostics.
-        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ),
-                     static_cast<float>( secondsPerFrame ) );
-    }
-    else
-    {
-        float scaledDt = static_cast<float>( secondsPerFrame ) * SceneState().timeScale;
-
-        if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
-        {
-            PROFILE_BEGIN( "Frame/Physics" );
-            // The impulse solver uses discrete overlap tests and needs small
-            // fixed steps for stability. Only RunPhysics runs in the loop;
-            // camera and miscellaneous UI updates use real frame time below.
-            m_timers.physicsAccumulator += scaledDt;
-
-            int steps = 0;
-            while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
-            {
-                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
-                m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
-                ++steps;
-            }
-
-            // Drain excess accumulator if we hit the step cap to avoid carrying
-            // a runaway backlog into the next frame after a stall.
-            if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
-            {
-                m_timers.physicsAccumulator = 0.0f;
-            }
-            PROFILE_END( "Frame/Physics" );
-        }
-
-        // Per-frame logic runs once per render frame. Anything tied to simulation
-        // playback gets the scaled dt; camera input and camera tweens get real wall
-        // time so time_scale does not make the operator fly around the scene.
-        UpdateLogic( scaledDt, static_cast<float>( secondsPerFrame ) );
+        UpdateLogic( tick.simulationDt, tick.cameraDt );
     }
 }
 

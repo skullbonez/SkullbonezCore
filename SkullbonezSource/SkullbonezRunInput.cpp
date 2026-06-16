@@ -1032,8 +1032,7 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.sceneOptions.toggleFixedStep )
         {
             SceneState().isFixedStep = !SceneState().isFixedStep;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+            m_simulation.Reset();
         }
         if ( uiCommands.sceneOptions.toggleTerrainHidden )
         {
@@ -1083,8 +1082,7 @@ void SkullbonezRun::TakeInput()
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
             SceneState().timeScale = m_UITimeScaleOverride;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+            m_simulation.Reset();
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {

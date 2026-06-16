@@ -173,6 +173,7 @@ class RunTimerState
 class RunSubsystemState
 class RunCameraState
 class SceneRuntime
+class SimulationSystem
 class RunSceneState
 class RunScreenshotState
 class RunLiveStyleControlState
@@ -200,6 +201,7 @@ SkullbonezRun *-- RunTimerState
 SkullbonezRun *-- RunSubsystemState
 SkullbonezRun *-- RunCameraState
 SkullbonezRun *-- SceneRuntime
+SkullbonezRun *-- SimulationSystem
 SceneRuntime *-- RunSceneState
 SkullbonezRun *-- RunScreenshotState
 SkullbonezRun *-- RunLiveStyleControlState
@@ -222,9 +224,11 @@ SkullbonezRun *-- PhysicsDebugVisualizer
 ```
 
 `SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
-`RunSceneState`. `SkullbonezRun` still coordinates the heavier load/reset side
-effects around that state, including object construction, terrain, cameras,
-UI defaults, capture, diagnostics, and renderer setup.
+`RunSceneState`. `SimulationSystem` owns timestep policy and the physics
+accumulators for fixed-step and variable-step playback. `SkullbonezRun` still
+coordinates the heavier load/reset side effects around that state, including
+object construction, terrain, cameras, UI defaults, capture, diagnostics, and
+renderer setup.
 
 ## Rendering Interfaces And Backend Family
 

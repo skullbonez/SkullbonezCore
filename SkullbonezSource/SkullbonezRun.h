@@ -60,6 +60,7 @@ Related:
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
 #include "SkullbonezSceneRuntime.h"
+#include "SkullbonezSimulationSystem.h"
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezWindow.h"
 #include "SkullbonezText.h"
@@ -142,9 +143,7 @@ struct RunTimerState
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
-    int lastUIDrawCalls = 0;               // Actual UI draw calls measured around Frame/UI last frame
-    float physicsAccumulator = 0.0f;       // Accumulated seconds for variable-step solver substeps
-    float fixedStepTickAccumulator = 0.0f; // Fractional fixed ticks owed by time_scale in fixed-step mode
+    int lastUIDrawCalls = 0; // Actual UI draw calls measured around Frame/UI last frame
 };
 
 // Concept: pass resource structs name ownership before the frame graph exists.
@@ -816,6 +815,7 @@ class SkullbonezRun
     RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and pass resource ownership
     RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
+    SimulationSystem m_simulation;                            // Simulation timestep policy and physics accumulators
     RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle;                     // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
