@@ -63,7 +63,7 @@ static int s_batchVerts = 0;
 // BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
 // one draw call — so an entire profiler bar overlay (background + N segments +
 // legend swatches) costs exactly one draw call for all quads.
-static constexpr int QUAD_BATCH_MAX_QUADS = 512;        // up to 512 quads per flush
+static constexpr int QUAD_BATCH_MAX_QUADS = 8192;        // up to 8192 quads per flush
 static constexpr int QUAD_BATCH_FLOATS_PER_VERT = 6;    // x, y, r, g, b, a
 static constexpr int QUAD_BATCH_VERTS_PER_QUAD = 6;     // 2 triangles
 static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = 3; // 1 triangle
