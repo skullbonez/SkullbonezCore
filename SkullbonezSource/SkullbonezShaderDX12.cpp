@@ -50,7 +50,7 @@ using Microsoft::WRL::ComPtr;
 
 
 ShaderDX12::ShaderDX12()
-    : m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
+    : m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
 {
 }
 
@@ -61,6 +61,10 @@ ShaderDX12::~ShaderDX12() = default;
 bool ShaderDX12::Compile( const char* hlslPath )
 {
     m_contract = FindShaderProgramDesc( hlslPath );
+    m_uniformMap.clear();
+    m_cbReflectedSize = 0;
+    m_cbSize = 0;
+    m_cbData.clear();
 #ifdef _DEBUG
     m_resourceMap.clear();
 #endif
@@ -162,9 +166,9 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
         D3D11_SHADER_BUFFER_DESC bufDesc = {};
         cb->GetDesc( &bufDesc );
 
-        if ( bufDesc.Size > m_cbSize )
+        if ( bufDesc.Size > m_cbReflectedSize )
         {
-            m_cbSize = bufDesc.Size;
+            m_cbReflectedSize = bufDesc.Size;
         }
 
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
@@ -176,7 +180,7 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
         }
     }
     // Align CB size to 256 bytes (DX12 requirement)
-    m_cbSize = ( m_cbSize + 255 ) & ~255u;
+    m_cbSize = ( m_cbReflectedSize + 255 ) & ~255u;
     m_cbData.resize( m_cbSize, 0 );
 }
 
@@ -563,13 +567,14 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
     {
         return false;
     }
-    if ( size > m_cbSize )
+    if ( size != m_cbReflectedSize )
     {
 #ifdef _DEBUG
-        Log().WriteEventf( "shader_typed_cbuffer_too_large shader=%s block=%s bytes=%llu reflected_bytes=%u",
+        Log().WriteEventf( "shader_typed_cbuffer_size_mismatch shader=%s block=%s bytes=%llu reflected_bytes=%u aligned_bytes=%u",
                            m_contract ? m_contract->baseName : "<unmanifested>",
                            debugName ? debugName : "<unnamed>",
                            static_cast<unsigned long long>( size ),
+                           m_cbReflectedSize,
                            m_cbSize );
 #endif
         return false;

@@ -73,6 +73,7 @@ class ShaderDX12 : public IShader
         UINT size;
     };
     std::unordered_map<std::string, UniformInfo> m_uniformMap;
+    UINT m_cbReflectedSize;
     UINT m_cbSize;
     mutable std::vector<uint8_t> m_cbData;
     mutable bool m_cbDirty;
