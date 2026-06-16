@@ -1,9 +1,10 @@
 {
   "schema_version": 1,
-  "description": "Legacy migration input. Agentic/Orchestrator/policy.yaml is authoritative.",
+  "description": "Executable orchestrator policy consumed by tools/orchestrator.py. YAML files are human-readable mirrors until YAML parser support is added.",
   "enabled": false,
   "base_branch": "main",
   "branch_prefix": "codex/",
+  "max_active_items": 1,
   "plan_implementation": {
     "default_mode": "orchestration",
     "applies_to": [
@@ -18,22 +19,29 @@
     "update_child_with_parent_by_merge": true,
     "disallow_child_rebase": true
   },
-  "max_active_items": 1,
-  "allow_pr_creation": true,
-  "allow_merge": false,
-  "merge_requires_green_checks": true,
-  "merge_requires_approval": false,
-  "merge_method": "squash",
-  "advance_after_failed_item": false,
-  "stop_after_blocked_item": true,
-  "stop_after_failed_item": true,
-  "report_channels": [
-    "markdown",
-    "pr-comment"
-  ],
-  "email_reports": {
-    "enabled": false,
-    "to": []
+  "pull_requests": {
+    "allow_creation": true,
+    "creation_not_required": false,
+    "requires_enabled_policy": true,
+    "requires_explicit_user_request": true
+  },
+  "merge": {
+    "allow": false,
+    "requires_agents_md_permission": true,
+    "requires_green_checks": true,
+    "requires_report_commit": true,
+    "method": "squash"
+  },
+  "verification": {
+    "requires_independent_verifier": true,
+    "allow_same_agent_worker_fallback": true,
+    "allow_same_agent_verifier_fallback": false,
+    "missing_verifier_blocks_success": true
+  },
+  "queue": {
+    "stop_after_blocked": true,
+    "stop_after_failed": true,
+    "advance_after_failed": false
   },
   "artifact_retention": {
     "run_root": "Agentic/Runs",
@@ -42,11 +50,20 @@
     "commit_report_images": true,
     "commit_run_state": false
   },
-  "merge_safety": {
-    "requires_agents_md_permission": true,
-    "disallow_main_direct_push": true,
-    "disallow_force_push": true,
-    "disallow_rebase": true,
-    "require_report_before_merge": true
+  "reporting": {
+    "channels": [
+      "markdown",
+      "pr-comment"
+    ],
+    "final_report_commit_only": true,
+    "report_images_must_be_referenced": true,
+    "plain_language_first_section": true
+  },
+  "hard_blocks": {
+    "direct_main_push": true,
+    "force_push": true,
+    "rebase": true,
+    "history_rewrite": true,
+    "broad_process_kill": true
   }
 }

@@ -1,5 +1,5 @@
 schema_version: 1
-description: "Explicit YAML roadmap queue. The orchestrator must not infer runnable work from every Markdown file in Agentic/Plans."
+description: "Human-readable queue mirror. queue.json is executable until YAML parser support is intentionally added."
 policy: Agentic/Orchestrator/policy.yaml
 machine: Agentic/Orchestrator/machines/roadmap-item.yaml
 loop: Agentic/Orchestrator/agent-loop.yaml

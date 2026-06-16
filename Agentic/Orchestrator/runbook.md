@@ -1,8 +1,9 @@
 # Roadmap Orchestrator Runbook
 
 This runbook explains the manual procedure for sequential roadmap orchestration.
-The YAML files in this folder are authoritative for policy, queue state, loop
-steps, and legal transitions.
+`tools/orchestrator.py` enforces the JSON policy, queue, and state machine.
+YAML files are readable design mirrors until parser support is intentionally
+added.
 
 ## Scope
 
@@ -29,24 +30,28 @@ The worker owns only the assigned roadmap implementation.
 1. Read `AGENTS.md`, `README.md`, `Agentic/README.md`, and
    `Agentic/SessionState.md`.
 2. Confirm `git status --short --branch` is understood.
-3. Read `Agentic/Orchestrator/policy.yaml`.
-4. Read `Agentic/Orchestrator/queue.yaml`.
-5. Read `Agentic/Orchestrator/agent-loop.yaml` and
-   `Agentic/Orchestrator/machines/roadmap-item.yaml`.
-6. Stop if `policy.yaml` has `enabled: false`, unless the user explicitly asks
+3. Run `tools\orchestrator.bat check`.
+4. Read `Agentic/Orchestrator/policy.json`.
+5. Read `Agentic/Orchestrator/queue.json`.
+6. Read `Agentic/Orchestrator/machines/roadmap-item.json`.
+7. Use `Agentic/Orchestrator/agent-loop.yaml` as the human-readable loop map.
+8. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
    for a dry-run setup step.
-7. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
+9. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
    submission and merges.
 
 ## Item Selection
 
-1. Find the highest-priority item with `state: ready`.
+1. Use `tools\orchestrator.bat next` or find the highest-priority item with
+   `state: ready`.
 2. Confirm every item in `depends_on` is terminal and acceptable:
    `done`, `merged`, `pr_open` for stacked children, `skipped` only when the
    queue says explicit-only or the user approved it.
 3. Confirm no other item is in an active state from
    `machines/queue.yaml`.
-4. Mark the selected item `running` only after the run directory is created.
+4. Mark the selected item `running` only through
+   `tools\orchestrator.bat start <item-id>`, which creates the run directory
+   and switches to the item branch.
 
 ## Run Directory
 
@@ -61,7 +66,7 @@ Expected files:
 ```text
 run.json
 worker-prompt.md
-worker-result.md
+worker-result.json
 verification-rounds/
 validation.log
 pr.md
@@ -100,7 +105,7 @@ The final report commit must contain only files in this report folder:
 - `report.md`,
 - PNG or JPG images under `images/` that are referenced by `report.md`.
 
-Do not put `run.json`, `worker-prompt.md`, `worker-result.md`,
+Do not put `run.json`, `worker-prompt.md`, `worker-result.json`,
 `validation.log`, `pr.md`, source code, queue updates, source-plan moves, raw
 artifacts, or unreferenced images in the report commit.
 
@@ -201,7 +206,10 @@ the diff clear without rewriting history.
 Generate `worker-prompt.md` from
 `Agentic/Orchestrator/templates/worker-prompt.md`.
 
-Spawn exactly one worker for the selected item. The worker prompt must include:
+Spawn exactly one worker for the selected item. Use
+`tools\orchestrator.bat run-worker <item-id>` when Codex CLI automation is
+available, or render the prompt with `tools\orchestrator.bat worker-prompt
+<item-id>` for a manual worker handoff. The worker prompt must include:
 
 - source plan path,
 - impact area,
@@ -217,8 +225,9 @@ The orchestrator should not begin another roadmap item while a worker is active.
 
 After each worker completion, including a worker response to verifier feedback:
 
-1. Save the first worker final message in `worker-result.md`; save later worker
-   responses under the matching `verification-rounds/` file.
+1. Save the first worker final message in `worker-result.json` when `codex exec`
+   uses a JSON schema, or `worker-result.md` for manual fallback. Save later
+   worker responses under the matching `verification-rounds/` file.
 2. Review `git status --short`.
 3. Review `git diff --stat` and the changed files.
 4. Reject unrelated edits unless they are necessary and explained.
@@ -239,7 +248,7 @@ the worker changed files or the prior evidence is no longer trustworthy.
 After the review/evidence step, hand the work to a separate verifier agent
 before marking the item successful. The verifier is a rubber-duck reviewer: it
 checks the requested outcome, the source plan, the diff, validation evidence,
-artifacts, and worker handoff without editing files.
+artifacts, commenting standards, and worker handoff.
 
 Generate each verifier prompt from
 `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
@@ -254,11 +263,12 @@ For each verification round:
    acceptable; do not claim independent verification without a separate agent.
 3. Save the verifier response as
    `verification-rounds/round-XX-verifier-result.md`.
-4. If the verifier verdict is `accepted`, continue to PR/reporting.
+4. If the verifier verdict is `accepted`, continue to validation and reporting.
 5. If the verifier verdict is `needs-fixes`, send the blocking findings back to
    the implementation worker and save the worker response as
    `verification-rounds/round-XX-worker-response.md`.
-6. Repeat the review/evidence/validation step, then start a new verifier round.
+6. Repeat the worker/verifier loop until a verifier returns `accepted`, or the
+   item becomes blocked or failed.
 7. If the verifier verdict is `blocked`, or if the worker cannot resolve a
    blocking finding, set the item to `blocked` or `failed` and generate the
    corresponding report.
@@ -329,7 +339,7 @@ Do not merge.
 Future merge automation requires both:
 
 - an explicit `AGENTS.md` policy update, and
-- `policy.yaml` with `merge.allow: true`.
+- `policy.json` with `merge.allow: true`.
 
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
@@ -376,7 +386,7 @@ Reports must include:
 - merge status,
 - conflicts and resolutions,
 - residual risk,
-- sub-agent result summary and `worker-result.md` path,
+- sub-agent result summary and `worker-result.json` or `worker-result.md` path,
 - verifier result summary and `verification-rounds/` paths,
 - next queue action.
 
@@ -407,7 +417,7 @@ Archive rules:
 - Use `git mv` when possible so the rename is preserved in history.
 - Do not overwrite an existing file in `Agentic/Plans/Done`; stop and report
   the collision instead.
-- Update the queue entry's `plan` path to the archived path in `queue.yaml`.
+- Update the queue entry's `plan` path to the archived path in `queue.json`.
 - Record both the original source plan path and archived path in `run.json` and
   `report.md`.
 - Commit source-plan moves and queue updates before the report-only commit, not

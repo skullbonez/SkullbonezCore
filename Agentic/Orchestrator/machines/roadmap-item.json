@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "machine": "roadmap_item",
+  "initial": "ready",
+  "states": {
+    "ready": {
+      "kind": "selectable",
+      "dependency_satisfied": false,
+      "on": {
+        "start": {
+          "target": "running",
+          "guards": [
+            "policy.enabled",
+            "queue.no_other_running_item",
+            "dependencies.satisfied"
+          ],
+          "actions": [
+            "run.create_directory",
+            "run.snapshot_policy",
+            "run.snapshot_queue_item",
+            "queue.mark_running",
+            "prompt.write_worker"
+          ]
+        }
+      }
+    },
+    "running": {
+      "kind": "active",
+      "dependency_satisfied": false,
+      "on": {
+        "worker_done": {
+          "target": "reviewing",
+          "actions": [
+            "run.save_worker_result",
+            "git.inspect_status"
+          ]
+        },
+        "worker_blocked": {
+          "target": "blocked",
+          "actions": [
+            "run.record_blocker",
+            "report.required"
+          ]
+        },
+        "worker_failed": {
+          "target": "failed",
+          "actions": [
+            "run.record_failure",
+            "report.required"
+          ]
+        }
+      }
+    },
+    "reviewing": {
+      "kind": "active",
+      "dependency_satisfied": false,
+      "on": {
+        "review_ready": {
+          "target": "verifying",
+          "guards": [
+            "changes.in_scope",
+            "validation.ready_or_deferred"
+          ],
+          "actions": [
+            "prompt.write_verifier"
+          ]
+        },
+        "out_of_scope": {
+          "target": "running",
+          "actions": [
+            "worker.send_scope_feedback"
+          ]
+        }
+      }
+    },
+    "verifying": {
+      "kind": "active",
+      "dependency_satisfied": false,
+      "on": {
+        "accepted": {
+          "target": "validating"
+        },
+        "needs_fixes": {
+          "target": "running",
+          "actions": [
+            "verification.save_findings",
+            "worker.send_findings"
+          ]
+        },
+        "blocked": {
+          "target": "blocked",
+          "actions": [
+            "verification.save_blocker",
+            "report.required"
+          ]
+        }
+      }
+    },
+    "validating": {
+      "kind": "active",
+      "dependency_satisfied": false,
+      "on": {
+        "passed": {
+          "target": "reporting",
+          "actions": [
+            "validation.save_log"
+          ]
+        },
+        "not_required": {
+          "target": "reporting",
+          "actions": [
+            "validation.record_not_required"
+          ]
+        },
+        "failed": {
+          "target": "failed",
+          "actions": [
+            "validation.save_log",
+            "report.required"
+          ]
+        }
+      }
+    },
+    "reporting": {
+      "kind": "active",
+      "dependency_satisfied": false,
+      "on": {
+        "report_committed": {
+          "target": "pr_open",
+          "guards": [
+            "policy.pull_requests.allow_creation"
+          ],
+          "actions": [
+            "git.push_branch",
+            "pr.open_or_update"
+          ]
+        },
+        "report_committed_no_pr": {
+          "target": "done",
+          "guards": [
+            "policy.pull_requests.creation_not_required"
+          ]
+        },
+        "report_blocked": {
+          "target": "blocked",
+          "actions": [
+            "report.record_blocker"
+          ]
+        }
+      }
+    },
+    "pr_open": {
+      "kind": "terminal_success",
+      "dependency_satisfied": "stacked_only",
+      "on": {
+        "merged": {
+          "target": "merged",
+          "guards": [
+            "policy.merge.allow",
+            "checks.green",
+            "report.present"
+          ]
+        }
+      }
+    },
+    "done": {
+      "kind": "terminal_success",
+      "dependency_satisfied": true
+    },
+    "merged": {
+      "kind": "terminal_success",
+      "dependency_satisfied": true
+    },
+    "blocked": {
+      "kind": "terminal_failure",
+      "dependency_satisfied": false,
+      "stop_queue": true
+    },
+    "failed": {
+      "kind": "terminal_failure",
+      "dependency_satisfied": false,
+      "stop_queue": true
+    },
+    "skipped": {
+      "kind": "terminal_skip",
+      "dependency_satisfied": "explicit_only"
+    }
+  }
+}

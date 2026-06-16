@@ -12,10 +12,10 @@ Before editing, read:
 2. `README.md`
 3. `Agentic/README.md`
 4. `Agentic/SessionState.md`
-5. `Agentic/Orchestrator/policy.yaml`
-6. `Agentic/Orchestrator/queue.yaml`
+5. `Agentic/Orchestrator/policy.json`
+6. `Agentic/Orchestrator/queue.json`
 7. `Agentic/Orchestrator/agent-loop.yaml`
-8. `Agentic/Orchestrator/machines/roadmap-item.yaml`
+8. `Agentic/Orchestrator/machines/roadmap-item.json`
 9. `{{plan_path}}`
 
 Load only task-relevant skills or reference files.
@@ -48,6 +48,7 @@ state, report creation, or plan archival.
 - If this is a chained roadmap item, work on the configured child branch that
   was branched from `{{parent_branch}}`. If the parent branch changes, merge the
   parent into this child branch; do not rebase.
+- Make atomic commits on the item branch when possible.
 - Do not run repository validation scripts during ordinary iteration.
 - Use targeted builds, launches, focused tests, or inspections only when they
   answer a specific implementation question.

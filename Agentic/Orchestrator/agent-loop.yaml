@@ -1,6 +1,10 @@
 schema_version: 1
 loop: roadmap_agent_loop
 description: "Default loop for implementing work sourced from Agentic/Plans."
+executable_state:
+  policy: Agentic/Orchestrator/policy.json
+  queue: Agentic/Orchestrator/queue.json
+  item_machine: Agentic/Orchestrator/machines/roadmap-item.json
 default_for:
   - "Implementing any repository change from Agentic/Plans"
 not_required_for:
@@ -9,9 +13,9 @@ not_required_for:
   - "Updating plan status or handoff prose without implementing the plan"
 
 inputs:
-  policy: Agentic/Orchestrator/policy.yaml
-  queue: Agentic/Orchestrator/queue.yaml
-  item_machine: Agentic/Orchestrator/machines/roadmap-item.yaml
+  policy_mirror: Agentic/Orchestrator/policy.yaml
+  queue_mirror: Agentic/Orchestrator/queue.yaml
+  item_machine_mirror: Agentic/Orchestrator/machines/roadmap-item.yaml
   worker_template: Agentic/Orchestrator/templates/worker-prompt.md
   verifier_template: Agentic/Orchestrator/templates/verifier-prompt.md
   report_template: Agentic/Orchestrator/templates/report.md

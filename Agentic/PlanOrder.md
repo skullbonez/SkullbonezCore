@@ -54,9 +54,10 @@ queues.
 ## Active Tackle Order
 
 1. [`orchestration-framework-fix-plan.md`](Plans/orchestration-framework-fix-plan.md)
-   - YAML-first policy, queue, machines, schemas, and agent-loop files are in
-     place. Use this plan next only for checker, state-advance, report-guard,
-     role, hook, or workflow-eval tooling.
+   - Executable JSON policy, queue, state machine, `tools/orchestrator.py`,
+     Codex exec integration, plan archival, report drafting, and report-check
+     basics are in place. Use this plan next only for richer role, hook,
+     generated-doc, or workflow-eval tooling.
 
 2. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
    - Continue only as focused water material/intersection-quality renderer work.
@@ -88,8 +89,8 @@ queues.
 
 ## Immediate Recommendation
 
-After the current YAML foundation, prefer either a focused water-rendering slice
-or the DX12 render graph completion plan. Use the broad architecture pass only
-to select the next small runtime, physics, asset, parser, or render-graph
-boundary. Implementation work sourced from `Agentic/Plans` defaults to the
-orchestrator workflow.
+After the current executable orchestrator foundation, prefer either a focused
+water-rendering slice or the DX12 render graph completion plan. Use the broad
+architecture pass only to select the next small runtime, physics, asset, parser,
+or render-graph boundary. Implementation work sourced from `Agentic/Plans`
+defaults to the orchestrator workflow.

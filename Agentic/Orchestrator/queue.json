@@ -1,22 +1,59 @@
 {
   "schema_version": 1,
   "policy": "Agentic/Orchestrator/policy.json",
-  "description": "Explicit sequential roadmap queue. The orchestrator must not infer runnable work from every Markdown file in Agentic/Plans. This JSON file is a legacy migration input; YAML becomes authoritative in the orchestration framework update.",
-  "statuses": [
+  "machine": "Agentic/Orchestrator/machines/roadmap-item.json",
+  "description": "Executable sequential roadmap queue. The orchestrator must not infer runnable work from every Markdown file in Agentic/Plans.",
+  "states": [
     "ready",
     "running",
+    "reviewing",
+    "verifying",
+    "validating",
+    "reporting",
     "done",
-    "pr-open",
+    "pr_open",
     "merged",
     "blocked",
     "failed",
     "skipped"
   ],
+  "dependency_satisfied_states": {
+    "normal": [
+      "done",
+      "merged"
+    ],
+    "stacked_pr": [
+      "done",
+      "merged",
+      "pr_open"
+    ],
+    "explicit_only": [
+      "skipped"
+    ]
+  },
   "items": [
+    {
+      "id": "dx12-only-engine-architecture",
+      "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
+      "state": "done",
+      "priority": 10,
+      "branch": "codex/dx12-only-engine-architecture",
+      "impact_area": [
+        "DX12",
+        "render architecture",
+        "rendering"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Completed on main. Future renderer/backend implementation work requires the DX12 renderer gate.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [],
+      "report_required": true
+    },
     {
       "id": "shader-architecture-cleanup",
       "plan": "Agentic/Plans/Done/shader-architecture-cleanup-plan.md",
-      "status": "done",
+      "state": "done",
       "priority": 20,
       "branch": "codex/shader-architecture-cleanup",
       "impact_area": [
@@ -26,17 +63,16 @@
         "materials"
       ],
       "validation_gate": "tools\\validate_dx12_renderer.bat",
-      "validation_notes": "Completed on main. Future renderer, shader, and material rendering changes require tools\\validate_dx12_renderer.bat at PR/commit readiness. Add tools\\validate_perf.bat if the final patch materially grows per-instance uploads or hot-path batch preparation.",
+      "validation_notes": "Completed on main. Future shader/material rendering changes require the DX12 renderer gate; add perf validation for hot upload or batch preparation changes.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [],
-      "merge_policy": "policy-default",
       "report_required": true
     },
     {
       "id": "dx12-descriptor-upload-root-signature",
       "plan": "Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md",
-      "status": "done",
+      "state": "done",
       "priority": 21,
       "branch": "codex/dx12-descriptor-upload-root-signature",
       "impact_area": [
@@ -47,19 +83,18 @@
         "root signatures"
       ],
       "validation_gate": "tools\\validate_dx12_renderer.bat",
-      "validation_notes": "Completed on main. Future descriptor, upload, or root signature changes require tools\\validate_dx12_renderer.bat and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat if upload or descriptor hot paths materially change.",
+      "validation_notes": "Completed on main. Future descriptor/upload/root-signature changes require the DX12 renderer gate and zero DX12 validation errors.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [
         "shader-architecture-cleanup"
       ],
-      "merge_policy": "policy-default",
       "report_required": true
     },
     {
       "id": "dx12-only-engine-architecture-cleanup",
       "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
-      "status": "done",
+      "state": "done",
       "priority": 22,
       "branch": "codex/dx12-only-engine-architecture-cleanup",
       "impact_area": [
@@ -69,33 +104,143 @@
         "cleanup"
       ],
       "validation_gate": "tools\\validate_dx12_renderer.bat",
-      "validation_notes": "Completed on main as documentation cleanup. Future renderer/backend implementation cleanup requires tools\\validate_dx12_renderer.bat, escalating to tools\\validate_full.bat for broad runtime lifecycle changes.",
+      "validation_notes": "Completed on main as documentation cleanup. Future broad runtime lifecycle cleanup may require tools\\validate_full.bat.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [
         "shader-architecture-cleanup",
         "dx12-descriptor-upload-root-signature"
       ],
-      "merge_policy": "policy-default",
       "report_required": true
     },
     {
-      "id": "dx12-only-engine-architecture",
-      "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
-      "status": "done",
-      "priority": 10,
-      "branch": "codex/dx12-only-engine-architecture",
+      "id": "agent-docs-alignment",
+      "plan": "Agentic/Plans/Done/agent-docs-alignment-plan.md",
+      "state": "done",
+      "priority": 23,
+      "branch": "main",
       "impact_area": [
-        "DX12",
-        "render architecture",
-        "rendering"
+        "documentation",
+        "agent instructions"
       ],
-      "validation_gate": "tools\\validate_dx12_renderer.bat",
-      "validation_notes": "Renderer/backend implementation work requires tools\\validate_dx12_renderer.bat as the PR gate, with dx12_validation.txt checked for zero errors. Escalate to tools\\validate_full.bat if the final implementation spans non-render runtime initialization, windowing, or multiple uncertain areas.",
+      "validation_gate": "No validation required",
+      "validation_notes": "Documentation-only instruction alignment.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [],
-      "merge_policy": "policy-default",
+      "report_required": false
+    },
+    {
+      "id": "orchestrator-yaml-foundation",
+      "plan": "Agentic/Plans/orchestration-framework-fix-plan.md",
+      "state": "done",
+      "priority": 24,
+      "branch": "main",
+      "impact_area": [
+        "documentation",
+        "orchestrator config",
+        "agent process"
+      ],
+      "validation_gate": "No validation required",
+      "validation_notes": "YAML/config documentation only.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "agent-docs-alignment"
+      ],
+      "report_required": false,
+      "archive_deferred": {
+        "reason": "The same source plan still tracks executable loop, checker, state-advance, report-guard, role, hook, and eval tooling phases."
+      }
+    },
+    {
+      "id": "orchestrator-executable-loop",
+      "plan": "Agentic/Plans/orchestration-framework-fix-plan.md",
+      "state": "done",
+      "priority": 25,
+      "branch": "main",
+      "impact_area": [
+        "tools",
+        "orchestrator config",
+        "agent process"
+      ],
+      "validation_gate": "tools\\validate_fast.bat",
+      "validation_notes": "Tooling changes require tools\\validate_fast.bat plus tools\\orchestrator.bat check --self-test.",
+      "screenshot_scenes": [],
+      "artifact_commands": [
+        "tools\\orchestrator.bat check --self-test",
+        "tools\\orchestrator.bat check"
+      ],
+      "depends_on": [
+        "orchestrator-yaml-foundation"
+      ],
+      "report_required": false,
+      "archive_deferred": {
+        "reason": "Future orchestrator phases remain in the same source plan."
+      }
+    },
+    {
+      "id": "water-rendering-cleanup",
+      "plan": "Agentic/Plans/water-rendering-cleanup-plan.md",
+      "state": "ready",
+      "priority": 30,
+      "branch": "codex/water-rendering-cleanup",
+      "impact_area": [
+        "DX12",
+        "rendering",
+        "water"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Renderer water work requires the DX12 renderer gate and intentional visual review.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "orchestrator-executable-loop"
+      ],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
+      "id": "dx12-render-graph-completion",
+      "plan": "Agentic/Plans/dx12-render-graph-completion-plan.md",
+      "state": "ready",
+      "priority": 40,
+      "branch": "codex/dx12-render-graph-completion",
+      "impact_area": [
+        "DX12",
+        "render architecture",
+        "resource barriers"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Render graph/resource-state ownership requires DX12 validation and zero DX12 validation errors. Add perf validation for hot barrier scheduling changes.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "orchestrator-executable-loop"
+      ],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
+      "id": "architecture-pass-follow-up",
+      "plan": "Agentic/Plans/architecture_pass_2026-06-02.md",
+      "state": "ready",
+      "priority": 50,
+      "branch": "codex/architecture-pass-follow-up",
+      "impact_area": [
+        "runtime architecture",
+        "physics data boundary",
+        "assets",
+        "parser schemas"
+      ],
+      "validation_gate": "tools\\validate_full.bat",
+      "validation_notes": "Use this broad plan only to select a smaller concrete slice; validation depends on the selected files.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "orchestrator-executable-loop"
+      ],
+      "dependency_mode": "normal",
       "report_required": true
     }
   ]

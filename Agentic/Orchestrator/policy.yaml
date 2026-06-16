@@ -1,5 +1,5 @@
 schema_version: 1
-description: "Revocable YAML-first orchestration policy. YAML is authoritative; policy.json is a legacy migration input."
+description: "Human-readable policy mirror. policy.json is executable until YAML parser support is intentionally added."
 enabled: false
 base_branch: main
 branch_prefix: codex/

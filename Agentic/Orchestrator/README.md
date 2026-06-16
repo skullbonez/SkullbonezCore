@@ -4,23 +4,27 @@ This folder contains the repository-owned control files for sequential roadmap
 orchestration. Implementing work from `Agentic/Plans` defaults to this
 orchestrator workflow unless the user explicitly asks to bypass it.
 
-YAML is the source of truth for orchestrator behavior. Markdown explains the
-workflow, and the JSON files are legacy migration inputs until helper scripts
-consume YAML directly.
+JSON is the executable source of truth for orchestrator behavior because
+`tools/orchestrator.py` uses Python's built-in JSON parser. YAML files remain
+human-readable design mirrors until a YAML parser is intentionally added.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `policy.yaml` | Authoritative revocable automation policy. Set `enabled` to `false` to stop the loop. |
-| `queue.yaml` | Authoritative explicit roadmap queue. Only listed items are eligible for orchestration. |
-| `agent-loop.yaml` | Default agent loop for implementing work sourced from `Agentic/Plans`. |
-| `machines/roadmap-item.yaml` | Item state machine: states, legal transitions, guards, and actions. |
+| `policy.json` | Executable revocable automation policy. Set `enabled` to `false` to stop the loop. |
+| `queue.json` | Executable roadmap queue. Only listed items are eligible for orchestration. |
+| `machines/roadmap-item.json` | Executable item state machine: states, legal transitions, guards, and actions. |
+| `tools/orchestrator.py` | Mechanical state checker, transition helper, prompt renderer, Codex exec wrapper, and report-commit checker. |
+| `tools/orchestrator.bat` | Windows launcher for the Python helper. |
+| `policy.yaml` | Human-readable policy mirror/design file. JSON wins when files disagree. |
+| `queue.yaml` | Human-readable queue mirror/design file. JSON wins when files disagree. |
+| `agent-loop.yaml` | Human-readable default loop for implementing work sourced from `Agentic/Plans`. |
+| `machines/roadmap-item.yaml` | Human-readable state-machine mirror/design file. |
 | `machines/queue.yaml` | Queue selection and terminal-state rules. |
 | `machines/report.yaml` | Report-only commit and report directory rules. |
 | `schemas/*.yaml` | Lightweight schema vocabulary for future checkers. |
-| `policy.json` | Legacy migration input. YAML wins when the files disagree. |
-| `queue.json` | Legacy migration input. YAML wins when the files disagree. |
+| `schemas/*.json` | JSON schemas for structured worker, verifier, and run-state artifacts. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
 | `templates/verifier-prompt.md` | Prompt template for the independent completion verifier. |
@@ -36,7 +40,8 @@ destination:
 ## Current Safety Defaults
 
 - The orchestrator is disabled by default.
-- YAML files define policy, queue state, loop behavior, and legal transitions.
+- JSON files define executable policy, queue state, and legal transitions.
+- YAML files document the same shape for humans until parser support exists.
 - PR creation is allowed by policy, but only when the orchestrator is enabled.
 - Merge automation is disabled by default.
 - `AGENTS.md` still requires explicit user authorization for PR submission and
@@ -44,7 +49,7 @@ destination:
 - Queue execution is sequential: one active roadmap item at a time.
 - Successful completion requires an independent verifier pass after the worker
   claims the task is done. Blocking verifier findings go back to the worker,
-  and the worker/verifier loop repeats until no blocking findings remain or the
+  and the worker/verifier loop repeats until a verifier accepts the work or the
   item becomes blocked or failed.
 - Chained roadmap items use stacked child branches. If the user asks for tasks
   1-3 as one chain, task 1 branches from `main`, task 2 branches from task 1,
@@ -99,3 +104,20 @@ diagrams; err on the side of more useful visuals rather than fewer.
 
 After pushing the report-only commit, return a GitHub web link to the committed
 `report.md` file.
+
+## Core Commands
+
+```bat
+tools\orchestrator.bat check
+tools\orchestrator.bat check --self-test
+tools\orchestrator.bat doctor
+tools\orchestrator.bat next --allow-disabled
+tools\orchestrator.bat start <item-id>
+tools\orchestrator.bat run-worker <item-id>
+tools\orchestrator.bat transition <item-id> worker_done --result <path>
+tools\orchestrator.bat verifier-prompt <item-id>
+tools\orchestrator.bat run-verifier <item-id>
+tools\orchestrator.bat archive-plan <item-id>
+tools\orchestrator.bat report-draft <item-id>
+tools\orchestrator.bat report-check --commit <sha>
+```

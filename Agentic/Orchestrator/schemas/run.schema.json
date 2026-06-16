@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Roadmap Run State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "item_id",
+    "current_state",
+    "transition_history",
+    "source_plan_path",
+    "branch",
+    "started_at",
+    "baseline_git_status",
+    "policy_snapshot",
+    "queue_item_snapshot"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "item_id": {
+      "type": "string"
+    },
+    "current_state": {
+      "type": "string"
+    },
+    "transition_history": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "source_plan_path": {
+      "type": "string"
+    },
+    "archived_plan_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "branch": {
+      "type": "string"
+    },
+    "parent_branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "baseline_git_status": {
+      "type": "string"
+    },
+    "policy_snapshot": {
+      "type": "object"
+    },
+    "queue_item_snapshot": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,25 +1,47 @@
 # YAML Orchestration Framework Fix Plan
 
-Status: YAML foundation implemented; tooling phases pending
+Status: executable JSON loop implemented; later automation phases pending
 Created: 2026-06-16
 Scope: Agentic process, YAML workflow language, roadmap queue state,
 cross-agent instructions, orchestrator guardrails, worker/verifier handoff
-Implementation status: Phase 1 and Phase 2 YAML/config foundation is present:
-`policy.yaml`, `queue.yaml`, `agent-loop.yaml`, roadmap/queue/report machines,
-lightweight schema files, YAML-aware runbook/README updates, and scoped
-orchestrator instructions. Later checker, state-advance, report-only commit,
-role, hook, and eval tools remain future work.
+Implementation status: YAML/config foundation is present as a human-readable
+mirror, and `tools/orchestrator.py` now provides the executable JSON loop over
+`policy.json`, `queue.json`, and `machines/roadmap-item.json`. The helper checks
+queue state, selects the next item, creates run state, creates/switches item
+branches, renders worker/verifier prompts, can invoke `codex exec`, records
+legal transitions, archives successful plans, drafts reports, and checks
+report-only commits. Later richer role, hook, generated-doc, and workflow-eval
+automation remains future work.
 
 ## Implementation Update: 2026-06-16
 
-The orchestrator now has a YAML-first control layer. Markdown explains the
-workflow, JSON files are legacy migration inputs, and implementing work from
-`Agentic/Plans` defaults to orchestration. The added `agent-loop.yaml` is the
-explicit loop contract for plan implementation work.
+The orchestrator first gained a YAML-readable control layer. It now has an
+executable JSON control plane because the local Python runtime has built-in JSON
+support and no built-in YAML parser. `tools/orchestrator.bat` launches
+`tools/orchestrator.py` for mechanical checks and transitions.
 
-No parser/checker scripts were added in this pass, so no repository validation
-script is required. Future tool phases should use `tools\validate_fast.bat`
-plus the changed helper's self-check command.
+The official `openai-codex` Python package was installed on the machine so the
+helper can find the bundled `codex.exe` runtime when the WindowsApps alias is
+not executable from shell. `FIRST_TIME_SETUP.md` now lists this as the Codex
+orchestration dependency and points fresh installs at
+`tools\orchestrator.bat doctor`. Tooling changes require
+`tools\validate_fast.bat` plus
+`tools\orchestrator.bat check --self-test`.
+
+The mandatory loop is:
+
+1. Orchestrator selects a ready plan-backed item and updates the queue to
+   `running`.
+2. Orchestrator creates or switches to the item branch, then spawns a Codex
+   worker with `run-worker` or emits the worker prompt for manual dispatch.
+3. Worker completion moves to review, then a rubber-duck verifier is spawned.
+4. Verifier `needs_fixes` returns to the worker; this repeats until
+   `accepted`, `blocked`, or `failed`.
+5. Successful completion moves the queue to terminal success, archives the plan
+   with `archive-plan`, drafts/checks the report, and leaves the report as the
+   final branch commit.
+6. The next ready item starts as a child branch of the current or dependency
+   branch according to queue dependencies and branch policy.
 
 ## Goal
 
