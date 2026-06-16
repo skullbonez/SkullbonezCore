@@ -54,10 +54,8 @@ const char* ToString( RenderGraphBarrierPolicy policy )
     {
     case RenderGraphBarrierPolicy::DiagnosticOnly:
         return "DiagnosticOnly";
-    case RenderGraphBarrierPolicy::GraphValidated:
-        return "GraphValidated";
-    case RenderGraphBarrierPolicy::GraphOwned:
-        return "GraphOwned";
+    case RenderGraphBarrierPolicy::HandoffValidated:
+        return "HandoffValidated";
     default:
         return "Unknown";
     }

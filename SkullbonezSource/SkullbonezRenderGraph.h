@@ -95,13 +95,13 @@ enum class RenderGraphQueueType
     Copy
 };
 
-// Barrier policy names how far a pass has moved from diagnostic graph
-// declarations toward graph-owned DX12 barriers.
+// Barrier policy names whether a pass is plain diagnostics or a reviewed
+// handoff marker. The current graph does not execute DX12 barriers; it records
+// intent for comparison with live backend barriers.
 enum class RenderGraphBarrierPolicy
 {
     DiagnosticOnly, // The graph documents intent; hand-written backend barriers still own execution.
-    GraphValidated, // The pass is a candidate for graph-owned barriers; graph/live diagnostics must stay aligned first.
-    GraphOwned      // The graph is allowed to emit the pass barriers before command recording.
+    HandoffValidated // The pass/resource declaration is reviewed as a migration handoff marker, not executed by the graph.
 };
 
 // Resource access is the plain-English form of a future DX12 resource state.

@@ -549,12 +549,12 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     graph.AddWrite( pass, sceneColor, RenderGraphResourceAccess::RenderTarget );
     graph.AddWrite( pass, sceneDepth, RenderGraphResourceAccess::DepthWrite );
 
-    pass = graph.AddPass( "VolumetricLightPass", RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy::GraphValidated );
+    pass = graph.AddPass( "VolumetricLightPass", RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy::HandoffValidated );
     graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
     graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
     graph.AddWrite( pass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
 
-    pass = graph.AddPass( "ToneMapPass", RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy::GraphValidated );
+    pass = graph.AddPass( "ToneMapPass", RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy::HandoffValidated );
     graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
     graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
     graph.AddRead( pass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
@@ -616,8 +616,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
 
     size_t matchedResourcePairs = 0;
     size_t matchedStateOnlyPairs = 0;
-    size_t graphValidatedTransitionCount = 0;
-    size_t graphOwnedTransitionCount = 0;
+    size_t graphHandoffTransitionCount = 0;
     size_t graphOnlyDetails = 0;
     size_t unknownGraphTransitions = 0;
     constexpr size_t MAX_COMPARISON_DETAILS = 256;
@@ -629,13 +628,9 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         const bool hasConcreteAfter = TryGraphAccessToDx12State( transition.after, graphAfter );
         const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
         const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
-        if ( passDesc.barrierPolicy == RenderGraphBarrierPolicy::GraphValidated )
+        if ( passDesc.barrierPolicy == RenderGraphBarrierPolicy::HandoffValidated )
         {
-            ++graphValidatedTransitionCount;
-        }
-        else if ( passDesc.barrierPolicy == RenderGraphBarrierPolicy::GraphOwned )
-        {
-            ++graphOwnedTransitionCount;
+            ++graphHandoffTransitionCount;
         }
         if ( !hasConcreteBefore || !hasConcreteAfter )
         {
@@ -718,12 +713,11 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
 
     out << "  matched_resource_state_pairs=" << matchedResourcePairs << "\n";
     out << "  matched_state_only_pairs=" << matchedStateOnlyPairs << "\n";
-    out << "  graph_validated_transition_count=" << graphValidatedTransitionCount << "\n";
-    out << "  graph_owned_transition_count=" << graphOwnedTransitionCount << "\n";
+    out << "  graph_handoff_transition_count=" << graphHandoffTransitionCount << "\n";
     out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
     out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
     out << "  live_only_count=" << liveOnlyDetails << "\n";
-    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value.\n";
+    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value. Handoff transitions are reviewed declarations only; live DX12 barriers still own execution.\n";
 
     const std::string dump = out.str();
     {
