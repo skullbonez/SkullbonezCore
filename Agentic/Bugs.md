@@ -1,5 +1,9 @@
 # SkullbonezCore — Known Bugs
 
+## Remove YAML from orchestrator
+
+JSON only.  Single source of truth
+
 ## TECH DEBT
 
 ## TODO: Collapse skybox rendering to one draw call
