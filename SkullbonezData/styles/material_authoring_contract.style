@@ -3,3 +3,4 @@
 object_material prefix:contract_metal metal tint=0.82,0.84,0.87 roughness=0.18 metallic=1.0 specular=0.91 name=contract_metal
 object_material exact_emitter emissive tint=0.10,0.20,0.35 emissive=1.0,0.25,0.05 strength=3.5 roughness=0.4 flags=7 name=contract_emitter
 object_material balls 0.12 0.24 0.36 toon stylization=0.66
+object_material prefix:contract_clamp toon tint=0.30,0.40,0.50 roughness=-2.0 metallic=2.0 specular=1.5 transmission=-0.5 stylization=9.0 name=contract_clamp

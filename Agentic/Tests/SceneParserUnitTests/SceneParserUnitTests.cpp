@@ -18,6 +18,7 @@ Related:
 #include <cmath>
 #include <cstring>
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -94,11 +95,23 @@ void ExpectFloatNear( float actual, float expected, const char* actualExpression
     }
 }
 
+void ExpectStringContains( const std::string& actual, const char* expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+{
+    if ( actual.find( expected ) == std::string::npos )
+    {
+        std::ostringstream out;
+        out << "expected " << actualExpression << " to contain " << expectedExpression
+            << ", actual \"" << actual << "\", expected substring \"" << expected << "\"";
+        Fail( file, line, out.str() );
+    }
+}
+
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
 #define EXPECT_INT_EQ( actual, expected ) ExpectIntEqual( static_cast<int>( actual ), static_cast<int>( expected ), #actual, #expected, __FILE__, __LINE__ )
 #define EXPECT_UINT_EQ( actual, expected ) ExpectUIntEqual( static_cast<uint32_t>( actual ), static_cast<uint32_t>( expected ), #actual, #expected, __FILE__, __LINE__ )
 #define EXPECT_STREQ( actual, expected ) ExpectStringEqual( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
 #define EXPECT_NEAR( actual, expected ) ExpectFloatNear( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_CONTAINS( actual, expected ) ExpectStringContains( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
 
 struct TestCase
 {
@@ -112,10 +125,37 @@ void ExpectMaterialKind( const SceneObjectMaterialOverride& material, RenderMate
     EXPECT_NEAR( material.materialMode, RenderMaterialKindLegacyMode( expected ) );
 }
 
+void WriteTextFile( const char* path, const char* contents )
+{
+    std::ofstream out( path, std::ios::binary );
+    if ( !out )
+    {
+        Fail( __FILE__, __LINE__, std::string( "failed to create test file: " ) + path );
+    }
+    out << contents;
+}
+
+void ExpectStyleLoadFails( const char* path, const char* contents, const char* expectedMessage )
+{
+    WriteTextFile( path, contents );
+    try
+    {
+        (void)TestScene::LoadStyleFromFile( path );
+    }
+    catch ( const std::runtime_error& ex )
+    {
+        const std::string message = ex.what();
+        EXPECT_CONTAINS( message, expectedMessage );
+        return;
+    }
+
+    Fail( __FILE__, __LINE__, std::string( "expected style load failure for " ) + path );
+}
+
 void TestStyleMaterialAuthoringContract()
 {
     const TestScene scene = TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style" );
-    EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 3 );
+    EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
     const SceneObjectMaterialOverride& metal = scene.GetObjectMaterialOverride( 0 );
     EXPECT_STREQ( metal.target, "prefix:contract_metal" );
@@ -152,6 +192,16 @@ void TestStyleMaterialAuthoringContract()
     EXPECT_NEAR( legacyWithOptions.tintG, 0.24f );
     EXPECT_NEAR( legacyWithOptions.tintB, 0.36f );
     EXPECT_NEAR( legacyWithOptions.material.stylization, 0.66f );
+
+    const SceneObjectMaterialOverride& clamped = scene.GetObjectMaterialOverride( 3 );
+    EXPECT_STREQ( clamped.target, "prefix:contract_clamp" );
+    ExpectMaterialKind( clamped, RenderMaterialKind::Toon );
+    EXPECT_STREQ( clamped.material.name, "contract_clamp" );
+    EXPECT_NEAR( clamped.material.roughness, 0.0f );
+    EXPECT_NEAR( clamped.material.metallic, 1.0f );
+    EXPECT_NEAR( clamped.material.specular, 1.0f );
+    EXPECT_NEAR( clamped.material.transmission, 0.0f );
+    EXPECT_NEAR( clamped.material.stylization, 1.0f );
 }
 
 void TestSceneCanLoadMaterialAuthoringSample()
@@ -161,9 +211,9 @@ void TestSceneCanLoadMaterialAuthoringSample()
     EXPECT_INT_EQ( scene.GetBallCount(), 1 );
     EXPECT_TRUE( !scene.IsPhysicsEnabled() );
     EXPECT_INT_EQ( scene.GetFrameCount(), 1 );
-    EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
+    EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 5 );
 
-    const SceneObjectMaterialOverride& directOverride = scene.GetObjectMaterialOverride( 3 );
+    const SceneObjectMaterialOverride& directOverride = scene.GetObjectMaterialOverride( 4 );
     EXPECT_STREQ( directOverride.target, "contract_probe" );
     ExpectMaterialKind( directOverride, RenderMaterialKind::Glass );
     EXPECT_STREQ( directOverride.material.name, "contract_glass" );
@@ -174,9 +224,23 @@ void TestSceneCanLoadMaterialAuthoringSample()
     EXPECT_NEAR( directOverride.material.roughness, 0.09f );
 }
 
+void TestMaterialAuthoringRejectsMalformedOptions()
+{
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_missing_equals.style",
+                          "object_material bad metal tint=0.1,0.2,0.3 roughness\n",
+                          "Invalid object_material option" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_unknown_option.style",
+                          "object_material bad metal tint=0.1,0.2,0.3 shininess=0.7\n",
+                          "Unknown object_material option" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style",
+                          "object_material bad metal tint=0.1,0.2\n",
+                          "expected r,g,b" );
+}
+
 const TestCase kTests[] = {
     { "Style material authoring contract", TestStyleMaterialAuthoringContract },
     { "Scene material authoring sample loads", TestSceneCanLoadMaterialAuthoringSample },
+    { "Material authoring rejects malformed options", TestMaterialAuthoringRejectsMalformedOptions },
 };
 
 } // namespace

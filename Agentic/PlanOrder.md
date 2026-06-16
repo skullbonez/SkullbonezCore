@@ -1,6 +1,6 @@
 # Agentic Plan Order
 
-Generated: 2026-06-15
+Generated: 2026-06-16
 
 Scope: top-level `Agentic/Plans/*.md` files only. Completed, failed, rejected, and nested historical plans are excluded.
 
@@ -28,7 +28,7 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
    - Merged through PR #70/#72 and completed further on `codex/engine-cleanup`: ordinary raster binding ABI and descriptor/upload lifetime constraints, now `b0 + t0..t4` with `t4` scoped to the object material table. Do not expand root signatures opportunistically; use this plan again only when a concrete descriptor-indexing, structured-buffer, or upload lifetime issue appears.
 
 6. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
-   - Defer code-heavy work until after the DX12-only validation gate. Water cleanup should no longer expand GL/DX11 paths.
+   - Partially implemented on `codex/post-pr73-roadmap`: explicit reflection/style contracts, water pass state setup, exact depth-write/blend-function restore, and intentional DX12 water baseline refresh are in place. Continue with remaining water-material and intersection-quality work only as a focused renderer slice.
 
 7. [`material-system-v1-implementation-plan.md`](Plans/material-system-v1-implementation-plan.md)
    - Object-material v1 is implemented on `codex/engine-cleanup`. Use this plan next only for named material definitions, material asset records, terrain/water/post material unification, or a deliberate material-resource-model expansion.
@@ -50,11 +50,12 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 
 ## Immediate Recommendation
 
-After `codex/engine-cleanup`, the next concrete render slice should usually
-come from `water-rendering-cleanup-plan.md` or the remaining runtime/resource
-ownership work in `architecture_pass_2026-06-02.md`. Choose
-`material-system-v1-implementation-plan.md` only if the orchestrator explicitly
-wants named material authoring, terrain/water/post material unification, or a
-larger material resource model. Keep changes small and validate renderer work
-with `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` for
+After `codex/post-pr73-roadmap`, the next concrete slice should either finish a
+remaining water-material/intersection item from `water-rendering-cleanup-plan.md`
+or continue the runtime/physics boundary work in
+`architecture_pass_2026-06-02.md`. Use
+`material-system-v1-implementation-plan.md` only for named material definitions,
+material asset records, terrain/water/post material unification, or a deliberate
+material-resource-model expansion. Keep changes small and validate renderer
+work with `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` for
 broad runtime/pass changes.
