@@ -38,6 +38,35 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
+WaterMode WaterModeFromConfigValue( int value )
+{
+    switch ( value )
+    {
+    case 0:
+        return WaterMode::Off;
+    case 1:
+        return WaterMode::Basin;
+    case 2:
+        return WaterMode::Ocean;
+    case 3:
+        return WaterMode::WetFloor;
+    case 4:
+        return WaterMode::StylizedBasin;
+    default:
+        return WaterMode::Ocean;
+    }
+}
+
+int WaterModeUniformValue( WaterMode mode )
+{
+    return static_cast<int>( mode );
+}
+
+bool WaterModeIncludesOuterOcean( WaterMode mode )
+{
+    return mode == WaterMode::Ocean;
+}
+
 float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float inertia, float changeInTime )
 {
     if ( fabsf( angularVelocity ) <= TOLERANCE ||
@@ -95,7 +124,9 @@ WaterStyleParams WorldEnvironment::BuildCalmWaterStyle( bool cinematic, const Sk
     style.sunR = cinematicStyle.sunColorR;
     style.sunG = cinematicStyle.sunColorG;
     style.sunB = cinematicStyle.sunColorB;
-    style.mode = cinematic ? cinematicStyle.waterMode : 2;
+    style.mode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
+    style.waveHeight = Cfg().oceanWaveHeight;
+    style.perturbStrength = Cfg().oceanPerturbStrength;
     style.basinCenterX = cinematicStyle.basinCenterX;
     style.basinCenterZ = cinematicStyle.basinCenterZ;
     style.basinRadiusX = cinematicStyle.basinRadiusX;
@@ -123,6 +154,9 @@ WaterStyleParams WorldEnvironment::BuildOceanWaterStyle( bool cinematic, const S
     style.sunR = cinematicStyle.sunColorR;
     style.sunG = cinematicStyle.sunColorG;
     style.sunB = cinematicStyle.sunColorB;
+    style.mode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
+    style.waveHeight = Cfg().oceanWaveHeight;
+    style.perturbStrength = Cfg().oceanPerturbStrength;
 
     if ( cinematic )
     {
@@ -161,16 +195,17 @@ void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader, const W
 
 void WorldEnvironment::BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const
 {
-    shader.SetInt( "uWaterMode", style.mode );
+    shader.SetInt( "uWaterMode", WaterModeUniformValue( style.mode ) );
     shader.SetVec4( "uBasinMask", style.basinCenterX, style.basinCenterZ, style.basinRadiusX, style.basinRadiusZ );
     shader.SetFloat( "uBasinMaskFeather", style.basinFeather );
 }
 
 
-void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& /*style*/, float time, bool flatWater ) const
+void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const
 {
     shader.SetFloat( "uTime", time );
-    shader.SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
+    shader.SetFloat( "uWaveHeight", style.waveHeight );
+    shader.SetFloat( "uPerturbStrength", style.perturbStrength );
     shader.SetInt( "uFlatWater", flatWater ? 1 : 0 );
 }
 
@@ -188,7 +223,8 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         BuildFluidMesh();
     }
     const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle = cinematicConfig ? *cinematicConfig : Cfg().cinematicRender;
-    if ( cinematic && cinematicStyle.waterMode == 0 )
+    const WaterMode waterMode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
+    if ( cinematic && waterMode == WaterMode::Off )
     {
         return;
     }
@@ -206,7 +242,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     BindCalmWaterStyle( *m_calmShader, calmStyle );
     m_calmMesh->Draw();
 
-    if ( cinematic && cinematicStyle.waterMode != 2 )
+    if ( cinematic && !WaterModeIncludesOuterOcean( waterMode ) )
     {
         // Cinematic preview stops after the calm basin pool. Skipping the outer
         // ocean avoids a giant water sheet behind the shot and keeps attention on
@@ -333,7 +369,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
-    m_calmShader->SetInt( "uWaterMode", 2 );
+    m_calmShader->SetInt( "uWaterMode", WaterModeUniformValue( WaterMode::Ocean ) );
     m_calmShader->SetVec3( "uSunColor", Cfg().cinematicRender.sunColorR, Cfg().cinematicRender.sunColorG, Cfg().cinematicRender.sunColorB );
     m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
     m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );

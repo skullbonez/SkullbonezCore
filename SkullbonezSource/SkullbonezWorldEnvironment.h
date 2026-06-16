@@ -47,6 +47,15 @@ class GameModel;
 
 namespace Environment
 {
+enum class WaterMode
+{
+    Off = 0,
+    Basin = 1,
+    Ocean = 2,
+    WetFloor = 3,
+    StylizedBasin = 4,
+};
+
 struct WaterReflectionInput
 {
     Math::Transformation::Matrix4 sampleViewProjection;
@@ -63,10 +72,12 @@ struct WaterStyleParams
     float alpha = 0.65f;
     float reflectionStrength = 0.35f;
     float glintStrength = 0.0f;
+    float waveHeight = 4.0f;
+    float perturbStrength = 0.002f;
     float sunR = 1.0f;
     float sunG = 1.0f;
     float sunB = 1.0f;
-    int mode = 2;
+    WaterMode mode = WaterMode::Ocean;
     float basinCenterX = 620.0f;
     float basinCenterZ = 615.0f;
     float basinRadiusX = 205.0f;

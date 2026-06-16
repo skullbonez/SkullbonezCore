@@ -445,6 +445,21 @@ class SkullbonezRun
         float frozenTime;  // Simulation time captured when water animation was frozen.
     };
 
+    struct WaterPassDebugInfo
+    {
+        bool rendered = false;
+        bool skippedHidden = false;
+        bool skippedModeOff = false;
+        bool reflectionValid = false;
+        bool reflectionRaytraced = false;
+        bool noReflection = false;
+        bool flatWater = false;
+        bool freezeTime = false;
+        uint32_t reflectionTextureHandle = 0;
+        float waterTime = 0.0f;
+        int styleWaterMode = -1;
+    };
+
     struct DebugOverlayPassInputs
     {
         // Debug overlays draw after production geometry and use the final world
@@ -646,9 +661,14 @@ class SkullbonezRun
         void EnsureGpuResources( const RenderFrameContext& frame );
         void ReleaseGpuResources();
         void Render( const WaterPassInputs& inputs );
+        const WaterPassDebugInfo& LastDebugInfo() const
+        {
+            return m_debugInfo;
+        }
 
       private:
         SkullbonezRun& m_run;
+        WaterPassDebugInfo m_debugInfo;
     };
 
     /* -- DebugOverlayPass --------------------------------------------------------------------------------------------------------------------------------------
