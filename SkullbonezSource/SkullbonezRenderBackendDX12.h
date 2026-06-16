@@ -48,6 +48,7 @@ Related:
 #include "SkullbonezBLASDX12.h"
 #include "SkullbonezTLASDX12.h"
 #include "SkullbonezSBTDX12.h"
+#include "SkullbonezRenderGraph.h"
 #include "SkullbonezCommon.h"
 #include <d3d12.h>
 #include <dxgi1_5.h>
@@ -164,7 +165,13 @@ struct LiveBarrierRecordDX12
     const void* resource = nullptr;
     D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
     D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
-    const char* source = nullptr;
+    char source[64] = {};
+};
+
+struct LiveUavBarrierRecordDX12
+{
+    const void* resource = nullptr;
+    char source[64] = {};
 };
 
 
@@ -340,6 +347,7 @@ class RenderBackendDX12 : public IRenderBackend
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
     std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
+    std::vector<LiveUavBarrierRecordDX12> m_liveUavBarrierRecords;
 
     ShaderDX12* m_activeShader = nullptr;
     // Currently bound persistent SRV descriptor indices for shader texture
@@ -398,7 +406,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
     void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
-    void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
+    void RecordLiveUavBarrier( const char* source, ID3D12Resource* resource );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
@@ -573,6 +581,8 @@ class RenderBackendDX12 : public IRenderBackend
     }
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX, UINT fboDepthSrvIndex = UINT_MAX, DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
+    void ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
+    void ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
     // Reserve CPU-written upload memory for the current command stream.
     //

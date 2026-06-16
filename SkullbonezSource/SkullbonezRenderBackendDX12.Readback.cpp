@@ -81,11 +81,11 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // F3 screenshots are taken in input handling before Clear()/Render, so the backbuffer is
     // usually still in PRESENT state at this point. Scene-driven captures can happen after render
     // where the backbuffer is in RENDER_TARGET state. Preserve whichever state we're currently in.
-    const D3D12_RESOURCE_STATES backBufferStateBeforeCopy =
-        m_backBufferIsRT ? D3D12_RESOURCE_STATE_RENDER_TARGET : D3D12_RESOURCE_STATE_PRESENT;
+    const RenderGraphResourceAccess backBufferAccessBeforeCopy =
+        m_backBufferIsRT ? RenderGraphResourceAccess::RenderTarget : RenderGraphResourceAccess::Present;
 
     // Transition backbuffer to COPY_SOURCE for readback.
-    TransitionBarrier( m_renderTargets[m_frameIndex], backBufferStateBeforeCopy, D3D12_RESOURCE_STATE_COPY_SOURCE );
+    ExecuteGraphTransitionBarrier( "BackbufferReadbackBegin", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], backBufferAccessBeforeCopy, RenderGraphResourceAccess::CopySource );
 
     // Get copyable footprint
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
@@ -122,7 +122,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
     // Restore the exact state we found before the capture.
-    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, backBufferStateBeforeCopy );
+    ExecuteGraphTransitionBarrier( "BackbufferReadbackRestore", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::CopySource, backBufferAccessBeforeCopy );
 
     // Execute and wait
     AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );

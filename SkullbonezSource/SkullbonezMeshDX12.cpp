@@ -103,13 +103,11 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
     // can be combined per D3D12 spec.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = m_vertexBuffer;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmdList->ResourceBarrier( 1, &barrier );
+    backend->ExecuteGraphTransitionBarrier( "MeshVertexUploadFinal",
+                                            "MeshVertexBuffer",
+                                            m_vertexBuffer,
+                                            RenderGraphResourceAccess::CopyDest,
+                                            RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
     m_vbView.SizeInBytes = (UINT)dataSize;

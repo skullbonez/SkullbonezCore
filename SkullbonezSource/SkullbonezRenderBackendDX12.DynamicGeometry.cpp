@@ -294,7 +294,11 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadSystem.Resource( m_allocatorIndex ), m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadAddr ), dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
     // combined read state used for both vertex fetch and DXR BLAS build SRV access.
-    TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE );
+    ExecuteGraphTransitionBarrier( "InstancedStaticVertexUploadFinal",
+                                   "InstancedStaticVertexBuffer",
+                                   im.staticVB,
+                                   RenderGraphResourceAccess::CopyDest,
+                                   RenderGraphResourceAccess::VertexAndNonPixelShaderResource );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
     im.staticVBV.SizeInBytes = (UINT)dataSize;

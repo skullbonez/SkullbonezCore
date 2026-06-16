@@ -529,7 +529,11 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     // will not infer that transition for us; record it explicitly each frame.
     if ( m_reflectionInSRVState )
     {
-        TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
+        ExecuteGraphTransitionBarrier( "DxrReflectionSrvToUav",
+                                       "DxrReflectionTexture",
+                                       m_reflectionUAV,
+                                       RenderGraphResourceAccess::PixelShaderResource,
+                                       RenderGraphResourceAccess::UnorderedAccess );
     }
 
     // Update RT constant buffer
@@ -640,14 +644,15 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     // makes every raytracing write visible before the next pass samples the
     // reflection texture through its SRV descriptor.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-    barrier.UAV.pResource = m_reflectionUAV;
-    m_cmdList4->ResourceBarrier( 1, &barrier );
+    ExecuteGraphUavBarrier( "DxrReflectionWriteOrder", "DxrReflectionTexture", m_reflectionUAV );
 
     // After ordering the writes, transition the texture into SRV state so the
     // raster water shader can read it.
-    TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+    ExecuteGraphTransitionBarrier( "DxrReflectionUavToSrv",
+                                   "DxrReflectionTexture",
+                                   m_reflectionUAV,
+                                   RenderGraphResourceAccess::UnorderedAccess,
+                                   RenderGraphResourceAccess::PixelShaderResource );
     m_reflectionInSRVState = true;
 
     // DXR uses the compute root signature/pipeline path. Mark raster state

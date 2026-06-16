@@ -84,6 +84,8 @@ const char* ToString( RenderGraphResourceAccess access )
         return "CopySource";
     case RenderGraphResourceAccess::CopyDest:
         return "CopyDest";
+    case RenderGraphResourceAccess::VertexAndNonPixelShaderResource:
+        return "VertexAndNonPixelShaderResource";
     case RenderGraphResourceAccess::Present:
         return "Present";
     default:

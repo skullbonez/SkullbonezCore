@@ -129,6 +129,7 @@ enum class RenderGraphResourceAccess
     UnorderedAccess,
     CopySource,
     CopyDest,
+    VertexAndNonPixelShaderResource,
     Present
 };
 

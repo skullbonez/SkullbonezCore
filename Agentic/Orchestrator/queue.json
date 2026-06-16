@@ -247,7 +247,7 @@
     {
       "id": "dx12-render-graph-completion",
       "plan": "Agentic/Plans/dx12-render-graph-completion-plan.md",
-      "state": "ready",
+      "state": "running",
       "priority": 60,
       "branch": "codex/dx12-render-graph-completion",
       "impact_area": [
