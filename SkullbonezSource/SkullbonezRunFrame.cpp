@@ -18,6 +18,8 @@ Related:
 */
 #include "SkullbonezRunInternal.h"
 
+#include "SkullbonezCaptureSystem.h"
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -218,134 +220,115 @@ bool SkullbonezRun::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
 
-    // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
-    if ( SceneState().isSceneMode && m_screenshot.isScreenshotAndExit && SceneState().currentFrame == 0 )
+    struct ScreenshotSink final : RuntimeCaptureSink
     {
-        const std::string* scenePath = CurrentSceneQueuePath();
-        if ( !scenePath )
+        explicit ScreenshotSink( SkullbonezRun& owner )
+            : run( owner )
         {
-            PROFILE_END( "Frame/PostDraw/Screenshots" );
-            return false;
         }
-        char outPath[256];
-        const char* base = scenePath->c_str();
-        const char* slash = strrchr( base, '/' );
-        const char* backslash = strrchr( base, '\\' );
-        const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : base );
-        char stem[256];
-        strcpy_s( stem, sizeof( stem ), name );
-        char* dot = strrchr( stem, '.' );
-        if ( dot )
+
+        void SaveScreenshot( const char* path ) override
         {
-            *dot = '\0';
+            run.SaveScreenshot( path );
         }
-        sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
-        SaveScreenshot( outPath );
-        PROFILE_END( "Frame/PostDraw/Screenshots" );
+
+        SkullbonezRun& run;
+    };
+
+    ScreenshotSink sink( *this );
+    const std::string* scenePath = CurrentSceneQueuePath();
+    const RuntimeCaptureResult result = CaptureSystem::TickScreenshots( m_screenshot,
+                                                                        RuntimeCaptureSceneContext{
+                                                                            SceneState().isSceneMode,
+                                                                            SceneState().isInteractiveRun,
+                                                                            SceneState().currentFrame,
+                                                                            m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
+                                                                            scenePath ? scenePath->c_str() : nullptr },
+                                                                        sink );
+
+    PROFILE_END( "Frame/PostDraw/Screenshots" );
+
+    if ( result.restartFrame )
+    {
         PROFILE_FRAME_END();
+    }
+
 #ifdef _DEBUG
+    if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
+    {
         LogSceneFinished( "screenshot_and_exit" );
+    }
+    else if ( result.completion == RuntimeCaptureCompletion::Screenshot )
+    {
+        LogSceneFinished( "screenshot" );
+    }
 #endif
-        if ( CanSceneAutomationQuit() )
+
+    switch ( result.automation )
+    {
+    case RuntimeCaptureAutomation::Quit:
+        PostQuitMessage( 0 );
+        break;
+    case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
+        if ( !AdvanceScene() )
         {
             PostQuitMessage( 0 );
         }
-        else
-        {
-            HoldCompletedInteractiveScene();
-        }
-        return true;
+        break;
+    case RuntimeCaptureAutomation::HoldInteractive:
+        HoldCompletedInteractiveScene();
+        break;
+    case RuntimeCaptureAutomation::None:
+        break;
     }
 
-    // Triggered screenshot: capture when target frame or ms threshold is reached
-    if ( SceneState().isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
-    {
-        bool shouldCapture = false;
-
-        if ( m_screenshot.screenshotFrame > 0 && ( SceneState().currentFrame + 1 ) >= m_screenshot.screenshotFrame )
-        {
-            shouldCapture = true;
-        }
-        if ( m_screenshot.screenshotMs > 0 && m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0 >= m_screenshot.screenshotMs )
-        {
-            shouldCapture = true;
-        }
-
-        if ( shouldCapture )
-        {
-            SaveScreenshot( m_screenshot.screenshotPath );
-            m_screenshot.isScreenshotSaved = true;
-            PROFILE_END( "Frame/PostDraw/Screenshots" );
-            PROFILE_FRAME_END();
-#ifdef _DEBUG
-            LogSceneFinished( "screenshot" );
-#endif
-            if ( CanSceneAutomationQuit() )
-            {
-                if ( !AdvanceScene() )
-                {
-                    PostQuitMessage( 0 );
-                }
-            }
-            else
-            {
-                HoldCompletedInteractiveScene();
-            }
-            return true;
-        }
-    }
-
-    // Interval capture: save numbered screenshot every N frames
-    if ( SceneState().isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
-    {
-        if ( ( SceneState().currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
-        {
-            ++m_screenshot.intervalCaptureCount;
-            char intervalPath[512];
-            sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshot.screenshotDir, m_screenshot.intervalCaptureCount );
-            SaveScreenshot( intervalPath );
-        }
-    }
-
-    PROFILE_END( "Frame/PostDraw/Screenshots" );
-    return false;
+    return result.restartFrame;
 }
 
 
 void SkullbonezRun::TickAutoCycle()
 {
-    if ( !SceneState().isSceneMode || m_camera.autoCycleInterval <= 0.0f || m_camera.autoCycleAccum < m_camera.autoCycleInterval )
+    struct ScreenshotSink final : RuntimeCaptureSink
+    {
+        explicit ScreenshotSink( SkullbonezRun& owner )
+            : run( owner )
+        {
+        }
+
+        void SaveScreenshot( const char* path ) override
+        {
+            run.SaveScreenshot( path );
+        }
+
+        SkullbonezRun& run;
+    };
+
+    ScreenshotSink sink( *this );
+    const RuntimeCaptureResult result = CaptureSystem::TickAutoCycle( SceneState().isSceneMode,
+                                                                      SceneState().isInteractiveRun,
+                                                                      m_cGameModelCollection.GetModelCount(),
+                                                                      m_camera.autoCycleInterval,
+                                                                      m_camera.autoCycleAccum,
+                                                                      m_camera.autoCycleShotsTaken,
+                                                                      m_camera.trackBallIndex,
+                                                                      sink );
+
+    if ( result.completion != RuntimeCaptureCompletion::AutoCycle )
     {
         return;
     }
 
-    int ballCount = m_cGameModelCollection.GetModelCount();
-    char shotPath[256];
-    sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_camera.autoCycleShotsTaken );
-    SaveScreenshot( shotPath );
-    fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_camera.autoCycleShotsTaken, m_camera.trackBallIndex, shotPath );
-    fflush( stdout );
-
-    ++m_camera.autoCycleShotsTaken;
-    m_camera.autoCycleAccum = 0.0f;
-
-    if ( m_camera.autoCycleShotsTaken >= ballCount )
-    {
 #ifdef _DEBUG
-        LogSceneFinished( "auto_cycle" );
+    LogSceneFinished( "auto_cycle" );
 #endif
-        if ( CanSceneAutomationQuit() )
-        {
-            PostQuitMessage( 0 );
-        }
-        else
-        {
-            HoldCompletedInteractiveScene();
-        }
-    }
-    else
+
+    if ( result.automation == RuntimeCaptureAutomation::Quit )
     {
-        m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % ballCount;
+        PostQuitMessage( 0 );
+    }
+    else if ( result.automation == RuntimeCaptureAutomation::HoldInteractive )
+    {
+        HoldCompletedInteractiveScene();
     }
 }
 

@@ -225,10 +225,12 @@ SkullbonezRun *-- PhysicsDebugVisualizer
 
 `SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
 `RunSceneState`. `SimulationSystem` owns timestep policy and the physics
-accumulators for fixed-step and variable-step playback. `SkullbonezRun` still
-coordinates the heavier load/reset side effects around that state, including
-object construction, terrain, cameras, UI defaults, capture, diagnostics, and
-renderer setup.
+accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
+BMP backbuffer readback plus scene screenshot/autocycle policy; `SkullbonezRun`
+still applies capture completion actions such as scene advance, quit, or
+interactive hold. `SkullbonezRun` still coordinates the heavier load/reset side
+effects around that state, including object construction, terrain, cameras, UI
+defaults, diagnostics, and renderer setup.
 
 ## Rendering Interfaces And Backend Family
 
@@ -646,6 +648,9 @@ subsystem rather than by dependency edge.
 - `Input`
 - `Timer`
 - `CaptureSystem`
+- `RuntimeCaptureSceneContext`
+- `RuntimeCaptureResult`
+- `RuntimeCaptureSink`
 - `SkullbonezConfig`
 - `WindowConfig`
 - `RuntimeRenderFlags`
