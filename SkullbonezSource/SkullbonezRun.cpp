@@ -43,7 +43,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
-    : m_sceneQueue( std::move( sceneQueue ) ),
+    : m_sceneRuntime( std::move( sceneQueue ) ),
       m_fullscreenQuadPass( *this ),
       m_skyPass( *this ),
       m_sceneTargetPass( *this ),
@@ -61,6 +61,18 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
+}
+
+
+RunSceneState& SkullbonezRun::SceneState()
+{
+    return m_sceneRuntime.State();
+}
+
+
+const RunSceneState& SkullbonezRun::SceneState() const
+{
+    return m_sceneRuntime.State();
 }
 
 
@@ -303,8 +315,8 @@ void SkullbonezRun::LogRenderResourceLifecycleStep( const char* phase, const cha
                        gfxReady ? 1 : 0,
                        backendWidth,
                        backendHeight,
-                       m_scene.currentSceneIndex,
-                       m_scene.loadCount );
+                       SceneState().currentSceneIndex,
+                       SceneState().loadCount );
 }
 
 
@@ -543,17 +555,17 @@ void SkullbonezRun::Initialise()
 
 void SkullbonezRun::RunSceneLoadOnly()
 {
-    const int sceneCount = static_cast<int>( m_sceneQueue.size() );
+    const int sceneCount = m_sceneRuntime.QueueSize();
     if ( sceneCount <= 0 )
     {
         return;
     }
 
-    printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount, m_sceneQueue[0].empty() ? "generated" : m_sceneQueue[0].c_str() );
+    printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount, m_sceneRuntime.PathAt( 0 ).empty() ? "generated" : m_sceneRuntime.PathAt( 0 ).c_str() );
     for ( int i = 1; i < sceneCount; ++i )
     {
         LoadScene( i );
-        printf( "[scene-load-only] Loaded %d/%d: %s\n", i + 1, sceneCount, m_sceneQueue[i].empty() ? "generated" : m_sceneQueue[i].c_str() );
+        printf( "[scene-load-only] Loaded %d/%d: %s\n", i + 1, sceneCount, m_sceneRuntime.PathAt( i ).empty() ? "generated" : m_sceneRuntime.PathAt( i ).c_str() );
     }
 }
 
@@ -678,7 +690,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     const char* scenePath = "<generated>";
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
         const std::string* currentScenePath = CurrentSceneQueuePath();
         if ( currentScenePath )
@@ -769,35 +781,35 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
     fprintf( f, "snapshot_file,%s\n", NUDGE_REPRO_SNAPSHOT_PATH );
     fprintf( f, "scene,%s\n", scenePath );
-    fprintf( f, "scene_mode,%d\n", m_scene.isSceneMode ? 1 : 0 );
-    fprintf( f, "scene_index,%d\n", m_scene.currentSceneIndex );
-    fprintf( f, "scene_load_count,%d\n", m_scene.loadCount );
-    fprintf( f, "manual_reset_count,%d\n", m_scene.manualResetCount );
-    fprintf( f, "scene_frame,%d\n", m_scene.currentFrame );
-    fprintf( f, "target_frame_count,%d\n", m_scene.targetFrameCount );
+    fprintf( f, "scene_mode,%d\n", SceneState().isSceneMode ? 1 : 0 );
+    fprintf( f, "scene_index,%d\n", SceneState().currentSceneIndex );
+    fprintf( f, "scene_load_count,%d\n", SceneState().loadCount );
+    fprintf( f, "manual_reset_count,%d\n", SceneState().manualResetCount );
+    fprintf( f, "scene_frame,%d\n", SceneState().currentFrame );
+    fprintf( f, "target_frame_count,%d\n", SceneState().targetFrameCount );
     fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
-    fprintf( f, "rng_seed,%u\n", m_scene.rngSeed );
+    fprintf( f, "rng_seed,%u\n", SceneState().rngSeed );
     fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
     fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
     fprintf( f, "cmd_no_sleep,%d\n", m_cmdNoSleep ? 1 : 0 );
     fprintf( f, "physics_sleep_enabled,%d\n", m_runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
-    fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
+    fprintf( f, "fixed_step_effective,%d\n", SceneState().isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
-    fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
+    fprintf( f, "time_scale,%.6f\n", SceneState().timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
     fprintf( f, "model_count,%d\n", m_cGameModelCollection.GetModelCount() );
     fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", m_runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
         fprintf( f,
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
                  scenePath,
-                 m_scene.rngSeed,
-                 m_scene.timeScale,
-                 m_scene.isFixedStep ? " --fixed-step" : "",
+                 SceneState().rngSeed,
+                 SceneState().timeScale,
+                 SceneState().isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
@@ -807,9 +819,9 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         fprintf( f,
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
-                 m_scene.rngSeed,
-                 m_scene.timeScale,
-                 m_scene.isFixedStep ? " --fixed-step" : "",
+                 SceneState().rngSeed,
+                 SceneState().timeScale,
+                 SceneState().isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
@@ -909,7 +921,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 #ifdef _DEBUG
 void SkullbonezRun::LogSceneFinished( const char* reason )
 {
-    if ( m_scene.isFinishLogged )
+    if ( SceneState().isFinishLogged )
     {
         return;
     }
@@ -922,17 +934,17 @@ void SkullbonezRun::LogSceneFinished( const char* reason )
     }
 
     Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d renderer=\"%s\" models=%d test_complete=%d",
-                       m_scene.currentSceneIndex,
-                       m_scene.loadCount,
+                       SceneState().currentSceneIndex,
+                       SceneState().loadCount,
                        scenePath,
                        reason && reason[0] != '\0' ? reason : "unknown",
-                       m_scene.currentFrame,
-                       m_scene.targetFrameCount,
+                       SceneState().currentFrame,
+                       SceneState().targetFrameCount,
                        IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                       m_scene.modelCount,
-                       m_scene.isTestComplete ? 1 : 0 );
+                       SceneState().modelCount,
+                       SceneState().isTestComplete ? 1 : 0 );
 
-    m_scene.isFinishLogged = true;
+    SceneState().isFinishLogged = true;
 }
 
 
@@ -961,16 +973,16 @@ void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
                   "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,\"persistent_contact_slop\":%.6f,\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
                   m_physicsDiagnostics.currentRunId,
                   escapedScene.c_str(),
-                  m_scene.currentSceneIndex,
-                  m_scene.loadCount,
-                  m_scene.manualResetCount,
+                  SceneState().currentSceneIndex,
+                  SceneState().loadCount,
+                  SceneState().manualResetCount,
                   escapedRenderer.c_str(),
                   escapedSolver.c_str(),
-                  m_scene.rngSeed,
-                  m_scene.isFixedStep ? 1 : 0,
+                  SceneState().rngSeed,
+                  SceneState().isFixedStep ? 1 : 0,
                   m_physicsDiagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
-                  m_scene.targetFrameCount,
-                  m_scene.modelCount,
+                  SceneState().targetFrameCount,
+                  SceneState().modelCount,
                   Cfg().gravity,
                   Cfg().contactEpsilon,
                   Cfg().contactRestitutionThreshold,
@@ -1003,7 +1015,7 @@ void SkullbonezRun::EndPhysicsDiagnosticsRun( const char* status )
     Log().Writef( m_physicsDiagnostics.path,
                   "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
                   m_physicsDiagnostics.currentRunId,
-                  m_scene.currentFrame,
+                  SceneState().currentFrame,
                   escapedStatus.c_str() );
     Log().FlushAll();
 

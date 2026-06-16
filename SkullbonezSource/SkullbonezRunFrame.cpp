@@ -173,19 +173,19 @@ void SkullbonezRun::Run()
 
 void SkullbonezRun::TickPhysics( double secondsPerFrame )
 {
-    if ( m_scene.isSceneMode && !m_scene.isScenePhysics )
+    if ( SceneState().isSceneMode && !SceneState().isScenePhysics )
     {
         return;
     }
 
-    if ( m_scene.isFixedStep )
+    if ( SceneState().isFixedStep )
     {
         // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
         // Ignores wall-clock time entirely — produces identical results every run.
         //
         // Accumulate fractional fixed ticks so 0.5x, 1.5x, and 10x all remain
         // deterministic while using the exact fixed simulation delta.
-        m_timers.fixedStepTickAccumulator += (std::max)( 0.0f, m_scene.timeScale );
+        m_timers.fixedStepTickAccumulator += (std::max)( 0.0f, SceneState().timeScale );
         const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_timers.fixedStepTickAccumulator ) ), FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
         m_timers.fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
@@ -208,7 +208,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
     }
     else
     {
-        float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
+        float scaledDt = static_cast<float>( secondsPerFrame ) * SceneState().timeScale;
 
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
@@ -245,22 +245,22 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 
 void SkullbonezRun::EnterInteractiveSceneRun()
 {
-    m_scene.isInteractiveRun = true;
-    m_scene.isExitOnComplete = false;
+    SceneState().isInteractiveRun = true;
+    SceneState().isExitOnComplete = false;
     m_screenshot.isScreenshotAndExit = false;
 }
 
 
 bool SkullbonezRun::CanSceneAutomationQuit() const
 {
-    return !m_scene.isInteractiveRun;
+    return !SceneState().isInteractiveRun;
 }
 
 
 void SkullbonezRun::HoldCompletedInteractiveScene()
 {
-    m_scene.isTestComplete = true;
-    m_scene.isExitOnComplete = false;
+    SceneState().isTestComplete = true;
+    SceneState().isExitOnComplete = false;
     m_screenshot.isScreenshotAndExit = false;
     m_camera.autoCycleInterval = -1.0f;
     m_camera.autoCycleAccum = 0.0f;
@@ -272,7 +272,7 @@ bool SkullbonezRun::TickScreenshots()
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
 
     // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
-    if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
+    if ( SceneState().isSceneMode && m_screenshot.isScreenshotAndExit && SceneState().currentFrame == 0 )
     {
         const std::string* scenePath = CurrentSceneQueuePath();
         if ( !scenePath )
@@ -311,11 +311,11 @@ bool SkullbonezRun::TickScreenshots()
     }
 
     // Triggered screenshot: capture when target frame or ms threshold is reached
-    if ( m_scene.isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
+    if ( SceneState().isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
     {
         bool shouldCapture = false;
 
-        if ( m_screenshot.screenshotFrame > 0 && ( m_scene.currentFrame + 1 ) >= m_screenshot.screenshotFrame )
+        if ( m_screenshot.screenshotFrame > 0 && ( SceneState().currentFrame + 1 ) >= m_screenshot.screenshotFrame )
         {
             shouldCapture = true;
         }
@@ -349,9 +349,9 @@ bool SkullbonezRun::TickScreenshots()
     }
 
     // Interval capture: save numbered screenshot every N frames
-    if ( m_scene.isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
+    if ( SceneState().isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
     {
-        if ( ( m_scene.currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
+        if ( ( SceneState().currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
         {
             ++m_screenshot.intervalCaptureCount;
             char intervalPath[512];
@@ -367,7 +367,7 @@ bool SkullbonezRun::TickScreenshots()
 
 void SkullbonezRun::TickAutoCycle()
 {
-    if ( !m_scene.isSceneMode || m_camera.autoCycleInterval <= 0.0f || m_camera.autoCycleAccum < m_camera.autoCycleInterval )
+    if ( !SceneState().isSceneMode || m_camera.autoCycleInterval <= 0.0f || m_camera.autoCycleAccum < m_camera.autoCycleInterval )
     {
         return;
     }
@@ -416,9 +416,9 @@ void SkullbonezRun::TickPerfLog()
         Profiler::Instance().WritePerfCSVHeader( m_perfLogState.perfLogFile );
         m_perfLogState.perfHeaderWritten = true;
     }
-    Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, m_scene.currentFrame + 1 );
+    Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, SceneState().currentFrame + 1 );
 #else
-    fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_scene.currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
+    fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, SceneState().currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
 #endif
 
     ++m_perfLogState.perfLogWritesSinceFlush;
@@ -429,7 +429,7 @@ void SkullbonezRun::TickPerfLog()
         m_perfLogState.perfLogWritesSinceFlush = 0;
     }
 
-    if ( ( m_scene.currentFrame + 1 ) % 60 == 0 )
+    if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {
         LogPerfMemory( "periodic" );
     }
@@ -438,20 +438,20 @@ void SkullbonezRun::TickPerfLog()
 
 bool SkullbonezRun::TickSceneAdvance()
 {
-    ++m_scene.currentFrame;
+    ++SceneState().currentFrame;
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
+    if ( SceneState().targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
     {
-        if ( m_scene.currentFrame >= m_scene.targetFrameCount )
+        if ( SceneState().currentFrame >= SceneState().targetFrameCount )
         {
 #ifdef _DEBUG
-            if ( !m_scene.isTestComplete )
+            if ( !SceneState().isTestComplete )
             {
                 LogSceneFinished( "frame_count" );
             }
 #endif
-            if ( m_scene.isExitOnComplete && CanSceneAutomationQuit() )
+            if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
                 {
@@ -463,7 +463,7 @@ bool SkullbonezRun::TickSceneAdvance()
             {
                 if ( CanSceneAutomationQuit() )
                 {
-                    m_scene.isTestComplete = true;
+                    SceneState().isTestComplete = true;
                 }
                 else
                 {
@@ -474,16 +474,16 @@ bool SkullbonezRun::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    if ( !SceneState().isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
+        LoadScene( SceneState().currentSceneIndex, SceneState().isInteractiveRun, SceneState().isInteractiveRun, SceneState().isInteractiveRun );
         m_timers.simulationTimer.StartTimer();
         return true;
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
     if ( m_perfLogState.isPerfTest &&
-         m_scene.targetFrameCount <= 0 &&
+         SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG
@@ -510,7 +510,7 @@ bool SkullbonezRun::TickSceneAdvance()
 void SkullbonezRun::UpdateLogic( float simulationDt, float cameraDt )
 {
     // Auto-cycle
-    if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f )
+    if ( SceneState().isSceneMode && m_camera.autoCycleInterval > 0.0f )
     {
         m_camera.autoCycleAccum += simulationDt;
     }

@@ -40,8 +40,8 @@ void SkullbonezRun::UiTextPass::ReleaseGpuResources()
 bool SkullbonezRun::UiTextPass::ShouldRender() const
 {
     return m_run.m_debug.isTextOnly ||
-           !m_run.m_scene.isSceneMode ||
-           m_run.m_scene.isSceneText ||
+           !m_run.SceneState().isSceneMode ||
+           m_run.SceneState().isSceneText ||
            m_run.m_debug.overlayMode != OverlayMode::None ||
            m_run.m_UI.IsVisible();
 }
@@ -144,9 +144,9 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     }
 
     const char* sceneName = "";
-    if ( m_run.m_scene.isSceneMode && m_run.m_scene.currentSceneIndex >= 0 && m_run.m_scene.currentSceneIndex < static_cast<int>( m_run.m_sceneQueue.size() ) )
+    if ( m_run.SceneState().isSceneMode && m_run.m_sceneRuntime.HasCurrentEntry() )
     {
-        sceneName = FileNameFromPath( m_run.m_sceneQueue[m_run.m_scene.currentSceneIndex].c_str() );
+        sceneName = FileNameFromPath( m_run.m_sceneRuntime.CurrentPath()->c_str() );
     }
 
     if ( m_run.m_UI.IsVisible() )
@@ -171,26 +171,26 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.physicsMs = ( m_run.m_timers.rollingPhysicsTime > 0.0f ? m_run.m_timers.rollingPhysicsTime : m_run.m_timers.physicsTime ) * 1000.0f;
         UIData.cpuFrameMs = m_run.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_run.m_timers.gpuFrameWorkMs;
-        UIData.modelCount = m_run.m_scene.modelCount;
-        UIData.currentFrame = m_run.m_scene.currentFrame;
-        UIData.targetFrameCount = m_run.m_scene.targetFrameCount;
-        UIData.rngSeed = m_run.m_scene.rngSeed;
-        UIData.solverBallCount = m_run.m_scene.solverBallCount;
-        UIData.solverBoxCount = m_run.m_scene.solverBoxCount;
-        UIData.currentSceneIndex = m_run.m_scene.currentSceneIndex;
-        UIData.sceneCount = static_cast<int>( m_run.m_sceneQueue.size() );
+        UIData.modelCount = m_run.SceneState().modelCount;
+        UIData.currentFrame = m_run.SceneState().currentFrame;
+        UIData.targetFrameCount = m_run.SceneState().targetFrameCount;
+        UIData.rngSeed = m_run.SceneState().rngSeed;
+        UIData.solverBallCount = m_run.SceneState().solverBallCount;
+        UIData.solverBoxCount = m_run.SceneState().solverBoxCount;
+        UIData.currentSceneIndex = m_run.SceneState().currentSceneIndex;
+        UIData.sceneCount = m_run.m_sceneRuntime.QueueSize();
         UIData.now = m_run.m_timers.simulationTimer.GetTotalTime();
-        UIData.sceneMode = m_run.m_scene.isSceneMode;
-        UIData.scenePhysicsEnabled = m_run.m_scene.isScenePhysics;
-        UIData.sceneTextEnabled = m_run.m_scene.isSceneText;
+        UIData.sceneMode = m_run.SceneState().isSceneMode;
+        UIData.scenePhysicsEnabled = m_run.SceneState().isScenePhysics;
+        UIData.sceneTextEnabled = m_run.SceneState().isSceneText;
         UIData.textOnly = m_run.m_debug.isTextOnly;
-        UIData.fixedStep = m_run.m_scene.isFixedStep;
-        UIData.exitOnComplete = m_run.m_scene.isExitOnComplete;
-        UIData.testComplete = m_run.m_scene.isTestComplete;
+        UIData.fixedStep = m_run.SceneState().isFixedStep;
+        UIData.exitOnComplete = m_run.SceneState().isExitOnComplete;
+        UIData.testComplete = m_run.SceneState().isTestComplete;
         UIData.vsyncEnabled = m_run.m_runtimeSettings.isVsyncEnabled;
         UIData.pipelineSyncEnabled = m_run.m_runtimeSettings.isPipelineSyncEnabled;
         UIData.sceneEnergy = sceneEnergyForDisplay;
-        UIData.timeScale = m_run.m_scene.timeScale;
+        UIData.timeScale = m_run.SceneState().timeScale;
         UIData.trackHeight = m_run.m_camera.trackBallIndex >= 0 ? m_run.m_camera.trackHeight : 0.0f;
         UIData.autoCycleInterval = m_run.m_camera.autoCycleInterval > 0.0f ? m_run.m_camera.autoCycleInterval : 0.0f;
         UIData.worldGravity = m_run.m_cWorldEnvironment.GetGravity();
@@ -229,10 +229,9 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.waterRTReflect = m_run.m_debug.isWaterRTReflect;
         UIData.cameraMouseActive = m_run.m_camera.isFlyMode && !m_run.m_UI.WantsNativeMouseCursor() && !m_run.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.canSaveSceneDefaults = m_run.m_scene.isSceneMode &&
-                                      m_run.m_scene.currentSceneIndex >= 0 &&
-                                      m_run.m_scene.currentSceneIndex < static_cast<int>( m_run.m_sceneQueue.size() ) &&
-                                      !m_run.m_sceneQueue[m_run.m_scene.currentSceneIndex].empty();
+        UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode &&
+                                      m_run.m_sceneRuntime.HasCurrentEntry() &&
+                                      !m_run.m_sceneRuntime.CurrentPath()->empty();
         UIData.cinematicRendering = m_run.IsCinematicRenderingEnabled();
         UIData.cinematic = m_run.ActiveCinematicConfig();
         PROFILE_END( "Frame/UI/BuildData" );
@@ -274,7 +273,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
 
         Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
         Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz, titleSz, 1.0f, 0.85f, 0.35f, "SCENE TELEMETRY" );
-        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz - lineH, entrySz, 0.85f, 0.85f, 0.85f, "Model Count: %d", m_run.m_scene.modelCount );
+        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz - lineH, entrySz, 0.85f, 0.85f, 0.85f, "Model Count: %d", m_run.SceneState().modelCount );
         Text2d::Render2dTextColor( panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH * 2.0f,
                                    entrySz,

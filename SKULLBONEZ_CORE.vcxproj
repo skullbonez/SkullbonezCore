@@ -155,6 +155,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezSceneRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
@@ -269,6 +270,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezConfig.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRunInternal.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezSceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />

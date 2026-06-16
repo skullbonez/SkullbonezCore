@@ -650,7 +650,7 @@ void SkullbonezRun::TakeInput()
             {
                 // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
                 // on the current camera so fly controls work without requiring CAMERA_FREE
-                if ( !m_scene.isSceneMode )
+                if ( !SceneState().isSceneMode )
                 {
                     m_systems.cameras->SelectCamera( CAMERA_FREE, false );
                 }
@@ -660,7 +660,7 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_xMax = 99999.9f;
                 unbounded.m_zMin = -99999.9f;
                 unbounded.m_zMax = 99999.9f;
-                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
                 if ( CameraMouseOwnsCursor() )
                 {
@@ -677,7 +677,7 @@ void SkullbonezRun::TakeInput()
             {
                 // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
                 // the stock Windows cursor.
-                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
                 Input::SetSystemCursorVisible( true );
                 m_camera.cameraTime = 0.0f;
@@ -846,7 +846,7 @@ void SkullbonezRun::TakeInput()
         bool isGNow = Input::IsKeyDown( 'G' );
         if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
         {
-            if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
+            if ( SceneState().isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
             {
                 int count = m_cGameModelCollection.GetModelCount();
                 if ( count > 0 )
@@ -1031,7 +1031,7 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleFixedStep )
         {
-            m_scene.isFixedStep = !m_scene.isFixedStep;
+            SceneState().isFixedStep = !SceneState().isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
         }
@@ -1059,7 +1059,7 @@ void SkullbonezRun::TakeInput()
         {
             const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
             m_cmdHasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), m_scene, !shadowsActive );
+            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {
@@ -1082,14 +1082,14 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-            m_scene.timeScale = m_UITimeScaleOverride;
+            SceneState().timeScale = m_UITimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {
-            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
-            m_scene.rngState = m_scene.rngSeed;
+            SceneState().rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
+            SceneState().rngState = SceneState().rngSeed;
         }
         if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
         {
@@ -1105,12 +1105,12 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
-            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
+            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : SceneState().solverBoxCount;
             ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
-            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
+            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : SceneState().solverBallCount;
             ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight || uiCommands.water.requestWorldFluidDensity )
@@ -1130,12 +1130,12 @@ void SkullbonezRun::TakeInput()
             const bool currentlyEnabled = m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
             m_cmdHasCinematicRenderingOverride = false;
-            if ( m_scene.isSceneMode )
+            if ( SceneState().isSceneMode )
             {
-                m_scene.hasCinematicRenderingOverride = true;
-                m_scene.isCinematicRenderingEnabled = cinematic.enabled;
-                m_scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
-                m_scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+                SceneState().hasCinematicRenderingOverride = true;
+                SceneState().isCinematicRenderingEnabled = cinematic.enabled;
+                SceneState().cinematicOverrideMask |= SCENE_CINE_RENDERING;
+                SceneState().uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
             }
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
@@ -1149,12 +1149,12 @@ void SkullbonezRun::TakeInput()
             {
                 m_cmdHasCinematicShadowsOverride = false;
             }
-            ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
+            ToggleCinematicUIFeature( cinematic, SceneState(), uiCommands.cinematic.requestedFeature );
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-            ApplyCinematicUIParam( cinematic, m_scene, uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
+            ApplyCinematicUIParam( cinematic, SceneState(), uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
         }
         if ( uiCommands.scene.resetScene )
         {
@@ -1221,8 +1221,8 @@ void SkullbonezRun::TakeInput()
                 sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
                 saved = m_cGameModelCollection.SaveSceneSnapshot(
                     path,
-                    m_scene.isScenePhysics,
-                    m_scene.isSceneText,
+                    SceneState().isScenePhysics,
+                    SceneState().isSceneText,
                     m_cWorldEnvironment,
                     m_systems.cameras->GetCameraTranslation(),
                     m_systems.cameras->GetCameraView(),
@@ -1264,7 +1264,7 @@ void SkullbonezRun::TakeInput()
         }
         m_camera.input.Set( InputState::RKeyWasDown, rNow );
     }
-    if ( m_scene.isSceneMode )
+    if ( SceneState().isSceneMode )
     {
         bool bsNow = Input::IsKeyDown( VK_BACK );
         if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
@@ -1380,7 +1380,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_camera.isFlyMode && !m_scene.isSceneMode )
+    if ( !m_camera.isFlyMode && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;

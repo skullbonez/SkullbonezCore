@@ -172,6 +172,7 @@ class RunRuntimeSettings
 class RunTimerState
 class RunSubsystemState
 class RunCameraState
+class SceneRuntime
 class RunSceneState
 class RunScreenshotState
 class RunLiveStyleControlState
@@ -198,7 +199,8 @@ SkullbonezRun *-- RunRuntimeSettings
 SkullbonezRun *-- RunTimerState
 SkullbonezRun *-- RunSubsystemState
 SkullbonezRun *-- RunCameraState
-SkullbonezRun *-- RunSceneState
+SkullbonezRun *-- SceneRuntime
+SceneRuntime *-- RunSceneState
 SkullbonezRun *-- RunScreenshotState
 SkullbonezRun *-- RunLiveStyleControlState
 SkullbonezRun *-- RunDebugState
@@ -219,10 +221,10 @@ SkullbonezRun *-- CollisionVisualizer
 SkullbonezRun *-- PhysicsDebugVisualizer
 ```
 
-`ConstSceneRuntime` and `SceneRuntime` are intentionally absent from this
-ownership diagram because they are local helpers in `SkullbonezRunScene.cpp`,
-not separately owned subsystems. They wrap current scene queue/index operations
-while `SkullbonezRun` remains the owner of scene state and load/reset policy.
+`SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
+`RunSceneState`. `SkullbonezRun` still coordinates the heavier load/reset side
+effects around that state, including object construction, terrain, cameras,
+UI defaults, capture, diagnostics, and renderer setup.
 
 ## Rendering Interfaces And Backend Family
 
