@@ -50,7 +50,7 @@ void SkullbonezRun::Run()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            Gfx().ResetFrameDrawCallCount();
+            Gfx().ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
@@ -102,14 +102,27 @@ void SkullbonezRun::Run()
             }
 
             PROFILE_BEGIN( "Frame/Render" );
-            Render();
+            {
+                DRAW_CALL_TRACE_SCOPE( "Frame/Render" );
+                Render();
+            }
             PROFILE_END( "Frame/Render" );
 
             if ( m_uiTextPass.ShouldRender() )
             {
+                const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
-                m_uiTextPass.Render( secondsPerFrame );
+                {
+                    DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
+                    m_uiTextPass.Render( secondsPerFrame );
+                }
                 PROFILE_END( "Frame/UI" );
+                const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
+                m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
+            }
+            else
+            {
+                m_timers.lastUIDrawCalls = 0;
             }
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );

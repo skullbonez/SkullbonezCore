@@ -22,6 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezUI.h"
+#include "../SkullbonezIRenderBackend.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
@@ -255,8 +256,14 @@ void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, floa
     PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH );
     drawList.Flush( immediateDraw, offsetX, offsetY );
-    Text2d::FlushQuads();
-    Text2d::FlushText();
+    {
+        DRAW_CALL_TRACE_SCOPE( "Widgets" );
+        Text2d::FlushQuads();
+    }
+    {
+        DRAW_CALL_TRACE_SCOPE( "Text" );
+        Text2d::FlushText();
+    }
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
 
@@ -1893,6 +1900,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         return;
     }
+    DRAW_CALL_TRACE_SCOPE( "Frame/UI/Draw" );
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );

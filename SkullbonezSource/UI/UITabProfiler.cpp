@@ -28,6 +28,7 @@ Related:
 #include "UITabProfiler.h"
 
 #include "../SkullbonezCommon.h"
+#include "../SkullbonezIRenderBackend.h"
 #include "../SkullbonezProfiler.h"
 #include "SkullbonezUI.h"
 #include "UIDraw.h"
@@ -92,6 +93,125 @@ void ToggleMarker( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, u
     {
         state.expandedHashes[state.expandedHashCount++] = hash;
     }
+}
+
+bool IsDrawNodeExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
+{
+    for ( int i = 0; i < state.drawExpandedHashCount; ++i )
+    {
+        if ( state.drawExpandedHashes[i] == hash )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ToggleDrawNode( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
+{
+    state.drawDefaultExpansionApplied = true;
+    for ( int i = 0; i < state.drawExpandedHashCount; ++i )
+    {
+        if ( state.drawExpandedHashes[i] == hash )
+        {
+            for ( int j = i; j < state.drawExpandedHashCount - 1; ++j )
+            {
+                state.drawExpandedHashes[j] = state.drawExpandedHashes[j + 1];
+            }
+            --state.drawExpandedHashCount;
+            return;
+        }
+    }
+    if ( state.drawExpandedHashCount < SkullbonezCore::UI::ProfilerTab::MAX_MARKERS )
+    {
+        state.drawExpandedHashes[state.drawExpandedHashCount++] = hash;
+    }
+}
+
+SkullbonezCore::Rendering::DrawCallTraceSnapshot GetDrawTraceSnapshot()
+{
+    if ( !SkullbonezCore::Rendering::IsGfxReady() )
+    {
+        return SkullbonezCore::Rendering::DrawCallTraceSnapshot();
+    }
+    return SkullbonezCore::Rendering::Gfx().GetFrameDrawCallTrace();
+}
+
+bool DrawNodeHasVisibleChildren( const SkullbonezCore::Rendering::DrawCallTraceSnapshot& snapshot, int nodeIndex )
+{
+    for ( int i = 0; i < snapshot.nodeCount; ++i )
+    {
+        if ( snapshot.nodes[i].parentIndex == nodeIndex && snapshot.nodes[i].drawCallCount > 0 )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+                          const SkullbonezCore::Rendering::DrawCallTraceSnapshot& snapshot,
+                          int* rows,
+                          int maxRows )
+{
+    if ( !snapshot.nodes || snapshot.nodeCount <= 0 )
+    {
+        return 0;
+    }
+
+    int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+    int childCounts[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+    const int nodeCount = (std::min)( snapshot.nodeCount, SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
+
+    for ( int i = 0; i < nodeCount; ++i )
+    {
+        const int parentIndex = snapshot.nodes[i].parentIndex;
+        if ( parentIndex >= 0 && parentIndex < nodeCount )
+        {
+            childIndices[parentIndex][childCounts[parentIndex]++] = i;
+        }
+    }
+
+    int stack[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
+    int stackTop = 0;
+    for ( int i = nodeCount - 1; i >= 0; --i )
+    {
+        if ( snapshot.nodes[i].parentIndex == -1 && snapshot.nodes[i].drawCallCount > 0 )
+        {
+            stack[stackTop++] = i;
+        }
+    }
+
+    int rowCount = 0;
+    while ( stackTop > 0 )
+    {
+        const int nodeIndex = stack[--stackTop];
+        if ( rowCount < maxRows )
+        {
+            rows[rowCount] = nodeIndex;
+        }
+        ++rowCount;
+
+        const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[nodeIndex];
+        if ( !IsDrawNodeExpanded( state, node.hash ) )
+        {
+            continue;
+        }
+        for ( int child = childCounts[nodeIndex] - 1; child >= 0; --child )
+        {
+            const int childIndex = childIndices[nodeIndex][child];
+            if ( snapshot.nodes[childIndex].drawCallCount <= 0 )
+            {
+                continue;
+            }
+            if ( stackTop < SkullbonezCore::UI::ProfilerTab::MAX_MARKERS )
+            {
+                stack[stackTop++] = childIndex;
+            }
+        }
+    }
+
+    return (std::min)( rowCount, maxRows );
 }
 
 int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int* rows, int maxRows )
@@ -245,7 +365,9 @@ void SetExpandAll( UIProfilerTabState& state, bool expandAll )
 {
     state.expandAllMarkers = expandAll;
     state.expandedHashCount = 0;
+    state.drawExpandedHashCount = 0;
     state.defaultExpansionApplied = false;
+    state.drawDefaultExpansionApplied = false;
     if ( expandAll )
     {
         ApplyExpandAll( state );
@@ -273,27 +395,53 @@ void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled )
 
 void ApplyDefaultExpansion( UIProfilerTabState& state )
 {
-    if ( state.defaultExpansionApplied )
+    if ( state.defaultExpansionApplied && state.drawDefaultExpansionApplied )
     {
         return;
     }
 
-    const Profiler& profiler = Profiler::Instance();
-    static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
-    static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
-    static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
-    for ( int i = 0; i < profiler.MarkerCount(); ++i )
+    if ( !state.defaultExpansionApplied )
     {
-        const Profiler::Marker& marker = profiler.GetMarker( i );
-        if ( ( marker.hash == kFrameHash || marker.hash == kUIHash || marker.hash == kPhysicsHash ) &&
-             ProfilerMarkerHasChildren( profiler, i ) &&
-             !IsMarkerExpanded( state, marker.hash ) &&
-             state.expandedHashCount < MAX_MARKERS )
+        const Profiler& profiler = Profiler::Instance();
+        static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+        static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
+        static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
+        for ( int i = 0; i < profiler.MarkerCount(); ++i )
         {
-            state.expandedHashes[state.expandedHashCount++] = marker.hash;
+            const Profiler::Marker& marker = profiler.GetMarker( i );
+            if ( ( marker.hash == kFrameHash || marker.hash == kUIHash || marker.hash == kPhysicsHash ) &&
+                 ProfilerMarkerHasChildren( profiler, i ) &&
+                 !IsMarkerExpanded( state, marker.hash ) &&
+                 state.expandedHashCount < MAX_MARKERS )
+            {
+                state.expandedHashes[state.expandedHashCount++] = marker.hash;
+            }
+        }
+        state.defaultExpansionApplied = true;
+    }
+
+    if ( !state.drawDefaultExpansionApplied )
+    {
+        const auto snapshot = GetDrawTraceSnapshot();
+        if ( snapshot.nodeCount > 0 )
+        {
+            static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+            static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
+            static constexpr uint32_t kShadowsHash = ::HashStr( "Frame/Shadows" );
+            static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
+            for ( int i = 0; i < snapshot.nodeCount && state.drawExpandedHashCount < MAX_MARKERS; ++i )
+            {
+                const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[i];
+                if ( ( node.hash == kFrameHash || node.hash == kRenderHash || node.hash == kShadowsHash || node.hash == kUIHash ) &&
+                     DrawNodeHasVisibleChildren( snapshot, i ) &&
+                     !IsDrawNodeExpanded( state, node.hash ) )
+                {
+                    state.drawExpandedHashes[state.drawExpandedHashCount++] = node.hash;
+                }
+            }
+            state.drawDefaultExpansionApplied = true;
         }
     }
-    state.defaultExpansionApplied = true;
 }
 
 
@@ -313,6 +461,19 @@ void ApplyExpandAll( UIProfilerTabState& state )
             state.expandedHashes[state.expandedHashCount++] = marker.hash;
         }
     }
+
+    const auto snapshot = GetDrawTraceSnapshot();
+    for ( int i = 0; i < snapshot.nodeCount; ++i )
+    {
+        const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[i];
+        if ( node.drawCallCount > 0 &&
+             DrawNodeHasVisibleChildren( snapshot, i ) &&
+             !IsDrawNodeExpanded( state, node.hash ) &&
+             state.drawExpandedHashCount < MAX_MARKERS )
+        {
+            state.drawExpandedHashes[state.drawExpandedHashCount++] = node.hash;
+        }
+    }
 }
 
 
@@ -320,7 +481,11 @@ int ContentHeight( const UIProfilerTabState& state )
 {
     int visibleRows[MAX_MARKERS] = {};
     const int visibleMarkerCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
-    return 54 + visibleMarkerCount * 30;
+    const auto snapshot = GetDrawTraceSnapshot();
+    int visibleDrawRows[MAX_MARKERS] = {};
+    const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
+    const int drawSectionHeight = visibleDrawRowCount > 0 ? 50 + visibleDrawRowCount * 26 : 0;
+    return 54 + visibleMarkerCount * 30 + drawSectionHeight;
 }
 
 
@@ -329,8 +494,7 @@ bool HandleContentClick( UIProfilerTabState& state, int contentX, int contentY, 
     const int headerH = 32;
     const int rowH = 30;
     const int localY = static_cast<int>( static_cast<float>( mouseY - contentY ) + scrollY );
-    const int targetRow = ( localY - headerH ) / rowH;
-    if ( targetRow < 0 )
+    if ( localY < headerH )
     {
         return false;
     }
@@ -338,20 +502,55 @@ bool HandleContentClick( UIProfilerTabState& state, int contentX, int contentY, 
     const Profiler& profiler = Profiler::Instance();
     int visibleRows[MAX_MARKERS] = {};
     const int visibleRowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
-    if ( targetRow >= visibleRowCount )
+    const int targetRow = ( localY - headerH ) / rowH;
+    if ( targetRow >= 0 && targetRow < visibleRowCount )
+    {
+        const int markerIndex = visibleRows[targetRow];
+        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+        if ( !ProfilerMarkerHasChildren( profiler, markerIndex ) )
+        {
+            return false;
+        }
+
+        const float plusX = static_cast<float>( contentX + 18 + marker.depth * 18 );
+        const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - scrollY + 8.0f;
+        UIIconButton expander;
+        expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
+        if ( !expander.HitTest( mouseX, mouseY ) )
+        {
+            return false;
+        }
+
+        ToggleMarker( state, marker.hash );
+        return true;
+    }
+
+    const int drawHeaderTop = headerH + visibleRowCount * rowH + 18;
+    const int drawHeaderH = 32;
+    const int drawRowH = 26;
+    const int drawLocalY = localY - drawHeaderTop;
+    if ( drawLocalY < drawHeaderH )
+    {
+        return false;
+    }
+    const int drawTargetRow = ( drawLocalY - drawHeaderH ) / drawRowH;
+    const auto snapshot = GetDrawTraceSnapshot();
+    int visibleDrawRows[MAX_MARKERS] = {};
+    const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
+    if ( drawTargetRow < 0 || drawTargetRow >= visibleDrawRowCount )
     {
         return false;
     }
 
-    const int markerIndex = visibleRows[targetRow];
-    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-    if ( !ProfilerMarkerHasChildren( profiler, markerIndex ) )
+    const int nodeIndex = visibleDrawRows[drawTargetRow];
+    if ( !DrawNodeHasVisibleChildren( snapshot, nodeIndex ) )
     {
         return false;
     }
 
-    const float plusX = static_cast<float>( contentX + 18 + marker.depth * 18 );
-    const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - scrollY + 8.0f;
+    const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[nodeIndex];
+    const float plusX = static_cast<float>( contentX + 18 + node.depth * 18 );
+    const float plusY = static_cast<float>( contentY + drawHeaderTop + drawHeaderH + drawTargetRow * drawRowH ) - scrollY + 6.0f;
     UIIconButton expander;
     expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
     if ( !expander.HitTest( mouseX, mouseY ) )
@@ -359,7 +558,7 @@ bool HandleContentClick( UIProfilerTabState& state, int contentX, int contentY, 
         return false;
     }
 
-    ToggleMarker( state, marker.hash );
+    ToggleDrawNode( state, node.hash );
     return true;
 }
 
@@ -622,6 +821,84 @@ void Draw( UIProfilerTabState& state,
         const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
         const bool hasChildren = ProfilerMarkerHasChildren( profiler, markerIndex );
         profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsMarkerExpanded( state, marker.hash ) );
+    }
+
+    const auto drawSnapshot = GetDrawTraceSnapshot();
+    int visibleDrawRows[MAX_MARKERS] = {};
+    const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawSnapshot, visibleDrawRows, MAX_MARKERS );
+    if ( visibleDrawRowCount <= 0 )
+    {
+        return;
+    }
+
+    const float drawHeaderH = 32.0f;
+    const float drawRowH = 26.0f;
+    const float drawSectionY = tableY + headerH + static_cast<float>( visibleRowCount ) * rowH + 18.0f - scrollY;
+    const float drawSectionH = drawHeaderH + static_cast<float>( visibleDrawRowCount ) * drawRowH;
+    const float colScope = colMarker;
+    const float colDraws = colCpu;
+    const float colInstances = colGpu;
+    const float colVertices = colP50;
+
+    if ( drawSectionY + drawSectionH >= tableY && drawSectionY <= tableY + contentH )
+    {
+        draw.Rect( tableX, drawSectionY, tableW, drawSectionH, 0.018f, 0.030f, 0.038f, 0.52f );
+        draw.Outline( tableX, drawSectionY, tableW, drawSectionH, 0.18f, 0.30f, 0.34f, 0.52f );
+        draw.Rect( tableX, drawSectionY + drawHeaderH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
+        const int totalDraws = drawSnapshot.nodeCount > 0 ? drawSnapshot.nodes[0].drawCallCount : 0;
+        snprintf( buf, sizeof( buf ), "Draw Calls (%d)", totalDraws );
+        draw.Text( colScope, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, buf );
+        draw.Text( colDraws, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Draws" );
+        draw.Text( colInstances, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Instances" );
+        draw.Text( colVertices, drawSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Vertices" );
+        if ( drawSnapshot.nodeOverflowCount > 0 || drawSnapshot.eventOverflowCount > 0 || drawSnapshot.scopeMismatchCount > 0 )
+        {
+            snprintf( buf,
+                      sizeof( buf ),
+                      "overflow n:%d e:%d s:%d",
+                      drawSnapshot.nodeOverflowCount,
+                      drawSnapshot.eventOverflowCount,
+                      drawSnapshot.scopeMismatchCount );
+            draw.Text( barX, drawSectionY + 10.0f, 10.5f, 1.0f, 0.72f, 0.24f, buf );
+        }
+    }
+
+    auto drawTraceRow = [&]( int rowIndex, const SkullbonezCore::Rendering::DrawCallTraceNode& node, bool hasChildren, bool isExpanded )
+    {
+        const float rowY = drawSectionY + drawHeaderH + static_cast<float>( rowIndex ) * drawRowH;
+        if ( rowY + drawRowH < tableY + headerH || rowY > tableY + contentH )
+        {
+            return;
+        }
+        const Profiler::BarColor& color = Profiler::BAR_PALETTE[node.hash % Profiler::BAR_PALETTE_SIZE];
+        const float indent = static_cast<float>( (std::min)( node.depth, 8 ) ) * 18.0f;
+        const float nameX = colScope + indent;
+        draw.Rect( tableX, rowY + drawRowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.34f );
+        if ( hasChildren )
+        {
+            UIIconButton expander;
+            expander.SetBounds( nameX, rowY + 6.0f, 14.0f, 14.0f );
+            expander.DrawExpander( draw, isExpanded );
+        }
+        else
+        {
+            draw.Rect( nameX + 3.0f, rowY + 10.0f, 8.0f, 8.0f, color.r, color.g, color.b, 0.94f );
+        }
+        draw.Text( nameX + 22.0f, rowY + 6.0f, 11.5f, 0.92f, 0.96f, 0.97f, node.leafName ? node.leafName : "-" );
+        snprintf( buf, sizeof( buf ), "%d", node.drawCallCount );
+        draw.Text( colDraws, rowY + 6.0f, 11.0f, color.r, color.g, color.b, buf );
+        snprintf( buf, sizeof( buf ), "%d", node.instanceCount );
+        draw.Text( colInstances, rowY + 6.0f, 11.0f, 0.78f, 0.84f, 0.86f, buf );
+        snprintf( buf, sizeof( buf ), "%d", node.vertexCount );
+        draw.Text( colVertices, rowY + 6.0f, 11.0f, 0.78f, 0.84f, 0.86f, buf );
+    };
+
+    for ( int visibleRow = 0; visibleRow < visibleDrawRowCount; ++visibleRow )
+    {
+        const int nodeIndex = visibleDrawRows[visibleRow];
+        const SkullbonezCore::Rendering::DrawCallTraceNode& node = drawSnapshot.nodes[nodeIndex];
+        const bool hasChildren = DrawNodeHasVisibleChildren( drawSnapshot, nodeIndex );
+        drawTraceRow( visibleRow, node, hasChildren, IsDrawNodeExpanded( state, node.hash ) );
     }
 }
 

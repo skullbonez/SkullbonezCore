@@ -281,7 +281,10 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     m_shader->SetInt( "uTexture", 0 );
     m_shader->SetVec4( "uTexelSize", 1.0f / static_cast<float>( m_textureW ), 1.0f / static_cast<float>( m_textureH ), 0.0f, 0.0f );
     Gfx().BindTexture( m_texture, 0 );
-    Gfx().UploadAndDrawDynamicVB( m_dynamicVB, verts, 6 );
+    {
+        DRAW_CALL_TRACE_SCOPE( "BackdropBlur" );
+        Gfx().UploadAndDrawDynamicVB( m_dynamicVB, verts, 6 );
+    }
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
 }

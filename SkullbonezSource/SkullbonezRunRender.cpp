@@ -209,7 +209,10 @@ void SkullbonezRun::DrawPrimitives()
     if ( !cinematicRender )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
-        m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
+        {
+            DRAW_CALL_TRACE_SCOPE( "Frame/Render/Skybox" );
+            m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
+        }
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 

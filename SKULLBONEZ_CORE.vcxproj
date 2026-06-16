@@ -187,6 +187,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezText.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezDrawCallTrace.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezVector3.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezWindow.cpp" />
@@ -251,6 +252,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezContactSolverCommon.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezDrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelRenderer.h" />

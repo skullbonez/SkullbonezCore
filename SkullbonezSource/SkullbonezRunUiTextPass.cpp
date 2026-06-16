@@ -49,6 +49,8 @@ bool SkullbonezRun::UiTextPass::ShouldRender() const
 
 void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
 {
+    const int uiPassDrawCallStart = Gfx().GetFrameDrawCallCount();
+
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
     m_run.m_timers.updateTimer.StopTimer();
@@ -100,7 +102,10 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         // Renderer name in small text at bottom so we know which backend we're looking at
         Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
 
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "TextOnly" );
+            Text2d::FlushText();
+        }
         return;
     }
 
@@ -237,23 +242,29 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         PROFILE_END( "Frame/UI/BuildData" );
 
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "PreFlushText" );
+            Text2d::FlushText();
+        }
         PROFILE_END( "Frame/UI/PreFlushText" );
-        UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
-        const int UIDrawCallStart = UIData.drawCallsBeforeUI;
+        UIData.drawCallsBeforeUI = uiPassDrawCallStart;
         m_run.m_UI.Draw( UIData );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
+            Text2d::FlushText();
+        }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
-        m_run.m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
         return;
     }
 
     // --- Overlay: None ---
     if ( m_run.m_debug.overlayMode == OverlayMode::None )
     {
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "HUD" );
+            Text2d::FlushText();
+        }
         return;
     }
 
@@ -282,7 +293,10 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "SceneStats" );
+            Text2d::FlushText();
+        }
         return;
     }
 
@@ -298,7 +312,10 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_run.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
+            Text2d::FlushText();
+        }
         return;
     }
 #endif
@@ -382,7 +399,10 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        Text2d::FlushText();
+        {
+            DRAW_CALL_TRACE_SCOPE( "Keys" );
+            Text2d::FlushText();
+        }
         return;
     }
 
@@ -399,5 +419,8 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     }
 #endif
 
-    Text2d::FlushText();
+    {
+        DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
+        Text2d::FlushText();
+    }
 }
