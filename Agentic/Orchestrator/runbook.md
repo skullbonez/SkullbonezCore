@@ -11,6 +11,8 @@ The orchestrator owns:
 - branch setup,
 - worker prompt generation,
 - worker result review,
+- independent verifier delegation,
+- worker/verifier feedback loops,
 - validation gate selection,
 - artifact and screenshot collection,
 - PR creation when policy allows it,
@@ -54,6 +56,7 @@ Expected files:
 run.json
 worker-prompt.md
 worker-result.md
+verification-rounds/
 validation.log
 pr.md
 screenshots/
@@ -65,6 +68,16 @@ orchestration state: prompts, worker results, validation logs, raw artifacts,
 PR notes, and any bulky diagnostics. Do not include `Agentic/Runs` files in the
 final report-only commit. Commit run-state files only when explicitly useful
 outside the report, and never in the report-only commit.
+
+Use `verification-rounds/` for independent verifier prompts, verifier results,
+and worker responses to verifier feedback. Name files by round, for example:
+
+```text
+verification-rounds/
+  round-01-verifier-prompt.md
+  round-01-verifier-result.md
+  round-01-worker-response.md
+```
 
 ## Report Directory
 
@@ -114,18 +127,21 @@ exist.
 Before the final successful response, verify this checklist:
 
 1. The implementation work is committed and pushed on the item branch.
-2. The required validation gate passed, or the report states why validation was
+2. An independent verifier reviewed the completed worker handoff.
+3. All blocking verifier findings were fixed, answered, or converted into an
+   explicit blocked/failed terminal state.
+4. The required validation gate passed, or the report states why validation was
    not required for documentation-only work.
-3. `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` exists.
-4. The final report-only commit contains only `report.md` and referenced
+5. `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` exists.
+6. The final report-only commit contains only `report.md` and referenced
    images under that report directory.
-5. The report-only commit is pushed, unless pushing is explicitly blocked.
-6. The queue item has a terminal status:
+7. The report-only commit is pushed, unless pushing is explicitly blocked.
+8. The queue item has a terminal status:
    - `done` for successful completed work with no PR or merge recorded,
    - `pr-open` when a PR exists and merge is not permitted,
    - `merged` when policy and repo rules permitted a merge and it succeeded,
    - `blocked`, `failed`, or `skipped` for non-successful terminal outcomes.
-7. The final response names the terminal queue status and gives the GitHub
+9. The final response names the terminal queue status and gives the GitHub
    report web URL. If a web URL cannot be produced, it must say why and provide
    the local report path.
 
@@ -191,23 +207,59 @@ Spawn exactly one worker for the selected item. The worker prompt must include:
 
 The orchestrator should not begin another roadmap item while a worker is active.
 
-## Review And Validation
+## Review, Evidence, And Validation
 
-After the worker returns:
+After each worker completion, including a worker response to verifier feedback:
 
-1. Record the worker final message in `worker-result.md`.
+1. Save the first worker final message in `worker-result.md`; save later worker
+   responses under the matching `verification-rounds/` file.
 2. Review `git status --short`.
 3. Review `git diff --stat` and the changed files.
 4. Reject unrelated edits unless they are necessary and explained.
-5. Run the smallest required PR gate from the queue entry and `AGENTS.md`.
-6. For documentation-only changes, state that no repository validation is
-   required.
+5. Select the smallest required PR gate from the queue entry and `AGENTS.md`.
+6. Run the selected gate once the item is ready for verifier review. For
+   documentation-only changes, state that no repository validation is required.
 7. Preserve validation output in `validation.log` when validation is run.
-8. Record substantial timings, including validation, builds, launches, artifact
-   generation, and long investigations.
+8. Capture declared screenshots/artifacts or state why none are needed.
+9. Record substantial timings, including validation, builds, launches, artifact
+   generation, verifier rounds, and long investigations.
 
 Repository validation scripts are PR/commit gates. Do not run them repeatedly
-during iteration.
+during iteration. In a verifier feedback loop, rerun a validation gate only when
+the worker changed files or the prior evidence is no longer trustworthy.
+
+## Verification Loop
+
+After the review/evidence step, hand the work to a separate verifier agent
+before marking the item successful. The verifier is a rubber-duck reviewer: it
+checks the requested outcome, the source plan, the diff, validation evidence,
+artifacts, and worker handoff without editing files.
+
+Generate each verifier prompt from
+`Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
+`verification-rounds/`.
+
+For each verification round:
+
+1. Save the verifier prompt as
+   `verification-rounds/round-XX-verifier-prompt.md`.
+2. Spawn a verifier agent with that prompt. If sub-agent tooling is unavailable,
+   stop and ask the user whether a same-agent verification fallback is
+   acceptable; do not claim independent verification without a separate agent.
+3. Save the verifier response as
+   `verification-rounds/round-XX-verifier-result.md`.
+4. If the verifier verdict is `accepted`, continue to PR/reporting.
+5. If the verifier verdict is `needs-fixes`, send the blocking findings back to
+   the implementation worker and save the worker response as
+   `verification-rounds/round-XX-worker-response.md`.
+6. Repeat the review/evidence/validation step, then start a new verifier round.
+7. If the verifier verdict is `blocked`, or if the worker cannot resolve a
+   blocking finding, set the item to `blocked` or `failed` and generate the
+   corresponding report.
+
+The verifier must distinguish blocking findings from non-blocking suggestions.
+Only blocking findings prevent successful completion. Non-blocking suggestions
+may be recorded as residual risk or follow-up work.
 
 ## Artifacts
 
@@ -319,6 +371,7 @@ Reports must include:
 - conflicts and resolutions,
 - residual risk,
 - sub-agent result summary and `worker-result.md` path,
+- verifier result summary and `verification-rounds/` paths,
 - next queue action.
 
 The final response must include the report web URL. If the orchestrator cannot

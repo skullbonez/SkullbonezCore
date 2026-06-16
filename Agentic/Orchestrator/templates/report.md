@@ -61,6 +61,10 @@ and be referenced with a relative Markdown link.
 {{validation_result}}
 ```
 
+## Verification Loop
+
+{{verification_loop}}
+
 ## Screenshots And Artifacts
 
 {{artifacts}}
@@ -88,6 +92,10 @@ and be referenced with a relative Markdown link.
 ## Sub-Agent Result Summary
 
 {{sub_agent_summary}}
+
+## Verifier Result Summary
+
+{{verifier_summary}}
 
 ## Next Queue Action
 
