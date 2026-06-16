@@ -257,27 +257,6 @@ void RenderBackendDX12::EnsureCommandListOpen()
 }
 
 
-void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
-{
-    if ( !resource || before == after )
-    {
-        return;
-    }
-    RecordLiveBarrier( "TransitionBarrier", resource, before, after );
-    // Record a resource state transition barrier. In DX12, YOU must tell the GPU when a resource
-    // changes from one usage to another (e.g. from render target to shader input). The GPU uses
-    // this to flush caches and resolve memory hazards. Forgetting barriers causes corruption.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = resource;
-    barrier.Transition.StateBefore = before;
-    barrier.Transition.StateAfter = after;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    m_commandList->ResourceBarrier( 1, &barrier );
-}
-
-
 void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
 {
     if ( !resource || before == after )
@@ -304,7 +283,27 @@ void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* r
 }
 
 
-void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after )
+void RenderBackendDX12::RecordLiveUavBarrier( const char* source, ID3D12Resource* resource )
+{
+    if ( !resource )
+    {
+        return;
+    }
+
+    constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    if ( m_liveUavBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
+    {
+        return;
+    }
+
+    LiveUavBarrierRecordDX12 record;
+    record.resource = resource;
+    strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
+    m_liveUavBarrierRecords.push_back( record );
+}
+
+
+void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource )
 {
     if ( !resource || before == after )
     {
@@ -317,6 +316,7 @@ void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, con
     desc.resource = resource;
     desc.before = before;
     desc.after = after;
+    desc.subresource = subresource;
     const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
     if ( !result.hasConcreteStates ||
          !result.hasNativeResource ||
@@ -330,6 +330,31 @@ void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, con
     char source[64] = {};
     snprintf( source, sizeof( source ), "GraphOwned:%s", ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
     RecordLiveBarrier( source, resource, result.beforeState, result.afterState );
+}
+
+
+void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource )
+{
+    if ( !resource )
+    {
+        return;
+    }
+    (void)resourceName;
+
+    Dx12RenderGraphUavBarrierDesc desc;
+    desc.commandList = m_commandList;
+    desc.resource = resource;
+    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
+    if ( !result.hasNativeResource ||
+         result.missingCommandList ||
+         !result.emitted )
+    {
+        throw std::runtime_error( "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier" );
+    }
+
+    char source[64] = {};
+    snprintf( source, sizeof( source ), "GraphOwned:%s", ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
+    RecordLiveUavBarrier( source, resource );
 }
 
 
@@ -585,9 +610,25 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
             << " -> " << Dx12ResourceStateToString( live.after ) << "\n";
     }
 
+    out << "\nLiveBackendUavBarriers:\n";
+    if ( m_liveUavBarrierRecords.empty() )
+    {
+        out << "  none recorded yet\n";
+    }
+    for ( size_t i = 0; i < m_liveUavBarrierRecords.size(); ++i )
+    {
+        const LiveUavBarrierRecordDX12& live = m_liveUavBarrierRecords[i];
+        const char* resourceLabel = liveResourceLabel( live.resource );
+        out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
+            << " resource=" << live.resource
+            << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
+            << " type=UAV\n";
+    }
+
     out << "\nGraphVsLiveTransitionStatePairs:\n";
     out << "  graph_transition_count=" << compiled.transitions.size() << "\n";
     out << "  live_transition_barrier_count=" << m_liveBarrierRecords.size() << "\n";
+    out << "  live_uav_barrier_count=" << m_liveUavBarrierRecords.size() << "\n";
 
     size_t matchedResourcePairs = 0;
     size_t matchedStateOnlyPairs = 0;

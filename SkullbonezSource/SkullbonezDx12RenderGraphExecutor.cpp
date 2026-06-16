@@ -80,6 +80,9 @@ bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, 
     case RenderGraphResourceAccess::CopyDest:
         outState = D3D12_RESOURCE_STATE_COPY_DEST;
         return true;
+    case RenderGraphResourceAccess::VertexAndNonPixelShaderResource:
+        outState = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        return true;
     case RenderGraphResourceAccess::Present:
         outState = D3D12_RESOURCE_STATE_PRESENT;
         return true;
@@ -155,6 +158,29 @@ Dx12RenderGraphSingleTransitionResult EmitDx12RenderGraphTransitionBarrier( cons
     barrier.Transition.StateBefore = result.beforeState;
     barrier.Transition.StateAfter = result.afterState;
     barrier.Transition.Subresource = desc.subresource;
+    desc.commandList->ResourceBarrier( 1, &barrier );
+    result.emitted = true;
+    return result;
+}
+
+
+Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderGraphUavBarrierDesc& desc )
+{
+    Dx12RenderGraphUavBarrierResult result;
+    result.hasNativeResource = desc.resource != nullptr;
+    if ( !result.hasNativeResource )
+    {
+        return result;
+    }
+    if ( !desc.commandList )
+    {
+        result.missingCommandList = true;
+        return result;
+    }
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    barrier.UAV.pResource = desc.resource;
     desc.commandList->ResourceBarrier( 1, &barrier );
     result.emitted = true;
     return result;

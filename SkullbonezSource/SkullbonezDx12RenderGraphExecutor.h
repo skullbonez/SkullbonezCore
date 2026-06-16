@@ -97,9 +97,23 @@ struct Dx12RenderGraphSingleTransitionResult
     bool emitted = false;
 };
 
+struct Dx12RenderGraphUavBarrierDesc
+{
+    ID3D12GraphicsCommandList* commandList = nullptr;
+    ID3D12Resource* resource = nullptr;
+};
+
+struct Dx12RenderGraphUavBarrierResult
+{
+    bool hasNativeResource = false;
+    bool missingCommandList = false;
+    bool emitted = false;
+};
+
 bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState );
 std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state );
 Dx12RenderGraphSingleTransitionResult EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc );
+Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderGraphUavBarrierDesc& desc );
 
 Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,
                                                                   const RenderGraphCompileResult& compiled,

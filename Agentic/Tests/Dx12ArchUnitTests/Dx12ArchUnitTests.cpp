@@ -231,6 +231,9 @@ void TestDx12RenderGraphAccessMapsToDx12States()
     EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::PixelShaderResource, state ) );
     EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
 
+    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state ) );
+    EXPECT_TRUE( state == ( D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
+
     EXPECT_TRUE( !TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::Unknown, state ) );
 }
 
@@ -324,6 +327,19 @@ void TestDx12SingleTransitionRequiresCommandListForEmit()
     EXPECT_TRUE( result.afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
 }
 
+void TestDx12UavBarrierRequiresCommandListForEmit()
+{
+    Dx12RenderGraphUavBarrierDesc desc;
+    desc.commandList = nullptr;
+    desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x5000u ) );
+
+    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
+
+    EXPECT_TRUE( result.hasNativeResource );
+    EXPECT_TRUE( result.missingCommandList );
+    EXPECT_TRUE( !result.emitted );
+}
+
 const TestCase kTests[] = {
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
@@ -336,6 +352,7 @@ const TestCase kTests[] = {
     { "DX12 render graph executor skips Unknown initial access", TestDx12RenderGraphExecutorSkipsUnknownInitialAccess },
     { "DX12 render graph executor identifies UAV access", TestDx12RenderGraphExecutorIdentifiesUavAccess },
     { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },
+    { "DX12 UAV barrier requires command list for emit", TestDx12UavBarrierRequiresCommandListForEmit },
 };
 
 } // namespace

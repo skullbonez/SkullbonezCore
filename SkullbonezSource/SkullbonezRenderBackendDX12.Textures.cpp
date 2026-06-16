@@ -230,16 +230,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
     // Transition mip 0 from COPY_DEST to NON_PIXEL_SHADER_RESOURCE so the compute
     // shader can sample it. (Subsequent source mips are transitioned at end of each batch.)
-    {
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        b.Transition.pResource = tex;
-        b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        b.Transition.Subresource = 0;
-        RecordLiveBarrier( "GenerateMipsGPU:mip0", tex, b.Transition.StateBefore, b.Transition.StateAfter );
-        m_commandList->ResourceBarrier( 1, &b );
-    }
+    ExecuteGraphTransitionBarrier( "GenerateMipsMip0",
+                                   "TextureMip0",
+                                   tex,
+                                   RenderGraphResourceAccess::CopyDest,
+                                   RenderGraphResourceAccess::NonPixelShaderResource,
+                                   0 );
 
     UINT srcMip = 0;
     UINT srcMipW = w;
@@ -312,14 +308,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            D3D12_RESOURCE_BARRIER b = {};
-            b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            b.Transition.pResource = tex;
-            b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            b.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            b.Transition.Subresource = srcMip + 1 + i;
-            RecordLiveBarrier( "GenerateMipsGPU:copy_to_uav", tex, b.Transition.StateBefore, b.Transition.StateAfter );
-            m_commandList->ResourceBarrier( 1, &b );
+            ExecuteGraphTransitionBarrier( "GenerateMipsCopyToUav",
+                                           "TextureMip",
+                                           tex,
+                                           RenderGraphResourceAccess::CopyDest,
+                                           RenderGraphResourceAccess::UnorderedAccess,
+                                           srcMip + 1 + i );
         }
 
         // ------------------------------------------------------------------
@@ -351,12 +345,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // Hazard: mip N may be written as a UAV in this dispatch and sampled as
         // an SRV in the next dispatch. The UAV barrier orders those writes
         // before any later read/write work continues.
-        {
-            D3D12_RESOURCE_BARRIER uavBarrier = {};
-            uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-            uavBarrier.UAV.pResource = tex;
-            m_commandList->ResourceBarrier( 1, &uavBarrier );
-        }
+        ExecuteGraphUavBarrier( "GenerateMipsUavOrder", "TextureMips", tex );
 
         // ------------------------------------------------------------------
         // Transition output mips UNORDERED_ACCESS → NON_PIXEL_SHADER_RESOURCE
@@ -364,14 +353,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            D3D12_RESOURCE_BARRIER b = {};
-            b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            b.Transition.pResource = tex;
-            b.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-            b.Transition.Subresource = srcMip + 1 + i;
-            RecordLiveBarrier( "GenerateMipsGPU:uav_to_srv", tex, b.Transition.StateBefore, b.Transition.StateAfter );
-            m_commandList->ResourceBarrier( 1, &b );
+            ExecuteGraphTransitionBarrier( "GenerateMipsUavToSrv",
+                                           "TextureMip",
+                                           tex,
+                                           RenderGraphResourceAccess::UnorderedAccess,
+                                           RenderGraphResourceAccess::NonPixelShaderResource,
+                                           srcMip + 1 + i );
         }
 
         srcMip += mipsToGenerate;
@@ -381,7 +368,11 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
     // All mips are now in NON_PIXEL_SHADER_RESOURCE. Transition ALL_SUBRESOURCES
     // to PIXEL_SHADER_RESOURCE for use in pixel shaders.
-    TransitionBarrier( tex, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+    ExecuteGraphTransitionBarrier( "GenerateMipsFinalPixelSrv",
+                                   "TextureMips",
+                                   tex,
+                                   RenderGraphResourceAccess::NonPixelShaderResource,
+                                   RenderGraphResourceAccess::PixelShaderResource );
 
     // Force full rebind of graphics state on the next draw call, since we
     // switched root signatures and PSO for the compute dispatch.
@@ -515,9 +506,11 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     }
     else
     {
-        TransitionBarrier( texResource,
-                           D3D12_RESOURCE_STATE_COPY_DEST,
-                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+        ExecuteGraphTransitionBarrier( "TextureUploadFinalPixelSrv",
+                                       "Texture2D",
+                                       texResource,
+                                       RenderGraphResourceAccess::CopyDest,
+                                       RenderGraphResourceAccess::PixelShaderResource );
     }
 
     // Create a Shader Resource View exposing the full mip chain.
