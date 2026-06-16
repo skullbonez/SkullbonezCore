@@ -955,12 +955,12 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
     Gfx().SetDepthWrite( false );
     m_run.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
-                                            inputs.frame.projection,
-                                            reflectionInput,
-                                            waterTime,
-                                            inputs.flatWater,
-                                            inputs.frame.cinematicEnabled,
-                                            inputs.cinematic );
+                                           inputs.frame.projection,
+                                           reflectionInput,
+                                           waterTime,
+                                           inputs.flatWater,
+                                           inputs.frame.cinematicEnabled,
+                                           inputs.cinematic );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
     PROFILE_GPU_END( "Frame/Render/Water" );

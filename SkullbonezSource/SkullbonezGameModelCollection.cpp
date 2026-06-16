@@ -156,8 +156,7 @@ GameModelBodyStream GameModelCollection::GetBodyStream()
         m_soaCache.boundingRadii.data(),
         m_soaCache.isBox.data(),
         m_soaCache.isFixed.data(),
-        modelCount
-    };
+        modelCount };
 }
 
 
@@ -168,8 +167,7 @@ GameModelRenderStream GameModelCollection::GetRenderStream()
         m_soaCache.isBox.data(),
         m_soaCache.isFixed.data(),
         m_soaCache.modelMatrices.data(),
-        static_cast<int>( m_gameModels.size() )
-    };
+        static_cast<int>( m_gameModels.size() ) };
 }
 
 
