@@ -331,6 +331,13 @@ def default_verifier_sandbox(policy: dict[str, Any]) -> str:
     return str(nested_get(policy, "codex.verifier_sandbox") or "workspace-write")
 
 
+def default_visible_console(policy: dict[str, Any]) -> bool:
+    configured = nested_get(policy, "codex.visible_console")
+    if configured is not None:
+        return bool(configured)
+    return os.name == "nt"
+
+
 def create_or_switch_branch(repo: Path, branch: str, parent_branch: str, allow_dirty: bool) -> None:
     ensure_clean_for_branch(repo, allow_dirty)
     current = current_branch(repo)
@@ -1003,6 +1010,157 @@ def find_codex(codex_bin: str | None) -> str:
     raise OrchestratorError("codex executable not found on PATH. Install Codex CLI or pass --codex-bin.")
 
 
+VISIBLE_CODEX_RUNNER = r'''
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import threading
+from pathlib import Path
+from typing import Any
+
+
+def tee_stream(
+    stream: Any,
+    console: Any,
+    stream_log: Any,
+    transcript_log: Any,
+    transcript_lock: threading.Lock,
+    stream_name: str,
+) -> None:
+    transcript_buffer: list[str] = []
+
+    def flush_transcript_buffer() -> None:
+        if not transcript_buffer:
+            return
+        text = "".join(transcript_buffer)
+        transcript_buffer.clear()
+        with transcript_lock:
+            transcript_log.write(f"[{stream_name}] {text}")
+            if not text.endswith("\n"):
+                transcript_log.write("\n")
+            transcript_log.flush()
+
+    while True:
+        chunk = stream.read(1)
+        if not chunk:
+            break
+        console.write(chunk)
+        console.flush()
+        stream_log.write(chunk)
+        stream_log.flush()
+        transcript_buffer.append(chunk)
+        if chunk == "\n":
+            flush_transcript_buffer()
+    flush_transcript_buffer()
+
+
+def main() -> int:
+    config = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    command = config["command"]
+    repo = config["repo"]
+    prompt = Path(config["prompt_path"]).read_text(encoding="utf-8")
+    stdout_log = Path(config["stdout_log"])
+    stderr_log = Path(config["stderr_log"])
+    transcript_log = Path(config["transcript_log"])
+
+    print("SkullbonezCore sub-agent console")
+    print(f"Repo: {repo}")
+    print(f"Transcript: {transcript_log}")
+    print("")
+
+    with (
+        stdout_log.open("w", encoding="utf-8") as stdout_file,
+        stderr_log.open("w", encoding="utf-8") as stderr_file,
+        transcript_log.open("w", encoding="utf-8") as transcript_file,
+    ):
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=repo,
+            bufsize=1,
+        )
+        if process.stdout is None or process.stderr is None or process.stdin is None:
+            print("codex exec did not expose expected stdio pipes.", file=sys.stderr)
+            return 1
+        transcript_lock = threading.Lock()
+        stdout_thread = threading.Thread(
+            target=tee_stream,
+            args=(process.stdout, sys.stdout, stdout_file, transcript_file, transcript_lock, "stdout"),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=tee_stream,
+            args=(process.stderr, sys.stderr, stderr_file, transcript_file, transcript_lock, "stderr"),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        try:
+            process.stdin.write(prompt)
+            process.stdin.close()
+        except BrokenPipeError:
+            pass
+        returncode = process.wait()
+        stdout_thread.join()
+        stderr_thread.join()
+
+    print("")
+    print(f"Sub-agent exited with code {returncode}.")
+    return returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+def run_codex_exec_visible_console(
+    repo: Path,
+    prompt: str,
+    command: list[str],
+    output_path: Path,
+    timeout_seconds: int | None,
+) -> int:
+    stdout_log, stderr_log = codex_exec_log_paths(output_path)
+    transcript_log = codex_exec_transcript_path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="skore-codex-visible-") as temp:
+        temp_dir = Path(temp)
+        prompt_path = temp_dir / "prompt.txt"
+        config_path = temp_dir / "runner-config.json"
+        runner_path = temp_dir / "visible_codex_runner.py"
+        prompt_path.write_text(prompt, encoding="utf-8")
+        runner_path.write_text(VISIBLE_CODEX_RUNNER, encoding="utf-8")
+        write_json(
+            config_path,
+            {
+                "command": command,
+                "repo": str(repo),
+                "prompt_path": str(prompt_path),
+                "stdout_log": str(stdout_log),
+                "stderr_log": str(stderr_log),
+                "transcript_log": str(transcript_log),
+            },
+        )
+        creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        helper = subprocess.Popen(
+            [sys.executable, str(runner_path), str(config_path)],
+            cwd=repo,
+            creationflags=creationflags,
+        )
+        try:
+            return helper.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired as exc:
+            helper.kill()
+            helper.wait()
+            raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s in visible console.") from exc
+
+
 def run_codex_exec(
     repo: Path,
     prompt: str,
@@ -1011,6 +1169,7 @@ def run_codex_exec(
     sandbox: str,
     codex_bin: str | None,
     timeout_seconds: int | None = None,
+    visible_console: bool = False,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
@@ -1026,6 +1185,22 @@ def run_codex_exec(
     if schema_path:
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
+    if visible_console and os.name == "nt":
+        print("Opening visible sub-agent console...")
+        print(f"  result: {repo_relative(repo, output_path)}")
+        print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+        returncode = run_codex_exec_visible_console(repo, prompt, command, output_path, timeout_seconds)
+        if returncode != 0:
+            print(f"codex exec exited {returncode}.")
+            print(f"  stdout: {repo_relative(repo, codex_exec_log_paths(output_path)[0])}")
+            print(f"  stderr: {repo_relative(repo, codex_exec_log_paths(output_path)[1])}")
+            print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+            detail = codex_exec_failure_detail(output_path)
+            if detail:
+                print("Last codex output:")
+                for line in detail.splitlines():
+                    print(f"  {line}")
+        return returncode
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1093,6 +1268,7 @@ def run_worker_agent(
     sandbox: str | None,
     codex_bin: str | None,
     no_schema: bool,
+    visible_console: bool | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1101,7 +1277,8 @@ def run_worker_agent(
     schema = None if no_schema else resolve_repo_path(repo, WORKER_SCHEMA)
     output = run_dir / ("worker-result.md" if no_schema else "worker-result.json")
     sandbox_mode = sandbox or default_worker_sandbox(policy)
-    return run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin), output
+    use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
+    return run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console), output
 
 
 def run_verifier_agent(
@@ -1112,6 +1289,7 @@ def run_verifier_agent(
     codex_bin: str | None,
     no_schema: bool,
     require_clean: bool,
+    visible_console: bool | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1124,7 +1302,8 @@ def run_verifier_agent(
     output = round_dir / f"round-{number:02d}-verifier-result{suffix}"
     before = git_status_porcelain(repo)
     sandbox_mode = sandbox or default_verifier_sandbox(policy)
-    code = run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin)
+    use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
+    code = run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console)
     after = git_status_porcelain(repo)
     if require_clean and after != before:
         raise OrchestratorError("Verifier changed the tracked worktree; inspect and revert/commit intentionally.")
@@ -1133,7 +1312,15 @@ def run_verifier_agent(
 
 def command_run_worker(args: argparse.Namespace) -> int:
     try:
-        code, output = run_worker_agent(args.repo, args.item_id, args.run_date, args.sandbox, args.codex_bin, args.no_schema)
+        code, output = run_worker_agent(
+            args.repo,
+            args.item_id,
+            args.run_date,
+            args.sandbox,
+            args.codex_bin,
+            args.no_schema,
+            args.visible_console,
+        )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
         return 1
@@ -1174,6 +1361,7 @@ def command_run_verifier(args: argparse.Namespace) -> int:
             args.codex_bin,
             args.no_schema,
             require_clean,
+            args.visible_console,
         )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
@@ -1650,6 +1838,7 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     args.worker_sandbox,
                     args.codex_bin,
                     no_schema=False,
+                    visible_console=args.visible_console,
                 )
                 print(f"Worker result: {repo_relative(args.repo, worker_output)}")
                 if code != 0:
@@ -1700,6 +1889,7 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     args.codex_bin,
                     no_schema=False,
                     require_clean=require_clean,
+                    visible_console=args.visible_console,
                 )
                 print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
                 if code != 0:
@@ -2020,6 +2210,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_worker.add_argument("--sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_worker.add_argument("--codex-bin")
     run_worker.add_argument("--no-schema", action="store_true")
+    run_worker.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
+    run_worker.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_worker.set_defaults(func=command_run_worker)
 
     run_verifier = sub.add_parser("run-verifier", help="Render verifier prompt and call codex exec.")
@@ -2029,6 +2221,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_verifier.add_argument("--codex-bin")
     run_verifier.add_argument("--no-schema", action="store_true")
     run_verifier.add_argument("--allow-dirty-verifier", action="store_true")
+    run_verifier.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
+    run_verifier.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_verifier.set_defaults(func=command_run_verifier)
 
     doctor = sub.add_parser("doctor", help="Check orchestrator config and Codex CLI availability.")
@@ -2061,6 +2255,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_loop.add_argument("--worker-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--verifier-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--codex-bin")
+    run_loop.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
+    run_loop.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_loop.add_argument("--max-verifier-rounds", type=int, default=5)
     run_loop.add_argument("--skip-validation", action="store_true")
     run_loop.add_argument("--finalize", action="store_true")
