@@ -12,7 +12,11 @@ Before editing, read:
 2. `README.md`
 3. `Agentic/README.md`
 4. `Agentic/SessionState.md`
-5. `{{plan_path}}`
+5. `Agentic/Orchestrator/policy.yaml`
+6. `Agentic/Orchestrator/queue.yaml`
+7. `Agentic/Orchestrator/agent-loop.yaml`
+8. `Agentic/Orchestrator/machines/roadmap-item.yaml`
+9. `{{plan_path}}`
 
 Load only task-relevant skills or reference files.
 
@@ -28,6 +32,10 @@ Load only task-relevant skills or reference files.
 
 Own this roadmap item only. Keep the patch scoped to the plan and the files
 needed to complete it.
+
+Implementation work from `Agentic/Plans` defaults to orchestration. You are the
+worker for the selected queue item, not the owner of queue selection, final
+state, report creation, or plan archival.
 
 ## Repository Rules
 
@@ -73,8 +81,8 @@ image the report should embed.
 Your implementation handoff is not the terminal roadmap state. The orchestrator
 must still hand your completed work to an independent verifier, feed any
 blocking verifier findings back to you, generate the committed report, push the
-report-only commit, and set the queue item to a terminal status such as `done`,
-`pr-open`, `blocked`, `failed`, or `skipped`.
+report-only commit, and set the queue item to a terminal state such as `done`,
+`pr_open`, `blocked`, `failed`, or `skipped`.
 
 For image evidence, look for screenshots, focused zoom crops of important screen
 regions, heat maps, image diffs, or before/after architectural diagrams. The

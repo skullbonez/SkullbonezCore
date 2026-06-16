@@ -1,0 +1,36 @@
+schema_version: 1
+schema: policy
+required_fields:
+  - schema_version
+  - enabled
+  - base_branch
+  - branch_prefix
+  - max_active_items
+  - plan_implementation
+  - branching
+  - pull_requests
+  - merge
+  - verification
+  - artifacts
+  - queue
+  - reporting
+
+field_types:
+  schema_version: integer
+  enabled: boolean
+  base_branch: string
+  branch_prefix: string
+  max_active_items: integer
+  plan_implementation.default_mode: string
+  pull_requests.allow_creation: boolean
+  merge.allow: boolean
+  verification.requires_independent_verifier: boolean
+  artifacts.run_root: string
+  artifacts.report_root: string
+  queue.stop_after_blocked: boolean
+  reporting.final_report_commit_only: boolean
+
+invariants:
+  - "merge.allow true requires AGENTS.md merge permission and reporting.final_report_commit_only true."
+  - "max_active_items must be 1 until queue.yaml and run state support parallel roadmap work."
+  - "plan_implementation.default_mode must remain orchestration for Agentic/Plans implementation work."

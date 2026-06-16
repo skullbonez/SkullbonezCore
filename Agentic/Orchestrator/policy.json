@@ -1,8 +1,16 @@
 {
   "schema_version": 1,
-  "enabled": true,
+  "description": "Legacy migration input. Agentic/Orchestrator/policy.yaml is authoritative.",
+  "enabled": false,
   "base_branch": "main",
   "branch_prefix": "codex/",
+  "plan_implementation": {
+    "default_mode": "orchestration",
+    "applies_to": [
+      "Agentic/Plans/*.md"
+    ],
+    "bypass_requires": "explicit_user_request"
+  },
   "branching": {
     "chained_items_use_stacked_branches": true,
     "first_item_base": "policy.base_branch",

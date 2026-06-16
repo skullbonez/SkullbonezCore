@@ -1,0 +1,116 @@
+schema_version: 1
+description: "Explicit YAML roadmap queue. The orchestrator must not infer runnable work from every Markdown file in Agentic/Plans."
+policy: Agentic/Orchestrator/policy.yaml
+machine: Agentic/Orchestrator/machines/roadmap-item.yaml
+loop: Agentic/Orchestrator/agent-loop.yaml
+
+state_vocabulary:
+  - ready
+  - running
+  - reviewing
+  - verifying
+  - validating
+  - reporting
+  - done
+  - pr_open
+  - merged
+  - blocked
+  - failed
+  - skipped
+
+dependency_satisfied_states:
+  normal:
+    - done
+    - merged
+  stacked_pr:
+    - done
+    - merged
+    - pr_open
+  explicit_only:
+    - skipped
+
+items:
+  - id: agent-docs-alignment
+    plan: Agentic/Plans/Done/agent-docs-alignment-plan.md
+    state: done
+    priority: 5
+    branch: main
+    impact_area:
+      - documentation
+      - agent instructions
+    validation_gate: "No validation required"
+    validation_notes: "Documentation-only instruction alignment."
+    depends_on: []
+    report_required: false
+
+  - id: orchestration-framework-yaml-foundation
+    plan: Agentic/Plans/orchestration-framework-fix-plan.md
+    state: done
+    priority: 6
+    branch: main
+    impact_area:
+      - documentation
+      - orchestrator config
+      - agent process
+    validation_gate: "No validation required"
+    validation_notes: "YAML/config documentation only. Future helper scripts require tools\\validate_fast.bat plus focused self-checks."
+    depends_on:
+      - agent-docs-alignment
+    report_required: false
+    archive_deferred:
+      reason: "The YAML foundation is implemented, but the same source plan still tracks future checker, state-advance, report-commit, role, hook, and eval tooling phases."
+
+  - id: water-rendering-cleanup
+    plan: Agentic/Plans/water-rendering-cleanup-plan.md
+    state: ready
+    priority: 30
+    branch: codex/water-rendering-cleanup
+    impact_area:
+      - DX12
+      - rendering
+      - water
+    validation_gate: tools\validate_dx12_renderer.bat
+    validation_notes: "Renderer water work requires the DX12 renderer gate and intentional visual review."
+    depends_on:
+      - orchestration-framework-yaml-foundation
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []
+
+  - id: dx12-render-graph-completion
+    plan: Agentic/Plans/dx12-render-graph-completion-plan.md
+    state: ready
+    priority: 40
+    branch: codex/dx12-render-graph-completion
+    impact_area:
+      - DX12
+      - render architecture
+      - resource barriers
+    validation_gate: tools\validate_dx12_renderer.bat
+    validation_notes: "Render graph/resource-state ownership requires DX12 validation and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat for hot barrier scheduling changes."
+    depends_on:
+      - orchestration-framework-yaml-foundation
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []
+
+  - id: architecture-pass-follow-up
+    plan: Agentic/Plans/architecture_pass_2026-06-02.md
+    state: ready
+    priority: 50
+    branch: codex/architecture-pass-follow-up
+    impact_area:
+      - runtime architecture
+      - physics data boundary
+      - assets
+      - parser schemas
+    validation_gate: tools\validate_full.bat
+    validation_notes: "Use this broad plan only to select a smaller concrete slice; validation depends on the selected files."
+    depends_on:
+      - orchestration-framework-yaml-foundation
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []

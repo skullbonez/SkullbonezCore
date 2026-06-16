@@ -1,10 +1,25 @@
 # YAML Orchestration Framework Fix Plan
 
-Status: planning draft
+Status: YAML foundation implemented; tooling phases pending
 Created: 2026-06-16
 Scope: Agentic process, YAML workflow language, roadmap queue state,
 cross-agent instructions, orchestrator guardrails, worker/verifier handoff
-Implementation status: plan only, no code changes in this pass
+Implementation status: Phase 1 and Phase 2 YAML/config foundation is present:
+`policy.yaml`, `queue.yaml`, `agent-loop.yaml`, roadmap/queue/report machines,
+lightweight schema files, YAML-aware runbook/README updates, and scoped
+orchestrator instructions. Later checker, state-advance, report-only commit,
+role, hook, and eval tools remain future work.
+
+## Implementation Update: 2026-06-16
+
+The orchestrator now has a YAML-first control layer. Markdown explains the
+workflow, JSON files are legacy migration inputs, and implementing work from
+`Agentic/Plans` defaults to orchestration. The added `agent-loop.yaml` is the
+explicit loop contract for plan implementation work.
+
+No parser/checker scripts were added in this pass, so no repository validation
+script is required. Future tool phases should use `tools\validate_fast.bat`
+plus the changed helper's self-check command.
 
 ## Goal
 

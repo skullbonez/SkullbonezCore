@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Completed plan archival and agent documentation alignment on `main`; PR #74 previously landed the post-PR73 roadmap follow-up. |
+| Last committed milestone | Completed plan archival, agent documentation alignment, and YAML-first orchestrator foundation on `main`; PR #74 previously landed the post-PR73 roadmap follow-up. |
 | Active objective | Main-branch agent documentation and orchestrator alignment. |
-| Pending work | Implement the YAML-first orchestrator plan in `Agentic/Plans/orchestration-framework-fix-plan.md`, including an agent-loop YAML file. |
+| Pending work | No required local follow-up for the current user request. Future orchestrator helper scripts from `Agentic/Plans/orchestration-framework-fix-plan.md` remain optional next work. |
 | Blockers | None known. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
 | Validation | Current scope is documentation/config only, so no repository validation script is required. If code or `tools/*` changes are added, use the validation map in `AGENTS.md`. |
@@ -46,6 +46,7 @@ audits when it is still useful.
 | DX12 descriptor/upload/root-signature cleanup | Done | Archived in `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`; ordinary raster ABI is `b0 + t0..t4` with named descriptor/upload accounting. |
 | Material system v1 object slice | Done | Archived in `Agentic/Plans/Done/material-system-v1-implementation-plan.md`; named material assets and terrain/water/post unification should be new focused work. |
 | Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and plan-orchestration guidance are now centralized. |
+| YAML orchestrator foundation | Done | `Agentic/Orchestrator/policy.yaml`, `queue.yaml`, `agent-loop.yaml`, machines, and schemas define the YAML-first manual contract. Helper scripts remain future work in `Agentic/Plans/orchestration-framework-fix-plan.md`. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |

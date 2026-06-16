@@ -1,0 +1,37 @@
+schema_version: 1
+machine: roadmap_report
+
+required_for_terminal_states:
+  - done
+  - pr_open
+  - merged
+  - blocked
+  - failed
+  - skipped
+
+report_directory_template: "Agentic/Reports/<yyyy-mm-dd>/<item-id>/"
+run_directory_template: "Agentic/Runs/<yyyy-mm-dd>/<item-id>/"
+
+final_report_commit_allowed_paths:
+  - "Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md"
+  - "Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/*.png"
+  - "Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/*.jpg"
+  - "Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/*.jpeg"
+
+required_sections:
+  - what_changed_plain_english
+  - at_a_glance
+  - progress_timeline
+  - validation
+  - verification_loop
+  - screenshots_and_artifacts
+  - residual_risk
+  - next_queue_action
+
+guards:
+  images_referenced:
+    rule: "Every committed image must be referenced by relative Markdown from report.md."
+  no_run_state_in_report_commit:
+    rule: "Agentic/Runs files are never part of the report-only commit."
+  plain_language_first:
+    rule: "The first report section explains what changed for a non-engineer."

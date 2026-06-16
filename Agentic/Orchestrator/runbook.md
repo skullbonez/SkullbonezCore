@@ -1,7 +1,8 @@
 # Roadmap Orchestrator Runbook
 
-This runbook is the manual contract for sequential roadmap orchestration. Keep
-it authoritative until helper scripts exist.
+This runbook explains the manual procedure for sequential roadmap orchestration.
+The YAML files in this folder are authoritative for policy, queue state, loop
+steps, and legal transitions.
 
 ## Scope
 
@@ -28,18 +29,23 @@ The worker owns only the assigned roadmap implementation.
 1. Read `AGENTS.md`, `README.md`, `Agentic/README.md`, and
    `Agentic/SessionState.md`.
 2. Confirm `git status --short --branch` is understood.
-3. Read `Agentic/Orchestrator/policy.json`.
-4. Read `Agentic/Orchestrator/queue.json`.
-5. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
+3. Read `Agentic/Orchestrator/policy.yaml`.
+4. Read `Agentic/Orchestrator/queue.yaml`.
+5. Read `Agentic/Orchestrator/agent-loop.yaml` and
+   `Agentic/Orchestrator/machines/roadmap-item.yaml`.
+6. Stop if `policy.yaml` has `enabled: false`, unless the user explicitly asks
    for a dry-run setup step.
-6. Do not merge PRs. `AGENTS.md` currently forbids merges and PR submission.
+7. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
+   submission and merges.
 
 ## Item Selection
 
-1. Find the highest-priority item with `status: ready`.
+1. Find the highest-priority item with `state: ready`.
 2. Confirm every item in `depends_on` is terminal and acceptable:
-   `done`, `merged`, `skipped`, or explicitly user-approved.
-3. Confirm no other item is `running`.
+   `done`, `merged`, `pr_open` for stacked children, `skipped` only when the
+   queue says explicit-only or the user approved it.
+3. Confirm no other item is in an active state from
+   `machines/queue.yaml`.
 4. Mark the selected item `running` only after the run directory is created.
 
 ## Run Directory
@@ -136,12 +142,12 @@ Before the final successful response, verify this checklist:
 6. The final report-only commit contains only `report.md` and referenced
    images under that report directory.
 7. The report-only commit is pushed, unless pushing is explicitly blocked.
-8. The queue item has a terminal status:
+8. The queue item has a terminal state:
    - `done` for successful completed work with no PR or merge recorded,
-   - `pr-open` when a PR exists and merge is not permitted,
+   - `pr_open` when a PR exists and merge is not permitted,
    - `merged` when policy and repo rules permitted a merge and it succeeded,
    - `blocked`, `failed`, or `skipped` for non-successful terminal outcomes.
-9. The final response names the terminal queue status and gives the GitHub
+9. The final response names the terminal queue state and gives the GitHub
    report web URL. If a web URL cannot be produced, it must say why and provide
    the local report path.
 
@@ -295,11 +301,11 @@ If `allow_pr_creation` is true and the branch is ready:
 4. Save PR metadata in `pr.md` under the run directory when a PR exists.
 5. For a successful item, archive the source plan as described in
    [Plan Archive](#plan-archive).
-6. Set the queue status to `pr-open` once the PR is open, or to `done` if the
+6. Set the queue state to `pr_open` once the PR is open, or to `done` if the
    successful item is complete without recording a PR.
-7. Commit any source-plan archive and queue/status updates before the report
+7. Commit any source-plan archive and queue updates before the report
    commit. These are task-state changes, not report files.
-8. Push the queue/status commit.
+8. Push the queue-state commit.
 9. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
    referenced PNG/JPG images into `Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/`.
 10. Commit the report directory as the final report-only commit. This commit
@@ -308,9 +314,9 @@ If `allow_pr_creation` is true and the branch is ready:
 12. Post the generated report, including the report web URL, as a PR comment
     when the configured channel is available.
 
-If `allow_pr_creation` is false, successful items still run
-[Plan Archive](#plan-archive), set the queue status to `done`, commit and push
-the source-plan archive plus queue/status update, then create and push the final
+If `pull_requests.allow_creation` is false, successful items still run
+[Plan Archive](#plan-archive), set the queue state to `done`, commit and push
+the source-plan archive plus queue-state update, then create and push the final
 report-only commit. The orchestrator should still provide a report web link
 unless policy or the user forbids pushing; if a push is forbidden or fails,
 state that no report web link could be produced and provide the local report
@@ -323,7 +329,7 @@ Do not merge.
 Future merge automation requires both:
 
 - an explicit `AGENTS.md` policy update, and
-- `policy.json` with `allow_merge: true`.
+- `policy.yaml` with `merge.allow: true`.
 
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
@@ -340,7 +346,7 @@ Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` from
 `Agentic/Orchestrator/templates/report.md` for every terminal outcome:
 
 - `done`,
-- `pr-open`,
+- `pr_open`,
 - `merged`,
 - `blocked`,
 - `failed`,
@@ -355,7 +361,7 @@ Reports must include:
 - archived source plan path when the item completed successfully,
 - branch, implementation commit, report commit, PR link, and report web URL
   when present,
-- queue status and queue/status commit SHA,
+- queue state and queue-state commit SHA,
 - a report web URL that opens the committed Markdown file in GitHub. Use the
   feature-branch URL for PR-open work and the `main` URL after a successful
   merge,
@@ -388,7 +394,7 @@ Successful terminal states are:
 
 - `done`, when implementation and required validation are complete, no PR or
   merge is being recorded, and the report-only commit is pushed,
-- `pr-open`, when the implementation and required PR gate passed and the
+- `pr_open`, when the implementation and required PR gate passed and the
   repository policy does not permit merging,
 - `merged`, when policy and repository rules permitted a merge and it
   succeeded,
@@ -401,7 +407,7 @@ Archive rules:
 - Use `git mv` when possible so the rename is preserved in history.
 - Do not overwrite an existing file in `Agentic/Plans/Done`; stop and report
   the collision instead.
-- Update the queue entry's `plan` path to the archived path in `queue.json`.
+- Update the queue entry's `plan` path to the archived path in `queue.yaml`.
 - Record both the original source plan path and archived path in `run.json` and
   `report.md`.
 - Commit source-plan moves and queue updates before the report-only commit, not
@@ -414,12 +420,12 @@ Archive rules:
 
 ## Queue Update
 
-Set the item status:
+Set the item state:
 
 - `done` when the implementation is complete, validation passed or was not
   required, the report-only commit is pushed, and no PR or merge is being
   recorded,
-- `pr-open` when a PR exists and merge is not permitted,
+- `pr_open` when a PR exists and merge is not permitted,
 - `merged` only when policy and repo rules permitted a merge and it succeeded,
 - `blocked` when user input or external state is required,
 - `failed` when implementation or validation invalidated the approach,

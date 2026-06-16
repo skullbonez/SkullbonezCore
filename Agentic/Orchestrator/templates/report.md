@@ -23,9 +23,9 @@ and be referenced with a relative Markdown link.
 - Report web URL: {{report_web_url}}
 - PR: `{{pr_link}}`
 - Merge SHA: `{{merge_sha}}`
-- Final status: `{{final_status}}`
-- Queue status: `{{queue_status}}`
-- Queue/status commit: `{{queue_status_commit_sha}}`
+- Final state: `{{final_state}}`
+- Queue state: `{{queue_state}}`
+- Queue-state commit: `{{queue_state_commit_sha}}`
 - Started: `{{started_at}}`
 - Finished: `{{finished_at}}`
 - Elapsed: `{{elapsed}}`

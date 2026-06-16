@@ -1,18 +1,26 @@
 # Agentic Orchestrator
 
 This folder contains the repository-owned control files for sequential roadmap
-orchestration.
+orchestration. Implementing work from `Agentic/Plans` defaults to this
+orchestrator workflow unless the user explicitly asks to bypass it.
 
-The current implementation is intentionally policy and runbook only. It does
-not grant merge authority, run scripts by itself, or change the repository's
-universal agent rules.
+YAML is the source of truth for orchestrator behavior. Markdown explains the
+workflow, and the JSON files are legacy migration inputs until helper scripts
+consume YAML directly.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `policy.json` | Revocable automation policy. Set `enabled` to `false` to stop the loop. |
-| `queue.json` | Explicit roadmap queue. Only listed items are eligible for orchestration. |
+| `policy.yaml` | Authoritative revocable automation policy. Set `enabled` to `false` to stop the loop. |
+| `queue.yaml` | Authoritative explicit roadmap queue. Only listed items are eligible for orchestration. |
+| `agent-loop.yaml` | Default agent loop for implementing work sourced from `Agentic/Plans`. |
+| `machines/roadmap-item.yaml` | Item state machine: states, legal transitions, guards, and actions. |
+| `machines/queue.yaml` | Queue selection and terminal-state rules. |
+| `machines/report.yaml` | Report-only commit and report directory rules. |
+| `schemas/*.yaml` | Lightweight schema vocabulary for future checkers. |
+| `policy.json` | Legacy migration input. YAML wins when the files disagree. |
+| `queue.json` | Legacy migration input. YAML wins when the files disagree. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
 | `templates/verifier-prompt.md` | Prompt template for the independent completion verifier. |
@@ -28,10 +36,11 @@ destination:
 ## Current Safety Defaults
 
 - The orchestrator is disabled by default.
+- YAML files define policy, queue state, loop behavior, and legal transitions.
 - PR creation is allowed by policy, but only when the orchestrator is enabled.
 - Merge automation is disabled by default.
-- `AGENTS.md` still forbids merges and PR submission, so policy alone cannot
-  authorize merges.
+- `AGENTS.md` still requires explicit user authorization for PR submission and
+  merges, so policy alone cannot authorize them.
 - Queue execution is sequential: one active roadmap item at a time.
 - Successful completion requires an independent verifier pass after the worker
   claims the task is done. Blocking verifier findings go back to the worker,
@@ -68,12 +77,12 @@ pushed. Completion requires both:
 
 - a completed worker/verifier feedback loop with no blocking verifier findings,
 - a committed report under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, and
-- a terminal queue status: `done`, `pr-open`, `merged`, `blocked`, `failed`, or
+- a terminal queue state: `done`, `pr_open`, `merged`, `blocked`, `failed`, or
   `skipped`.
 
 Use `done` for successful completed work when no PR or merge is being recorded.
 Do not send a final successful user response until the report path or report web
-URL and the terminal queue status are both known.
+URL and the terminal queue state are both known.
 
 The final feature-branch commit for a task is a report-only commit. It must
 contain only `report.md` and image files under `images/` that are referenced by

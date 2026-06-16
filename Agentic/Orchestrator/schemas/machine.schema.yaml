@@ -1,0 +1,27 @@
+schema_version: 1
+schema: machine
+required_fields:
+  - schema_version
+  - machine
+  - initial
+  - states
+
+state_required_fields:
+  - kind
+
+allowed_state_kinds:
+  - selectable
+  - active
+  - terminal_success
+  - terminal_failure
+  - terminal_skip
+
+transition_fields:
+  target: string
+  guards: list
+  actions: list
+
+invariants:
+  - "Every transition target must be declared under states."
+  - "Terminal states should not transition except for explicitly permitted post-terminal actions such as pr_open to merged."
+  - "Active states must not satisfy normal dependencies."

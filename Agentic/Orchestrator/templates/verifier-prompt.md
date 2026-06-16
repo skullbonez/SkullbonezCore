@@ -16,10 +16,14 @@ Before reviewing, read:
 2. `README.md`
 3. `Agentic/README.md`
 4. `Agentic/SessionState.md`
-5. `{{plan_path}}`
-6. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-prompt.md`
-7. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-result.md`
-8. Prior files under `Agentic/Runs/{{run_date}}/{{item_id}}/verification-rounds/`
+5. `Agentic/Orchestrator/policy.yaml`
+6. `Agentic/Orchestrator/queue.yaml`
+7. `Agentic/Orchestrator/agent-loop.yaml`
+8. `Agentic/Orchestrator/machines/roadmap-item.yaml`
+9. `{{plan_path}}`
+10. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-prompt.md`
+11. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-result.md`
+12. Prior files under `Agentic/Runs/{{run_date}}/{{item_id}}/verification-rounds/`
    if this is not the first verifier round.
 
 Load only task-relevant skills or reference files.

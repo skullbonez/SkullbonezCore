@@ -35,5 +35,5 @@ remaining validation risk.
 ## Scoped Guidance
 
 Additional path-scoped guidance lives under `.github/instructions/` for docs,
-tools, shaders, baselines, DX12, and physics work. Those files add local
-reminders; `AGENTS.md` remains authoritative when instructions overlap.
+tools, shaders, baselines, DX12, physics, and orchestrator work. Those files add
+local reminders; `AGENTS.md` remains authoritative when instructions overlap.
