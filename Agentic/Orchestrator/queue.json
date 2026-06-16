@@ -181,8 +181,8 @@
     },
     {
       "id": "tornado-mode-ui-cli",
-      "plan": "Agentic/Plans/tornado-mode-ui-cli-plan.md",
-      "state": "running",
+      "plan": "Agentic/Plans/Done/tornado-mode-ui-cli-plan.md",
+      "state": "done",
       "priority": 30,
       "branch": "codex/tornado-mode-ui-cli",
       "impact_area": [
