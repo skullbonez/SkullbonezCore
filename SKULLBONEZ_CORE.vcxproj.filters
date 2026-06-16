@@ -101,6 +101,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelStreams.cpp">
+      <Filter>Source Files\GameObjects</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelSoACache.cpp">
       <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
@@ -405,6 +408,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelRenderer.h">
       <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelStreams.h">
+      <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h">
       <Filter>Header Files\GameObjects</Filter>

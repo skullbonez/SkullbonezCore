@@ -27,7 +27,7 @@ Related:
 #include <vector>
 
 #include "SkullbonezGameModel.h"
-#include "SkullbonezGameModelSoACache.h"
+#include "SkullbonezGameModelStreams.h"
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezPhysicsWorld.h"
 #include "SkullbonezShadow.h"
@@ -67,8 +67,6 @@ class GameModelCollection
     Physics::PhysicsWorld m_physicsWorld;
 
     void InvalidateSoA();
-    void RefreshSoABodyData();
-    void EnsureSoAModelMatrices();
 
   public:
     GameModelCollection();

@@ -47,6 +47,7 @@ flowchart TB
         Terrain["Terrain\nrender mesh + collision surface"]
         SkyBox["SkyBox"]
         GameModelCollection["GameModelCollection\nphysics traffic controller"]
+        GameModelStreamProvider["GameModelStreamProvider"]
         GameModel["GameModel\nrenderable physical object"]
         RigidBody["RigidBody"]
         CollisionShape["CollisionShape\nvariant"]
@@ -98,6 +99,7 @@ flowchart TB
     App --> Config
     App --> AssetSystem
     App --> GameModelCollection
+    GameModelCollection -.-> GameModelStreamProvider
     App --> WorldEnvironment
     App --> InGameUI
     App -.-> TextureCollection
@@ -194,6 +196,7 @@ class TextureCollection
 class SkyBox
 class SkullbonezWindow
 class GameModelCollection
+class GameModelStreamProvider
 class WorldEnvironment
 class InGameUI
 class BroadphaseVisualizer
@@ -224,6 +227,7 @@ RunSubsystemState o-- TextureCollection
 RunSubsystemState o-- SkyBox
 RunSubsystemState o-- SkullbonezWindow
 SkullbonezRun *-- GameModelCollection
+GameModelCollection ..> GameModelStreamProvider
 SkullbonezRun *-- WorldEnvironment
 SkullbonezRun *-- InGameUI
 SkullbonezRun *-- BroadphaseVisualizer
@@ -241,6 +245,11 @@ still applies input commands and capture completion actions such as scene
 advance, quit, or interactive hold, then coordinates the heavier load/reset side
 effects around that state, including object construction, terrain, cameras, UI
 defaults, diagnostics context, and renderer setup.
+
+`GameModelStreamProvider` builds cache-backed body/render streams for
+`GameModelCollection`. It does not own separate physics or render storage; the
+authoritative model storage remains the collection's `GameModel` vector plus the
+derived `GameModelSoACache`.
 
 ## Rendering Interfaces And Backend Family
 
@@ -782,6 +791,10 @@ subsystem rather than by dependency edge.
 
 - `GameModel`
 - `GameModelCollection`
+- `GameModelStreamProvider`
+- `GameModelBodyStream`
+- `GameModelRenderStream`
+- `GameModelSoACache`
 - `RigidBody`
 - `CollisionShape`
 - `BoundingSphere`

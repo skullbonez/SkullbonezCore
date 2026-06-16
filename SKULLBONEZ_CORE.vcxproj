@@ -150,6 +150,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelStreams.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelSoACache.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.cpp" />
@@ -253,6 +254,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelRenderer.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelStreams.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.h" />
