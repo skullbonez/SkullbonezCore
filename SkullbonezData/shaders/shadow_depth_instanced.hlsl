@@ -38,7 +38,9 @@ struct VS_IN
     float4 model1   : TEXCOORD2;
     float4 model2   : TEXCOORD3;
     float4 model3   : TEXCOORD4;
-    float4 tint     : TEXCOORD5;
+    float4 material0 : TEXCOORD5;
+    float4 material1 : TEXCOORD6;
+    float4 material2 : TEXCOORD7;
 };
 
 struct VS_OUT

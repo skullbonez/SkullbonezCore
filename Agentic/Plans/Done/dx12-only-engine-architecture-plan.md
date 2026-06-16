@@ -16,10 +16,11 @@ signature cleanup named the current ordinary raster ABI in
 `Agentic/Reference/dx12-binding-abi.md`.
 
 The current stack intentionally keeps the ordinary raster root signature small:
-CBV `b0`, SRV texture slots `t0..t3`, and static samplers `s0`, `s1`, and `s3`.
-Treat the global material table, descriptor indexing, and expanded root-shape
-sections below as future gates. They should be revisited only when a scoped
-runtime feature needs them, not as cleanup work.
+CBV `b0`, SRV texture slots `t0..t4`, and static samplers `s0`, `s1`, and `s3`.
+Slot `t4` is the scoped object material-table texture. Treat descriptor
+indexing and broader expanded root-shape sections below as future gates. They
+should be revisited only when a scoped runtime feature needs them, not as
+cleanup work.
 
 ### 2026-06-15 Engine Cleanup Pass
 
@@ -37,15 +38,19 @@ that were still sensible at the current abstraction boundary:
 - Debug shader contract reflection now validates required texture resources,
   reflected resource kinds, and `tN` slot numbers against the contract table.
 - Render-pass cleanup added `SkullbonezRun` accessors for texture handles,
-  texture selection, and window dimensions, then centralized fullscreen t0..t3
-  texture-slot binding.
+  texture selection, and window dimensions, then centralized fullscreen texture
+  slot binding.
+- The 2026-06-16 shader follow-up adds typed object/shadow CBV uploads,
+  `mat4 + material4x3` instance payloads, and the fixed `t4` object material
+  table.
 
 Still not ready in this pass:
 
-- GPU material tables and descriptor indexing remain future work until a scoped
-  material feature needs the extra payload.
-- Graph-owned live barriers remain future work; the current graph skeleton and
-  live barrier comparison are diagnostic scaffolding only.
+- Descriptor indexing and structured-buffer material tables remain future work
+  until a scoped material feature needs the extra payload.
+- Graph-owned live barriers remain future work; the current graph skeleton now
+  carries native resource pointers for better live-barrier matching, but live
+  barrier execution is still backend-owned.
 - Broad pass callback migration, mesh-system extraction, async compute, WARP/GBV
   script expansion, and DXR quality work should stay separate roadmap slices.
 
@@ -85,7 +90,7 @@ Current renderer shape to retire or narrow:
 - global `Gfx()` as the main API boundary,
 - per-backend shader abstraction,
 - name-based shader setters as the hot-path interface,
-- unnamed fixed texture-slot thinking; the current `t0..t3` ABI is documented,
+- unnamed fixed texture-slot thinking; the current `t0..t4` ABI is documented,
   but should not silently grow,
 - pass resources scattered across `SkullbonezRunRender.cpp`, helper classes, terrain, water, sky, and UI,
 - GL/DX coordinate compatibility constraints inside new DX12 code.
@@ -350,7 +355,7 @@ For a later material/resource version, prefer descriptor indexing through a glob
 - instance stores material index,
 - pass constants store graph texture indices for scene color/depth/post inputs.
 
-The current DX12 binding ABI keeps explicit `t0..t3` texture slots so the shader
+The current DX12 binding ABI keeps explicit `t0..t4` texture slots so the shader
 contract and descriptor lifetime work can stay small. The architecture should
 still be able to migrate to descriptor indexing cleanly when material or graph
 resource requirements justify it.
@@ -390,7 +395,7 @@ Rules:
 - Do not use root descriptors for anything with complicated lifetime.
 
 Current status: the ordinary raster root signature is documented as `b0` plus
-`t0..t3`; graphics PSO keys include the active root signature pointer; Debug
+`t0..t4`; graphics PSO keys include the active root signature pointer; Debug
 shader contract diagnostics validate required uniform reflection and required
 texture resource kind/slot reflection.
 
@@ -555,7 +560,7 @@ Core passes:
 | `DepthPrepass` | Optional; generates stable depth for HZB, water/post, or GPU culling. |
 | `ReflectionPass` | Mirror-camera raster reflection or DXR reflection target. |
 | `SkyPass` | Procedural or cube-map sky into scene color. |
-| `OpaqueObjectPass` | Instanced objects using material table. |
+| `OpaqueObjectPass` | Instanced objects using material rows and the `t4` material table. |
 | `TerrainPass` | Terrain material/style rendering. |
 | `GroundContactShadowPass` | Contact cue layer if still needed. |
 | `WaterPass` | Transparent water using reflection/depth inputs. |
@@ -966,11 +971,12 @@ Tasks:
 3. Move pass binders to typed CBV uploads.
 4. Keep compatibility wrappers only for old helper paths.
 
-Current status: this phase is partially implemented. Pass binders exist for the
-high-risk object/fullscreen paths, and Debug reflection now validates required
-uniforms plus texture resource kind/slot declarations. Typed constant structs
-and typed CBV uploads remain future work because the current shader setter
-compatibility wrappers still serve old helper paths.
+Current status: this phase is implemented for the high-risk object/shadow paths.
+Pass binders exist for object/fullscreen paths, Debug reflection validates
+required uniforms plus texture resource kind/slot declarations, and object plus
+shadow-depth binders use typed constant structs through `SetConstantBufferBytes`.
+The name-based shader setters remain as a compatibility layer for older helper
+paths and lower-risk shaders.
 
 Validation:
 
@@ -1071,7 +1077,7 @@ This is not free. DX12-only is cleaner only if the engine accepts the explicit r
 |------|----------------|------------|
 | Losing parity masks visual bugs | GL/DX11 no longer catch convention drift | Strengthen screenshot baselines, WARP, GBV, pass captures, shader reflection checks. |
 | Render graph overbuild | Too much abstraction can slow the work | Start with one queue, no aliasing, one command list, explicit graph resources. |
-| Descriptor indexing bugs | Invalid indices can render garbage or fault | Keep the current `t0..t3` ABI until a scoped material/resource feature justifies descriptor indexing; add debug material validation, sentinel textures, and descriptor bounds checks when it lands. |
+| Descriptor indexing bugs | Invalid indices can render garbage or fault | Keep the current `t0..t4` ABI until a scoped material/resource feature justifies descriptor indexing; add debug material validation, sentinel textures, and descriptor bounds checks when it lands. |
 | Root signature churn | PSO rebuilds and shader incompatibility | Use stable root signatures and explicit PSO keys; do not expand the ordinary raster root signature opportunistically. |
 | Upload lifetime bugs | CPU can overwrite GPU-read data | Fence every frame allocator and expose peak/overflow counters. |
 | Barrier mistakes | GPU corruption, hangs, validation errors | Centralize barriers in the graph and keep manual transitions rare. |
@@ -1095,11 +1101,13 @@ A successful DX12-only architecture has:
 - No routine GPU stalls for upload, readback, descriptor reset, or timer queries.
 
 Current stack status: shader contracts, HLSL inventory cleanup, the CPU
-`RenderMaterial` bridge, the documented `b0`/`t0..t3` ordinary raster ABI,
-root-signature-aware graphics PSO keys, PSO cache-miss diagnostics, and Debug
-texture resource slot reflection are implemented. GPU material tables,
-descriptor indexing, graph-owned live barriers, typed CBV uploads, and broad
-pass callback migration remain future features.
+`RenderMaterial` bridge, expanded object material instance payloads, the
+documented `b0`/`t0..t4` ordinary raster ABI, the fixed `t4` object material
+table, root-signature-aware graphics PSO keys, PSO cache-miss diagnostics,
+Debug texture resource slot reflection, and typed object/shadow CBV uploads are
+implemented. Descriptor indexing, structured-buffer material tables,
+graph-owned live barriers, and broad pass callback migration remain future
+features.
 
 ## Final Recommendation
 

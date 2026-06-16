@@ -131,6 +131,31 @@ def load_stage_texts(stage_paths: dict[str, Path]) -> str:
     return "\n".join(chunks)
 
 
+def discover_hlsl_uniforms(text: str) -> set[str]:
+    uniforms: set[str] = set()
+    cbuffer_pattern = re.compile(r"cbuffer\s+\w+\s*(?::\s*register\([^)]+\))?\s*\{(?P<body>.*?)\};", re.DOTALL)
+    variable_pattern = re.compile(r"\b(?:float4x4|float4|float3|float2|float|int|uint|bool)\s+(\w+)(?:\s*\[[^\]]+\])?\s*;")
+    for cbuffer in cbuffer_pattern.finditer(text):
+        body = re.sub(r"//.*", "", cbuffer.group("body"))
+        uniforms.update(match.group(1) for match in variable_pattern.finditer(body))
+    return uniforms
+
+
+def discover_hlsl_resources(text: str) -> dict[str, dict[str, int | str]]:
+    resources: dict[str, dict[str, int | str]] = {}
+    resource_pattern = re.compile(
+        r"\b(?P<type>(?:RW)?Texture\w*(?:<[^>]+>)?|Sampler\w+|StructuredBuffer(?:<[^>]+>)?)\s+"
+        r"(?P<name>\w+)\s*:\s*register\((?P<class>[tus])(?P<slot>\d+)\)"
+    )
+    for match in resource_pattern.finditer(text):
+        resources[match.group("name")] = {
+            "type": match.group("type"),
+            "registerClass": match.group("class"),
+            "slot": int(match.group("slot")),
+        }
+    return resources
+
+
 def validate_manifest(
     repo: Path,
     manifest: dict[str, Any],
@@ -157,6 +182,8 @@ def validate_manifest(
         status = contract.get("status", "active")
         stages = contract.get("stages", [])
         required_symbols = contract.get("requiredSymbols", [])
+        required_uniforms = contract.get("uniforms", [])
+        required_resources = contract.get("resources", [])
 
         if not isinstance(name, str) or not name:
             errors.append(f"contracts[{index}] has invalid name.")
@@ -187,15 +214,57 @@ def validate_manifest(
         if name not in shader_files:
             errors.append(f"{name}: no shader files found.")
 
-        if not required_symbols:
+        combined_text = load_stage_texts(stage_paths)
+
+        has_contract_checks = bool(required_symbols) or bool(required_uniforms) or bool(required_resources)
+        if not has_contract_checks:
             warnings.append(f"{name}: manifest only checks file presence; symbol/resource contract is incomplete.")
-        elif not isinstance(required_symbols, list) or not all(isinstance(symbol, str) for symbol in required_symbols):
+        elif required_symbols and (not isinstance(required_symbols, list) or not all(isinstance(symbol, str) for symbol in required_symbols)):
             errors.append(f"{name}: requiredSymbols must be a string list.")
-        else:
-            combined_text = load_stage_texts(stage_paths)
+        elif required_symbols:
             missing_symbols = [symbol for symbol in required_symbols if symbol not in combined_text]
             if missing_symbols:
                 errors.append(f"{name}: missing required symbol(s): {', '.join(missing_symbols)}.")
+
+        if required_uniforms:
+            if not isinstance(required_uniforms, list) or not all(isinstance(uniform, str) for uniform in required_uniforms):
+                errors.append(f"{name}: uniforms must be a string list.")
+            else:
+                declared_uniforms = discover_hlsl_uniforms(combined_text)
+                missing_uniforms = [uniform for uniform in required_uniforms if uniform not in declared_uniforms]
+                if missing_uniforms:
+                    errors.append(f"{name}: missing cbuffer uniform declaration(s): {', '.join(missing_uniforms)}.")
+
+        if required_resources:
+            if not isinstance(required_resources, list):
+                errors.append(f"{name}: resources must be a list.")
+            else:
+                declared_resources = discover_hlsl_resources(combined_text)
+                for resource_index, resource in enumerate(required_resources):
+                    if not isinstance(resource, dict):
+                        errors.append(f"{name}: resources[{resource_index}] must be an object.")
+                        continue
+                    resource_name = resource.get("name")
+                    expected_slot = resource.get("slot")
+                    expected_register_class = resource.get("registerClass", "t")
+                    if not isinstance(resource_name, str) or not resource_name:
+                        errors.append(f"{name}: resources[{resource_index}] has invalid name.")
+                        continue
+                    if not isinstance(expected_slot, int):
+                        errors.append(f"{name}: resources[{resource_index}] has invalid slot.")
+                        continue
+                    if expected_register_class not in {"t", "u", "s"}:
+                        errors.append(f"{name}: resources[{resource_index}] has invalid registerClass.")
+                        continue
+                    declared = declared_resources.get(resource_name)
+                    if not declared:
+                        errors.append(f"{name}: missing resource declaration: {resource_name}.")
+                        continue
+                    if declared["registerClass"] != expected_register_class or declared["slot"] != expected_slot:
+                        errors.append(
+                            f"{name}: resource {resource_name} expected {expected_register_class}{expected_slot}, "
+                            f"found {declared['registerClass']}{declared['slot']}."
+                        )
 
         if name in source_roots and status == "legacy":
             errors.append(f"{name}: marked legacy but referenced by source CreateShader/literal path.")
@@ -207,6 +276,8 @@ def validate_manifest(
                 "stages": stages,
                 "files": {stage: repo_relative(repo, path) for stage, path in sorted(stage_paths.items())},
                 "requiredSymbols": required_symbols,
+                "uniforms": required_uniforms,
+                "resources": required_resources,
                 "referencedBySource": name in source_roots,
             }
         )

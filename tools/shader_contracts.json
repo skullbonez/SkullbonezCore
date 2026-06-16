@@ -23,24 +23,46 @@
       "name": "lit_textured",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uModel", "uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uCinematicTerrain", "uCinematicBasin", "uStyleModes", "uTerrainTint", "uTerrainAccent", "uTerrainGrid", "uShadowViewProj", "uShadowParams", "uShadowFlags"],
+      "resources": [
+        { "name": "uTexture", "registerClass": "t", "slot": 0 },
+        { "name": "uShadowMap", "registerClass": "t", "slot": 3 }
+      ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uTexture", "uShadowMap"]
     },
     {
       "name": "lit_textured_instanced",
       "status": "active",
       "stages": ["hlsl"],
-      "requiredSymbols": ["uView", "uProjection", "uTexture", "uShadowMap", "uPrimitiveShape"]
+      "uniforms": ["uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uObjectStyle", "uPrimitiveShape", "uMaterialAlpha", "uShadowViewProj", "uShadowParams", "uShadowFlags"],
+      "resources": [
+        { "name": "uTexture", "registerClass": "t", "slot": 0 },
+        { "name": "uShadowMap", "registerClass": "t", "slot": 3 },
+        { "name": "uMaterialTable", "registerClass": "t", "slot": 4 }
+      ],
+      "requiredSymbols": ["uView", "uProjection", "uTexture", "uShadowMap", "uMaterialTable", "uPrimitiveShape", "material1", "material2"]
     },
     {
       "name": "post_tonemap",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uExposure", "uGamma", "uVolumetricCompositeStrength", "uDepthParams", "uFogParams", "uFogColor", "uSunShaftParams", "uSunColor", "uBloomParams", "uCloudParams", "uStyleGrade"],
+      "resources": [
+        { "name": "uSceneTex", "registerClass": "t", "slot": 0 },
+        { "name": "uDepthTex", "registerClass": "t", "slot": 1 },
+        { "name": "uVolumetricTex", "registerClass": "t", "slot": 2 }
+      ],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uVolumetricTex", "uExposure", "uGamma"]
     },
     {
       "name": "post_volumetric_light",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uDepthParams", "uSunShaftParams", "uSunColor", "uVolumetricParams", "uCloudParams"],
+      "resources": [
+        { "name": "uSceneTex", "registerClass": "t", "slot": 0 },
+        { "name": "uDepthTex", "registerClass": "t", "slot": 1 }
+      ],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uDepthParams", "uSunShaftParams", "uVolumetricParams"]
     },
     {
@@ -59,12 +81,14 @@
       "name": "shadow_depth_instanced",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uView", "uProjection", "uClipPlane"],
       "requiredSymbols": ["uView", "uProjection", "uClipPlane"]
     },
     {
       "name": "sky_atmosphere",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uSunParams", "uSunColor", "uHorizonColor", "uZenithColor", "uCloudParams", "uInvView", "uInvProjection", "uSkyMode"],
       "requiredSymbols": ["uSunParams", "uSunColor", "uCloudParams", "uSkyMode"]
     },
     {
@@ -97,12 +121,20 @@
       "name": "water_calm",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uModel", "uView", "uProjection", "uReflectVP", "uColorTint", "uReflectionStrength", "uNoReflect", "uCinematicMode", "uWaterMode", "uSunGlintStrength", "uSunColor", "uBasinMask", "uBasinMaskFeather"],
+      "resources": [
+        { "name": "uReflectionTex", "registerClass": "t", "slot": 1 }
+      ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     },
     {
       "name": "water_ocean",
       "status": "active",
       "stages": ["hlsl"],
+      "uniforms": ["uModel", "uView", "uProjection", "uReflectVP", "uColorTint", "uTime", "uWaveHeight", "uReflectionStrength", "uPerturbStrength", "uFlatWater", "uNoReflect", "uCinematicMode", "uSunGlintStrength", "uSunColor"],
+      "resources": [
+        { "name": "uReflectionTex", "registerClass": "t", "slot": 1 }
+      ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     }
   ]

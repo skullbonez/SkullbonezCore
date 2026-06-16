@@ -198,7 +198,7 @@ class RenderBackendDX12 : public IRenderBackend
     // This is the public shader/resource layout for the current graphics root
     // signature. Keep BindTexture(handle, slot) mapped directly to SRV register
     // t<slot> until a concrete material/pass contract requires a new root
-    // signature. Future material-table work should update this block, HLSL
+    // signature. Material-table work updates this block, HLSL
     // registers, and shader contract docs together.
     static constexpr UINT ROOT_PARAMETER_FRAME_CONSTANTS = 0; // CBV b0
     static constexpr UINT ROOT_PARAMETER_FIRST_TEXTURE = 1;   // t0 descriptor table
@@ -207,9 +207,9 @@ class RenderBackendDX12 : public IRenderBackend
     static constexpr UINT SAMPLER_REGISTER_LINEAR_WRAP = 0;        // s0
     static constexpr UINT SAMPLER_REGISTER_LINEAR_CLAMP = 1;       // s1
     static constexpr UINT SAMPLER_REGISTER_SHADOW_POINT_CLAMP = 3; // s3
-    static constexpr int TEXTURE_SLOT_COUNT = 4;                   // SRV slots t0..t3
+    static constexpr int TEXTURE_SLOT_COUNT = 5;                   // SRV slots t0..t4
     static constexpr UINT ORDINARY_RASTER_ROOT_PARAMETER_COUNT = ROOT_PARAMETER_FIRST_TEXTURE + TEXTURE_SLOT_COUNT;
-    static_assert( TEXTURE_SLOT_COUNT == 4, "Ordinary raster ABI intentionally exposes SRV slots t0..t3." );
+    static_assert( TEXTURE_SLOT_COUNT == 5, "Ordinary raster ABI exposes SRV slots t0..t4, including t4 for the object material table." );
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
@@ -339,10 +339,10 @@ class RenderBackendDX12 : public IRenderBackend
 
     ShaderDX12* m_activeShader = nullptr;
     // Currently bound persistent SRV descriptor indices for shader texture
-    // slots t0..t3. These are not GPU handles. Before a draw, the backend copies
+    // slots t0..t4. These are not GPU handles. Before a draw, the backend copies
     // each persistent descriptor into a transient shader-visible row and binds
     // that transient GPU handle through the root signature.
-    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;

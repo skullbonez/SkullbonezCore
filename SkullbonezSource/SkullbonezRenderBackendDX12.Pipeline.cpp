@@ -489,7 +489,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
 
     // Bind textures by copying their SRV descriptors to the shader-visible heap
     // and pointing the root descriptor table at them. Root params [1..4] map to
-    // texture slots t0..t3.
+    // texture slots t0..t4. The object pass uses t4 for the material table.
     //
     // Plain-language flow:
     //
@@ -499,7 +499,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     // 3. This draw gets a transient row in the shader-visible heap.
     // 4. The persistent descriptor is copied into the transient row.
     // 5. The command list binds the transient row's GPU handle.
-    // 6. When the pixel shader samples t0/t1/t2/t3, the GPU follows that handle.
+    // 6. When the pixel shader samples t0/t1/t2/t3/t4, the GPU follows that handle.
     //
     // DX12 does not bind "the C++ texture object" directly. It binds a descriptor
     // table row that describes how the shader should read that texture.

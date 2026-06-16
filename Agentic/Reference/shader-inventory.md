@@ -14,7 +14,7 @@ work should update the HLSL contract, `SkullbonezSource/SkullbonezShaderContract
 and `tools/shader_contracts.json`.
 
 The current ordinary raster binding ABI is documented in
-`Agentic/Reference/dx12-binding-abi.md`: CBV `b0`, SRV texture slots `t0..t3`,
+`Agentic/Reference/dx12-binding-abi.md`: CBV `b0`, SRV texture slots `t0..t4`,
 and static samplers `s0`, `s1`, and `s3`. Resource slots in the runtime shader
 contract table map directly to `BindTexture(handle, slot)`.
 
@@ -59,7 +59,7 @@ return without failing the draw.
 
 | Shader | Pass Category | Vertex Layout | Resources |
 |--------|---------------|---------------|-----------|
-| `lit_textured_instanced.hlsl` | objects | `P3_N3_UV2_I4x4_Material4` | `t0 uTexture`, optional `t3 uShadowMap` |
+| `lit_textured_instanced.hlsl` | objects | `P3_N3_UV2_I4x4_Material4x3` | `t0 uTexture`, optional `t3 uShadowMap`, `t4 uMaterialTable` |
 | `lit_textured.hlsl` | terrain | `P3_N3_UV2` | `t0 uTexture`, optional `t3 uShadowMap` |
 | `water_calm.hlsl` | water | `P3` | `t1 uReflectionTex` |
 | `water_ocean.hlsl` | water | `P3` | `t1 uReflectionTex` |
@@ -67,9 +67,10 @@ return without failing the draw.
 | `post_tonemap.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex`, `t2 uVolumetricTex` |
 | `post_volumetric_light.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex` |
 
-Material v1 does not add a material texture/table binding. Runtime
-`RenderMaterial` data still reaches object shaders through the packed instance
-payload, so the ordinary raster root signature remains unchanged.
+Material v1 now reaches object shaders through both the packed material instance
+payload and the fixed `t4` material-table texture. The material table stores
+shared per-kind defaults; the instance rows still carry per-object color and
+parameter overrides.
 
 ## DX12 Utility Shaders
 
@@ -81,7 +82,8 @@ payload, so the ordinary raster root signature remains unchanged.
 
 ## Validation
 
-Run `python tools/validate_shaders.py` for shader inventory/contract checks.
+Run `python tools/validate_shaders.py` for shader inventory/contract checks,
+including high-risk HLSL cbuffer uniform and texture resource slot drift.
 Renderer-visible shader behavior is covered by `tools/validate_dx12_renderer.bat`;
 use `tools/validate_full.bat` when shader cleanup also changes broad runtime or
 project loading behavior.

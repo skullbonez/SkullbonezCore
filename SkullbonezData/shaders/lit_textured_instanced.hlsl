@@ -71,6 +71,7 @@ cbuffer Uniforms : register(b0)
 
 Texture2D    uTexture  : register(t0);
 Texture2D    uShadowMap : register(t3);
+Texture2D    uMaterialTable : register(t4);
 SamplerState sSampler0 : register(s0);
 SamplerState sSampler3 : register(s3);
 
@@ -83,7 +84,9 @@ struct VS_IN
     float4 model1   : TEXCOORD2;  // Per-instance: model matrix column 1
     float4 model2   : TEXCOORD3;  // Per-instance: model matrix column 2
     float4 model3   : TEXCOORD4;  // Per-instance: model matrix column 3
-    float4 tint     : TEXCOORD5;  // Per-instance: RGB tint + color override amount
+    float4 material0 : TEXCOORD5; // base rgb + legacy mode bridge
+    float4 material1 : TEXCOORD6; // roughness, metallic, specular, emissive strength
+    float4 material2 : TEXCOORD7; // emissive rgb + material-table row
 };
 
 struct VS_OUT
@@ -93,9 +96,11 @@ struct VS_OUT
     float3 viewPos   : TEXCOORD0;
     float3 normal    : TEXCOORD1;
     float2 texCoord  : TEXCOORD2;
-    float4 tint      : TEXCOORD3;
-    float3 worldPos  : TEXCOORD4;
-    nointerpolation float4 sphereShadowInfo : TEXCOORD5;
+    float4 material0 : TEXCOORD3;
+    float4 material1 : TEXCOORD4;
+    float4 material2 : TEXCOORD5;
+    float3 worldPos  : TEXCOORD6;
+    nointerpolation float4 sphereShadowInfo : TEXCOORD7;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -116,13 +121,32 @@ VS_OUT main_vs(VS_IN input)
     output.viewPos  = viewPos.xyz;
     output.normal   = mul((float3x3)modelView, input.normal);
     output.texCoord = input.texCoord;
-    output.tint     = input.tint;
+    output.material0 = input.material0;
+    output.material1 = input.material1;
+    output.material2 = input.material2;
     output.worldPos = worldPos.xyz;
     float3 sphereCenter = mul(model, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
     float3 sphereAxis = mul(model, float4(1.0f, 0.0f, 0.0f, 1.0f)).xyz - sphereCenter;
     output.sphereShadowInfo = float4(sphereCenter, length(sphereAxis));
 
     return output;
+}
+
+float4 SampleMaterialTable(float materialRow)
+{
+    float row = clamp(floor(materialRow + 0.5f), 0.0f, 15.0f);
+    return uMaterialTable.SampleLevel(sSampler3, float2((row + 0.5f) / 16.0f, 0.5f), 0.0f);
+}
+
+int ResolveMaterialMode(float legacyMode, int objectStyle)
+{
+    if (legacyMode < -0.5f)
+        return 0;
+    if (legacyMode > 1.25f)
+        return (int)floor(legacyMode + 0.5f);
+    if (legacyMode > 0.5f)
+        return 1;
+    return objectStyle;
 }
 
 // Cinematic scenes use a procedural beach-ball color so the red/yellow panels stay crisp.
@@ -385,25 +409,22 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 diffuse = uLightDiffuse.rgb * uMaterialDiffuse.rgb * diff;
 
     float3 R = reflect(-L, N);
-    float spec = pow(max(dot(V, R), 0.0), 64.0);
+    float4 tableParams = SampleMaterialTable(input.material2.w);
+    float roughness = saturate(input.material1.x * 0.80f + tableParams.x * 0.20f);
+    float materialSpecular = saturate(input.material1.z * 0.80f + tableParams.z * 0.20f);
+    float specPower = lerp(112.0f, 18.0f, roughness);
+    float spec = pow(max(dot(V, R), 0.0), specPower) * max(materialSpecular, 0.05f);
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     bool cinematicMode = uLightPosition.w == 0.0f;
-    int materialMode;
-    if (input.tint.a < -0.5f)
-        materialMode = 0;
-    else if (input.tint.a > 1.25f)
-        materialMode = (int)floor(input.tint.a + 0.5f);
-    else if (input.tint.a > 0.5f)
-        materialMode = 1;
-    else
-        materialMode = uObjectStyle;
+    int materialMode = ResolveMaterialMode(input.material0.a, uObjectStyle);
 
-    float3 materialColor = input.tint.rgb;
+    float3 materialColor = input.material0.rgb;
     if (materialMode == 0)
     {
-        materialColor = ProceduralBeachBallColor(input.texCoord) * input.tint.rgb;
+        materialColor = ProceduralBeachBallColor(input.texCoord) * input.material0.rgb;
     }
+    float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
 
     if (cinematicMode)
     {
@@ -421,7 +442,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
         styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
-        return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, uMaterialAlpha);
+        return float4((materialMode == 0 ? beachBall : styled + rimLight * 0.35f) + emissive, uMaterialAlpha);
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
@@ -442,5 +463,6 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         litColor = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord) * shadowFactor;
     }
+    litColor += emissive;
     return float4(litColor, uMaterialAlpha);
 }

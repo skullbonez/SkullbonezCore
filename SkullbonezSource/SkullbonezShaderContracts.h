@@ -65,8 +65,8 @@ struct ShaderResourceDecl
     // Contract: ordinary raster resources use the current DX12 binding ABI.
     //
     // Slot N means SRV register tN, bound through BindTexture(handle, N). The
-    // ABI currently exposes t0..t3; material v1 keeps using packed instance
-    // parameters instead of adding a material descriptor table.
+    // ABI currently exposes t0..t4; t4 is the object material table while the
+    // per-instance stream still carries the draw-local material payload.
     int slot;
     ShaderResourceKind kind;
     bool required;
@@ -203,6 +203,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
     static constexpr ShaderResourceDecl litTexturedInstancedResources[] = {
         { "uTexture", 0, ShaderResourceKind::Texture2D, true },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
+        { "uMaterialTable", 4, ShaderResourceKind::Texture2D, true },
     };
 
     static constexpr ShaderUniformDecl litTexturedUniforms[] = {
@@ -309,7 +310,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
     };
 
     static constexpr ShaderProgramDesc contracts[] = {
-        { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4", litTexturedInstancedUniforms, sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ), litTexturedInstancedResources, sizeof( litTexturedInstancedResources ) / sizeof( litTexturedInstancedResources[0] ) },
+        { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4x3", litTexturedInstancedUniforms, sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ), litTexturedInstancedResources, sizeof( litTexturedInstancedResources ) / sizeof( litTexturedInstancedResources[0] ) },
         { "lit_textured", "terrain", "P3_N3_UV2", litTexturedUniforms, sizeof( litTexturedUniforms ) / sizeof( litTexturedUniforms[0] ), litTexturedResources, sizeof( litTexturedResources ) / sizeof( litTexturedResources[0] ) },
         { "water_calm", "water", "P3", waterCalmUniforms, sizeof( waterCalmUniforms ) / sizeof( waterCalmUniforms[0] ), waterResources, sizeof( waterResources ) / sizeof( waterResources[0] ) },
         { "water_ocean", "water", "P3", waterOceanUniforms, sizeof( waterOceanUniforms ) / sizeof( waterOceanUniforms[0] ), waterResources, sizeof( waterResources ) / sizeof( waterResources[0] ) },

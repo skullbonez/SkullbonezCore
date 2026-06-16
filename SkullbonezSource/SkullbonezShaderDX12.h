@@ -112,6 +112,7 @@ class ShaderDX12 : public IShader
     void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;
     void SetVec4( const char* name, float x, float y, float z, float w ) const override;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
+    bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const override;
 
     // Flush the dirty constant-buffer bytes into the backend upload arena and
     // return the GPU virtual address used by the root CBV binding.

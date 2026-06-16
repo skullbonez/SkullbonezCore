@@ -158,6 +158,7 @@ struct RenderGraphResourceDesc
     std::string name;
     bool external = true;
     RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
+    const void* nativeResource = nullptr;
 };
 
 // A single declared use of a resource by one pass. For example: "WaterPass reads
@@ -200,6 +201,7 @@ struct RenderGraphTransitionDesc
 {
     uint32_t passIndex = 0;
     RenderGraphResourceHandle resource;
+    const void* nativeResource = nullptr;
     RenderGraphResourceAccess before = RenderGraphResourceAccess::Unknown;
     RenderGraphResourceAccess after = RenderGraphResourceAccess::Unknown;
 };
@@ -219,7 +221,7 @@ class RenderGraph
   public:
     void Clear();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess );
+    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess, const void* nativeResource = nullptr );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
     void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );

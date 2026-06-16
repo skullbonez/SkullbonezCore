@@ -556,6 +556,47 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
 }
 
 
+bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const
+{
+    (void)debugName;
+    if ( !data || size == 0 || m_cbSize == 0 )
+    {
+        return false;
+    }
+    if ( size > m_cbSize )
+    {
+#ifdef _DEBUG
+        Log().WriteEventf( "shader_typed_cbuffer_too_large shader=%s block=%s bytes=%llu reflected_bytes=%u",
+                           m_contract ? m_contract->baseName : "<unmanifested>",
+                           debugName ? debugName : "<unnamed>",
+                           static_cast<unsigned long long>( size ),
+                           m_cbSize );
+#endif
+        return false;
+    }
+
+    std::fill( m_cbData.begin(), m_cbData.end(), static_cast<uint8_t>( 0 ) );
+    memcpy( m_cbData.data(), data, size );
+    m_cbDirty = true;
+
+#ifdef _DEBUG
+    if ( m_contract )
+    {
+        if ( m_contractUniformsSet.size() != m_contract->uniformCount )
+        {
+            m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 1 ) );
+        }
+        else
+        {
+            std::fill( m_contractUniformsSet.begin(), m_contractUniformsSet.end(), static_cast<uint8_t>( 1 ) );
+        }
+    }
+#endif
+
+    return true;
+}
+
+
 D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 {
     if ( m_cbSize == 0 )

@@ -1,6 +1,6 @@
 # DX12 Binding ABI
 
-Status: current DX12 ordinary raster contract as of the descriptor/upload/root-signature cleanup slice.
+Status: current DX12 ordinary raster contract as of the object material-table cleanup slice.
 
 Validation: renderer behavior changes require `tools\validate_dx12_renderer.bat`; documentation-only edits to this file do not.
 
@@ -15,6 +15,7 @@ The main DX12 graphics root signature is intentionally small and fixed:
 | 2 | `t1` | Texture slot 1 from `BindTexture(handle, 1)` |
 | 3 | `t2` | Texture slot 2 from `BindTexture(handle, 2)` |
 | 4 | `t3` | Texture slot 3 from `BindTexture(handle, 3)` |
+| 5 | `t4` | Object material table from `BindTexture(handle, 4)` |
 
 Static samplers:
 
@@ -31,7 +32,7 @@ BindTexture(handle, slot)
 ```
 
 For ordinary raster shaders, `slot` maps directly to HLSL SRV register `t<slot>`.
-Current valid slots are `0..3`. Invalid slots are ignored for compatibility and
+Current valid slots are `0..4`. Invalid slots are ignored for compatibility and
 emit a Debug diagnostic event.
 
 ## Shader Contract Implications
@@ -43,10 +44,12 @@ contracts. Its resource `slot` values use the ABI above:
 - water reflection textures use `t1`;
 - tonemap uses `t0` scene, `t1` depth, and `t2` volumetric;
 - optional shadow maps use `t3`.
+- the instanced object material-kind default table uses `t4`.
 
-The shader cleanup branch added CPU `RenderMaterial` data, but material v1 still
-flows through the existing packed instance payload. It does not add a material
-descriptor table, structured buffer, bindless heap, or new root parameter.
+The shader cleanup branch added CPU `RenderMaterial` data, expanded the
+instanced object payload to material rows, and added a tiny material texture
+table at `t4`. It does not add a structured-buffer material table, bindless
+heap, or descriptor-indexing API.
 
 ## Descriptor Lifetime
 
@@ -55,6 +58,7 @@ Persistent SRV/UAV descriptors live in the static range:
 - loaded textures;
 - framebuffer color/depth SRVs;
 - DXR reflection UAV/SRV descriptors;
+- the generated object material-table texture;
 - generated null descriptors.
 
 Per-draw or per-dispatch table rows live in the transient range. The renderer
@@ -87,15 +91,15 @@ and then retrying the allocation.
 ## Deferred Work
 
 Do not expand this root signature opportunistically. Revisit it only when a
-runtime contract needs more than `t0..t3`, a material table cannot fit the packed
-instance path, or a pass requires a resource model that cannot be expressed by
-the current slots.
+runtime contract needs more than `t0..t4`, the current material texture cannot
+express the material data, or a pass requires a resource model that cannot be
+expressed by the current slots.
 
 Deferred binding models remain:
 
 - expanded fixed SRV slots;
 - a single contiguous SRV descriptor table;
-- material texture table or material descriptor indirection;
 - structured-buffer material table;
+- descriptor-indexed material indirection;
 - bindless descriptors;
 - broad render graph/resource-barrier migration.
