@@ -26,6 +26,7 @@ flowchart TB
     subgraph Runtime["Runtime shell"]
         Window["SkullbonezWindow"]
         Input["Input / InputState"]
+        InputController["InputController"]
         Timers["Timer / RunTimerState"]
         Config["SkullbonezConfig\nWindowConfig / render flags / cinematic config"]
         Capture["CaptureSystem"]
@@ -104,6 +105,7 @@ flowchart TB
     App -.-> SkyBox
     App -.-> TestScene
     App -.-> Input
+    App -.-> InputController
     App -.-> Capture
     App -.-> RuntimeDiagnostics
     App -.-> Text
@@ -177,6 +179,7 @@ class RunCameraState
 class SceneRuntime
 class SimulationSystem
 class RuntimeDiagnostics
+class InputController
 class RunSceneState
 class RunScreenshotState
 class RunLiveStyleControlState
@@ -206,6 +209,7 @@ SkullbonezRun *-- RunCameraState
 SkullbonezRun *-- SceneRuntime
 SkullbonezRun *-- SimulationSystem
 SkullbonezRun ..> RuntimeDiagnostics
+SkullbonezRun ..> InputController
 SceneRuntime *-- RunSceneState
 SkullbonezRun *-- RunScreenshotState
 SkullbonezRun *-- RunLiveStyleControlState
@@ -231,11 +235,12 @@ SkullbonezRun *-- PhysicsDebugVisualizer
 `RunSceneState`. `SimulationSystem` owns timestep policy and the physics
 accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
 BMP backbuffer readback plus scene screenshot/autocycle policy. `RuntimeDiagnostics`
-owns perf CSV, scene-finished, and SkullScope run logging policy. `SkullbonezRun`
-still applies capture completion actions such as scene advance, quit, or
-interactive hold and coordinates the heavier load/reset side effects around
-that state, including object construction, terrain, cameras, UI defaults,
-diagnostics context, and renderer setup.
+owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController`
+owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun`
+still applies input commands and capture completion actions such as scene
+advance, quit, or interactive hold, then coordinates the heavier load/reset side
+effects around that state, including object construction, terrain, cameras, UI
+defaults, diagnostics context, and renderer setup.
 
 ## Rendering Interfaces And Backend Family
 
@@ -653,6 +658,8 @@ subsystem rather than by dependency edge.
 - `SkullbonezWindow`
 - `InputState`
 - `Input`
+- `InputController`
+- `RuntimeKeyEdge`
 - `Timer`
 - `CaptureSystem`
 - `RuntimeCaptureSceneContext`

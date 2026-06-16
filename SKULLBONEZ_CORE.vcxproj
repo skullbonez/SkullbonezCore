@@ -164,6 +164,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezHelper.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezInit.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezInput.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezInputController.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezLog.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezQuaternion.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRigidBody.cpp" />
@@ -263,6 +264,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezGeometricStructures.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezHelper.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezInput.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezInputController.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBUIlder.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h" />
