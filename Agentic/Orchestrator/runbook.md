@@ -1,7 +1,9 @@
 # Roadmap Orchestrator Runbook
 
-This runbook is the manual contract for sequential roadmap orchestration. Keep
-it authoritative until helper scripts exist.
+This runbook explains the manual procedure for sequential roadmap orchestration.
+`tools/orchestrator.py` enforces the JSON policy, queue, and state machine.
+YAML files are readable design mirrors until parser support is intentionally
+added.
 
 ## Scope
 
@@ -28,19 +30,29 @@ The worker owns only the assigned roadmap implementation.
 1. Read `AGENTS.md`, `README.md`, `Agentic/README.md`, and
    `Agentic/SessionState.md`.
 2. Confirm `git status --short --branch` is understood.
-3. Read `Agentic/Orchestrator/policy.json`.
-4. Read `Agentic/Orchestrator/queue.json`.
-5. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
-   for a dry-run setup step.
-6. Do not merge PRs. `AGENTS.md` currently forbids merges and PR submission.
+3. Run `tools\orchestrator.bat check`.
+4. Read `Agentic/Orchestrator/policy.json`.
+5. Read `Agentic/Orchestrator/queue.json`.
+6. Read `Agentic/Orchestrator/machines/roadmap-item.json`.
+7. Use `Agentic/Orchestrator/agent-loop.yaml` as the human-readable loop map.
+8. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
+   for a dry-run setup step or policy editing.
+9. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
+   submission and merges.
 
 ## Item Selection
 
-1. Find the highest-priority item with `status: ready`.
+1. Use `tools\orchestrator.bat next` or find the highest-priority item with
+   `state: ready`.
 2. Confirm every item in `depends_on` is terminal and acceptable:
-   `done`, `merged`, `skipped`, or explicitly user-approved.
-3. Confirm no other item is `running`.
-4. Mark the selected item `running` only after the run directory is created.
+   `done`, `merged`, `pr_open` for stacked children, `skipped` only when the
+   queue says explicit-only or the user approved it.
+3. Confirm no other item is in an active state from
+   `machines/queue.yaml`.
+4. Mark the selected item `running` only through
+   `tools\orchestrator.bat start <item-id>` or
+   `tools\orchestrator.bat run-loop <item-id>`, which creates the run
+   directory and switches to the item branch.
 
 ## Run Directory
 
@@ -55,7 +67,7 @@ Expected files:
 ```text
 run.json
 worker-prompt.md
-worker-result.md
+worker-result.json
 verification-rounds/
 validation.log
 pr.md
@@ -94,7 +106,7 @@ The final report commit must contain only files in this report folder:
 - `report.md`,
 - PNG or JPG images under `images/` that are referenced by `report.md`.
 
-Do not put `run.json`, `worker-prompt.md`, `worker-result.md`,
+Do not put `run.json`, `worker-prompt.md`, `worker-result.json`,
 `validation.log`, `pr.md`, source code, queue updates, source-plan moves, raw
 artifacts, or unreferenced images in the report commit.
 
@@ -136,12 +148,12 @@ Before the final successful response, verify this checklist:
 6. The final report-only commit contains only `report.md` and referenced
    images under that report directory.
 7. The report-only commit is pushed, unless pushing is explicitly blocked.
-8. The queue item has a terminal status:
+8. The queue item has a terminal state:
    - `done` for successful completed work with no PR or merge recorded,
-   - `pr-open` when a PR exists and merge is not permitted,
+   - `pr_open` when a PR exists and merge is not permitted,
    - `merged` when policy and repo rules permitted a merge and it succeeded,
    - `blocked`, `failed`, or `skipped` for non-successful terminal outcomes.
-9. The final response names the terminal queue status and gives the GitHub
+9. The final response names the terminal queue state and gives the GitHub
    report web URL. If a web URL cannot be produced, it must say why and provide
    the local report path.
 
@@ -195,7 +207,10 @@ the diff clear without rewriting history.
 Generate `worker-prompt.md` from
 `Agentic/Orchestrator/templates/worker-prompt.md`.
 
-Spawn exactly one worker for the selected item. The worker prompt must include:
+Spawn exactly one worker for the selected item. Use
+`tools\orchestrator.bat run-worker <item-id>` when Codex CLI automation is
+available, or render the prompt with `tools\orchestrator.bat worker-prompt
+<item-id>` for a manual worker handoff. The worker prompt must include:
 
 - source plan path,
 - impact area,
@@ -207,12 +222,19 @@ Spawn exactly one worker for the selected item. The worker prompt must include:
 
 The orchestrator should not begin another roadmap item while a worker is active.
 
+For the executable path, use `tools\orchestrator.bat run-loop [item-id]`.
+That command starts the selected queue item, runs the worker through `codex
+exec`, advances `worker-result.json` into the state machine, runs verifier
+rounds until `accepted`, runs the configured validation gate unless
+`--skip-validation` is supplied, and can call `finalize` with `--finalize`.
+
 ## Review, Evidence, And Validation
 
 After each worker completion, including a worker response to verifier feedback:
 
-1. Save the first worker final message in `worker-result.md`; save later worker
-   responses under the matching `verification-rounds/` file.
+1. Save the first worker final message in `worker-result.json` when `codex exec`
+   uses a JSON schema, or `worker-result.md` for manual fallback. Save later
+   worker responses under the matching `verification-rounds/` file.
 2. Review `git status --short`.
 3. Review `git diff --stat` and the changed files.
 4. Reject unrelated edits unless they are necessary and explained.
@@ -233,11 +255,18 @@ the worker changed files or the prior evidence is no longer trustworthy.
 After the review/evidence step, hand the work to a separate verifier agent
 before marking the item successful. The verifier is a rubber-duck reviewer: it
 checks the requested outcome, the source plan, the diff, validation evidence,
-artifacts, and worker handoff without editing files.
+artifacts, commenting standards, and worker handoff.
 
 Generate each verifier prompt from
 `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
 `verification-rounds/`.
+
+The Codex verifier runs with the sandbox configured in `policy.json`. On this
+Windows Codex CLI setup, the repository default is `danger-full-access` because
+`workspace-write` fails during shell spawn setup. The orchestrator compares
+tracked worktree status before and after verifier execution. Any
+verifier-created tracked edit blocks success until inspected and handled
+intentionally.
 
 For each verification round:
 
@@ -248,11 +277,12 @@ For each verification round:
    acceptable; do not claim independent verification without a separate agent.
 3. Save the verifier response as
    `verification-rounds/round-XX-verifier-result.md`.
-4. If the verifier verdict is `accepted`, continue to PR/reporting.
+4. If the verifier verdict is `accepted`, continue to validation and reporting.
 5. If the verifier verdict is `needs-fixes`, send the blocking findings back to
    the implementation worker and save the worker response as
    `verification-rounds/round-XX-worker-response.md`.
-6. Repeat the review/evidence/validation step, then start a new verifier round.
+6. Repeat the worker/verifier loop until a verifier returns `accepted`, or the
+   item becomes blocked or failed.
 7. If the verifier verdict is `blocked`, or if the worker cannot resolve a
    blocking finding, set the item to `blocked` or `failed` and generate the
    corresponding report.
@@ -286,7 +316,7 @@ commit.
 
 ## PR Handling
 
-If `allow_pr_creation` is true and the branch is ready:
+If `pull_requests.allow_creation` is true and the branch is ready:
 
 1. Commit the work with useful commit notes.
 2. Push the feature branch.
@@ -295,11 +325,11 @@ If `allow_pr_creation` is true and the branch is ready:
 4. Save PR metadata in `pr.md` under the run directory when a PR exists.
 5. For a successful item, archive the source plan as described in
    [Plan Archive](#plan-archive).
-6. Set the queue status to `pr-open` once the PR is open, or to `done` if the
+6. Set the queue state to `pr_open` once the PR is open, or to `done` if the
    successful item is complete without recording a PR.
-7. Commit any source-plan archive and queue/status updates before the report
+7. Commit any source-plan archive and queue updates before the report
    commit. These are task-state changes, not report files.
-8. Push the queue/status commit.
+8. Push the queue-state commit.
 9. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
    referenced PNG/JPG images into `Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/`.
 10. Commit the report directory as the final report-only commit. This commit
@@ -308,9 +338,14 @@ If `allow_pr_creation` is true and the branch is ready:
 12. Post the generated report, including the report web URL, as a PR comment
     when the configured channel is available.
 
-If `allow_pr_creation` is false, successful items still run
-[Plan Archive](#plan-archive), set the queue status to `done`, commit and push
-the source-plan archive plus queue/status update, then create and push the final
+Use `tools\orchestrator.bat finalize <item-id> --commit` to move a reporting
+item to `done`, archive its source plan, commit queue/archive state, draft the
+report, and make the final report-only commit. The command refuses automated
+commits on `main` unless `--allow-main-commit` is explicitly supplied.
+
+If `pull_requests.allow_creation` is false, successful items still run
+[Plan Archive](#plan-archive), set the queue state to `done`, commit and push
+the source-plan archive plus queue-state update, then create and push the final
 report-only commit. The orchestrator should still provide a report web link
 unless policy or the user forbids pushing; if a push is forbidden or fails,
 state that no report web link could be produced and provide the local report
@@ -323,7 +358,7 @@ Do not merge.
 Future merge automation requires both:
 
 - an explicit `AGENTS.md` policy update, and
-- `policy.json` with `allow_merge: true`.
+- `policy.json` with `merge.allow: true`.
 
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
@@ -340,7 +375,7 @@ Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` from
 `Agentic/Orchestrator/templates/report.md` for every terminal outcome:
 
 - `done`,
-- `pr-open`,
+- `pr_open`,
 - `merged`,
 - `blocked`,
 - `failed`,
@@ -355,7 +390,7 @@ Reports must include:
 - archived source plan path when the item completed successfully,
 - branch, implementation commit, report commit, PR link, and report web URL
   when present,
-- queue status and queue/status commit SHA,
+- queue state and queue-state commit SHA,
 - a report web URL that opens the committed Markdown file in GitHub. Use the
   feature-branch URL for PR-open work and the `main` URL after a successful
   merge,
@@ -370,7 +405,7 @@ Reports must include:
 - merge status,
 - conflicts and resolutions,
 - residual risk,
-- sub-agent result summary and `worker-result.md` path,
+- sub-agent result summary and `worker-result.json` or `worker-result.md` path,
 - verifier result summary and `verification-rounds/` paths,
 - next queue action.
 
@@ -388,7 +423,7 @@ Successful terminal states are:
 
 - `done`, when implementation and required validation are complete, no PR or
   merge is being recorded, and the report-only commit is pushed,
-- `pr-open`, when the implementation and required PR gate passed and the
+- `pr_open`, when the implementation and required PR gate passed and the
   repository policy does not permit merging,
 - `merged`, when policy and repository rules permitted a merge and it
   succeeded,
@@ -414,12 +449,12 @@ Archive rules:
 
 ## Queue Update
 
-Set the item status:
+Set the item state:
 
 - `done` when the implementation is complete, validation passed or was not
   required, the report-only commit is pushed, and no PR or merge is being
   recorded,
-- `pr-open` when a PR exists and merge is not permitted,
+- `pr_open` when a PR exists and merge is not permitted,
 - `merged` only when policy and repo rules permitted a merge and it succeeded,
 - `blocked` when user input or external state is required,
 - `failed` when implementation or validation invalidated the approach,

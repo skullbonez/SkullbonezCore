@@ -1,6 +1,9 @@
 # First-Time Setup
 
-This repository expects a Windows x64 development machine with Visual Studio C++ tools, Python, and Pillow available to the validation scripts.
+This repository expects a Windows x64 development machine with Visual Studio
+C++ tools, Python, and Pillow available to the validation scripts. Codex
+orchestration also requires the official Codex CLI Python package so the
+orchestrator can spawn worker and verifier agents through `codex exec`.
 
 For agent workflow rules, read `AGENTS.md` first, then `Agentic/README.md`.
 
@@ -32,6 +35,12 @@ Install the Python image dependency used by DX12 screenshot checks:
 python -m pip install Pillow
 ```
 
+Install the Codex CLI package used by the roadmap orchestrator:
+
+```powershell
+python -m pip install --user openai-codex
+```
+
 Verify the tools:
 
 ```powershell
@@ -40,6 +49,7 @@ py --version
 git --version
 python -c "import PIL; print(PIL.__version__)"
 winget --version
+tools\orchestrator.bat doctor
 ```
 
 ## Validation Scripts
@@ -81,6 +91,15 @@ If `clang-format` is reported missing, install the Visual Studio LLVM tools comp
 If `py` or `python` opens the Microsoft Store or says Python was not found, install Python with the `winget` command above and refresh PATH in the current shell.
 
 If Pillow is missing, renderer screenshot checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
+
+If `tools\orchestrator.bat doctor` reports that Codex is missing, install the
+CLI package with `python -m pip install --user openai-codex`. The doctor also
+runs a small `codex exec` smoke test with the configured orchestrator sandbox.
+If that smoke test reports an authentication problem, run `codex login` from
+the same Windows user account and rerun the doctor command. On the current
+Windows Codex CLI build, the orchestrator policy uses `danger-full-access`
+because narrower CLI sandboxes fail shell spawn setup; verifier runs are still
+checked for tracked worktree changes before and after execution.
 
 If perf analysis fails because `git` is missing, install Git with the `winget` command above. In the same shell, refresh PATH or open a new terminal.
 

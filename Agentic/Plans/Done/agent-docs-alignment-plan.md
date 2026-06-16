@@ -1,9 +1,17 @@
 # Agent Documentation Alignment Plan
 
-Status: planning draft
+Status: done on `main`
 Created: 2026-06-16
 Scope: agent documentation, Codex/Claude/Copilot instruction discovery, handoff state, validation guidance
-Implementation status: plan only, no repository behavior changes in this pass
+Implementation status: startup instructions now center on `AGENTS.md`; provider
+and path-scoped instruction files summarize local risks; dirty-worktree,
+headless-console, plan-orchestration, and review guidance are explicit.
+
+## Completion Note
+
+This plan is archived because the documentation alignment work landed on
+`main`. Future instruction changes should keep `AGENTS.md` authoritative and
+avoid duplicating long rules across provider-specific files.
 
 ## Goal
 
@@ -306,4 +314,3 @@ guidance:
   project memory.
 - GitHub Copilot: repository custom instructions, path-specific instruction
   files, and focused code-review instructions.
-

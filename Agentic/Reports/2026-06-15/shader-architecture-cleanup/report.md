@@ -10,8 +10,8 @@ The important shader families now also have runtime-facing contracts. In Debug b
 
 ## At A Glance
 
-- Source plan: `Agentic/Plans/shader-architecture-cleanup-plan.md`
-- Archived plan: not archived; the plan is partially implemented and still tracks deferred material-payload/root-signature work
+- Source plan: `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`
+- Archived plan: `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`
 - Branch: `codex/shader-architecture-cleanup`
 - Implementation commit: `6cc1baea1a5985eac2b3232f22460f722747607a`
 - Queue/status commit: `ea1d42b42bdd4ddb82578162cf772282cdd37332`
@@ -74,7 +74,7 @@ No DX12 root-signature, descriptor allocator, upload allocator, HLSL shader, or 
 - `SKULLBONEZ_CORE.vcxproj`
 - `SKULLBONEZ_CORE.vcxproj.filters`
 - `Agentic/Reference/shader-inventory.md`
-- `Agentic/Plans/shader-architecture-cleanup-plan.md`
+- `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`
 - `Agentic/Orchestrator/queue.json`
 - `Agentic/SessionState.md`
 

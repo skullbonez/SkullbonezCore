@@ -26,9 +26,9 @@ Extract the current frame rendering flow into named render passes without changi
 
 This plan pairs with:
 
-- `Agentic/Plans/shader-architecture-cleanup-plan.md`
-- `Agentic/Plans/material-system-v1-implementation-plan.md`
-- `Agentic/Plans/render-resource-lifetime-plan.md`
+- `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`
+- `Agentic/Plans/Done/material-system-v1-implementation-plan.md`
+- `Agentic/Plans/Done/render-resource-lifetime-plan.md`
 - `Agentic/Plans/post-cinematic-stack-plan.md`
 
 ## Current Read

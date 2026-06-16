@@ -1,17 +1,23 @@
 # Shader Architecture Cleanup Plan
 
-Status: implementation complete on `codex/engine-cleanup`; validated 2026-06-16
+Status: done on `main`; validated 2026-06-16
 Created: 2026-06-11
 Scope: render architecture, shader contracts, shader source hygiene, style data, material system v1
 Implementation status: shader inventory, high-risk runtime contract diagnostics,
 pass binder cleanup, CPU render-material compatibility mapping, expanded
 instance material payloads, typed object/shadow CBV upload paths, object GPU
 material table sampling, shader contract checking, and graph/native-resource
-transition diagnostics are implemented on the follow-up branch.
+transition diagnostics are implemented.
 Validation: `tools\validate_shaders.bat` passed with 0 errors and 7 known
 manifest-coverage warnings; `tools\validate_full.bat` passed with DX12
 validation errors 0, matching renderer baselines, byte-exact physics, and perf
 validation.
+
+## Completion Note
+
+This plan is archived because the object-side shader/material architecture
+cleanup landed on `main`. Terrain, water, sky, and post material cleanup should
+be tracked in focused future plans rather than reopening this plan wholesale.
 
 ## Executive Summary
 
@@ -972,10 +978,9 @@ This is the safest commit sequence for another agent:
 
 Each slice should be small enough that renderer validation failures point to a clear cause.
 
-Current completion state on `codex/engine-cleanup`: items 1-6 and 8/10 are
-implemented for the object-material path. Terrain, water, and post style
-parameter cleanup plus broader pass/resource ownership remain separate future
-slices.
+Current completion state on `main`: items 1-6 and 8/10 are implemented for the
+object-material path. Terrain, water, and post style parameter cleanup plus
+broader pass/resource ownership remain separate future slices.
 
 ## Validation Matrix
 

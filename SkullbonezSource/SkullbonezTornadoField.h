@@ -46,6 +46,12 @@ struct TornadoFieldConfig
     float inwardAcceleration = 120.0f;
     float swirlAcceleration = 170.0f;
     float liftAcceleration = 78.0f;
+    float ejectAcceleration = 260.0f;
+    float ejectUpAcceleration = 70.0f;
+    float ejectBand = 0.78f;
+    float minCaptureSeconds = 0.65f;
+    float ejectCooldownSeconds = 1.15f;
+    float maxDeltaVelocity = 24.0f;
 };
 
 class TornadoField

@@ -12,7 +12,11 @@ Before editing, read:
 2. `README.md`
 3. `Agentic/README.md`
 4. `Agentic/SessionState.md`
-5. `{{plan_path}}`
+5. `Agentic/Orchestrator/policy.json`
+6. `Agentic/Orchestrator/queue.json`
+7. `Agentic/Orchestrator/agent-loop.yaml`
+8. `Agentic/Orchestrator/machines/roadmap-item.json`
+9. `{{plan_path}}`
 
 Load only task-relevant skills or reference files.
 
@@ -29,6 +33,10 @@ Load only task-relevant skills or reference files.
 Own this roadmap item only. Keep the patch scoped to the plan and the files
 needed to complete it.
 
+Implementation work from `Agentic/Plans` defaults to orchestration. You are the
+worker for the selected queue item, not the owner of queue selection, final
+state, report creation, or plan archival.
+
 ## Repository Rules
 
 - Do not merge PRs.
@@ -40,6 +48,7 @@ needed to complete it.
 - If this is a chained roadmap item, work on the configured child branch that
   was branched from `{{parent_branch}}`. If the parent branch changes, merge the
   parent into this child branch; do not rebase.
+- Make atomic commits on the item branch when possible.
 - Do not run repository validation scripts during ordinary iteration.
 - Use targeted builds, launches, focused tests, or inspections only when they
   answer a specific implementation question.
@@ -60,6 +69,16 @@ Artifact commands:
 {{artifact_commands}}
 ```
 
+Prior verifier rounds:
+
+```text
+{{verification_round_paths}}
+```
+
+If this prompt is being rendered after a `needs_fixes` verifier verdict, read
+the latest verifier result first and address every blocking finding before
+claiming completion again.
+
 For physics diagnostics, use SkullScope queries and report query cost instead
 of pasting raw CSV, NDJSON, or SQLite artifacts.
 
@@ -73,8 +92,8 @@ image the report should embed.
 Your implementation handoff is not the terminal roadmap state. The orchestrator
 must still hand your completed work to an independent verifier, feed any
 blocking verifier findings back to you, generate the committed report, push the
-report-only commit, and set the queue item to a terminal status such as `done`,
-`pr-open`, `blocked`, `failed`, or `skipped`.
+report-only commit, and set the queue item to a terminal state such as `done`,
+`pr_open`, `blocked`, `failed`, or `skipped`.
 
 For image evidence, look for screenshots, focused zoom crops of important screen
 regions, heat maps, image diffs, or before/after architectural diagrams. The

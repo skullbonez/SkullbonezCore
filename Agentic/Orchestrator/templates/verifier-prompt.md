@@ -16,10 +16,15 @@ Before reviewing, read:
 2. `README.md`
 3. `Agentic/README.md`
 4. `Agentic/SessionState.md`
-5. `{{plan_path}}`
-6. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-prompt.md`
-7. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-result.md`
-8. Prior files under `Agentic/Runs/{{run_date}}/{{item_id}}/verification-rounds/`
+5. `Agentic/Orchestrator/policy.json`
+6. `Agentic/Orchestrator/queue.json`
+7. `Agentic/Orchestrator/agent-loop.yaml`
+8. `Agentic/Orchestrator/machines/roadmap-item.json`
+9. `{{plan_path}}`
+10. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-prompt.md`
+11. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-result.json` or
+    `Agentic/Runs/{{run_date}}/{{item_id}}/worker-result.md`
+12. Prior files under `Agentic/Runs/{{run_date}}/{{item_id}}/verification-rounds/`
    if this is not the first verifier round.
 
 Load only task-relevant skills or reference files.
@@ -57,11 +62,13 @@ Check whether:
 1. The implementation satisfies the source plan and user request.
 2. Changed files match the declared impact area and ownership boundaries.
 3. The worker handled all relevant `AGENTS.md` instructions.
-4. Required validation was run, deferred correctly, or explicitly not required.
-5. Screenshots, diagnostics, reports, or artifacts support the claimed outcome.
-6. Commit notes, if present, are useful handoff material.
-7. The worker identified residual risks honestly.
-8. The item is ready for the orchestrator's final report and queue transition.
+4. Source code comments meet `Agentic/Reference/comment-style-guide.md` when
+   touched files contain comments.
+5. Required validation was run, deferred correctly, or explicitly not required.
+6. Screenshots, diagnostics, reports, or artifacts support the claimed outcome.
+7. Commit notes, if present, are useful handoff material.
+8. The worker identified residual risks honestly.
+9. The item is ready for the orchestrator's final report and queue transition.
 
 ## Verifier Response
 

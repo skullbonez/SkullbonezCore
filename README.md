@@ -19,9 +19,9 @@ For humans:
 3. Use `Agentic/Reference/runtime-reference.md` for command-line, scene, physics, and key-binding reference.
 
 For AI agents:
-1. Read `AGENTS.md`.
-2. Read `Agentic/SessionState.md`.
-3. Load only the skill file needed for the current task.
+1. Follow the Agent Startup Contract in `AGENTS.md`.
+2. Load only the skill, plan, audit, report, or reference file needed for the
+   current task.
 
 ## Build
 

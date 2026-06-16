@@ -10,8 +10,8 @@ Descriptor failures also became more useful. If static or transient descriptor r
 
 ## At A Glance
 
-- Source plan: `Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md`
-- Archived plan: not archived; root expansion/material table work remains deferred
+- Source plan: `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`
+- Archived plan: `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`
 - Branch: `codex/dx12-descriptor-upload-root-signature`
 - Parent branch: `codex/shader-architecture-cleanup`
 - Implementation commit: `07f5d0b7db50c987d53f33dd83086c613ca5c365`
@@ -75,7 +75,7 @@ The root signature and draw preparation now use those names instead of numeric `
 - `Agentic/Reference/dx12-binding-abi.md`
 - `Agentic/Reference/shader-inventory.md`
 - `Agentic/Reference/render-backend-portability-contract.md`
-- `Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md`
+- `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`
 - `Agentic/Orchestrator/queue.json`
 - `Agentic/SessionState.md`
 

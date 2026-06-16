@@ -1,18 +1,30 @@
 # Agentic Orchestrator
 
 This folder contains the repository-owned control files for sequential roadmap
-orchestration.
+orchestration. Implementing work from `Agentic/Plans` defaults to this
+orchestrator workflow unless the user explicitly asks to bypass it.
 
-The current implementation is intentionally policy and runbook only. It does
-not grant merge authority, run scripts by itself, or change the repository's
-universal agent rules.
+JSON is the executable source of truth for orchestrator behavior because
+`tools/orchestrator.py` uses Python's built-in JSON parser. YAML files remain
+human-readable design mirrors until a YAML parser is intentionally added.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `policy.json` | Revocable automation policy. Set `enabled` to `false` to stop the loop. |
-| `queue.json` | Explicit roadmap queue. Only listed items are eligible for orchestration. |
+| `policy.json` | Executable revocable automation policy. Set `enabled` to `false` to stop the loop. |
+| `queue.json` | Executable roadmap queue. Only listed items are eligible for orchestration. |
+| `machines/roadmap-item.json` | Executable item state machine: states, legal transitions, guards, and actions. |
+| `tools/orchestrator.py` | Mechanical state checker, transition helper, prompt renderer, Codex exec wrapper, and report-commit checker. |
+| `tools/orchestrator.bat` | Windows launcher for the Python helper. |
+| `policy.yaml` | Human-readable policy mirror/design file. JSON wins when files disagree. |
+| `queue.yaml` | Human-readable queue mirror/design file. JSON wins when files disagree. |
+| `agent-loop.yaml` | Human-readable default loop for implementing work sourced from `Agentic/Plans`. |
+| `machines/roadmap-item.yaml` | Human-readable state-machine mirror/design file. |
+| `machines/queue.yaml` | Queue selection and terminal-state rules. |
+| `machines/report.yaml` | Report-only commit and report directory rules. |
+| `schemas/*.yaml` | Lightweight schema vocabulary for future checkers. |
+| `schemas/*.json` | JSON schemas for structured worker, verifier, and run-state artifacts. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
 | `templates/verifier-prompt.md` | Prompt template for the independent completion verifier. |
@@ -27,15 +39,22 @@ destination:
 
 ## Current Safety Defaults
 
-- The orchestrator is disabled by default.
-- PR creation is allowed by policy, but only when the orchestrator is enabled.
+- The orchestrator is enabled by default for implementation work from
+  `Agentic/Plans`; set `policy.json` `enabled` to `false` to pause the loop.
+- JSON files define executable policy, queue state, and legal transitions.
+- YAML files document the same shape for humans until parser support exists.
+- Codex worker/verifier runs use the sandbox configured in `policy.json`;
+  current Windows CLI smoke tests require `danger-full-access`, with verifier
+  tracked-worktree comparison as the safety guard.
+- PR creation is allowed by policy only after explicit user authorization; the
+  default successful terminal path is `done` without PR creation.
 - Merge automation is disabled by default.
-- `AGENTS.md` still forbids merges and PR submission, so policy alone cannot
-  authorize merges.
+- `AGENTS.md` still requires explicit user authorization for PR submission and
+  merges, so policy alone cannot authorize them.
 - Queue execution is sequential: one active roadmap item at a time.
 - Successful completion requires an independent verifier pass after the worker
   claims the task is done. Blocking verifier findings go back to the worker,
-  and the worker/verifier loop repeats until no blocking findings remain or the
+  and the worker/verifier loop repeats until a verifier accepts the work or the
   item becomes blocked or failed.
 - Chained roadmap items use stacked child branches. If the user asks for tasks
   1-3 as one chain, task 1 branches from `main`, task 2 branches from task 1,
@@ -68,12 +87,12 @@ pushed. Completion requires both:
 
 - a completed worker/verifier feedback loop with no blocking verifier findings,
 - a committed report under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, and
-- a terminal queue status: `done`, `pr-open`, `merged`, `blocked`, `failed`, or
+- a terminal queue state: `done`, `pr_open`, `merged`, `blocked`, `failed`, or
   `skipped`.
 
 Use `done` for successful completed work when no PR or merge is being recorded.
 Do not send a final successful user response until the report path or report web
-URL and the terminal queue status are both known.
+URL and the terminal queue state are both known.
 
 The final feature-branch commit for a task is a report-only commit. It must
 contain only `report.md` and image files under `images/` that are referenced by
@@ -90,3 +109,22 @@ diagrams; err on the side of more useful visuals rather than fewer.
 
 After pushing the report-only commit, return a GitHub web link to the committed
 `report.md` file.
+
+## Core Commands
+
+```bat
+tools\orchestrator.bat check
+tools\orchestrator.bat check --self-test
+tools\orchestrator.bat doctor
+tools\orchestrator.bat next
+tools\orchestrator.bat start <item-id>
+tools\orchestrator.bat run-worker <item-id>
+tools\orchestrator.bat transition <item-id> worker_done --result <path>
+tools\orchestrator.bat verifier-prompt <item-id>
+tools\orchestrator.bat run-verifier <item-id>
+tools\orchestrator.bat run-loop [item-id] --finalize --commit-finalize
+tools\orchestrator.bat finalize <item-id> --commit
+tools\orchestrator.bat archive-plan <item-id>
+tools\orchestrator.bat report-draft <item-id>
+tools\orchestrator.bat report-check --commit <sha>
+```

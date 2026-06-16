@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Roadmap Verifier Result",
+  "type": "object",
+  "required": [
+    "verdict",
+    "blocking_findings",
+    "non_blocking_suggestions",
+    "missing_evidence",
+    "validation_assessment",
+    "artifact_assessment",
+    "feedback_for_worker",
+    "another_round_required"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "needs_fixes",
+        "blocked"
+      ]
+    },
+    "blocking_findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_blocking_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_assessment": {
+      "type": "string"
+    },
+    "artifact_assessment": {
+      "type": "string"
+    },
+    "feedback_for_worker": {
+      "type": "string"
+    },
+    "another_round_required": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

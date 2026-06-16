@@ -1,9 +1,18 @@
 # Render Resource Lifetime Plan
 
-Status: active implementation
+Status: done on `main`; historical resource-lifetime plan
 Created: 2026-06-11  
 Scope: renderer-owned resources, resize, shader/mesh/FBO lifetime, future device loss
-Implementation status: Phase 1 current-lifetime reference is now captured in `Agentic/Reference/render-resource-lifetime-reference.md`.
+Implementation status: current-lifetime reference, named lifecycle phases,
+release/rebuild hooks, source-record bridges, and DX12 device-lost diagnostics
+are implemented for the current renderer architecture. Live in-frame device-loss
+recovery remains future focused work, not an active item in this archived plan.
+
+## Completion Note
+
+This plan is archived because the current resource-lifetime cleanup landed on
+`main`. Use it as historical context and keep new device-loss, asset-cache, or
+backend-lifetime work in narrower active plans.
 
 ## Goal
 
