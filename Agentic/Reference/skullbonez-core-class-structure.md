@@ -319,7 +319,7 @@ class RenderBackendDX12 {
   +CreateFramebuffer(width, height, colorFormat)
   +PrepareDraw(format, instanced, im, dvb)
   +SubAllocateUpload(size, alignment)
-  +ExecuteGraphTransitionBarrier(...)
+  +ExecuteGraphTransition(...)
   +ExecuteGraphUavBarrier(...)
   +DumpFrameGraphSkeleton()
 }

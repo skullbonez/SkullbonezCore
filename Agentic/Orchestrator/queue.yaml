@@ -70,8 +70,8 @@ items:
     screenshot_scenes: []
 
   - id: architecture-pass-2026-06-02
-    plan: Agentic/Plans/architecture_pass_2026-06-02.md
-    state: ready
+    plan: Agentic/Plans/Done/architecture_pass_2026-06-02.md
+    state: done
     priority: 30
     branch: codex/architecture-pass-2026-06-02
     parent_branch: codex/dx12-render-graph-completion-second-look

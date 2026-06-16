@@ -7,10 +7,10 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | Stacked feature branches in worktree `C:\SkullbonezCore`; current run has completed `codex/non-cinematic-photoreal-lighting` and `codex/dx12-render-graph-completion-second-look`. |
-| Last committed milestone | DX12 render graph completion second look is done and archived on `codex/dx12-render-graph-completion-second-look`; final validation is recorded in `Agentic/Reports/2026-06-17/dx12-render-graph-completion/report.md`. |
-| Active objective | Lighting-first orchestrator queue: start the `architecture-pass-2026-06-02` follow-up from the DX12 branch. |
-| Pending work | Commit/push the DX12 completion branch, then start `architecture-pass-2026-06-02` from `codex/dx12-render-graph-completion-second-look`. |
+| Branch | Stacked feature branches in worktree `C:\SkullbonezCore`; current branch is `codex/architecture-pass-2026-06-02` on top of `codex/dx12-render-graph-completion-second-look`. |
+| Last committed milestone | Architecture pass checkpoint is done and archived on `codex/architecture-pass-2026-06-02`; closure report is recorded in `Agentic/Reports/2026-06-17/architecture-pass-2026-06-02/report.md`. |
+| Active objective | Lighting-first orchestrator queue is complete. |
+| Pending work | No active queue item remains; commit and push `codex/architecture-pass-2026-06-02` if this status is not yet published. |
 | Blockers | None known. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
 | Validation | Renderer backend/resource-state work requires `tools\validate_dx12_renderer.bat`; final broad closure may also run `tools\validate_full.bat` when preparing the PR-bound branch. |
@@ -51,7 +51,7 @@ audits when it is still useful.
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |
 | Render graph completion | Done | Archived in `Agentic/Plans/Done/dx12-render-graph-completion-plan.md`; PR #78 moved production transition/UAV barriers behind graph-owned helpers, and the second-look branch added actual-frame graph diagnostics plus richer barrier telemetry. |
-| Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, asset, parser, and render graph boundaries. |
+| Architecture pass follow-up | Done | Archived in `Agentic/Plans/Done/architecture_pass_2026-06-02.md`; closure report in `Agentic/Reports/2026-06-17/architecture-pass-2026-06-02/report.md`; future work split into focused runtime, physics, render graph, asset, water, replay, tooling, and worker slices. |
 
 ## Known Bugs
 
