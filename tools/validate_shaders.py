@@ -141,6 +141,10 @@ def discover_hlsl_uniforms(text: str) -> set[str]:
     return uniforms
 
 
+def normalize_hlsl_resource_type(type_name: str) -> str:
+    return re.sub(r"<.*>", "", type_name)
+
+
 def discover_hlsl_resources(text: str) -> dict[str, dict[str, int | str]]:
     resources: dict[str, dict[str, int | str]] = {}
     resource_pattern = re.compile(
@@ -149,7 +153,7 @@ def discover_hlsl_resources(text: str) -> dict[str, dict[str, int | str]]:
     )
     for match in resource_pattern.finditer(text):
         resources[match.group("name")] = {
-            "type": match.group("type"),
+            "type": normalize_hlsl_resource_type(match.group("type")),
             "registerClass": match.group("class"),
             "slot": int(match.group("slot")),
         }
@@ -245,10 +249,14 @@ def validate_manifest(
                         errors.append(f"{name}: resources[{resource_index}] must be an object.")
                         continue
                     resource_name = resource.get("name")
+                    expected_type = resource.get("type")
                     expected_slot = resource.get("slot")
                     expected_register_class = resource.get("registerClass", "t")
                     if not isinstance(resource_name, str) or not resource_name:
                         errors.append(f"{name}: resources[{resource_index}] has invalid name.")
+                        continue
+                    if not isinstance(expected_type, str) or not expected_type:
+                        errors.append(f"{name}: resources[{resource_index}] has invalid type.")
                         continue
                     if not isinstance(expected_slot, int):
                         errors.append(f"{name}: resources[{resource_index}] has invalid slot.")
@@ -264,6 +272,11 @@ def validate_manifest(
                         errors.append(
                             f"{name}: resource {resource_name} expected {expected_register_class}{expected_slot}, "
                             f"found {declared['registerClass']}{declared['slot']}."
+                        )
+                    if declared["type"] != expected_type:
+                        errors.append(
+                            f"{name}: resource {resource_name} expected type {expected_type}, "
+                            f"found {declared['type']}."
                         )
 
         if name in source_roots and status == "legacy":

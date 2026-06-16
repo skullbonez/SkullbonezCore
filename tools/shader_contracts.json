@@ -25,8 +25,8 @@
       "stages": ["hlsl"],
       "uniforms": ["uModel", "uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uCinematicTerrain", "uCinematicBasin", "uStyleModes", "uTerrainTint", "uTerrainAccent", "uTerrainGrid", "uShadowViewProj", "uShadowParams", "uShadowFlags"],
       "resources": [
-        { "name": "uTexture", "registerClass": "t", "slot": 0 },
-        { "name": "uShadowMap", "registerClass": "t", "slot": 3 }
+        { "name": "uTexture", "type": "Texture2D", "registerClass": "t", "slot": 0 },
+        { "name": "uShadowMap", "type": "Texture2D", "registerClass": "t", "slot": 3 }
       ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uTexture", "uShadowMap"]
     },
@@ -36,9 +36,9 @@
       "stages": ["hlsl"],
       "uniforms": ["uView", "uProjection", "uClipPlane", "uLightPosition", "uLightAmbient", "uLightDiffuse", "uMaterialAmbient", "uMaterialDiffuse", "uObjectStyle", "uPrimitiveShape", "uMaterialAlpha", "uShadowViewProj", "uShadowParams", "uShadowFlags"],
       "resources": [
-        { "name": "uTexture", "registerClass": "t", "slot": 0 },
-        { "name": "uShadowMap", "registerClass": "t", "slot": 3 },
-        { "name": "uMaterialTable", "registerClass": "t", "slot": 4 }
+        { "name": "uTexture", "type": "Texture2D", "registerClass": "t", "slot": 0 },
+        { "name": "uShadowMap", "type": "Texture2D", "registerClass": "t", "slot": 3 },
+        { "name": "uMaterialTable", "type": "Texture2D", "registerClass": "t", "slot": 4 }
       ],
       "requiredSymbols": ["uView", "uProjection", "uTexture", "uShadowMap", "uMaterialTable", "uPrimitiveShape", "material1", "material2"]
     },
@@ -48,9 +48,9 @@
       "stages": ["hlsl"],
       "uniforms": ["uExposure", "uGamma", "uVolumetricCompositeStrength", "uDepthParams", "uFogParams", "uFogColor", "uSunShaftParams", "uSunColor", "uBloomParams", "uCloudParams", "uStyleGrade"],
       "resources": [
-        { "name": "uSceneTex", "registerClass": "t", "slot": 0 },
-        { "name": "uDepthTex", "registerClass": "t", "slot": 1 },
-        { "name": "uVolumetricTex", "registerClass": "t", "slot": 2 }
+        { "name": "uSceneTex", "type": "Texture2D", "registerClass": "t", "slot": 0 },
+        { "name": "uDepthTex", "type": "Texture2D", "registerClass": "t", "slot": 1 },
+        { "name": "uVolumetricTex", "type": "Texture2D", "registerClass": "t", "slot": 2 }
       ],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uVolumetricTex", "uExposure", "uGamma"]
     },
@@ -60,8 +60,8 @@
       "stages": ["hlsl"],
       "uniforms": ["uDepthParams", "uSunShaftParams", "uSunColor", "uVolumetricParams", "uCloudParams"],
       "resources": [
-        { "name": "uSceneTex", "registerClass": "t", "slot": 0 },
-        { "name": "uDepthTex", "registerClass": "t", "slot": 1 }
+        { "name": "uSceneTex", "type": "Texture2D", "registerClass": "t", "slot": 0 },
+        { "name": "uDepthTex", "type": "Texture2D", "registerClass": "t", "slot": 1 }
       ],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uDepthParams", "uSunShaftParams", "uVolumetricParams"]
     },
@@ -123,7 +123,7 @@
       "stages": ["hlsl"],
       "uniforms": ["uModel", "uView", "uProjection", "uReflectVP", "uColorTint", "uReflectionStrength", "uNoReflect", "uCinematicMode", "uWaterMode", "uSunGlintStrength", "uSunColor", "uBasinMask", "uBasinMaskFeather"],
       "resources": [
-        { "name": "uReflectionTex", "registerClass": "t", "slot": 1 }
+        { "name": "uReflectionTex", "type": "Texture2D", "registerClass": "t", "slot": 1 }
       ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     },
@@ -133,7 +133,7 @@
       "stages": ["hlsl"],
       "uniforms": ["uModel", "uView", "uProjection", "uReflectVP", "uColorTint", "uTime", "uWaveHeight", "uReflectionStrength", "uPerturbStrength", "uFlatWater", "uNoReflect", "uCinematicMode", "uSunGlintStrength", "uSunColor"],
       "resources": [
-        { "name": "uReflectionTex", "registerClass": "t", "slot": 1 }
+        { "name": "uReflectionTex", "type": "Texture2D", "registerClass": "t", "slot": 1 }
       ],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     }

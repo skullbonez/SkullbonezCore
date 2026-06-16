@@ -83,6 +83,7 @@ class ShaderDX12 : public IShader
     {
         UINT bindPoint;
         D3D_SHADER_INPUT_TYPE type;
+        D3D_SRV_DIMENSION dimension;
     };
     std::unordered_map<std::string, ResourceInfo> m_resourceMap;
     mutable std::vector<uint8_t> m_contractUniformsSet;

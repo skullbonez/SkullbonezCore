@@ -155,7 +155,7 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
         reflect->GetResourceBindingDesc( i, &bindDesc );
         if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
         {
-            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type };
+            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type, bindDesc.Dimension };
         }
     }
 #endif
@@ -257,12 +257,43 @@ const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
     }
 }
 
-bool ShaderResourceInputTypeMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType )
+const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
+{
+    switch ( dimension )
+    {
+    case D3D_SRV_DIMENSION_UNKNOWN:
+        return "UNKNOWN";
+    case D3D_SRV_DIMENSION_BUFFER:
+        return "BUFFER";
+    case D3D_SRV_DIMENSION_TEXTURE1D:
+        return "TEXTURE1D";
+    case D3D_SRV_DIMENSION_TEXTURE1DARRAY:
+        return "TEXTURE1DARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE2D:
+        return "TEXTURE2D";
+    case D3D_SRV_DIMENSION_TEXTURE2DARRAY:
+        return "TEXTURE2DARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE2DMS:
+        return "TEXTURE2DMS";
+    case D3D_SRV_DIMENSION_TEXTURE2DMSARRAY:
+        return "TEXTURE2DMSARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE3D:
+        return "TEXTURE3D";
+    case D3D_SRV_DIMENSION_TEXTURECUBE:
+        return "TEXTURECUBE";
+    case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:
+        return "TEXTURECUBEARRAY";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+bool ShaderResourceKindMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType, D3D_SRV_DIMENSION reflectedDimension )
 {
     switch ( kind )
     {
     case ShaderResourceKind::Texture2D:
-        return reflectedType == D3D_SIT_TEXTURE;
+        return reflectedType == D3D_SIT_TEXTURE && reflectedDimension == D3D_SRV_DIMENSION_TEXTURE2D;
     default:
         return false;
     }
@@ -414,13 +445,14 @@ void ShaderDX12::ReportContractReflectionMismatch() const
             continue;
         }
 
-        if ( !ShaderResourceInputTypeMatches( resource.kind, reflected->second.type ) )
+        if ( !ShaderResourceKindMatches( resource.kind, reflected->second.type, reflected->second.dimension ) )
         {
-            Log().WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s reflected_type=%s",
+            Log().WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s reflected_type=%s reflected_dimension=%s",
                                m_contract->baseName,
                                resource.name,
                                ShaderResourceKindName( resource.kind ),
-                               ShaderInputTypeName( reflected->second.type ) );
+                               ShaderInputTypeName( reflected->second.type ),
+                               ShaderInputDimensionName( reflected->second.dimension ) );
         }
 
         if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
