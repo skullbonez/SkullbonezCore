@@ -224,8 +224,8 @@
     },
     {
       "id": "draw-call-trace-tree",
-      "plan": "Agentic/Plans/draw-call-trace-tree-plan.md",
-      "state": "running",
+      "plan": "Agentic/Plans/Done/draw-call-trace-tree-plan.md",
+      "state": "done",
       "priority": 50,
       "branch": "codex/draw-call-trace-tree",
       "impact_area": [
