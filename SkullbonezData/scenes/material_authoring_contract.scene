@@ -1,0 +1,13 @@
+# material_authoring_contract.scene
+# CPU parser sample for new object_material authoring forms.
+physics off
+text off
+frames 1
+water_hidden on
+terrain_hidden on
+
+camera main 500 70 650  600 35 600  0 1 0
+ball contract_probe 600 33 600  12.0 50.0 10.0 0.8
+
+style material_authoring_contract
+object_material contract_probe glass tint=0.58,0.78,0.95 transmission=0.81 roughness=0.09 name=contract_glass
