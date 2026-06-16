@@ -50,6 +50,24 @@ namespace
 {
 constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr int TERRAIN_BODY_INDEX = -1;
+constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
+
+Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
+{
+    if ( maxMagnitude <= TOLERANCE )
+    {
+        return ZERO_VECTOR;
+    }
+
+    const float magSq = value * value;
+    const float maxSq = maxMagnitude * maxMagnitude;
+    if ( magSq <= maxSq || magSq <= TOLERANCE * TOLERANCE )
+    {
+        return value;
+    }
+
+    return value * ( maxMagnitude / sqrtf( magSq ) );
+}
 } // namespace
 
 
@@ -59,6 +77,8 @@ PhysicsWorld::PhysicsWorld()
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_tornadoCaptureSeconds.reserve( MAX_GAME_MODELS );
+    m_tornadoEjectCooldownSeconds.reserve( MAX_GAME_MODELS );
     m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
     m_sleepIslandVisualId.reserve( MAX_GAME_MODELS );
     m_sleepIslandAssignedVisualId.reserve( MAX_GAME_MODELS );
@@ -87,6 +107,8 @@ void PhysicsWorld::Clear()
     m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
+    m_tornadoCaptureSeconds.clear();
+    m_tornadoEjectCooldownSeconds.clear();
     m_collisionVisualContacts.clear();
     m_sleepIslandVisualId.clear();
     m_sleepIslandAssignedVisualId.clear();
@@ -120,6 +142,19 @@ void PhysicsWorld::EnsureCollisionVisualBuffers( int modelCount )
     if ( static_cast<int>( m_sleepIslandVisualId.size() ) != modelCount )
     {
         m_sleepIslandVisualId.assign( modelCount, 0 );
+    }
+}
+
+
+void PhysicsWorld::EnsureTornadoStateBuffers( int modelCount )
+{
+    if ( static_cast<int>( m_tornadoCaptureSeconds.size() ) != modelCount )
+    {
+        m_tornadoCaptureSeconds.assign( modelCount, 0.0f );
+    }
+    if ( static_cast<int>( m_tornadoEjectCooldownSeconds.size() ) != modelCount )
+    {
+        m_tornadoEjectCooldownSeconds.assign( modelCount, 0.0f );
     }
 }
 
@@ -322,7 +357,8 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 
 void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt )
 {
-    if ( !m_tornadoField.GetConfig().enabled )
+    const TornadoFieldConfig& config = m_tornadoField.GetConfig();
+    if ( !config.enabled )
     {
         return;
     }
@@ -331,17 +367,35 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
     auto& m_gameModels = collection.m_gameModels;
     const GameModelBodyStream bodyStream = collection.GetBodyStream();
     const int modelCount = bodyStream.count;
+    const float step = (std::max)( 0.0f, dt );
+    const float height = (std::max)( config.height, 1.0f );
+    const float ejectBand = std::clamp( config.ejectBand, 0.0f, 1.0f );
+    const float minCaptureSeconds = (std::max)( 0.0f, config.minCaptureSeconds );
+    const float cooldownSeconds = (std::max)( 0.0f, config.ejectCooldownSeconds );
+    const float maxDeltaVelocity = (std::max)( 1.0f, config.maxDeltaVelocity );
+    const float minTangentialSpeed = (std::max)( 18.0f, config.swirlAcceleration * 0.12f );
+    EnsureTornadoStateBuffers( modelCount );
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( bodyStream.isFixed[i] )
+        if ( bodyStream.isFixed[i] || bodyStream.isBox[i] )
         {
+            m_tornadoCaptureSeconds[i] = 0.0f;
+            m_tornadoEjectCooldownSeconds[i] = 0.0f;
             continue;
         }
 
-        const Vector3 acceleration = m_tornadoField.SampleAcceleration( m_gameModels[i].GetPosition() );
+        const Vector3 position = m_gameModels[i].GetPosition();
+        const float dx = position.x - config.center.x;
+        const float dz = position.z - config.center.z;
+        const float horizontalSq = dx * dx + dz * dz;
+        const float horizontal = sqrtf( horizontalSq );
+        const float height01 = ( position.y - config.center.y ) / height;
+        Vector3 acceleration = m_tornadoField.SampleAcceleration( position );
         if ( ( acceleration * acceleration ) <= TOLERANCE * TOLERANCE )
         {
+            m_tornadoCaptureSeconds[i] = 0.0f;
+            m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
             continue;
         }
 
@@ -355,7 +409,50 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
         }
 
         Vector3 velocity = m_gameModels[i].GetVelocity();
-        velocity += acceleration * dt;
+        m_tornadoCaptureSeconds[i] += step;
+        m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
+
+        Vector3 outward;
+        if ( horizontal > TOLERANCE )
+        {
+            outward = Vector3( dx / horizontal, 0.0f, dz / horizontal );
+        }
+        else
+        {
+            switch ( i & 3 )
+            {
+            case 0:
+                outward = Vector3( 1.0f, 0.0f, 0.0f );
+                break;
+            case 1:
+                outward = Vector3( 0.0f, 0.0f, 1.0f );
+                break;
+            case 2:
+                outward = Vector3( -1.0f, 0.0f, 0.0f );
+                break;
+            default:
+                outward = Vector3( 0.0f, 0.0f, -1.0f );
+                break;
+            }
+        }
+
+        const Vector3 tangent( -outward.z, 0.0f, outward.x );
+        const float tangentialSpeed = fabsf( velocity * tangent );
+        const int captureBucket = static_cast<int>( m_tornadoCaptureSeconds[i] * TORNADO_EJECTION_PHASE_HZ );
+        const bool deterministicSlot = ( ( i + captureBucket ) % 3 ) == 0;
+        if ( height01 >= ejectBand &&
+             m_tornadoCaptureSeconds[i] >= minCaptureSeconds &&
+             m_tornadoEjectCooldownSeconds[i] <= 0.0f &&
+             tangentialSpeed >= minTangentialSpeed &&
+             deterministicSlot )
+        {
+            acceleration += outward * config.ejectAcceleration +
+                            Vector3( 0.0f, config.ejectUpAcceleration, 0.0f );
+            m_tornadoCaptureSeconds[i] = 0.0f;
+            m_tornadoEjectCooldownSeconds[i] = cooldownSeconds;
+        }
+
+        velocity += ClampVectorMagnitude( acceleration * step, maxDeltaVelocity );
         m_gameModels[i].SetLinearVelocity( velocity );
     }
 }
@@ -364,6 +461,11 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 void PhysicsWorld::SetTornadoFieldConfig( const TornadoFieldConfig& config )
 {
     m_tornadoField.SetConfig( config );
+    if ( !m_tornadoField.GetConfig().enabled )
+    {
+        m_tornadoCaptureSeconds.clear();
+        m_tornadoEjectCooldownSeconds.clear();
+    }
 }
 
 

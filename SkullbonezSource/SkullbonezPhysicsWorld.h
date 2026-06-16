@@ -82,6 +82,8 @@ class PhysicsWorld
     std::vector<uint8_t> m_sleepInhibitedThisFrame;
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
+    std::vector<float> m_tornadoCaptureSeconds;
+    std::vector<float> m_tornadoEjectCooldownSeconds;
 
     // Debug visualization state. These arrays intentionally mirror model index
     // order so render/debug code can look up one byte/id per GameModel without
@@ -203,6 +205,7 @@ class PhysicsWorld
     void EmitPhysicsCollisionTime( GameObjects::GameModelCollection& collection, const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
+    void EnsureTornadoStateBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
     void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );

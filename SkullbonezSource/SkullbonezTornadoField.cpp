@@ -62,6 +62,12 @@ void TornadoField::SetConfig( const TornadoFieldConfig& config )
     m_config = config;
     m_config.radius = (std::max)( 1.0f, m_config.radius );
     m_config.height = (std::max)( 1.0f, m_config.height );
+    m_config.ejectAcceleration = (std::max)( 0.0f, m_config.ejectAcceleration );
+    m_config.ejectUpAcceleration = (std::max)( 0.0f, m_config.ejectUpAcceleration );
+    m_config.ejectBand = std::clamp( m_config.ejectBand, 0.0f, 1.0f );
+    m_config.minCaptureSeconds = (std::max)( 0.0f, m_config.minCaptureSeconds );
+    m_config.ejectCooldownSeconds = (std::max)( 0.0f, m_config.ejectCooldownSeconds );
+    m_config.maxDeltaVelocity = (std::max)( 1.0f, m_config.maxDeltaVelocity );
 }
 
 
