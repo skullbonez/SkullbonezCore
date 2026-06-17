@@ -42,6 +42,7 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
+constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 2048;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
@@ -191,7 +192,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    if ( Cfg().shadowParallelPrep )
+    if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         std::vector<ShadowCasterBatches> chunkOutputs;
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
@@ -205,7 +206,8 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
                 outBatches.spheres.insert( outBatches.spheres.end(), local.spheres.begin(), local.spheres.end() );
                 outBatches.boxes.insert( outBatches.boxes.end(), local.boxes.begin(), local.boxes.end() );
                 outBatches.pines.insert( outBatches.pines.end(), local.pines.begin(), local.pines.end() );
-            } );
+            },
+            SHADOW_PARALLEL_PREP_MIN_CASTERS );
         return;
     }
 
@@ -332,7 +334,7 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
     };
 
     BoundsAccumulator bounds;
-    if ( Cfg().shadowParallelPrep )
+    if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         std::vector<BoundsAccumulator> chunkOutputs;
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
@@ -342,7 +344,8 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
             [&]( int, int begin, int end, BoundsAccumulator& local )
             { scanBoundsRange( begin, end, local ); },
             [&]( int, const BoundsAccumulator& local )
-            { mergeBounds( bounds, local ); } );
+            { mergeBounds( bounds, local ); },
+            SHADOW_PARALLEL_PREP_MIN_CASTERS );
     }
     else
     {
