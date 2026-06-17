@@ -1,6 +1,6 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: implemented with worker dispatch enabled by default
+Status: implemented with worker dispatch enabled by default and profiler-visible
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -49,8 +49,9 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 The deterministic worker-safe slices are implemented and enabled by default.
 Focused probes showed that some same-machine workloads may not improve yet, but
-the worker execution paths remain production-visible so profiler evidence can
-guide the next optimization pass.
+the user explicitly accepted keeping the worker paths in place so profiler
+evidence can guide the next optimization pass instead of hiding the behavior
+behind compile-time deferrals.
 
 - `worker_threads = -1`, `physics_parallel = 1`, and
   `shadow_parallel_prep = 1` are the default config state.
@@ -66,6 +67,9 @@ guide the next optimization pass.
 - The profiler tab now exposes a Workers on/off checkbox, worker-count slider,
   worker workload markers, and a CPU Cores section under Draw Calls that reports
   each worker in flight, job count, core ms, and frame span.
+- Current acceptance prioritizes deterministic, controllable, profiler-visible
+  worker execution over immediate speedup in every tested scene. Remaining
+  same-machine regressions are tracked as follow-up optimization work.
 
 ## Current Constraints
 
@@ -394,8 +398,10 @@ Acceptance criteria:
 ## Success Criteria
 
 1. Physics fixed-step output is deterministic across worker counts.
-2. Narrowphase speed improves in scenes with multiple independent islands.
-3. Shadow CPU prep improves in object-heavy shadow scenes.
+2. Narrowphase worker dispatch is enabled, controllable, profiler-visible, and
+   documented with measured cost even when a current scene regresses.
+3. Shadow CPU prep worker dispatch is enabled, controllable, profiler-visible,
+   and documented with measured cost even when a current scene regresses.
 4. Main-thread renderer submission remains correct and validation-clean.
 5. The worker system's first production jobs are the physics and shadow-prep
    jobs described here.

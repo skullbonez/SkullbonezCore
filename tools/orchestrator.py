@@ -333,16 +333,22 @@ def wait_visible_helper_with_live_transcript(
 ) -> int:
     started = time.monotonic()
     last_heartbeat = started
-    offset = 0
     while True:
-        offset = emit_file_growth(transcript_log, offset, sys.stdout)
         returncode = helper.poll()
         if returncode is not None:
-            emit_file_growth(transcript_log, offset, sys.stdout)
+            print(
+                f"[orchestrator] sub-agent exited {returncode}; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
             return returncode
         now = time.monotonic()
         if timeout_seconds is not None and now - started >= timeout_seconds:
-            emit_file_growth(transcript_log, offset, sys.stdout)
+            print(
+                f"[orchestrator] sub-agent timed out; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
             raise subprocess.TimeoutExpired(helper.args, timeout_seconds)
         if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
             print(
@@ -1563,7 +1569,7 @@ def run_codex_exec(
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
     if visible_console and os.name == "nt":
-        print("Opening visible sub-agent console and mirroring its transcript here...", flush=True)
+        print("Opening visible sub-agent console and mirroring output to logs...", flush=True)
         print(f"  result: {repo_relative(repo, output_path)}", flush=True)
         print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
         returncode = run_codex_exec_visible_console(repo, prompt, command, output_path, timeout_seconds)
