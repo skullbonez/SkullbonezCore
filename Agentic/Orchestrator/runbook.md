@@ -464,12 +464,3 @@ Set the item state:
 - `skipped` only by explicit user or policy decision.
 
 Stop after `blocked` or `failed` unless policy explicitly allows advancement.
-
-If an operator receives new direction that resolves a blocked item, reopen it
-with an explicit state-machine transition instead of editing queue JSON by hand:
-
-- `tools\orchestrator.bat transition <item-id> reopen_for_work` when another
-  worker implementation pass is required.
-- `tools\orchestrator.bat transition <item-id> reopen_for_verification` when
-  the work has already been completed and should resume at independent
-  verification.

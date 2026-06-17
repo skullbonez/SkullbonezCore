@@ -247,7 +247,7 @@ def tee_stream_to_file(stream: Any, console: Any, stream_log: Any) -> None:
         chunk = stream.read(1)
         if not chunk:
             break
-        write_console_text(console, chunk)
+        console.write(chunk)
         console.flush()
         stream_log.write(chunk)
         stream_log.flush()
@@ -271,15 +271,6 @@ def size_label(path: Path) -> str:
         return "not created yet"
 
 
-def write_console_text(console: Any, text: str) -> None:
-    try:
-        console.write(text)
-    except UnicodeEncodeError:
-        encoding = getattr(console, "encoding", None) or "utf-8"
-        safe_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
-        console.write(safe_text)
-
-
 def emit_file_growth(path: Path, offset: int, console: Any) -> int:
     try:
         size = path.stat().st_size
@@ -294,7 +285,7 @@ def emit_file_growth(path: Path, offset: int, console: Any) -> int:
         data = file.read()
     text = decode_text_bytes(data).replace("\x00", "")
     if text:
-        write_console_text(console, text)
+        console.write(text)
         console.flush()
     return size
 
@@ -1293,9 +1284,6 @@ def apply_transition(
     artifacts = save_transition_artifact(repo, run_dir, event, result_path, validation_log_path)
 
     generated: dict[str, str] = {}
-    if "prompt.write_worker" in transition.get("actions", []):
-        prompt_path = write_worker_prompt(repo, policy, queue, item, run_dir)
-        generated["worker_prompt"] = repo_relative(repo, prompt_path)
     if "prompt.write_verifier" in transition.get("actions", []):
         prompt_path = write_verifier_prompt(repo, policy, queue, item, run_dir)
         generated["verifier_prompt"] = repo_relative(repo, prompt_path)
@@ -1320,8 +1308,6 @@ def apply_transition(
     )
     if target in terminal_states(machine):
         run_state["finished_at"] = utc_now()
-    else:
-        run_state["finished_at"] = None
     save_run_state(run_dir, run_state)
     return {
         "item_id": item_id,

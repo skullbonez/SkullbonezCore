@@ -59,7 +59,9 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
-constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
+// Island dispatch is deterministic, but current island work is too small to
+// beat worker scheduling and merge cost. Keep per-body worker phases enabled.
+constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = false;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH = HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
