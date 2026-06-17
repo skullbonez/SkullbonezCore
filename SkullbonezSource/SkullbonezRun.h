@@ -864,6 +864,7 @@ class SkullbonezRun
     void SetViewingOrientation();                                                                                                      // Renders camera views etc
     void SaveScreenshot( const char* path );                                                                                           // Saves current backbuffer to a BMP file
     bool SaveCurrentSceneDefaults();                                                                                                   // Writes UI-controlled defaults back to the active scene file
+    bool SaveRenderDefaults();                                                                                                         // Writes current ordinary Render-tab values back to engine.cfg
     void RefreshSceneBrowserList();                                                                                                    // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list
     void LoadSceneFromBrowserIndex( int index );                                                                                       // Loads a scene selected from the in-game scene dropdown

@@ -11,7 +11,8 @@
           "target": "running",
           "guards": [
             "policy.enabled",
-            "queue.no_other_running_item",
+            "queue.parallel_capacity_available",
+            "queue.no_conflicting_active_items",
             "dependencies.satisfied"
           ],
           "actions": [

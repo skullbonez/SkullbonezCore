@@ -117,6 +117,7 @@ struct VS_OUT
     float3 worldPos  : TEXCOORD6;
     nointerpolation float4 sphereShadowInfo : TEXCOORD7;
     float3 worldNormal : TEXCOORD8;
+    float3 localDir : TEXCOORD9;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -137,6 +138,7 @@ VS_OUT main_vs(VS_IN input)
     output.viewPos  = viewPos.xyz;
     output.normal   = mul((float3x3)modelView, input.normal);
     output.worldNormal = mul((float3x3)model, input.normal);
+    output.localDir = normalize(input.position);
     output.texCoord = input.texCoord;
     output.material0 = input.material0;
     output.material1 = input.material1;
@@ -178,35 +180,43 @@ int ResolveMaterialMode(float legacyMode, int objectStyle)
     return DecodeObjectStyle(objectStyle);
 }
 
-// Cinematic scenes use a procedural beach-ball color so the red/yellow panels stay crisp.
-float3 ProceduralBeachBallColor(float2 uv)
+float3 ProceduralBeachBallPalette(float redPanel, float seam)
 {
-    // The original source texture is intentionally low-res, which becomes blurry
-    // when a ball is close to the camera. The beachball material now uses mesh
-    // UVs plus shader math for the red/yellow panels in every render mode, so the
-    // edges stay razor crisp at any resolution.
-    uv = frac(uv);
-
-    // uv.x is the wrap around the object. Multiplying by 2 creates two vertical
-    // panels around the circumference. uv.y chooses the top/bottom half, and the
-    // hemisphere offset flips the color order so the total object reads as two
-    // red panels and two yellow panels, not a repeated 4-and-4 pattern.
-    float longitudePanel = floor(uv.x * 2.0f);
-    float hemisphere = step(0.5f, uv.y);
-    float redPanel = fmod(longitudePanel + hemisphere, 2.0f);
     float3 yellow = float3(1.0f, 0.78f, 0.0f);
     float3 red = float3(0.96f, 0.06f, 0.0f);
     float3 color = lerp(yellow, red, redPanel);
+    return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.34f);
+}
 
-    // Add a narrow warm seam on panel borders. It is still generated from UVs,
-    // so it stays sharp and does not depend on the texture image resolution.
+float3 ProceduralBeachBallColorFromUv(float2 uv)
+{
+    uv = frac(uv);
+    float longitudePanel = floor(uv.x * 2.0f);
+    float hemisphere = step(0.5f, uv.y);
+    float redPanel = fmod(longitudePanel + hemisphere, 2.0f);
+
     float panelCoord = frac(uv.x * 2.0f);
     float seamU = min(panelCoord, 1.0f - panelCoord);
     float seamV = abs(uv.y - 0.5f);
     float panelFootprint = max(abs(ddx(uv.x * 2.0f)) + abs(ddy(uv.x * 2.0f)), abs(ddx(uv.y)) + abs(ddy(uv.y)));
     float seamWidth = max(0.014f, panelFootprint * 1.25f);
     float seam = 1.0f - smoothstep(0.0f, seamWidth, min(seamU, seamV));
-    return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.34f);
+    return ProceduralBeachBallPalette(redPanel, seam);
+}
+
+// Procedural beach-ball panels stay crisp without relying on low-res texture pixels.
+float3 ProceduralBeachBallColorFromSphereDir(float3 localDir)
+{
+    // UV interpolation wraps at the sphere seam and can wobble on close-up balls.
+    // Object-local direction keeps the color split attached to the mesh surface.
+    float3 dir = normalize(localDir);
+    float redPanel = abs(step(0.0f, -dir.x) - step(0.0f, -dir.y));
+
+    float seamMetric = min(abs(dir.x), abs(dir.y));
+    float seamFootprint = max(fwidth(dir.x), fwidth(dir.y));
+    float seamWidth = max(0.014f, seamFootprint * 1.35f);
+    float seam = 1.0f - smoothstep(0.0f, seamWidth, seamMetric);
+    return ProceduralBeachBallPalette(redPanel, seam);
 }
 
 float3 QuantizedLowPolyNormal(float3 N)
@@ -517,7 +527,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 materialColor = input.material0.rgb;
     if (materialMode == 0)
     {
-        materialColor = ProceduralBeachBallColor(input.texCoord) * input.material0.rgb;
+        materialColor = (uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
+                                              : ProceduralBeachBallColorFromUv(input.texCoord)) *
+                        input.material0.rgb;
     }
     float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
 

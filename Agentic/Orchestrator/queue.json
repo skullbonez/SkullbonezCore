@@ -2,7 +2,7 @@
   "schema_version": 1,
   "policy": "Agentic/Orchestrator/policy.json",
   "machine": "Agentic/Orchestrator/machines/roadmap-item.json",
-  "description": "Executable sequential roadmap queue for the 2026-06-17 lighting-first stacked completion run.",
+  "description": "Executable JSON-only roadmap queue. Independent ready items may run in parallel when policy capacity, dependencies, owned_globs, and impact-area conflict rules allow it.",
   "states": [
     "ready",
     "running",
@@ -50,6 +50,21 @@
       "validation_notes": "Lighting, material, shader, water, and visual baseline work requires the DX12 renderer gate and zero DX12 validation errors. Add tools\\validate_fast.bat if UI/config/tooling contracts change, and tools\\validate_perf.bat if hot shader or barrier cost changes materially.",
       "screenshot_scenes": [],
       "artifact_commands": [],
+      "parallel_group": "render-lighting",
+      "owned_globs": [
+        "SkullbonezData/engine.cfg",
+        "SkullbonezData/shaders/lit_textured_instanced.hlsl",
+        "SkullbonezSource/SkullbonezConfig*",
+        "SkullbonezSource/UI/*"
+      ],
+      "conflicts_with_areas": [
+        "DX12",
+        "rendering",
+        "shaders",
+        "UI",
+        "materials",
+        "water"
+      ],
       "depends_on": [],
       "dependency_mode": "normal",
       "report_required": true
@@ -70,6 +85,19 @@
       "validation_notes": "PR #78 was interrupted after merge; take a fresh look at source, plan checkboxes, queue/report/archive state, dx12_validation.txt expectations, and final validation evidence before declaring this item complete.",
       "screenshot_scenes": [],
       "artifact_commands": [],
+      "parallel_group": "dx12-render-graph",
+      "owned_globs": [
+        "SkullbonezSource/Dx12*",
+        "SkullbonezSource/SkullbonezRenderBackend*",
+        "SkullbonezSource/SkullbonezRunPasses*",
+        "SkullbonezData/shaders/*"
+      ],
+      "conflicts_with_areas": [
+        "DX12",
+        "render architecture",
+        "resource barriers",
+        "shaders"
+      ],
       "depends_on": [
         "non-cinematic-photoreal-lighting"
       ],
@@ -96,6 +124,24 @@
       "validation_notes": "Use this broad checkpoint to close remaining architecture-pass follow-up after the lighting and render-graph branches. Documentation-only closure requires no validation; code movement should use the smallest applicable gate, broad runtime movement uses tools\\validate_full.bat.",
       "screenshot_scenes": [],
       "artifact_commands": [],
+      "parallel_group": "broad-architecture",
+      "owned_globs": [
+        "Agentic/Plans/architecture_pass_2026-06-02.md",
+        "SkullbonezSource/*",
+        "SkullbonezData/scenes/*",
+        "SkullbonezData/shaders/*",
+        "SkullbonezData/styles/*",
+        "tools/*"
+      ],
+      "conflicts_with_areas": [
+        "architecture",
+        "runtime",
+        "DX12",
+        "physics",
+        "assets",
+        "scene system",
+        "documentation"
+      ],
       "depends_on": [
         "dx12-render-graph-completion"
       ],

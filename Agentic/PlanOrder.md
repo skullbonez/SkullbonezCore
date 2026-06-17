@@ -85,8 +85,8 @@ queues.
      architecture boundaries.
 
 8. [`autonomous-roadmap-orchestrator-plan.md`](Plans/autonomous-roadmap-orchestrator-plan.md)
-   - Superseded in direction by the YAML-first orchestration plan unless a
-     future process slice explicitly reopens it.
+   - Superseded by the JSON-only executable orchestrator unless a future
+     process slice explicitly reopens it.
 
 ## Immediate Recommendation
 

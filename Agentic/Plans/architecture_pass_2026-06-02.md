@@ -4,6 +4,42 @@ Date: 2026-06-02
 
 Status update: 2026-06-16
 
+Status update: 2026-06-17 source audit against current worktree
+
+Audit target: `codex/non-cinematic-photoreal-lighting` worktree in
+`C:\SkullbonezCore`, inspected against source code rather than plan text.
+The worktree already had unrelated dirty/user-owned files during the audit;
+this section records source inspection only and did not run validation.
+
+This section supersedes older "what remains" wording below when the two
+conflict. In particular, several runtime and render-graph classes now exist, so
+the remaining work is no longer "create the facade" in those areas; it is to
+finish moving ownership and behavior behind the facades.
+
+## 2026-06-17 Source-Audited Remaining Work
+
+| Priority | Area | Source-audited status | What remains | Validation expectation |
+|----------|------|-----------------------|--------------|------------------------|
+| High | Runtime ownership extraction | `SceneRuntime`, `SimulationSystem`, `RuntimeDiagnostics`, and `InputController` exist. `SceneRuntime` is intentionally narrow queue/index/state ownership, and `SimulationSystem` owns timestep accumulators. `SkullbonezRun` still owns most scene load/reset side effects, UI command application, input command routing, world setup, camera setup, capture flags, diagnostics handoff, and render policy. | Shrink `SkullbonezRun::LoadScene()` and `SkullbonezRun::TakeInput()` by moving cohesive behavior into the existing runtime facades. Treat this as behavior ownership movement, not another file-splitting pass. | `tools\validate_full.bat` for broad runtime movement. Smaller isolated input/diagnostic moves may use `tools\validate_fast.bat` only if launch semantics cannot change. |
+| High | Physics data boundary | `PhysicsWorld` owns solver/contact/sleep/broadphase working state and now consumes cache-backed body/render streams, but `GameModelCollection` still owns the authoritative `std::vector<GameModel>`. The SoA streams are borrowed views over derived cache data, not independent body/collider/render storage, and `PhysicsWorld::RunPhysics()` still takes `GameModelCollection&`. | Split authoritative rigid-body, collider, and render instance data away from `GameModel`; keep the existing SoA stream layer as a transition boundary. Isolate legacy behavior only after the data boundary is stable. | `tools\validate_physics.bat`; add `tools\validate_perf.bat` for storage or hot-loop changes. |
+| High | Render graph/resource-state ownership | The source is ahead of the 2026-06-16 text: production DX12 transition/UAV barriers now go through graph-owned helpers such as `ExecuteGraphTransitionBarrier()` and `ExecuteGraphUavBarrier()`, and graph access metadata can emit real barriers. The frame-level `RenderGraph` still has no pass callbacks, transient resource ownership, or full command-recording ownership; frame graph output is still mostly dry-run/comparison evidence. | Move from helper-owned single barriers and diagnostic/dry-run frame graph output to graph-owned pass execution/resource-state tracking. The next slice is pass-callback ownership and broader state tracking, not another manual-barrier migration. | `tools\validate_dx12_renderer.bat`; verify `dx12_validation.txt` stays zero-error. Barrier/pass ownership changes are high-risk DX12 work. |
+| Medium-high | Render backend interface split | `RenderCapabilities` exists, but `IRenderBackend` still combines lifecycle, state, shader/mesh/framebuffer/texture creation, capture, draw tracing, DXR, GPU timers, dynamic VBs, debug lines, and instancing. | Split capability interfaces only when graph/backend/tooling work needs the narrower contract. | `tools\validate_dx12_renderer.bat`. |
+| Medium | Asset system maturation | `AssetSystem` owns source records for generic assets plus texture/shader records, and `TextureCollection` can rebuild GPU textures from source records. There are no material or mesh source records beyond enum names, no hot reload/invalidation policy, and GPU cache ownership still lives in texture/backend/helper systems. | Add material/mesh records, cache/invalidation policy, hot reload hooks, and explicit source-vs-GPU lifetime ownership. | `tools\validate_dx12_renderer.bat` for renderer assets; `tools\validate_full.bat` if runtime lifecycle or scene loading changes. |
+| Medium | Scene/config schema cleanup | Config metadata and CLI directive tables are real. Scene dispatch tables are real, including style/UI/cinematic tables, but directive bodies still do bespoke token parsing with fixed field order and directive-local helpers. | Keep the deterministic plain-text format, but move object, physics, cinematic, style, and capture directive bodies toward typed schema metadata and better diagnostics. | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene load semantics can change. |
+| Medium | RAII and DX12 ownership | `ShaderDX12` uses `ComPtr` for shader blobs and some file handles have scoped wrappers. Broad backend-owned DX12 objects, BLAS/TLAS/SBT resources, mesh/framebuffer resources, PSO caches, readback/log paths, and many descriptor/resource lifetimes still use raw COM pointers/manual `Release()`. | Convert one ownership family at a time; avoid broad lifetime rewrites. | Renderer-specific changes need `tools\validate_dx12_renderer.bat`; broad lifecycle changes may need `tools\validate_full.bat`. |
+| Medium | Terrain/water/sky/post material cleanup | Object materials are typed and GPU-visible, but water, terrain, sky, and post still carry style-specific shader parameter sets and name-based uniform binding. | Split style/material contracts deliberately by pass and avoid one-off concept shader expansion. | `tools\validate_dx12_renderer.bat`; add focused visual review for touched scenes. |
+| Medium | Water pass/material boundary | `WaterPass` owns ordering, blend/depth setup, and reflection input, but `WorldEnvironment` still owns water meshes, shaders, style binding, fluid force policy, and `RenderFluid()`. | Move water render resources and style/material binding toward the pass/material layer while preserving `WorldEnvironment` as simulation-world data. Continue known water intersection/back-face work in the focused water plan. | `tools\validate_dx12_renderer.bat`; use focused water scenes before PR validation. |
+| Medium | Global coupling / `EngineContext` | No `EngineContext` exists. New and old code still reaches through `Gfx()`, `Cfg()`, singleton texture/window/camera/profiler access, and the active asset-system bridge. | Pass explicit context into newly extracted systems so new code stops deepening global coupling. Do not remove all globals in one broad pass. | Depends on touched subsystem. |
+| Deferred | Worker system | Still design-only. The data model is not ready for deterministic parallelism because runtime ownership and physics storage boundaries remain incomplete. | Wait for `SimulationSystem` ownership and the next `PhysicsWorld` data boundary. | Future worker work needs `tools\validate_physics.bat`, `tools\validate_perf.bat`, and explicit single-thread vs multi-thread deterministic comparison. |
+| Deferred | Replay/debug tooling and standout features | Still design-only. Replay/debug tooling should consume stable scene, simulation, physics snapshot, render graph, and capture APIs rather than adding logic back to `SkullbonezRun` or `GameModelCollection`. | Keep using the standalone replay plan as an index until those boundaries are stable. | Depends on feature; start narrow, then broaden when integrated. |
+
+Short source-audited summary: the plan should be read as a boundary checklist,
+not as a literal "create these classes" task list. The real remaining core is
+to finish graph-level ownership, shrink `SkullbonezRun::LoadScene()` and
+`SkullbonezRun::TakeInput()`, split physics storage away from `GameModel`,
+mature assets/materials, clean water/material ownership, and reduce globals as
+those systems are extracted.
+
 Scope: current `main` worktree review of `SkullbonezSource/`, `Agentic/Reference/`, existing audits/plans, renderer interfaces, scene loading, physics, validation, and runtime architecture. This report is based on source inspection only; it does not include runtime profiling beyond the existing profiler/validation infrastructure.
 
 ## Executive Summary

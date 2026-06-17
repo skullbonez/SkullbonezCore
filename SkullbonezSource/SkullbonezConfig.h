@@ -69,17 +69,17 @@ struct SceneLightConfig
 
 struct OrdinaryRenderConfig
 {
-    float sunIntensity = 1.35f;
+    float sunIntensity = 2.20f;
     float sunColorR = 1.0f;
-    float sunColorG = 0.94f;
-    float sunColorB = 0.84f;
-    float ambientStrength = 0.62f;
-    float skyAmbientR = 0.46f;
-    float skyAmbientG = 0.54f;
-    float skyAmbientB = 0.66f;
-    float groundAmbientR = 0.30f;
-    float groundAmbientG = 0.25f;
-    float groundAmbientB = 0.20f;
+    float sunColorG = 0.50f;
+    float sunColorB = 0.50f;
+    float ambientStrength = 1.00f;
+    float skyAmbientR = 0.20f;
+    float skyAmbientG = 0.10f;
+    float skyAmbientB = 0.10f;
+    float groundAmbientR = 0.20f;
+    float groundAmbientG = 0.10f;
+    float groundAmbientB = 0.10f;
 
     bool shadowsEnabled = true;
     bool shadowTerrainCasts = true;
@@ -88,7 +88,7 @@ struct OrdinaryRenderConfig
     bool shadowObjectsReceive = true;
     int shadowMapSize = 2048;
     int shadowPcfRadius = 1;
-    float shadowStrength = 0.50f;
+    float shadowStrength = 0.25f;
     float shadowSoftness = 1.05f;
     float shadowDepthBias = 0.00005f;
     float shadowSlopeBias = 0.00010f;
@@ -101,8 +101,8 @@ struct OrdinaryRenderConfig
     float waterReflectionStrength = 0.68f;
     float waterFresnelF0 = 0.025f;
 
-    float ballRoughnessScale = 1.00f;
-    float ballSpecularScale = 1.00f;
+    float ballRoughnessScale = 0.82f;
+    float ballSpecularScale = 1.25f;
     float boxRoughnessScale = 1.08f;
     float boxSpecularScale = 0.82f;
 };

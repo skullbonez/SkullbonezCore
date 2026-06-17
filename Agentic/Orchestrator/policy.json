@@ -1,10 +1,31 @@
 {
   "schema_version": 1,
-  "description": "Executable orchestrator policy consumed by tools/orchestrator.py. YAML files are human-readable mirrors until YAML parser support is added.",
+  "description": "Executable JSON-only orchestrator policy consumed by tools/orchestrator.py.",
   "enabled": true,
   "base_branch": "main",
   "branch_prefix": "codex/",
-  "max_active_items": 1,
+  "max_active_items": 3,
+  "parallelism": {
+    "enabled": true,
+    "requires_isolated_worktrees": true,
+    "worktree_root": "../SkullbonezCore-worktrees",
+    "allow_parallel_verifiers": true,
+    "max_workers_by_area": {
+      "DX12": 1,
+      "physics": 1,
+      "runtime": 1,
+      "verification": 2
+    },
+    "exclusive_globs": [
+      "AGENTS.md",
+      "Agentic/Orchestrator/*",
+      "SkullbonezSource/SkullbonezCommon.h",
+      "SkullbonezSource/SkullbonezRun*",
+      "SkullbonezSource/SkullbonezInit*",
+      "SkullbonezSource/SkullbonezWindow*",
+      "tools/orchestrator*"
+    ]
+  },
   "plan_implementation": {
     "default_mode": "orchestration",
     "applies_to": [

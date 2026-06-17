@@ -192,6 +192,7 @@ class InGameUI
     UIComboBox m_cineSceneCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
+    UIButton m_saveRenderDefaultsButton;
     UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
     UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];

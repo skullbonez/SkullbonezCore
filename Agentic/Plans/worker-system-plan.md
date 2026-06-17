@@ -1,8 +1,14 @@
 # Worker System & Physics Parallelization Plan
 
+Primary consumer plan: `Agentic/Plans/physics-shadow-worker-parallelization-plan.md`.
+Build the worker system with deterministic physics jobs and CPU-side shadow-map
+preparation as the first production customers. Asynchronous DX12 command-list
+recording is a stretch goal in that plan, not a dependency for the initial worker
+system.
+
 ## Problem Statement
 
-SkullbonezCore is entirely single-threaded. With `MAX_GAME_MODELS = 512` and the physics solver running in `RunSolverPhysics`, the physics tick is the primary bottleneck preventing scaling to more objects. The engine needs a lightweight, general-purpose worker system that can parallelize embarrassingly-parallel workloads (physics integration, force application) and eventually enable island-decomposed narrowphase collision.
+SkullbonezCore is entirely single-threaded. With `MAX_GAME_MODELS = 512` and the physics solver running in `RunSolverPhysics`, the physics tick is the primary bottleneck preventing scaling to more objects. Shadow-map CPU preparation is another target workload because object caster batch building can be prepared without touching GPU state. The engine needs a lightweight, general-purpose worker system that can parallelize embarrassingly-parallel workloads (physics integration, force application), support ordered chunk-local output for deterministic merges, and eventually enable island-decomposed narrowphase collision.
 
 ## Design Decisions (Confirmed)
 
@@ -14,6 +20,8 @@ SkullbonezCore is entirely single-threaded. With `MAX_GAME_MODELS = 512` and the
 | Amortized mode | Tasks can be chunked across multiple frames (progress state persists) |
 | Deadlock detection | Lock-order directed graph with runtime validation in Debug builds only |
 | Physics scope | Phase 1: parallel embarrassingly-parallel stages + Phase 2: island decomposition |
+| Shadow scope | First pass parallelizes CPU-side caster batch and bounds preparation only; main thread still submits all `Gfx()` work |
+| Async command recording | Stretch goal only; requires DX12 per-worker command allocators/lists, upload ranges, descriptor ranges, and graph-owned pass ordering |
 | Renderer coupling | Workers are decoupled from renderer — physics workers never touch GPU state |
 
 ---
@@ -432,6 +440,12 @@ SkullbonezSource/
 
 ## Implementation Order (Todos)
 
+For the expanded first-customer sequence, use
+`Agentic/Plans/physics-shadow-worker-parallelization-plan.md` as the source of
+truth. The worker system must support both `ParallelFor` and deterministic
+ordered chunk-local output before the first production physics or shadow-prep
+jobs land.
+
 ### Infrastructure
 1. **worker-pool-core** — `SkullbonezWorkerPool` with thread lifecycle, task queue, `Submit()`, `ParallelFor()`
 2. **fence-system** — `SkullbonezFence` atomic barrier; integrate with `ParallelFor` return value
@@ -453,9 +467,16 @@ SkullbonezSource/
 14. **island-wake-handling** — Ensure sleep/wake transitions merge islands correctly
 15. **island-stress-test** — Benchmark with clustered vs spread-out scenes
 
+### Phase 3: Shadow CPU Preparation
+16. **shadow-batch-payloads** - Refactor shadow caster instance data into explicit payloads instead of helper-owned static vectors
+17. **parallel-shadow-batches** - Build sphere/box/pine shadow instance streams with ordered chunk-local output
+18. **parallel-shadow-bounds** - Build object shadow bounds with deterministic per-chunk min/max reduction
+19. **shadow-batch-reuse** - Build object caster payloads once per frame and reuse them for both shadow maps
+20. **main-thread-shadow-submit** - Keep all `Gfx()` shader binding, upload, and draw calls on the main thread
+
 ### Validation & Polish
-16. **determinism-test** — Verify physics regression CSVs match between single-threaded and multi-threaded runs (fixed-step mode should produce identical results regardless of thread count)
-17. **deadlock-stress** — Targeted test that hammers lock acquisition patterns to validate ABBA detection
+21. **determinism-test** - Verify physics regression CSVs match between single-threaded and multi-threaded runs (fixed-step mode should produce identical results regardless of thread count)
+22. **deadlock-stress** - Targeted test that hammers lock acquisition patterns to validate ABBA detection
 
 ---
 

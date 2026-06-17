@@ -51,6 +51,7 @@ namespace
 constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
+constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
@@ -77,6 +78,7 @@ PhysicsWorld::PhysicsWorld()
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_underwaterSleepLocked.reserve( MAX_GAME_MODELS );
     m_tornadoCaptureSeconds.reserve( MAX_GAME_MODELS );
     m_tornadoEjectCooldownSeconds.reserve( MAX_GAME_MODELS );
     m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
@@ -107,6 +109,7 @@ void PhysicsWorld::Clear()
     m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
+    m_underwaterSleepLocked.clear();
     m_tornadoCaptureSeconds.clear();
     m_tornadoEjectCooldownSeconds.clear();
     m_collisionVisualContacts.clear();
@@ -156,6 +159,75 @@ void PhysicsWorld::EnsureTornadoStateBuffers( int modelCount )
     {
         m_tornadoEjectCooldownSeconds.assign( modelCount, 0.0f );
     }
+}
+
+
+void PhysicsWorld::EnsureUnderwaterSleepLockBuffer( int modelCount )
+{
+    if ( modelCount < 0 )
+    {
+        return;
+    }
+    if ( static_cast<int>( m_underwaterSleepLocked.size() ) != modelCount )
+    {
+        m_underwaterSleepLocked.resize( static_cast<size_t>( modelCount ), 0 );
+    }
+}
+
+
+bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection, const GameModelBodyStream& bodyStream, int index )
+{
+    auto& m_gameModels = collection.m_gameModels;
+    if ( index < 0 ||
+         index >= bodyStream.count ||
+         index >= static_cast<int>( m_gameModels.size() ) ||
+         bodyStream.isFixed[index] ||
+         bodyStream.isBox[index] )
+    {
+        return false;
+    }
+
+    return m_gameModels[index].GetSubmergedVolumePercent() >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
+}
+
+
+void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection, const GameModelBodyStream& bodyStream, int index )
+{
+    EnsureUnderwaterSleepLockBuffer( bodyStream.count );
+    if ( index < 0 ||
+         index >= bodyStream.count ||
+         index >= static_cast<int>( m_sleepState.size() ) ||
+         !m_sleepState[index] ||
+         m_underwaterSleepLocked[index] ||
+         !IsFullySubmergedBall( collection, bodyStream, index ) )
+    {
+        return;
+    }
+
+    m_underwaterSleepLocked[index] = 1;
+    if ( index < static_cast<int>( m_timeRemaining.size() ) )
+    {
+        m_timeRemaining[index] = 0.0f;
+    }
+    collection.m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
+    collection.m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
+}
+
+
+bool PhysicsWorld::IsUnderwaterSleepLocked( GameModelCollection& collection, const GameModelBodyStream& bodyStream, int index )
+{
+    EnsureUnderwaterSleepLockBuffer( bodyStream.count );
+    if ( index < 0 || index >= bodyStream.count )
+    {
+        return false;
+    }
+    if ( m_underwaterSleepLocked[index] )
+    {
+        return true;
+    }
+
+    LockUnderwaterSleeperIfReady( collection, bodyStream, index );
+    return m_underwaterSleepLocked[index] != 0;
 }
 
 
@@ -248,10 +320,12 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
+    EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( !m_sleepEnabled )
     {
         std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
         std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
         std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     }
     for ( int i = 0; i < modelCount; ++i )
@@ -260,12 +334,14 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
         {
             m_sleepState[i] = 0;
             m_sleepCounter[i] = 0;
+            m_underwaterSleepLocked[i] = 0;
             m_sleepSupportedThisFrame[i] = 1;
             m_sleepIslandVisualId[i] = 0;
             continue;
         }
         if ( !m_sleepState[i] )
         {
+            m_underwaterSleepLocked[i] = 0;
             m_sleepIslandVisualId[i] = 0;
         }
     }
@@ -298,11 +374,21 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
         m_sleepState.assign( m_gameModels.size(), 0 );
         m_sleepCounter.assign( m_gameModels.size(), 0 );
     }
+    EnsureUnderwaterSleepLockBuffer( static_cast<int>( m_gameModels.size() ) );
+    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
+    {
+        GameModelBodyStream bodyStream = collection.GetBodyStream();
+        if ( IsUnderwaterSleepLocked( collection, bodyStream, index ) )
+        {
+            return;
+        }
+    }
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         collection.InvalidateSoA();
         m_sleepState[index] = 0;
         m_sleepCounter[index] = 0;
+        m_underwaterSleepLocked[index] = 0;
         if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
         {
             m_sleepIslandVisualId[index] = 0;
@@ -350,6 +436,7 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 
     std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+    std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     std::fill( m_sleepIslandAssignedVisualId.begin(), m_sleepIslandAssignedVisualId.end(), 0 );
 }
@@ -378,7 +465,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( bodyStream.isFixed[i] || bodyStream.isBox[i] )
+        if ( bodyStream.isFixed[i] || bodyStream.isBox[i] || IsUnderwaterSleepLocked( collection, bodyStream, i ) )
         {
             m_tornadoCaptureSeconds[i] = 0.0f;
             m_tornadoEjectCooldownSeconds[i] = 0.0f;
@@ -546,6 +633,15 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
     const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );
 
+    EnsureUnderwaterSleepLockBuffer( modelCount );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            LockUnderwaterSleeperIfReady( collection, bodyStream, x );
+        }
+    }
+
     // Apply forces to awake models only
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
@@ -660,7 +756,11 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // Waking re-enters the body into this frame rather than waiting for the
         // next tick. Applying forces immediately keeps gravity and other forces
         // consistent with an awake body that was never asleep.
-        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || bodyStream.isFixed[sleepingIndex] || !m_sleepState[sleepingIndex] )
+        if ( sleepingIndex < 0 ||
+             sleepingIndex >= modelCount ||
+             bodyStream.isFixed[sleepingIndex] ||
+             !m_sleepState[sleepingIndex] ||
+             IsUnderwaterSleepLocked( collection, bodyStream, sleepingIndex ) )
         {
             return;
         }
@@ -771,12 +871,14 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         int y = cp.second;
 
         // Wake a sleeping object only after an energetic awake neighbor proves
-        // an actual swept hit or persistent overlap.
+        // an actual swept hit or persistent overlap. Underwater-locked sleepers
+        // still receive the swept hit timing, but remain static solver anchors.
         if ( m_sleepState[x] || m_sleepState[y] )
         {
             // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
+                const bool sleepingLocked = IsUnderwaterSleepLocked( collection, bodyStream, x );
                 if ( !hasWakeEnergy( y ) )
                 {
                     continue;
@@ -802,7 +904,10 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
                         m_gameModels[y].UpdatePosition( colTime );
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
-                        wakeSleepingModel( x );
+                        if ( !sleepingLocked )
+                        {
+                            wakeSleepingModel( x );
+                        }
                         wokeBySweptImpact = true;
                         MarkCollisionVisualContact( x );
                         MarkCollisionVisualContact( y );
@@ -815,10 +920,13 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                     record.bodyA = y;
                     record.bodyB = x;
                     record.point = ( m_gameModels[y].GetPosition() + m_gameModels[x].GetPosition() ) * 0.5f;
-                    record.scalarA = 1.0f;
+                    record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     RecordPhysicsPipelineStage( record );
 
-                    wakeSleepingModel( x );
+                    if ( !sleepingLocked )
+                    {
+                        wakeSleepingModel( x );
+                    }
                     MarkCollisionVisualContact( x );
                     MarkCollisionVisualContact( y );
                 }
@@ -826,6 +934,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             }
             else if ( m_sleepState[y] && !m_sleepState[x] )
             {
+                const bool sleepingLocked = IsUnderwaterSleepLocked( collection, bodyStream, y );
                 if ( !hasWakeEnergy( x ) )
                 {
                     continue;
@@ -849,7 +958,10 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
                         m_gameModels[x].UpdatePosition( colTime );
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
-                        wakeSleepingModel( y );
+                        if ( !sleepingLocked )
+                        {
+                            wakeSleepingModel( y );
+                        }
                         wokeBySweptImpact = true;
                         MarkCollisionVisualContact( x );
                         MarkCollisionVisualContact( y );
@@ -862,10 +974,13 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                     record.bodyA = x;
                     record.bodyB = y;
                     record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
-                    record.scalarA = 1.0f;
+                    record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     RecordPhysicsPipelineStage( record );
 
-                    wakeSleepingModel( y );
+                    if ( !sleepingLocked )
+                    {
+                        wakeSleepingModel( y );
+                    }
                     MarkCollisionVisualContact( x );
                     MarkCollisionVisualContact( y );
                 }
@@ -1300,6 +1415,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             // residual solver drift from reappearing when the body later wakes.
             m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );
             m_gameModels[x].SetAngularVelocity( Math::Vector::ZERO_VECTOR );
+            LockUnderwaterSleeperIfReady( collection, bodyStream, x );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

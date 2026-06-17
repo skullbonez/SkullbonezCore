@@ -91,12 +91,13 @@ bool ParseUITab( const char* value, int& outTab )
         { "physics", 3 },
         { "options", 4 },
         { "params", 4 },
-        { "renderer", 4 },
-        { "keys", 5 },
-        { "controls", 5 },
-        { "cinematic", 6 },
-        { "cine", 6 },
-        { "look", 6 },
+        { "render", 5 },
+        { "renderer", 5 },
+        { "keys", 6 },
+        { "controls", 6 },
+        { "cinematic", 7 },
+        { "cine", 7 },
+        { "look", 7 },
     };
     return TryParseIntOption( value, kTabs, outTab );
 }
@@ -618,7 +619,7 @@ class TestSceneParser
         static const UIDirective directives[] = {
             { "visible", &TestSceneParser::ParseUIVisible, "ui visible on|off" },
             { "minimized", &TestSceneParser::ParseUIMinimized, "ui minimized on|off" },
-            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <whats_new|profiler|scene|physics|options|controls|cine>" },
+            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <whats_new|profiler|scene|physics|options|render|controls|cine>" },
             { "rect", &TestSceneParser::ParseUIRect, "ui rect <x> <y> <w> <h>" },
             { "blur", &TestSceneParser::ParseUIBlur, "ui blur on|off" },
             { "renderer_combo", &TestSceneParser::ParseUIRendererCombo, "ui renderer_combo open|closed" },

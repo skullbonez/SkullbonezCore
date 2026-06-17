@@ -1,12 +1,12 @@
 # Agentic Orchestrator
 
-This folder contains the repository-owned control files for sequential roadmap
-orchestration. Implementing work from `Agentic/Plans` defaults to this
-orchestrator workflow unless the user explicitly asks to bypass it.
+This folder contains the repository-owned control files for JSON-only,
+parallel-capable roadmap orchestration. Implementing work from `Agentic/Plans`
+defaults to this orchestrator workflow unless the user explicitly asks to
+bypass it.
 
-JSON is the executable source of truth for orchestrator behavior because
-`tools/orchestrator.py` uses Python's built-in JSON parser. YAML files remain
-human-readable design mirrors until a YAML parser is intentionally added.
+JSON is the single source of truth for orchestrator behavior. Markdown explains
+the process for humans, but only JSON files drive tool decisions.
 
 ## Files
 
@@ -14,16 +14,10 @@ human-readable design mirrors until a YAML parser is intentionally added.
 |------|---------|
 | `policy.json` | Executable revocable automation policy. Set `enabled` to `false` to stop the loop. |
 | `queue.json` | Executable roadmap queue. Only listed items are eligible for orchestration. |
+| `agent-loop.json` | Executable loop map for implementing work sourced from `Agentic/Plans`. |
 | `machines/roadmap-item.json` | Executable item state machine: states, legal transitions, guards, and actions. |
 | `tools/orchestrator.py` | Mechanical state checker, transition helper, prompt renderer, Codex exec wrapper, and report-commit checker. |
 | `tools/orchestrator.bat` | Windows launcher for the Python helper. |
-| `policy.yaml` | Human-readable policy mirror/design file. JSON wins when files disagree. |
-| `queue.yaml` | Human-readable queue mirror/design file. JSON wins when files disagree. |
-| `agent-loop.yaml` | Human-readable default loop for implementing work sourced from `Agentic/Plans`. |
-| `machines/roadmap-item.yaml` | Human-readable state-machine mirror/design file. |
-| `machines/queue.yaml` | Queue selection and terminal-state rules. |
-| `machines/report.yaml` | Report-only commit and report directory rules. |
-| `schemas/*.yaml` | Lightweight schema vocabulary for future checkers. |
 | `schemas/*.json` | JSON schemas for structured worker, verifier, and run-state artifacts. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
@@ -41,8 +35,7 @@ destination:
 
 - The orchestrator is enabled by default for implementation work from
   `Agentic/Plans`; set `policy.json` `enabled` to `false` to pause the loop.
-- JSON files define executable policy, queue state, and legal transitions.
-- YAML files document the same shape for humans until parser support exists.
+- JSON files define executable policy, queue state, loop rules, and legal transitions.
 - Codex worker/verifier runs use the sandbox configured in `policy.json`;
   current Windows CLI smoke tests require `danger-full-access`, with verifier
   tracked-worktree comparison as the safety guard.
@@ -51,7 +44,12 @@ destination:
 - Merge automation is disabled by default.
 - `AGENTS.md` still requires explicit user authorization for PR submission and
   merges, so policy alone cannot authorize them.
-- Queue execution is sequential: one active roadmap item at a time.
+- Queue execution is parallel-capable: independent ready items may start while
+  other items are active only when `policy.max_active_items`, dependencies,
+  `owned_globs`, policy `exclusive_globs`, and impact-area limits all allow it.
+  Items without `owned_globs` are treated as exclusive.
+- Parallel writer agents should run in isolated git worktrees; the orchestrator
+  owns final integration, validation, and report state.
 - Successful completion requires an independent verifier pass after the worker
   claims the task is done. Blocking verifier findings go back to the worker,
   and the worker/verifier loop repeats until a verifier accepts the work or the
