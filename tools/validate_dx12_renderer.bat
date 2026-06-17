@@ -54,18 +54,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/7] Building Profile x64...
-if not exist "%REPO%\Profile" mkdir "%REPO%\Profile"
-set "BUILD_LOG=%REPO%\Profile\validate_dx12_renderer_build_profile.log"
-call "%~dp0validate_build.bat" Profile >"%BUILD_LOG%" 2>&1
-if errorlevel 1 (
-    echo FAIL: Profile build failed. DX12 renderer suite was not started.
-    echo Build log: "%BUILD_LOG%"
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath $env:BUILD_LOG -Tail 120"
-    popd
-    exit /b 2
+echo [2/7] Ensuring Profile x64 build...
+if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
+    echo PASS: Reusing prebuilt Profile x64.
+) else (
+    if not exist "%REPO%\Profile" mkdir "%REPO%\Profile"
+    set "BUILD_LOG=%REPO%\Profile\validate_dx12_renderer_build_profile.log"
+    call "%~dp0validate_build.bat" Profile >"%BUILD_LOG%" 2>&1
+    if errorlevel 1 (
+        echo FAIL: Profile build failed. DX12 renderer suite was not started.
+        echo Build log: "%BUILD_LOG%"
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath $env:BUILD_LOG -Tail 120"
+        popd
+        exit /b 2
+    )
+    echo PASS: Profile build succeeded. Build log: "%BUILD_LOG%"
 )
-echo PASS: Profile build succeeded. Build log: "%BUILD_LOG%"
 
 echo [3/7] Cleaning old DX12 artifacts...
 del /q "%REPO%\Profile\screenshot.bmp" 2>nul

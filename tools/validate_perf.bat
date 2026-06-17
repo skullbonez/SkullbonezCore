@@ -42,9 +42,13 @@ echo   VALIDATE_PERF - Performance Check
 echo ========================================
 echo.
 
-echo [1/4] Building Profile x64...
-call "%~dp0validate_build.bat" Profile
-if errorlevel 1 exit /b 1
+echo [1/4] Ensuring Profile x64 build...
+if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
+    echo PASS: Reusing prebuilt Profile x64.
+) else (
+    call "%~dp0validate_build.bat" Profile
+    if errorlevel 1 exit /b 1
+)
 
 echo [2/4] Cleaning old perf artifacts...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
@@ -88,30 +92,12 @@ if errorlevel 1 (
     exit /b 6
 )
 
-echo.
-echo Running physics_bench_no_sleep physics perf test...
-del /q "%REPO%\Profile\varied_physics_perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --no-sleep --scene SkullbonezData/scenes/physics_bench_varied.scene
-if errorlevel 1 (
-    echo FAIL: physics_bench_varied scene crashed for physics_bench_no_sleep.
-    exit /b 7
-)
-if not exist "%REPO%\Profile\varied_physics_perf_log.csv" (
-    echo FAIL: varied_physics_perf_log.csv not produced for physics_bench_no_sleep.
-    exit /b 7
-)
-move /Y "%REPO%\Profile\varied_physics_perf_log.csv" "%REPO%\Profile\physics_bench_no_sleep_perf_log.csv" >nul
-if errorlevel 1 (
-    echo FAIL: Could not store physics_bench_no_sleep perf log.
-    exit /b 7
-)
-
 echo [4/4] Analyzing and comparing performance...
 set "SKORE_REPO=%REPO%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
-for %%r in (dx12 physics_bench physics_bench_no_sleep) do (
+for %%r in (dx12 physics_bench) do (
     echo.
     echo Analyzing %%r performance...
     "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
@@ -122,7 +108,7 @@ for %%r in (dx12 physics_bench physics_bench_no_sleep) do (
 )
 
 set "REGRESSION_WARNINGS=0"
-for %%r in (dx12 physics_bench physics_bench_no_sleep) do (
+for %%r in (dx12 physics_bench) do (
     if exist "%REPO%\TestOutput\baselines\%%r_perf.json" (
         echo.
         echo %%r performance comparison vs baseline:

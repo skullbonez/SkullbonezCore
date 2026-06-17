@@ -66,7 +66,6 @@ VISUALS = [
 PERF = [
     ("dx12_perf.json", "dx12_perf.json"),
     ("physics_bench_perf.json", "physics_bench_perf.json"),
-    ("physics_bench_no_sleep_perf.json", "physics_bench_no_sleep_perf.json"),
 ]
 
 

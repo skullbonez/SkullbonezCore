@@ -41,9 +41,13 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/4] Building Debug x64...
-call "%~dp0validate_build.bat" Debug
-if errorlevel 1 exit /b 1
+echo [1/4] Ensuring Debug x64 build...
+if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
+    echo PASS: Reusing prebuilt Debug x64.
+) else (
+    call "%~dp0validate_build.bat" Debug
+    if errorlevel 1 exit /b 1
+)
 
 echo [2/4] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul

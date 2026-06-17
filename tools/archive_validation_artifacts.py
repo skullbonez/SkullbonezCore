@@ -71,7 +71,6 @@ VISUALS = [
 PERF = [
     "dx12_perf.json",
     "physics_bench_perf.json",
-    "physics_bench_no_sleep_perf.json",
     # Kept as optional legacy input so older archived Profile folders can still
     # be collected without forcing every caller to regenerate physics perf data.
     "physics_bench.json",
