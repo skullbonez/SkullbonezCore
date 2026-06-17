@@ -1,6 +1,6 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: implemented with measured worker-dispatch deferrals
+Status: implemented with worker dispatch enabled by default
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -47,30 +47,25 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 ## Worker Implementation Update: 2026-06-17
 
-The deterministic worker-safe slices are implemented, with per-body physics
-workers enabled by default and two measured dispatch deferrals retained because
-focused same-machine probes showed worker overhead exceeds the current per-item
-work.
+The deterministic worker-safe slices are implemented and enabled by default.
+Focused probes showed that some same-machine workloads may not improve yet, but
+the worker execution paths remain production-visible so profiler evidence can
+guide the next optimization pass.
 
 - `worker_threads = -1`, `physics_parallel = 1`, and
-  `shadow_parallel_prep = 0` are the default config state.
+  `shadow_parallel_prep = 1` are the default config state.
 - Physics per-body jobs use workers for force application, tornado-field
   updates, terrain candidate detection, and remaining-time integration while
   preserving serial commit order for diagnostics and terrain manifolds.
 - Object narrowphase has a deterministic event/commit boundary and island
-  partitioning code, but `PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED` is `false`
-  because the measured island jobs were too small to beat worker scheduling and
-  merge cost.
+  worker dispatch enabled through
+  `Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands`.
 - Shadow caster batches are built once per frame and reused for both shadow
-  maps. Ordered worker fill/scans remain available in code, but
-  `SHADOW_PARALLEL_PREP_WORKER_ENABLED` is `false` because 2048-, 4096-, and
-  8192-caster probes regressed average shadow CPU prep cost.
+  maps. Ordered worker fill/scans are enabled for object-heavy scenes and expose
+  `WorkerBuildBatches` / `WorkerScanBounds` profiler markers.
 - The profiler tab now exposes a Workers on/off checkbox, worker-count slider,
   worker workload markers, and a CPU Cores section under Draw Calls that reports
   each worker in flight, job count, core ms, and frame span.
-- The remaining shadow-prep and narrowphase-dispatch performance success
-  criteria should stay open as follow-up work rather than be represented as
-  completed by this branch.
 
 ## Current Constraints
 

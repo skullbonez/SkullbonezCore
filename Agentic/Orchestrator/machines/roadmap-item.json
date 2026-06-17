@@ -175,7 +175,21 @@
     "blocked": {
       "kind": "terminal_failure",
       "dependency_satisfied": false,
-      "stop_queue": true
+      "stop_queue": true,
+      "on": {
+        "reopen_for_work": {
+          "target": "running",
+          "actions": [
+            "prompt.write_worker"
+          ]
+        },
+        "reopen_for_verification": {
+          "target": "verifying",
+          "actions": [
+            "prompt.write_verifier"
+          ]
+        }
+      }
     },
     "failed": {
       "kind": "terminal_failure",

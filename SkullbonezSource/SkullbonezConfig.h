@@ -292,7 +292,7 @@ class SkullbonezConfig
     int gameModelCapacity = 1024;
     int workerThreads = -1;
     bool physicsParallel = true;
-    bool shadowParallelPrep = false;
+    bool shadowParallelPrep = true;
 
     // Physics
     float gravity = -30.0f;

@@ -42,10 +42,8 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
-constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 2048;
-// Same-machine probes through 8192 casters showed worker overhead still exceeds
-// the shadow prep work, so keep the deterministic worker path available but off.
-constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
+constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 512;
+constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = true;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
