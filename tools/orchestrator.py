@@ -232,6 +232,8 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
+        console.write(chunk)
+        console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
@@ -245,7 +247,7 @@ def tee_stream_to_file(stream: Any, console: Any, stream_log: Any) -> None:
         chunk = stream.read(1)
         if not chunk:
             break
-        write_console_text(console, chunk)
+        console.write(chunk)
         console.flush()
         stream_log.write(chunk)
         stream_log.flush()
@@ -269,14 +271,6 @@ def size_label(path: Path) -> str:
         return "not created yet"
 
 
-def write_console_text(console: Any, text: str) -> None:
-    try:
-        console.write(text)
-    except UnicodeEncodeError:
-        encoding = getattr(console, "encoding", None) or sys.getdefaultencoding() or "utf-8"
-        console.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
-
-
 def emit_file_growth(path: Path, offset: int, console: Any) -> int:
     try:
         size = path.stat().st_size
@@ -291,7 +285,7 @@ def emit_file_growth(path: Path, offset: int, console: Any) -> int:
         data = file.read()
     text = decode_text_bytes(data).replace("\x00", "")
     if text:
-        write_console_text(console, text)
+        console.write(text)
         console.flush()
     return size
 
@@ -330,12 +324,16 @@ def wait_visible_helper_with_live_transcript(
 ) -> int:
     started = time.monotonic()
     last_heartbeat = started
+    offset = 0
     while True:
+        offset = emit_file_growth(transcript_log, offset, sys.stdout)
         returncode = helper.poll()
         if returncode is not None:
+            emit_file_growth(transcript_log, offset, sys.stdout)
             return returncode
         now = time.monotonic()
         if timeout_seconds is not None and now - started >= timeout_seconds:
+            emit_file_growth(transcript_log, offset, sys.stdout)
             raise subprocess.TimeoutExpired(helper.args, timeout_seconds)
         if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
             print(
@@ -1407,6 +1405,8 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
+        console.write(chunk)
+        console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
@@ -1427,7 +1427,6 @@ def main() -> int:
     print("SkullbonezCore sub-agent console")
     print(f"Repo: {repo}")
     print(f"Transcript: {transcript_log}")
-    print("Full sub-agent stdout/stderr is logged there; this console stays quiet until exit.")
     print("")
 
     with (
@@ -1550,7 +1549,7 @@ def run_codex_exec(
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
     if visible_console and os.name == "nt":
-        print("Opening visible sub-agent console and logging its transcript to artifacts...", flush=True)
+        print("Opening visible sub-agent console and mirroring its transcript here...", flush=True)
         print(f"  result: {repo_relative(repo, output_path)}", flush=True)
         print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
         returncode = run_codex_exec_visible_console(repo, prompt, command, output_path, timeout_seconds)

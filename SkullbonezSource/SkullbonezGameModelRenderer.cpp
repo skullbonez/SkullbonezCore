@@ -43,7 +43,7 @@ namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 2048;
-// Measured caster prep remains below worker dispatch granularity at 2048-4096 objects.
+// Measured caster prep remains below worker dispatch granularity at 2048-8192 objects.
 constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )

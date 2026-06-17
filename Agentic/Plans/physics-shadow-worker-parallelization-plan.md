@@ -1,6 +1,6 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: proposed
+Status: implemented with measured worker-dispatch deferrals
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -63,8 +63,8 @@ exceeds the current per-item work:
   after a heavier per-island workload or lower-overhead scheduler is proven.
 - Shadow caster batches are built once per frame and reused for both shadow
   maps. Ordered worker fill code exists, but
-  `SHADOW_PARALLEL_PREP_WORKER_ENABLED` is `false` because 2048- and
-  4096-caster probes regressed `BuildBatches` and `ObjectBounds`.
+  `SHADOW_PARALLEL_PREP_WORKER_ENABLED` is `false` because 2048-, 4096-, and
+  8192-caster probes regressed average shadow CPU prep cost.
 - The remaining shadow/narrowphase performance acceptance criteria should be
   treated as a follow-up item rather than completed by this branch.
 
