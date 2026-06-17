@@ -289,6 +289,10 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_INT( "skybox_overflow", skyboxOverflow, -1000000, 1000000 ),
         CONFIG_FLOAT( "skybox_scale", skyboxScale, 0.0001, 1000000.0 ),
 
+        CONFIG_INT( "worker_threads", workerThreads, -1, 1024 ),
+        CONFIG_BOOL( "physics_parallel", physicsParallel ),
+        CONFIG_BOOL( "shadow_parallel_prep", shadowParallelPrep ),
+
         CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
         CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
         CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),

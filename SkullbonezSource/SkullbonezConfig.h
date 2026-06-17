@@ -288,6 +288,11 @@ class SkullbonezConfig
     int skyboxOverflow = 1;
     float skyboxScale = 10.0f;
 
+    // Threading
+    int workerThreads = -1;
+    bool physicsParallel = false;
+    bool shadowParallelPrep = false;
+
     // Physics
     float gravity = -30.0f;
     float fluidHeight = 25.0f;

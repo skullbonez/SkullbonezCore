@@ -167,6 +167,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezInputController.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezLockOrderValidator.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -222,6 +225,9 @@
       <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezWindow.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezWorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezWorldEnvironment.cpp">
@@ -307,6 +313,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp">
       <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezAmortizedTask.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBLASDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
@@ -409,6 +418,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezDrawCallTrace.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezFence.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h">
       <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
@@ -455,6 +467,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezInputController.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezLockOrderValidator.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
@@ -521,6 +536,9 @@
       <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezWindow.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezWorkerPool.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h">
@@ -594,6 +612,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h">
       <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezAmortizedTask.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBLASDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>

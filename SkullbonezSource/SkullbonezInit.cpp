@@ -33,6 +33,7 @@ Related:
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezPlatformProfiler.h"
+#include "SkullbonezWorkerPool.h"
 #include <cerrno>
 #include <float.h>
 #include <climits>
@@ -57,6 +58,7 @@ using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Threading;
 
 
 namespace
@@ -250,13 +252,34 @@ const char* GetCommandLineError()
 
 // GUI apps have no console by default — attach to the parent terminal so
 // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
+bool IsStandardHandleRedirected( DWORD standardHandle )
+{
+    HANDLE handle = GetStdHandle( standardHandle );
+    if ( handle == nullptr || handle == INVALID_HANDLE_VALUE )
+    {
+        return false;
+    }
+
+    const DWORD fileType = GetFileType( handle );
+    return fileType == FILE_TYPE_PIPE || fileType == FILE_TYPE_DISK;
+}
+
 void AttachParentConsole()
 {
+    const bool stdoutRedirected = IsStandardHandleRedirected( STD_OUTPUT_HANDLE );
+    const bool stderrRedirected = IsStandardHandleRedirected( STD_ERROR_HANDLE );
+
     if ( AttachConsole( ATTACH_PARENT_PROCESS ) )
     {
         FILE* dummy = nullptr;
-        freopen_s( &dummy, "CONOUT$", "w", stdout );
-        freopen_s( &dummy, "CONOUT$", "w", stderr );
+        if ( !stdoutRedirected )
+        {
+            freopen_s( &dummy, "CONOUT$", "w", stdout );
+        }
+        if ( !stderrRedirected )
+        {
+            freopen_s( &dummy, "CONOUT$", "w", stderr );
+        }
     }
 }
 
@@ -562,6 +585,7 @@ struct ParsedArgs
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
+    bool workerSelfTest = false;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
@@ -705,6 +729,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--dump-assets", nullptr, []( ParsedArgs& args )
           { args.dumpAssets = true; },
           nullptr },
+        { "--worker-self-test", "--workers-self-test", []( ParsedArgs& args )
+          {
+              args.workerSelfTest = true;
+              args.suppressExitDialog = true;
+          },
+          "[workers] Self-test requested." },
     };
 
     for ( const CliFlagDirective& flag : kFlags )
@@ -1213,6 +1243,18 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
+        { "--workers", "--worker-threads", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              int workerThreads = 0;
+              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > 1024 )
+              {
+                  return FailCommandLineParse( "--workers expects -1, 0, or 1..1024." );
+              }
+              Cfg().workerThreads = workerThreads;
+              fprintf( stdout, "[workers] Override: %d\n", Cfg().workerThreads );
+              return true;
+          } },
         { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1835,6 +1877,15 @@ int WINAPI WinMain( HINSTANCE hInstance,
         return 1;
     }
 
+    WorkerPool::Instance().Initialise( Cfg().workerThreads );
+    if ( args.workerSelfTest )
+    {
+        const bool workersOk = RunWorkerSystemSelfTest( stdout );
+        WorkerPool::Instance().Shutdown();
+        CoUninitialize();
+        return workersOk ? 0 : 1;
+    }
+
     SkullbonezWindow* window = SkullbonezWindow::Instance();
     window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
@@ -1844,6 +1895,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
     const int runExitCode = RunApp( window, args );
 
+    WorkerPool::Instance().Shutdown();
     CleanupWindow( window, hInstance );
 
     CoUninitialize();
