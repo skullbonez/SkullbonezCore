@@ -78,6 +78,7 @@ VERIFIER_RESULT_FIELDS = {
 }
 LIVE_LOG_POLL_SECONDS = 1.0
 LIVE_LOG_HEARTBEAT_SECONDS = 30.0
+VISIBLE_HELPER_STARTUP_OUTPUT_TIMEOUT_SECONDS = 45.0
 
 
 class OrchestratorError(RuntimeError):
@@ -430,6 +431,12 @@ def wait_visible_helper_with_live_transcript(
             )
             return returncode
         now = time.monotonic()
+        transcript_size = transcript_log.stat().st_size if transcript_log.exists() else 0
+        if transcript_size == 0 and now - started >= VISIBLE_HELPER_STARTUP_OUTPUT_TIMEOUT_SECONDS:
+            raise OrchestratorError(
+                "visible sub-agent produced no transcript output after "
+                f"{elapsed_label(now - started)}; helper output capture likely stalled."
+            )
         if timeout_seconds is not None and now - started >= timeout_seconds:
             print(
                 f"[orchestrator] sub-agent timed out; "
@@ -1524,8 +1531,9 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
-        console.flush()
+        if console is not None:
+            console.write(chunk)
+            console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
@@ -1636,6 +1644,11 @@ def run_codex_exec_visible_console(
         )
         try:
             return wait_visible_helper_with_live_transcript(helper, transcript_log, repo, timeout_seconds)
+        except OrchestratorError:
+            kill_process_tree_by_pid(helper.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
+            helper.wait(timeout=10)
+            raise
         except subprocess.TimeoutExpired as exc:
             kill_process_tree_by_pid(helper.pid)
             cleanup_new_codex_app_servers(app_server_pids_before)
@@ -1882,6 +1895,10 @@ def command_run_worker(args: argparse.Namespace) -> int:
 
 
 def command_run_verifier(args: argparse.Namespace) -> int:
+    run_dir: Path | None = None
+    rubber_duck_number: int | None = None
+    started_at = utc_now()
+    started = time.monotonic()
     try:
         policy, _, _ = load_state(args.repo)
         require_clean = not args.allow_dirty_verifier and nested_get(policy, "verification.requires_clean_worktree") is not False
@@ -1914,6 +1931,23 @@ def command_run_verifier(args: argparse.Namespace) -> int:
             args.timeout_seconds,
         )
     except (KeyError, OrchestratorError) as exc:
+        if run_dir is not None and rubber_duck_number is not None:
+            append_orchestration_step(
+                args.repo,
+                run_dir,
+                args.item_id,
+                "rubber_duck_finish",
+                manual_command=True,
+                role="verifier",
+                round=rubber_duck_number,
+                started_at=started_at,
+                finished_at=utc_now(),
+                elapsed_seconds=round(time.monotonic() - started, 3),
+                exit_code=1,
+                verdict="blocked",
+                result=None,
+                error=str(exc),
+            )
         print(f"ERROR: {exc}")
         return 1
     print(f"Verifier result: {repo_relative(args.repo, output)}")
@@ -2689,17 +2723,51 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     require_clean_worktree=require_clean,
                     visible_console=bool(args.visible_console),
                 )
-                code, verifier_output = run_verifier_agent(
-                    args.repo,
-                    item_id,
-                    args.run_date,
-                    args.verifier_sandbox,
-                    args.codex_bin,
-                    no_schema=False,
-                    require_clean=require_clean,
-                    visible_console=args.visible_console,
-                    timeout_seconds=args.verifier_timeout_seconds,
-                )
+                verifier_output = round_dir / f"round-{rubber_duck_number:02d}-verifier-result.json"
+                try:
+                    code, verifier_output = run_verifier_agent(
+                        args.repo,
+                        item_id,
+                        args.run_date,
+                        args.verifier_sandbox,
+                        args.codex_bin,
+                        no_schema=False,
+                        require_clean=require_clean,
+                        visible_console=args.visible_console,
+                        timeout_seconds=args.verifier_timeout_seconds,
+                    )
+                except OrchestratorError as exc:
+                    ensure_result_payload(
+                        verifier_output,
+                        {
+                            "verdict": "blocked",
+                            "blocking_findings": [str(exc)],
+                            "non_blocking_suggestions": [],
+                            "missing_evidence": [],
+                            "validation_assessment": "not assessed",
+                            "artifact_assessment": "Verifier helper did not complete.",
+                            "feedback_for_worker": "Verifier helper failed before producing a result.",
+                            "another_round_required": True,
+                        },
+                        VERIFIER_RESULT_FIELDS,
+                    )
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "rubber_duck_finish",
+                        role="verifier",
+                        round=rubber_duck_number,
+                        started_at=duck_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                        exit_code=1,
+                        verdict="blocked",
+                        result=repo_relative(args.repo, verifier_output),
+                        error=str(exc),
+                    )
+                    transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
+                    return 1
                 print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
                 if code != 0:
                     detail = codex_exec_failure_detail(verifier_output)
@@ -2910,6 +2978,11 @@ def command_finalize(args: argparse.Namespace) -> int:
 
 
 def command_self_test(args: argparse.Namespace) -> int:
+    try:
+        compile(VISIBLE_CODEX_RUNNER, "VISIBLE_CODEX_RUNNER", "exec")
+    except SyntaxError as exc:
+        print(f"ERROR: self-test visible runner syntax: {exc}")
+        return 1
     with tempfile.TemporaryDirectory() as temp:
         repo = Path(temp)
         (repo / ORCH_DIR / "machines").mkdir(parents=True)
