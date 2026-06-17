@@ -53,20 +53,26 @@ the user explicitly accepted keeping the worker paths in place so profiler
 evidence can guide the next optimization pass instead of hiding the behavior
 behind compile-time deferrals.
 
-- `worker_threads = -1`, `physics_parallel = 1`, and
-  `shadow_parallel_prep = 1` are the default config state.
-- Physics per-body jobs use workers for force application, tornado-field
+- `worker_threads = -1` and `physics_parallel = 1` are the default config
+  state, but only the physics stages with measured 1000-object wins are
+  default-enabled: `physics_parallel_apply_forces = 1`,
+  `physics_parallel_terrain_detect = 1`, and
+  `physics_parallel_integrate = 1`.
+- Physics worker paths remain available but default-off where same-machine
+  probes did not prove a win: `physics_parallel_tornado_field = 0`,
+  `physics_parallel_narrowphase = 0`, and `shadow_parallel_prep = 0`.
+- Physics per-body jobs can use workers for force application, tornado-field
   updates, terrain candidate detection, and remaining-time integration while
   preserving serial commit order for diagnostics and terrain manifolds.
-- Object narrowphase has a deterministic event/commit boundary and island
-  worker dispatch enabled through
+- Object narrowphase has a deterministic event/commit boundary and opt-in
+  island worker dispatch through
   `Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands`.
 - Shadow caster batches are built once per frame and reused for both shadow
-  maps. Ordered worker fill/scans are enabled for object-heavy scenes and expose
-  `WorkerBuildBatches` / `WorkerScanBounds` profiler markers.
+  maps. Ordered worker fill/scans remain opt-in for object-heavy scenes and
+  expose `WorkerBuildBatches` / `WorkerScanBounds` profiler markers.
 - The profiler tab now exposes a Workers on/off checkbox, worker-count slider,
-  worker workload markers, and a CPU Cores section under Draw Calls that reports
-  each worker in flight, job count, core ms, and frame span.
+  worker workload markers, and a CPU core-work chart under Draw Calls that
+  shows one averaged ms/frame column per configured worker core.
 - Current acceptance prioritizes deterministic, controllable, profiler-visible
   worker execution over immediate speedup in every tested scene. Remaining
   same-machine regressions are tracked as follow-up optimization work.

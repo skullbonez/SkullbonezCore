@@ -568,7 +568,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
         m_gameModels[i].SetLinearVelocity( velocity );
     };
 
-    if ( Cfg().physicsParallel )
+    if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
                                                                                modelCount,
@@ -700,7 +700,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         m_gameModels[x].ApplyForces( dt );
     };
 
-    if ( Cfg().physicsParallel )
+    if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
                                                                                modelCount,
@@ -1272,6 +1272,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     const bool mayBenefitFromIslandDispatch =
         PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED &&
         Cfg().physicsParallel &&
+        Cfg().physicsParallelNarrowphase &&
         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
         candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
         SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
@@ -1385,7 +1386,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     };
 
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    if ( Cfg().physicsParallel )
+    if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
                                                                                modelCount,
@@ -1437,7 +1438,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         }
     };
 
-    if ( Cfg().physicsParallel )
+    if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
                                                                                modelCount,

@@ -1279,6 +1279,11 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
                   return FailCommandLineParse( "--physics-parallel expects optional on|off." );
               }
               Cfg().physicsParallel = enabled;
+              Cfg().physicsParallelApplyForces = enabled;
+              Cfg().physicsParallelTornadoField = enabled;
+              Cfg().physicsParallelNarrowphase = enabled;
+              Cfg().physicsParallelTerrainDetect = enabled;
+              Cfg().physicsParallelIntegrate = enabled;
               fprintf( stdout, "[workers] Physics parallel jobs %s via command line.\n", enabled ? "enabled" : "disabled" );
               return true;
           } },
