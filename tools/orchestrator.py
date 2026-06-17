@@ -124,6 +124,23 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    entries: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            payload = {"kind": "malformed_log_line", "raw": line}
+        if isinstance(payload, dict):
+            entries.append(payload)
+    return entries
+
+
 def tail_lines(text: str, max_lines: int = 30, max_chars: int = 4000) -> str:
     lines = text.strip().splitlines()
     if len(lines) > max_lines:
@@ -143,6 +160,75 @@ def codex_exec_log_paths(output_path: Path) -> tuple[Path, Path]:
 
 def codex_exec_transcript_path(output_path: Path) -> Path:
     return output_path.with_name(output_path.name + ".transcript.log")
+
+
+def orchestration_steps_path(run_dir: Path) -> Path:
+    return run_dir / "orchestration-steps.jsonl"
+
+
+def orchestration_summary_path(run_dir: Path) -> Path:
+    return run_dir / "orchestration-summary.json"
+
+
+def write_orchestration_summary(repo: Path, run_dir: Path) -> None:
+    steps = read_jsonl(orchestration_steps_path(run_dir))
+    rubber_ducks = [step for step in steps if step.get("kind") == "rubber_duck_finish"]
+    worker_runs = [step for step in steps if step.get("kind") == "worker_finish"]
+    validation_runs = [step for step in steps if step.get("kind") == "validation_finish"]
+    transitions = [step for step in steps if step.get("kind") == "transition"]
+    summary = {
+        "schema_version": 1,
+        "updated_at": utc_now(),
+        "run_dir": repo_relative(repo, run_dir),
+        "steps_log": repo_relative(repo, orchestration_steps_path(run_dir)),
+        "step_count": len(steps),
+        "started_at": steps[0].get("at") if steps else None,
+        "latest_state": next((step.get("to") for step in reversed(transitions) if step.get("to")), None),
+        "transition_count": len(transitions),
+        "transitions": [
+            {
+                "at": step.get("at"),
+                "event": step.get("event"),
+                "from": step.get("from"),
+                "to": step.get("to"),
+            }
+            for step in transitions
+        ],
+        "rubber_duck_count": len(rubber_ducks),
+        "rubber_duck_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in rubber_ducks), 3),
+        "rubber_ducks": [
+            {
+                "number": step.get("round"),
+                "started_at": step.get("started_at"),
+                "finished_at": step.get("finished_at"),
+                "elapsed_seconds": step.get("elapsed_seconds"),
+                "exit_code": step.get("exit_code"),
+                "verdict": step.get("verdict"),
+                "result": step.get("result"),
+            }
+            for step in rubber_ducks
+        ],
+        "worker_run_count": len(worker_runs),
+        "worker_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in worker_runs), 3),
+        "validation_run_count": len(validation_runs),
+        "validation_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in validation_runs), 3),
+    }
+    write_json(orchestration_summary_path(run_dir), summary)
+
+
+def append_orchestration_step(repo: Path, run_dir: Path, item_id: str, kind: str, **fields: Any) -> None:
+    payload = {
+        "schema_version": 1,
+        "at": utc_now(),
+        "item_id": item_id,
+        "kind": kind,
+        **fields,
+    }
+    path = orchestration_steps_path(run_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(payload, sort_keys=True) + "\n")
+    write_orchestration_summary(repo, run_dir)
 
 
 def codex_exec_artifacts(repo: Path, output_path: Path) -> list[str]:
@@ -232,8 +318,9 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
-        console.flush()
+        if console is not None:
+            write_console_text(console, chunk)
+            console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
@@ -1109,6 +1196,19 @@ def command_start(args: argparse.Namespace) -> int:
         prompt_path = write_worker_prompt(args.repo, policy, queue, item, run_dir)
         run_state["worker_prompt"] = repo_relative(args.repo, prompt_path)
         save_run_state(run_dir, run_state)
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "transition",
+            event="start",
+            **{
+                "from": previous,
+                "to": "running",
+            },
+            generated={"worker_prompt": repo_relative(args.repo, prompt_path)},
+            manual_guards=[],
+        )
     except KeyError:
         print(f"ERROR: Unknown item: {args.item_id}")
         return 1
@@ -1352,12 +1452,12 @@ def print_transition_result(result: dict[str, Any]) -> None:
 
 def command_transition(args: argparse.Namespace) -> int:
     try:
-        result = apply_transition(
+        transition_and_print(
             args.repo,
             args.item_id,
             args.event,
-            result_path=args.result,
-            validation_log_path=args.validation_log,
+            result_path=Path(args.result) if args.result else None,
+            validation_log_path=Path(args.validation_log) if args.validation_log else None,
             run_date_text=args.run_date,
             force_guards=args.force_guards,
         )
@@ -1368,7 +1468,6 @@ def command_transition(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
 
-    print_transition_result(result)
     return 0
 
 
@@ -1471,12 +1570,12 @@ def main() -> int:
         transcript_lock = threading.Lock()
         stdout_thread = threading.Thread(
             target=tee_stream,
-            args=(process.stdout, sys.stdout, stdout_file, transcript_file, transcript_lock, "stdout"),
+            args=(process.stdout, None, stdout_file, transcript_file, transcript_lock, "stdout"),
             daemon=True,
         )
         stderr_thread = threading.Thread(
             target=tee_stream,
-            args=(process.stderr, sys.stderr, stderr_file, transcript_file, transcript_lock, "stderr"),
+            args=(process.stderr, None, stderr_file, transcript_file, transcript_lock, "stderr"),
             daemon=True,
         )
         stdout_thread.start()
@@ -1719,6 +1818,19 @@ def run_verifier_agent(
 
 def command_run_worker(args: argparse.Namespace) -> int:
     try:
+        policy, _, _ = load_state(args.repo)
+        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        started_at = utc_now()
+        started = time.monotonic()
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "worker_start",
+            manual_command=True,
+            sandbox=args.sandbox or default_worker_sandbox(policy),
+            visible_console=bool(args.visible_console),
+        )
         code, output = run_worker_agent(
             args.repo,
             args.item_id,
@@ -1728,6 +1840,18 @@ def command_run_worker(args: argparse.Namespace) -> int:
             args.no_schema,
             args.visible_console,
             args.timeout_seconds,
+        )
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "worker_finish",
+            manual_command=True,
+            started_at=started_at,
+            finished_at=utc_now(),
+            elapsed_seconds=round(time.monotonic() - started, 3),
+            exit_code=code,
+            result=repo_relative(args.repo, output),
         )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
@@ -1761,6 +1885,23 @@ def command_run_verifier(args: argparse.Namespace) -> int:
     try:
         policy, _, _ = load_state(args.repo)
         require_clean = not args.allow_dirty_verifier and nested_get(policy, "verification.requires_clean_worktree") is not False
+        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        round_dir = run_dir / "verification-rounds"
+        rubber_duck_number = next_verifier_result_number(round_dir)
+        started_at = utc_now()
+        started = time.monotonic()
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "rubber_duck_start",
+            manual_command=True,
+            role="verifier",
+            round=rubber_duck_number,
+            sandbox=args.sandbox or default_verifier_sandbox(policy),
+            require_clean_worktree=require_clean,
+            visible_console=bool(args.visible_console),
+        )
         code, output = run_verifier_agent(
             args.repo,
             args.item_id,
@@ -1776,6 +1917,28 @@ def command_run_verifier(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
     print(f"Verifier result: {repo_relative(args.repo, output)}")
+    verdict = None
+    if output.suffix == ".json" and output.exists():
+        try:
+            verifier_payload = read_result_json(output)
+            verdict = str(verifier_payload.get("verdict", "blocked"))
+        except OrchestratorError:
+            verdict = None
+    append_orchestration_step(
+        args.repo,
+        run_dir,
+        args.item_id,
+        "rubber_duck_finish",
+        manual_command=True,
+        role="verifier",
+        round=rubber_duck_number,
+        started_at=started_at,
+        finished_at=utc_now(),
+        elapsed_seconds=round(time.monotonic() - started, 3),
+        exit_code=code,
+        verdict=verdict,
+        result=repo_relative(args.repo, output),
+    )
     if code != 0 and not args.no_schema:
         detail = codex_exec_failure_detail(output)
         findings = [f"codex exec returned {code}"]
@@ -2372,6 +2535,20 @@ def transition_and_print(
         force_guards=force_guards,
     )
     print_transition_result(result)
+    append_orchestration_step(
+        repo,
+        result["run_dir"],
+        item_id,
+        "transition",
+        event=event,
+        **{
+            "from": result["from"],
+            "to": result["to"],
+        },
+        artifacts=result.get("artifacts", {}),
+        generated=result.get("generated", {}),
+        manual_guards=result.get("manual_guards", []),
+    )
     return result
 
 
@@ -2405,13 +2582,36 @@ def command_run_loop(args: argparse.Namespace) -> int:
                 return code
 
         verifier_rounds = 0
+        loop_run_dir = ensure_run_dir(args.repo, policy, item_id, args.run_date)
+        append_orchestration_step(
+            args.repo,
+            loop_run_dir,
+            item_id,
+            "run_loop_start",
+            item_state=item_state(item),
+            max_verifier_rounds=args.max_verifier_rounds,
+            validation_skipped=bool(args.skip_validation),
+            finalize=bool(args.finalize),
+        )
         while True:
             policy, queue, _ = load_state(args.repo)
             item = items_by_id(queue)[item_id]
             state = item_state(item)
             run_dir = ensure_run_dir(args.repo, policy, item_id, args.run_date)
+            append_orchestration_step(args.repo, run_dir, item_id, "state_entered", state=state)
 
             if state == "running":
+                worker_started_at = utc_now()
+                worker_started = time.monotonic()
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "worker_start",
+                    sandbox=args.worker_sandbox or default_worker_sandbox(policy),
+                    visible_console=bool(args.visible_console),
+                )
+                worker_output: Path | None = None
                 code, worker_output = run_worker_agent(
                     args.repo,
                     item_id,
@@ -2421,6 +2621,17 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     no_schema=False,
                     visible_console=args.visible_console,
                     timeout_seconds=args.worker_timeout_seconds,
+                )
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "worker_finish",
+                    started_at=worker_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - worker_started, 3),
+                    exit_code=code,
+                    result=repo_relative(args.repo, worker_output),
                 )
                 print(f"Worker result: {repo_relative(args.repo, worker_output)}")
                 if code != 0:
@@ -2463,6 +2674,21 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     raise OrchestratorError(f"Verifier exceeded max rounds: {args.max_verifier_rounds}")
                 verifier_rounds += 1
                 require_clean = nested_get(policy, "verification.requires_clean_worktree") is not False
+                round_dir = run_dir / "verification-rounds"
+                rubber_duck_number = next_verifier_result_number(round_dir)
+                duck_started_at = utc_now()
+                duck_started = time.monotonic()
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "rubber_duck_start",
+                    role="verifier",
+                    round=rubber_duck_number,
+                    sandbox=args.verifier_sandbox or default_verifier_sandbox(policy),
+                    require_clean_worktree=require_clean,
+                    visible_console=bool(args.visible_console),
+                )
                 code, verifier_output = run_verifier_agent(
                     args.repo,
                     item_id,
@@ -2495,10 +2721,39 @@ def command_run_loop(args: argparse.Namespace) -> int:
                         },
                         VERIFIER_RESULT_FIELDS,
                     )
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "rubber_duck_finish",
+                        role="verifier",
+                        round=rubber_duck_number,
+                        started_at=duck_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                        exit_code=code,
+                        verdict="blocked",
+                        result=repo_relative(args.repo, verifier_output),
+                    )
                     transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
                     return code or 1
                 verifier_result = read_result_json(verifier_output)
                 verdict = str(verifier_result.get("verdict", "blocked"))
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "rubber_duck_finish",
+                    role="verifier",
+                    round=rubber_duck_number,
+                    started_at=duck_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                    exit_code=code,
+                    verdict=verdict,
+                    result=repo_relative(args.repo, verifier_output),
+                    another_round_required=bool(verifier_result.get("another_round_required", False)),
+                )
                 if verdict == "accepted":
                     transition_and_print(args.repo, item_id, "accepted", verifier_output, run_date_text=args.run_date)
                     continue
@@ -2510,9 +2765,30 @@ def command_run_loop(args: argparse.Namespace) -> int:
 
             if state == "validating":
                 if args.skip_validation:
+                    append_orchestration_step(args.repo, run_dir, item_id, "validation_skipped", state=state)
                     print(f"Validation pending for {item_id}; rerun with validation enabled or transition manually.")
                     return 2
+                validation_started_at = utc_now()
+                validation_started = time.monotonic()
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "validation_start",
+                    command=str(item.get("validation_gate", "")),
+                )
                 event, log_path = run_validation_gate(args.repo, item, run_dir)
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "validation_finish",
+                    started_at=validation_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - validation_started, 3),
+                    event=event,
+                    log=repo_relative(args.repo, log_path),
+                )
                 transition_and_print(args.repo, item_id, event, validation_log_path=log_path, run_date_text=args.run_date)
                 continue
 
@@ -2526,11 +2802,27 @@ def command_run_loop(args: argparse.Namespace) -> int:
                         allow_main_commit=args.allow_main_commit,
                         archive_deferred=args.archive_deferred,
                     )
-                    return command_finalize(finalize_args)
+                    finalize_started_at = utc_now()
+                    finalize_started = time.monotonic()
+                    append_orchestration_step(args.repo, run_dir, item_id, "finalize_start", commit=bool(args.commit_finalize))
+                    code = command_finalize(finalize_args)
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "finalize_finish",
+                        started_at=finalize_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - finalize_started, 3),
+                        exit_code=code,
+                    )
+                    return code
                 print(f"{item_id} is ready for finalization.")
+                append_orchestration_step(args.repo, run_dir, item_id, "run_loop_ready_for_finalization", state=state)
                 return 0
 
             print(f"{item_id} stopped in state {state}.")
+            append_orchestration_step(args.repo, run_dir, item_id, "run_loop_stopped", state=state)
             if state in terminal_failure_states(machine):
                 return 2
             return 0 if state in terminal_states(machine) else 2
@@ -2726,6 +3018,23 @@ def command_self_test(args: argparse.Namespace) -> int:
             return 1
         if (run_dir / "verification-rounds" / "round-02-verifier-result.json").exists():
             print("ERROR: self-test duplicated verifier result into a new round.")
+            return 1
+        append_orchestration_step(
+            repo,
+            run_dir,
+            "active",
+            "rubber_duck_finish",
+            round=1,
+            started_at="2026-06-16T00:00:00+00:00",
+            finished_at="2026-06-16T00:00:01.250000+00:00",
+            elapsed_seconds=1.25,
+            exit_code=0,
+            verdict="accepted",
+            result=repo_relative(repo, verifier_result),
+        )
+        telemetry_summary = load_json(orchestration_summary_path(run_dir))
+        if telemetry_summary.get("rubber_duck_count") != 1 or telemetry_summary.get("rubber_duck_total_seconds") != 1.25:
+            print("ERROR: self-test orchestration telemetry summary did not count rubber ducks.")
             return 1
         policy, queue, machine = load_state(repo)
         item = select_next_item(policy, queue, machine, allow_disabled=False)

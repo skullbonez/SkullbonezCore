@@ -71,6 +71,16 @@ Use that folder for generated prompts, worker results, validation logs,
 verifier prompts/results, screenshots, artifacts, PR notes, and local
 orchestration state. This folder is not the user-facing report commit.
 
+Every Python orchestrator run also writes structured process telemetry:
+
+- `orchestration-steps.jsonl` is an append-only step log for state entries,
+  worker runs, rubber-duck verifier runs, validation gates, finalization, and
+  state transitions.
+- `orchestration-summary.json` is regenerated after each step with exact
+  counts and durations. In that file, `rubber_duck_count` is the number of
+  verifier agents run, and `rubber_ducks[]` records each verifier round's
+  elapsed time, result path, exit code, and verdict.
+
 ## Reports
 
 When the task is done, create the committed report at:
