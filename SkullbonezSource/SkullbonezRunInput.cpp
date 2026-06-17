@@ -1098,6 +1098,10 @@ void SkullbonezRun::TakeInput()
         {
             Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
         }
+        if ( uiCommands.renderTuning.saveDefaults )
+        {
+            SaveRenderDefaults();
+        }
         if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
         {
             ApplyOrdinaryRenderUIParam( Cfg().ordinaryRender, uiCommands.renderTuning.requestedParam, uiCommands.renderTuning.requestedValue );

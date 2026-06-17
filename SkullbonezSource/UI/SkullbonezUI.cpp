@@ -307,6 +307,7 @@ constexpr float UI_RENDER_FEATURE_START_Y = 48.0f;
 constexpr float UI_RENDER_START_Y = 118.0f;
 constexpr float UI_RENDER_SECTION_H = 28.0f;
 constexpr float UI_RENDER_ROW_H = 42.0f;
+constexpr float UI_RENDER_SAVE_BUTTON_W = 126.0f;
 
 struct RenderSliderSpec
 {
@@ -1459,6 +1460,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         break;
     case InGameUITab::Render:
         DrawHitboxRect( draw, m_renderShadowToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_saveRenderDefaultsButton.Bounds(), contentR, contentG, contentB );
         for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
         {
             DrawHitboxRect( draw, m_renderSliders[i].Bounds(), contentR, contentG, contentB );
@@ -1876,10 +1878,16 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
             bool capturedSlider = false;
 
-            m_renderShadowToggle.SetBounds( contentX, scrolledY + UI_RENDER_FEATURE_START_Y, (std::max)( 148.0f, contentW * 0.46f ), 24.0f );
+            const float colW = (std::max)( 148.0f, contentW * 0.46f );
+            m_renderShadowToggle.SetBounds( contentX, scrolledY + UI_RENDER_FEATURE_START_Y, colW, 24.0f );
+            m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W, scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
             if ( m_renderShadowToggle.HitTest( m_mouseX, m_mouseY ) )
             {
                 result.commands.renderTuning.toggleShadows = true;
+            }
+            else if ( m_saveRenderDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.commands.renderTuning.saveDefaults = true;
             }
             else
             {
@@ -2328,6 +2336,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                            colW,
                            "Shadows",
                            data.ordinaryRender.shadowsEnabled );
+        m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W, scrolledY + UI_RENDER_FEATURE_START_Y, UI_RENDER_SAVE_BUTTON_W, 24.0f );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
+        {
+            m_saveRenderDefaultsButton.Draw( draw, "Save CFG", m_mouseX, m_mouseY );
+        }
 
         const float baseY = scrolledY + UI_RENDER_START_Y;
         for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )

@@ -252,6 +252,7 @@ struct UICinematicCommands
 struct UIRenderCommands
 {
     bool toggleShadows = false;
+    bool saveDefaults = false;
     UIRenderParam requestedParam = UIRenderParam::None;
     float requestedValue = 0.0f;
 };

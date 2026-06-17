@@ -200,6 +200,111 @@ void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64
         SetSceneDirective( lines, "cinematic_basin_mask", buf, true );
     }
 }
+
+bool ConfigLineMatchesKey( const std::string& line, const char* key )
+{
+    size_t start = line.find_first_not_of( " \t" );
+    if ( start == std::string::npos || line[start] == '#' )
+    {
+        return false;
+    }
+
+    const size_t keyLen = strlen( key );
+    if ( line.compare( start, keyLen, key ) != 0 )
+    {
+        return false;
+    }
+
+    size_t pos = start + keyLen;
+    while ( pos < line.size() && ( line[pos] == ' ' || line[pos] == '\t' ) )
+    {
+        ++pos;
+    }
+    return pos < line.size() && line[pos] == '=';
+}
+
+bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const std::string& value )
+{
+    const std::string lineText = std::string( key ) + " = " + value;
+    bool replaced = false;
+    for ( size_t i = 0; i < lines.size(); )
+    {
+        if ( ConfigLineMatchesKey( lines[i], key ) )
+        {
+            if ( !replaced )
+            {
+                lines[i] = lineText;
+                replaced = true;
+                ++i;
+            }
+            else
+            {
+                lines.erase( lines.begin() + static_cast<std::ptrdiff_t>( i ) );
+            }
+            continue;
+        }
+        ++i;
+    }
+    return replaced;
+}
+
+size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
+{
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Ordinary rendering" ) != std::string::npos )
+        {
+            size_t sectionBody = i + 1;
+            while ( sectionBody < lines.size() &&
+                    ( lines[sectionBody].empty() ||
+                      lines[sectionBody].find( "# ---------------------------------------------------------------------------" ) != std::string::npos ) )
+            {
+                ++sectionBody;
+            }
+
+            for ( size_t j = sectionBody; j < lines.size(); ++j )
+            {
+                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) != std::string::npos )
+                {
+                    return j;
+                }
+            }
+            return lines.size();
+        }
+    }
+
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
+        {
+            return i > 1 ? i - 1 : i;
+        }
+    }
+    return lines.size();
+}
+
+void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
+{
+    if ( missing.empty() )
+    {
+        return;
+    }
+
+    std::vector<std::string> insertLines;
+    const bool hasOrdinarySection = std::any_of( lines.begin(), lines.end(), []( const std::string& line )
+                                                 { return line.find( "Ordinary rendering" ) != std::string::npos; } );
+    if ( !hasOrdinarySection )
+    {
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+        insertLines.push_back( "# Ordinary rendering" );
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+    }
+    insertLines.insert( insertLines.end(), missing.begin(), missing.end() );
+    insertLines.push_back( "" );
+
+    const size_t insertIndex = OrdinaryConfigInsertIndex( lines );
+    lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
+}
 } // namespace
 
 void SkullbonezRun::SetUpGameModels( int count )
@@ -1344,6 +1449,103 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         return false;
     }
 
+    for ( const std::string& outLine : lines )
+    {
+        output << outLine << '\n';
+    }
+    return output.good();
+}
+
+
+bool SkullbonezRun::SaveRenderDefaults()
+{
+    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    std::ifstream input( configPath );
+    if ( !input )
+    {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        if ( !line.empty() && line.back() == '\r' )
+        {
+            line.pop_back();
+        }
+        lines.push_back( line );
+    }
+
+    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+    std::vector<std::string> missing;
+    char buf[128] = {};
+
+    const auto setText = [&]( const char* key, const char* value )
+    {
+        const std::string lineText = std::string( key ) + " = " + value;
+        if ( !ReplaceConfigLine( lines, key, value ) )
+        {
+            missing.push_back( lineText );
+        }
+    };
+    const auto setBool = [&]( const char* key, bool value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
+        setText( key, buf );
+    };
+    const auto setInt = [&]( const char* key, int value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value );
+        setText( key, buf );
+    };
+    const auto setFloat = [&]( const char* key, float value, const char* format )
+    {
+        snprintf( buf, sizeof( buf ), format, value );
+        setText( key, buf );
+    };
+
+    setFloat( "ordinary_sun_intensity", ordinary.sunIntensity, "%.2f" );
+    setFloat( "ordinary_sun_color_r", ordinary.sunColorR, "%.2f" );
+    setFloat( "ordinary_sun_color_g", ordinary.sunColorG, "%.2f" );
+    setFloat( "ordinary_sun_color_b", ordinary.sunColorB, "%.2f" );
+    setFloat( "ordinary_ambient_strength", ordinary.ambientStrength, "%.2f" );
+    setFloat( "ordinary_sky_ambient_r", ordinary.skyAmbientR, "%.2f" );
+    setFloat( "ordinary_sky_ambient_g", ordinary.skyAmbientG, "%.2f" );
+    setFloat( "ordinary_sky_ambient_b", ordinary.skyAmbientB, "%.2f" );
+    setFloat( "ordinary_ground_ambient_r", ordinary.groundAmbientR, "%.2f" );
+    setFloat( "ordinary_ground_ambient_g", ordinary.groundAmbientG, "%.2f" );
+    setFloat( "ordinary_ground_ambient_b", ordinary.groundAmbientB, "%.2f" );
+    setBool( "ordinary_shadows", ordinary.shadowsEnabled );
+    setBool( "ordinary_shadow_terrain_casts", ordinary.shadowTerrainCasts );
+    setBool( "ordinary_shadow_objects_cast", ordinary.shadowObjectsCast );
+    setBool( "ordinary_shadow_terrain_receives", ordinary.shadowTerrainReceives );
+    setBool( "ordinary_shadow_objects_receive", ordinary.shadowObjectsReceive );
+    setInt( "ordinary_shadow_map_size", ordinary.shadowMapSize );
+    setInt( "ordinary_shadow_pcf_radius", ordinary.shadowPcfRadius );
+    setFloat( "ordinary_shadow_strength", ordinary.shadowStrength, "%.2f" );
+    setFloat( "ordinary_shadow_softness", ordinary.shadowSoftness, "%.2f" );
+    setFloat( "ordinary_shadow_depth_bias", ordinary.shadowDepthBias, "%.5f" );
+    setFloat( "ordinary_shadow_slope_bias", ordinary.shadowSlopeBias, "%.5f" );
+    setFloat( "ordinary_shadow_max_distance", ordinary.shadowMaxDistance, "%.1f" );
+    setFloat( "ordinary_water_tint_r", ordinary.waterTintR, "%.3f" );
+    setFloat( "ordinary_water_tint_g", ordinary.waterTintG, "%.3f" );
+    setFloat( "ordinary_water_tint_b", ordinary.waterTintB, "%.3f" );
+    setFloat( "ordinary_water_alpha", ordinary.waterAlpha, "%.2f" );
+    setFloat( "ordinary_water_reflection_strength", ordinary.waterReflectionStrength, "%.2f" );
+    setFloat( "ordinary_water_fresnel_f0", ordinary.waterFresnelF0, "%.3f" );
+    setFloat( "ordinary_ball_roughness_scale", ordinary.ballRoughnessScale, "%.2f" );
+    setFloat( "ordinary_ball_specular_scale", ordinary.ballSpecularScale, "%.2f" );
+    setFloat( "ordinary_box_roughness_scale", ordinary.boxRoughnessScale, "%.2f" );
+    setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
+
+    AppendMissingOrdinaryConfigLines( lines, missing );
+
+    std::ofstream output( configPath, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
     for ( const std::string& outLine : lines )
     {
         output << outLine << '\n';
