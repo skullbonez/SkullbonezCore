@@ -39,7 +39,7 @@ queue state, this task was run as an explicit ad hoc orchestrated plan on branch
 
 The plan is now archived under `Agentic/Plans/Done/`.
 
-## Orchestration Ledger
+## Mandatory Orchestration Ledger
 
 Local ledger path:
 
@@ -68,14 +68,14 @@ not as authoritative state-machine telemetry.
 Agent accounting:
 
 ```text
-External implementation worker agents: 0
-Main-agent implementation/orchestration: about 44 minutes from branch checkout to report drafting
+Worker agents: `0` external implementation worker run(s); main-agent implementation/orchestration took about 44 minutes from branch checkout to report drafting
 Explorer agents: 2 read-only mapping agents before final implementation
-Rubber-duck verifier agents: 1 verifier agent, 3 feedback rounds
-Verifier duration: about 3 minutes total
-Validation duration counted from timed commands: about 252 seconds
-Finalization duration: about 3 minutes for plan archive, report commit, and push
+Rubber ducks: `1` verifier agent, `3` feedback rounds, about 3 minutes total
+Validation gates: focused/final timed commands, about 252 seconds total
+Finalization: about 3 minutes for plan archive, report commit, and push
 ```
+
+## Minute Ledger
 
 Retrospective approximate minute ledger:
 

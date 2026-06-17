@@ -2460,6 +2460,13 @@ def command_doctor(args: argparse.Namespace) -> int:
 REPORT_RE = re.compile(r"^Agentic/Reports/\d{4}-\d{2}-\d{2}/[^/]+/report\.md$")
 IMAGE_RE = re.compile(r"^Agentic/Reports/\d{4}-\d{2}-\d{2}/[^/]+/images/[^/]+\.(?:png|jpg|jpeg)$", re.I)
 MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+LEDGER_REQUIRED_MARKERS = (
+    "Mandatory Orchestration Ledger",
+    "Worker agents:",
+    "Rubber ducks:",
+    "Validation gates:",
+    "## Minute Ledger",
+)
 
 
 def files_from_git(repo: Path, mode: str, rev: str) -> list[str]:
@@ -2490,6 +2497,20 @@ def read_report_text_for_check(repo: Path, path: str, commit: str | None) -> str
     return read_text_file(report_path)
 
 
+def validate_report_has_orchestration_ledger(report_text: str, report_path: str) -> None:
+    missing = [marker for marker in LEDGER_REQUIRED_MARKERS if marker not in report_text]
+    if "{{orchestration_ledger}}" in report_text:
+        missing.append("rendered orchestration ledger body")
+    if missing:
+        raise OrchestratorError(
+            f"Report is missing mandatory orchestration ledger content in {report_path}: "
+            + ", ".join(missing)
+            + ". Run `tools\\orchestrator.bat report-draft <item-id>` or "
+            + "`tools\\orchestrator.bat finalize <item-id>` so Python writes "
+            + "`orchestration-ledger.md` and embeds it in the report."
+        )
+
+
 def command_report_check(args: argparse.Namespace) -> int:
     try:
         files = [path.replace("\\", "/") for path in args.files]
@@ -2512,6 +2533,7 @@ def command_report_check(args: argparse.Namespace) -> int:
         report_text = read_report_text_for_check(args.repo, report_files[0], args.commit)
         if "\x00" in report_text:
             raise OrchestratorError(f"Report contains embedded NUL bytes: {report_files[0]}")
+        validate_report_has_orchestration_ledger(report_text, report_files[0])
         for image in image_files:
             image_name = Path(image).name
             if f"images/{image_name}" not in report_text:
@@ -3562,6 +3584,35 @@ def command_self_test(args: argparse.Namespace) -> int:
         args.files = referenced
         args.commit = None
         args.diff_range = None
+        if command_report_check(args) == 0:
+            print("ERROR: self-test report-check accepted a report without the mandatory orchestration ledger.")
+            return 1
+
+        good_report = "\n".join(
+            [
+                "# Roadmap Item Report: item",
+                "",
+                "![Image](images/a.png)",
+                "",
+                "## Mandatory Orchestration Ledger",
+                "",
+                "# Mandatory Orchestration Ledger",
+                "",
+                "- Worker agents: `0` run(s), `0s` total",
+                "- Rubber ducks: `1` verifier run(s), `1s` total",
+                "- Validation gates: `1` run(s), `1s` total",
+                "",
+                "## Minute Ledger",
+                "",
+                "| Minute | Window | Accounted To | Activity | Detail |",
+                "|---:|---|---|---|---|",
+                "| 1 | now | Validation | self-test | ledger present |",
+                "",
+            ]
+        )
+        (report_dir / "report.md").write_text(good_report, encoding="utf-8")
+        referenced = [repo_relative(repo, path).replace("\\", "/") for path in referenced_report_files(repo, report_dir / "report.md")]
+        args.files = referenced
         if command_report_check(args) != 0:
             return 1
         init = run_git(repo, ["init"])
