@@ -1142,7 +1142,6 @@ void SkullbonezRun::TakeInput()
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
             SceneState().timeScale = m_UITimeScaleOverride;
-            m_simulation.Reset();
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {
