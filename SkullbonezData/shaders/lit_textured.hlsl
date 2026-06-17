@@ -90,7 +90,7 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialDiffuse;  // Material diffuse response
     float4   uCinematicTerrain; // enable, relief, basin depth, rim lift
     float4   uCinematicBasin;   // center x/z, radius x/z
-    float4   uStyleModes;       // sky, terrain, object, water
+    float4   uStyleModes;       // cinematic flag, terrain, object, water
     float4   uTerrainTint;      // rgb tint
     float4   uTerrainAccent;    // rgb accent
     float4   uTerrainGrid;      // scale, strength, unused, unused
@@ -123,6 +123,7 @@ struct VS_OUT
     float3 normal    : TEXCOORD1;       // Normal in view space (for lighting)
     float2 texCoord  : TEXCOORD2;       // UV passed through to pixel shader
     float3 worldPos  : TEXCOORD3;       // World-space position for cinematic terrain shaping
+    float3 worldNormal : TEXCOORD4;     // World-space normal for ordinary hemisphere ambient
 };
 
 float BasinDistance(float2 xz)
@@ -344,10 +345,13 @@ VS_OUT main_vs(VS_IN input)
         float3 baseWorldNormal = normalize(mul((float3x3)uModel, input.normal));
         float3 worldNormal = normalize(lerp(baseWorldNormal, reliefNormal, saturate(uCinematicTerrain.y)));
         output.normal = mul((float3x3)uView, worldNormal);
+        output.worldNormal = worldNormal;
     }
     else
     {
+        float3 worldNormal = mul((float3x3)uModel, input.normal);
         output.normal = mul((float3x3)modelView, input.normal);
+        output.worldNormal = worldNormal;
     }
     output.texCoord = input.texCoord;
 
@@ -367,12 +371,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     else
         L = normalize(uLightPosition.xyz - input.viewPos);
 
-    // Ambient: constant minimum light.
-    float3 ambient = uLightAmbient.rgb * uMaterialAmbient.rgb;
-
     // Diffuse: Lambert's cosine law.
     float diff = max(dot(N, L), 0.0);
-    float3 diffuse = uLightDiffuse.rgb * uMaterialDiffuse.rgb * diff;
 
     // Specular: mirror highlight (Phong model).
     float3 R = reflect(-L, N);
@@ -382,11 +382,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // Sample the base color texture through the shader's bound sampler.
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
 
-    if (uLightPosition.w == 0.0f)
+    bool cinematicMode = uStyleModes.x > 0.5f;
+    if (cinematicMode)
     {
-        // w=0 is how the C++ render path tells this shader "cinematic sun mode".
-        // The terrain then gets a warmer, more photographic grade instead of the
-        // neutral gameplay Phong lighting.
+        // Cinematic terrain keeps its authored warm grade; directional light
+        // selection itself is independent and remains controlled by
+        // uLightPosition.w above.
         int terrainMode = (int)floor(uStyleModes.y + 0.5f);
         float3 terrainN = N;
         if (terrainMode == 7)
@@ -440,5 +441,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
 
     float shadowFactor = ShadowVisibility(input.worldPos, N, L);
-    return float4((ambient + diffuse * shadowFactor) * texColor.rgb + specular * shadowFactor, 1.0);
+    float3 worldN = normalize(input.worldNormal);
+    float hemiT = saturate(worldN.y * 0.5f + 0.5f);
+    float3 hemiAmbient = lerp(uMaterialAmbient.rgb, uLightAmbient.rgb, hemiT) * max(uLightAmbient.a, 0.0f);
+    float3 ambient = texColor.rgb * hemiAmbient;
+    float3 direct = texColor.rgb * uLightDiffuse.rgb * uMaterialDiffuse.rgb * diff * shadowFactor;
+    return float4(ambient + direct + specular * shadowFactor, 1.0);
 }

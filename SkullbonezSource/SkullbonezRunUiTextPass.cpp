@@ -238,6 +238,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
                                       m_run.m_sceneRuntime.HasCurrentEntry() &&
                                       !m_run.m_sceneRuntime.CurrentPath()->empty();
         UIData.cinematicRendering = m_run.IsCinematicRenderingEnabled();
+        UIData.ordinaryRender = Cfg().ordinaryRender;
         UIData.cinematic = m_run.ActiveCinematicConfig();
         PROFILE_END( "Frame/UI/BuildData" );
 

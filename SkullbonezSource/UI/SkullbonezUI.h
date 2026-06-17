@@ -54,6 +54,7 @@ enum class InGameUITab
     Scene,
     Physics,
     Options,
+    Render,
     Keys,
     Cinematic,
     Count
@@ -131,6 +132,7 @@ struct InGameUIFrameData
     bool nativeCursorVisible = false;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
+    Basics::OrdinaryRenderConfig ordinaryRender;
     Basics::CinematicRenderConfig cinematic;
 };
 
@@ -189,6 +191,8 @@ class InGameUI
     UIComboBox m_sceneCombo;
     UIComboBox m_cineSceneCombo;
     UICheckBox m_cinematicMasterToggle;
+    UICheckBox m_renderShadowToggle;
+    UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
     UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];
     UIBackdropBlur m_backdropBlur;

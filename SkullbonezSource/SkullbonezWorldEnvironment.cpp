@@ -142,6 +142,19 @@ WaterStyleParams WorldEnvironment::BuildCalmWaterStyle( bool cinematic, const Sk
         style.reflectionStrength = cinematicStyle.waterReflectionStrength;
         style.glintStrength = cinematicStyle.waterGlintStrength;
     }
+    else
+    {
+        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+        style.tintR = ordinary.waterTintR;
+        style.tintG = ordinary.waterTintG;
+        style.tintB = ordinary.waterTintB;
+        style.alpha = ordinary.waterAlpha;
+        style.reflectionStrength = ordinary.waterReflectionStrength;
+        style.fresnelF0 = ordinary.waterFresnelF0;
+        style.sunR = ordinary.sunColorR;
+        style.sunG = ordinary.sunColorG;
+        style.sunB = ordinary.sunColorB;
+    }
 
     return style;
 }
@@ -169,23 +182,30 @@ WaterStyleParams WorldEnvironment::BuildOceanWaterStyle( bool cinematic, const S
     }
     else
     {
-        style.tintR = 0.02f;
-        style.tintG = 0.10f;
-        style.tintB = 0.35f;
-        style.alpha = 0.72f;
-        style.reflectionStrength = 0.25f;
+        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+        style.tintR = ordinary.waterTintR;
+        style.tintG = ordinary.waterTintG;
+        style.tintB = ordinary.waterTintB;
+        style.alpha = ordinary.waterAlpha;
+        style.reflectionStrength = ordinary.waterReflectionStrength;
+        style.fresnelF0 = ordinary.waterFresnelF0;
+        style.sunR = ordinary.sunColorR;
+        style.sunG = ordinary.sunColorG;
+        style.sunB = ordinary.sunColorB;
     }
 
     return style;
 }
 
 
-void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const WaterReflectionInput& reflection ) const
+void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const Vector3& cameraWorld, const WaterReflectionInput& reflection ) const
 {
     shader.SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     shader.SetMat4( "uReflectVP", reflection.sampleViewProjection );
     shader.SetVec4( "uColorTint", style.tintR, style.tintG, style.tintB, style.alpha );
     shader.SetFloat( "uReflectionStrength", style.reflectionStrength );
+    shader.SetFloat( "uWaterFresnelF0", style.fresnelF0 );
+    shader.SetVec3( "uCameraWorld", cameraWorld.x, cameraWorld.y, cameraWorld.z );
     shader.SetInt( "uNoReflect", reflection.noReflection ? 1 : 0 );
     shader.SetFloat( "uCinematicMode", style.cinematic ? 1.0f : 0.0f );
     shader.SetVec3( "uSunColor", style.sunR, style.sunG, style.sunB );
@@ -212,6 +232,7 @@ void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader, const Wa
 
 void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     const Matrix4& proj,
+                                    const Vector3& cameraWorld,
                                     const WaterReflectionInput& reflection,
                                     float time,
                                     bool flatWater,
@@ -238,7 +259,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_calmShader->Use();
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
-    BindCommonWaterStyle( *m_calmShader, calmStyle, reflection );
+    BindCommonWaterStyle( *m_calmShader, calmStyle, cameraWorld, reflection );
     BindCalmWaterStyle( *m_calmShader, calmStyle );
     m_calmMesh->Draw();
 
@@ -254,7 +275,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uView", view );
     m_oceanShader->SetMat4( "uProjection", proj );
-    BindCommonWaterStyle( *m_oceanShader, oceanStyle, reflection );
+    BindCommonWaterStyle( *m_oceanShader, oceanStyle, cameraWorld, reflection );
     BindOceanWaterStyle( *m_oceanShader, oceanStyle, time, flatWater );
     m_oceanMesh->Draw();
 }
@@ -367,6 +388,8 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
+    m_calmShader->SetFloat( "uWaterFresnelF0", Cfg().ordinaryRender.waterFresnelF0 );
+    m_calmShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
     m_calmShader->SetInt( "uWaterMode", WaterModeUniformValue( WaterMode::Ocean ) );
@@ -382,6 +405,8 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader->SetFloat( "uWaveHeight", Cfg().oceanWaveHeight );
     m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
     m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
+    m_oceanShader->SetFloat( "uWaterFresnelF0", Cfg().ordinaryRender.waterFresnelF0 );
+    m_oceanShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
     m_oceanShader->SetFloat( "uCinematicMode", 0.0f );
     m_oceanShader->SetVec3( "uSunColor", Cfg().cinematicRender.sunColorR, Cfg().cinematicRender.sunColorG, Cfg().cinematicRender.sunColorB );

@@ -1,8 +1,9 @@
 # Non-Cinematic Photoreal Lighting Plan
 
-Status: proposed  
-Created: 2026-06-16  
-Branch: `codex/dx12-render-graph-completion`  
+Status: implemented and validated
+Created: 2026-06-16
+Completed: 2026-06-17
+Branch: `codex/non-cinematic-photoreal-lighting`
 Scope: ordinary DX12 lighting, object materials, terrain lighting, shadow
 receivers, water reflection, color management, live render controls, and demo
 material calibration
@@ -146,9 +147,16 @@ The plan is complete when:
 - `dx12_validation.txt` reports zero DX12 validation errors,
 - DX12 screenshot comparison passes.
 
+Implementation note, 2026-06-17: the ordinary path now uses runtime ordinary
+render configuration, an in-game Render tab, PBR-style object lighting,
+hemisphere ambient for objects and terrain, direct-light-only shadowing, and
+Fresnel-weighted ordinary water. The color-space work completed as an audit:
+ordinary DX12 output remains on the documented UNORM path with no extra
+cinematic tonemap or gamma pass applied.
+
 ## Phase 0: Baseline And Audit
 
-Status: not started
+Status: complete
 
 Goal: create a stable before/after reference and confirm the exact ordinary
 render path before touching shader math.
@@ -204,7 +212,7 @@ Commit boundary:
 
 ## Phase 1: Live Ordinary Render Controls Tab
 
-Status: not started
+Status: complete
 
 Goal: add a dedicated in-game Render tab for ordinary, non-cinematic lighting
 controls so the demo scene can be tuned live.
@@ -331,7 +339,7 @@ Extra review points:
 
 ## Phase 2: Object PBR Foundation
 
-Status: not started
+Status: complete
 
 Goal: replace ordinary object Phong/material-mode lighting with a compact,
 energy-aware BRDF while keeping existing batching and material payloads.
@@ -399,7 +407,7 @@ Rollback:
 
 ## Phase 3: Hemispherical Ambient For Objects And Terrain
 
-Status: not started
+Status: complete
 
 Goal: replace flat ambient with plausible sky/ground fill in ordinary mode.
 
@@ -458,7 +466,7 @@ Extra review points:
 
 ## Phase 4: Shadow Direct-Light Separation And Contact Quality
 
-Status: not started
+Status: complete
 
 Goal: make shadows physically meaningful by applying shadow visibility only to
 direct light, while ambient fill remains unshadowed.
@@ -513,7 +521,7 @@ Extra review points:
 
 ## Phase 5: Fresnel Water And Reflection Calibration
 
-Status: not started
+Status: complete
 
 Goal: make ordinary water respond to view angle and reflected scene intensity
 instead of fixed reflection blending and fake glints.
@@ -567,7 +575,7 @@ Extra review points:
 
 ## Phase 6: Ordinary Color Management Audit And Fix
 
-Status: not started
+Status: complete
 
 Goal: make ordinary rendering use one intentional color-space path from texture
 load to lighting math to presented pixels.
@@ -626,7 +634,7 @@ Extra review points:
 
 ## Phase 7: Beachball And Box Material Calibration
 
-Status: not started
+Status: complete
 
 Goal: make the default generated objects read as plausible real materials after
 the lighting model is fixed.
@@ -684,7 +692,7 @@ Commit boundary:
 
 ## Phase 8: Baseline Updates And Final Renderer Report
 
-Status: not started
+Status: complete
 
 Goal: intentionally update visual expectations after the photoreal ordinary path
 is stable.
@@ -802,21 +810,21 @@ Preferred initial answers:
 
 ## Final Acceptance Checklist
 
-- [ ] Current non-cinematic demo has before/after reference captures.
-- [ ] In-game UI has a Render tab for live ordinary lighting/material tuning.
-- [ ] Render-tab controls mutate ordinary render settings without resetting
+- [x] Current non-cinematic demo has before/after reference captures.
+- [x] In-game UI has a Render tab for live ordinary lighting/material tuning.
+- [x] Render-tab controls mutate ordinary render settings without resetting
       physics or reloading the scene.
-- [ ] Ordinary object shader uses roughness/specular/metallic in a PBR-style
+- [x] Ordinary object shader uses roughness/specular/metallic in a PBR-style
       direct-light equation.
-- [ ] Procedural beachball color remains crisp but no longer uses hard-coded
+- [x] Procedural beachball color remains crisp but no longer uses hard-coded
       ordinary rim/glint lighting.
-- [ ] Terrain and objects share a compatible sun plus sky/ground ambient model.
-- [ ] Shadow visibility affects direct light only.
-- [ ] Water reflection uses Fresnel weighting in ordinary mode.
-- [ ] Ordinary color-space path is documented and has no known double-gamma or
+- [x] Terrain and objects share a compatible sun plus sky/ground ambient model.
+- [x] Shadow visibility affects direct light only.
+- [x] Water reflection uses Fresnel weighting in ordinary mode.
+- [x] Ordinary color-space path is documented and has no known double-gamma or
       missing-gamma issue.
-- [ ] Default generated balls and boxes have plausible non-metal material
+- [x] Default generated balls and boxes have plausible non-metal material
       defaults.
-- [ ] Intentional DX12 screenshot baseline changes are recorded.
-- [ ] `dx12_validation.txt` reports zero DX12 validation errors.
-- [ ] `tools\validate_dx12_renderer.bat` passes for the final renderer slice.
+- [x] Intentional DX12 screenshot baseline changes are recorded.
+- [x] `dx12_validation.txt` reports zero DX12 validation errors.
+- [x] `tools\validate_dx12_renderer.bat` passes for the final renderer slice.

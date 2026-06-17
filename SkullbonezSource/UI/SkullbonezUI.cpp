@@ -166,6 +166,32 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.nativeCursorVisible );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
+    hash = HashBool( hash, data.ordinaryRender.shadowsEnabled );
+    hash = HashFloat( hash, data.ordinaryRender.sunIntensity, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.sunColorR, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.sunColorG, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.sunColorB, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.ambientStrength, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.skyAmbientR, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.skyAmbientG, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.skyAmbientB, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.groundAmbientR, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.groundAmbientG, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.groundAmbientB, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadowStrength, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadowSoftness, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadowDepthBias, 100000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.shadowSlopeBias, 100000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterTintR, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterTintG, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterTintB, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterAlpha, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterReflectionStrength, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.waterFresnelF0, 10000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.ballRoughnessScale, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.ballSpecularScale, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.boxRoughnessScale, 1000.0f );
+    hash = HashFloat( hash, data.ordinaryRender.boxSpecularScale, 1000.0f );
     hash = HashBool( hash, data.cinematic.enabled );
     hash = HashBool( hash, data.cinematic.skyAtmosphereEnabled );
     hash = HashBool( hash, data.cinematic.cloudsEnabled );
@@ -275,6 +301,53 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
     }
     return data.waterRTReflect ? 1 : 0;
 }
+
+constexpr int UI_RENDER_SLIDER_BASE = 6000;
+constexpr float UI_RENDER_FEATURE_START_Y = 48.0f;
+constexpr float UI_RENDER_START_Y = 118.0f;
+constexpr float UI_RENDER_SECTION_H = 28.0f;
+constexpr float UI_RENDER_ROW_H = 42.0f;
+
+struct RenderSliderSpec
+{
+    const char* section;
+    const char* label;
+    UIRenderParam param;
+    float minValue;
+    float maxValue;
+    float step;
+    const char* valueFormat;
+};
+
+constexpr RenderSliderSpec kRenderSliderSpecs[] = {
+    { "Light", "Sun intensity", UIRenderParam::SunIntensity, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { nullptr, "Sun R", UIRenderParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Sun G", UIRenderParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Sun B", UIRenderParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Ambient", UIRenderParam::AmbientStrength, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { "Sky Ambient", "Sky R", UIRenderParam::SkyRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Sky G", UIRenderParam::SkyGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Sky B", UIRenderParam::SkyBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { "Ground Ambient", "Ground R", UIRenderParam::GroundRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground G", UIRenderParam::GroundGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground B", UIRenderParam::GroundBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { "Shadows", "Strength", UIRenderParam::ShadowStrength, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Softness", UIRenderParam::ShadowSoftness, 0.25f, 4.00f, 0.01f, "%.2f" },
+    { nullptr, "Depth bias", UIRenderParam::ShadowDepthBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
+    { nullptr, "Slope bias", UIRenderParam::ShadowSlopeBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
+    { "Water", "Water R", UIRenderParam::WaterRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water G", UIRenderParam::WaterGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water B", UIRenderParam::WaterBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Alpha", UIRenderParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Reflection", UIRenderParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Fresnel F0", UIRenderParam::WaterFresnel, 0.000f, 0.120f, 0.001f, "%.3f" },
+    { "Materials", "Ball roughness", UIRenderParam::BallRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Ball specular", UIRenderParam::BallSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Box roughness", UIRenderParam::BoxRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Box specular", UIRenderParam::BoxSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
+};
+static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) == static_cast<int>( UIRenderParam::Count ),
+               "Render slider specs must match UIRenderParam." );
 
 constexpr int UI_CINEMATIC_SLIDER_BASE = 5000;
 constexpr int UI_CINE_SCENE_MAX_OPTIONS = 32;
@@ -644,6 +717,109 @@ void DrawWhatsNewTab( UICheckBox toggles[3],
         statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
         DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "DX12 screenshots must remain under this average pixel difference." );
     }
+}
+
+int RenderSliderIndexFromActiveSlider( int activeSlider )
+{
+    const int index = activeSlider - UI_RENDER_SLIDER_BASE;
+    return ( index >= 0 && index < static_cast<int>( UIRenderParam::Count ) ) ? index : -1;
+}
+
+float RenderSliderY( int index, float baseY )
+{
+    float y = baseY;
+    for ( int i = 0; i <= index; ++i )
+    {
+        if ( kRenderSliderSpecs[i].section )
+        {
+            y += UI_RENDER_SECTION_H;
+        }
+        if ( i == index )
+        {
+            return y;
+        }
+        y += UI_RENDER_ROW_H;
+    }
+    return y;
+}
+
+int RenderContentHeight()
+{
+    float height = UI_RENDER_START_Y;
+    for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
+    {
+        if ( kRenderSliderSpecs[i].section )
+        {
+            height += UI_RENDER_SECTION_H;
+        }
+        height += UI_RENDER_ROW_H;
+    }
+    return static_cast<int>( height + 18.0f );
+}
+
+float RenderValueForParam( const OrdinaryRenderConfig& ordinary, UIRenderParam param )
+{
+    switch ( param )
+    {
+    case UIRenderParam::SunIntensity:
+        return ordinary.sunIntensity;
+    case UIRenderParam::SunRed:
+        return ordinary.sunColorR;
+    case UIRenderParam::SunGreen:
+        return ordinary.sunColorG;
+    case UIRenderParam::SunBlue:
+        return ordinary.sunColorB;
+    case UIRenderParam::AmbientStrength:
+        return ordinary.ambientStrength;
+    case UIRenderParam::SkyRed:
+        return ordinary.skyAmbientR;
+    case UIRenderParam::SkyGreen:
+        return ordinary.skyAmbientG;
+    case UIRenderParam::SkyBlue:
+        return ordinary.skyAmbientB;
+    case UIRenderParam::GroundRed:
+        return ordinary.groundAmbientR;
+    case UIRenderParam::GroundGreen:
+        return ordinary.groundAmbientG;
+    case UIRenderParam::GroundBlue:
+        return ordinary.groundAmbientB;
+    case UIRenderParam::ShadowStrength:
+        return ordinary.shadowStrength;
+    case UIRenderParam::ShadowSoftness:
+        return ordinary.shadowSoftness;
+    case UIRenderParam::ShadowDepthBias:
+        return ordinary.shadowDepthBias;
+    case UIRenderParam::ShadowSlopeBias:
+        return ordinary.shadowSlopeBias;
+    case UIRenderParam::WaterRed:
+        return ordinary.waterTintR;
+    case UIRenderParam::WaterGreen:
+        return ordinary.waterTintG;
+    case UIRenderParam::WaterBlue:
+        return ordinary.waterTintB;
+    case UIRenderParam::WaterAlpha:
+        return ordinary.waterAlpha;
+    case UIRenderParam::WaterReflection:
+        return ordinary.waterReflectionStrength;
+    case UIRenderParam::WaterFresnel:
+        return ordinary.waterFresnelF0;
+    case UIRenderParam::BallRoughness:
+        return ordinary.ballRoughnessScale;
+    case UIRenderParam::BallSpecular:
+        return ordinary.ballSpecularScale;
+    case UIRenderParam::BoxRoughness:
+        return ordinary.boxRoughnessScale;
+    case UIRenderParam::BoxSpecular:
+        return ordinary.boxSpecularScale;
+    default:
+        return 0.0f;
+    }
+}
+
+void SetRenderSliderResult( InGameUIInputResult& result, const UISlider& slider, int mouseX, const RenderSliderSpec& spec )
+{
+    result.commands.renderTuning.requestedParam = spec.param;
+    result.commands.renderTuning.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
 }
 
 bool IsCineSceneOptionName( const char* name )
@@ -1281,6 +1457,13 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Render:
+        DrawHitboxRect( draw, m_renderShadowToggle.Bounds(), contentR, contentG, contentB );
+        for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
+        {
+            DrawHitboxRect( draw, m_renderSliders[i].Bounds(), contentR, contentG, contentB );
+        }
+        break;
     case InGameUITab::Keys:
         DrawHitboxRect( draw, m_controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
@@ -1339,6 +1522,8 @@ int InGameUI::ContentHeight() const
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
+    case InGameUITab::Render:
+        return RenderContentHeight();
     case InGameUITab::Cinematic:
         return CinematicContentHeight();
     default:
@@ -1684,6 +1869,42 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
         }
+        else if ( inContent && m_activeTab == InGameUITab::Render )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            bool capturedSlider = false;
+
+            m_renderShadowToggle.SetBounds( contentX, scrolledY + UI_RENDER_FEATURE_START_Y, (std::max)( 148.0f, contentW * 0.46f ), 24.0f );
+            if ( m_renderShadowToggle.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.commands.renderTuning.toggleShadows = true;
+            }
+            else
+            {
+                const float rowBase = scrolledY + UI_RENDER_START_Y;
+                for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
+                {
+                    m_renderSliders[i].SetBounds( contentX, RenderSliderY( i, rowBase ), contentW, 34.0f );
+                    if ( m_renderSliders[i].HitTest( m_mouseX, m_mouseY ) )
+                    {
+                        m_activeSlider = UI_RENDER_SLIDER_BASE + i;
+                        SetRenderSliderResult( result, m_renderSliders[i], m_mouseX, kRenderSliderSpecs[i] );
+                        capturedSlider = true;
+                        break;
+                    }
+                }
+            }
+
+            if ( capturedSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            m_cineSceneCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Cinematic )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -1819,19 +2040,27 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
-            const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
-            if ( cinematicSlider >= 0 )
+            const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
+            if ( renderSlider >= 0 )
             {
-                SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+                SetRenderSliderResult( result, m_renderSliders[renderSlider], m_mouseX, kRenderSliderSpecs[renderSlider] );
             }
             else
             {
-                ControlsTab::UpdateActiveSlider( m_controlsTab,
-                                                 m_activeSlider,
-                                                 m_mouseX,
-                                                 m_lastSolverBallCount,
-                                                 m_lastSolverBoxCount,
-                                                 result );
+                const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
+                if ( cinematicSlider >= 0 )
+                {
+                    SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+                }
+                else
+                {
+                    ControlsTab::UpdateActiveSlider( m_controlsTab,
+                                                     m_activeSlider,
+                                                     m_mouseX,
+                                                     m_lastSolverBallCount,
+                                                     m_lastSolverBoxCount,
+                                                     result );
+                }
             }
         }
     }
@@ -1868,14 +2097,22 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         if ( !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
-            const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
-            if ( cinematicSlider >= 0 )
+            const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
+            if ( renderSlider >= 0 )
             {
-                SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+                SetRenderSliderResult( result, m_renderSliders[renderSlider], m_mouseX, kRenderSliderSpecs[renderSlider] );
             }
             else
             {
-                ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
+                const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
+                if ( cinematicSlider >= 0 )
+                {
+                    SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+                }
+                else
+                {
+                    ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
+                }
             }
         }
         m_activeSlider = 0;
@@ -2017,7 +2254,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "WHATS NEW", "Profile", "Scene", "Physics", "Options", "Controls", "Cine" };
+    static const char* kTabs[] = { "WHATS NEW", "Profile", "Scene", "Physics", "Options", "Render", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2076,6 +2313,39 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     else if ( m_activeTab == InGameUITab::Options )
     {
         OptionsTab::Draw( m_optionsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_activeSlider );
+    }
+    else if ( m_activeTab == InGameUITab::Render )
+    {
+        char buf[128];
+        const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Render" );
+        DrawContentToggle( draw,
+                           contentY,
+                           contentH,
+                           m_renderShadowToggle,
+                           contentX,
+                           scrolledY + UI_RENDER_FEATURE_START_Y,
+                           colW,
+                           "Shadows",
+                           data.ordinaryRender.shadowsEnabled );
+
+        const float baseY = scrolledY + UI_RENDER_START_Y;
+        for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
+        {
+            const RenderSliderSpec& spec = kRenderSliderSpecs[i];
+            const float sliderY = RenderSliderY( i, baseY );
+            if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
+            {
+                DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 12.0f, spec.section );
+            }
+            const float value = std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue, spec.maxValue );
+            snprintf( buf, sizeof( buf ), spec.valueFormat, value );
+            m_renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
+            if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
+            {
+                m_renderSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
+            }
+        }
     }
     else if ( m_activeTab == InGameUITab::Cinematic )
     {

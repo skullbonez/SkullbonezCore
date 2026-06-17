@@ -457,11 +457,9 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::ShadowPass::BuildTerra
     }
 
     // Shadow maps need a stable light-space camera. `lightDirectionWorld` is
-    // treated as the vector from the scene toward the light source. Cinematic
-    // rendering passes the authored sun direction; normal rendering passes the
-    // existing point-light position vector as a directional approximation. That
-    // keeps the feature available everywhere without rewriting the old lighting
-    // model into a true directional-light renderer.
+    // treated as the vector from the scene toward the light source. The visible
+    // ordinary and cinematic shaders use the same directional-sun contract, so
+    // shadow visibility blocks the direct light the BRDF is actually shading.
     Vector3 lightDir = NormalizeShadowLightDirection( lightDirectionWorld );
 
     const XZBounds terrainBounds = m_run.m_systems.terrain->GetXZBounds();
@@ -992,6 +990,7 @@ void SkullbonezRun::WaterPass::Render( const WaterPassInputs& inputs )
     Gfx().SetDepthWrite( false );
     m_run.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
                                            inputs.frame.projection,
+                                           inputs.frame.eye,
                                            reflectionInput,
                                            waterTime,
                                            inputs.flatWater,

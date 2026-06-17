@@ -56,6 +56,8 @@ cbuffer Uniforms : register(b0)
     float4x4 uReflectVP;           // Reflected camera View×Projection
     float4   uColorTint;           // Base water color (dark blue-green)
     float    uReflectionStrength;  // Reflection blend factor (0=tint, 1=mirror)
+    float    uWaterFresnelF0;      // Base reflectance for ordinary water
+    float3   uCameraWorld;         // Camera position for view-angle reflection
     int      uNoReflect;           // 1 = skip reflection, output flat tint
     float    uCinematicMode;       // 1 = warm sunset response
     int      uWaterMode;           // 1 = basin pool, 2 = full calm plane, 4 = stylized basin
@@ -79,6 +81,7 @@ struct VS_OUT
     float4 position       : SV_POSITION;
     float4 reflectClipPos : TEXCOORD0;   // Vertex in reflection camera's clip space
     float2 worldXZ        : TEXCOORD1;
+    float3 worldPos       : TEXCOORD2;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -90,8 +93,18 @@ VS_OUT main_vs(VS_IN input)
     output.position       = mul(uProjection, mul(uView, worldPos));
     output.reflectClipPos = mul(uReflectVP, mul(uModel, float4(input.position, 1.0)));
     output.worldXZ        = input.position.xz;
+    output.worldPos       = worldPos.xyz;
 
     return output;
+}
+
+float OrdinaryWaterReflectance(float3 worldPos, float3 normal)
+{
+    float3 V = normalize(uCameraWorld - worldPos);
+    float cosTheta = saturate(dot(normalize(normal), V));
+    float x = 1.0f - cosTheta;
+    float fresnel = uWaterFresnelF0 + (1.0f - uWaterFresnelF0) * x * x * x * x * x;
+    return saturate(uReflectionStrength * (0.22f + fresnel * 1.78f));
 }
 
 float4 main_ps(VS_OUT input) : SV_TARGET
@@ -118,7 +131,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     reflUV.y = 1.0 - reflUV.y;  // DX texture Y-flip (top-left origin)
     // Sample undistorted reflection — perfect mirror.
     float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
-    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    float reflectBlend = (uCinematicMode > 0.5f)
+                           ? uReflectionStrength
+                           : OrdinaryWaterReflectance(input.worldPos, float3(0.0f, 1.0f, 0.0f));
+    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, reflectBlend);
     if (uCinematicMode > 0.5f && uWaterMode == 4)
     {
         // Low-poly water: clean turquoise depth bands with a bright shoreline.

@@ -369,10 +369,9 @@ class SkullbonezRun
         Math::Vector::Vector3 reflectionCenter;
         Math::Vector::Vector3 reflectionUp;
 
-        // Invariant: lightPosition.w preserves the old shader contract.
-        // 1 means point light for normal rendering; 0 means directional sun for
-        // cinematic rendering and shadow-map construction.
-        float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 1.0f };
+        // Invariant: ordinary and cinematic lighting both use a directional sun
+        // so direct-light shading and shadow maps agree on the same vector.
+        float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 0.0f };
         float waterY = 0.0f; // World-space fluid surface height used by reflection clipping and water shading.
 
         // Non-null only when cinematic rendering wraps this frame. Passes use

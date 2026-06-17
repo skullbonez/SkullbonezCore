@@ -137,11 +137,11 @@ void Terrain::InitialiseTerrainShader()
 {
     m_terrainShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.lit_textured" );
     m_terrainShader->Use();
-    const auto& light = Cfg().sceneLight;
-    m_terrainShader->SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
-    m_terrainShader->SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
-    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    const auto& ordinary = Cfg().ordinaryRender;
+    m_terrainShader->SetVec4( "uLightAmbient", ordinary.skyAmbientR, ordinary.skyAmbientG, ordinary.skyAmbientB, ordinary.ambientStrength );
+    m_terrainShader->SetVec4( "uLightDiffuse", ordinary.sunColorR * ordinary.sunIntensity, ordinary.sunColorG * ordinary.sunIntensity, ordinary.sunColorB * ordinary.sunIntensity, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialAmbient", ordinary.groundAmbientR, ordinary.groundAmbientG, ordinary.groundAmbientB, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialDiffuse", 1.0f, 1.0f, 1.0f, 1.0f );
     m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
     m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
     m_terrainShader->SetVec4( "uStyleModes", 0.0f, 0.0f, 0.0f, 1.0f );
@@ -384,13 +384,10 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     float lx = view.m[0] * lightPosition[0] + view.m[4] * lightPosition[1] + view.m[8] * lightPosition[2] + view.m[12] * lightPosition[3];
     float ly = view.m[1] * lightPosition[0] + view.m[5] * lightPosition[1] + view.m[9] * lightPosition[2] + view.m[13] * lightPosition[3];
     float lz = view.m[2] * lightPosition[0] + view.m[6] * lightPosition[1] + view.m[10] * lightPosition[2] + view.m[14] * lightPosition[3];
-    float lw = lightPosition[3];
-    if ( lw == 0.0f )
+    const bool cinematicMode = cinematicOverride != nullptr;
+    if ( cinematicMode )
     {
-        // w=0 means the render path is using a directional sun instead of the
-        // normal point light. Treat that as cinematic mode for terrain shading:
-        // warmer light, more amber material response, and optional visual relief.
-        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = cinematicOverride ? *cinematicOverride : Cfg().cinematicRender;
+        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
         m_terrainShader->SetVec4( "uLightAmbient", 0.20f, 0.11f, 0.055f, 1.0f );
         m_terrainShader->SetVec4( "uLightDiffuse",
                                   cinematic.sunColorR * 1.45f,
@@ -410,18 +407,18 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
                                   cinematic.basinDepth,
                                   cinematic.basinRimLift );
         m_terrainShader->SetVec4( "uCinematicBasin", cinematic.basinCenterX, cinematic.basinCenterZ, cinematic.basinRadiusX + 80.0f, cinematic.basinRadiusZ + 60.0f );
-        m_terrainShader->SetVec4( "uStyleModes", static_cast<float>( cinematic.skyMode ), static_cast<float>( cinematic.terrainMode ), static_cast<float>( cinematic.objectStyle ), static_cast<float>( cinematic.waterMode ) );
+        m_terrainShader->SetVec4( "uStyleModes", 1.0f, static_cast<float>( cinematic.terrainMode ), static_cast<float>( cinematic.objectStyle ), static_cast<float>( cinematic.waterMode ) );
         m_terrainShader->SetVec4( "uTerrainTint", cinematic.terrainTintR, cinematic.terrainTintG, cinematic.terrainTintB, 1.0f );
         m_terrainShader->SetVec4( "uTerrainAccent", cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB, 1.0f );
         m_terrainShader->SetVec4( "uTerrainGrid", cinematic.terrainGridScale, cinematic.terrainGridStrength, 0.0f, 0.0f );
     }
     else
     {
-        const auto& light = Cfg().sceneLight;
-        m_terrainShader->SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
-        m_terrainShader->SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
-        m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-        m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+        const auto& ordinary = Cfg().ordinaryRender;
+        m_terrainShader->SetVec4( "uLightAmbient", ordinary.skyAmbientR, ordinary.skyAmbientG, ordinary.skyAmbientB, ordinary.ambientStrength );
+        m_terrainShader->SetVec4( "uLightDiffuse", ordinary.sunColorR * ordinary.sunIntensity, ordinary.sunColorG * ordinary.sunIntensity, ordinary.sunColorB * ordinary.sunIntensity, 1.0f );
+        m_terrainShader->SetVec4( "uMaterialAmbient", ordinary.groundAmbientR, ordinary.groundAmbientG, ordinary.groundAmbientB, 1.0f );
+        m_terrainShader->SetVec4( "uMaterialDiffuse", 1.0f, 1.0f, 1.0f, 1.0f );
         m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
         m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
         m_terrainShader->SetVec4( "uStyleModes", 0.0f, 0.0f, 0.0f, 1.0f );
@@ -429,7 +426,7 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
         m_terrainShader->SetVec4( "uTerrainAccent", 0.20f, 0.09f, 0.02f, 0.0f );
         m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
-    m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
+    m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lightPosition[3] );
     ApplyShadowReceiverUniforms( *m_terrainShader, shadow, shadow ? shadow->terrainReceives : false );
 
     m_terrainMesh->Draw();

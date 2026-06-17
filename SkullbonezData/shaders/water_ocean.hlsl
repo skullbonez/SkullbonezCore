@@ -62,6 +62,8 @@ cbuffer Uniforms : register(b0)
     float    uTime;                // Animation time in seconds
     float    uWaveHeight;          // Wave amplitude (from engine.cfg)
     float    uReflectionStrength;  // Reflection blend factor (0-1)
+    float    uWaterFresnelF0;      // Base reflectance for ordinary water
+    float3   uCameraWorld;         // Camera position for view-angle reflection
     float    uPerturbStrength;     // UV offset multiplier (controls shimmer intensity)
     int      uFlatWater;           // 1=no waves (debug)
     int      uNoReflect;           // 1=flat color output (reflection pass)
@@ -84,6 +86,7 @@ struct VS_OUT
     float4 position       : SV_POSITION;
     float4 reflectClipPos : TEXCOORD0;  // Original pos in reflection camera space
     float2 worldXZ        : TEXCOORD1;  // XZ for fragment-shader wave calc
+    float3 worldPos       : TEXCOORD2;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -103,8 +106,18 @@ VS_OUT main_vs(VS_IN input)
     // Reflection uses un-displaced position (shimmer added in pixel shader).
     output.reflectClipPos = mul(uReflectVP, mul(uModel, float4(input.position, 1.0)));
     output.worldXZ        = input.position.xz;
+    output.worldPos       = worldPos.xyz;
 
     return output;
+}
+
+float OrdinaryWaterReflectance(float3 worldPos, float3 normal)
+{
+    float3 V = normalize(uCameraWorld - worldPos);
+    float cosTheta = saturate(dot(normalize(normal), V));
+    float x = 1.0f - cosTheta;
+    float fresnel = uWaterFresnelF0 + (1.0f - uWaterFresnelF0) * x * x * x * x * x;
+    return saturate(uReflectionStrength * (0.22f + fresnel * 1.78f));
 }
 
 float4 main_ps(VS_OUT input) : SV_TARGET
@@ -126,7 +139,17 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     // Sample perturbed reflection and blend with base tint.
     float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
-    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    float3 dx = ddx(input.worldPos);
+    float3 dy = ddy(input.worldPos);
+    float3 waterN = normalize(cross(dy, dx));
+    if (waterN.y < 0.0f)
+    {
+        waterN = -waterN;
+    }
+    float reflectBlend = (uCinematicMode > 0.5f)
+                           ? uReflectionStrength
+                           : OrdinaryWaterReflectance(input.worldPos, waterN);
+    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, reflectBlend);
     if (uCinematicMode > 0.5f)
     {
         // Cinematic ocean is currently skipped by the C++ path, but keeping this

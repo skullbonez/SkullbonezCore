@@ -71,6 +71,7 @@ struct WaterStyleParams
     float tintB = 0.42f;
     float alpha = 0.65f;
     float reflectionStrength = 0.35f;
+    float fresnelF0 = 0.025f;
     float glintStrength = 0.0f;
     float waveHeight = 4.0f;
     float perturbStrength = 0.002f;
@@ -119,16 +120,16 @@ class WorldEnvironment
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                             // Move constructor
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
-    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                                                                                                                      // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const WaterReflectionInput& reflection, float time, bool flatWater = false, bool cinematic = false, const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
-    void ResetRenderResources();                                                                                                                                                                                                                                                  // Rebuilds GPU resources after renderer reset/switch
-    float GetFluidSurfaceHeight();                                                                                                                                                                                                                                                // Returns the fluid surface height
-    void SetFluidSurfaceHeight( float height );                                                                                                                                                                                                                                   // Sets the fluid surface height
-    float GetGravity() const;                                                                                                                                                                                                                                                     // Returns the gravity value (m/s^2)
-    void SetGravity( float gravity );                                                                                                                                                                                                                                             // Sets the gravity value (m/s^2)
-    float GetFluidDensity() const;                                                                                                                                                                                                                                                // Returns the fluid density (kg/m^3)
-    void SetFluidDensity( float density );                                                                                                                                                                                                                                        // Sets the fluid density (kg/m^3)
-    void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                                                                                                                    // Adds world forces to the referenced game model
+    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                                                                                                                                                                // Must be called before first render; drives calm/ocean mesh split
+    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Math::Vector::Vector3& cameraWorld, const WaterReflectionInput& reflection, float time, bool flatWater = false, bool cinematic = false, const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
+    void ResetRenderResources();                                                                                                                                                                                                                                                                                            // Rebuilds GPU resources after renderer reset/switch
+    float GetFluidSurfaceHeight();                                                                                                                                                                                                                                                                                          // Returns the fluid surface height
+    void SetFluidSurfaceHeight( float height );                                                                                                                                                                                                                                                                             // Sets the fluid surface height
+    float GetGravity() const;                                                                                                                                                                                                                                                                                               // Returns the gravity value (m/s^2)
+    void SetGravity( float gravity );                                                                                                                                                                                                                                                                                       // Sets the gravity value (m/s^2)
+    float GetFluidDensity() const;                                                                                                                                                                                                                                                                                          // Returns the fluid density (kg/m^3)
+    void SetFluidDensity( float density );                                                                                                                                                                                                                                                                                  // Sets the fluid density (kg/m^3)
+    void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                                                                                                                                                              // Adds world forces to the referenced game model
 
   private:
     float m_fluidSurfaceHeight; // World-space Y of the fluid surface (m).  Objects below this are submerged
@@ -147,7 +148,7 @@ class WorldEnvironment
     void BuildFluidMesh(); // Builds calm and ocean meshes
     WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
-    void BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const WaterReflectionInput& reflection ) const;
+    void BindCommonWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, const Math::Vector::Vector3& cameraWorld, const WaterReflectionInput& reflection ) const;
     void BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const;
     void BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
 

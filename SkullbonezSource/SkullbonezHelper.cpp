@@ -179,29 +179,38 @@ static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix
 
 static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
 {
-    const auto& light = Cfg().sceneLight;
-    constants.lightAmbient[0] = light.colorR;
-    constants.lightAmbient[1] = light.colorG;
-    constants.lightAmbient[2] = light.colorB;
-    constants.lightAmbient[3] = light.colorA;
-    constants.lightDiffuse[0] = light.colorR;
-    constants.lightDiffuse[1] = light.colorG;
-    constants.lightDiffuse[2] = light.colorB;
-    constants.lightDiffuse[3] = light.colorA;
+    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+    constants.lightAmbient[0] = ordinary.skyAmbientR;
+    constants.lightAmbient[1] = ordinary.skyAmbientG;
+    constants.lightAmbient[2] = ordinary.skyAmbientB;
+    constants.lightAmbient[3] = ordinary.ambientStrength;
+    constants.lightDiffuse[0] = ordinary.sunColorR * ordinary.sunIntensity;
+    constants.lightDiffuse[1] = ordinary.sunColorG * ordinary.sunIntensity;
+    constants.lightDiffuse[2] = ordinary.sunColorB * ordinary.sunIntensity;
+    constants.lightDiffuse[3] = ordinary.boxRoughnessScale;
+    constants.materialAmbient[0] = ordinary.groundAmbientR;
+    constants.materialAmbient[1] = ordinary.groundAmbientG;
+    constants.materialAmbient[2] = ordinary.groundAmbientB;
+    constants.materialAmbient[3] = ordinary.ballRoughnessScale;
+    constants.materialDiffuse[0] = 1.0f;
+    constants.materialDiffuse[1] = 1.0f;
+    constants.materialDiffuse[2] = 1.0f;
+    constants.materialDiffuse[3] = ordinary.ballSpecularScale;
+    constants.objectStylePad = ordinary.boxSpecularScale;
 }
 
 static void ApplySceneLightUniforms( IShader& shader )
 {
-    const auto& light = Cfg().sceneLight;
-    shader.SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
-    shader.SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
+    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+    shader.SetVec4( "uLightAmbient", ordinary.skyAmbientR, ordinary.skyAmbientG, ordinary.skyAmbientB, ordinary.ambientStrength );
+    shader.SetVec4( "uLightDiffuse", ordinary.sunColorR * ordinary.sunIntensity, ordinary.sunColorG * ordinary.sunIntensity, ordinary.sunColorB * ordinary.sunIntensity, ordinary.boxRoughnessScale );
 }
 
-static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, const float lightPos[4], const CinematicRenderConfig* cinematicOverride )
+static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, const CinematicRenderConfig* cinematicOverride )
 {
-    if ( lightPos[3] == 0.0f )
+    if ( cinematicOverride )
     {
-        const CinematicRenderConfig& cinematic = cinematicOverride ? *cinematicOverride : Cfg().cinematicRender;
+        const CinematicRenderConfig& cinematic = *cinematicOverride;
         constants.lightAmbient[0] = 0.28f;
         constants.lightAmbient[1] = 0.15f;
         constants.lightAmbient[2] = 0.06f;
@@ -218,7 +227,15 @@ static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, 
 
 static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
 {
-    return cinematicOverride ? cinematicOverride->objectStyle : Cfg().cinematicRender.objectStyle;
+    // Encode render mode separately from the light vector. Negative values mean
+    // "cinematic style", while ordinary batches use style 0 and may still use a
+    // directional lightPosition.w of 0 for the sun/shadow-map contract.
+    return cinematicOverride ? -( cinematicOverride->objectStyle + 1 ) : 0;
+}
+
+static int ObjectStyleForMeshSelection( const CinematicRenderConfig* cinematicOverride )
+{
+    return cinematicOverride ? cinematicOverride->objectStyle : 0;
 }
 
 static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constants, const ShadowFrameData* shadow, bool receive, bool objectReceiver )
@@ -295,7 +312,7 @@ static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     constants.primitiveShape = params.primitiveShape;
     constants.materialAlpha = std::clamp( params.materialAlpha, 0.0f, 1.0f );
     constants.objectStylePad = 0.0f;
-    ApplyBatchLightConstants( constants, params.lightPosition, params.cinematic );
+    ApplyBatchLightConstants( constants, params.cinematic );
     FillShadowReceiverConstants( constants, params.shadow, params.receiveShadows, true );
     return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
 }
@@ -428,7 +445,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 {
     sSphereBatchTransparent = isTransparent;
     sSphereBatchReady = false;
-    const int objectStyle = ObjectStyleForShader( cinematic );
+    const int objectStyle = ObjectStyleForMeshSelection( cinematic );
     const bool useLowPolySphereMesh = objectStyle == 6;
     if ( useLowPolySphereMesh )
     {
@@ -506,7 +523,7 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, con
     // Match the visible sphere mesh selection. If a low-poly style is active,
     // the depth pass also uses the faceted mesh, which prevents a smooth sphere
     // shadow from appearing under a visibly low-poly ball.
-    const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
+    const bool useLowPolySphereMesh = ObjectStyleForMeshSelection( cinematic ) == 6;
     if ( useLowPolySphereMesh )
     {
         if ( lowPolySphereInstMesh == 0 )

@@ -1,5 +1,5 @@
 schema_version: 1
-description: "Human-readable queue mirror. queue.json is executable until YAML parser support is intentionally added."
+description: "Human-readable queue mirror for the 2026-06-17 lighting-first stacked completion run. queue.json is executable."
 policy: Agentic/Orchestrator/policy.yaml
 machine: Agentic/Orchestrator/machines/roadmap-item.yaml
 loop: Agentic/Orchestrator/agent-loop.yaml
@@ -30,104 +30,21 @@ dependency_satisfied_states:
     - skipped
 
 items:
-  - id: agent-docs-alignment
-    plan: Agentic/Plans/Done/agent-docs-alignment-plan.md
+  - id: non-cinematic-photoreal-lighting
+    plan: Agentic/Plans/Done/non-cinematic-photoreal-lighting-plan.md
     state: done
-    priority: 5
-    branch: main
-    impact_area:
-      - documentation
-      - agent instructions
-    validation_gate: "No validation required"
-    validation_notes: "Documentation-only instruction alignment."
-    depends_on: []
-    report_required: false
-
-  - id: orchestrator-yaml-foundation
-    plan: Agentic/Plans/orchestration-framework-fix-plan.md
-    state: done
-    priority: 6
-    branch: main
-    impact_area:
-      - documentation
-      - orchestrator config
-      - agent process
-    validation_gate: "No validation required"
-    validation_notes: "YAML/config documentation only. Future helper scripts require tools\\validate_fast.bat plus focused self-checks."
-    depends_on:
-      - agent-docs-alignment
-    report_required: false
-    archive_deferred:
-      reason: "The YAML foundation is implemented, but the same source plan still tracks future checker, state-advance, report-commit, role, hook, and eval tooling phases."
-
-  - id: orchestrator-executable-loop
-    plan: Agentic/Plans/orchestration-framework-fix-plan.md
-    state: done
-    priority: 25
-    branch: main
-    impact_area:
-      - tools
-      - orchestrator config
-      - agent process
-    validation_gate: tools\validate_fast.bat
-    validation_notes: "Tooling changes require tools\\validate_fast.bat plus tools\\orchestrator.bat check --self-test."
-    depends_on:
-      - orchestrator-yaml-foundation
-    report_required: false
-    archive_deferred:
-      reason: "Future orchestrator phases remain in the same source plan."
-
-  - id: tornado-mode-ui-cli
-    plan: Agentic/Plans/tornado-mode-ui-cli-plan.md
-    state: running
-    priority: 30
-    branch: codex/tornado-mode-ui-cli
-    impact_area:
-      - physics
-      - UI
-      - CLI
-      - runtime
-    validation_gate: tools\validate_full.bat
-    validation_notes: "Tornado work touches runtime input, UI, and physics application paths; use the full gate unless the implemented slice is proven narrower."
-    depends_on:
-      - orchestrator-executable-loop
-    dependency_mode: normal
-    report_required: true
-    artifact_commands: []
-    screenshot_scenes: []
-
-  - id: water-rendering-cleanup
-    plan: Agentic/Plans/water-rendering-cleanup-plan.md
-    state: ready
-    priority: 40
-    branch: codex/water-rendering-cleanup
+    priority: 10
+    branch: codex/non-cinematic-photoreal-lighting
     impact_area:
       - DX12
       - rendering
+      - shaders
+      - UI
+      - materials
       - water
     validation_gate: tools\validate_dx12_renderer.bat
-    validation_notes: "Renderer water work requires the DX12 renderer gate and intentional visual review."
-    depends_on:
-      - tornado-mode-ui-cli
-    dependency_mode: normal
-    report_required: true
-    artifact_commands: []
-    screenshot_scenes: []
-
-  - id: draw-call-trace-tree
-    plan: Agentic/Plans/draw-call-trace-tree-plan.md
-    state: ready
-    priority: 50
-    branch: codex/draw-call-trace-tree
-    impact_area:
-      - DX12
-      - renderer diagnostics
-      - profiler UI
-      - performance
-    validation_gate: tools\validate_dx12_renderer.bat && tools\validate_perf.bat
-    validation_notes: "Draw-call tracing touches draw hot paths and profiler UI; run renderer and perf gates."
-    depends_on:
-      - water-rendering-cleanup
+    validation_notes: "Lighting, material, shader, water, and visual baseline work requires the DX12 renderer gate and zero DX12 validation errors. Add tools\\validate_fast.bat if UI/config/tooling contracts change, and tools\\validate_perf.bat if hot shader or barrier cost changes materially."
+    depends_on: []
     dependency_mode: normal
     report_required: true
     artifact_commands: []
@@ -136,16 +53,40 @@ items:
   - id: dx12-render-graph-completion
     plan: Agentic/Plans/dx12-render-graph-completion-plan.md
     state: ready
-    priority: 60
+    priority: 20
     branch: codex/dx12-render-graph-completion
+    parent_branch: codex/non-cinematic-photoreal-lighting
     impact_area:
       - DX12
       - render architecture
       - resource barriers
     validation_gate: tools\validate_dx12_renderer.bat
-    validation_notes: "Render graph/resource-state ownership requires DX12 validation and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat for hot barrier scheduling changes."
+    validation_notes: "PR #78 was interrupted after merge; take a fresh look at source, plan checkboxes, queue/report/archive state, dx12_validation.txt expectations, and final validation evidence before declaring this item complete."
     depends_on:
-      - draw-call-trace-tree
+      - non-cinematic-photoreal-lighting
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []
+
+  - id: architecture-pass-2026-06-02
+    plan: Agentic/Plans/architecture_pass_2026-06-02.md
+    state: ready
+    priority: 30
+    branch: codex/architecture-pass-2026-06-02
+    parent_branch: codex/dx12-render-graph-completion
+    impact_area:
+      - architecture
+      - runtime
+      - DX12
+      - physics
+      - assets
+      - scene system
+      - documentation
+    validation_gate: tools\validate_full.bat
+    validation_notes: "Use this broad checkpoint to close remaining architecture-pass follow-up after the lighting and render-graph branches. Documentation-only closure requires no validation; code movement should use the smallest applicable gate, broad runtime movement uses tools\\validate_full.bat."
+    depends_on:
+      - dx12-render-graph-completion
     dependency_mode: normal
     report_required: true
     artifact_commands: []

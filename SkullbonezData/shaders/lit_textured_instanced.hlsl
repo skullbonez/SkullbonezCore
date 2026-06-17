@@ -68,7 +68,7 @@ cbuffer Uniforms : register(b0)
     float4   uLightDiffuse;
     float4   uMaterialAmbient;
     float4   uMaterialDiffuse;
-    int      uObjectStyle;
+    int      uObjectStyle;      // >=0 ordinary style, <0 encoded cinematic style
     int      uPrimitiveShape;
     float    uMaterialAlpha;
     float    _objectStylePad;
@@ -116,6 +116,7 @@ struct VS_OUT
     float4 material2 : TEXCOORD5;
     float3 worldPos  : TEXCOORD6;
     nointerpolation float4 sphereShadowInfo : TEXCOORD7;
+    float3 worldNormal : TEXCOORD8;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -135,6 +136,7 @@ VS_OUT main_vs(VS_IN input)
 
     output.viewPos  = viewPos.xyz;
     output.normal   = mul((float3x3)modelView, input.normal);
+    output.worldNormal = mul((float3x3)model, input.normal);
     output.texCoord = input.texCoord;
     output.material0 = input.material0;
     output.material1 = input.material1;
@@ -156,6 +158,11 @@ float4 SampleMaterialTable(float materialRow)
     return uMaterialTable.SampleLevel(sSampler3, float2((row + 0.5f) / 16.0f, 0.5f), 0.0f);
 }
 
+int DecodeObjectStyle(int objectStyle)
+{
+    return objectStyle < 0 ? -(objectStyle + 1) : objectStyle;
+}
+
 int ResolveMaterialMode(float legacyMode, int objectStyle)
 {
     // Compatibility contract: material0.w still follows the old tint.a rules.
@@ -168,7 +175,7 @@ int ResolveMaterialMode(float legacyMode, int objectStyle)
         return (int)floor(legacyMode + 0.5f);
     if (legacyMode > 0.5f)
         return 1;
-    return objectStyle;
+    return DecodeObjectStyle(objectStyle);
 }
 
 // Cinematic scenes use a procedural beach-ball color so the red/yellow panels stay crisp.
@@ -414,9 +421,67 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
     return materialColor * (0.16f + diff * 0.92f) + lightColor * spec * 0.12f;
 }
 
+float3 OrdinaryHemisphereAmbient(float3 worldN)
+{
+    float hemiT = saturate(worldN.y * 0.5f + 0.5f);
+    return lerp(uMaterialAmbient.rgb, uLightAmbient.rgb, hemiT) * max(uLightAmbient.a, 0.0f);
+}
+
+float3 FresnelSchlick(float cosTheta, float3 f0)
+{
+    float x = 1.0f - saturate(cosTheta);
+    float x2 = x * x;
+    return f0 + (1.0f - f0) * x2 * x2 * x;
+}
+
+float DistributionGGX(float ndoth, float roughness)
+{
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float denom = ndoth * ndoth * (alpha2 - 1.0f) + 1.0f;
+    return alpha2 / max(3.14159265f * denom * denom, 0.00001f);
+}
+
+float GeometrySchlickGGX(float ndotv, float roughness)
+{
+    float r = roughness + 1.0f;
+    float k = (r * r) * 0.125f;
+    return ndotv / max(ndotv * (1.0f - k) + k, 0.00001f);
+}
+
+float3 OrdinaryMaterialBRDF(float3 materialColor,
+                            float3 emissive,
+                            float roughness,
+                            float metallic,
+                            float materialSpecular,
+                            float3 worldN,
+                            float3 N,
+                            float3 V,
+                            float3 L,
+                            float shadowFactor)
+{
+    float3 H = normalize(V + L);
+    float ndotl = saturate(dot(N, L));
+    float ndotv = saturate(dot(N, V));
+    float ndoth = saturate(dot(N, H));
+    float vdoth = saturate(dot(V, H));
+
+    float3 ambient = materialColor * OrdinaryHemisphereAmbient(worldN);
+    roughness = clamp(roughness, 0.04f, 1.0f);
+    float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f) * max(materialSpecular, 0.0f), materialColor, saturate(metallic));
+    float3 F = FresnelSchlick(vdoth, f0);
+    float D = DistributionGGX(ndoth, roughness);
+    float G = GeometrySchlickGGX(ndotv, roughness) * GeometrySchlickGGX(ndotl, roughness);
+    float3 specular = (D * G * F) / max(4.0f * ndotv * ndotl, 0.0001f);
+    float3 diffuse = (1.0f - F) * (1.0f - saturate(metallic)) * materialColor * (1.0f / 3.14159265f);
+    float3 direct = (diffuse + specular) * uLightDiffuse.rgb * ndotl * shadowFactor;
+    return ambient + direct + emissive;
+}
+
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
+    float3 worldN = normalize(input.worldNormal);
     float3 V = normalize(-input.viewPos);
 
     float3 L;
@@ -425,10 +490,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     else
         L = normalize(uLightPosition.xyz - input.viewPos);
 
-    float3 ambient = uLightAmbient.rgb * uMaterialAmbient.rgb;
-
     float diff = max(dot(N, L), 0.0);
-    float3 diffuse = uLightDiffuse.rgb * uMaterialDiffuse.rgb * diff;
 
     float3 R = reflect(-L, N);
     float4 tableParams = SampleMaterialTable(input.material2.w);
@@ -436,12 +498,20 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // instance payload remains authoritative for scene-specific overrides, while
     // the table keeps material-kind defaults visible to the shader contract.
     float roughness = saturate(input.material1.x * 0.80f + tableParams.x * 0.20f);
+    float metallic = saturate(input.material1.y * 0.80f + tableParams.y * 0.20f);
     float materialSpecular = saturate(input.material1.z * 0.80f + tableParams.z * 0.20f);
-    float specPower = lerp(112.0f, 18.0f, roughness);
-    float spec = pow(max(dot(V, R), 0.0), specPower) * max(materialSpecular, 0.05f);
-    float3 specular = uLightDiffuse.rgb * spec * 0.1;
+    if (uPrimitiveShape == 1)
+    {
+        roughness = saturate(roughness * max(uMaterialAmbient.a, 0.01f));
+        materialSpecular = saturate(materialSpecular * max(uMaterialDiffuse.a, 0.0f));
+    }
+    else
+    {
+        roughness = saturate(roughness * max(uLightDiffuse.a, 0.01f));
+        materialSpecular = saturate(materialSpecular * max(_objectStylePad, 0.0f));
+    }
 
-    bool cinematicMode = uLightPosition.w == 0.0f;
+    bool cinematicMode = uObjectStyle < 0;
     int materialMode = ResolveMaterialMode(input.material0.a, uObjectStyle);
 
     float3 materialColor = input.material0.rgb;
@@ -471,23 +541,6 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
-    float3 litColor;
-    if (materialMode == 0)
-    {
-        float ballWrap = saturate(dot(N, L) * 0.5f + 0.5f);
-        float rim = pow(1.0f - saturate(dot(N, V)), 2.15f);
-        float ballSpec = pow(max(dot(V, R), 0.0f), 44.0f);
-        float3 ambientFloor = ambient * materialColor * 1.05f;
-        float3 directDiffuse = diffuse * materialColor;
-        float3 softFill = uLightDiffuse.rgb * uMaterialDiffuse.rgb * materialColor * (ballWrap * 0.07f);
-        float3 rimLight = uLightDiffuse.rgb * rim * 0.045f;
-        float3 specularGlint = uLightDiffuse.rgb * ballSpec * 0.22f;
-        litColor = ambientFloor + (directDiffuse + softFill + rimLight + specularGlint) * shadowFactor;
-    }
-    else
-    {
-        litColor = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord) * shadowFactor;
-    }
-    litColor += emissive;
+    float3 litColor = OrdinaryMaterialBRDF(materialColor, emissive, roughness, metallic, materialSpecular, worldN, N, V, L, shadowFactor);
     return float4(litColor, uMaterialAlpha);
 }
