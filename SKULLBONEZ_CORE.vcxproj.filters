@@ -786,6 +786,9 @@
     <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\scenes\bullet_x_axis_cells.scene">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\scenes\cardinal_roll_test.scene">
       <Filter>Scene Files</Filter>
     </None>

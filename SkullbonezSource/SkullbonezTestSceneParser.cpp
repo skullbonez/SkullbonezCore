@@ -1289,6 +1289,24 @@ class TestSceneParser
         m_scene.m_requiredContacts.push_back( contact );
     }
 
+    void ParseRequiredBroadphaseXCells( const char* args )
+    {
+        const char* expected = "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>";
+        const char* cursor = RequireArgs( "required_broadphase_x_cells", args, expected );
+
+        SceneRequiredBroadphaseXCells cells;
+        cells.minCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.maxCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.cellY = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.cellZ = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        if ( cells.maxCellX < cells.minCellX )
+        {
+            Fail( "Invalid required_broadphase_x_cells at line %d (maxCellX must be >= minCellX)", m_lineNumber );
+        }
+
+        m_scene.m_requiredBroadphaseXCells.push_back( cells );
+    }
+
     void ParseTimeScale( const char* args )
     {
         const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
@@ -1912,6 +1930,7 @@ class TestSceneParser
             { "convex_hull", &TestSceneParser::ParseConvexHull, "convex_hull <name> ..." },
             { "floating_convex_hull", &TestSceneParser::ParseFloatingConvexHull, "floating_convex_hull <name> ..." },
             { "required_contact", &TestSceneParser::ParseRequiredContact, "required_contact <nameA> <nameB>" },
+            { "required_broadphase_x_cells", &TestSceneParser::ParseRequiredBroadphaseXCells, "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>" },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
             { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },

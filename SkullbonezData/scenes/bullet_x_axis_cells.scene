@@ -1,0 +1,23 @@
+# bullet_x_axis_cells.scene
+# Regression: a high-speed sphere travels exactly down the broadphase X-cell axis.
+# The scene completes only if every contiguous cell in the swept fallback path is active.
+
+seed 424242
+physics on
+text off
+vsync off
+frames 1
+fixed_step
+exit_on_complete
+world 0.0 -1000.0 0.0
+flat_slope 0.0 0.0 0.0
+water_hidden on
+terrain_hidden on
+broadphase_overlay on
+
+camera overview 256 160 760  512 108 492  0 1 0
+
+# Cell size is 24.0. The impulse gives a 5,898,240 unit/s X velocity,
+# so the first 1/120s fixed tick sweeps from X cell 0 through X cell 2048.
+ball x_axis_bullet 12 108 492  0.25 0.25 0.00625 0.0  1474560 0 0  0 0 0
+required_broadphase_x_cells 0 2048 4 20

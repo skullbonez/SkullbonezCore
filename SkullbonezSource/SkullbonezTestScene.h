@@ -195,6 +195,14 @@ struct SceneRequiredContact
     char nameB[64] = {};
 };
 
+struct SceneRequiredBroadphaseXCells
+{
+    int minCellX = 0;
+    int maxCellX = 0;
+    int cellY = 0;
+    int cellZ = 0;
+};
+
 struct SceneOptions
 {
     bool isPhysicsEnabled = true;
@@ -341,6 +349,7 @@ class TestScene
     std::vector<SceneConvexHull> m_convexHulls;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
+    std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -421,6 +430,8 @@ class TestScene
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;
     const SceneRequiredContact& GetRequiredContact( int index ) const;
+    int GetRequiredBroadphaseXCellCount() const;
+    const SceneRequiredBroadphaseXCells& GetRequiredBroadphaseXCell( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

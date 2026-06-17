@@ -321,6 +321,20 @@ struct RunRequiredContactState
     bool touched = false;
 };
 
+struct RunRequiredBroadphaseXCellsState
+{
+    int minCellX = 0;
+    int maxCellX = 0;
+    int cellY = 0;
+    int cellZ = 0;
+    int lastActiveCellCount = 0;
+    int lastObservedMinX = 0;
+    int lastObservedMaxX = 0;
+    int lastMissingCellX = -1;
+    bool hasObservedXRange = false;
+    bool activated = false;
+};
+
 struct RunUIStressState
 {
     bool enabled = false;                   // Deterministic scene-driven UI stress runner
@@ -826,6 +840,7 @@ class SkullbonezRun
     RunDebugState m_debug;                // Runtime debug/overlay toggles
     RunFireState m_fire;                  // Runtime silver bullet pool state
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
+    std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     RunUIStressState m_uiStress;                              // Deterministic UI stress run state
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
@@ -860,8 +875,11 @@ class SkullbonezRun
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
     void SetUpRequiredContactsFromScene( const TestScene& scene );                                                                     // Resolve scene-authored contact gates to model indices
+    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );                                                             // Copy scene-authored broadphase X-cell gates
     void UpdateRequiredSceneContacts();                                                                                                // Mark required scene contact gates touched by current physics contacts
+    void UpdateRequiredSceneBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount ); // Mark required broadphase X-cell gates touched by current grid frame
     bool RequiredSceneContactsComplete() const;                                                                                        // True when there are no gates or all gates have been touched
+    bool RequiredSceneBroadphaseXCellsComplete() const;                                                                                // True when there are no gates or all X-cell ranges have been activated
     void RegisterBuiltInAssets();                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                             // Draws terrain, objects, helpers, and scene effects

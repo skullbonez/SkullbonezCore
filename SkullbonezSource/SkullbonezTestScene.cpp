@@ -456,6 +456,23 @@ const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
 }
 
 
+int TestScene::GetRequiredBroadphaseXCellCount() const
+{
+    return static_cast<int>( m_requiredBroadphaseXCells.size() );
+}
+
+
+const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
+    {
+        throw std::runtime_error( "RequiredBroadphaseXCell index out of range.  (TestScene::GetRequiredBroadphaseXCell)" );
+    }
+
+    return m_requiredBroadphaseXCells[index];
+}
+
+
 int TestScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );

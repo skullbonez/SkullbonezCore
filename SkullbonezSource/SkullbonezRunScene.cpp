@@ -661,6 +661,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
     }
 
     SetUpRequiredContactsFromScene( scene );
+    SetUpRequiredBroadphaseXCellsFromScene( scene );
 }
 
 
@@ -763,6 +764,102 @@ bool SkullbonezRun::RequiredSceneContactsComplete() const
     for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void SkullbonezRun::SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene )
+{
+    m_requiredBroadphaseXCells.clear();
+    m_requiredBroadphaseXCells.reserve( static_cast<size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
+    for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
+    {
+        const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
+        RunRequiredBroadphaseXCellsState state;
+        state.minCellX = sceneCells.minCellX;
+        state.maxCellX = sceneCells.maxCellX;
+        state.cellY = sceneCells.cellY;
+        state.cellZ = sceneCells.cellZ;
+        m_requiredBroadphaseXCells.push_back( state );
+    }
+}
+
+
+void SkullbonezRun::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
+{
+    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
+    {
+        return;
+    }
+
+    for ( RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    {
+        if ( required.activated )
+        {
+            continue;
+        }
+
+        required.lastActiveCellCount = activeCellCount;
+        required.lastMissingCellX = -1;
+        required.hasObservedXRange = false;
+        for ( int i = 0; i < activeCellCount; ++i )
+        {
+            const SpatialGrid::ActiveCell& active = activeCells[i];
+            if ( active.iy == required.cellY && active.iz == required.cellZ )
+            {
+                if ( !required.hasObservedXRange )
+                {
+                    required.lastObservedMinX = active.ix;
+                    required.lastObservedMaxX = active.ix;
+                    required.hasObservedXRange = true;
+                }
+                else
+                {
+                    required.lastObservedMinX = (std::min)( required.lastObservedMinX, static_cast<int>( active.ix ) );
+                    required.lastObservedMaxX = (std::max)( required.lastObservedMaxX, static_cast<int>( active.ix ) );
+                }
+            }
+        }
+
+        bool allActive = true;
+        for ( int x = required.minCellX; x <= required.maxCellX; ++x )
+        {
+            bool found = false;
+            for ( int i = 0; i < activeCellCount; ++i )
+            {
+                const SpatialGrid::ActiveCell& active = activeCells[i];
+                if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if ( !found )
+            {
+                allActive = false;
+                required.lastMissingCellX = x;
+                break;
+            }
+        }
+
+        if ( allActive )
+        {
+            required.activated = true;
+        }
+    }
+}
+
+
+bool SkullbonezRun::RequiredSceneBroadphaseXCellsComplete() const
+{
+    for ( const RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    {
+        if ( !required.activated )
         {
             return false;
         }

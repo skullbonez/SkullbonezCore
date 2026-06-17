@@ -86,6 +86,7 @@ Related:
 
 #include "SkullbonezSpatialGrid.h"
 #include <algorithm>
+#include <cfloat>
 #include <stdexcept>
 
 
@@ -275,19 +276,90 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
         return;
     }
 
-    const float distance = sqrtf( distanceSq );
-    const float stepLength = (std::max)( cellSize * 0.5f, 0.01f );
-    int steps = static_cast<int>( ceilf( distance / stepLength ) );
-    steps = (std::max)( 1, (std::min)( steps, MAX_SWEPT_SAMPLE_STEPS ) );
-
-    // If the swept AABB would flood the fixed entry pool, sample along the path
-    // instead. This is conservative for projectiles without letting one extreme
-    // move consume the entire broadphase grid.
-    for ( int sample = 0; sample <= steps; ++sample )
+    auto cellFor = [&]( float value ) -> int
     {
-        const float t = static_cast<float>( sample ) / static_cast<float>( steps );
+        return static_cast<int>( floorf( value * inverseCellSize ) );
+    };
+
+    int cx = cellFor( position.x );
+    int cy = cellFor( position.y );
+    int cz = cellFor( position.z );
+    const int endX = cellFor( endPosition.x );
+    const int endY = cellFor( endPosition.y );
+    const int endZ = cellFor( endPosition.z );
+
+    auto axisTraversal = [&]( float start, float delta, int cell, int& outStep, float& outTMax, float& outTDelta )
+    {
+        if ( fabsf( delta ) <= TOLERANCE )
+        {
+            outStep = 0;
+            outTMax = FLT_MAX;
+            outTDelta = FLT_MAX;
+            return;
+        }
+
+        if ( delta > 0.0f )
+        {
+            outStep = 1;
+            const float nextBoundary = static_cast<float>( cell + 1 ) * cellSize;
+            outTMax = ( nextBoundary - start ) / delta;
+            outTDelta = cellSize / delta;
+        }
+        else
+        {
+            outStep = -1;
+            const float nextBoundary = static_cast<float>( cell ) * cellSize;
+            outTMax = ( start - nextBoundary ) / -delta;
+            outTDelta = cellSize / -delta;
+        }
+
+        if ( outTMax < 0.0f )
+        {
+            outTMax = 0.0f;
+        }
+    };
+
+    int stepX = 0;
+    int stepY = 0;
+    int stepZ = 0;
+    float tMaxX = FLT_MAX;
+    float tMaxY = FLT_MAX;
+    float tMaxZ = FLT_MAX;
+    float tDeltaX = FLT_MAX;
+    float tDeltaY = FLT_MAX;
+    float tDeltaZ = FLT_MAX;
+    axisTraversal( position.x, displacement.x, cx, stepX, tMaxX, tDeltaX );
+    axisTraversal( position.y, displacement.y, cy, stepY, tMaxY, tDeltaY );
+    axisTraversal( position.z, displacement.z, cz, stepZ, tMaxZ, tDeltaZ );
+
+    Insert( index, position, radius );
+    int visitedCells = 0;
+    while ( ( cx != endX || cy != endY || cz != endZ ) && visitedCells < MAX_SWEPT_TRAVERSED_CELLS )
+    {
+        const float nextT = (std::min)( tMaxX, (std::min)( tMaxY, tMaxZ ) );
+        constexpr float AXIS_TIE_EPSILON = 1e-5f;
+        if ( tMaxX <= nextT + AXIS_TIE_EPSILON )
+        {
+            cx += stepX;
+            tMaxX += tDeltaX;
+        }
+        if ( tMaxY <= nextT + AXIS_TIE_EPSILON )
+        {
+            cy += stepY;
+            tMaxY += tDeltaY;
+        }
+        if ( tMaxZ <= nextT + AXIS_TIE_EPSILON )
+        {
+            cz += stepZ;
+            tMaxZ += tDeltaZ;
+        }
+
+        const float t = (std::max)( 0.0f, (std::min)( 1.0f, nextT ) );
         Insert( index, position + displacement * t, radius );
+        ++visitedCells;
     }
+
+    Insert( index, endPosition, radius );
 }
 
 

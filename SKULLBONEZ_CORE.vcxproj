@@ -366,6 +366,7 @@
     <None Include="SkullbonezData\scenes\box_slope_test.scene" />
     <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
     <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
+    <None Include="SkullbonezData\scenes\bullet_x_axis_cells.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_object.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_terrain.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_wall.scene" />

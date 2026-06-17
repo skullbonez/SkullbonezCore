@@ -73,6 +73,7 @@ void SkullbonezRun::Run()
                 grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
                 const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
                 m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
+                UpdateRequiredSceneBroadphaseXCells( activeCellBuf, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
             }
             PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
 
@@ -368,11 +369,15 @@ bool SkullbonezRun::TickSceneAdvance()
     ++SceneState().currentFrame;
 
     const bool hasRequiredContactGate = !m_requiredSceneContacts.empty();
+    const bool hasRequiredBroadphaseGate = !m_requiredBroadphaseXCells.empty();
+    const bool hasRequiredSceneGate = hasRequiredContactGate || hasRequiredBroadphaseGate;
     const bool requiredContactsComplete = RequiredSceneContactsComplete();
-    if ( hasRequiredContactGate && requiredContactsComplete && !SceneState().isTestComplete )
+    const bool requiredBroadphaseComplete = RequiredSceneBroadphaseXCellsComplete();
+    const bool requiredSceneComplete = requiredContactsComplete && requiredBroadphaseComplete;
+    if ( hasRequiredSceneGate && requiredSceneComplete && !SceneState().isTestComplete )
     {
 #ifdef _DEBUG
-        LogSceneFinished( "required_contacts" );
+        LogSceneFinished( "required_scene_gates" );
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
@@ -398,11 +403,11 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( SceneState().currentFrame >= SceneState().targetFrameCount )
         {
-            const bool frameCountCompletesScene = !hasRequiredContactGate || requiredContactsComplete;
+            const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
 #ifdef _DEBUG
             if ( !SceneState().isTestComplete && ( frameCountCompletesScene || SceneState().currentFrame == SceneState().targetFrameCount ) )
             {
-                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_contacts_missing" );
+                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing" );
                 if ( !frameCountCompletesScene )
                 {
                     for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
@@ -413,6 +418,23 @@ bool SkullbonezRun::TickSceneAdvance()
                                      "[scene] required_contact missing: %s <-> %s\n",
                                      contact.nameA,
                                      contact.nameB );
+                        }
+                    }
+                    for ( const RunRequiredBroadphaseXCellsState& cells : m_requiredBroadphaseXCells )
+                    {
+                        if ( !cells.activated )
+                        {
+                            fprintf( stderr,
+                                     "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d active_cells=%d observed_x=%s%d..%d\n",
+                                     cells.minCellX,
+                                     cells.maxCellX,
+                                     cells.cellY,
+                                     cells.cellZ,
+                                     cells.lastMissingCellX,
+                                     cells.lastActiveCellCount,
+                                     cells.hasObservedXRange ? "" : "none ",
+                                     cells.lastObservedMinX,
+                                     cells.lastObservedMaxX );
                         }
                     }
                 }
