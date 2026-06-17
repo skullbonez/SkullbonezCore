@@ -183,6 +183,7 @@ struct ShadowPassResources
     // every frame before terrain/object receivers read the pointers.
     Rendering::ShadowFrameData terrainFrame;
     Rendering::ShadowFrameData objectFrame;
+    Rendering::ShadowCasterBatches objectCasterBatches;
 };
 
 struct RunRenderPassResources
@@ -574,7 +575,7 @@ class SkullbonezRun
       private:
         Rendering::ShadowFrameData BuildTerrainFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const;
         Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint );
-        void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects );
+        void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects, const Rendering::ShadowCasterBatches* objectCasters );
 
         SkullbonezRun& m_run;
     };

@@ -23,6 +23,7 @@ Related:
 */
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezWorkerPool.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
@@ -215,12 +216,20 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
 void Profiler::Begin( const char* fullPath, uint32_t hash )
 {
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
     BeginInternal( fullPath, hash, true );
 }
 
 
 void Profiler::End( const char* fullPath, uint32_t hash )
 {
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
     EndInternal( fullPath, hash, true );
 }
 
@@ -297,6 +306,10 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
     BeginInternal( fullPath, hash, false );
     if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
     {
@@ -308,6 +321,10 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
     EndGpuTimerInternal( fullPath, hash );
     if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
     {

@@ -183,6 +183,13 @@ class PhysicsWorld
         bool useWorldInertia = false;
     };
 
+    struct TerrainDetectionCandidate
+    {
+        float availableTime = 0.0f;
+        float collisionTime = 0.0f;
+        uint8_t tested = 0;
+    };
+
     // Persistent rows and diagnostics produced during the current fixed tick.
     // Terrain manifolds are appended into the same row solver as object/object
     // contacts so velocity response has one owner.
@@ -194,6 +201,7 @@ class PhysicsWorld
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
     std::vector<TerrainContactManifold> m_terrainContactManifolds;
+    std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoField m_tornadoField;

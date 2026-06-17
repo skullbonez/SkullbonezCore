@@ -32,6 +32,7 @@ Related:
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezWorkerPool.h"
 
 #include <algorithm>
 #include <cmath>
@@ -98,6 +99,7 @@ PhysicsWorld::PhysicsWorld()
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
+    m_terrainDetectionCandidates.reserve( MAX_GAME_MODELS );
 }
 
 
@@ -132,6 +134,7 @@ void PhysicsWorld::Clear()
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
     m_terrainContactManifolds.clear();
+    m_terrainDetectionCandidates.clear();
     m_collisionCellKeys.clear();
 }
 
@@ -463,13 +466,13 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
     const float minTangentialSpeed = (std::max)( 18.0f, config.swirlAcceleration * 0.12f );
     EnsureTornadoStateBuffers( modelCount );
 
-    for ( int i = 0; i < modelCount; ++i )
+    auto applyTornadoAt = [&]( int i )
     {
         if ( bodyStream.isFixed[i] || bodyStream.isBox[i] || IsUnderwaterSleepLocked( collection, bodyStream, i ) )
         {
             m_tornadoCaptureSeconds[i] = 0.0f;
             m_tornadoEjectCooldownSeconds[i] = 0.0f;
-            continue;
+            return;
         }
 
         const Vector3 position = m_gameModels[i].GetPosition();
@@ -483,7 +486,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
         {
             m_tornadoCaptureSeconds[i] = 0.0f;
             m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
-            continue;
+            return;
         }
 
         if ( m_sleepState[i] )
@@ -541,6 +544,18 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
         velocity += ClampVectorMagnitude( acceleration * step, maxDeltaVelocity );
         m_gameModels[i].SetLinearVelocity( velocity );
+    };
+
+    if ( Cfg().physicsParallel )
+    {
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, applyTornadoAt );
+    }
+    else
+    {
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            applyTornadoAt( i );
+        }
     }
 }
 
@@ -644,18 +659,30 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     // Apply forces to awake models only
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    for ( int x = 0; x < modelCount; ++x )
+    auto applyForcesAt = [&]( int x )
     {
         if ( bodyStream.isFixed[x] )
         {
-            continue;
+            return;
         }
         if ( m_sleepState[x] )
         {
             m_timeRemaining[x] = 0.0f;
-            continue;
+            return;
         }
         m_gameModels[x].ApplyForces( dt );
+    };
+
+    if ( Cfg().physicsParallel )
+    {
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, applyForcesAt );
+    }
+    else
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            applyForcesAt( x );
+        }
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
@@ -1054,20 +1081,25 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     //      the shared persistent contact rows below.
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
-    for ( int x = 0; x < modelCount; ++x )
+    auto detectTerrainAt = [&]( int x )
     {
+        TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
         if ( bodyStream.isFixed[x] )
         {
-            continue;
+            return;
         }
         if ( m_sleepState[x] || m_timeRemaining[x] <= 0.0f )
         {
-            continue;
+            return;
         }
 
-        float availableTime = m_timeRemaining[x];
-        float colTime = m_gameModels[x].CollisionDetectTerrain( availableTime );
+        candidate.availableTime = m_timeRemaining[x];
+        candidate.collisionTime = m_gameModels[x].CollisionDetectTerrain( candidate.availableTime );
+        candidate.tested = 1;
+    };
 
+    auto commitTerrainCandidate = [&]( int x, float availableTime, float colTime )
+    {
         if ( m_gameModels[x].IsResponseRequired() )
         {
             m_gameModels[x].UpdatePosition( colTime );
@@ -1112,6 +1144,28 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             MarkCollisionVisualContact( x );
             m_timeRemaining[x] = remainingTime;
         }
+    };
+
+    m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
+    if ( Cfg().physicsParallel )
+    {
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, detectTerrainAt );
+    }
+    else
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            detectTerrainAt( x );
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        const TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
+        if ( candidate.tested )
+        {
+            commitTerrainCandidate( x, candidate.availableTime, candidate.collisionTime );
+        }
     }
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
@@ -1123,20 +1177,32 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    for ( int x = 0; x < modelCount; ++x )
+    auto integrateRemainingAt = [&]( int x )
     {
         if ( bodyStream.isFixed[x] )
         {
-            continue;
+            return;
         }
         if ( m_sleepState[x] )
         {
-            continue;
+            return;
         }
 
         if ( m_timeRemaining[x] > 0.0f )
         {
             m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
+        }
+    };
+
+    if ( Cfg().physicsParallel )
+    {
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, integrateRemainingAt );
+    }
+    else
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            integrateRemainingAt( x );
         }
     }
 

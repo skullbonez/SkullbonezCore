@@ -25,12 +25,34 @@ Related:
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezVector3.h"
 #include <algorithm>
+#include <vector>
 
 namespace SkullbonezCore
 {
 namespace Rendering
 {
 inline constexpr int SHADOW_TEXTURE_SLOT = 3;
+
+struct ShadowCasterBatches
+{
+    // CPU-built caster streams. Worker jobs may fill these matrices, but only
+    // the main thread may submit them through SkullbonezHelper/Gfx().
+    std::vector<Math::Transformation::Matrix4> spheres;
+    std::vector<Math::Transformation::Matrix4> boxes;
+    std::vector<Math::Transformation::Matrix4> pines;
+
+    void Clear()
+    {
+        spheres.clear();
+        boxes.clear();
+        pines.clear();
+    }
+
+    bool Empty() const
+    {
+        return spheres.empty() && boxes.empty() && pines.empty();
+    }
+};
 
 struct ShadowFrameData
 {

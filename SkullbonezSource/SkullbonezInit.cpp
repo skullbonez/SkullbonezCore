@@ -1255,6 +1255,30 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               fprintf( stdout, "[workers] Override: %d\n", Cfg().workerThreads );
               return true;
           } },
+        { "--physics-parallel", "--parallel-physics", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--physics-parallel expects optional on|off." );
+              }
+              Cfg().physicsParallel = enabled;
+              fprintf( stdout, "[workers] Physics parallel jobs %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--shadow-parallel-prep", "--parallel-shadow-prep", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
+              }
+              Cfg().shadowParallelPrep = enabled;
+              fprintf( stdout, "[workers] Shadow parallel prep %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
         { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;

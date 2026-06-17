@@ -85,6 +85,18 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 }
 
 
+void GameModelCollection::BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches )
+{
+    GameModelRenderer::BuildShadowCasterBatches( *this, outBatches );
+}
+
+
+void GameModelCollection::RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches, const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
+{
+    GameModelRenderer::SubmitShadowCasterBatches( batches, view, proj, cinematic );
+}
+
+
 void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
 {
     GameModelRenderer::RenderShadowCasters( *this, view, proj, cinematic );
