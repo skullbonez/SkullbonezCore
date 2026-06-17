@@ -39,6 +39,52 @@ queue state, this task was run as an explicit ad hoc orchestrated plan on branch
 
 The plan is now archived under `Agentic/Plans/Done/`.
 
+## Orchestration Ledger
+
+Local ledger path:
+
+```text
+Agentic\Runs\2026-06-17\convex-hull-collision-implementation-plan\orchestration-ledger.md
+```
+
+`Agentic/Runs/` is ignored local run state, so the ledger contents are mirrored
+here for committed review.
+
+Agent accounting:
+
+```text
+External implementation worker agents: 0
+Main-agent implementation/orchestration: about 44 minutes from branch checkout to report drafting
+Explorer agents: 2 read-only mapping agents before final implementation
+Rubber-duck verifier agents: 1 verifier agent, 3 feedback rounds
+Verifier duration: about 3 minutes total
+Validation duration counted from timed commands: about 252 seconds
+Finalization duration: about 3 minutes for plan archive, report commit, and push
+```
+
+Minute ledger:
+
+```text
+20:03-20:08  Orchestrator startup, queue/policy check, doctor smoke, branch setup.
+20:08-20:25  Main-agent implementation work: hull shape, scene parser/runtime, narrowphase, solver, diagnostics.
+20:25-20:29  Initial focused builds, focused scene runs, SkullScope trace/query, and first physics gate.
+20:29-20:39  Verifier feedback round and fixes: sphere/hull feature IDs, parser validation, visualizer behavior.
+20:39-20:43  Collision visualizer crash fix and Profile/Debug rebuilds.
+20:43-20:48  Final trace/query refresh and physics validation round after visualizer fix.
+20:48-20:51  Verifier range-check finding, parser range fix, final builds, final focused trace/query, final physics gate.
+20:51-20:55  Plan archive, report drafting, implementation commit, report commit, push.
+```
+
+Ledger correction note:
+
+```text
+This ledger should have been created before the first final response. It was
+missing because the task used ad hoc orchestration instead of the formal
+tools\orchestrator.bat run-loop path, and the manual report did not include the
+mandatory ledger section. That was an agent error, not an orchestrator policy
+exception.
+```
+
 ## Implementation Details
 
 ### Hull Shape
