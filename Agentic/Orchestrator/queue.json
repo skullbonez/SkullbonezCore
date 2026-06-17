@@ -106,8 +106,8 @@
     },
     {
       "id": "terrain-tessellation",
-      "plan": "Agentic/Plans/terrain-tessellation-plan.md",
-      "state": "ready",
+      "plan": "Agentic/Plans/Done/terrain-tessellation-plan.md",
+      "state": "done",
       "priority": 21,
       "branch": "codex/terrain-tessellation",
       "parent_branch": "main",
