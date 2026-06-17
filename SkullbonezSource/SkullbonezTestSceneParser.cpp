@@ -261,6 +261,25 @@ class TestSceneParser
         return true;
     }
 
+    static bool TryParseUnsignedInt( const char* value, unsigned int& out )
+    {
+        if ( !value || value[0] == '\0' || value[0] == '-' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const unsigned long long parsed = strtoull( value, &end, 10 );
+        if ( end == value || *end != '\0' || errno == ERANGE || parsed > UINT_MAX )
+        {
+            return false;
+        }
+
+        out = static_cast<unsigned int>( parsed );
+        return true;
+    }
+
     static bool TryParseFloat( const char* value, float& out )
     {
         if ( !value || value[0] == '\0' )
@@ -293,6 +312,21 @@ class TestSceneParser
     int ParseIntArg( const char* directive, const char* args, const char* expected )
     {
         return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
+    }
+
+    unsigned int ParseUnsignedIntValue( const char* directive, const char* value )
+    {
+        unsigned int parsed = 0;
+        if ( !TryParseUnsignedInt( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    unsigned int ParseUnsignedIntArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseUnsignedIntValue( directive, RequireArgs( directive, args, expected ) );
     }
 
     int ParseNextIntToken( const char* directive, const char*& cursor, const char* expected )
@@ -887,7 +921,7 @@ class TestSceneParser
 
     void ParseSeed( const char* args )
     {
-        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( ParseIntArg( "seed", args, "seed <N>" ) );
+        m_scene.m_sceneOptions.seed = ParseUnsignedIntArg( "seed", args, "seed <N>" );
         if ( m_scene.m_sceneOptions.seed == 0 )
         {
             Fail( "Invalid seed at line %d (must be > 0)", m_lineNumber );

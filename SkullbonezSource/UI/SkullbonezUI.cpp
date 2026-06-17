@@ -1021,6 +1021,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
+    m_physicsTab.spawnCombo.Close();
     m_cineSceneCombo.Close();
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
@@ -1050,6 +1051,7 @@ void InGameUI::CancelInputCapture()
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
     m_editorTab.objectCombo.Close();
+    m_physicsTab.spawnCombo.Close();
 }
 
 
@@ -1706,20 +1708,18 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( EditorTab::HandleContentClick( m_editorTab,
-                                                result,
-                                                m_mouseX,
-                                                m_mouseY,
-                                                contentX,
-                                                rowBase,
-                                                contentW ) )
-            {
-                InputControl::BeginMouseCapture( hwnd );
-            }
+            EditorTab::HandleContentClick( m_editorTab,
+                                           result,
+                                           m_mouseX,
+                                           m_mouseY,
+                                           contentX,
+                                           rowBase,
+                                           contentW );
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
+            m_physicsTab.spawnCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
@@ -1895,6 +1895,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_physicsTab.spawnCombo.Close();
             }
             else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -1902,6 +1904,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_physicsTab.spawnCombo.Close();
             }
             else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1930,6 +1934,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
+            m_physicsTab.spawnCombo.Close();
         }
     }
 
@@ -2027,7 +2033,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
-        m_editorTab.objectCombo.Close();
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         InputControl::EndMouseCapture();
