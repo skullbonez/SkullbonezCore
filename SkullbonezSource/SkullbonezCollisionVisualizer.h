@@ -38,6 +38,7 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
+class GameModel;
 class GameModelCollection;
 }
 

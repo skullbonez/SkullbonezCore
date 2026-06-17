@@ -34,6 +34,7 @@ Related:
 #include "SkullbonezBoundingBox.h"
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezCollisionShape.h"
+#include "SkullbonezConvexHullShape.h"
 #include "SkullbonezQuaternion.h"
 
 using namespace SkullbonezCore::GameObjects;
@@ -66,6 +67,9 @@ namespace
 constexpr uint32_t FEATURE_KIND_SPHERE_BOX = 1u;
 constexpr uint32_t FEATURE_KIND_BOX_FACE = 2u;
 constexpr uint32_t FEATURE_KIND_BOX_EDGE = 3u;
+constexpr uint32_t FEATURE_KIND_SPHERE_HULL = 4u;
+constexpr uint32_t FEATURE_KIND_HULL_FACE = 5u;
+constexpr uint32_t FEATURE_KIND_HULL_EDGE = 6u;
 
 // ENGINE-SPECIFIC:
 //   BoxWorld caches the OBB basis in world space. Catto's solver later needs
@@ -102,6 +106,50 @@ struct ClipVertex
 {
     Vector3 point = ZERO_VECTOR;
     uint8_t id = 0;
+};
+
+struct PolyFaceWorld
+{
+    Vector3 normal = ZERO_VECTOR;
+    float planeOffset = 0.0f;
+    uint16_t firstIndex = 0;
+    uint8_t indexCount = 0;
+    uint16_t sourceId = 0;
+};
+
+struct PolyEdgeWorld
+{
+    uint16_t vertexA = 0;
+    uint16_t vertexB = 0;
+    uint16_t sourceId = 0;
+};
+
+struct PolytopeWorld
+{
+    Vector3 center = ZERO_VECTOR;
+    Vector3 vertices[ConvexHullShape::MAX_VERTICES] = {};
+    PolyFaceWorld faces[ConvexHullShape::MAX_FACES] = {};
+    PolyEdgeWorld edges[ConvexHullShape::MAX_EDGES] = {};
+    uint16_t faceIndices[ConvexHullShape::MAX_FACE_INDICES] = {};
+    uint16_t vertexCount = 0;
+    uint16_t faceCount = 0;
+    uint16_t edgeCount = 0;
+    uint16_t faceIndexCount = 0;
+};
+
+enum class SphereHullFeatureKind : uint8_t
+{
+    Face = 0,
+    Edge = 1,
+    Vertex = 2,
+};
+
+struct SphereHullClosestFeature
+{
+    Vector3 point = ZERO_VECTOR;
+    SphereHullFeatureKind kind = SphereHullFeatureKind::Face;
+    uint16_t sourceId = 0;
+    float distSq = FLT_MAX;
 };
 
 float Component( const Vector3& v, int axis )
@@ -861,6 +909,716 @@ bool BuildBoxBox( const GameModel& aModel,
     }
     return BuildBoxEdgeContact( aModel, bModel, boxA, boxB, sat, out );
 }
+
+uint32_t EncodeSphereHullFeature( bool hullIsA, SphereHullFeatureKind kind, uint32_t sourceId )
+{
+    return ( FEATURE_KIND_SPHERE_HULL << 28 ) |
+           ( ( hullIsA ? 1u : 0u ) << 27 ) |
+           ( ( static_cast<uint32_t>( kind ) & 0x3u ) << 24 ) |
+           ( sourceId & 0xffffu );
+}
+
+uint32_t EncodeHullFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32_t incidentFace, uint32_t pointId )
+{
+    return ( FEATURE_KIND_HULL_FACE << 28 ) |
+           ( ( referenceIsA ? 1u : 0u ) << 27 ) |
+           ( ( referenceFace & 0x7fu ) << 20 ) |
+           ( ( incidentFace & 0x7fu ) << 13 ) |
+           ( pointId & 0x1ffu );
+}
+
+uint32_t EncodeHullEdgeFeature( uint32_t edgeA, uint32_t edgeB )
+{
+    return ( FEATURE_KIND_HULL_EDGE << 28 ) |
+           ( ( edgeA & 0xffu ) << 12 ) |
+           ( edgeB & 0xffu );
+}
+
+void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId )
+{
+    if ( poly.edgeCount >= ConvexHullShape::MAX_EDGES )
+    {
+        return;
+    }
+    poly.edges[poly.edgeCount].vertexA = a;
+    poly.edges[poly.edgeCount].vertexB = b;
+    poly.edges[poly.edgeCount].sourceId = sourceId;
+    ++poly.edgeCount;
+}
+
+void AddPolyFace( PolytopeWorld& poly,
+                  const Vector3& normal,
+                  const uint16_t* indices,
+                  uint8_t count,
+                  uint16_t sourceId )
+{
+    if ( poly.faceCount >= ConvexHullShape::MAX_FACES ||
+         poly.faceIndexCount + count > ConvexHullShape::MAX_FACE_INDICES )
+    {
+        return;
+    }
+
+    PolyFaceWorld& face = poly.faces[poly.faceCount++];
+    face.normal = normal;
+    face.firstIndex = poly.faceIndexCount;
+    face.indexCount = count;
+    face.sourceId = sourceId;
+    face.planeOffset = normal * poly.vertices[indices[0]];
+
+    for ( uint8_t i = 0; i < count; ++i )
+    {
+        poly.faceIndices[poly.faceIndexCount++] = indices[i];
+    }
+}
+
+PolytopeWorld MakeBoxPolytope( const GameModel& model, const BoundingBox& box )
+{
+    BoxWorld bw = MakeBoxWorld( model, box );
+    PolytopeWorld out;
+    out.center = bw.center;
+    out.vertexCount = 8;
+
+    for ( uint16_t v = 0; v < 8; ++v )
+    {
+        const float sx = ( v & 1 ) ? 1.0f : -1.0f;
+        const float sy = ( v & 2 ) ? 1.0f : -1.0f;
+        const float sz = ( v & 4 ) ? 1.0f : -1.0f;
+        out.vertices[v] = bw.center +
+                          bw.axes[0] * ( sx * bw.halfExtents.x ) +
+                          bw.axes[1] * ( sy * bw.halfExtents.y ) +
+                          bw.axes[2] * ( sz * bw.halfExtents.z );
+    }
+
+    const uint16_t faceNegX[4] = { 0, 4, 6, 2 };
+    const uint16_t facePosX[4] = { 1, 3, 7, 5 };
+    const uint16_t faceNegY[4] = { 0, 1, 5, 4 };
+    const uint16_t facePosY[4] = { 2, 6, 7, 3 };
+    const uint16_t faceNegZ[4] = { 0, 2, 3, 1 };
+    const uint16_t facePosZ[4] = { 4, 5, 7, 6 };
+    AddPolyFace( out, -bw.axes[0], faceNegX, 4, static_cast<uint16_t>( FaceId( 0, -1.0f ) ) );
+    AddPolyFace( out, bw.axes[0], facePosX, 4, static_cast<uint16_t>( FaceId( 0, 1.0f ) ) );
+    AddPolyFace( out, -bw.axes[1], faceNegY, 4, static_cast<uint16_t>( FaceId( 1, -1.0f ) ) );
+    AddPolyFace( out, bw.axes[1], facePosY, 4, static_cast<uint16_t>( FaceId( 1, 1.0f ) ) );
+    AddPolyFace( out, -bw.axes[2], faceNegZ, 4, static_cast<uint16_t>( FaceId( 2, -1.0f ) ) );
+    AddPolyFace( out, bw.axes[2], facePosZ, 4, static_cast<uint16_t>( FaceId( 2, 1.0f ) ) );
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        int side0 = ( axis + 1 ) % 3;
+        int side1 = ( axis + 2 ) % 3;
+        for ( int sign0 = -1; sign0 <= 1; sign0 += 2 )
+        {
+            for ( int sign1 = -1; sign1 <= 1; sign1 += 2 )
+            {
+                uint16_t a = 0;
+                uint16_t b = 0;
+                for ( uint16_t v = 0; v < 8; ++v )
+                {
+                    int signs[3] = {
+                        ( v & 1 ) ? 1 : -1,
+                        ( v & 2 ) ? 1 : -1,
+                        ( v & 4 ) ? 1 : -1 };
+                    if ( signs[side0] == sign0 && signs[side1] == sign1 )
+                    {
+                        if ( signs[axis] < 0 )
+                        {
+                            a = v;
+                        }
+                        else
+                        {
+                            b = v;
+                        }
+                    }
+                }
+                AddPolyEdge( out, a, b, static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ) );
+            }
+        }
+    }
+    return out;
+}
+
+PolytopeWorld MakeHullPolytope( const GameModel& model, const ConvexHullShape& hull )
+{
+    Quaternion q = model.GetOrientation();
+    RotationMatrix rot = q.GetOrientationMatrix();
+
+    PolytopeWorld out;
+    out.center = model.GetPosition() + rot * hull.GetPosition();
+    out.vertexCount = hull.GetVertexCount();
+    out.faceCount = hull.GetFaceCount();
+    out.edgeCount = hull.GetEdgeCount();
+
+    for ( uint16_t v = 0; v < out.vertexCount; ++v )
+    {
+        out.vertices[v] = out.center + rot * hull.GetVertex( v );
+    }
+
+    for ( uint16_t f = 0; f < out.faceCount; ++f )
+    {
+        const ConvexHullFace& src = hull.GetFace( f );
+        PolyFaceWorld& face = out.faces[f];
+        face.normal = rot * src.normalLocal;
+        face.firstIndex = out.faceIndexCount;
+        face.indexCount = src.indexCount;
+        face.sourceId = f;
+        for ( uint8_t i = 0; i < src.indexCount; ++i )
+        {
+            out.faceIndices[out.faceIndexCount++] = hull.GetFaceIndex( src.firstIndex + i );
+        }
+        face.planeOffset = face.normal * out.vertices[out.faceIndices[face.firstIndex]];
+    }
+
+    for ( uint16_t e = 0; e < out.edgeCount; ++e )
+    {
+        const ConvexHullEdge& src = hull.GetEdge( e );
+        out.edges[e].vertexA = src.vertexA;
+        out.edges[e].vertexB = src.vertexB;
+        out.edges[e].sourceId = e;
+    }
+    return out;
+}
+
+void ProjectPolytope( const PolytopeWorld& poly, const Vector3& axis, float& outMin, float& outMax )
+{
+    outMin = FLT_MAX;
+    outMax = -FLT_MAX;
+    for ( uint16_t i = 0; i < poly.vertexCount; ++i )
+    {
+        const float p = poly.vertices[i] * axis;
+        outMin = (std::min)( outMin, p );
+        outMax = (std::max)( outMax, p );
+    }
+}
+
+bool AcceptPolyAxis( const PolytopeWorld& a,
+                     const PolytopeWorld& b,
+                     const Vector3& axisRaw,
+                     int axisType,
+                     int axisA,
+                     int axisB,
+                     float contactSkin,
+                     SatResult& best )
+{
+    float magSq = VectorMagSquared( axisRaw );
+    if ( magSq <= 1.0e-8f )
+    {
+        return true;
+    }
+
+    Vector3 axis = axisRaw / sqrtf( magSq );
+    float minA, maxA, minB, maxB;
+    ProjectPolytope( a, axis, minA, maxA );
+    ProjectPolytope( b, axis, minB, maxB );
+    const float overlap = (std::min)( maxA, maxB ) - (std::max)( minA, minB );
+    if ( overlap < -contactSkin )
+    {
+        return false;
+    }
+
+    constexpr float tieEpsilon = 1.0e-4f;
+    bool better = overlap < best.overlap - tieEpsilon;
+    if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
+    {
+        if ( axisType < best.axisType )
+        {
+            better = true;
+        }
+        else if ( axisType == best.axisType && axisA >= 0 && best.axisA >= 0 && axisA < best.axisA )
+        {
+            better = true;
+        }
+    }
+
+    if ( better )
+    {
+        const Vector3 centerDelta = b.center - a.center;
+        best.overlap = overlap;
+        best.axisType = axisType;
+        best.axisA = axisA;
+        best.axisB = axisB;
+        best.normal = ( centerDelta * axis < 0.0f ) ? -axis : axis;
+    }
+    return true;
+}
+
+bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactSkin, SatResult& out )
+{
+    for ( uint16_t i = 0; i < a.faceCount; ++i )
+    {
+        if ( !AcceptPolyAxis( a, b, a.faces[i].normal, 0, i, -1, contactSkin, out ) )
+        {
+            return false;
+        }
+    }
+
+    for ( uint16_t i = 0; i < b.faceCount; ++i )
+    {
+        if ( !AcceptPolyAxis( a, b, b.faces[i].normal, 1, -1, i, contactSkin, out ) )
+        {
+            return false;
+        }
+    }
+
+    for ( uint16_t i = 0; i < a.edgeCount; ++i )
+    {
+        const Vector3 edgeA = a.vertices[a.edges[i].vertexB] - a.vertices[a.edges[i].vertexA];
+        for ( uint16_t j = 0; j < b.edgeCount; ++j )
+        {
+            const Vector3 edgeB = b.vertices[b.edges[j].vertexB] - b.vertices[b.edges[j].vertexA];
+            if ( !AcceptPolyAxis( a, b, CrossProduct( edgeA, edgeB ), 2, i, j, contactSkin, out ) )
+            {
+                return false;
+            }
+        }
+    }
+    return out.overlap < FLT_MAX;
+}
+
+int ClipPolyAgainstPlaneLimited( const ClipVertex* input,
+                                 int inputCount,
+                                 const Vector3& planePoint,
+                                 const Vector3& inwardNormal,
+                                 float contactSkin,
+                                 ClipVertex* output,
+                                 int maxOutput )
+{
+    if ( inputCount <= 0 )
+    {
+        return 0;
+    }
+
+    int outputCount = 0;
+    ClipVertex prev = input[inputCount - 1];
+    float prevDist = ( prev.point - planePoint ) * inwardNormal;
+    bool prevInside = prevDist >= -contactSkin;
+
+    for ( int i = 0; i < inputCount; ++i )
+    {
+        ClipVertex cur = input[i];
+        float curDist = ( cur.point - planePoint ) * inwardNormal;
+        bool curInside = curDist >= -contactSkin;
+
+        if ( curInside != prevInside )
+        {
+            float denom = prevDist - curDist;
+            float t = ( fabsf( denom ) > TOLERANCE ) ? ( prevDist / denom ) : 0.0f;
+            t = ClampFloat( t, 0.0f, 1.0f );
+            if ( outputCount < maxOutput )
+            {
+                output[outputCount].point = prev.point + ( cur.point - prev.point ) * t;
+                output[outputCount].id = cur.id;
+                ++outputCount;
+            }
+        }
+
+        if ( curInside && outputCount < maxOutput )
+        {
+            output[outputCount++] = cur;
+        }
+
+        prev = cur;
+        prevDist = curDist;
+        prevInside = curInside;
+    }
+    return outputCount;
+}
+
+int ChooseIncidentPolyFace( const PolytopeWorld& incident, const Vector3& refNormal )
+{
+    int bestFace = 0;
+    float bestDot = FLT_MAX;
+    for ( uint16_t f = 0; f < incident.faceCount; ++f )
+    {
+        const float dot = incident.faces[f].normal * refNormal;
+        if ( dot < bestDot - 1.0e-5f )
+        {
+            bestDot = dot;
+            bestFace = f;
+        }
+    }
+    return bestFace;
+}
+
+bool PointInsidePolyFace( const PolytopeWorld& poly, const PolyFaceWorld& face, const Vector3& point, float tolerance )
+{
+    Vector3 faceCenter = ZERO_VECTOR;
+    for ( uint8_t i = 0; i < face.indexCount; ++i )
+    {
+        faceCenter += poly.vertices[poly.faceIndices[face.firstIndex + i]];
+    }
+    faceCenter /= static_cast<float>( face.indexCount );
+
+    for ( uint8_t i = 0; i < face.indexCount; ++i )
+    {
+        const Vector3 a = poly.vertices[poly.faceIndices[face.firstIndex + i]];
+        const Vector3 b = poly.vertices[poly.faceIndices[face.firstIndex + ( ( i + 1 ) % face.indexCount )]];
+        Vector3 inward = CrossProduct( face.normal, b - a );
+        const float magSq = VectorMagSquared( inward );
+        if ( magSq <= 1.0e-8f )
+        {
+            continue;
+        }
+        inward /= sqrtf( magSq );
+        if ( ( faceCenter - a ) * inward < 0.0f )
+        {
+            inward = -inward;
+        }
+        if ( ( point - a ) * inward < -tolerance )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+Vector3 ClosestPointOnSegment( const Vector3& a, const Vector3& b, const Vector3& p, float& tOut )
+{
+    const Vector3 ab = b - a;
+    const float denom = VectorMagSquared( ab );
+    if ( denom <= 1.0e-8f )
+    {
+        tOut = 0.0f;
+        return a;
+    }
+
+    tOut = ClampFloat( ( ( p - a ) * ab ) / denom, 0.0f, 1.0f );
+    return a + ab * tOut;
+}
+
+uint32_t SphereHullFeatureSortKey( SphereHullFeatureKind kind, uint32_t sourceId )
+{
+    return ( static_cast<uint32_t>( kind ) << 24 ) | sourceId;
+}
+
+void ConsiderSphereHullCandidate( SphereHullClosestFeature& best,
+                                  const Vector3& point,
+                                  const Vector3& sphereCenter,
+                                  SphereHullFeatureKind kind,
+                                  uint16_t sourceId )
+{
+    const float distSq = VectorMagSquared( sphereCenter - point );
+    const float tieEpsilon = 1.0e-6f;
+    bool replace = distSq < best.distSq - tieEpsilon;
+    if ( !replace && fabsf( distSq - best.distSq ) <= tieEpsilon )
+    {
+        replace = SphereHullFeatureSortKey( kind, sourceId ) < SphereHullFeatureSortKey( best.kind, best.sourceId );
+    }
+
+    if ( replace )
+    {
+        best.point = point;
+        best.kind = kind;
+        best.sourceId = sourceId;
+        best.distSq = distSq;
+    }
+}
+
+SphereHullClosestFeature ClosestSphereHullBoundaryFeature( const PolytopeWorld& hullWorld, const Vector3& sphereCenter, float contactSkin )
+{
+    SphereHullClosestFeature best;
+
+    for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
+    {
+        const PolyFaceWorld& face = hullWorld.faces[f];
+        const float signedDistance = ( face.normal * sphereCenter ) - face.planeOffset;
+        const Vector3 projected = sphereCenter - face.normal * signedDistance;
+        if ( PointInsidePolyFace( hullWorld, face, projected, contactSkin ) )
+        {
+            ConsiderSphereHullCandidate( best, projected, sphereCenter, SphereHullFeatureKind::Face, face.sourceId );
+        }
+    }
+
+    for ( uint16_t e = 0; e < hullWorld.edgeCount; ++e )
+    {
+        const PolyEdgeWorld& edge = hullWorld.edges[e];
+        float t = 0.0f;
+        const Vector3 point = ClosestPointOnSegment( hullWorld.vertices[edge.vertexA], hullWorld.vertices[edge.vertexB], sphereCenter, t );
+        SphereHullFeatureKind kind = SphereHullFeatureKind::Edge;
+        uint16_t sourceId = edge.sourceId;
+        if ( t <= 1.0e-4f )
+        {
+            kind = SphereHullFeatureKind::Vertex;
+            sourceId = edge.vertexA;
+        }
+        else if ( t >= 1.0f - 1.0e-4f )
+        {
+            kind = SphereHullFeatureKind::Vertex;
+            sourceId = edge.vertexB;
+        }
+        ConsiderSphereHullCandidate( best, point, sphereCenter, kind, sourceId );
+    }
+
+    return best;
+}
+
+bool BuildPolyFaceContact( const GameModel& aModel,
+                           const GameModel& bModel,
+                           const PolytopeWorld& polyA,
+                           const PolytopeWorld& polyB,
+                           bool referenceIsA,
+                           int referenceFaceIndex,
+                           const Vector3& finalNormal,
+                           float contactSkin,
+                           ObjectContactManifold& out )
+{
+    constexpr int MAX_POLY_CLIP_VERTS = 32;
+    struct CandidatePoint
+    {
+        Vector3 point = ZERO_VECTOR;
+        float penetration = 0.0f;
+        uint32_t featureId = 0;
+    };
+
+    const PolytopeWorld& ref = referenceIsA ? polyA : polyB;
+    const PolytopeWorld& inc = referenceIsA ? polyB : polyA;
+    const PolyFaceWorld& refFace = ref.faces[referenceFaceIndex];
+    const Vector3 refNormal = referenceIsA ? finalNormal : -finalNormal;
+
+    const int incidentFaceIndex = ChooseIncidentPolyFace( inc, refNormal );
+    const PolyFaceWorld& incFace = inc.faces[incidentFaceIndex];
+
+    ClipVertex workA[MAX_POLY_CLIP_VERTS];
+    ClipVertex workB[MAX_POLY_CLIP_VERTS];
+    int count = 0;
+    for ( uint8_t i = 0; i < incFace.indexCount && count < MAX_POLY_CLIP_VERTS; ++i )
+    {
+        const uint16_t vertexIndex = inc.faceIndices[incFace.firstIndex + i];
+        workA[count].point = inc.vertices[vertexIndex];
+        workA[count].id = static_cast<uint8_t>( i );
+        ++count;
+    }
+
+    Vector3 refCenter = ZERO_VECTOR;
+    for ( uint8_t i = 0; i < refFace.indexCount; ++i )
+    {
+        refCenter += ref.vertices[ref.faceIndices[refFace.firstIndex + i]];
+    }
+    refCenter /= static_cast<float>( refFace.indexCount );
+
+    for ( uint8_t i = 0; i < refFace.indexCount; ++i )
+    {
+        const Vector3 a = ref.vertices[ref.faceIndices[refFace.firstIndex + i]];
+        const Vector3 b = ref.vertices[ref.faceIndices[refFace.firstIndex + ( ( i + 1 ) % refFace.indexCount )]];
+        Vector3 inward = CrossProduct( refNormal, b - a );
+        const float magSq = VectorMagSquared( inward );
+        if ( magSq <= 1.0e-8f )
+        {
+            continue;
+        }
+        inward /= sqrtf( magSq );
+        if ( ( refCenter - a ) * inward < 0.0f )
+        {
+            inward = -inward;
+        }
+        count = ClipPolyAgainstPlaneLimited( workA, count, a, inward, contactSkin, workB, MAX_POLY_CLIP_VERTS );
+        if ( count == 0 )
+        {
+            return false;
+        }
+        for ( int j = 0; j < count; ++j )
+        {
+            workA[j] = workB[j];
+        }
+    }
+
+    CandidatePoint candidates[MAX_POLY_CLIP_VERTS];
+    int candidateCount = 0;
+    const Vector3 refPlanePoint = ref.vertices[ref.faceIndices[refFace.firstIndex]];
+    for ( int i = 0; i < count; ++i )
+    {
+        const float separation = ( workA[i].point - refPlanePoint ) * refNormal;
+        if ( separation > contactSkin )
+        {
+            continue;
+        }
+        if ( candidateCount < MAX_POLY_CLIP_VERTS )
+        {
+            candidates[candidateCount].point = workA[i].point - refNormal * ( separation * 0.5f );
+            candidates[candidateCount].penetration = -separation;
+            candidates[candidateCount].featureId = EncodeHullFaceFeature( referenceIsA,
+                                                                           refFace.sourceId,
+                                                                           incFace.sourceId,
+                                                                           workA[i].id );
+            ++candidateCount;
+        }
+    }
+
+    std::sort( candidates,
+               candidates + candidateCount,
+               []( const CandidatePoint& lhs, const CandidatePoint& rhs )
+               {
+                   if ( fabsf( lhs.penetration - rhs.penetration ) > 1.0e-5f )
+                   {
+                       return lhs.penetration > rhs.penetration;
+                   }
+                   return lhs.featureId < rhs.featureId;
+               } );
+
+    for ( int i = 0; i < candidateCount && out.pointCount < 4; ++i )
+    {
+        AddContactPoint( aModel, bModel, out, candidates[i].point, candidates[i].penetration, candidates[i].featureId );
+    }
+    return out.pointCount > 0;
+}
+
+bool BuildPolyEdgeContact( const GameModel& aModel,
+                           const GameModel& bModel,
+                           const PolytopeWorld& polyA,
+                           const PolytopeWorld& polyB,
+                           const SatResult& sat,
+                           ObjectContactManifold& out )
+{
+    const PolyEdgeWorld& edgeA = polyA.edges[sat.axisA];
+    const PolyEdgeWorld& edgeB = polyB.edges[sat.axisB];
+    Vector3 ca;
+    Vector3 cb;
+    ClosestPointsOnSegments( polyA.vertices[edgeA.vertexA],
+                             polyA.vertices[edgeA.vertexB],
+                             polyB.vertices[edgeB.vertexA],
+                             polyB.vertices[edgeB.vertexB],
+                             ca,
+                             cb );
+    AddContactPoint( aModel,
+                     bModel,
+                     out,
+                     ( ca + cb ) * 0.5f,
+                     sat.overlap,
+                     EncodeHullEdgeFeature( edgeA.sourceId, edgeB.sourceId ) );
+    return out.pointCount > 0;
+}
+
+bool BuildPolyPoly( const GameModel& aModel,
+                    const PolytopeWorld& polyA,
+                    const GameModel& bModel,
+                    const PolytopeWorld& polyB,
+                    float contactSkin,
+                    ObjectContactManifold& out )
+{
+    SatResult sat;
+    if ( !PolytopeSat( polyA, polyB, contactSkin, sat ) )
+    {
+        return false;
+    }
+
+    out.normal = sat.normal;
+    if ( sat.axisType == 0 )
+    {
+        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, sat.axisA, sat.normal, contactSkin, out );
+    }
+    if ( sat.axisType == 1 )
+    {
+        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, sat.axisB, sat.normal, contactSkin, out );
+    }
+    return BuildPolyEdgeContact( aModel, bModel, polyA, polyB, sat, out );
+}
+
+bool BuildSphereHullOrdered( const GameModel& sphereModel,
+                             const BoundingSphere& sphere,
+                             const GameModel& hullModel,
+                             const ConvexHullShape& hull,
+                             bool sphereIsA,
+                             float contactSkin,
+                             ObjectContactManifold& out )
+{
+    const PolytopeWorld hullWorld = MakeHullPolytope( hullModel, hull );
+    const Vector3 sphereCenter = SphereCenter( sphereModel, sphere );
+
+    float maxSignedDistance = -FLT_MAX;
+    int closestFace = 0;
+    for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
+    {
+        const float signedDistance = ( hullWorld.faces[f].normal * sphereCenter ) - hullWorld.faces[f].planeOffset;
+        if ( signedDistance > maxSignedDistance )
+        {
+            maxSignedDistance = signedDistance;
+            closestFace = f;
+        }
+    }
+
+    if ( maxSignedDistance > sphere.GetRadius() + contactSkin )
+    {
+        return false;
+    }
+
+    Vector3 closestPoint = sphereCenter;
+    for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
+    {
+        const float signedDistance = ( hullWorld.faces[f].normal * closestPoint ) - hullWorld.faces[f].planeOffset;
+        if ( signedDistance > 0.0f )
+        {
+            closestPoint -= hullWorld.faces[f].normal * signedDistance;
+        }
+    }
+
+    Vector3 hullOutward = hullWorld.faces[closestFace].normal;
+    float penetration = sphere.GetRadius() - maxSignedDistance;
+    SphereHullFeatureKind featureKind = SphereHullFeatureKind::Face;
+    uint16_t featureId = hullWorld.faces[closestFace].sourceId;
+    if ( maxSignedDistance > 0.0f )
+    {
+        const SphereHullClosestFeature closest = ClosestSphereHullBoundaryFeature( hullWorld, sphereCenter, contactSkin );
+        closestPoint = closest.point;
+        const Vector3 centerToClosest = sphereCenter - closestPoint;
+        const float distSq = closest.distSq;
+        const float dist = sqrtf( distSq );
+        if ( dist > sphere.GetRadius() + contactSkin )
+        {
+            return false;
+        }
+        if ( dist > TOLERANCE )
+        {
+            hullOutward = centerToClosest / dist;
+        }
+        penetration = sphere.GetRadius() - dist;
+        featureKind = closest.kind;
+        featureId = closest.sourceId;
+    }
+    else
+    {
+        closestPoint = sphereCenter - hullOutward * maxSignedDistance;
+    }
+
+    const Vector3 normalSphereToHull = -hullOutward;
+    out.normal = sphereIsA ? normalSphereToHull : -normalSphereToHull;
+    const Vector3 spherePoint = sphereCenter + normalSphereToHull * sphere.GetRadius();
+    const Vector3 contactPoint = ( spherePoint + closestPoint ) * 0.5f;
+    AddContactPoint( sphereIsA ? sphereModel : hullModel,
+                     sphereIsA ? hullModel : sphereModel,
+                     out,
+                     contactPoint,
+                     penetration,
+                     EncodeSphereHullFeature( !sphereIsA, featureKind, featureId ) );
+    return out.pointCount > 0;
+}
+
+bool BuildBoxHull( const GameModel& boxModel,
+                   const BoundingBox& box,
+                   const GameModel& hullModel,
+                   const ConvexHullShape& hull,
+                   bool boxIsA,
+                   float contactSkin,
+                   ObjectContactManifold& out )
+{
+    const PolytopeWorld boxPoly = MakeBoxPolytope( boxModel, box );
+    const PolytopeWorld hullPoly = MakeHullPolytope( hullModel, hull );
+    if ( boxIsA )
+    {
+        return BuildPolyPoly( boxModel, boxPoly, hullModel, hullPoly, contactSkin, out );
+    }
+    return BuildPolyPoly( hullModel, hullPoly, boxModel, boxPoly, contactSkin, out );
+}
+
+bool BuildHullHull( const GameModel& aModel,
+                    const ConvexHullShape& aHull,
+                    const GameModel& bModel,
+                    const ConvexHullShape& bHull,
+                    float contactSkin,
+                    ObjectContactManifold& out )
+{
+    const PolytopeWorld polyA = MakeHullPolytope( aModel, aHull );
+    const PolytopeWorld polyB = MakeHullPolytope( bModel, bHull );
+    return BuildPolyPoly( aModel, polyA, bModel, polyB, contactSkin, out );
+}
 } // namespace
 
 // CATTO REF:
@@ -898,6 +1656,10 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
         {
             return BuildSphereBoxOrdered( a, *sphereA, b, *boxB, true, contactSkin, out );
         }
+        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
+        {
+            return BuildSphereHullOrdered( a, *sphereA, b, *hullB, true, contactSkin, out );
+        }
     }
 
     if ( const BoundingBox* boxA = std::get_if<BoundingBox>( &shapeA ) )
@@ -909,6 +1671,26 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
         if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
         {
             return BuildBoxBox( a, *boxA, b, *boxB, contactSkin, out );
+        }
+        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
+        {
+            return BuildBoxHull( a, *boxA, b, *hullB, true, contactSkin, out );
+        }
+    }
+
+    if ( const ConvexHullShape* hullA = std::get_if<ConvexHullShape>( &shapeA ) )
+    {
+        if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
+        {
+            return BuildSphereHullOrdered( b, *sphereB, a, *hullA, false, contactSkin, out );
+        }
+        if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
+        {
+            return BuildBoxHull( b, *boxB, a, *hullA, false, contactSkin, out );
+        }
+        if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
+        {
+            return BuildHullHull( a, *hullA, b, *hullB, contactSkin, out );
         }
     }
 

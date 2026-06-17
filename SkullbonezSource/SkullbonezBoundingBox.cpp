@@ -54,6 +54,7 @@ Related:
 #include "SkullbonezBoundingBox.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezBoundingSphere.h"
+#include "SkullbonezConvexHullShape.h"
 
 
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -271,4 +272,37 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
     }
 
     return t;
+}
+
+
+float BoundingBox::TestCollision( const ConvexHullShape& target, const Ray& targetRay, const Ray& focusRay ) const
+{
+    // Conservative broadphase candidate test. Exact box/hull SAT contacts are
+    // generated later by SkullbonezObjectContactManifold.cpp.
+    float combinedRadius = GetBoundingRadius() + target.GetBoundingRadius();
+    float combinedRadiusSq = combinedRadius * combinedRadius;
+
+    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
+    float totalMovementSq = VectorMagSquared( totalMovement );
+
+    if ( totalMovementSq < TOLERANCE )
+    {
+        Vector3 delta = ( targetRay.origin + target.GetPosition() ) -
+                        ( focusRay.origin + m_position );
+        return VectorMagSquared( delta ) <= combinedRadiusSq ? 0.0f : NO_COLLISION;
+    }
+
+    Vector3 d = ( focusRay.origin + m_position ) - ( targetRay.origin + target.GetPosition() );
+    float totalMovementMag = sqrtf( totalMovementSq );
+    Vector3 moveDir = totalMovement / totalMovementMag;
+
+    float dDotMoveDir = d * moveDir;
+    float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
+    if ( discriminant < 0.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+    return ( t < 0.0f || t > 1.0f ) ? NO_COLLISION : t;
 }

@@ -422,6 +422,23 @@ const SceneBox& TestScene::GetBox( int index ) const
 }
 
 
+int TestScene::GetConvexHullCount() const
+{
+    return static_cast<int>( m_convexHulls.size() );
+}
+
+
+const SceneConvexHull& TestScene::GetConvexHull( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
+    {
+        throw std::runtime_error( "ConvexHull index out of range.  (TestScene::GetConvexHull)" );
+    }
+
+    return m_convexHulls[index];
+}
+
+
 int TestScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );

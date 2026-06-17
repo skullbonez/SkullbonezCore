@@ -52,10 +52,12 @@ Related:
 #include "SkullbonezCommon.h"
 
 #include <algorithm>
+#include <variant>
 
 
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
@@ -339,9 +341,10 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
     m_sphereInstanceData.clear();
     m_boxInstanceData.clear();
 
-    // Build per-shape instance streams from the authoritative collision shape
-    // transform. This is the same model matrix normal rendering uses, so sphere
-    // radius and box half-extents match the real simulation volumes.
+    // Build per-shape streams from the authoritative collision shape. Hulls use
+    // their validated inertia/AABB extents in this solid view; the physics debug
+    // axes overlay draws the authored hull edges when exact polytope inspection is
+    // needed.
     const int modelCount = models.GetModelCount();
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -354,6 +357,16 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
         if ( model.IsBox() )
         {
             AppendInstance( m_boxInstanceData, model.GetModelMatrix(), color );
+        }
+        else if ( model.IsConvexHull() )
+        {
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
+            if ( hull )
+            {
+                const Matrix4 rotation = Matrix4::FromQuaternion( model.GetOrientation() );
+                const Matrix4 hullModel = Matrix4::Translate( model.GetPosition() ) * rotation * Matrix4::Translate( hull->GetPosition() ) * Matrix4::Scale( hull->GetInertiaHalfExtents() );
+                AppendInstance( m_boxInstanceData, hullModel, color );
+            }
         }
         else
         {

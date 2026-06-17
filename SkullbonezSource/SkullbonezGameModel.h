@@ -186,7 +186,12 @@ class GameModel
     const Rendering::RenderMaterial& GetRenderMaterial() const;                                                                       // Returns render-only material intent
     void AddBoundingSphere( float fRadius );                                                                                          // Add a bounding sphere to the game model
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );                                                                  // Add a bounding box to the game model
+    void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );                                                      // Add an authored convex hull to the game model
+    bool IsSphere() const;                                                                                                            // True if bounding volume is a BoundingSphere
     bool IsBox() const;                                                                                                               // True if bounding volume is a BoundingBox
+    bool IsConvexHull() const;                                                                                                        // True if bounding volume is a ConvexHullShape
+    bool UsesWorldInertia() const;                                                                                                    // True if angular inertia must rotate with the body
+    const char* GetShapeName() const;                                                                                                 // Stable diagnostic shape name
     void SetFixed( bool isFixed );                                                                                                    // Make this model immovable while still participating in contacts
     bool IsFixed() const;                                                                                                             // True if the model is an immovable collision body
     void NotifyFixedContact( float highlightSeconds );                                                                                // Refresh fixed-body contact highlight timer

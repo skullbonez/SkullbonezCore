@@ -140,6 +140,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezConvexHullShape.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
@@ -246,6 +247,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
@@ -348,6 +350,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\hulls\wedge.hull" />
     <None Include="SkullbonezData\scenes\at_rest.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene" />
@@ -385,6 +388,7 @@
     <None Include="SkullbonezData\scenes\concept_18_nordic_winter.scene" />
     <None Include="SkullbonezData\scenes\concept_19_abstract_render_showcase.scene" />
     <None Include="SkullbonezData\scenes\concept_20_pixar_inspired.scene" />
+    <None Include="SkullbonezData\scenes\convex_hull_collision.scene" />
     <None Include="SkullbonezData\scenes\rolling_shadow_contact.scene" />
     <None Include="SkullbonezData\scenes\shadow_contact.scene" />
     <None Include="SkullbonezData\scenes\shadow_map_plain.scene" />

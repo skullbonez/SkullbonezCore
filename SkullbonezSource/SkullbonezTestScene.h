@@ -95,6 +95,20 @@ struct SceneBox
     bool isFixed;
 };
 
+struct SceneConvexHull
+{
+    char name[64];
+    char hullPath[260];
+    float posX, posY, posZ;
+    float mass;
+    float restitution;
+    float eulerX, eulerY, eulerZ;
+    float velX, velY, velZ;
+    bool hasInitOrient;
+    bool hasInitVelocity;
+    bool isFixed;
+};
+
 enum SceneCinematicOverrideBits : uint64_t
 {
     // Scene files may specify any subset of cinematic_* directives. Each bit says
@@ -318,6 +332,7 @@ class TestScene
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
     std::vector<SceneBox> m_boxes;
+    std::vector<SceneConvexHull> m_convexHulls;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
 
     SceneOptions m_sceneOptions;
@@ -393,6 +408,8 @@ class TestScene
     const SceneBallState& GetBallState( int index ) const;
     int GetBoxCount() const;
     const SceneBox& GetBox( int index ) const;
+    int GetConvexHullCount() const;
+    const SceneConvexHull& GetConvexHull( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     bool HasWorldOverride() const;

@@ -144,6 +144,7 @@ class PhysicsDebugVisualizer
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
     void EmitObjectAxes( GameObjects::GameModelCollection& models );
+    void EmitConvexHullWireframes( GameObjects::GameModelCollection& models );
     void EmitContacts( GameObjects::GameModelCollection& models );
     void EmitSleepState( GameObjects::GameModelCollection& models );
     void EmitPipelineStage( GameObjects::GameModelCollection& models );

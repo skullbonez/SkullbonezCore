@@ -43,6 +43,7 @@ namespace Math
 namespace CollisionDetection
 {
 class BoundingSphere; // Forward declaration
+class ConvexHullShape;
 /* -- BoundingBox ----------------------------------------------------------------------------------------------------------------------------------------------------
 
     Oriented Bounding Box (OBB) collision shape.
@@ -100,6 +101,7 @@ class BoundingBox
 
     // Box-sphere: this box sweeps against a sphere
     float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
+    float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

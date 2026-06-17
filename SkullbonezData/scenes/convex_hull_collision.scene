@@ -1,0 +1,27 @@
+# convex_hull_collision.scene
+# Focused smoke scene for authored convex hull collisions.
+
+seed 42
+physics on
+text off
+vsync off
+frames 180
+fixed_step
+exit_on_complete
+world 0.0 0.0 0.0
+flat_slope 0.0 0.0 0.0
+water_hidden on
+terrain_hidden on
+collision_visualizer on
+
+camera overview 520 135 430  520 100 500  0 1 0
+
+# convex_hull/floating_convex_hull <name> <pos> <mass> <restitution> <hull> [euler] [velocity]
+floating_convex_hull hull_vs_ball_fixed 470 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 0 0
+ball hull_ball 478 100 500  4.0 20.0 15.0 0.35
+
+floating_convex_hull hull_vs_box_fixed 520 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 25 0
+box hull_box 520 100 500  3.0 3.0 3.0  25.0 0.35  0 -10 0
+
+floating_convex_hull hull_pair_fixed 570 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 0 0
+convex_hull hull_pair_moving 570 100 500  25.0 0.35 SkullbonezData/hulls/wedge.hull  0 180 0

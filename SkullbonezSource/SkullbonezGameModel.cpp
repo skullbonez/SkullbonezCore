@@ -134,9 +134,41 @@ BoundingSphere& GameModel::GetBoundingSphere()
 }
 
 
+bool GameModel::IsSphere() const
+{
+    return std::holds_alternative<BoundingSphere>( m_boundingVolume );
+}
+
+
 bool GameModel::IsBox() const
 {
     return std::holds_alternative<BoundingBox>( m_boundingVolume );
+}
+
+
+bool GameModel::IsConvexHull() const
+{
+    return std::holds_alternative<ConvexHullShape>( m_boundingVolume );
+}
+
+
+bool GameModel::UsesWorldInertia() const
+{
+    return !IsSphere();
+}
+
+
+const char* GameModel::GetShapeName() const
+{
+    if ( IsBox() )
+    {
+        return "box";
+    }
+    if ( IsConvexHull() )
+    {
+        return "convex_hull";
+    }
+    return "sphere";
 }
 
 
@@ -374,6 +406,33 @@ void GameModel::AddBoundingBox( const Vector3& halfExtents )
 
     m_physicsInfo.SetRotationalInertia( inertia );
     m_boundingVolume = BoundingBox( halfExtents, Vector::ZERO_VECTOR );
+    UpdateModelInfo();
+}
+
+
+void GameModel::AddConvexHull( const ConvexHullShape& hull )
+{
+    const float radius = hull.GetBoundingRadius();
+    if ( radius <= 0.0f )
+    {
+        throw std::runtime_error( "Convex hull bounding radius must be greater than zero.  (GameModel::AddConvexHull)" );
+    }
+
+    const float mass = m_physicsInfo.GetMass();
+    const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
+    m_ballPhysics.radius = radius;
+    m_ballPhysics.radiusSq = radius * radius;
+    m_ballPhysics.volume = hull.GetVolume();
+    m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
+    m_ballPhysics.projectedSurfaceArea = hull.GetProjectedSurfaceArea();
+    m_ballPhysics.dragCoefficient = hull.GetDragCoefficient();
+    m_ballPhysics.mass = mass;
+    m_ballPhysics.invMass = 1.0f / mass;
+    m_ballPhysics.rotationalInertia = inertia;
+    m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+
+    m_physicsInfo.SetRotationalInertia( inertia );
+    m_boundingVolume = hull;
     UpdateModelInfo();
 }
 
@@ -901,6 +960,22 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, 
                 point.featureId = static_cast<uint32_t>( v + 1 );
                 ++out.pointCount;
             }
+        }
+        else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
+        {
+            // Hull/terrain exact face clipping is a later phase. The first hull
+            // pass keeps terrain behavior conservative with the same bounding
+            // radius support used by broadphase and terrain early-outs.
+            const float radius = shape.GetBoundingRadius();
+            Vector3 contactWorldPos = position - planeNormal * radius;
+            float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
+
+            Physics::TerrainContactPoint& point = out.points[0];
+            point.point = contactWorldPos;
+            point.rA = contactWorldPos - position;
+            point.penetration = -signedDist;
+            point.featureId = 0x6fffu;
+            out.pointCount = 1;
         } },
                 m_boundingVolume );
 

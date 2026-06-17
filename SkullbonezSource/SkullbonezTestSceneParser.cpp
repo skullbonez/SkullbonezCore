@@ -1215,6 +1215,69 @@ class TestSceneParser
         ParseBoxCommon( args, true );
     }
 
+    void ParseConvexHullCommon( const char* args, bool isFixed )
+    {
+        const char* directive = isFixed ? "floating_convex_hull" : "convex_hull";
+        const char* expected = isFixed ? "floating_convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]" : "convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]";
+        char tokens[13][64] = {};
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 13 );
+        if ( parsed != 7 && parsed != 10 && parsed != 13 )
+        {
+            Fail( "Invalid convex_hull/floating_convex_hull at line %d (expected 7, 10, or 13 fields, got %d)", m_lineNumber, parsed );
+        }
+
+        SceneConvexHull hull;
+        memset( &hull, 0, sizeof( hull ) );
+        hull.hasInitOrient = false;
+        hull.hasInitVelocity = false;
+        hull.isFixed = isFixed;
+
+        strcpy_s( hull.name, sizeof( hull.name ), tokens[0] );
+        hull.posX = ParseFloatValue( directive, tokens[1] );
+        hull.posY = ParseFloatValue( directive, tokens[2] );
+        hull.posZ = ParseFloatValue( directive, tokens[3] );
+        hull.mass = ParseFloatValue( directive, tokens[4] );
+        hull.restitution = ParseFloatValue( directive, tokens[5] );
+
+        const char* hullPath = tokens[6];
+        if ( strncmp( hullPath, "hull=", 5 ) == 0 )
+        {
+            hullPath += 5;
+        }
+        if ( hullPath[0] == '\0' )
+        {
+            Fail( "Invalid %s hull path at line %d", directive, m_lineNumber );
+        }
+        strcpy_s( hull.hullPath, sizeof( hull.hullPath ), hullPath );
+
+        if ( parsed == 10 || parsed == 13 )
+        {
+            hull.eulerX = ParseFloatValue( directive, tokens[7] );
+            hull.eulerY = ParseFloatValue( directive, tokens[8] );
+            hull.eulerZ = ParseFloatValue( directive, tokens[9] );
+            hull.hasInitOrient = true;
+        }
+        if ( parsed == 13 )
+        {
+            hull.velX = ParseFloatValue( directive, tokens[10] );
+            hull.velY = ParseFloatValue( directive, tokens[11] );
+            hull.velZ = ParseFloatValue( directive, tokens[12] );
+            hull.hasInitVelocity = true;
+        }
+
+        m_scene.m_convexHulls.push_back( hull );
+    }
+
+    void ParseConvexHull( const char* args )
+    {
+        ParseConvexHullCommon( args, false );
+    }
+
+    void ParseFloatingConvexHull( const char* args )
+    {
+        ParseConvexHullCommon( args, true );
+    }
+
     void ParseTimeScale( const char* args )
     {
         const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
@@ -1835,6 +1898,8 @@ class TestSceneParser
             { "floating_ball", &TestSceneParser::ParseFloatingBall, "floating_ball <name> ..." },
             { "box", &TestSceneParser::ParseBox, "box <name> ..." },
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
+            { "convex_hull", &TestSceneParser::ParseConvexHull, "convex_hull <name> ..." },
+            { "floating_convex_hull", &TestSceneParser::ParseFloatingConvexHull, "floating_convex_hull <name> ..." },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
             { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },

@@ -60,11 +60,15 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strcmp( material.target, "balls" ) == 0 )
     {
-        return !model.IsBox();
+        return model.IsSphere();
     }
     if ( strcmp( material.target, "boxes" ) == 0 )
     {
         return model.IsBox();
+    }
+    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
+    {
+        return model.IsConvexHull();
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
@@ -519,7 +523,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount();
+    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() + scene.GetConvexHullCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -608,6 +612,37 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         gameModel.SetFixed( box.isFixed );
 
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    // convex_hull entries: authored immutable hull assets
+    for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
+    {
+        const SceneConvexHull& hullScene = scene.GetConvexHull( i );
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( hullScene.hullPath );
+        const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                             inertia,
+                             hullScene.mass );
+
+        gameModel.SetCoefficientRestitution( hullScene.restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.SetName( hullScene.name );
+        gameModel.AddConvexHull( hull );
+
+        if ( hullScene.hasInitOrient )
+        {
+            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+        }
+
+        if ( hullScene.hasInitVelocity )
+        {
+            gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
+        }
+
+        gameModel.SetFixed( hullScene.isFixed );
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 

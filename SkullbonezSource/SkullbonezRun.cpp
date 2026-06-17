@@ -674,6 +674,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 
     const CollisionShape& shape = model.GetCollisionShape();
     bool isSphere = std::holds_alternative<BoundingSphere>( shape );
+    bool isBox = std::holds_alternative<BoundingBox>( shape );
+    const char* shapeName = model.GetShapeName();
     float boundingRadius = GetShapeBoundingRadius( shape );
     float shapeVolume = GetShapeVolume( shape );
     float shapeArea = GetShapeProjectedSurfaceArea( shape );
@@ -834,7 +836,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "camera_up,%.6f,%.6f,%.6f\n", camUp.x, camUp.y, camUp.z );
     fprintf( f, "pick_index,%d\n", targetIndex );
     fprintf( f, "pick_name,%s\n", name );
-    fprintf( f, "pick_shape,%s\n", isSphere ? "sphere" : "box" );
+    fprintf( f, "pick_shape,%s\n", shapeName );
     fprintf( f, "pick_ray_t,%.6f\n", rayT );
     fprintf( f, "pick_crosshair_distance,%.6f\n", crosshairDistance );
     fprintf( f, "position,%.6f,%.6f,%.6f\n", pos.x, pos.y, pos.z );
@@ -856,7 +858,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
         fprintf( f, "sphere_radius,%.6f\n", sphere.GetRadius() );
     }
-    else
+    else if ( isBox )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
         const Vector3& he = box.GetHalfExtents();
@@ -864,6 +866,14 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         fprintf( f, "box_terrain_supported_vertices,%d\n", boxTerrainSupportedVertices );
         fprintf( f, "box_min_terrain_gap,%.6f\n", boxMinTerrainGap );
         fprintf( f, "box_max_terrain_gap,%.6f\n", boxMaxTerrainGap );
+    }
+    else
+    {
+        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
+        fprintf( f, "hull_name,%s\n", hull.GetName() );
+        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hull.GetVertexCount() ) );
+        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hull.GetFaceCount() ) );
+        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hull.GetEdgeCount() ) );
     }
     fprintf( f, "sleeping,%d\n", sleeping );
     fprintf( f, "sleep_supported_this_frame,%d\n", sleepSupported );
@@ -875,7 +885,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "terrain_normal_at_center,%.6f,%.6f,%.6f\n", terrainNormal.x, terrainNormal.y, terrainNormal.z );
     fprintf( f,
              "scene_object_line_hint,%s %s %.6f %.6f %.6f",
-             isSphere ? "ball_state/manual" : "box/manual",
+             isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ),
              name,
              pos.x,
              pos.y,
@@ -889,7 +899,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
                  model.GetMass(),
                  model.GetCoefficientRestitution() );
     }
-    else
+    else if ( isBox )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
         const Vector3& he = box.GetHalfExtents();
@@ -898,6 +908,18 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
                  he.x,
                  he.y,
                  he.z,
+                 model.GetMass(),
+                 model.GetCoefficientRestitution() );
+    }
+    else
+    {
+        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
+        fprintf( f,
+                 " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f",
+                 hull.GetName(),
+                 static_cast<unsigned>( hull.GetVertexCount() ),
+                 static_cast<unsigned>( hull.GetFaceCount() ),
+                 static_cast<unsigned>( hull.GetEdgeCount() ),
                  model.GetMass(),
                  model.GetCoefficientRestitution() );
     }
