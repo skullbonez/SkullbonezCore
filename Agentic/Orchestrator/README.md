@@ -118,6 +118,8 @@ tools\orchestrator.bat next
 tools\orchestrator.bat start <item-id>
 tools\orchestrator.bat run-worker <item-id>
 tools\orchestrator.bat transition <item-id> worker_done --result <path>
+tools\orchestrator.bat transition <item-id> reopen_for_work
+tools\orchestrator.bat transition <item-id> reopen_for_verification
 tools\orchestrator.bat verifier-prompt <item-id>
 tools\orchestrator.bat run-verifier <item-id>
 tools\orchestrator.bat run-loop [item-id] --finalize --commit-finalize

@@ -1284,6 +1284,9 @@ def apply_transition(
     artifacts = save_transition_artifact(repo, run_dir, event, result_path, validation_log_path)
 
     generated: dict[str, str] = {}
+    if "prompt.write_worker" in transition.get("actions", []):
+        prompt_path = write_worker_prompt(repo, policy, queue, item, run_dir)
+        generated["worker_prompt"] = repo_relative(repo, prompt_path)
     if "prompt.write_verifier" in transition.get("actions", []):
         prompt_path = write_verifier_prompt(repo, policy, queue, item, run_dir)
         generated["verifier_prompt"] = repo_relative(repo, prompt_path)
@@ -1308,6 +1311,8 @@ def apply_transition(
     )
     if target in terminal_states(machine):
         run_state["finished_at"] = utc_now()
+    else:
+        run_state["finished_at"] = None
     save_run_state(run_dir, run_state)
     return {
         "item_id": item_id,
