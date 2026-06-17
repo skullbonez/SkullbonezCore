@@ -398,6 +398,10 @@ Reports must include:
   feature-branch URL for PR-open work and the `main` URL after a successful
   merge,
 - started, finished, elapsed, and substantial sub-run timings,
+- the mandatory `orchestration-ledger.md` contents, including worker-agent
+  duration, rubber-duck verifier count and duration, validation duration,
+  finalization duration, and minute-by-minute accounting for orchestrator
+  bookkeeping or wait gaps,
 - a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,

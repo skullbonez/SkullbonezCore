@@ -80,6 +80,11 @@ Every Python orchestrator run also writes structured process telemetry:
   counts and durations. In that file, `rubber_duck_count` is the number of
   verifier agents run, and `rubber_ducks[]` records each verifier round's
   elapsed time, result path, exit code, and verdict.
+- `orchestration-ledger.md` is mandatory. It is regenerated for reports and at
+  every `run-loop`/`finalize` exit, accounts for each minute as worker agent,
+  rubber-duck verifier, validation, finalization, or orchestrator
+  bookkeeping/wait time, and is printed as the last console block when
+  orchestration stops.
 
 ## Reports
 

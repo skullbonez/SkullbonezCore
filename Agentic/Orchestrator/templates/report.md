@@ -38,6 +38,10 @@ and be referenced with a relative Markdown link.
 
 {{timings}}
 
+## Mandatory Orchestration Ledger
+
+{{orchestration_ledger}}
+
 ## Implementation
 
 {{implementation_summary}}
