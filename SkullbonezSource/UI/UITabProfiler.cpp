@@ -1029,7 +1029,7 @@ void Draw( UIProfilerTabState& state,
         {
             if ( coreSampleCount <= 0 )
             {
-                draw.Text( plotX + 10.0f, plotY + 30.0f, 10.5f, 0.62f, 0.70f, 0.73f, "Waiting for worker samples" );
+                draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, 0.76f, 0.84f, 0.86f, "No worker jobs in this 0.5s window (idle, threshold, or config)" );
             }
 
             const float pitch = plotW / static_cast<float>( chartCoreCount );
