@@ -50,6 +50,21 @@ Agentic\Runs\2026-06-17\convex-hull-collision-implementation-plan\orchestration-
 `Agentic/Runs/` is ignored local run state, so the ledger contents are mirrored
 here for committed review.
 
+This is not a formal `tools\orchestrator.bat run-loop` ledger generated from
+`orchestration-steps.jsonl`. No formal step log existed for this ad hoc run.
+The timeline was reconstructed from:
+
+- `git reflog --date=iso` entries for pull, checkout, and commits;
+- `Agentic\Runs\2026-06-17\convex-hull-collision-implementation-plan\*`
+  file `LastWriteTime` values for build, scene, SkullScope, and validation
+  outputs;
+- elapsed-time lines captured in those command logs;
+- verifier/sub-agent responses in the Codex thread.
+
+Minute ranges are rounded and activity labels are inferred from the surrounding
+logs and conversation. They should be treated as a retrospective approximation,
+not as authoritative state-machine telemetry.
+
 Agent accounting:
 
 ```text
@@ -62,7 +77,7 @@ Validation duration counted from timed commands: about 252 seconds
 Finalization duration: about 3 minutes for plan archive, report commit, and push
 ```
 
-Minute ledger:
+Retrospective approximate minute ledger:
 
 ```text
 20:03-20:08  Orchestrator startup, queue/policy check, doctor smoke, branch setup.
