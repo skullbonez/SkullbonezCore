@@ -281,6 +281,7 @@ class SkullbonezConfig
     // Terrain
     float terrainScale = 5.0f;
     float terrainHeightScale = 0.15f;
+    int terrainRenderStepSize = 2;
 
     // Skybox
     float skyboxRenderHeight = 30.0f;

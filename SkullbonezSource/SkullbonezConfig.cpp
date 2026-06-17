@@ -283,6 +283,7 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
 
         CONFIG_FLOAT( "terrain_scale", terrainScale, 0.0001, 1000000.0 ),
         CONFIG_FLOAT( "terrain_height_scale", terrainHeightScale, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "terrain_render_step_size", terrainRenderStepSize, 1, 1024 ),
 
         CONFIG_FLOAT( "skybox_render_height", skyboxRenderHeight, -1000000.0, 1000000.0 ),
         CONFIG_INT( "skybox_overflow", skyboxOverflow, -1000000, 1000000 ),
