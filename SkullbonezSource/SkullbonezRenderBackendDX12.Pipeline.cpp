@@ -368,7 +368,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
 
     if ( !m_renderingToFBO && !m_backBufferIsRT )
     {
-        ExecuteGraphTransitionBarrier( "PrepareDrawBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
+        ExecuteGraphTransition( "PrepareDrawBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
         m_backBufferIsRT = true;
         m_targetsDirty = true;
     }
