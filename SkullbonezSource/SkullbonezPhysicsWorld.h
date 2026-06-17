@@ -47,6 +47,7 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModelCollection;
+struct GameModelBodyStream;
 }
 
 namespace Physics
@@ -77,11 +78,14 @@ class PhysicsWorld
     // Sleeping is a performance and stability optimization: bodies that are
     // supported and quiet can stop integrating until something wakes them. The
     // "supported" and "inhibited" arrays are rebuilt each frame from contacts;
-    // m_sleepState/m_sleepCounter persist across frames.
+    // m_sleepState/m_sleepCounter persist across frames. A fully submerged
+    // sleeping sphere also gets a one-way lock so water-floor balls behave like
+    // static rocks instead of rejoining buoyancy/contact churn.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
     std::vector<uint8_t> m_sleepInhibitedThisFrame;
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
+    std::vector<uint8_t> m_underwaterSleepLocked;
     std::vector<float> m_tornadoCaptureSeconds;
     std::vector<float> m_tornadoEjectCooldownSeconds;
 
@@ -206,6 +210,10 @@ class PhysicsWorld
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
+    void EnsureUnderwaterSleepLockBuffer( int modelCount );
+    bool IsFullySubmergedBall( GameObjects::GameModelCollection& collection, const GameObjects::GameModelBodyStream& bodyStream, int index );
+    void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection, const GameObjects::GameModelBodyStream& bodyStream, int index );
+    bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection, const GameObjects::GameModelBodyStream& bodyStream, int index );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
     void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );
