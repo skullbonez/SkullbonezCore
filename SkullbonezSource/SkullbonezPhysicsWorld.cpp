@@ -55,8 +55,9 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
 constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
-constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 2048;
-constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 4;
+constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
+constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
+constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
@@ -1212,10 +1213,15 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     };
 
     const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
+    const bool hasSpreadOutNarrowphaseIslands =
+        islandCount > 0 &&
+        candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
     if ( Cfg().physicsParallel &&
          islandCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS &&
-         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS )
+         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
+         hasSpreadOutNarrowphaseIslands )
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
                                                                        islandCount,
                                                                        processObjectNarrowphaseIsland,

@@ -289,6 +289,7 @@ class SkullbonezConfig
     float skyboxScale = 10.0f;
 
     // Threading
+    int gameModelCapacity = 1024;
     int workerThreads = -1;
     bool physicsParallel = false;
     bool shadowParallelPrep = false;

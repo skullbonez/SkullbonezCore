@@ -177,6 +177,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.cpuFrameMs = m_run.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_run.m_timers.gpuFrameWorkMs;
         UIData.modelCount = m_run.SceneState().modelCount;
+        UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.currentFrame = m_run.SceneState().currentFrame;
         UIData.targetFrameCount = m_run.SceneState().targetFrameCount;
         UIData.rngSeed = m_run.SceneState().rngSeed;

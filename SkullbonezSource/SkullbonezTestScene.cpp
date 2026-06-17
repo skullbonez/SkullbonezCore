@@ -163,6 +163,18 @@ int TestScene::GetSolverBoxCount() const
 }
 
 
+bool TestScene::HasModelCapacityOverride() const
+{
+    return m_sceneOptions.modelCapacity > 0;
+}
+
+
+int TestScene::GetModelCapacity() const
+{
+    return m_sceneOptions.modelCapacity;
+}
+
+
 const char* TestScene::GetPerfLogPath() const
 {
     return m_loggingOptions.perfLogPath;

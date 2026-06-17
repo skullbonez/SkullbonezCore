@@ -1255,6 +1255,18 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               fprintf( stdout, "[workers] Override: %d\n", Cfg().workerThreads );
               return true;
           } },
+        { "--model-capacity", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              int capacity = 0;
+              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
+              {
+                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
+              }
+              Cfg().gameModelCapacity = capacity;
+              fprintf( stdout, "[models] Active model capacity: %d (compiled max %d)\n", ActiveGameModelCapacity(), MAX_GAME_MODELS );
+              return true;
+          } },
         { "--physics-parallel", "--parallel-physics", []( const char* value, ParsedArgs& args ) -> bool
           {
               static_cast<void>( args );
@@ -1681,123 +1693,123 @@ void InitRenderBackend( SkullbonezWindow* window )
 int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
-        SkullbonezRun cRun( std::move( args.sceneList ) );
+        std::unique_ptr<SkullbonezRun> cRun = std::make_unique<SkullbonezRun>( std::move( args.sceneList ) );
         if ( args.timeScaleOverride > 0.0f )
         {
-            cRun.SetTimeScaleOverride( args.timeScaleOverride );
+            cRun->SetTimeScaleOverride( args.timeScaleOverride );
         }
         if ( args.fixedStep )
         {
-            cRun.SetFixedStepOverride();
+            cRun->SetFixedStepOverride();
         }
         if ( args.seedOverride > 0 )
         {
-            cRun.SetSeedOverride( args.seedOverride );
+            cRun->SetSeedOverride( args.seedOverride );
         }
         if ( args.noWater )
         {
-            cRun.SetNoWaterOverride();
+            cRun->SetNoWaterOverride();
         }
         if ( args.noSleep )
         {
-            cRun.SetNoSleepOverride();
+            cRun->SetNoSleepOverride();
         }
         if ( args.hasTornadoOverride )
         {
-            cRun.SetTornadoOverride( args.tornadoEnabled );
+            cRun->SetTornadoOverride( args.tornadoEnabled );
         }
         if ( args.tornadoVectors )
         {
-            cRun.SetTornadoVectorFieldOverride( true );
+            cRun->SetTornadoVectorFieldOverride( true );
         }
         if ( args.hasCinematicRenderingOverride )
         {
-            cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+            cRun->SetCinematicRenderingOverride( args.cinematicRendering );
         }
         if ( args.hasCinematicShadowsOverride )
         {
-            cRun.SetCinematicShadowsOverride( args.cinematicShadows );
+            cRun->SetCinematicShadowsOverride( args.cinematicShadows );
         }
         if ( args.demoHeroStyle )
         {
-            cRun.SetDemoHeroStyleOverride();
+            cRun->SetDemoHeroStyleOverride();
         }
         if ( args.interactiveRun )
         {
-            cRun.SetInteractiveRunOverride();
+            cRun->SetInteractiveRunOverride();
         }
         if ( args.liveStyleControlDir[0] != '\0' )
         {
-            cRun.SetLiveStyleControlDirectory( args.liveStyleControlDir );
+            cRun->SetLiveStyleControlDirectory( args.liveStyleControlDir );
         }
         if ( args.frameCountOverride > 0 )
         {
-            cRun.SetFrameCountOverride( args.frameCountOverride );
+            cRun->SetFrameCountOverride( args.frameCountOverride );
         }
         if ( args.uiStress )
         {
-            cRun.SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+            cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
         }
         if ( args.showProfiler )
         {
-            cRun.SetInitialOverlayMode( OverlayMode::Timers );
+            cRun->SetInitialOverlayMode( OverlayMode::Timers );
         }
         if ( args.hideTopText )
         {
-            cRun.SetTopTextHidden( true );
+            cRun->SetTopTextHidden( true );
         }
         if ( args.showBroadphaseVisualizer )
         {
-            cRun.SetBroadphaseVisualizerEnabled( true );
+            cRun->SetBroadphaseVisualizerEnabled( true );
         }
         if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
         {
-            cRun.SetGeneratedObjectTypeOverride( args.objectTypeOverride );
+            cRun->SetGeneratedObjectTypeOverride( args.objectTypeOverride );
         }
         if ( args.hasPhysicsDebugFlagsOverride )
         {
-            cRun.SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
+            cRun->SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
         }
         if ( args.hasPhysicsDebugTransparentOverride )
         {
-            cRun.SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
+            cRun->SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
         }
         if ( args.hasPhysicsDebugAlphaOverride )
         {
-            cRun.SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
+            cRun->SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
         }
         if ( args.hasPhysicsDebugContactLingerOverride )
         {
-            cRun.SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
+            cRun->SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
         }
 #ifdef _DEBUG
         if ( args.physicsRegressionLogOverride[0] != '\0' )
         {
-            cRun.SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
+            cRun->SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
         }
         if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
         {
-            cRun.SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
+            cRun->SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
         }
         if ( args.physicsDiagnosticsPath[0] != '\0' )
         {
-            cRun.SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
+            cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
         }
 #endif
         try
         {
-            cRun.Initialise();
+            cRun->Initialise();
             if ( args.dumpAssets )
             {
-                cRun.DumpTextureAssets( stdout );
+                cRun->DumpTextureAssets( stdout );
             }
             if ( args.sceneLoadOnly )
             {
-                cRun.RunSceneLoadOnly();
+                cRun->RunSceneLoadOnly();
             }
             else
             {
-                cRun.Run();
+                cRun->Run();
             }
 
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )

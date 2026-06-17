@@ -78,11 +78,17 @@ bool HandleContentClick( UIControlsTabState& state,
                          float contentX,
                          float rowBase,
                          float contentW,
+                         int modelCapacity,
                          int lastSolverBallCount,
                          int lastSolverBoxCount )
 {
-    const int displayBalls = state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount;
-    const int displayBoxes = state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount;
+    modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
+    const int displayBalls = std::clamp( state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount,
+                                         UI_SOLVER_COUNT_MIN,
+                                         modelCapacity );
+    const int displayBoxes = std::clamp( state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount,
+                                         UI_SOLVER_COUNT_MIN,
+                                         modelCapacity );
     SetContentBounds( state, contentX, rowBase, contentW );
 
     if ( state.seedSlider.HitTest( mouseX, mouseY ) )
@@ -97,7 +103,7 @@ bool HandleContentClick( UIControlsTabState& state,
     if ( state.solverBallSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_SOLVER_BALLS;
-        const int maxBalls = RemainingGameModelSlots( displayBoxes );
+        const int maxBalls = RemainingGameModelSlots( modelCapacity, displayBoxes );
         state.previewSolverBallCount = static_cast<int>( state.solverBallSlider.ValueFromMouse( mouseX,
                                                                                                  static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                                  static_cast<float>( maxBalls ),
@@ -107,7 +113,7 @@ bool HandleContentClick( UIControlsTabState& state,
     if ( state.solverBoxSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_SOLVER_BOXES;
-        const int maxBoxes = RemainingGameModelSlots( displayBalls );
+        const int maxBoxes = RemainingGameModelSlots( modelCapacity, displayBalls );
         state.previewSolverBoxCount = static_cast<int>( state.solverBoxSlider.ValueFromMouse( mouseX,
                                                                                                static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                                static_cast<float>( maxBoxes ),
@@ -135,10 +141,12 @@ bool HandleContentClick( UIControlsTabState& state,
 bool UpdateActiveSlider( UIControlsTabState& state,
                          int activeSlider,
                          int mouseX,
+                         int modelCapacity,
                          int lastSolverBallCount,
                          int lastSolverBoxCount,
                          InGameUIInputResult& result )
 {
+    modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
     if ( activeSlider == SLIDER_SEED )
     {
         result.commands.run.requestedSeed = static_cast<int>( state.seedSlider.ValueFromMouse( mouseX,
@@ -149,8 +157,10 @@ bool UpdateActiveSlider( UIControlsTabState& state,
     }
     if ( activeSlider == SLIDER_SOLVER_BALLS )
     {
-        const int boxes = state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount;
-        const int maxBalls = RemainingGameModelSlots( boxes );
+        const int boxes = std::clamp( state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : lastSolverBoxCount,
+                                      UI_SOLVER_COUNT_MIN,
+                                      modelCapacity );
+        const int maxBalls = RemainingGameModelSlots( modelCapacity, boxes );
         state.previewSolverBallCount = static_cast<int>( state.solverBallSlider.ValueFromMouse( mouseX,
                                                                                                  static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                                  static_cast<float>( maxBalls ),
@@ -159,8 +169,10 @@ bool UpdateActiveSlider( UIControlsTabState& state,
     }
     if ( activeSlider == SLIDER_SOLVER_BOXES )
     {
-        const int balls = state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount;
-        const int maxBoxes = RemainingGameModelSlots( balls );
+        const int balls = std::clamp( state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : lastSolverBallCount,
+                                      UI_SOLVER_COUNT_MIN,
+                                      modelCapacity );
+        const int maxBoxes = RemainingGameModelSlots( modelCapacity, balls );
         state.previewSolverBoxCount = static_cast<int>( state.solverBoxSlider.ValueFromMouse( mouseX,
                                                                                                static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                                static_cast<float>( maxBoxes ),
@@ -210,10 +222,15 @@ void Draw( UIControlsTabState& state,
 {
     char buf[128];
     const int displaySeed = static_cast<int>( (std::max)( 1u, data.rngSeed ) );
-    const int displaySolverBalls = state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : data.solverBallCount;
-    const int displaySolverBoxes = state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : data.solverBoxCount;
-    const int displayBallMax = RemainingGameModelSlots( displaySolverBoxes );
-    const int displayBoxMax = RemainingGameModelSlots( displaySolverBalls );
+    const int modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, data.modelCapacity );
+    const int displaySolverBalls = std::clamp( state.previewSolverBallCount >= 0 ? state.previewSolverBallCount : data.solverBallCount,
+                                               UI_SOLVER_COUNT_MIN,
+                                               modelCapacity );
+    const int displaySolverBoxes = std::clamp( state.previewSolverBoxCount >= 0 ? state.previewSolverBoxCount : data.solverBoxCount,
+                                               UI_SOLVER_COUNT_MIN,
+                                               modelCapacity );
+    const int displayBallMax = RemainingGameModelSlots( modelCapacity, displaySolverBoxes );
+    const int displayBoxMax = RemainingGameModelSlots( modelCapacity, displaySolverBalls );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Run Controls" );
     snprintf( buf, sizeof( buf ), "%d", displaySeed );

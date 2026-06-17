@@ -394,6 +394,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_reflectionInSRVState = false;
     ID3D12Resource* m_rtConstantBuffer = nullptr;
     uint8_t* m_rtConstantBufferMapped = nullptr;
+    int m_dxrMaxInstances = 0;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};
 
     ID3D12PipelineState* m_genMipsPSO = nullptr; // Compute PSO for generate_mips.hlsl

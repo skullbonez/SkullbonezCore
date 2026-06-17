@@ -786,6 +786,7 @@ class SkullbonezRun
     int m_cmdUIStressActions = 5;                   // CLI --ui-stress-actions
     int m_selectedCineModeSceneIndex = -1;          // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
     CinematicRenderConfig m_defaultCinematicRender; // engine.cfg cinematic baseline restored by the Demo Scene cine mode
+    int m_startupGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;

@@ -1149,13 +1149,15 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
+            const int modelCapacity = ActiveGameModelCapacity();
             const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : SceneState().solverBoxCount;
-            ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
+            ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ), boxes );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
+            const int modelCapacity = ActiveGameModelCapacity();
             const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : SceneState().solverBallCount;
-            ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
+            ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight || uiCommands.water.requestWorldFluidDensity )
         {
@@ -1451,7 +1453,7 @@ bool SkullbonezRun::EnsureProjectilePool()
         return true;
     }
 
-    if ( m_cGameModelCollection.GetModelCount() > MAX_GAME_MODELS - RUNTIME_PROJECTILE_POOL_SIZE )
+    if ( m_cGameModelCollection.GetModelCount() > ActiveGameModelCapacity() - RUNTIME_PROJECTILE_POOL_SIZE )
     {
         return false;
     }

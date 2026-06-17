@@ -1482,6 +1482,15 @@ class TestSceneParser
         }
     }
 
+    void ParseModelCapacity( const char* args )
+    {
+        m_scene.m_sceneOptions.modelCapacity = ParseIntArg( "model_capacity", args, "model_capacity <count>" );
+        if ( m_scene.m_sceneOptions.modelCapacity < 1 || m_scene.m_sceneOptions.modelCapacity > MAX_GAME_MODELS )
+        {
+            Fail( "Invalid model_capacity at line %d (expected 1..%d)", m_lineNumber, MAX_GAME_MODELS );
+        }
+    }
+
     bool TryParseCinematicDirective( const char* line )
     {
         // Cinematic scene directives normally share the cinematic_ prefix.
@@ -1836,6 +1845,7 @@ class TestSceneParser
             { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
             { "look", &TestSceneParser::ParseLook, "look <name|path>" },
             { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
+            { "model_capacity", &TestSceneParser::ParseModelCapacity, "model_capacity <count>" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
             { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
         };

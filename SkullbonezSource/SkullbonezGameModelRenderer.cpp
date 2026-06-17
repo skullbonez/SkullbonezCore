@@ -194,6 +194,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 
     if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
         std::vector<ShadowCasterBatches> chunkOutputs;
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
             0,
@@ -336,6 +337,7 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
     BoundsAccumulator bounds;
     if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         std::vector<BoundsAccumulator> chunkOutputs;
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
             0,

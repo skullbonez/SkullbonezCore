@@ -888,6 +888,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
+        Cfg().gameModelCapacity = m_startupGameModelCapacity;
         if ( m_cmdSeedOverride > 0 )
         {
             rngSeed = m_cmdSeedOverride;
@@ -923,6 +924,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     {
         SceneState().isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
+        Cfg().gameModelCapacity = scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
         m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
@@ -1332,7 +1334,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
         if ( terrainVBVA != 0 && sphereVBVA != 0 )
         {
-            Gfx().InitDXR( terrainVBVA, terrainVertCount, terrainStride, sphereVBVA, sphereVertCount, sphereStride, MAX_GAME_MODELS );
+            Gfx().InitDXR( terrainVBVA, terrainVertCount, terrainStride, sphereVBVA, sphereVertCount, sphereStride, ActiveGameModelCapacity() );
         }
     }
 }
@@ -1921,7 +1923,7 @@ void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOn
 
 void SkullbonezRun::ApplyUIModelCountOverride( int count )
 {
-    m_UIModelCountOverride = std::clamp( count, 0, 1000 );
+    m_UIModelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
     m_UISolverBallCountOverride = -1;
     m_UISolverBoxCountOverride = -1;
     if ( !HasCurrentSceneQueueEntry() )
@@ -1959,11 +1961,12 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
 
 void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
 {
-    balls = std::clamp( balls, 0, 1000 );
-    boxes = std::clamp( boxes, 0, 1000 );
-    if ( balls + boxes > 1000 )
+    const int modelCapacity = ActiveGameModelCapacity();
+    balls = std::clamp( balls, 0, modelCapacity );
+    boxes = std::clamp( boxes, 0, modelCapacity );
+    if ( balls + boxes > modelCapacity )
     {
-        boxes = (std::max)( 0, 1000 - balls );
+        boxes = (std::max)( 0, modelCapacity - balls );
     }
     m_UISolverBallCountOverride = balls;
     m_UISolverBoxCountOverride = boxes;

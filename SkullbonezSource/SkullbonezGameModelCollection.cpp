@@ -40,16 +40,17 @@ GameModelCollection::GameModelCollection()
     // render batches, debug overlays, and scene snapshots all index into this
     // vector, so preserving deterministic order matters even when the work is
     // delegated to renderer/physics helper classes.
-    m_gameModels.reserve( MAX_GAME_MODELS );
+    m_gameModels.reserve( ActiveGameModelCapacity() );
 }
 
 
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
-    assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
-    if ( static_cast<int>( m_gameModels.size() ) >= MAX_GAME_MODELS )
+    const int activeCapacity = ActiveGameModelCapacity();
+    assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
+    if ( static_cast<int>( m_gameModels.size() ) >= activeCapacity )
     {
-        throw std::runtime_error( "Exceeded MAX_GAME_MODELS" );
+        throw std::runtime_error( "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();

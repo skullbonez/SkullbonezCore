@@ -184,6 +184,7 @@ struct SceneOptions
     unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
     int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
     int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
+    int modelCapacity = -1;                                   // active game-model capacity (-1 = use startup/config capacity)
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep/pipeline markers
@@ -341,6 +342,8 @@ class TestScene
     unsigned int GetSeed() const;
     int GetSolverBallCount() const;
     int GetSolverBoxCount() const;
+    bool HasModelCapacityOverride() const;
+    int GetModelCapacity() const;
     const char* GetPerfLogPath() const;
     bool IsPerfLogFlushEnabled() const;
     int GetPerfLogFlushInterval() const;

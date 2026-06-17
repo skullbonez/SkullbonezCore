@@ -115,6 +115,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
     hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
     hash = HashInt( hash, data.modelCount );
+    hash = HashInt( hash, data.modelCapacity );
     hash = HashInt( hash, data.currentFrame );
     hash = HashInt( hash, data.targetFrameCount );
     hash = HashInt( hash, static_cast<int>( data.rngSeed ) );
@@ -1863,7 +1864,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                  m_mouseY,
                                                  contentX,
                                                  rowBase,
-                                                 contentW ) )
+                                                 contentW,
+                                                 m_lastModelCapacity ) )
             {
                 InputControl::BeginMouseCapture( hwnd );
             }
@@ -1985,6 +1987,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                   contentX,
                                                   rowBase,
                                                   contentW,
+                                                  m_lastModelCapacity,
                                                   m_lastSolverBallCount,
                                                   m_lastSolverBoxCount ) )
             {
@@ -2045,7 +2048,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Sliders update previews continuously while dragged.  Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-        if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, result ) &&
+        if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
@@ -2065,6 +2068,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     ControlsTab::UpdateActiveSlider( m_controlsTab,
                                                      m_activeSlider,
                                                      m_mouseX,
+                                                     m_lastModelCapacity,
                                                      m_lastSolverBallCount,
                                                      m_lastSolverBoxCount,
                                                      result );
@@ -2151,8 +2155,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const int screenH = (std::max)( 1, data.screenH );
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
-    m_lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
-    m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
+    m_lastModelCapacity = std::clamp( data.modelCapacity, 1, MAX_GAME_MODELS );
+    m_lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
+    m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );

@@ -438,9 +438,10 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
     m_terrainBLAS.ReleaseAfterBuild();
     m_sphereBLAS.ReleaseAfterBuild();
 
-    // TLAS capacity includes one terrain instance plus all sphere instances.
+    // TLAS capacity includes one terrain instance plus the active model buffer.
     // Individual spheres reuse the same sphere BLAS with different transforms.
-    m_tlas.Init( m_device5, maxInstances + 1 );
+    m_dxrMaxInstances = std::clamp( maxInstances, 1, MAX_GAME_MODELS );
+    m_tlas.Init( m_device5, m_dxrMaxInstances + 1 );
 
     // The SBT is the raytracing dispatch table. It maps the RayGen, Miss,
     // TerrainHitGroup, and SphereHitGroup shader identifiers into GPU-readable
@@ -455,9 +456,9 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
     {
         return;
     }
-    if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS )
+    if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS || ( m_dxrMaxInstances > 0 && instanceCount > m_dxrMaxInstances ) )
     {
-        throw std::runtime_error( "DX12 TLAS instance count exceeds MAX_GAME_MODELS" );
+        throw std::runtime_error( "DX12 TLAS instance count exceeds active model capacity" );
     }
 
     // Concept: a TLAS is a scene-level table of instances.
