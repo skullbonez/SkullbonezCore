@@ -107,11 +107,13 @@ class Terrain
     std::unique_ptr<Rendering::IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
     std::unique_ptr<Rendering::IShader> m_terrainShader; // Lit+textured m_shader program
     std::unique_ptr<Rendering::IShader> m_shadowDepthShader;
-    std::vector<TerrainPost> m_postData; // Vertices that make up the m_terrain
-    std::vector<BYTE> m_terrainData;     // Raw m_height map byte data (populated during construction, cleared after build)
+    std::vector<TerrainPost> m_postData; // Physics-authoritative coarse terrain posts
+    std::vector<BYTE> m_terrainData;     // Raw m_height map byte data retained for render mesh rebuilds
     std::vector<CachedQuadData> m_cachedCollisionData;
     int m_mapSize;                // Size of map (pixels length)
     int m_stepSize;               // Steps size between posts
+    int m_renderStepSize;         // Render-only raw-pixel step size; physics keeps m_stepSize
+    int m_renderPostsPerSide;     // Render-only posts per side
     int m_textureWrap;            // Number of times to wrap texture over m_terrain
     int m_postsPerSide;           // Terrain postings per side of m_terrain
     int m_terrainSizeWorldCoords; // size per side of m_terrain in world coordinates
@@ -128,14 +130,18 @@ class Terrain
 
     void LoadTerrainData( const char* sFileName ); // Loads terrain from .RAW file into terrainData member
     void InitialiseTerrainShader();                // Creates and configures lit terrain shader for active backend
+    void ConfigureRenderStepSize();                // Chooses a safe render-only terrain step size
     void BuildTerrain();                           // Builds the terrain
     void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
     void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal, Plane* outPlane );
     void QueryCollisionDataUnchecked( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal, Plane* outPlane );
+    float SampleRenderHeightRaw( float rawX, float rawZ ) const;
+    Math::Vector::Vector3 SampleRenderNormalRaw( float rawX, float rawZ ) const;
+    TerrainPost BuildRenderPost( float rawX, float rawZ ) const;
     void TranslatePostings();                       // Translates terrain posts
     void GenerateNormals();                         // Generates normals for posts
-    void BuildMesh();                               // Builds VBO mesh from post data
+    void BuildMesh();                               // Builds VBO mesh from render-only height samples
     void BuildFlatSlopeMesh();                      // Builds VBO mesh for analytic flat slope
     int GetPixelHeightAt( int xCoord, int yCoord ); // Returns the .raw height at the specified pixel coordinates
 };

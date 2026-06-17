@@ -48,7 +48,7 @@ namespace GameObjects
 {
 class GameModelCollection;
 struct GameModelBodyStream;
-}
+} // namespace GameObjects
 
 namespace Physics
 {
@@ -183,6 +183,44 @@ class PhysicsWorld
         bool useWorldInertia = false;
     };
 
+    struct TerrainDetectionCandidate
+    {
+        float availableTime = 0.0f;
+        float collisionTime = 0.0f;
+        uint8_t tested = 0;
+    };
+
+    enum class ObjectNarrowphaseEventKind : uint8_t
+    {
+        None,
+        SweptObjectHit,
+        SweptObjectMiss,
+        WakeDecision
+    };
+
+    struct ObjectNarrowphaseEvent
+    {
+        ObjectNarrowphaseEventKind kind = ObjectNarrowphaseEventKind::None;
+        PhysicsPipelineRecord pipelineRecord;
+        int collisionTimeBodyA = -1;
+        int collisionTimeBodyB = -1;
+        float collisionTime = 0.0f;
+        float availableTime = 0.0f;
+        int visualBodyA = -1;
+        int visualBodyB = -1;
+        int64_t collisionCellKey = 0;
+        uint8_t hasPipelineRecord = 0;
+        uint8_t emitCollisionTime = 0;
+        uint8_t markVisualContact = 0;
+        uint8_t hasCollisionCellKey = 0;
+    };
+
+    struct ObjectNarrowphaseIsland
+    {
+        int minPairIndex = 0;
+        std::vector<int> pairIndices;
+    };
+
     // Persistent rows and diagnostics produced during the current fixed tick.
     // Terrain manifolds are appended into the same row solver as object/object
     // contacts so velocity response has one owner.
@@ -194,6 +232,12 @@ class PhysicsWorld
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
     std::vector<TerrainContactManifold> m_terrainContactManifolds;
+    std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
+    std::vector<ObjectNarrowphaseEvent> m_objectNarrowphaseEvents;
+    std::vector<ObjectNarrowphaseIsland> m_objectNarrowphaseIslands;
+    std::vector<int> m_objectNarrowphaseParent;
+    std::vector<uint8_t> m_objectNarrowphaseRank;
+    std::vector<int> m_objectNarrowphaseRootToIsland;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoField m_tornadoField;

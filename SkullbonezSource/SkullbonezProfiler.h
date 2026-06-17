@@ -28,6 +28,12 @@ Related:
 
 #include "SkullbonezCommon.h"
 
+#include <cstdint>
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+#include <mutex>
+#endif
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -51,7 +57,8 @@ namespace Basics
 class Profiler
 {
   public:
-    static constexpr int MAX_MARKERS = 128;
+    static constexpr int MAX_MARKERS = 192;
+    static constexpr int MAX_WORKER_CORES = 128;
     static constexpr int MAX_DEPTH = 16;
     static constexpr int RING_SIZE = 600;     // ~10 s @ 60 fps
     static constexpr int GPU_QUERY_DEPTH = 4; // pending query ring depth (non-blocking readback)
@@ -123,10 +130,21 @@ class Profiler
         int gpuRingHead;
     };
 
+    struct WorkerCoreSample
+    {
+        int workerIndex;
+        int jobCount;
+        float coreMs;
+        float avgCoreMs;
+        float spanStartMs;
+        float spanEndMs;
+    };
+
     static Profiler& Instance();
 
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
+    void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks );
 
     // GPU scopes still record CPU elapsed time internally, but emit platform
     // profiler GPU annotations through the active backend instead of duplicating
@@ -151,6 +169,14 @@ class Profiler
     const Marker& GetMarker( int i ) const
     {
         return m_markers[i];
+    }
+    int WorkerCoreSampleCount() const
+    {
+        return m_workerCoreSampleCount;
+    }
+    const WorkerCoreSample& GetWorkerCoreSample( int i ) const
+    {
+        return m_workerCoreSamples[i];
     }
 
     // Accessor for back-compat perf logging (returns last finished-frame total ms; 0 if marker missing)
@@ -185,8 +211,28 @@ class Profiler
     void ReadPendingGpuResults();
     void AdvanceGpuWriteCursors();
 
+    struct WorkerCoreAccumulator
+    {
+        int jobCount;
+        double accumSecondsThisFrame;
+        double firstStartSecondsThisFrame;
+        double lastEndSecondsThisFrame;
+        bool spanWrittenThisFrame;
+    };
+
+    struct WorkerCoreAverageWindow
+    {
+        double accumulatedCoreMs;
+        int frameCount;
+        float avgCoreMs;
+    };
+
     Marker m_markers[MAX_MARKERS];
     int m_markerCount;
+    WorkerCoreAccumulator m_workerCoreAccumulators[MAX_WORKER_CORES];
+    WorkerCoreAverageWindow m_workerCoreAverageWindows[MAX_WORKER_CORES];
+    WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
+    int m_workerCoreSampleCount;
 
     int m_stackIndices[MAX_DEPTH]; // marker indices currently open (top of stack at [m_stackTop-1])
     int m_stackTop;
@@ -198,6 +244,9 @@ class Profiler
     int m_warmupFrames;   // frames remaining in warmup window; ring-buffer stats not recorded when > 0
     bool m_resetPending;  // set by ScheduleReset(); applied at the next FrameBegin()
     int m_nextColorIndex; // round-robin colour assignment for leaf markers
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    mutable std::mutex m_workerSampleMutex;
+#endif
 };
 
 class ProfilerScope
@@ -238,6 +287,21 @@ class GpuProfilerScope
   private:
     const char* m_fullPath;
     uint32_t m_hash;
+};
+
+class WorkerProfilerScope
+{
+  public:
+    WorkerProfilerScope( const char* fullPath, uint32_t hash );
+    ~WorkerProfilerScope();
+    WorkerProfilerScope( const WorkerProfilerScope& ) = delete;
+    WorkerProfilerScope& operator=( const WorkerProfilerScope& ) = delete;
+
+  private:
+    const char* m_fullPath;
+    uint32_t m_hash;
+    int m_workerIndex;
+    int64_t m_startTicks;
 };
 
 } // namespace Basics
@@ -284,6 +348,10 @@ class GpuProfilerScope
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name ); \
     ::SkullbonezCore::Basics::GpuProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name, PROFILE_PASTE( _profSH_, __LINE__ ) )
 
+#define PROFILE_WORKER_SCOPED( name )                                           \
+    constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name ); \
+    ::SkullbonezCore::Basics::WorkerProfilerScope PROFILE_PASTE( _profW_, __LINE__ )( name, PROFILE_PASTE( _profWH_, __LINE__ ) )
+
 #define PROFILE_FRAME_BEGIN() ::SkullbonezCore::Basics::Profiler::Instance().FrameBegin()
 #define PROFILE_FRAME_END() ::SkullbonezCore::Basics::Profiler::Instance().FrameEnd()
 #define PROFILE_SCHEDULE_RESET() ::SkullbonezCore::Basics::Profiler::Instance().ScheduleReset()
@@ -296,6 +364,7 @@ class GpuProfilerScope
 #define PROFILE_GPU_BEGIN( name ) ( (void)0 )
 #define PROFILE_GPU_END( name ) ( (void)0 )
 #define PROFILE_GPU_SCOPED( name ) ( (void)0 )
+#define PROFILE_WORKER_SCOPED( name ) ( (void)0 )
 #define PROFILE_FRAME_BEGIN() ( (void)0 )
 #define PROFILE_FRAME_END() ( (void)0 )
 #define PROFILE_SCHEDULE_RESET() ( (void)0 )

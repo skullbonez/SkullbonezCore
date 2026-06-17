@@ -31,6 +31,7 @@ if "%~1"=="" (
 )
 
 set "FAILED=0"
+set "FULL_TARGET_RAN=0"
 set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
@@ -89,9 +90,11 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="full" (
         call "%ROOT%validate_full.bat"
         if errorlevel 1 set "FAILED=1"
+        if not errorlevel 1 set "FULL_TARGET_RAN=1"
     ) else if /I "!ARG!"=="agent" (
         call "%ROOT%agent_validate.bat"
         if errorlevel 1 set "FAILED=1"
+        if not errorlevel 1 set "FULL_TARGET_RAN=1"
     ) else if /I "!ARG!"=="format" (
         call "%ROOT%validate_format.bat"
         if errorlevel 1 set "FAILED=1"
@@ -119,8 +122,12 @@ if "!FAILED!"=="1" (
 )
 
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
-call "%ROOT%validate_ready_builds.bat"
-if errorlevel 1 exit /b 2
+if "!FULL_TARGET_RAN!"=="1" (
+    echo [ready] Full validation already built Profile and Debug.
+) else (
+    call "%ROOT%validate_ready_builds.bat"
+    if errorlevel 1 exit /b 2
+)
 
 echo.
 echo VALIDATE_SELECT: all requested validations passed.

@@ -163,6 +163,30 @@ int TestScene::GetSolverBoxCount() const
 }
 
 
+bool TestScene::HasModelCapacityOverride() const
+{
+    return m_sceneOptions.modelCapacity > 0;
+}
+
+
+int TestScene::GetModelCapacity() const
+{
+    return m_sceneOptions.modelCapacity;
+}
+
+
+bool TestScene::HasWorkerThreadOverride() const
+{
+    return m_sceneOptions.workerThreads >= -1;
+}
+
+
+int TestScene::GetWorkerThreads() const
+{
+    return m_sceneOptions.workerThreads;
+}
+
+
 const char* TestScene::GetPerfLogPath() const
 {
     return m_loggingOptions.perfLogPath;

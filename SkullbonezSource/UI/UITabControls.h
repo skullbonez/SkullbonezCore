@@ -65,12 +65,14 @@ bool HandleContentClick( UIControlsTabState& state,
                          float contentX,
                          float rowBase,
                          float contentW,
+                         int modelCapacity,
                          int lastSolverBallCount,
                          int lastSolverBoxCount );
 
 bool UpdateActiveSlider( UIControlsTabState& state,
                          int activeSlider,
                          int mouseX,
+                         int modelCapacity,
                          int lastSolverBallCount,
                          int lastSolverBoxCount,
                          InGameUIInputResult& result );

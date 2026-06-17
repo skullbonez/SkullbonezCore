@@ -283,10 +283,21 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
 
         CONFIG_FLOAT( "terrain_scale", terrainScale, 0.0001, 1000000.0 ),
         CONFIG_FLOAT( "terrain_height_scale", terrainHeightScale, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "terrain_render_step_size", terrainRenderStepSize, 1, 1024 ),
 
         CONFIG_FLOAT( "skybox_render_height", skyboxRenderHeight, -1000000.0, 1000000.0 ),
         CONFIG_INT( "skybox_overflow", skyboxOverflow, -1000000, 1000000 ),
         CONFIG_FLOAT( "skybox_scale", skyboxScale, 0.0001, 1000000.0 ),
+
+        CONFIG_INT( "game_model_capacity", gameModelCapacity, 1, MAX_GAME_MODELS ),
+        CONFIG_INT( "worker_threads", workerThreads, -1, 1024 ),
+        CONFIG_BOOL( "physics_parallel", physicsParallel ),
+        CONFIG_BOOL( "physics_parallel_apply_forces", physicsParallelApplyForces ),
+        CONFIG_BOOL( "physics_parallel_tornado_field", physicsParallelTornadoField ),
+        CONFIG_BOOL( "physics_parallel_narrowphase", physicsParallelNarrowphase ),
+        CONFIG_BOOL( "physics_parallel_terrain_detect", physicsParallelTerrainDetect ),
+        CONFIG_BOOL( "physics_parallel_integrate", physicsParallelIntegrate ),
+        CONFIG_BOOL( "shadow_parallel_prep", shadowParallelPrep ),
 
         CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
         CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),

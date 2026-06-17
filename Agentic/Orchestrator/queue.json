@@ -105,6 +105,157 @@
       "report_required": true
     },
     {
+      "id": "terrain-tessellation",
+      "plan": "Agentic/Plans/Done/terrain-tessellation-plan.md",
+      "state": "done",
+      "priority": 21,
+      "branch": "codex/terrain-tessellation",
+      "parent_branch": "main",
+      "impact_area": [
+        "DX12",
+        "rendering",
+        "terrain",
+        "shaders",
+        "physics",
+        "performance"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Terrain render density, shadow caster geometry, shaders, or DXR terrain BLAS changes require tools\\validate_dx12_renderer.bat. If the default density, terrain BLAS cost, shadow cost, or hot-path terrain cost changes materially, also run tools\\validate_perf.bat. Only run tools\\validate_physics.bat if the physics-visible terrain surface or baselines intentionally change.",
+      "screenshot_scenes": [
+        "SkullbonezData\\scenes\\render_tests.suite",
+        "SkullbonezData\\scenes\\water_ball_test.scene"
+      ],
+      "artifact_commands": [],
+      "parallel_group": "terrain-rendering",
+      "owned_globs": [
+        "Agentic/Plans/terrain-tessellation-plan.md",
+        "SkullbonezSource/SkullbonezTerrain*",
+        "SkullbonezSource/SkullbonezRunPasses*",
+        "SkullbonezSource/SkullbonezRunRender*",
+        "SkullbonezSource/SkullbonezRunScene*",
+        "SkullbonezSource/SkullbonezRenderBackend*",
+        "SkullbonezSource/SkullbonezShaderDX12*",
+        "SkullbonezData/shaders/*",
+        "SkullbonezData/engine.cfg",
+        "TestOutput/baselines/*.png",
+        "TestOutput/baselines/*_perf.json"
+      ],
+      "conflicts_with_areas": [
+        "DX12",
+        "rendering",
+        "terrain",
+        "shaders",
+        "physics",
+        "performance"
+      ],
+      "depends_on": [
+        "dx12-render-graph-completion"
+      ],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
+      "id": "worker-system",
+      "plan": "Agentic/Plans/Done/worker-system-plan.md",
+      "state": "done",
+      "priority": 22,
+      "branch": "codex/worker-system",
+      "parent_branch": "codex/terrain-tessellation",
+      "impact_area": [
+        "runtime",
+        "physics",
+        "performance",
+        "tools"
+      ],
+      "validation_gate": "tools\\validate_full.bat",
+      "validation_notes": "Worker infrastructure and first physics-facing integration touch runtime, physics determinism, and hot-path scheduling. Use focused builds while iterating, then run the broad gate before PR-bound completion; if the final slice is infrastructure-only, document the smaller validation actually used.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "parallel_group": "worker-runtime",
+      "owned_globs": [
+        "Agentic/Plans/worker-system-plan.md",
+        "SkullbonezSource/SkullbonezWorker*",
+        "SkullbonezSource/SkullbonezFence*",
+        "SkullbonezSource/SkullbonezLockOrderValidator*",
+        "SkullbonezSource/SkullbonezAmortizedTask*",
+        "SkullbonezSource/SkullbonezIslandBuilder*",
+        "SkullbonezSource/SkullbonezConfig*",
+        "SkullbonezSource/SkullbonezGameModelCollection*",
+        "SkullbonezSource/SkullbonezProfiler*",
+        "SkullbonezData/engine.cfg",
+        "tools/*"
+      ],
+      "conflicts_with_areas": [
+        "runtime",
+        "physics",
+        "performance",
+        "tools"
+      ],
+      "depends_on": [
+        "terrain-tessellation"
+      ],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
+      "id": "physics-shadow-worker-parallelization",
+      "plan": "Agentic/Plans/physics-shadow-worker-parallelization-plan.md",
+      "state": "verifying",
+      "priority": 23,
+      "branch": "codex/physics-shadow-worker-parallelization",
+      "parent_branch": "codex/worker-system",
+      "impact_area": [
+        "physics",
+        "DX12",
+        "rendering",
+        "shadows",
+        "performance",
+        "runtime"
+      ],
+      "validation_gate": "tools\\validate_full.bat",
+      "validation_notes": "This plan spans deterministic physics, shadow rendering, renderer-facing prep, and hot-path scheduling. Use focused builds or launches while iterating, then run the narrow gates required by the final touched files; use tools\\validate_full.bat for mixed physics plus renderer completion.",
+      "screenshot_scenes": [
+        "SkullbonezData\\scenes\\render_tests.suite"
+      ],
+      "artifact_commands": [],
+      "parallel_group": "physics-shadow-workers",
+      "owned_globs": [
+        "Agentic/Plans/physics-shadow-worker-parallelization-plan.md",
+        "SkullbonezSource/SkullbonezCommon.h",
+        "SkullbonezSource/SkullbonezConfig*",
+        "SkullbonezSource/SkullbonezWorker*",
+        "SkullbonezSource/SkullbonezInit*",
+        "SkullbonezSource/SkullbonezRun*",
+        "SkullbonezSource/SkullbonezGameModelCollection*",
+        "SkullbonezSource/SkullbonezGameModelRenderer*",
+        "SkullbonezSource/SkullbonezPhysicsWorld*",
+        "SkullbonezSource/SkullbonezSpatialGrid*",
+        "SkullbonezSource/SkullbonezShadow*",
+        "SkullbonezSource/SkullbonezRunPasses*",
+        "SkullbonezSource/SkullbonezRenderBackend*",
+        "SkullbonezSource/SkullbonezProfiler*",
+        "SkullbonezSource/SkullbonezTestScene*",
+        "SkullbonezSource/UI/*",
+        "SkullbonezData/engine.cfg",
+        "TestOutput/baselines/*.csv",
+        "TestOutput/baselines/*.png",
+        "TestOutput/baselines/*_perf.json"
+      ],
+      "conflicts_with_areas": [
+        "physics",
+        "DX12",
+        "rendering",
+        "shadows",
+        "performance",
+        "runtime"
+      ],
+      "depends_on": [
+        "worker-system"
+      ],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
       "id": "architecture-pass-2026-06-02",
       "plan": "Agentic/Plans/architecture_pass_2026-06-02.md",
       "state": "ready",

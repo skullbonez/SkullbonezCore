@@ -281,11 +281,23 @@ class SkullbonezConfig
     // Terrain
     float terrainScale = 5.0f;
     float terrainHeightScale = 0.15f;
+    int terrainRenderStepSize = 2;
 
     // Skybox
     float skyboxRenderHeight = 30.0f;
     int skyboxOverflow = 1;
     float skyboxScale = 10.0f;
+
+    // Threading
+    int gameModelCapacity = 1024;
+    int workerThreads = -1;
+    bool physicsParallel = true;
+    bool physicsParallelApplyForces = true;
+    bool physicsParallelTornadoField = false;
+    bool physicsParallelNarrowphase = false;
+    bool physicsParallelTerrainDetect = true;
+    bool physicsParallelIntegrate = true;
+    bool shadowParallelPrep = false;
 
     // Physics
     float gravity = -30.0f;

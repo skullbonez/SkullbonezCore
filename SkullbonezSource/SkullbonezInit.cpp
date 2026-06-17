@@ -33,6 +33,7 @@ Related:
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezPlatformProfiler.h"
+#include "SkullbonezWorkerPool.h"
 #include <cerrno>
 #include <float.h>
 #include <climits>
@@ -57,6 +58,7 @@ using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Threading;
 
 
 namespace
@@ -250,13 +252,34 @@ const char* GetCommandLineError()
 
 // GUI apps have no console by default — attach to the parent terminal so
 // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
+bool IsStandardHandleRedirected( DWORD standardHandle )
+{
+    HANDLE handle = GetStdHandle( standardHandle );
+    if ( handle == nullptr || handle == INVALID_HANDLE_VALUE )
+    {
+        return false;
+    }
+
+    const DWORD fileType = GetFileType( handle );
+    return fileType == FILE_TYPE_PIPE || fileType == FILE_TYPE_DISK;
+}
+
 void AttachParentConsole()
 {
+    const bool stdoutRedirected = IsStandardHandleRedirected( STD_OUTPUT_HANDLE );
+    const bool stderrRedirected = IsStandardHandleRedirected( STD_ERROR_HANDLE );
+
     if ( AttachConsole( ATTACH_PARENT_PROCESS ) )
     {
         FILE* dummy = nullptr;
-        freopen_s( &dummy, "CONOUT$", "w", stdout );
-        freopen_s( &dummy, "CONOUT$", "w", stderr );
+        if ( !stdoutRedirected )
+        {
+            freopen_s( &dummy, "CONOUT$", "w", stdout );
+        }
+        if ( !stderrRedirected )
+        {
+            freopen_s( &dummy, "CONOUT$", "w", stderr );
+        }
     }
 }
 
@@ -562,6 +585,7 @@ struct ParsedArgs
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
+    bool workerSelfTest = false;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
@@ -705,6 +729,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--dump-assets", nullptr, []( ParsedArgs& args )
           { args.dumpAssets = true; },
           nullptr },
+        { "--worker-self-test", "--workers-self-test", []( ParsedArgs& args )
+          {
+              args.workerSelfTest = true;
+              args.suppressExitDialog = true;
+          },
+          "[workers] Self-test requested." },
     };
 
     for ( const CliFlagDirective& flag : kFlags )
@@ -1213,6 +1243,62 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
+        { "--workers", "--worker-threads", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              int workerThreads = 0;
+              const int maxWorkerThreads = WorkerPool::MaxThreadCount();
+              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
+              {
+                  char message[128] = {};
+                  snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
+                  return FailCommandLineParse( message );
+              }
+              Cfg().workerThreads = workerThreads;
+              fprintf( stdout, "[workers] Override: %d (resolved %d, max %d)\n", Cfg().workerThreads, WorkerPool::ResolveThreadCount( Cfg().workerThreads ), maxWorkerThreads );
+              return true;
+          } },
+        { "--model-capacity", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              int capacity = 0;
+              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
+              {
+                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
+              }
+              Cfg().gameModelCapacity = capacity;
+              fprintf( stdout, "[models] Active model capacity: %d (compiled max %d)\n", ActiveGameModelCapacity(), MAX_GAME_MODELS );
+              return true;
+          } },
+        { "--physics-parallel", "--parallel-physics", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--physics-parallel expects optional on|off." );
+              }
+              Cfg().physicsParallel = enabled;
+              Cfg().physicsParallelApplyForces = enabled;
+              Cfg().physicsParallelTornadoField = enabled;
+              Cfg().physicsParallelNarrowphase = enabled;
+              Cfg().physicsParallelTerrainDetect = enabled;
+              Cfg().physicsParallelIntegrate = enabled;
+              fprintf( stdout, "[workers] Physics parallel jobs %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--shadow-parallel-prep", "--parallel-shadow-prep", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
+              }
+              Cfg().shadowParallelPrep = enabled;
+              fprintf( stdout, "[workers] Shadow parallel prep %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
         { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1615,123 +1701,123 @@ void InitRenderBackend( SkullbonezWindow* window )
 int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
-        SkullbonezRun cRun( std::move( args.sceneList ) );
+        std::unique_ptr<SkullbonezRun> cRun = std::make_unique<SkullbonezRun>( std::move( args.sceneList ) );
         if ( args.timeScaleOverride > 0.0f )
         {
-            cRun.SetTimeScaleOverride( args.timeScaleOverride );
+            cRun->SetTimeScaleOverride( args.timeScaleOverride );
         }
         if ( args.fixedStep )
         {
-            cRun.SetFixedStepOverride();
+            cRun->SetFixedStepOverride();
         }
         if ( args.seedOverride > 0 )
         {
-            cRun.SetSeedOverride( args.seedOverride );
+            cRun->SetSeedOverride( args.seedOverride );
         }
         if ( args.noWater )
         {
-            cRun.SetNoWaterOverride();
+            cRun->SetNoWaterOverride();
         }
         if ( args.noSleep )
         {
-            cRun.SetNoSleepOverride();
+            cRun->SetNoSleepOverride();
         }
         if ( args.hasTornadoOverride )
         {
-            cRun.SetTornadoOverride( args.tornadoEnabled );
+            cRun->SetTornadoOverride( args.tornadoEnabled );
         }
         if ( args.tornadoVectors )
         {
-            cRun.SetTornadoVectorFieldOverride( true );
+            cRun->SetTornadoVectorFieldOverride( true );
         }
         if ( args.hasCinematicRenderingOverride )
         {
-            cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+            cRun->SetCinematicRenderingOverride( args.cinematicRendering );
         }
         if ( args.hasCinematicShadowsOverride )
         {
-            cRun.SetCinematicShadowsOverride( args.cinematicShadows );
+            cRun->SetCinematicShadowsOverride( args.cinematicShadows );
         }
         if ( args.demoHeroStyle )
         {
-            cRun.SetDemoHeroStyleOverride();
+            cRun->SetDemoHeroStyleOverride();
         }
         if ( args.interactiveRun )
         {
-            cRun.SetInteractiveRunOverride();
+            cRun->SetInteractiveRunOverride();
         }
         if ( args.liveStyleControlDir[0] != '\0' )
         {
-            cRun.SetLiveStyleControlDirectory( args.liveStyleControlDir );
+            cRun->SetLiveStyleControlDirectory( args.liveStyleControlDir );
         }
         if ( args.frameCountOverride > 0 )
         {
-            cRun.SetFrameCountOverride( args.frameCountOverride );
+            cRun->SetFrameCountOverride( args.frameCountOverride );
         }
         if ( args.uiStress )
         {
-            cRun.SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+            cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
         }
         if ( args.showProfiler )
         {
-            cRun.SetInitialOverlayMode( OverlayMode::Timers );
+            cRun->SetInitialOverlayMode( OverlayMode::Timers );
         }
         if ( args.hideTopText )
         {
-            cRun.SetTopTextHidden( true );
+            cRun->SetTopTextHidden( true );
         }
         if ( args.showBroadphaseVisualizer )
         {
-            cRun.SetBroadphaseVisualizerEnabled( true );
+            cRun->SetBroadphaseVisualizerEnabled( true );
         }
         if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
         {
-            cRun.SetGeneratedObjectTypeOverride( args.objectTypeOverride );
+            cRun->SetGeneratedObjectTypeOverride( args.objectTypeOverride );
         }
         if ( args.hasPhysicsDebugFlagsOverride )
         {
-            cRun.SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
+            cRun->SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
         }
         if ( args.hasPhysicsDebugTransparentOverride )
         {
-            cRun.SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
+            cRun->SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
         }
         if ( args.hasPhysicsDebugAlphaOverride )
         {
-            cRun.SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
+            cRun->SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
         }
         if ( args.hasPhysicsDebugContactLingerOverride )
         {
-            cRun.SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
+            cRun->SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
         }
 #ifdef _DEBUG
         if ( args.physicsRegressionLogOverride[0] != '\0' )
         {
-            cRun.SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
+            cRun->SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
         }
         if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
         {
-            cRun.SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
+            cRun->SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
         }
         if ( args.physicsDiagnosticsPath[0] != '\0' )
         {
-            cRun.SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
+            cRun->SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
         }
 #endif
         try
         {
-            cRun.Initialise();
+            cRun->Initialise();
             if ( args.dumpAssets )
             {
-                cRun.DumpTextureAssets( stdout );
+                cRun->DumpTextureAssets( stdout );
             }
             if ( args.sceneLoadOnly )
             {
-                cRun.RunSceneLoadOnly();
+                cRun->RunSceneLoadOnly();
             }
             else
             {
-                cRun.Run();
+                cRun->Run();
             }
 
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
@@ -1835,6 +1921,15 @@ int WINAPI WinMain( HINSTANCE hInstance,
         return 1;
     }
 
+    WorkerPool::Instance().Initialise( Cfg().workerThreads );
+    if ( args.workerSelfTest )
+    {
+        const bool workersOk = RunWorkerSystemSelfTest( stdout );
+        WorkerPool::Instance().Shutdown();
+        CoUninitialize();
+        return workersOk ? 0 : 1;
+    }
+
     SkullbonezWindow* window = SkullbonezWindow::Instance();
     window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
@@ -1844,6 +1939,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
     const int runExitCode = RunApp( window, args );
 
+    WorkerPool::Instance().Shutdown();
     CleanupWindow( window, hInstance );
 
     CoUninitialize();

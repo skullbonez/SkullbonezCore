@@ -268,9 +268,18 @@ def validate_timeline_csv(path: Path, renderer: str) -> int:
     )
 
     children: dict[str | None, list[str]] = {None: []}
-    for name in marker_order:
+
+    def nearest_recorded_parent(name: str) -> str | None:
         slash = name.rfind("/")
-        parent = name[:slash] if slash >= 0 and name[:slash] in marker_ms else None
+        while slash >= 0:
+            candidate = name[:slash]
+            if candidate in marker_ms:
+                return candidate
+            slash = candidate.rfind("/")
+        return None
+
+    for name in marker_order:
+        parent = nearest_recorded_parent(name)
         children.setdefault(parent, []).append(name)
         children.setdefault(name, [])
 

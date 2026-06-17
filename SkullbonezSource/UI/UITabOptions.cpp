@@ -96,8 +96,10 @@ bool HandleContentClick( UIOptionsTabState& state,
                          int mouseY,
                          float contentX,
                          float rowBase,
-                         float contentW )
+                         float contentW,
+                         int modelCapacity )
 {
+    const int modelMax = (std::max)( UI_MODEL_COUNT_MIN, modelCapacity );
     SetContentBounds( state, contentX, rowBase, contentW );
 
     if ( state.toggles[0].HitTest( mouseX, mouseY ) )
@@ -136,7 +138,7 @@ bool HandleContentClick( UIOptionsTabState& state,
         activeSlider = SLIDER_MODEL_COUNT;
         state.previewModelCount = static_cast<int>( state.modelCountSlider.ValueFromMouse( mouseX,
                                                                                            static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                           static_cast<float>( UI_MODEL_COUNT_MAX ),
+                                                                                           static_cast<float>( modelMax ),
                                                                                            1.0f ) );
         return true;
     }
@@ -144,7 +146,7 @@ bool HandleContentClick( UIOptionsTabState& state,
 }
 
 
-bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
+bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, int modelCapacity, InGameUIInputResult& result )
 {
     if ( activeSlider == SLIDER_TIME_SCALE )
     {
@@ -154,9 +156,10 @@ bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX,
     }
     if ( activeSlider == SLIDER_MODEL_COUNT )
     {
+        const int modelMax = (std::max)( UI_MODEL_COUNT_MIN, modelCapacity );
         state.previewModelCount = static_cast<int>( state.modelCountSlider.ValueFromMouse( mouseX,
                                                                                            static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                           static_cast<float>( UI_MODEL_COUNT_MAX ),
+                                                                                           static_cast<float>( modelMax ),
                                                                                            1.0f ) );
         return true;
     }
@@ -195,7 +198,9 @@ void Draw( UIOptionsTabState& state,
     const float col1 = contentX;
     const float col2 = contentX + colW + 18.0f;
     const float displayTimeScale = ( activeSlider == SLIDER_TIME_SCALE && state.previewTimeScale > 0.0f ) ? state.previewTimeScale : data.timeScale;
-    const int displayModelCount = ( activeSlider == SLIDER_MODEL_COUNT && state.previewModelCount >= 0 ) ? state.previewModelCount : data.modelCount;
+    const int modelMax = (std::max)( UI_MODEL_COUNT_MIN, data.modelCapacity );
+    const int rawModelCount = ( activeSlider == SLIDER_MODEL_COUNT && state.previewModelCount >= 0 ) ? state.previewModelCount : data.modelCount;
+    const int displayModelCount = std::clamp( rawModelCount, UI_MODEL_COUNT_MIN, modelMax );
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene Options" );
     DrawContentToggle( draw, contentY, contentH, state.toggles[0], col1, scrolledY + 42.0f, colW, "Fixed step", data.fixedStep );
     DrawContentToggle( draw, contentY, contentH, state.toggles[1], col2, scrolledY + 42.0f, colW, "Hide terrain", data.terrainHidden );
@@ -213,7 +218,7 @@ void Draw( UIOptionsTabState& state,
     state.modelCountSlider.SetBounds( contentX, scrolledY + 216.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 216.0f, 34.0f ) )
     {
-        state.modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( UI_MODEL_COUNT_MAX ) );
+        state.modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( modelMax ) );
     }
 }
 

@@ -398,6 +398,10 @@ Reports must include:
   feature-branch URL for PR-open work and the `main` URL after a successful
   merge,
 - started, finished, elapsed, and substantial sub-run timings,
+- the mandatory `orchestration-ledger.md` contents, including worker-agent
+  duration, rubber-duck verifier count and duration, validation duration,
+  finalization duration, and minute-by-minute accounting for orchestrator
+  bookkeeping or wait gaps,
 - a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,
@@ -464,3 +468,12 @@ Set the item state:
 - `skipped` only by explicit user or policy decision.
 
 Stop after `blocked` or `failed` unless policy explicitly allows advancement.
+
+If an operator receives new direction that resolves a blocked item, reopen it
+with an explicit state-machine transition instead of editing queue JSON by hand:
+
+- `tools\orchestrator.bat transition <item-id> reopen_for_work` when another
+  worker implementation pass is required.
+- `tools\orchestrator.bat transition <item-id> reopen_for_verification` when
+  the work has already been completed and should resume at independent
+  verification.

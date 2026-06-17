@@ -76,6 +76,8 @@ class GameModelCollection
     void Clear();
     void RunPhysics( float fChangeInTime );
     void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
+    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches );
+    void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );
     void RenderShadowCasters( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );
     void PrepareRenderStreams();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus, float maxDistance, Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );

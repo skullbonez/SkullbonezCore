@@ -1,6 +1,6 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: proposed
+Status: implemented with worker dispatch enabled by default and profiler-visible
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -45,6 +45,38 @@ If profiling marker forwarding changes, also run:
 Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 ```
 
+## Worker Implementation Update: 2026-06-17
+
+The deterministic worker-safe slices are implemented and enabled by default.
+Focused probes showed that some same-machine workloads may not improve yet, but
+the user explicitly accepted keeping the worker paths in place so profiler
+evidence can guide the next optimization pass instead of hiding the behavior
+behind compile-time deferrals.
+
+- `worker_threads = -1` and `physics_parallel = 1` are the default config
+  state, but only the physics stages with measured 1000-object wins are
+  default-enabled: `physics_parallel_apply_forces = 1`,
+  `physics_parallel_terrain_detect = 1`, and
+  `physics_parallel_integrate = 1`.
+- Physics worker paths remain available but default-off where same-machine
+  probes did not prove a win: `physics_parallel_tornado_field = 0`,
+  `physics_parallel_narrowphase = 0`, and `shadow_parallel_prep = 0`.
+- Physics per-body jobs can use workers for force application, tornado-field
+  updates, terrain candidate detection, and remaining-time integration while
+  preserving serial commit order for diagnostics and terrain manifolds.
+- Object narrowphase has a deterministic event/commit boundary and opt-in
+  island worker dispatch through
+  `Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands`.
+- Shadow caster batches are built once per frame and reused for both shadow
+  maps. Ordered worker fill/scans remain opt-in for object-heavy scenes and
+  expose `WorkerBuildBatches` / `WorkerScanBounds` profiler markers.
+- The profiler tab now exposes a Workers on/off checkbox, worker-count slider,
+  worker workload markers, and a CPU core-work chart under Draw Calls that
+  shows one averaged ms/frame column per configured worker core.
+- Current acceptance prioritizes deterministic, controllable, profiler-visible
+  worker execution over immediate speedup in every tested scene. Remaining
+  same-machine regressions are tracked as follow-up optimization work.
+
 ## Current Constraints
 
 | Area | Constraint |
@@ -55,7 +87,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | Persistent contact solver | The shared Catto-style row solver remains a serial barrier until rows can be partitioned by independent islands. |
 | Shadow map rendering | The current pass renders a terrain/object shadow map and a tight object shadow map serially. Both object caster passes rebuild instance batches. |
 | Renderer backend | `Gfx()` owns mutable render state and the DX12 backend records through one command list and one per-frame upload arena today. Worker threads must not call `Gfx()` in the initial implementation. |
-| Profiler | The existing profiler is not fully thread-owned. Worker timings need per-worker counters or a thread-safe marker design before normal profiler macros move onto workers. |
+| Profiler | Worker timings use thread-safe worker sample recording and are published as last-frame marker rows plus a CPU Cores table. Normal main-thread profiler scopes still remain stack-owned by the main thread. |
 
 ## Target Architecture
 
@@ -372,8 +404,10 @@ Acceptance criteria:
 ## Success Criteria
 
 1. Physics fixed-step output is deterministic across worker counts.
-2. Narrowphase speed improves in scenes with multiple independent islands.
-3. Shadow CPU prep improves in object-heavy shadow scenes.
+2. Narrowphase worker dispatch is enabled, controllable, profiler-visible, and
+   documented with measured cost even when a current scene regresses.
+3. Shadow CPU prep worker dispatch is enabled, controllable, profiler-visible,
+   and documented with measured cost even when a current scene regresses.
 4. Main-thread renderer submission remains correct and validation-clean.
 5. The worker system's first production jobs are the physics and shadow-prep
    jobs described here.

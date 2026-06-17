@@ -36,7 +36,25 @@ echo ============================================================
 echo.
 
 set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
+set "PREVIOUS_ASSUME_PROFILE_BUILT=%SKULLBONEZ_ASSUME_PROFILE_BUILT%"
+set "PREVIOUS_ASSUME_DEBUG_BUILT=%SKULLBONEZ_ASSUME_DEBUG_BUILT%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
+
+echo === Phase 0: Build Required Configurations ===
+call "%~dp0validate_build.bat" Profile
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at Profile build.
+    exit /b 1
+)
+call "%~dp0validate_build.bat" Debug
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at Debug build.
+    exit /b 1
+)
+set "SKULLBONEZ_ASSUME_PROFILE_BUILT=1"
+set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
 
 echo === Phase 1: DX12 Renderer Validation ===
 call "%~dp0validate_dx12_renderer.bat"
@@ -65,8 +83,9 @@ if errorlevel 1 (
 )
 
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
-call "%~dp0validate_ready_builds.bat"
-if errorlevel 1 exit /b 4
+set "SKULLBONEZ_ASSUME_PROFILE_BUILT=%PREVIOUS_ASSUME_PROFILE_BUILT%"
+set "SKULLBONEZ_ASSUME_DEBUG_BUILT=%PREVIOUS_ASSUME_DEBUG_BUILT%"
+echo [ready] Profile and Debug were built before validation.
 
 echo.
 echo ============================================================

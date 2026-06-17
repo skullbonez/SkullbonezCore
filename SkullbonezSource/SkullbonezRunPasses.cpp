@@ -439,6 +439,7 @@ void SkullbonezRun::ShadowPass::ReleaseGpuResources()
         case ShadowResetStep::FramePayloads:
             shadows.terrainFrame = Rendering::ShadowFrameData();
             shadows.objectFrame = Rendering::ShadowFrameData();
+            shadows.objectCasterBatches.Clear();
             break;
         }
     }
@@ -553,7 +554,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::ShadowPass::BuildObjec
 }
 
 
-void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects )
+void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects, const Rendering::ShadowCasterBatches* objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap" );
@@ -614,7 +615,14 @@ void SkullbonezRun::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // collection keeps separate instanced batches so each caster shape uses
         // the same mesh silhouette as the visible forward pass.
-        m_run.m_cGameModelCollection.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        if ( objectCasters )
+        {
+            m_run.m_cGameModelCollection.RenderShadowCasterBatches( *objectCasters, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        }
+        else
+        {
+            m_run.m_cGameModelCollection.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        }
     }
 
     Gfx().SetPolygonOffset( false );
@@ -634,6 +642,7 @@ SkullbonezRun::ShadowPassOutput SkullbonezRun::ShadowPass::Render( const ShadowP
     // outputs instead of last frame's depth texture handles.
     shadows.terrainFrame = Rendering::ShadowFrameData();
     shadows.objectFrame = Rendering::ShadowFrameData();
+    shadows.objectCasterBatches.Clear();
     if ( inputs.cinematic )
     {
         // Build shadow maps before any receiver pass. Terrain receives the broad
@@ -646,15 +655,21 @@ SkullbonezRun::ShadowPassOutput SkullbonezRun::ShadowPass::Render( const ShadowP
             DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap" );
             Vector3 lightDirection( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
             EnsureGpuResources( inputs.frame, *inputs.cinematic );
+            Rendering::ShadowCasterBatches& objectCasters = shadows.objectCasterBatches;
+            const bool shouldBuildObjectCasters = inputs.cinematic->shadowObjectsCast && !m_run.m_debug.isCollisionVisualizer;
+            if ( shouldBuildObjectCasters )
+            {
+                m_run.m_cGameModelCollection.BuildShadowCasterBatches( objectCasters );
+            }
             shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
             if ( shadows.terrainTarget )
             {
-                RenderShadowMap( *shadows.terrainTarget, shadows.terrainFrame, *inputs.cinematic, true, true );
+                RenderShadowMap( *shadows.terrainTarget, shadows.terrainFrame, *inputs.cinematic, true, true, &objectCasters );
             }
             shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
             if ( shadows.objectTarget )
             {
-                RenderShadowMap( *shadows.objectTarget, shadows.objectFrame, *inputs.cinematic, false, true );
+                RenderShadowMap( *shadows.objectTarget, shadows.objectFrame, *inputs.cinematic, false, true, &objectCasters );
             }
         }
         PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );

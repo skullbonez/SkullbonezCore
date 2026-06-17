@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTestScene.h"
+#include "SkullbonezWorkerPool.h"
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -1482,6 +1483,25 @@ class TestSceneParser
         }
     }
 
+    void ParseModelCapacity( const char* args )
+    {
+        m_scene.m_sceneOptions.modelCapacity = ParseIntArg( "model_capacity", args, "model_capacity <count>" );
+        if ( m_scene.m_sceneOptions.modelCapacity < 1 || m_scene.m_sceneOptions.modelCapacity > MAX_GAME_MODELS )
+        {
+            Fail( "Invalid model_capacity at line %d (expected 1..%d)", m_lineNumber, MAX_GAME_MODELS );
+        }
+    }
+
+    void ParseWorkerThreads( const char* args )
+    {
+        m_scene.m_sceneOptions.workerThreads = ParseIntArg( "worker_threads", args, "worker_threads <-1|0|count>" );
+        const int maxWorkerThreads = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+        if ( m_scene.m_sceneOptions.workerThreads < -1 || m_scene.m_sceneOptions.workerThreads > maxWorkerThreads )
+        {
+            Fail( "Invalid worker_threads at line %d (expected -1, 0, or 1..%d)", m_lineNumber, maxWorkerThreads );
+        }
+    }
+
     bool TryParseCinematicDirective( const char* line )
     {
         // Cinematic scene directives normally share the cinematic_ prefix.
@@ -1836,6 +1856,8 @@ class TestSceneParser
             { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
             { "look", &TestSceneParser::ParseLook, "look <name|path>" },
             { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
+            { "model_capacity", &TestSceneParser::ParseModelCapacity, "model_capacity <count>" },
+            { "worker_threads", &TestSceneParser::ParseWorkerThreads, "worker_threads <-1|0|count>" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
             { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
         };

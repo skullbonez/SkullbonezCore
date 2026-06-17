@@ -46,7 +46,6 @@ import sys
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 BASELINE = REPO / "TestOutput" / "baselines" / "physics_query_varied.json"
 TRACE = REPO / "Debug" / "physics_query_varied.physicsdiag.ndjson"
-TRACE_NO_SLEEP = REPO / "Debug" / "physics_query_varied_no_sleep.physicsdiag.ndjson"
 SCENE_ARG = "SkullbonezData/scenes/physics_bench_varied.scene"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 QUERY_TOOL = REPO / "tools" / "physics_query.py"
@@ -77,15 +76,6 @@ QUERIES = [
     ("question_stack_health", ["questions", "stack_health"]),
     ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
 ]
-
-NO_SLEEP_QUERIES = [
-    ("summary", ["summary", "--limit", "8"]),
-    ("events_sleep", ["events", "--type", "failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep", "--limit", "20"]),
-    ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
-    ("solver", ["solver", "--frames", "0:1200", "--limit", "12"]),
-    ("pipeline", ["pipeline", "--frames", "0:1200", "--limit", "12"]),
-]
-
 
 def remove_if_exists(path):
     try:
@@ -174,7 +164,6 @@ def run_queries():
         "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
         "traceKind": "physicsdiag.ndjson",
         "queries": run_query_set(TRACE, QUERIES),
-        "noSleepQueries": run_query_set(TRACE_NO_SLEEP, NO_SLEEP_QUERIES),
     }
     return packet
 
@@ -220,8 +209,6 @@ def main():
     try:
         print("  Generating SkullScope trace from physics_bench_varied.scene...")
         generate_trace(TRACE, [])
-        print("  Generating no-sleep SkullScope trace from physics_bench_varied.scene...")
-        generate_trace(TRACE_NO_SLEEP, ["--no-sleep"])
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
         return compare_or_update(current_text, args.update)

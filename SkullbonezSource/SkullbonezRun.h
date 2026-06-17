@@ -183,6 +183,7 @@ struct ShadowPassResources
     // every frame before terrain/object receivers read the pointers.
     Rendering::ShadowFrameData terrainFrame;
     Rendering::ShadowFrameData objectFrame;
+    Rendering::ShadowCasterBatches objectCasterBatches;
 };
 
 struct RunRenderPassResources
@@ -574,7 +575,7 @@ class SkullbonezRun
       private:
         Rendering::ShadowFrameData BuildTerrainFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const;
         Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint );
-        void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects );
+        void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects, const Rendering::ShadowCasterBatches* objectCasters );
 
         SkullbonezRun& m_run;
     };
@@ -785,6 +786,8 @@ class SkullbonezRun
     int m_cmdUIStressActions = 5;                   // CLI --ui-stress-actions
     int m_selectedCineModeSceneIndex = -1;          // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
     CinematicRenderConfig m_defaultCinematicRender; // engine.cfg cinematic baseline restored by the Demo Scene cine mode
+    int m_startupGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int m_startupWorkerThreads = -1;
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;

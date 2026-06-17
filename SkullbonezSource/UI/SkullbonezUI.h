@@ -81,6 +81,9 @@ struct InGameUIFrameData
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
     int modelCount = 0;
+    int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
+    int workerThreadCount = 0;
+    int maxWorkerThreadCount = 1;
     int currentFrame = 0;
     int targetFrameCount = -1;
     unsigned int rngSeed = 0;
@@ -203,8 +206,11 @@ class InGameUI
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
+    int m_lastModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int m_lastSolverBallCount = 0;
     int m_lastSolverBoxCount = 0;
+    int m_lastWorkerThreadCount = 0;
+    int m_lastMaxWorkerThreadCount = 1;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;

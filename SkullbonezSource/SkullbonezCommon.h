@@ -71,7 +71,8 @@ Related:
 // Array-sizing counts (must remain compile-time)
 constexpr int TOTAL_CAMERA_COUNT = 3;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
-constexpr int MAX_GAME_MODELS = 1024;
+constexpr int DEFAULT_GAME_MODEL_CAPACITY = 1024;
+constexpr int MAX_GAME_MODELS = 8192;
 constexpr int DEFAULT_GAME_MODELS = 300;
 
 // Window labels
@@ -104,6 +105,11 @@ constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 inline SkullbonezCore::Basics::SkullbonezConfig& Cfg()
 {
     return SkullbonezCore::Basics::SkullbonezConfig::Instance();
+}
+
+inline int ActiveGameModelCapacity()
+{
+    return std::clamp( Cfg().gameModelCapacity, 1, MAX_GAME_MODELS );
 }
 
 // Convenience accessor — use Log().Writef("file.csv", fmt, ...) anywhere (debug no-op in release).

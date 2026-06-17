@@ -38,7 +38,7 @@ tools\validate_select.bat dx12-renderer physics
 tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat ui
-tools\validate_select.bat fast build-profile
+tools\validate_select.bat build-profile
 ```
 
 ## Utility Scripts
@@ -54,12 +54,12 @@ tools\validate_select.bat fast build-profile
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
-| `validate_dx12_renderer.bat` | Build Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
+| `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
 | `capture_ui_screenshot.bat [dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
 | `export_screenshot_png.py <input.bmp> <output.png>` | Convert an engine BMP capture to an optimized PNG |
-| `validate_physics_query.bat` | Generate the varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
+| `validate_physics_query.bat` | Generate one varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
 | `find_clang_format.bat` | Locate clang-format, called by format scripts |
 | `find_git.bat` | Locate Git, called by perf validation |
 | `find_msbuild.bat` | Locate MSBuild, called by other scripts |

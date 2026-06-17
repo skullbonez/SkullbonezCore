@@ -37,8 +37,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,7 @@ WORKER_RESULT_FIELDS = {
     "timings",
     "plain_language_summary",
     "commit_sha",
+    "implementation_commit",
     "blockers",
     "risks",
 }
@@ -74,6 +76,9 @@ VERIFIER_RESULT_FIELDS = {
     "feedback_for_worker",
     "another_round_required",
 }
+LIVE_LOG_POLL_SECONDS = 1.0
+LIVE_LOG_HEARTBEAT_SECONDS = 30.0
+VISIBLE_HELPER_STARTUP_OUTPUT_TIMEOUT_SECONDS = 45.0
 
 
 class OrchestratorError(RuntimeError):
@@ -120,6 +125,23 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    entries: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            payload = {"kind": "malformed_log_line", "raw": line}
+        if isinstance(payload, dict):
+            entries.append(payload)
+    return entries
+
+
 def tail_lines(text: str, max_lines: int = 30, max_chars: int = 4000) -> str:
     lines = text.strip().splitlines()
     if len(lines) > max_lines:
@@ -139,6 +161,449 @@ def codex_exec_log_paths(output_path: Path) -> tuple[Path, Path]:
 
 def codex_exec_transcript_path(output_path: Path) -> Path:
     return output_path.with_name(output_path.name + ".transcript.log")
+
+
+def orchestration_steps_path(run_dir: Path) -> Path:
+    return run_dir / "orchestration-steps.jsonl"
+
+
+def orchestration_summary_path(run_dir: Path) -> Path:
+    return run_dir / "orchestration-summary.json"
+
+
+def orchestration_ledger_path(run_dir: Path) -> Path:
+    return run_dir / "orchestration-ledger.md"
+
+
+def parse_utc_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def format_utc_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "unknown"
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def duration_seconds(start: datetime | None, end: datetime | None) -> float:
+    if start is None or end is None:
+        return 0.0
+    return max(0.0, (end - start).total_seconds())
+
+
+def duration_detail(seconds: float) -> str:
+    return f"{seconds:.1f}s ({elapsed_label(seconds)})"
+
+
+def markdown_table_text(value: Any) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def write_orchestration_summary(repo: Path, run_dir: Path) -> None:
+    steps = read_jsonl(orchestration_steps_path(run_dir))
+    rubber_ducks = [step for step in steps if step.get("kind") == "rubber_duck_finish"]
+    worker_runs = [step for step in steps if step.get("kind") == "worker_finish"]
+    validation_runs = [step for step in steps if step.get("kind") == "validation_finish"]
+    transitions = [step for step in steps if step.get("kind") == "transition"]
+    summary = {
+        "schema_version": 1,
+        "updated_at": utc_now(),
+        "run_dir": repo_relative(repo, run_dir),
+        "steps_log": repo_relative(repo, orchestration_steps_path(run_dir)),
+        "step_count": len(steps),
+        "started_at": steps[0].get("at") if steps else None,
+        "latest_state": next((step.get("to") for step in reversed(transitions) if step.get("to")), None),
+        "transition_count": len(transitions),
+        "transitions": [
+            {
+                "at": step.get("at"),
+                "event": step.get("event"),
+                "from": step.get("from"),
+                "to": step.get("to"),
+            }
+            for step in transitions
+        ],
+        "rubber_duck_count": len(rubber_ducks),
+        "rubber_duck_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in rubber_ducks), 3),
+        "rubber_ducks": [
+            {
+                "number": step.get("round"),
+                "started_at": step.get("started_at"),
+                "finished_at": step.get("finished_at"),
+                "elapsed_seconds": step.get("elapsed_seconds"),
+                "exit_code": step.get("exit_code"),
+                "verdict": step.get("verdict"),
+                "result": step.get("result"),
+            }
+            for step in rubber_ducks
+        ],
+        "worker_run_count": len(worker_runs),
+        "worker_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in worker_runs), 3),
+        "validation_run_count": len(validation_runs),
+        "validation_total_seconds": round(sum(float(step.get("elapsed_seconds", 0.0)) for step in validation_runs), 3),
+    }
+    write_json(orchestration_summary_path(run_dir), summary)
+
+
+def step_identity(step: dict[str, Any], role: str) -> tuple[str, Any]:
+    if role == "rubber_duck":
+        return (role, step.get("round"))
+    return (role, None)
+
+
+def pop_pending_start(pending: dict[tuple[str, Any], list[dict[str, Any]]], key: tuple[str, Any]) -> dict[str, Any] | None:
+    entries = pending.get(key, [])
+    if not entries:
+        return None
+    entry = entries.pop(0)
+    if not entries:
+        pending.pop(key, None)
+    return entry
+
+
+def event_description(step: dict[str, Any]) -> str:
+    kind = str(step.get("kind", "event"))
+    if kind == "transition":
+        return f"transition {step.get('from', '?')} --{step.get('event', '?')}--> {step.get('to', '?')}"
+    if kind == "state_entered":
+        return f"entered state {step.get('state', '?')}"
+    if kind == "worker_start":
+        return "implementation worker started"
+    if kind == "worker_finish":
+        return f"implementation worker finished exit={step.get('exit_code', '?')}"
+    if kind == "rubber_duck_start":
+        return f"rubber duck verifier #{step.get('round', '?')} started"
+    if kind == "rubber_duck_finish":
+        return f"rubber duck verifier #{step.get('round', '?')} finished verdict={step.get('verdict', '?')}"
+    if kind == "validation_start":
+        return f"validation started: {step.get('command', '')}"
+    if kind == "validation_finish":
+        return f"validation finished: {step.get('event', '?')}"
+    if kind == "finalize_start":
+        return "finalization started"
+    if kind == "finalize_finish":
+        return f"finalization finished exit={step.get('exit_code', '?')}"
+    return kind
+
+
+def make_activity_block(
+    start: datetime | None,
+    end: datetime | None,
+    owner: str,
+    activity: str,
+    detail: str,
+    evidence: str = "",
+    status: str = "complete",
+) -> dict[str, Any] | None:
+    if start is None or end is None:
+        return None
+    if end < start:
+        end = start
+    return {
+        "start": start,
+        "end": end,
+        "seconds": duration_seconds(start, end),
+        "owner": owner,
+        "activity": activity,
+        "detail": detail,
+        "evidence": evidence,
+        "status": status,
+    }
+
+
+def append_finish_block(
+    blocks: list[dict[str, Any]],
+    step: dict[str, Any],
+    owner: str,
+    activity: str,
+    detail: str,
+    evidence: str = "",
+) -> None:
+    start = parse_utc_datetime(step.get("started_at"))
+    end = parse_utc_datetime(step.get("finished_at")) or parse_utc_datetime(step.get("at"))
+    block = make_activity_block(start, end, owner, activity, detail, evidence)
+    if block is not None:
+        blocks.append(block)
+
+
+def build_activity_blocks(steps: list[dict[str, Any]], generated_at: datetime) -> tuple[list[dict[str, Any]], list[str]]:
+    blocks: list[dict[str, Any]] = []
+    pending: dict[tuple[str, Any], list[dict[str, Any]]] = {}
+    unmatched_finishes: list[str] = []
+
+    for step in steps:
+        kind = step.get("kind")
+        if kind == "worker_start":
+            pending.setdefault(step_identity(step, "worker"), []).append(step)
+        elif kind == "rubber_duck_start":
+            pending.setdefault(step_identity(step, "rubber_duck"), []).append(step)
+        elif kind == "validation_start":
+            pending.setdefault(step_identity(step, "validation"), []).append(step)
+        elif kind == "finalize_start":
+            pending.setdefault(step_identity(step, "finalize"), []).append(step)
+        elif kind == "worker_finish":
+            if pop_pending_start(pending, step_identity(step, "worker")) is None:
+                unmatched_finishes.append("worker_finish without matching worker_start")
+            append_finish_block(
+                blocks,
+                step,
+                "Implementation worker",
+                "Codex worker ran implementation or verifier feedback fixes.",
+                f"exit={step.get('exit_code', '?')}",
+                str(step.get("result") or ""),
+            )
+        elif kind == "rubber_duck_finish":
+            if pop_pending_start(pending, step_identity(step, "rubber_duck")) is None:
+                unmatched_finishes.append(f"rubber_duck_finish round {step.get('round', '?')} without matching start")
+            append_finish_block(
+                blocks,
+                step,
+                f"Rubber duck #{step.get('round', '?')}",
+                "Independent verifier reviewed the worker result, diff, validation, and artifacts.",
+                f"verdict={step.get('verdict', '?')} exit={step.get('exit_code', '?')}",
+                str(step.get("result") or ""),
+            )
+        elif kind == "validation_finish":
+            if pop_pending_start(pending, step_identity(step, "validation")) is None:
+                unmatched_finishes.append("validation_finish without matching validation_start")
+            append_finish_block(
+                blocks,
+                step,
+                "Validation gate",
+                "Repository validation gate ran.",
+                f"event={step.get('event', '?')}",
+                str(step.get("log") or ""),
+            )
+        elif kind == "finalize_finish":
+            if pop_pending_start(pending, step_identity(step, "finalize")) is None:
+                unmatched_finishes.append("finalize_finish without matching finalize_start")
+            append_finish_block(
+                blocks,
+                step,
+                "Orchestrator finalizer",
+                "Final report, report checks, archival, and optional commits ran.",
+                f"exit={step.get('exit_code', '?')}",
+            )
+
+    issues = unmatched_finishes
+    for starts in pending.values():
+        for start_step in starts:
+            started = parse_utc_datetime(start_step.get("at"))
+            owner = "Implementation worker"
+            activity = "Codex worker is still running or its finish was not recorded."
+            detail = event_description(start_step)
+            if start_step.get("kind") == "rubber_duck_start":
+                owner = f"Rubber duck #{start_step.get('round', '?')}"
+                activity = "Verifier is still running or its finish was not recorded."
+            elif start_step.get("kind") == "validation_start":
+                owner = "Validation gate"
+                activity = "Validation is still running or its finish was not recorded."
+            elif start_step.get("kind") == "finalize_start":
+                owner = "Orchestrator finalizer"
+                activity = "Finalization is still running or its finish was not recorded."
+            block = make_activity_block(started, generated_at, owner, activity, detail, status="open")
+            if block is not None:
+                blocks.append(block)
+                issues.append(f"open {start_step.get('kind')} at {format_utc_datetime(started)}")
+
+    return sorted(blocks, key=lambda block: block["start"]), issues
+
+
+def add_gap_blocks(steps: list[dict[str, Any]], blocks: list[dict[str, Any]], run_end: datetime) -> list[dict[str, Any]]:
+    dated_steps = [(parse_utc_datetime(step.get("at")), step) for step in steps]
+    dated_steps = [(at, step) for at, step in dated_steps if at is not None]
+    if not dated_steps and not blocks:
+        return []
+    run_start = min([at for at, _ in dated_steps] + [block["start"] for block in blocks])
+    cursor = run_start
+    filled: list[dict[str, Any]] = []
+    sorted_blocks = sorted(blocks, key=lambda block: block["start"])
+    for block in sorted_blocks:
+        if block["start"] > cursor:
+            previous_events = [step for at, step in dated_steps if at <= cursor]
+            next_events = [step for at, step in dated_steps if at >= cursor]
+            previous_label = event_description(previous_events[-1]) if previous_events else "run started"
+            next_label = event_description(next_events[0]) if next_events else "run ended"
+            gap = make_activity_block(
+                cursor,
+                block["start"],
+                "Orchestrator",
+                "State-machine bookkeeping, prompt/report file writes, or waiting with no active sub-agent recorded.",
+                f"after {previous_label}; before {next_label}",
+                status="gap",
+            )
+            if gap is not None:
+                filled.append(gap)
+        filled.append(block)
+        if block["end"] > cursor:
+            cursor = block["end"]
+    if run_end > cursor:
+        previous_events = [step for at, step in dated_steps if at <= cursor]
+        previous_label = event_description(previous_events[-1]) if previous_events else "run started"
+        gap = make_activity_block(
+            cursor,
+            run_end,
+            "Orchestrator",
+            "State-machine bookkeeping, prompt/report file writes, or waiting with no active sub-agent recorded.",
+            f"after {previous_label}",
+            status="gap",
+        )
+        if gap is not None:
+            filled.append(gap)
+    return filled
+
+
+def dominant_block_for_window(blocks: list[dict[str, Any]], start: datetime, end: datetime) -> dict[str, Any] | None:
+    best: dict[str, Any] | None = None
+    best_overlap = 0.0
+    for block in blocks:
+        overlap_start = max(start, block["start"])
+        overlap_end = min(end, block["end"])
+        overlap = duration_seconds(overlap_start, overlap_end)
+        if overlap > best_overlap:
+            best = block
+            best_overlap = overlap
+    return best
+
+
+def render_orchestration_ledger(repo: Path, run_dir: Path, item_id: str) -> str:
+    generated_at = datetime.now(timezone.utc)
+    steps = read_jsonl(orchestration_steps_path(run_dir))
+    run_state = load_run_state(run_dir) if (run_dir / "run.json").exists() else {}
+    blocks, issues = build_activity_blocks(steps, generated_at)
+    dated_steps = [(parse_utc_datetime(step.get("at")), step) for step in steps]
+    dated_steps = [(at, step) for at, step in dated_steps if at is not None]
+    run_end_candidates = [generated_at, *[block["end"] for block in blocks], *[at for at, _ in dated_steps]]
+    finished_at = parse_utc_datetime(run_state.get("finished_at"))
+    if finished_at is not None:
+        run_end_candidates.append(finished_at)
+    run_end = max(run_end_candidates)
+    accounted_blocks = add_gap_blocks(steps, blocks, run_end)
+
+    worker_blocks = [block for block in blocks if block["owner"] == "Implementation worker"]
+    duck_blocks = [block for block in blocks if block["owner"].startswith("Rubber duck #")]
+    validation_blocks = [block for block in blocks if block["owner"] == "Validation gate"]
+    gap_blocks = [block for block in accounted_blocks if block.get("status") == "gap"]
+    long_gap_blocks = [block for block in gap_blocks if block["seconds"] >= 60.0]
+    open_blocks = [block for block in blocks if block.get("status") == "open"]
+    status = "COMPLETE" if not issues else "INCOMPLETE"
+
+    run_start = min(
+        [block["start"] for block in accounted_blocks] + [at for at, _ in dated_steps],
+        default=generated_at,
+    )
+    elapsed = duration_seconds(run_start, run_end)
+    lines = [
+        "# Mandatory Orchestration Ledger",
+        "",
+        f"- Item: `{item_id}`",
+        f"- Run directory: `{repo_relative(repo, run_dir)}`",
+        f"- Generated: `{format_utc_datetime(generated_at)}`",
+        f"- Ledger status: `{status}`",
+        f"- Run window: `{format_utc_datetime(run_start)}` to `{format_utc_datetime(run_end)}`",
+        f"- Accounted elapsed: `{duration_detail(elapsed)}`",
+        f"- Worker agents: `{len(worker_blocks)}` run(s), `{duration_detail(sum(block['seconds'] for block in worker_blocks))}` total",
+        f"- Rubber ducks: `{len(duck_blocks)}` verifier run(s), `{duration_detail(sum(block['seconds'] for block in duck_blocks))}` total",
+        f"- Validation gates: `{len(validation_blocks)}` run(s), `{duration_detail(sum(block['seconds'] for block in validation_blocks))}` total",
+        f"- Long bookkeeping/wait gaps: `{len(long_gap_blocks)}` gap(s) of at least 60s",
+        f"- Steps log: `{repo_relative(repo, orchestration_steps_path(run_dir))}`",
+        "",
+        "## Completeness Checks",
+    ]
+    if issues:
+        lines.extend(f"- FAIL: {issue}" for issue in issues)
+    else:
+        lines.append("- PASS: every recorded agent, rubber duck, validation, and finalization start has a matching finish.")
+    if long_gap_blocks:
+        lines.extend(
+            f"- NOTE: {duration_detail(block['seconds'])} gap from `{format_utc_datetime(block['start'])}` to `{format_utc_datetime(block['end'])}`: {block['detail']}"
+            for block in long_gap_blocks
+        )
+    else:
+        lines.append("- PASS: no state-machine bookkeeping/wait gap reached 60 seconds.")
+
+    lines.extend(["", "## Agent And Gate Runs", "", "| Owner | Start | Finish | Elapsed | Status | Detail | Evidence |", "|---|---:|---:|---:|---|---|---|"])
+    for block in blocks:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    markdown_table_text(block["owner"]),
+                    f"`{format_utc_datetime(block['start'])}`",
+                    f"`{format_utc_datetime(block['end'])}`",
+                    f"`{duration_detail(block['seconds'])}`",
+                    markdown_table_text(block.get("status", "complete")),
+                    markdown_table_text(block["detail"]),
+                    f"`{block['evidence']}`" if block.get("evidence") else "",
+                ]
+            )
+            + " |"
+        )
+
+    lines.extend(["", "## Minute Ledger", "", "| Minute | Window | Accounted To | Activity | Detail |", "|---:|---|---|---|---|"])
+    minute = 1
+    cursor = run_start
+    while cursor < run_end:
+        window_end = min(cursor + timedelta(seconds=60), run_end)
+        block = dominant_block_for_window(accounted_blocks, cursor, window_end)
+        owner = block["owner"] if block else "Unknown"
+        activity = block["activity"] if block else "No recorded activity."
+        detail = block["detail"] if block else "No matching orchestration step."
+        lines.append(
+            f"| {minute} | `{format_utc_datetime(cursor)}` - `{format_utc_datetime(window_end)}` | "
+            f"{markdown_table_text(owner)} | {markdown_table_text(activity)} | {markdown_table_text(detail)} |"
+        )
+        minute += 1
+        cursor = window_end
+    if minute == 1:
+        lines.append("| 1 | `none` | Orchestrator | No elapsed time recorded. | No steps available. |")
+
+    if open_blocks:
+        lines.extend(["", "## Open Work"])
+        for block in open_blocks:
+            lines.append(
+                f"- {block['owner']} has no finish record after `{format_utc_datetime(block['start'])}`; "
+                f"ledger generated at `{format_utc_datetime(block['end'])}`."
+            )
+
+    return "\n".join(lines) + "\n"
+
+
+def write_orchestration_ledger(repo: Path, run_dir: Path, item_id: str) -> Path:
+    path = orchestration_ledger_path(run_dir)
+    path.write_text(render_orchestration_ledger(repo, run_dir, item_id), encoding="utf-8")
+    return path
+
+
+def print_orchestration_ledger(repo: Path, run_dir: Path, item_id: str) -> None:
+    path = write_orchestration_ledger(repo, run_dir, item_id)
+    text = path.read_text(encoding="utf-8")
+    print("")
+    print(text, end="")
+    print(f"Ledger artifact: {repo_relative(repo, path)}")
+
+
+def append_orchestration_step(repo: Path, run_dir: Path, item_id: str, kind: str, **fields: Any) -> None:
+    payload = {
+        "schema_version": 1,
+        "at": utc_now(),
+        "item_id": item_id,
+        "kind": kind,
+        **fields,
+    }
+    path = orchestration_steps_path(run_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(payload, sort_keys=True) + "\n")
+    write_orchestration_summary(repo, run_dir)
 
 
 def codex_exec_artifacts(repo: Path, output_path: Path) -> list[str]:
@@ -161,6 +626,22 @@ def codex_exec_failure_detail(output_path: Path) -> str:
             if detail:
                 return detail
     return ""
+
+
+def decode_text_bytes(data: bytes) -> str:
+    if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
+        return data.decode("utf-16", errors="replace")
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data.decode("utf-8-sig", errors="replace")
+    if data:
+        sample = data[: min(len(data), 4096)]
+        if sample.count(0) / len(sample) > 0.10:
+            return data.decode("utf-16", errors="replace")
+    return data.decode("utf-8", errors="replace")
+
+
+def read_text_file(path: Path) -> str:
+    return decode_text_bytes(path.read_bytes()).replace("\x00", "")
 
 
 def result_json_has_fields(path: Path, required_fields: set[str]) -> bool:
@@ -212,14 +693,139 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
-        console.flush()
+        if console is not None:
+            write_console_text(console, chunk)
+            console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
         if chunk == "\n":
             flush_transcript_buffer()
     flush_transcript_buffer()
+
+
+def tee_stream_to_file(stream: Any, console: Any, stream_log: Any) -> None:
+    while True:
+        chunk = stream.read(1)
+        if not chunk:
+            break
+        write_console_text(console, chunk)
+        console.flush()
+        stream_log.write(chunk)
+        stream_log.flush()
+
+
+def elapsed_label(seconds: float) -> str:
+    total = max(0, int(seconds))
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+def size_label(path: Path) -> str:
+    try:
+        return f"{path.stat().st_size} bytes"
+    except OSError:
+        return "not created yet"
+
+
+def write_console_text(console: Any, text: str) -> None:
+    try:
+        console.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(console, "encoding", None) or "utf-8"
+        safe_text = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+        console.write(safe_text)
+
+
+def emit_file_growth(path: Path, offset: int, console: Any) -> int:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return offset
+    if size < offset:
+        offset = 0
+    if size == offset:
+        return offset
+    with path.open("rb") as file:
+        file.seek(offset)
+        data = file.read()
+    text = decode_text_bytes(data).replace("\x00", "")
+    if text:
+        write_console_text(console, text)
+        console.flush()
+    return size
+
+
+def wait_with_heartbeat(
+    process: subprocess.Popen[Any],
+    label: str,
+    log_path: Path,
+    repo: Path,
+    timeout_seconds: int | None,
+) -> int:
+    started = time.monotonic()
+    last_heartbeat = started
+    while True:
+        returncode = process.poll()
+        if returncode is not None:
+            return returncode
+        now = time.monotonic()
+        if timeout_seconds is not None and now - started >= timeout_seconds:
+            raise subprocess.TimeoutExpired(process.args, timeout_seconds)
+        if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
+            print(
+                f"[orchestrator] {label} still running after {elapsed_label(now - started)}; "
+                f"log: {repo_relative(repo, log_path)} ({size_label(log_path)})",
+                flush=True,
+            )
+            last_heartbeat = now
+        time.sleep(LIVE_LOG_POLL_SECONDS)
+
+
+def wait_visible_helper_with_live_transcript(
+    helper: subprocess.Popen[Any],
+    transcript_log: Path,
+    repo: Path,
+    timeout_seconds: int | None,
+) -> int:
+    started = time.monotonic()
+    last_heartbeat = started
+    while True:
+        returncode = helper.poll()
+        if returncode is not None:
+            print(
+                f"[orchestrator] sub-agent exited {returncode}; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
+            return returncode
+        now = time.monotonic()
+        transcript_size = transcript_log.stat().st_size if transcript_log.exists() else 0
+        if transcript_size == 0 and now - started >= VISIBLE_HELPER_STARTUP_OUTPUT_TIMEOUT_SECONDS:
+            raise OrchestratorError(
+                "visible sub-agent produced no transcript output after "
+                f"{elapsed_label(now - started)}; helper output capture likely stalled."
+            )
+        if timeout_seconds is not None and now - started >= timeout_seconds:
+            print(
+                f"[orchestrator] sub-agent timed out; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
+            raise subprocess.TimeoutExpired(helper.args, timeout_seconds)
+        if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
+            print(
+                f"[orchestrator] sub-agent still running after {elapsed_label(now - started)}; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
+            last_heartbeat = now
+        time.sleep(LIVE_LOG_POLL_SECONDS)
 
 
 def normalize_state(state: str) -> str:
@@ -298,6 +904,60 @@ def current_branch(repo: Path) -> str:
     if result.returncode != 0:
         raise OrchestratorError(result.stderr.strip() or "Unable to determine current branch.")
     return result.stdout.strip()
+
+
+def kill_process_tree_by_pid(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        return
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+
+
+def snapshot_codex_app_server_pids() -> set[int]:
+    if os.name != "nt":
+        return set()
+    command = (
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { $_.Name -ieq 'codex.exe' -and "
+        "$_.CommandLine -like '*app-server --listen stdio://*' -and "
+        "$_.CommandLine -like '*\\\\OpenAI\\\\Codex\\\\bin\\\\*' } | "
+        "ForEach-Object { $_.ProcessId }"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", command],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        return set()
+    pids: set[int] = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            pids.add(int(line))
+        except ValueError:
+            continue
+    return pids
+
+
+def cleanup_new_codex_app_servers(before_pids: set[int]) -> None:
+    for pid in sorted(snapshot_codex_app_server_pids() - before_pids):
+        kill_process_tree_by_pid(pid)
 
 
 def ensure_clean_for_branch(repo: Path, allow_dirty: bool) -> None:
@@ -917,6 +1577,19 @@ def command_start(args: argparse.Namespace) -> int:
         prompt_path = write_worker_prompt(args.repo, policy, queue, item, run_dir)
         run_state["worker_prompt"] = repo_relative(args.repo, prompt_path)
         save_run_state(run_dir, run_state)
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "transition",
+            event="start",
+            **{
+                "from": previous,
+                "to": "running",
+            },
+            generated={"worker_prompt": repo_relative(args.repo, prompt_path)},
+            manual_guards=[],
+        )
     except KeyError:
         print(f"ERROR: Unknown item: {args.item_id}")
         return 1
@@ -1107,6 +1780,9 @@ def apply_transition(
     artifacts = save_transition_artifact(repo, run_dir, event, result_path, validation_log_path)
 
     generated: dict[str, str] = {}
+    if "prompt.write_worker" in transition.get("actions", []):
+        prompt_path = write_worker_prompt(repo, policy, queue, item, run_dir)
+        generated["worker_prompt"] = repo_relative(repo, prompt_path)
     if "prompt.write_verifier" in transition.get("actions", []):
         prompt_path = write_verifier_prompt(repo, policy, queue, item, run_dir)
         generated["verifier_prompt"] = repo_relative(repo, prompt_path)
@@ -1131,6 +1807,8 @@ def apply_transition(
     )
     if target in terminal_states(machine):
         run_state["finished_at"] = utc_now()
+    else:
+        run_state["finished_at"] = None
     save_run_state(run_dir, run_state)
     return {
         "item_id": item_id,
@@ -1155,12 +1833,12 @@ def print_transition_result(result: dict[str, Any]) -> None:
 
 def command_transition(args: argparse.Namespace) -> int:
     try:
-        result = apply_transition(
+        transition_and_print(
             args.repo,
             args.item_id,
             args.event,
-            result_path=args.result,
-            validation_log_path=args.validation_log,
+            result_path=Path(args.result) if args.result else None,
+            validation_log_path=Path(args.validation_log) if args.validation_log else None,
             run_date_text=args.run_date,
             force_guards=args.force_guards,
         )
@@ -1171,7 +1849,6 @@ def command_transition(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
 
-    print_transition_result(result)
     return 0
 
 
@@ -1228,8 +1905,9 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
-        console.flush()
+        if console is not None:
+            console.write(chunk)
+            console.flush()
         stream_log.write(chunk)
         stream_log.flush()
         transcript_buffer.append(chunk)
@@ -1263,6 +1941,8 @@ def main() -> int:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=repo,
             bufsize=1,
         )
@@ -1272,12 +1952,12 @@ def main() -> int:
         transcript_lock = threading.Lock()
         stdout_thread = threading.Thread(
             target=tee_stream,
-            args=(process.stdout, sys.stdout, stdout_file, transcript_file, transcript_lock, "stdout"),
+            args=(process.stdout, None, stdout_file, transcript_file, transcript_lock, "stdout"),
             daemon=True,
         )
         stderr_thread = threading.Thread(
             target=tee_stream,
-            args=(process.stderr, sys.stderr, stderr_file, transcript_file, transcript_lock, "stderr"),
+            args=(process.stderr, None, stderr_file, transcript_file, transcript_lock, "stderr"),
             daemon=True,
         )
         stdout_thread.start()
@@ -1311,6 +1991,7 @@ def run_codex_exec_visible_console(
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    app_server_pids_before = snapshot_codex_app_server_pids()
     with tempfile.TemporaryDirectory(prefix="skore-codex-visible-") as temp:
         temp_dir = Path(temp)
         prompt_path = temp_dir / "prompt.txt"
@@ -1336,10 +2017,16 @@ def run_codex_exec_visible_console(
             creationflags=creationflags,
         )
         try:
-            return helper.wait(timeout=timeout_seconds)
+            return wait_visible_helper_with_live_transcript(helper, transcript_log, repo, timeout_seconds)
+        except OrchestratorError:
+            kill_process_tree_by_pid(helper.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
+            helper.wait(timeout=10)
+            raise
         except subprocess.TimeoutExpired as exc:
-            helper.kill()
-            helper.wait()
+            kill_process_tree_by_pid(helper.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
+            helper.wait(timeout=10)
             raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s in visible console.") from exc
 
 
@@ -1368,24 +2055,25 @@ def run_codex_exec(
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
     if visible_console and os.name == "nt":
-        print("Opening visible sub-agent console...")
-        print(f"  result: {repo_relative(repo, output_path)}")
-        print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+        print("Opening visible sub-agent console and mirroring output to logs...", flush=True)
+        print(f"  result: {repo_relative(repo, output_path)}", flush=True)
+        print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
         returncode = run_codex_exec_visible_console(repo, prompt, command, output_path, timeout_seconds)
         if returncode != 0:
-            print(f"codex exec exited {returncode}.")
-            print(f"  stdout: {repo_relative(repo, codex_exec_log_paths(output_path)[0])}")
-            print(f"  stderr: {repo_relative(repo, codex_exec_log_paths(output_path)[1])}")
-            print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+            print(f"codex exec exited {returncode}.", flush=True)
+            print(f"  stdout: {repo_relative(repo, codex_exec_log_paths(output_path)[0])}", flush=True)
+            print(f"  stderr: {repo_relative(repo, codex_exec_log_paths(output_path)[1])}", flush=True)
+            print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
             detail = codex_exec_failure_detail(output_path)
             if detail:
-                print("Last codex output:")
+                print("Last codex output:", flush=True)
                 for line in detail.splitlines():
-                    print(f"  {line}")
+                    print(f"  {line}", flush=True)
         return returncode
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    app_server_pids_before = snapshot_codex_app_server_pids()
     with (
         stdout_log.open("w", encoding="utf-8") as stdout_file,
         stderr_log.open("w", encoding="utf-8") as stderr_file,
@@ -1397,6 +2085,8 @@ def run_codex_exec(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=repo,
             bufsize=1,
         )
@@ -1421,10 +2111,11 @@ def run_codex_exec(
         except BrokenPipeError:
             pass
         try:
-            returncode = process.wait(timeout=timeout_seconds)
+            returncode = wait_with_heartbeat(process, "sub-agent", transcript_log, repo, timeout_seconds)
         except subprocess.TimeoutExpired as exc:
-            process.kill()
-            process.wait()
+            kill_process_tree_by_pid(process.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
+            process.wait(timeout=10)
             stdout_thread.join(timeout=5)
             stderr_thread.join(timeout=5)
             raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
@@ -1451,6 +2142,7 @@ def run_worker_agent(
     codex_bin: str | None,
     no_schema: bool,
     visible_console: bool | None,
+    timeout_seconds: int | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1460,7 +2152,16 @@ def run_worker_agent(
     output = run_dir / ("worker-result.md" if no_schema else "worker-result.json")
     sandbox_mode = sandbox or default_worker_sandbox(policy)
     use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
-    return run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console), output
+    return run_codex_exec(
+        repo,
+        prompt,
+        output,
+        schema,
+        sandbox_mode,
+        codex_bin,
+        timeout_seconds=timeout_seconds,
+        visible_console=use_visible_console,
+    ), output
 
 
 def run_verifier_agent(
@@ -1472,6 +2173,7 @@ def run_verifier_agent(
     no_schema: bool,
     require_clean: bool,
     visible_console: bool | None,
+    timeout_seconds: int | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1485,7 +2187,16 @@ def run_verifier_agent(
     before = git_status_porcelain(repo)
     sandbox_mode = sandbox or default_verifier_sandbox(policy)
     use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
-    code = run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console)
+    code = run_codex_exec(
+        repo,
+        prompt,
+        output,
+        schema,
+        sandbox_mode,
+        codex_bin,
+        timeout_seconds=timeout_seconds,
+        visible_console=use_visible_console,
+    )
     after = git_status_porcelain(repo)
     if require_clean and after != before:
         raise OrchestratorError("Verifier changed the tracked worktree; inspect and revert/commit intentionally.")
@@ -1494,6 +2205,19 @@ def run_verifier_agent(
 
 def command_run_worker(args: argparse.Namespace) -> int:
     try:
+        policy, _, _ = load_state(args.repo)
+        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        started_at = utc_now()
+        started = time.monotonic()
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "worker_start",
+            manual_command=True,
+            sandbox=args.sandbox or default_worker_sandbox(policy),
+            visible_console=bool(args.visible_console),
+        )
         code, output = run_worker_agent(
             args.repo,
             args.item_id,
@@ -1502,6 +2226,19 @@ def command_run_worker(args: argparse.Namespace) -> int:
             args.codex_bin,
             args.no_schema,
             args.visible_console,
+            args.timeout_seconds,
+        )
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "worker_finish",
+            manual_command=True,
+            started_at=started_at,
+            finished_at=utc_now(),
+            elapsed_seconds=round(time.monotonic() - started, 3),
+            exit_code=code,
+            result=repo_relative(args.repo, output),
         )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
@@ -1532,9 +2269,30 @@ def command_run_worker(args: argparse.Namespace) -> int:
 
 
 def command_run_verifier(args: argparse.Namespace) -> int:
+    run_dir: Path | None = None
+    rubber_duck_number: int | None = None
+    started_at = utc_now()
+    started = time.monotonic()
     try:
         policy, _, _ = load_state(args.repo)
         require_clean = not args.allow_dirty_verifier and nested_get(policy, "verification.requires_clean_worktree") is not False
+        run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        round_dir = run_dir / "verification-rounds"
+        rubber_duck_number = next_verifier_result_number(round_dir)
+        started_at = utc_now()
+        started = time.monotonic()
+        append_orchestration_step(
+            args.repo,
+            run_dir,
+            args.item_id,
+            "rubber_duck_start",
+            manual_command=True,
+            role="verifier",
+            round=rubber_duck_number,
+            sandbox=args.sandbox or default_verifier_sandbox(policy),
+            require_clean_worktree=require_clean,
+            visible_console=bool(args.visible_console),
+        )
         code, output = run_verifier_agent(
             args.repo,
             args.item_id,
@@ -1544,11 +2302,51 @@ def command_run_verifier(args: argparse.Namespace) -> int:
             args.no_schema,
             require_clean,
             args.visible_console,
+            args.timeout_seconds,
         )
     except (KeyError, OrchestratorError) as exc:
+        if run_dir is not None and rubber_duck_number is not None:
+            append_orchestration_step(
+                args.repo,
+                run_dir,
+                args.item_id,
+                "rubber_duck_finish",
+                manual_command=True,
+                role="verifier",
+                round=rubber_duck_number,
+                started_at=started_at,
+                finished_at=utc_now(),
+                elapsed_seconds=round(time.monotonic() - started, 3),
+                exit_code=1,
+                verdict="blocked",
+                result=None,
+                error=str(exc),
+            )
         print(f"ERROR: {exc}")
         return 1
     print(f"Verifier result: {repo_relative(args.repo, output)}")
+    verdict = None
+    if output.suffix == ".json" and output.exists():
+        try:
+            verifier_payload = read_result_json(output)
+            verdict = str(verifier_payload.get("verdict", "blocked"))
+        except OrchestratorError:
+            verdict = None
+    append_orchestration_step(
+        args.repo,
+        run_dir,
+        args.item_id,
+        "rubber_duck_finish",
+        manual_command=True,
+        role="verifier",
+        round=rubber_duck_number,
+        started_at=started_at,
+        finished_at=utc_now(),
+        elapsed_seconds=round(time.monotonic() - started, 3),
+        exit_code=code,
+        verdict=verdict,
+        result=repo_relative(args.repo, output),
+    )
     if code != 0 and not args.no_schema:
         detail = codex_exec_failure_detail(output)
         findings = [f"codex exec returned {code}"]
@@ -1682,13 +2480,14 @@ def read_report_text_for_check(repo: Path, path: str, commit: str | None) -> str
             cwd=repo,
             check=False,
             capture_output=True,
-            text=True,
+            text=False,
         )
         if result.returncode != 0:
-            raise OrchestratorError(result.stderr.strip() or f"Unable to read {path} from {commit}.")
-        return result.stdout
+            detail = decode_text_bytes(result.stderr).strip()
+            raise OrchestratorError(detail or f"Unable to read {path} from {commit}.")
+        return decode_text_bytes(result.stdout).replace("\x00", "")
     report_path = resolve_repo_path(repo, path)
-    return report_path.read_text(encoding="utf-8", errors="ignore")
+    return read_text_file(report_path)
 
 
 def command_report_check(args: argparse.Namespace) -> int:
@@ -1711,6 +2510,8 @@ def command_report_check(args: argparse.Namespace) -> int:
             raise OrchestratorError("Report-only check requires exactly one report.md file.")
 
         report_text = read_report_text_for_check(args.repo, report_files[0], args.commit)
+        if "\x00" in report_text:
+            raise OrchestratorError(f"Report contains embedded NUL bytes: {report_files[0]}")
         for image in image_files:
             image_name = Path(image).name
             if f"images/{image_name}" not in report_text:
@@ -1724,7 +2525,7 @@ def command_report_check(args: argparse.Namespace) -> int:
 
 
 def referenced_report_files(repo: Path, report_path: Path) -> list[Path]:
-    report_text = report_path.read_text(encoding="utf-8", errors="ignore")
+    report_text = read_text_file(report_path)
     report_dir = report_path.parent
     files = [report_path]
     for match in MARKDOWN_IMAGE_RE.finditer(report_text):
@@ -1785,21 +2586,124 @@ def command_archive_plan(args: argparse.Namespace) -> int:
 
 def read_optional_text(path: Path) -> str:
     if path.exists():
-        return path.read_text(encoding="utf-8", errors="ignore").strip()
+        return read_text_file(path).strip()
     return ""
 
 
+def read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(read_text_file(path))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def read_worker_result(run_dir: Path) -> str:
+    payload = read_optional_json(run_dir / "worker-result.json")
+    if payload:
+        summary = prose_value(payload.get("summary", ""))
+        plain = prose_value(payload.get("plain_language_summary", ""))
+        return "\n\n".join(part for part in (plain, summary) if part)
     json_text = read_optional_text(run_dir / "worker-result.json")
     if json_text:
-        try:
-            payload = json.loads(json_text)
-            summary = payload.get("summary", "")
-            plain = payload.get("plain_language_summary", "")
-            return "\n\n".join(part for part in (plain, summary) if part)
-        except json.JSONDecodeError:
-            return json_text
+        return json_text
     return read_optional_text(run_dir / "worker-result.md")
+
+
+def markdown_list(values: list[Any]) -> str:
+    lines = [f"- `{str(value)}`" for value in values if str(value).strip()]
+    return "\n".join(lines) if lines else "- None recorded."
+
+
+def prose_list(values: list[Any]) -> str:
+    lines = [f"- {str(value)}" for value in values if str(value).strip()]
+    return "\n".join(lines) if lines else "- None recorded."
+
+
+def prose_value(value: Any) -> str:
+    if isinstance(value, list):
+        return prose_list(value)
+    if isinstance(value, dict):
+        lines = [f"- {key}: {entry_value}" for key, entry_value in value.items() if str(entry_value).strip()]
+        return "\n".join(lines)
+    return str(value).strip()
+
+
+def validation_details_from_payload(validation_payload: Any) -> tuple[list[str], str, list[str]]:
+    if isinstance(validation_payload, dict):
+        commands = validation_payload.get("commands", [])
+        if not isinstance(commands, list):
+            commands = [commands]
+        return [str(command) for command in commands if str(command).strip()], str(validation_payload.get("result", "")).strip(), []
+
+    if isinstance(validation_payload, list):
+        commands: list[str] = []
+        summaries: list[str] = []
+        timings: list[str] = []
+        for entry in validation_payload:
+            if not isinstance(entry, dict):
+                continue
+            command = str(entry.get("command", "")).strip()
+            result = str(entry.get("result", "")).strip()
+            elapsed = entry.get("elapsed_seconds")
+            log = str(entry.get("log", "")).strip()
+            notes = str(entry.get("notes", "")).strip()
+            if command:
+                commands.append(command)
+
+            parts = []
+            if command:
+                parts.append(f"`{command}`")
+            if result:
+                parts.append(result)
+            if elapsed is not None:
+                parts.append(f"{elapsed}s")
+            if log:
+                parts.append(f"log `{log}`")
+            line = " - ".join(parts)
+            if notes:
+                line = f"{line}: {notes}" if line else notes
+            if line:
+                summaries.append(line)
+            if command and elapsed is not None:
+                timings.append(f"{command}: {elapsed}s")
+        return commands, prose_list(summaries), timings
+
+    return [], "", []
+
+
+def validation_log_excerpt(text: str) -> str:
+    interesting = (
+        "VALIDATE_",
+        "[1/",
+        "[2/",
+        "[3/",
+        "[4/",
+        "[5/",
+        "[6/",
+        "[7/",
+        "PASS:",
+        "WARNING:",
+        "ERROR:",
+        "DX12 validation",
+        "DX12 baseline",
+        "avg_diff=",
+        "InfoQueue",
+        "ALL PASSED",
+        "COMPLETE",
+        "EXIT_CODE=",
+        "ELAPSED_SECONDS=",
+    )
+    lines = [line.rstrip() for line in text.splitlines()]
+    filtered = [line for line in lines if any(token in line for token in interesting)]
+    if not filtered:
+        filtered = lines[-80:]
+    if len(filtered) > 120:
+        filtered = filtered[:60] + ["... omitted ..."] + filtered[-60:]
+    excerpt = "\n".join(filtered).strip()
+    return excerpt[:12000] + "\n... truncated ..." if len(excerpt) > 12000 else excerpt
 
 
 def read_result_json(path: Path) -> dict[str, Any]:
@@ -1826,35 +2730,78 @@ def validation_not_required(item: dict[str, Any]) -> bool:
 
 def run_validation_gate(repo: Path, item: dict[str, Any], run_dir: Path) -> tuple[str, Path]:
     command_text = str(item.get("validation_gate", "")).strip()
+    log_path = run_dir / "validation.log"
     if validation_not_required(item):
-        log_path = run_dir / "validation.log"
         log_path.write_text("No repository validation script required for this item.\n", encoding="utf-8")
         return "not_required", log_path
     if not command_text:
         raise OrchestratorError("Validation gate is empty; cannot run validation.")
 
     started = utc_now()
-    result = subprocess.run(command_text, cwd=repo, shell=True, check=False, capture_output=True, text=True)
+    started_monotonic = time.monotonic()
+    stdout_path = run_dir / "validation.stdout.tmp"
+    stderr_path = run_dir / "validation.stderr.tmp"
+    print(f"Running validation gate: {command_text}", flush=True)
+    print(f"  log: {repo_relative(repo, log_path)}", flush=True)
+    with (
+        stdout_path.open("w", encoding="utf-8") as stdout_file,
+        stderr_path.open("w", encoding="utf-8") as stderr_file,
+    ):
+        process = subprocess.Popen(
+            command_text,
+            cwd=repo,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        if process.stdout is None or process.stderr is None:
+            raise OrchestratorError("Validation command did not expose expected stdio pipes.")
+        stdout_thread = threading.Thread(
+            target=tee_stream_to_file,
+            args=(process.stdout, sys.stdout, stdout_file),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=tee_stream_to_file,
+            args=(process.stderr, sys.stderr, stderr_file),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        returncode = wait_with_heartbeat(process, "validation gate", stdout_path, repo, None)
+        stdout_thread.join()
+        stderr_thread.join()
     finished = utc_now()
-    log_path = run_dir / "validation.log"
+    stdout_text = read_text_file(stdout_path) if stdout_path.exists() else ""
+    stderr_text = read_text_file(stderr_path) if stderr_path.exists() else ""
     log_path.write_text(
         "\n".join(
             [
                 f"command: {command_text}",
                 f"started_at: {started}",
                 f"finished_at: {finished}",
-                f"exit_code: {result.returncode}",
+                f"exit_code: {returncode}",
                 "",
                 "stdout:",
-                result.stdout,
+                stdout_text,
                 "",
                 "stderr:",
-                result.stderr,
+                stderr_text,
             ]
         ),
         encoding="utf-8",
     )
-    return ("passed" if result.returncode == 0 else "failed"), log_path
+    for temp_path in (stdout_path, stderr_path):
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+    print(f"Validation gate exited {returncode} after {elapsed_label(time.monotonic() - started_monotonic)}.", flush=True)
+    return ("passed" if returncode == 0 else "failed"), log_path
 
 
 def latest_commit(repo: Path) -> str:
@@ -1900,21 +2847,46 @@ def command_report_draft(args: argparse.Namespace) -> int:
         image_dir.mkdir(parents=True, exist_ok=True)
         report_path = report_dir / "report.md"
         template = resolve_repo_path(args.repo, REPORT_TEMPLATE).read_text(encoding="utf-8")
+        worker_payload = read_optional_json(run_dir / "worker-result.json")
         worker_result = read_worker_result(run_dir)
         validation = read_optional_text(run_dir / "validation.log")
+        verifier_path = latest_verifier_result_path(run_dir)
+        verifier_payload = read_optional_json(verifier_path) if verifier_path else {}
+        validation_commands, validation_summary, validation_timings = validation_details_from_payload(worker_payload.get("validation", {}))
+        validation_excerpt = validation_log_excerpt(validation) if validation else ""
+        validation_result = validation_summary
+        if validation_excerpt and validation_excerpt not in validation_result:
+            validation_result = "\n\n".join(part for part in (validation_summary, "Validation log excerpt:\n" + validation_excerpt) if part)
+        changed_files = worker_payload.get("changed_files", [])
+        if not isinstance(changed_files, list):
+            changed_files = []
+        artifacts = worker_payload.get("artifacts", [])
+        if not isinstance(artifacts, list):
+            artifacts = []
+        timings = worker_payload.get("timings", [])
+        if not isinstance(timings, list):
+            timings = []
+        if not timings and validation_timings:
+            timings = validation_timings
+        risks = worker_payload.get("risks", [])
+        if not isinstance(risks, list):
+            risks = []
+        commit_sha = str(worker_payload.get("commit_sha") or worker_payload.get("implementation_commit") or latest_commit(args.repo))
         transitions = run_state.get("transition_history", [])
         timeline = "\n".join(
             f"- {entry.get('at', '')}: `{entry.get('event', '')}` "
             f"{entry.get('from', '')} -> {entry.get('to', '')}"
             for entry in transitions
         )
+        ledger_path = write_orchestration_ledger(args.repo, run_dir, args.item_id)
+        ledger_text = ledger_path.read_text(encoding="utf-8")
         values = {
             "item_id": args.item_id,
             "layman_summary": worker_result or "Report drafted before worker summary was captured.",
             "plan_path": item.get("plan", ""),
             "archived_plan_path": run_state.get("archived_plan_path") or item.get("plan", ""),
             "branch": item.get("branch", ""),
-            "commit_sha": latest_commit(args.repo),
+            "commit_sha": commit_sha,
             "report_commit_sha": "pending",
             "report_web_url": "pending until report-only commit is pushed",
             "pr_link": "",
@@ -1926,21 +2898,22 @@ def command_report_draft(args: argparse.Namespace) -> int:
             "finished_at": run_state.get("finished_at") or "",
             "elapsed": "pending",
             "progress_timeline": timeline,
-            "timings": "See worker/verifier results.",
+            "timings": prose_list(timings),
+            "orchestration_ledger": ledger_text,
             "implementation_summary": worker_result or "Pending worker summary.",
-            "changed_files": "\n".join(f"- `{path}`" for path in git_changed_files(args.repo)),
+            "changed_files": markdown_list(changed_files),
             "validation_gate": item.get("validation_gate", ""),
-            "validation_commands": item.get("validation_gate", ""),
-            "validation_result": validation or "Pending validation evidence.",
+            "validation_commands": "\n".join(str(command) for command in validation_commands) or item.get("validation_gate", ""),
+            "validation_result": validation_result or "Pending validation evidence.",
             "verification_loop": "See `verification-rounds/` under the run directory.",
-            "artifacts": f"Run directory: `{repo_relative(args.repo, run_dir)}`",
+            "artifacts": "\n".join([f"- Run directory: `{repo_relative(args.repo, run_dir)}`", f"- Orchestration ledger: `{repo_relative(args.repo, ledger_path)}`", *[f"- `{artifact}`" for artifact in artifacts]]),
             "code_snippets": "Pending final report curation.",
             "pr_status": "Pending.",
             "merge_status": "Not permitted unless AGENTS.md and policy allow it.",
             "conflicts": "None recorded.",
-            "residual_risk": "Pending final report curation.",
+            "residual_risk": prose_list(risks),
             "sub_agent_summary": worker_result or "Pending worker result.",
-            "verifier_summary": "Pending verifier result.",
+            "verifier_summary": str(verifier_payload.get("feedback_for_worker") or verifier_payload.get("validation_assessment") or "Pending verifier result."),
             "next_queue_action": "Pending terminal transition.",
         }
         report_path.write_text(render_template_text(template, values), encoding="utf-8")
@@ -1973,6 +2946,20 @@ def transition_and_print(
         force_guards=force_guards,
     )
     print_transition_result(result)
+    append_orchestration_step(
+        repo,
+        result["run_dir"],
+        item_id,
+        "transition",
+        event=event,
+        **{
+            "from": result["from"],
+            "to": result["to"],
+        },
+        artifacts=result.get("artifacts", {}),
+        generated=result.get("generated", {}),
+        manual_guards=result.get("manual_guards", []),
+    )
     return result
 
 
@@ -2006,13 +2993,49 @@ def command_run_loop(args: argparse.Namespace) -> int:
                 return code
 
         verifier_rounds = 0
+        loop_run_dir = ensure_run_dir(args.repo, policy, item_id, args.run_date)
+        append_orchestration_step(
+            args.repo,
+            loop_run_dir,
+            item_id,
+            "run_loop_start",
+            item_state=item_state(item),
+            max_verifier_rounds=args.max_verifier_rounds,
+            validation_skipped=bool(args.skip_validation),
+            finalize=bool(args.finalize),
+        )
+
+        def finish_with_ledger(code: int, run_dir: Path, reason: str) -> int:
+            append_orchestration_step(
+                args.repo,
+                run_dir,
+                item_id,
+                "run_loop_finish",
+                reason=reason,
+                exit_code=code,
+            )
+            print_orchestration_ledger(args.repo, run_dir, item_id)
+            return code
+
         while True:
             policy, queue, _ = load_state(args.repo)
             item = items_by_id(queue)[item_id]
             state = item_state(item)
             run_dir = ensure_run_dir(args.repo, policy, item_id, args.run_date)
+            append_orchestration_step(args.repo, run_dir, item_id, "state_entered", state=state)
 
             if state == "running":
+                worker_started_at = utc_now()
+                worker_started = time.monotonic()
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "worker_start",
+                    sandbox=args.worker_sandbox or default_worker_sandbox(policy),
+                    visible_console=bool(args.visible_console),
+                )
+                worker_output: Path | None = None
                 code, worker_output = run_worker_agent(
                     args.repo,
                     item_id,
@@ -2021,6 +3044,18 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     args.codex_bin,
                     no_schema=False,
                     visible_console=args.visible_console,
+                    timeout_seconds=args.worker_timeout_seconds,
+                )
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "worker_finish",
+                    started_at=worker_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - worker_started, 3),
+                    exit_code=code,
+                    result=repo_relative(args.repo, worker_output),
                 )
                 print(f"Worker result: {repo_relative(args.repo, worker_output)}")
                 if code != 0:
@@ -2045,7 +3080,7 @@ def command_run_loop(args: argparse.Namespace) -> int:
                         WORKER_RESULT_FIELDS,
                     )
                     transition_and_print(args.repo, item_id, "worker_failed", worker_output, run_date_text=args.run_date)
-                    return code or 1
+                    return finish_with_ledger(code or 1, run_dir, "worker_exec_failed")
                 worker_result = read_result_json(worker_output)
                 status = str(worker_result.get("status", "failed"))
                 if status == "completed":
@@ -2054,25 +3089,75 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     continue
                 if status == "blocked":
                     transition_and_print(args.repo, item_id, "worker_blocked", worker_output, run_date_text=args.run_date)
-                    return 2
+                    return finish_with_ledger(2, run_dir, "worker_blocked")
                 transition_and_print(args.repo, item_id, "worker_failed", worker_output, run_date_text=args.run_date)
-                return 1
+                return finish_with_ledger(1, run_dir, "worker_failed")
 
             if state == "verifying":
                 if verifier_rounds >= args.max_verifier_rounds:
                     raise OrchestratorError(f"Verifier exceeded max rounds: {args.max_verifier_rounds}")
                 verifier_rounds += 1
                 require_clean = nested_get(policy, "verification.requires_clean_worktree") is not False
-                code, verifier_output = run_verifier_agent(
+                round_dir = run_dir / "verification-rounds"
+                rubber_duck_number = next_verifier_result_number(round_dir)
+                duck_started_at = utc_now()
+                duck_started = time.monotonic()
+                append_orchestration_step(
                     args.repo,
+                    run_dir,
                     item_id,
-                    args.run_date,
-                    args.verifier_sandbox,
-                    args.codex_bin,
-                    no_schema=False,
-                    require_clean=require_clean,
-                    visible_console=args.visible_console,
+                    "rubber_duck_start",
+                    role="verifier",
+                    round=rubber_duck_number,
+                    sandbox=args.verifier_sandbox or default_verifier_sandbox(policy),
+                    require_clean_worktree=require_clean,
+                    visible_console=bool(args.visible_console),
                 )
+                verifier_output = round_dir / f"round-{rubber_duck_number:02d}-verifier-result.json"
+                try:
+                    code, verifier_output = run_verifier_agent(
+                        args.repo,
+                        item_id,
+                        args.run_date,
+                        args.verifier_sandbox,
+                        args.codex_bin,
+                        no_schema=False,
+                        require_clean=require_clean,
+                        visible_console=args.visible_console,
+                        timeout_seconds=args.verifier_timeout_seconds,
+                    )
+                except OrchestratorError as exc:
+                    ensure_result_payload(
+                        verifier_output,
+                        {
+                            "verdict": "blocked",
+                            "blocking_findings": [str(exc)],
+                            "non_blocking_suggestions": [],
+                            "missing_evidence": [],
+                            "validation_assessment": "not assessed",
+                            "artifact_assessment": "Verifier helper did not complete.",
+                            "feedback_for_worker": "Verifier helper failed before producing a result.",
+                            "another_round_required": True,
+                        },
+                        VERIFIER_RESULT_FIELDS,
+                    )
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "rubber_duck_finish",
+                        role="verifier",
+                        round=rubber_duck_number,
+                        started_at=duck_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                        exit_code=1,
+                        verdict="blocked",
+                        result=repo_relative(args.repo, verifier_output),
+                        error=str(exc),
+                    )
+                    transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
+                    return finish_with_ledger(1, run_dir, "verifier_helper_failed")
                 print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
                 if code != 0:
                     detail = codex_exec_failure_detail(verifier_output)
@@ -2094,10 +3179,39 @@ def command_run_loop(args: argparse.Namespace) -> int:
                         },
                         VERIFIER_RESULT_FIELDS,
                     )
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "rubber_duck_finish",
+                        role="verifier",
+                        round=rubber_duck_number,
+                        started_at=duck_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                        exit_code=code,
+                        verdict="blocked",
+                        result=repo_relative(args.repo, verifier_output),
+                    )
                     transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
-                    return code or 1
+                    return finish_with_ledger(code or 1, run_dir, "verifier_exec_failed")
                 verifier_result = read_result_json(verifier_output)
                 verdict = str(verifier_result.get("verdict", "blocked"))
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "rubber_duck_finish",
+                    role="verifier",
+                    round=rubber_duck_number,
+                    started_at=duck_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - duck_started, 3),
+                    exit_code=code,
+                    verdict=verdict,
+                    result=repo_relative(args.repo, verifier_output),
+                    another_round_required=bool(verifier_result.get("another_round_required", False)),
+                )
                 if verdict == "accepted":
                     transition_and_print(args.repo, item_id, "accepted", verifier_output, run_date_text=args.run_date)
                     continue
@@ -2105,13 +3219,34 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     transition_and_print(args.repo, item_id, "needs_fixes", verifier_output, run_date_text=args.run_date)
                     continue
                 transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
-                return 2
+                return finish_with_ledger(2, run_dir, "verifier_blocked")
 
             if state == "validating":
                 if args.skip_validation:
+                    append_orchestration_step(args.repo, run_dir, item_id, "validation_skipped", state=state)
                     print(f"Validation pending for {item_id}; rerun with validation enabled or transition manually.")
-                    return 2
+                    return finish_with_ledger(2, run_dir, "validation_skipped")
+                validation_started_at = utc_now()
+                validation_started = time.monotonic()
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "validation_start",
+                    command=str(item.get("validation_gate", "")),
+                )
                 event, log_path = run_validation_gate(args.repo, item, run_dir)
+                append_orchestration_step(
+                    args.repo,
+                    run_dir,
+                    item_id,
+                    "validation_finish",
+                    started_at=validation_started_at,
+                    finished_at=utc_now(),
+                    elapsed_seconds=round(time.monotonic() - validation_started, 3),
+                    event=event,
+                    log=repo_relative(args.repo, log_path),
+                )
                 transition_and_print(args.repo, item_id, event, validation_log_path=log_path, run_date_text=args.run_date)
                 continue
 
@@ -2124,24 +3259,70 @@ def command_run_loop(args: argparse.Namespace) -> int:
                         commit=args.commit_finalize,
                         allow_main_commit=args.allow_main_commit,
                         archive_deferred=args.archive_deferred,
+                        suppress_ledger=True,
                     )
-                    return command_finalize(finalize_args)
+                    finalize_started_at = utc_now()
+                    finalize_started = time.monotonic()
+                    append_orchestration_step(args.repo, run_dir, item_id, "finalize_start", commit=bool(args.commit_finalize))
+                    code = command_finalize(finalize_args)
+                    append_orchestration_step(
+                        args.repo,
+                        run_dir,
+                        item_id,
+                        "finalize_finish",
+                        started_at=finalize_started_at,
+                        finished_at=utc_now(),
+                        elapsed_seconds=round(time.monotonic() - finalize_started, 3),
+                        exit_code=code,
+                    )
+                    return finish_with_ledger(code, run_dir, "finalize")
                 print(f"{item_id} is ready for finalization.")
-                return 0
+                append_orchestration_step(args.repo, run_dir, item_id, "run_loop_ready_for_finalization", state=state)
+                return finish_with_ledger(0, run_dir, "ready_for_finalization")
 
             print(f"{item_id} stopped in state {state}.")
+            append_orchestration_step(args.repo, run_dir, item_id, "run_loop_stopped", state=state)
             if state in terminal_failure_states(machine):
-                return 2
-            return 0 if state in terminal_states(machine) else 2
+                return finish_with_ledger(2, run_dir, f"terminal_failure:{state}")
+            return finish_with_ledger(0 if state in terminal_states(machine) else 2, run_dir, f"stopped:{state}")
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
         return 1
 
 
 def command_finalize(args: argparse.Namespace) -> int:
+    run_dir_for_ledger: Path | None = None
+    record_finalize_steps = not bool(getattr(args, "suppress_ledger", False))
+    finalize_started_at = utc_now()
+    finalize_started = time.monotonic()
+
+    def finish_finalize(code: int) -> int:
+        if run_dir_for_ledger is not None and record_finalize_steps:
+            append_orchestration_step(
+                args.repo,
+                run_dir_for_ledger,
+                args.item_id,
+                "finalize_finish",
+                started_at=finalize_started_at,
+                finished_at=utc_now(),
+                elapsed_seconds=round(time.monotonic() - finalize_started, 3),
+                exit_code=code,
+            )
+            print_orchestration_ledger(args.repo, run_dir_for_ledger, args.item_id)
+        return code
+
     try:
         policy, queue, _ = load_state(args.repo)
         item = items_by_id(queue)[args.item_id]
+        run_dir_for_ledger = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
+        if record_finalize_steps:
+            append_orchestration_step(
+                args.repo,
+                run_dir_for_ledger,
+                args.item_id,
+                "finalize_start",
+                commit=bool(args.commit),
+            )
         state = item_state(item)
         if state == "reporting":
             transition_and_print(args.repo, args.item_id, "report_committed_no_pr", run_date_text=args.run_date)
@@ -2161,7 +3342,7 @@ def command_finalize(args: argparse.Namespace) -> int:
                 archive_args = argparse.Namespace(repo=args.repo, item_id=args.item_id, force=False)
                 code = command_archive_plan(archive_args)
                 if code != 0:
-                    return code
+                    return finish_finalize(code)
                 _, queue, _ = load_state(args.repo)
                 item = items_by_id(queue)[args.item_id]
                 plan_paths.append(resolve_repo_path(args.repo, item["plan"]))
@@ -2180,7 +3361,7 @@ def command_finalize(args: argparse.Namespace) -> int:
         report_args = argparse.Namespace(repo=args.repo, item_id=args.item_id, run_date=args.run_date)
         code = command_report_draft(report_args)
         if code != 0:
-            return code
+            return finish_finalize(code)
         run_dir = ensure_run_dir(args.repo, policy, args.item_id, args.run_date)
         report_root = resolve_repo_path(
             args.repo,
@@ -2197,7 +3378,7 @@ def command_finalize(args: argparse.Namespace) -> int:
         )
         code = command_report_check(check_args)
         if code != 0:
-            return code
+            return finish_finalize(code)
         if args.commit:
             report_commit = commit_paths(
                 args.repo,
@@ -2208,15 +3389,20 @@ def command_finalize(args: argparse.Namespace) -> int:
             if report_commit:
                 print(f"Report commit: {report_commit}")
                 verify_args = argparse.Namespace(repo=args.repo, files=[], commit="HEAD", diff_range=None)
-                return command_report_check(verify_args)
+                return finish_finalize(command_report_check(verify_args))
         print(f"Report path: {repo_relative(args.repo, report_path)}")
-        return 0
+        return finish_finalize(0)
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
-        return 1
+        return finish_finalize(1)
 
 
 def command_self_test(args: argparse.Namespace) -> int:
+    try:
+        compile(VISIBLE_CODEX_RUNNER, "VISIBLE_CODEX_RUNNER", "exec")
+    except SyntaxError as exc:
+        print(f"ERROR: self-test visible runner syntax: {exc}")
+        return 1
     with tempfile.TemporaryDirectory() as temp:
         repo = Path(temp)
         (repo / ORCH_DIR / "machines").mkdir(parents=True)
@@ -2326,6 +3512,27 @@ def command_self_test(args: argparse.Namespace) -> int:
         if (run_dir / "verification-rounds" / "round-02-verifier-result.json").exists():
             print("ERROR: self-test duplicated verifier result into a new round.")
             return 1
+        append_orchestration_step(
+            repo,
+            run_dir,
+            "active",
+            "rubber_duck_finish",
+            round=1,
+            started_at="2026-06-16T00:00:00+00:00",
+            finished_at="2026-06-16T00:00:01.250000+00:00",
+            elapsed_seconds=1.25,
+            exit_code=0,
+            verdict="accepted",
+            result=repo_relative(repo, verifier_result),
+        )
+        telemetry_summary = load_json(orchestration_summary_path(run_dir))
+        if telemetry_summary.get("rubber_duck_count") != 1 or telemetry_summary.get("rubber_duck_total_seconds") != 1.25:
+            print("ERROR: self-test orchestration telemetry summary did not count rubber ducks.")
+            return 1
+        ledger_text = render_orchestration_ledger(repo, run_dir, "active")
+        if "Rubber ducks: `1` verifier run(s)" not in ledger_text or "## Minute Ledger" not in ledger_text:
+            print("ERROR: self-test orchestration ledger did not include mandatory verifier/minute accounting.")
+            return 1
         policy, queue, machine = load_state(repo)
         item = select_next_item(policy, queue, machine, allow_disabled=False)
         if item is None or item["id"] != "active":
@@ -2431,6 +3638,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_worker.add_argument("--sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_worker.add_argument("--codex-bin")
     run_worker.add_argument("--no-schema", action="store_true")
+    run_worker.add_argument("--timeout-seconds", type=int)
     run_worker.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_worker.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_worker.set_defaults(func=command_run_worker)
@@ -2442,6 +3650,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_verifier.add_argument("--codex-bin")
     run_verifier.add_argument("--no-schema", action="store_true")
     run_verifier.add_argument("--allow-dirty-verifier", action="store_true")
+    run_verifier.add_argument("--timeout-seconds", type=int)
     run_verifier.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_verifier.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_verifier.set_defaults(func=command_run_verifier)
@@ -2476,6 +3685,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_loop.add_argument("--worker-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--verifier-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--codex-bin")
+    run_loop.add_argument("--worker-timeout-seconds", type=int)
+    run_loop.add_argument("--verifier-timeout-seconds", type=int)
     run_loop.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_loop.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_loop.add_argument("--max-verifier-rounds", type=int, default=5)

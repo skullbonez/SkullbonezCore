@@ -1,0 +1,51 @@
+/*
+File: SkullbonezSource/SkullbonezAmortizedTask.h
+Purpose:
+  Declares a worker-backed multi-frame chunked task helper.
+
+Mental model:
+  AmortizedTask is for latency-tolerant work. Each SubmitTick queues one bounded
+  chunk on the worker pool and returns immediately; the caller polls progress.
+
+Related:
+  - Agentic/Plans/worker-system-plan.md
+  - SkullbonezSource/SkullbonezWorkerPool.h
+*/
+
+#pragma once
+
+#include <atomic>
+#include <functional>
+
+namespace SkullbonezCore
+{
+namespace Threading
+{
+
+class WorkerPool;
+
+class AmortizedTask
+{
+  public:
+    using WorkFunction = std::function<void( int begin, int end )>;
+
+    AmortizedTask( int totalItems, int itemsPerTick, WorkFunction work );
+
+    void SubmitTick( WorkerPool& pool );
+    bool IsComplete() const;
+    bool IsInFlight() const;
+    void Reset();
+    float GetProgress() const;
+    void SetBudget( int itemsPerTick );
+
+  private:
+    int m_totalItems;
+    std::atomic<int> m_itemsPerTick;
+    std::atomic<int> m_cursor;
+    std::atomic<bool> m_complete;
+    std::atomic<bool> m_inFlight;
+    WorkFunction m_work;
+};
+
+} // namespace Threading
+} // namespace SkullbonezCore
