@@ -307,12 +307,51 @@ def kill_process_tree_by_pid(pid: int) -> None:
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         return
     try:
         os.kill(pid, 9)
     except OSError:
         pass
+
+
+def snapshot_codex_app_server_pids() -> set[int]:
+    if os.name != "nt":
+        return set()
+    command = (
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { $_.Name -ieq 'codex.exe' -and "
+        "$_.CommandLine -like '*app-server --listen stdio://*' -and "
+        "$_.CommandLine -like '*\\\\OpenAI\\\\Codex\\\\bin\\\\*' } | "
+        "ForEach-Object { $_.ProcessId }"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", command],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        return set()
+    pids: set[int] = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            pids.add(int(line))
+        except ValueError:
+            continue
+    return pids
+
+
+def cleanup_new_codex_app_servers(before_pids: set[int]) -> None:
+    for pid in sorted(snapshot_codex_app_server_pids() - before_pids):
+        kill_process_tree_by_pid(pid)
 
 
 def ensure_clean_for_branch(repo: Path, allow_dirty: bool) -> None:
@@ -1278,6 +1317,8 @@ def main() -> int:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=repo,
             bufsize=1,
         )
@@ -1326,6 +1367,7 @@ def run_codex_exec_visible_console(
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    app_server_pids_before = snapshot_codex_app_server_pids()
     with tempfile.TemporaryDirectory(prefix="skore-codex-visible-") as temp:
         temp_dir = Path(temp)
         prompt_path = temp_dir / "prompt.txt"
@@ -1354,6 +1396,7 @@ def run_codex_exec_visible_console(
             return helper.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired as exc:
             kill_process_tree_by_pid(helper.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
             helper.wait(timeout=10)
             raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s in visible console.") from exc
 
@@ -1401,6 +1444,7 @@ def run_codex_exec(
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    app_server_pids_before = snapshot_codex_app_server_pids()
     with (
         stdout_log.open("w", encoding="utf-8") as stdout_file,
         stderr_log.open("w", encoding="utf-8") as stderr_file,
@@ -1412,6 +1456,8 @@ def run_codex_exec(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=repo,
             bufsize=1,
         )
@@ -1439,6 +1485,7 @@ def run_codex_exec(
             returncode = process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired as exc:
             kill_process_tree_by_pid(process.pid)
+            cleanup_new_codex_app_servers(app_server_pids_before)
             process.wait(timeout=10)
             stdout_thread.join(timeout=5)
             stderr_thread.join(timeout=5)
@@ -1871,7 +1918,16 @@ def run_validation_gate(repo: Path, item: dict[str, Any], run_dir: Path) -> tupl
         raise OrchestratorError("Validation gate is empty; cannot run validation.")
 
     started = utc_now()
-    result = subprocess.run(command_text, cwd=repo, shell=True, check=False, capture_output=True, text=True)
+    result = subprocess.run(
+        command_text,
+        cwd=repo,
+        shell=True,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     finished = utc_now()
     log_path = run_dir / "validation.log"
     log_path.write_text(
