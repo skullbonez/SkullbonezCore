@@ -4,16 +4,16 @@
 seed 42
 physics on
 text on
-vsync on
+vsync off
 frames 1800
 fixed_step
 exit_on_complete
-time_scale 1.0
+time_scale 10.0
 world -9.81 0.0 0.0
 water_hidden on
-collision_visualizer on
-physics_debug_axes on
-physics_debug_transparent on
+collision_visualizer off
+physics_debug_axes off
+physics_debug_transparent off
 physics_debug_alpha 0.35
 
 camera overview 340 200 430  520 35 540  0 1 0

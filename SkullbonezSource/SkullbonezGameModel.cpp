@@ -656,6 +656,49 @@ bool GameModel::GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrai
     return found;
 }
 
+bool GameModel::GetClosestHullTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap )
+{
+    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
+
+    if ( !m_terrain || !std::holds_alternative<ConvexHullShape>( m_boundingVolume ) )
+    {
+        return false;
+    }
+
+    const ConvexHullShape& hull = std::get<ConvexHullShape>( m_boundingVolume );
+    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+    const Vector3 hullCenter = m_physicsInfo.GetPosition() + ( rotMat * hull.GetPosition() );
+
+    bool found = false;
+    float bestGap = 1.0e30f;
+    const uint16_t vertexCount = hull.GetVertexCount();
+    for ( uint16_t v = 0; v < vertexCount; ++v )
+    {
+        Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
+
+        if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        {
+            continue;
+        }
+
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        float gap = worldVertex.y - terrainHeight;
+        if ( !found || gap < bestGap )
+        {
+            found = true;
+            bestGap = gap;
+            outVertex = worldVertex;
+            outTerrainHeight = terrainHeight;
+            outPlane = terrainPlane;
+            outGap = gap;
+        }
+    }
+
+    return found;
+}
+
 
 float GameModel::GetTerrainCollisionTime( float changeInTime )
 {
@@ -670,9 +713,10 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         return NO_COLLISION;
     }
 
-    // For boxes, check the lowest vertex against terrain instead of using sphere radius offset.
-    // For spheres, use the classic single-point test.
+    // For boxes and hulls, check the lowest actual vertex against terrain instead
+    // of using a sphere radius offset. For spheres, use the classic single-point test.
     bool isBox = std::holds_alternative<BoundingBox>( m_boundingVolume );
+    bool isHull = std::holds_alternative<ConvexHullShape>( m_boundingVolume );
     float bottomOffset;
 
     if ( isBox )
@@ -687,6 +731,13 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         const Vector3& he = box.GetHalfExtents();
         Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
         bottomOffset = rotMat.SupportExtentY( he );
+    }
+    else if ( isHull )
+    {
+        // Conservative early-out only. Exact hull terrain detection below samples
+        // every authored vertex; the radius here only avoids terrain work while
+        // the hull is clearly above the heightfield.
+        bottomOffset = m_ballPhysics.radius;
     }
     else
     {
@@ -758,6 +809,76 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
                     ( v & 2 ) ? he.y : -he.y,
                     ( v & 4 ) ? he.z : -he.z );
                 Vector3 worldVertex = position + ( rotMat * local );
+
+                if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+                {
+                    continue;
+                }
+
+                float vertexTerrainHeight = 0.0f;
+                Plane vertexPlane;
+                m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
+                                                       worldVertex.z,
+                                                       vertexTerrainHeight,
+                                                       vertexPlane );
+
+                Ray vertexRay( worldVertex, m_physicsInfo.GetVelocity() * changeInTime );
+                float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
+                if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE &&
+                     vertexCollisionTime <= 1.0f &&
+                     vertexCollisionTime < earliestCollisionTime )
+                {
+                    earliestCollisionTime = vertexCollisionTime;
+                    earliestPlane = vertexPlane;
+                }
+            }
+        }
+
+        if ( earliestCollisionTime <= 1.0f )
+        {
+            m_responseInformation.testingPlane = earliestPlane;
+            m_responseInformation.collisionTime = earliestCollisionTime;
+            return earliestCollisionTime;
+        }
+
+        return NO_COLLISION;
+    }
+
+    if ( isHull )
+    {
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( !GetClosestHullTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) )
+        {
+            return NO_COLLISION;
+        }
+
+        if ( gap <= Cfg().contactEpsilon )
+        {
+            m_responseInformation.testingPlane = terrainPlane;
+            m_responseInformation.collisionTime = 0.0f;
+            return 0.0f;
+        }
+
+        if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
+        {
+            return NO_COLLISION;
+        }
+
+        const ConvexHullShape& hull = std::get<ConvexHullShape>( m_boundingVolume );
+        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+        const Vector3 hullCenter = m_physicsInfo.GetPosition() + ( rotMat * hull.GetPosition() );
+
+        float earliestCollisionTime = NO_COLLISION;
+        Plane earliestPlane;
+        {
+            PROFILE_SCOPED( "Frame/Physics/Terrain/HullSweptVertexProbe" );
+            const uint16_t vertexCount = hull.GetVertexCount();
+            for ( uint16_t v = 0; v < vertexCount; ++v )
+            {
+                Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
 
                 if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
                 {
@@ -963,19 +1084,42 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, 
         }
         else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
         {
-            // Hull/terrain exact face clipping is a later phase. The first hull
-            // pass keeps terrain behavior conservative with the same bounding
-            // radius support used by broadphase and terrain early-outs.
-            const float radius = shape.GetBoundingRadius();
-            Vector3 contactWorldPos = position - planeNormal * radius;
-            float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
+            PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/HullVertices" );
 
-            Physics::TerrainContactPoint& point = out.points[0];
-            point.point = contactWorldPos;
-            point.rA = contactWorldPos - position;
-            point.penetration = -signedDist;
-            point.featureId = 0x6fffu;
-            out.pointCount = 1;
+            Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+            const Vector3 hullCenter = position + ( rotMat * shape.GetPosition() );
+            Vector3 worldVerts[ConvexHullShape::MAX_VERTICES];
+            float signedDists[ConvexHullShape::MAX_VERTICES];
+            float minSignedDist = 1e10f;
+
+            const uint16_t vertexCount = shape.GetVertexCount();
+            for ( uint16_t v = 0; v < vertexCount; ++v )
+            {
+                worldVerts[v] = hullCenter + ( rotMat * shape.GetVertex( v ) );
+                signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
+                if ( signedDists[v] < minSignedDist )
+                {
+                    minSignedDist = signedDists[v];
+                }
+            }
+
+            const float contactThreshold = (std::max)( 0.0f, Cfg().terrainContactThreshold );
+            const float cutoff = minSignedDist + contactThreshold;
+            for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
+            {
+                if ( signedDists[v] > cutoff )
+                {
+                    continue;
+                }
+
+                float penetration = -signedDists[v];
+                Physics::TerrainContactPoint& point = out.points[out.pointCount];
+                point.point = worldVerts[v];
+                point.rA = worldVerts[v] - position;
+                point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                point.featureId = 0x6000u | static_cast<uint32_t>( v & 0x0fffu );
+                ++out.pointCount;
+            }
         } },
                 m_boundingVolume );
 
@@ -1098,6 +1242,22 @@ void GameModel::ClampToTerrainSurface()
         Plane terrainPlane;
         float gap = 0.0f;
         if ( GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
+        {
+            Vector3 updatePos( m_physicsInfo.GetPosition().x,
+                               m_physicsInfo.GetPosition().y - gap,
+                               m_physicsInfo.GetPosition().z );
+            m_physicsInfo.SetPosition( updatePos );
+        }
+        return;
+    }
+
+    if ( std::holds_alternative<ConvexHullShape>( m_boundingVolume ) )
+    {
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( GetClosestHullTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
         {
             Vector3 updatePos( m_physicsInfo.GetPosition().x,
                                m_physicsInfo.GetPosition().y - gap,

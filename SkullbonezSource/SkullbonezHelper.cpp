@@ -26,16 +26,20 @@ Related:
 */
 #include "SkullbonezHelper.h"
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezConvexHullShape.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezPrimitiveMeshBuilder.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <vector>
 
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
@@ -71,6 +75,16 @@ static bool sSphereBatchReady = false;
 static bool sBoxBatchReady = false;
 static bool sPineBatchReady = false;
 static uint32_t sMaterialTableTexture = 0;
+
+struct ConvexHullMeshResource
+{
+    uint64_t hash = 0;
+    uint32_t mesh = 0;
+    int vertexCount = 0;
+};
+
+static std::vector<ConvexHullMeshResource> sConvexHullMeshes;
+static std::vector<float> sConvexHullInstanceData;
 
 // Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
 // SetConstantBufferBytes rejects this block if the reflected shader size drifts,
@@ -175,6 +189,103 @@ static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix
     out.insert( out.end(), payload.material0, payload.material0 + 4 );
     out.insert( out.end(), payload.material1, payload.material1 + 4 );
     out.insert( out.end(), payload.material2, payload.material2 + 4 );
+}
+
+static void HashUint32( uint64_t& hash, uint32_t value )
+{
+    constexpr uint64_t FNV_PRIME = 1099511628211ull;
+    for ( int i = 0; i < 4; ++i )
+    {
+        hash ^= static_cast<uint8_t>( value >> ( i * 8 ) );
+        hash *= FNV_PRIME;
+    }
+}
+
+static void HashFloat( uint64_t& hash, float value )
+{
+    uint32_t bits = 0;
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    HashUint32( hash, bits );
+}
+
+static uint64_t HashConvexHullGeometry( const ConvexHullShape& hull )
+{
+    uint64_t hash = 1469598103934665603ull;
+    HashUint32( hash, hull.GetVertexCount() );
+    HashUint32( hash, hull.GetFaceCount() );
+    for ( uint16_t v = 0; v < hull.GetVertexCount(); ++v )
+    {
+        const Vector3& p = hull.GetVertex( v );
+        HashFloat( hash, p.x );
+        HashFloat( hash, p.y );
+        HashFloat( hash, p.z );
+    }
+    for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
+    {
+        const ConvexHullFace& face = hull.GetFace( f );
+        HashUint32( hash, face.indexCount );
+        for ( uint8_t i = 0; i < face.indexCount; ++i )
+        {
+            HashUint32( hash, hull.GetFaceIndex( face.firstIndex + i ) );
+        }
+    }
+    return hash;
+}
+
+static uint32_t GetConvexHullInstancedMesh( const ConvexHullShape& hull, int& outVertexCount )
+{
+    const uint64_t hash = HashConvexHullGeometry( hull );
+    for ( const ConvexHullMeshResource& resource : sConvexHullMeshes )
+    {
+        if ( resource.hash == hash )
+        {
+            outVertexCount = resource.vertexCount;
+            return resource.mesh;
+        }
+    }
+
+    std::vector<float> verts;
+    verts.reserve( static_cast<size_t>( hull.GetFaceCount() ) * 6u * 8u );
+    auto emitVertex = [&]( uint16_t index, const Vector3& normal, float u, float v )
+    {
+        const Vector3 p = hull.GetPosition() + hull.GetVertex( index );
+        verts.insert( verts.end(), { p.x, p.y, p.z, normal.x, normal.y, normal.z, u, v } );
+    };
+
+    for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
+    {
+        const ConvexHullFace& face = hull.GetFace( f );
+        if ( face.indexCount < 3 )
+        {
+            continue;
+        }
+
+        const uint16_t root = hull.GetFaceIndex( face.firstIndex );
+        for ( uint8_t i = 1; i + 1 < face.indexCount; ++i )
+        {
+            const uint16_t b = hull.GetFaceIndex( face.firstIndex + i );
+            const uint16_t c = hull.GetFaceIndex( face.firstIndex + i + 1 );
+            emitVertex( root, face.normalLocal, 0.0f, 0.0f );
+            emitVertex( b, face.normalLocal, 1.0f, 0.0f );
+            emitVertex( c, face.normalLocal, 0.0f, 1.0f );
+        }
+    }
+
+    outVertexCount = static_cast<int>( verts.size() / 8 );
+    if ( outVertexCount <= 0 )
+    {
+        return 0;
+    }
+
+    int staticAttribSizes[] = { 3, 3, 2 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
+    ConvexHullMeshResource resource;
+    resource.hash = hash;
+    resource.vertexCount = outVertexCount;
+    resource.mesh = Gfx().CreateInstancedMesh( verts.data(), outVertexCount, 8, 1, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
+    sConvexHullMeshes.push_back( resource );
+    sConvexHullInstanceData.reserve( INSTANCE_FLOATS );
+    return resource.mesh;
 }
 
 static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
@@ -363,6 +474,15 @@ void SkullbonezHelper::ResetRenderResources()
     }
     activeSphereInstMesh = 0;
     activeSphereVertexCount = 0;
+    for ( ConvexHullMeshResource& resource : sConvexHullMeshes )
+    {
+        if ( resource.mesh != 0 )
+        {
+            Gfx().DestroyInstancedMesh( resource.mesh );
+            resource.mesh = 0;
+        }
+    }
+    sConvexHullMeshes.clear();
 }
 
 
@@ -700,6 +820,73 @@ void SkullbonezHelper::DrawShadowDepthBoxBatchEnd()
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     sBoxBatchReady = false;
+}
+
+void SkullbonezHelper::DrawConvexHullModel( const ConvexHullShape& hull,
+                                            const Matrix4& model,
+                                            const RenderMaterial& material,
+                                            const Matrix4& view,
+                                            const Matrix4& proj,
+                                            const float lightPos[4],
+                                            bool isTransparent,
+                                            const CinematicRenderConfig* cinematic,
+                                            const ShadowFrameData* shadow,
+                                            float materialAlpha )
+{
+    int vertexCount = 0;
+    const uint32_t mesh = GetConvexHullInstancedMesh( hull, vertexCount );
+    if ( mesh == 0 || vertexCount <= 0 )
+    {
+        return;
+    }
+
+    EnsureSphereShader();
+    BeginPrimitiveBatchTransparency( isTransparent );
+    const bool ready = BindPrimitiveBatchShader( *sphereShader,
+                                                 { view,
+                                                   proj,
+                                                   lightPos,
+                                                   sClipPlane,
+                                                   cinematic,
+                                                   shadow,
+                                                   PRIMITIVE_SHAPE_MESH,
+                                                   shadow ? shadow->objectsReceive : false,
+                                                   materialAlpha } );
+    if ( ready )
+    {
+        sConvexHullInstanceData.clear();
+        AppendMaterialInstancePayload( sConvexHullInstanceData, model, material );
+        Gfx().UploadInstanceData( mesh, sConvexHullInstanceData.data(), static_cast<int>( sConvexHullInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
+    }
+    EndPrimitiveBatchTransparency( isTransparent );
+}
+
+void SkullbonezHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull, const Matrix4& model, const Matrix4& view, const Matrix4& proj )
+{
+    int vertexCount = 0;
+    const uint32_t mesh = GetConvexHullInstancedMesh( hull, vertexCount );
+    if ( mesh == 0 || vertexCount <= 0 )
+    {
+        return;
+    }
+
+    EnsureShadowDepthShader();
+    shadowDepthShader->Use();
+    InstancedShadowDepthConstants constants = {};
+    constants.view = view;
+    constants.projection = proj;
+    constants.clipPlane[0] = sClipPlane[0];
+    constants.clipPlane[1] = sClipPlane[1];
+    constants.clipPlane[2] = sClipPlane[2];
+    constants.clipPlane[3] = sClipPlane[3];
+    if ( shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" ) )
+    {
+        sConvexHullInstanceData.clear();
+        AppendMaterialInstancePayload( sConvexHullInstanceData, model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
+        Gfx().UploadInstanceData( mesh, sConvexHullInstanceData.data(), static_cast<int>( sConvexHullInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
+    }
 }
 
 
