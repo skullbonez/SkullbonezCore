@@ -232,7 +232,7 @@ def tee_stream(
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
+        write_console_text(console, chunk)
         console.flush()
         stream_log.write(chunk)
         stream_log.flush()
@@ -247,7 +247,7 @@ def tee_stream_to_file(stream: Any, console: Any, stream_log: Any) -> None:
         chunk = stream.read(1)
         if not chunk:
             break
-        console.write(chunk)
+        write_console_text(console, chunk)
         console.flush()
         stream_log.write(chunk)
         stream_log.flush()
@@ -271,6 +271,14 @@ def size_label(path: Path) -> str:
         return "not created yet"
 
 
+def write_console_text(console: Any, text: str) -> None:
+    try:
+        console.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(console, "encoding", None) or sys.getdefaultencoding() or "utf-8"
+        console.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+
+
 def emit_file_growth(path: Path, offset: int, console: Any) -> int:
     try:
         size = path.stat().st_size
@@ -285,7 +293,7 @@ def emit_file_growth(path: Path, offset: int, console: Any) -> int:
         data = file.read()
     text = decode_text_bytes(data).replace("\x00", "")
     if text:
-        console.write(text)
+        write_console_text(console, text)
         console.flush()
     return size
 
