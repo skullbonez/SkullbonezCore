@@ -13,6 +13,7 @@ Related:
 */
 
 #include "SkullbonezWorkerPool.h"
+#include "SkullbonezProfiler.h"
 
 #include <algorithm>
 #include <atomic>
@@ -26,7 +27,8 @@ namespace Threading
 namespace
 {
 thread_local bool g_isWorkerThread = false;
-}
+thread_local int g_workerThreadIndex = -1;
+} // namespace
 
 WorkerPool::WorkerPool()
     : m_stopping( false ), m_minParallelItems( 32 )
@@ -47,8 +49,16 @@ WorkerPool& WorkerPool::Instance()
 }
 
 
+int WorkerPool::MaxThreadCount()
+{
+    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
+    return (std::max)( 1, static_cast<int>( hardwareThreads ) );
+}
+
+
 int WorkerPool::ResolveThreadCount( int requestedThreadCount )
 {
+    const int maxThreadCount = MaxThreadCount();
     if ( requestedThreadCount == 0 )
     {
         return 0;
@@ -56,21 +66,26 @@ int WorkerPool::ResolveThreadCount( int requestedThreadCount )
 
     if ( requestedThreadCount < 0 )
     {
-        const unsigned int hardwareThreads = std::thread::hardware_concurrency();
-        if ( hardwareThreads <= 1 )
+        if ( maxThreadCount <= 1 )
         {
             return 0;
         }
-        return static_cast<int>( hardwareThreads - 1 );
+        return maxThreadCount - 1;
     }
 
-    return requestedThreadCount;
+    return (std::min)( requestedThreadCount, maxThreadCount );
 }
 
 
 bool WorkerPool::IsCurrentThreadWorker()
 {
     return g_isWorkerThread;
+}
+
+
+int WorkerPool::CurrentWorkerIndex()
+{
+    return g_workerThreadIndex;
 }
 
 
@@ -183,6 +198,44 @@ void WorkerPool::ParallelFor( int begin, int end, const IndexFunction& fn, int m
 }
 
 
+void WorkerPool::ParallelForProfiled( int begin,
+                                      int end,
+                                      const IndexFunction& fn,
+                                      int minParallelItems,
+                                      const char* workerMarkerPath,
+                                      uint32_t workerMarkerHash )
+{
+    const int itemCount = end - begin;
+    if ( itemCount <= 0 || !fn )
+    {
+        return;
+    }
+
+    if ( ShouldRunInline( itemCount, minParallelItems ) )
+    {
+        for ( int index = begin; index < end; ++index )
+        {
+            fn( index );
+        }
+        return;
+    }
+
+    const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
+    ParallelForChunks( chunks, [&]( int, int chunkBegin, int chunkEnd )
+                       {
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+                           ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( workerMarkerPath, workerMarkerHash );
+#else
+                           static_cast<void>( workerMarkerPath );
+                           static_cast<void>( workerMarkerHash );
+#endif
+                           for ( int index = chunkBegin; index < chunkEnd; ++index )
+                           {
+                               fn( index );
+                           } } );
+}
+
+
 void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn )
 {
     if ( chunks.empty() || !fn )
@@ -190,7 +243,7 @@ void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks,
         return;
     }
 
-    if ( chunks.size() == 1 || GetThreadCount() == 0 || IsCurrentThreadWorker() )
+    if ( GetThreadCount() == 0 || IsCurrentThreadWorker() )
     {
         for ( const WorkerChunkRange& chunk : chunks )
         {
@@ -291,8 +344,8 @@ bool WorkerPool::ShouldRunInline( int itemCount, int minParallelItems ) const
 
 void WorkerPool::WorkerLoop( int workerIndex )
 {
-    static_cast<void>( workerIndex );
     g_isWorkerThread = true;
+    g_workerThreadIndex = workerIndex;
 
     while ( true )
     {
@@ -326,6 +379,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
     }
 
     g_isWorkerThread = false;
+    g_workerThreadIndex = -1;
 }
 
 

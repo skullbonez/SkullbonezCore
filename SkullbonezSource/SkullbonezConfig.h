@@ -291,8 +291,8 @@ class SkullbonezConfig
     // Threading
     int gameModelCapacity = 1024;
     int workerThreads = -1;
-    bool physicsParallel = false;
-    bool shadowParallelPrep = false;
+    bool physicsParallel = true;
+    bool shadowParallelPrep = true;
 
     // Physics
     float gravity = -30.0f;

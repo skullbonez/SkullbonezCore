@@ -62,6 +62,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
     m_startupGameModelCapacity = ActiveGameModelCapacity();
+    m_startupWorkerThreads = Cfg().workerThreads;
 }
 
 

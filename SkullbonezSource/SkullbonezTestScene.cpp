@@ -175,6 +175,18 @@ int TestScene::GetModelCapacity() const
 }
 
 
+bool TestScene::HasWorkerThreadOverride() const
+{
+    return m_sceneOptions.workerThreads >= -1;
+}
+
+
+int TestScene::GetWorkerThreads() const
+{
+    return m_sceneOptions.workerThreads;
+}
+
+
 const char* TestScene::GetPerfLogPath() const
 {
     return m_loggingOptions.perfLogPath;

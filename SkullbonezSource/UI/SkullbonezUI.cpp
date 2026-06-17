@@ -116,6 +116,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
     hash = HashInt( hash, data.modelCount );
     hash = HashInt( hash, data.modelCapacity );
+    hash = HashInt( hash, data.workerThreadCount );
+    hash = HashInt( hash, data.maxWorkerThreadCount );
     hash = HashInt( hash, data.currentFrame );
     hash = HashInt( hash, data.targetFrameCount );
     hash = HashInt( hash, static_cast<int>( data.rngSeed ) );
@@ -1491,6 +1493,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         }
         break;
     case InGameUITab::Profiler:
+        DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
+        break;
     default:
         break;
     }
@@ -1794,13 +1799,20 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             if ( ProfilerTab::HandleContentClick( m_profilerTab,
+                                                  result,
+                                                  m_activeSlider,
                                                   inputX + contentPad,
                                                   contentY,
+                                                  contentW,
                                                   m_scrollY,
                                                   m_mouseX,
-                                                  m_mouseY ) )
+                                                  m_mouseY,
+                                                  m_lastWorkerThreadCount,
+                                                  m_lastMaxWorkerThreadCount ) )
             {
+                InputControl::BeginMouseCapture( hwnd );
                 m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
@@ -2048,7 +2060,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Sliders update previews continuously while dragged.  Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-        if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
+        if ( !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount, result ) &&
+             !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
@@ -2106,7 +2119,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.
-        if ( !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
+        if ( !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
+             !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
@@ -2128,6 +2142,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
         }
         m_activeSlider = 0;
+        ProfilerTab::ResetPreviewState( m_profilerTab );
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
@@ -2158,6 +2173,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastModelCapacity = std::clamp( data.modelCapacity, 1, MAX_GAME_MODELS );
     m_lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
     m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
+    m_lastMaxWorkerThreadCount = (std::max)( 1, data.maxWorkerThreadCount );
+    m_lastWorkerThreadCount = std::clamp( data.workerThreadCount, 0, m_lastMaxWorkerThreadCount );
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
@@ -2290,7 +2307,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( m_activeTab == InGameUITab::Profiler )
     {
-        ProfilerTab::Draw( m_profilerTab, draw, contentX, contentY, contentW, contentH, m_scrollY );
+        ProfilerTab::Draw( m_profilerTab, draw, data, contentX, contentY, contentW, contentH, m_scrollY, m_activeSlider );
     }
     else if ( m_activeTab == InGameUITab::Scene )
     {

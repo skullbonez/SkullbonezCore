@@ -236,6 +236,11 @@ struct UIRunCommands
     int requestedSolverBoxCount = -1;
 };
 
+struct UIProfilerCommands
+{
+    int requestedWorkerThreads = -2; // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
+};
+
 struct UICinematicCommands
 {
     // UI output for one frame. These are requests, not state: the render loop
@@ -266,6 +271,7 @@ struct InGameUICommands
     UISceneOptionCommands sceneOptions;
     UIWaterCommands water;
     UIRunCommands run;
+    UIProfilerCommands profiler;
     UIRenderCommands renderTuning;
     UICinematicCommands cinematic;
 };

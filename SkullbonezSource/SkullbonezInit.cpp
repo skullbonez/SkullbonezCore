@@ -1247,12 +1247,15 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           {
               static_cast<void>( args );
               int workerThreads = 0;
-              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > 1024 )
+              const int maxWorkerThreads = WorkerPool::MaxThreadCount();
+              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
               {
-                  return FailCommandLineParse( "--workers expects -1, 0, or 1..1024." );
+                  char message[128] = {};
+                  snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
+                  return FailCommandLineParse( message );
               }
               Cfg().workerThreads = workerThreads;
-              fprintf( stdout, "[workers] Override: %d\n", Cfg().workerThreads );
+              fprintf( stdout, "[workers] Override: %d (resolved %d, max %d)\n", Cfg().workerThreads, WorkerPool::ResolveThreadCount( Cfg().workerThreads ), maxWorkerThreads );
               return true;
           } },
         { "--model-capacity", nullptr, []( const char* value, ParsedArgs& args ) -> bool

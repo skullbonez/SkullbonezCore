@@ -20,6 +20,7 @@ Related:
 
 #include <cstdio>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <exception>
 #include <functional>
@@ -59,6 +60,12 @@ class WorkerPool
 
     void Submit( Task task );
     void ParallelFor( int begin, int end, const IndexFunction& fn, int minParallelItems = 0 );
+    void ParallelForProfiled( int begin,
+                              int end,
+                              const IndexFunction& fn,
+                              int minParallelItems,
+                              const char* workerMarkerPath,
+                              uint32_t workerMarkerHash );
     void ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn );
     std::vector<WorkerChunkRange> MakeChunks( int begin, int end, int minParallelItems = 0 ) const;
 
@@ -66,8 +73,10 @@ class WorkerPool
     int GetMinParallelItems() const;
     bool IsInitialised() const;
 
+    static int MaxThreadCount();
     static int ResolveThreadCount( int requestedThreadCount );
     static bool IsCurrentThreadWorker();
+    static int CurrentWorkerIndex();
 
     template <typename ChunkOutput, typename BuildChunk, typename MergeChunk>
     void ParallelCollectOrdered( int begin,

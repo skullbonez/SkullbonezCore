@@ -42,9 +42,8 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
-constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 2048;
-// Measured caster prep remains below worker dispatch granularity at 2048-8192 objects.
-constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
+constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 512;
+constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = true;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
@@ -204,7 +203,10 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
             modelCount,
             chunkOutputs,
             [&]( int, int begin, int end, ShadowCasterBatches& local )
-            { appendRange( begin, end, local ); },
+            {
+                PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect/WorkerBuildBatches" );
+                appendRange( begin, end, local );
+            },
             [&]( int, const ShadowCasterBatches& local )
             {
                 outBatches.spheres.insert( outBatches.spheres.end(), local.spheres.begin(), local.spheres.end() );
@@ -347,7 +349,10 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
             modelCount,
             chunkOutputs,
             [&]( int, int begin, int end, BoundsAccumulator& local )
-            { scanBoundsRange( begin, end, local ); },
+            {
+                PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect/WorkerScanBounds" );
+                scanBoundsRange( begin, end, local );
+            },
             [&]( int, const BoundsAccumulator& local )
             { mergeBounds( bounds, local ); },
             SHADOW_PARALLEL_PREP_MIN_CASTERS );

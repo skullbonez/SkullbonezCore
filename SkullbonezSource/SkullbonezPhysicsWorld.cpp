@@ -59,8 +59,12 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
-// Island dispatch is deterministic, but current island work is too small to beat worker overhead.
-constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = false;
+constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
+constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
+constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
+constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH = HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
+constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
+constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
@@ -566,7 +570,12 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
     if ( Cfg().physicsParallel )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, applyTornadoAt, PHYSICS_PARALLEL_MIN_BODIES );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
+                                                                               modelCount,
+                                                                               applyTornadoAt,
+                                                                               PHYSICS_PARALLEL_MIN_BODIES,
+                                                                               "Frame/Physics/TornadoField/WorkerBodies",
+                                                                               PHYSICS_TORNADO_WORKER_HASH );
     }
     else
     {
@@ -693,7 +702,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     if ( Cfg().physicsParallel )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, applyForcesAt, PHYSICS_PARALLEL_MIN_BODIES );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
+                                                                               modelCount,
+                                                                               applyForcesAt,
+                                                                               PHYSICS_PARALLEL_MIN_BODIES,
+                                                                               "Frame/Physics/ApplyForces/WorkerBodies",
+                                                                               PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
@@ -1275,10 +1289,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-                SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                               islandCount,
-                                                                               processObjectNarrowphaseIsland,
-                                                                               PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS );
+                SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
+                                                                                       islandCount,
+                                                                                       processObjectNarrowphaseIsland,
+                                                                                       PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+                                                                                       "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+                                                                                       PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
             }
             for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
             {
@@ -1371,7 +1387,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
     if ( Cfg().physicsParallel )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, detectTerrainAt, PHYSICS_PARALLEL_MIN_BODIES );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
+                                                                               modelCount,
+                                                                               detectTerrainAt,
+                                                                               PHYSICS_PARALLEL_MIN_BODIES,
+                                                                               "Frame/Physics/Terrain/Detect/WorkerBodies",
+                                                                               PHYSICS_TERRAIN_DETECT_WORKER_HASH );
     }
     else
     {
@@ -1418,7 +1439,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     if ( Cfg().physicsParallel )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0, modelCount, integrateRemainingAt, PHYSICS_PARALLEL_MIN_BODIES );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
+                                                                               modelCount,
+                                                                               integrateRemainingAt,
+                                                                               PHYSICS_PARALLEL_MIN_BODIES,
+                                                                               "Frame/Physics/Integrate/WorkerBodies",
+                                                                               PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {

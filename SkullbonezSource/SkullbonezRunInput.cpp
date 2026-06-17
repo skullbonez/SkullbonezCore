@@ -18,6 +18,7 @@ Related:
 */
 #include "SkullbonezRunInternal.h"
 #include "SkullbonezInputController.h"
+#include "SkullbonezWorkerPool.h"
 #include "UI/UILayout.h"
 
 using namespace SkullbonezCore::Basics;
@@ -172,6 +173,19 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
         return SCENE_CINE_SHADOWS;
     default:
         return 0;
+    }
+}
+
+
+void ApplyWorkerThreadCountOverride( int requestedWorkerThreads )
+{
+    const int clampedWorkerThreads = requestedWorkerThreads < 0 ? -1 : std::clamp( requestedWorkerThreads, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+    SkullbonezCore::Threading::WorkerPool& workerPool = SkullbonezCore::Threading::WorkerPool::Instance();
+    const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
+    Cfg().workerThreads = clampedWorkerThreads;
+    if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
+    {
+        workerPool.Initialise( clampedWorkerThreads );
     }
 }
 
@@ -1146,6 +1160,10 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
             ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
+        }
+        if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
+        {
+            ApplyWorkerThreadCountOverride( uiCommands.profiler.requestedWorkerThreads );
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {

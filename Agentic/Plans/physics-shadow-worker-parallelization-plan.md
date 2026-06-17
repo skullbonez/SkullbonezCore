@@ -1,6 +1,6 @@
 # Physics And Shadow Worker Parallelization Plan
 
-Status: implemented with measured worker-dispatch deferrals
+Status: implemented with worker dispatch enabled by default
 Created: 2026-06-17
 Scope: worker-system first-use jobs, deterministic physics parallelization, CPU-side shadow-map preparation, renderer stretch goals
 
@@ -47,26 +47,25 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 ## Worker Implementation Update: 2026-06-17
 
-The deterministic worker-safe slices are implemented, but two dispatch goals are
-explicitly deferred because focused same-machine probes showed worker overhead
-exceeds the current per-item work:
+The deterministic worker-safe slices are implemented and enabled by default.
+Focused probes showed that some same-machine workloads may not improve yet, but
+the worker execution paths remain production-visible so profiler evidence can
+guide the next optimization pass.
 
-- Physics per-body jobs remain enabled behind `physics_parallel`: force
-  application, tornado-field updates, terrain candidate detection, and
-  remaining-time integration. These preserve serial commit order for diagnostics
-  and terrain manifolds.
-- Object narrowphase now has a deterministic event/commit boundary and island
-  partitioning code, but `PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED` is `false`.
-  A separated 512-island probe exercised `Frame/Physics/Narrowphase/IslandWorkerDispatch`,
-  but narrowphase itself regressed because each island was too cheap; total
-  physics still improved through the per-body worker phases. Re-enable only
-  after a heavier per-island workload or lower-overhead scheduler is proven.
+- `worker_threads = -1`, `physics_parallel = 1`, and
+  `shadow_parallel_prep = 1` are the default config state.
+- Physics per-body jobs use workers for force application, tornado-field
+  updates, terrain candidate detection, and remaining-time integration while
+  preserving serial commit order for diagnostics and terrain manifolds.
+- Object narrowphase has a deterministic event/commit boundary and island
+  worker dispatch enabled through
+  `Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands`.
 - Shadow caster batches are built once per frame and reused for both shadow
-  maps. Ordered worker fill code exists, but
-  `SHADOW_PARALLEL_PREP_WORKER_ENABLED` is `false` because 2048-, 4096-, and
-  8192-caster probes regressed average shadow CPU prep cost.
-- The remaining shadow/narrowphase performance acceptance criteria should be
-  treated as a follow-up item rather than completed by this branch.
+  maps. Ordered worker fill/scans are enabled for object-heavy scenes and expose
+  `WorkerBuildBatches` / `WorkerScanBounds` profiler markers.
+- The profiler tab now exposes a Workers on/off checkbox, worker-count slider,
+  worker workload markers, and a CPU Cores section under Draw Calls that reports
+  each worker in flight, job count, core ms, and frame span.
 
 ## Current Constraints
 
@@ -78,7 +77,7 @@ exceeds the current per-item work:
 | Persistent contact solver | The shared Catto-style row solver remains a serial barrier until rows can be partitioned by independent islands. |
 | Shadow map rendering | The current pass renders a terrain/object shadow map and a tight object shadow map serially. Both object caster passes rebuild instance batches. |
 | Renderer backend | `Gfx()` owns mutable render state and the DX12 backend records through one command list and one per-frame upload arena today. Worker threads must not call `Gfx()` in the initial implementation. |
-| Profiler | The existing profiler is not fully thread-owned. Worker timings need per-worker counters or a thread-safe marker design before normal profiler macros move onto workers. |
+| Profiler | Worker timings use thread-safe worker sample recording and are published as last-frame marker rows plus a CPU Cores table. Normal main-thread profiler scopes still remain stack-owned by the main thread. |
 
 ## Target Architecture
 

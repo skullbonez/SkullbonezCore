@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezWorkerPool.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -37,6 +38,18 @@ int NextSceneRand( unsigned int& state )
     // global RNG state.
     state = state * 214013u + 2531011u;
     return static_cast<int>( ( state >> 16 ) & 0x7fffu );
+}
+
+void ApplySceneWorkerThreadSetting( int requestedWorkerThreads )
+{
+    const int clampedWorkerThreads = std::clamp( requestedWorkerThreads, -1, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+    SkullbonezCore::Threading::WorkerPool& workerPool = SkullbonezCore::Threading::WorkerPool::Instance();
+    const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
+    Cfg().workerThreads = clampedWorkerThreads;
+    if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
+    {
+        workerPool.Initialise( clampedWorkerThreads );
+    }
 }
 
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
@@ -889,6 +902,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     if ( scenePath.empty() )
     {
         Cfg().gameModelCapacity = m_startupGameModelCapacity;
+        ApplySceneWorkerThreadSetting( m_startupWorkerThreads );
         if ( m_cmdSeedOverride > 0 )
         {
             rngSeed = m_cmdSeedOverride;
@@ -925,6 +939,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         SceneState().isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
         Cfg().gameModelCapacity = scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
+        ApplySceneWorkerThreadSetting( scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : m_startupWorkerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
         m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();

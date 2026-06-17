@@ -31,6 +31,7 @@ Related:
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
+#include <mutex>
 #include "SkullbonezPlatformProfiler.h"
 #include "SkullbonezText.h"
 
@@ -78,8 +79,8 @@ Profiler& Profiler::Instance()
 
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 )
+    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ),
+      m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -91,6 +92,8 @@ Profiler::Profiler()
         m_qpcFrequency = 1; // avoid division by zero; timings will be garbage but won't crash
     }
     std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+    std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
 }
 
@@ -231,6 +234,78 @@ void Profiler::End( const char* fullPath, uint32_t hash )
         return;
     }
     EndInternal( fullPath, hash, true );
+}
+
+
+void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks )
+{
+    if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
+    {
+        return;
+    }
+    if ( endTicks < startTicks )
+    {
+        endTicks = startTicks;
+    }
+
+    std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+    int idx = FindOrRegister( fullPath, hash );
+    Marker& marker = m_markers[idx];
+    const double startSeconds = static_cast<double>( startTicks - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    const double endSeconds = static_cast<double>( endTicks - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    const double durationSeconds = static_cast<double>( endTicks - startTicks ) / static_cast<double>( m_qpcFrequency );
+    marker.accumSecondsThisFrame += durationSeconds;
+    if ( !marker.spanWrittenThisFrame )
+    {
+        marker.firstStartSecondsThisFrame = startSeconds;
+        marker.lastEndSecondsThisFrame = endSeconds;
+        marker.spanWrittenThisFrame = true;
+    }
+    else
+    {
+        marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame, startSeconds );
+        marker.lastEndSecondsThisFrame = (std::max)( marker.lastEndSecondsThisFrame, endSeconds );
+    }
+
+    WorkerCoreAccumulator& worker = m_workerCoreAccumulators[workerIndex];
+    ++worker.jobCount;
+    worker.accumSecondsThisFrame += durationSeconds;
+    if ( !worker.spanWrittenThisFrame )
+    {
+        worker.firstStartSecondsThisFrame = startSeconds;
+        worker.lastEndSecondsThisFrame = endSeconds;
+        worker.spanWrittenThisFrame = true;
+    }
+    else
+    {
+        worker.firstStartSecondsThisFrame = (std::min)( worker.firstStartSecondsThisFrame, startSeconds );
+        worker.lastEndSecondsThisFrame = (std::max)( worker.lastEndSecondsThisFrame, endSeconds );
+    }
+}
+
+
+WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
+    : m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 )
+{
+    if ( m_workerIndex < 0 )
+    {
+        return;
+    }
+    LARGE_INTEGER t;
+    QueryPerformanceCounter( &t );
+    m_startTicks = t.QuadPart;
+}
+
+
+WorkerProfilerScope::~WorkerProfilerScope()
+{
+    if ( m_workerIndex < 0 )
+    {
+        return;
+    }
+    LARGE_INTEGER t;
+    QueryPerformanceCounter( &t );
+    Profiler::Instance().RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
 }
 
 
@@ -452,6 +527,12 @@ void Profiler::FrameBegin()
         m_lastAvgTicks = 0;
         m_nextColorIndex = 0;
         m_resetPending = false;
+        {
+            std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+            std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+            std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
+            m_workerCoreSampleCount = 0;
+        }
     }
 
     if ( m_inFrame )
@@ -484,6 +565,10 @@ void Profiler::FrameBegin()
         m_markers[i].firstStartSecondsThisFrame = 0.0;
         m_markers[i].lastEndSecondsThisFrame = 0.0;
         m_markers[i].spanWrittenThisFrame = false;
+    }
+    {
+        std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+        std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     }
 
     // Implicit top-level "Frame" marker captures the entire frame total.
@@ -597,6 +682,26 @@ void Profiler::FrameEnd()
     }
 
     // Moving average refreshed every 500 ms (CPU and GPU) — skip during warmup
+    {
+        std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+        m_workerCoreSampleCount = 0;
+        for ( int workerIndex = 0; workerIndex < MAX_WORKER_CORES; ++workerIndex )
+        {
+            const WorkerCoreAccumulator& worker = m_workerCoreAccumulators[workerIndex];
+            if ( worker.jobCount <= 0 )
+            {
+                continue;
+            }
+
+            WorkerCoreSample& sample = m_workerCoreSamples[m_workerCoreSampleCount++];
+            sample.workerIndex = workerIndex;
+            sample.jobCount = worker.jobCount;
+            sample.coreMs = static_cast<float>( worker.accumSecondsThisFrame * 1000.0 );
+            sample.spanStartMs = worker.spanWrittenThisFrame ? static_cast<float>( worker.firstStartSecondsThisFrame * 1000.0 ) : 0.0f;
+            sample.spanEndMs = worker.spanWrittenThisFrame ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 ) : 0.0f;
+        }
+    }
+
     if ( m_warmupFrames == 0 )
     {
         LARGE_INTEGER t;
