@@ -4,9 +4,9 @@
 #   Enforces the roadmap orchestrator queue and state machine.
 #
 # Mental model:
-#   JSON files are the executable control plane. YAML and Markdown explain the
-#   workflow for humans and agents, but this script is the mechanical guardrail
-#   that decides whether a transition is legal.
+#   JSON files are the executable control plane. Markdown explains the workflow
+#   for humans and agents, but this script is the mechanical guardrail that
+#   decides whether a transition is legal.
 #
 # Glossary:
 #   Queue item: One planned roadmap task from Agentic/Plans.
@@ -15,7 +15,7 @@
 #
 # Invariants:
 #   - Do not infer runnable work from every Markdown file in Agentic/Plans.
-#   - At most one queue item may be active.
+#   - Active queue items must fit policy parallel-capacity and conflict rules.
 #   - Worker/verifier Codex runs are optional wrappers around codex exec; Python
 #     still owns state transitions.
 #
@@ -28,6 +28,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -385,6 +386,153 @@ def active_states(machine: dict[str, Any]) -> set[str]:
     }
 
 
+def active_queue_items(queue: dict[str, Any], machine: dict[str, Any]) -> list[dict[str, Any]]:
+    active = active_states(machine)
+    return [item for item in items_by_id(queue).values() if item_state(item) in active]
+
+
+def max_active_items(policy: dict[str, Any]) -> int:
+    try:
+        return max(1, int(policy.get("max_active_items", 1)))
+    except (TypeError, ValueError):
+        return 1
+
+
+def parallelism_enabled(policy: dict[str, Any]) -> bool:
+    return nested_get(policy, "parallelism.enabled") is True and max_active_items(policy) > 1
+
+
+def string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item)]
+
+
+def normalized_area_set(item: dict[str, Any]) -> set[str]:
+    return {area.strip().lower() for area in string_list(item.get("impact_area")) if area.strip()}
+
+
+def normalized_glob(pattern: str) -> str:
+    return pattern.replace("\\", "/").strip().lower()
+
+
+def glob_static_prefix(pattern: str) -> str:
+    normalized = normalized_glob(pattern)
+    wildcard_positions = [pos for pos in (normalized.find("*"), normalized.find("?"), normalized.find("[")) if pos >= 0]
+    if not wildcard_positions:
+        return normalized
+    return normalized[: min(wildcard_positions)]
+
+
+def glob_patterns_may_overlap(left: str, right: str) -> bool:
+    left_norm = normalized_glob(left)
+    right_norm = normalized_glob(right)
+    if not left_norm or not right_norm:
+        return False
+    if fnmatch.fnmatchcase(left_norm, right_norm) or fnmatch.fnmatchcase(right_norm, left_norm):
+        return True
+    left_prefix = glob_static_prefix(left_norm)
+    right_prefix = glob_static_prefix(right_norm)
+    if not left_prefix or not right_prefix:
+        return True
+    return left_prefix.startswith(right_prefix) or right_prefix.startswith(left_prefix)
+
+
+def glob_lists_may_overlap(left: list[str], right: list[str]) -> bool:
+    return any(glob_patterns_may_overlap(a, b) for a in left for b in right)
+
+
+def item_owned_globs(item: dict[str, Any]) -> list[str]:
+    return [normalized_glob(pattern) for pattern in string_list(item.get("owned_globs"))]
+
+
+def item_conflicts_with_areas(item: dict[str, Any]) -> set[str]:
+    return {area.strip().lower() for area in string_list(item.get("conflicts_with_areas")) if area.strip()}
+
+
+def policy_exclusive_globs(policy: dict[str, Any]) -> list[str]:
+    return [
+        normalized_glob(pattern)
+        for pattern in string_list(nested_get(policy, "parallelism.exclusive_globs"))
+    ]
+
+
+def items_conflict(policy: dict[str, Any], left: dict[str, Any], right: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    left_id = str(left.get("id", "<left>"))
+    right_id = str(right.get("id", "<right>"))
+    left_globs = item_owned_globs(left)
+    right_globs = item_owned_globs(right)
+
+    if not left_globs:
+        reasons.append(f"{left_id} has no owned_globs; treat it as exclusive.")
+    if not right_globs:
+        reasons.append(f"{right_id} has no owned_globs; treat it as exclusive.")
+
+    if left_globs and right_globs and glob_lists_may_overlap(left_globs, right_globs):
+        reasons.append(f"{left_id} and {right_id} owned_globs may overlap.")
+
+    exclusive_globs = policy_exclusive_globs(policy)
+    if exclusive_globs:
+        if left_globs and glob_lists_may_overlap(left_globs, exclusive_globs):
+            reasons.append(f"{left_id} touches policy exclusive_globs.")
+        if right_globs and glob_lists_may_overlap(right_globs, exclusive_globs):
+            reasons.append(f"{right_id} touches policy exclusive_globs.")
+
+    left_areas = normalized_area_set(left)
+    right_areas = normalized_area_set(right)
+    left_area_conflicts = item_conflicts_with_areas(left) & right_areas
+    right_area_conflicts = item_conflicts_with_areas(right) & left_areas
+    if left_area_conflicts:
+        reasons.append(f"{left_id} conflicts with active areas: {', '.join(sorted(left_area_conflicts))}.")
+    if right_area_conflicts:
+        reasons.append(f"{right_id} conflicts with candidate areas: {', '.join(sorted(right_area_conflicts))}.")
+
+    return reasons
+
+
+def area_capacity_conflicts(policy: dict[str, Any], candidate: dict[str, Any], active_items: list[dict[str, Any]]) -> list[str]:
+    limits = nested_get(policy, "parallelism.max_workers_by_area")
+    if not isinstance(limits, dict):
+        return []
+    errors: list[str] = []
+    candidate_areas = normalized_area_set(candidate)
+    for area in candidate_areas:
+        raw_limit = limits.get(area) or limits.get(area.upper()) or limits.get(area.capitalize())
+        if raw_limit is None:
+            continue
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            continue
+        if limit < 1:
+            errors.append(f"Area {area} has invalid max_workers_by_area limit {raw_limit!r}.")
+            continue
+        active_count = sum(1 for item in active_items if area in normalized_area_set(item))
+        if active_count + 1 > limit:
+            errors.append(f"Area {area} would have {active_count + 1} active workers; limit is {limit}.")
+    return errors
+
+
+def start_guard_errors(
+    policy: dict[str, Any],
+    queue: dict[str, Any],
+    machine: dict[str, Any],
+    candidate: dict[str, Any],
+) -> list[str]:
+    active_items = [item for item in active_queue_items(queue, machine) if str(item.get("id")) != str(candidate.get("id"))]
+    if len(active_items) >= max_active_items(policy):
+        return [f"Parallel capacity is full: {len(active_items)} active items, max_active_items is {max_active_items(policy)}."]
+
+    if active_items and not parallelism_enabled(policy):
+        return ["Another item is active and policy.parallelism.enabled is not true."]
+
+    errors = area_capacity_conflicts(policy, candidate, active_items)
+    for active in active_items:
+        errors.extend(items_conflict(policy, candidate, active))
+    return errors
+
+
 def terminal_states(machine: dict[str, Any]) -> set[str]:
     return {
         state
@@ -446,8 +594,9 @@ def validate_config(repo: Path, quiet: bool = False) -> tuple[list[str], list[st
 
     items = items_by_id(queue)
     active_count = 0
-    max_active = int(policy.get("max_active_items", 1))
+    max_active = max_active_items(policy)
     active = active_states(machine)
+    active_items: list[dict[str, Any]] = []
 
     for item_id, item in items.items():
         state = item_state(item)
@@ -455,6 +604,7 @@ def validate_config(repo: Path, quiet: bool = False) -> tuple[list[str], list[st
             errors.append(f"{item_id}: unknown state {state!r}.")
         if state in active:
             active_count += 1
+            active_items.append(item)
 
         plan_path = item.get("plan")
         if not isinstance(plan_path, str) or not plan_path:
@@ -497,6 +647,32 @@ def validate_config(repo: Path, quiet: bool = False) -> tuple[list[str], list[st
     if active_count > max_active:
         errors.append(f"Queue has {active_count} active items; max_active_items is {max_active}.")
 
+    if active_count > 1 and not parallelism_enabled(policy):
+        errors.append("Queue has multiple active items but policy.parallelism.enabled is not true.")
+
+    for index, left in enumerate(active_items):
+        for right in active_items[index + 1 :]:
+            for reason in items_conflict(policy, left, right):
+                errors.append(
+                    f"Active item conflict between {left.get('id')} and {right.get('id')}: {reason}"
+                )
+
+    if active_items:
+        limits = nested_get(policy, "parallelism.max_workers_by_area")
+        if isinstance(limits, dict):
+            for area_key, raw_limit in limits.items():
+                try:
+                    limit = int(raw_limit)
+                except (TypeError, ValueError):
+                    errors.append(f"parallelism.max_workers_by_area.{area_key} must be an integer.")
+                    continue
+                area = str(area_key).strip().lower()
+                active_for_area = sum(1 for item in active_items if area in normalized_area_set(item))
+                if active_for_area > limit:
+                    errors.append(
+                        f"Area {area} has {active_for_area} active items; max_workers_by_area limit is {limit}."
+                    )
+
     if nested_get(policy, "merge.allow") is True:
         agents_text = (repo / "AGENTS.md").read_text(encoding="utf-8", errors="ignore")
         if "merge" not in agents_text.lower() or "explicit" not in agents_text.lower():
@@ -535,8 +711,11 @@ def select_next_item(
         if item_state(item) != "ready":
             continue
         mode = str(item.get("dependency_mode", "normal"))
-        if all(dependency_satisfied(machine, item_state(items[dep]), mode) for dep in item.get("depends_on", [])):
-            candidates.append(item)
+        if not all(dependency_satisfied(machine, item_state(items[str(dep)]), mode) for dep in item.get("depends_on", [])):
+            continue
+        if start_guard_errors(policy, queue, machine, item):
+            continue
+        candidates.append(item)
     candidates.sort(key=lambda item: (int(item.get("priority", 1000)), str(item.get("id"))))
     return candidates[0] if candidates else None
 
@@ -695,6 +874,9 @@ def command_start(args: argparse.Namespace) -> int:
             dep = items[str(dep_id)]
             if not dependency_satisfied(machine, item_state(dep), mode):
                 raise OrchestratorError(f"Dependency {dep_id} is not satisfied.")
+        guard_errors = start_guard_errors(policy, queue, machine, item)
+        if guard_errors:
+            raise OrchestratorError("Cannot start item in parallel: " + "; ".join(guard_errors))
 
         parent_branch = resolve_parent_branch(policy, items, item)
         if not args.no_branch:
@@ -2041,6 +2223,8 @@ def command_self_test(args: argparse.Namespace) -> int:
         (repo / "Agentic" / "Plans" / "Done").mkdir(parents=True)
         (repo / "Agentic" / "Plans" / "Done" / "done.md").write_text("# Done\n", encoding="utf-8")
         (repo / "Agentic" / "Plans" / "active.md").write_text("# Active\n", encoding="utf-8")
+        (repo / "Agentic" / "Plans" / "parallel.md").write_text("# Parallel\n", encoding="utf-8")
+        (repo / "Agentic" / "Plans" / "conflict.md").write_text("# Conflict\n", encoding="utf-8")
         (repo / "AGENTS.md").write_text("merge requires explicit user request\n", encoding="utf-8")
         machine = load_json(args.repo / DEFAULT_MACHINE_PATH)
         write_json(repo / DEFAULT_MACHINE_PATH, machine)
@@ -2049,7 +2233,12 @@ def command_self_test(args: argparse.Namespace) -> int:
             {
                 "schema_version": 1,
                 "enabled": True,
-                "max_active_items": 1,
+                "max_active_items": 2,
+                "parallelism": {
+                    "enabled": True,
+                    "max_workers_by_area": {"docs": 1, "verification": 1},
+                    "exclusive_globs": ["Agentic/Orchestrator/*"],
+                },
                 "merge": {"allow": False},
                 "artifact_retention": {"run_root": "Agentic/Runs"},
             },
@@ -2079,6 +2268,29 @@ def command_self_test(args: argparse.Namespace) -> int:
                         "branch": "codex/active",
                         "impact_area": ["docs"],
                         "validation_gate": "none",
+                        "owned_globs": ["Agentic/Plans/active.md"],
+                        "depends_on": ["done"],
+                    },
+                    {
+                        "id": "parallel",
+                        "plan": "Agentic/Plans/parallel.md",
+                        "state": "ready",
+                        "priority": 3,
+                        "branch": "codex/parallel",
+                        "impact_area": ["verification"],
+                        "validation_gate": "none",
+                        "owned_globs": ["Agentic/Plans/parallel.md"],
+                        "depends_on": ["done"],
+                    },
+                    {
+                        "id": "conflict",
+                        "plan": "Agentic/Plans/conflict.md",
+                        "state": "ready",
+                        "priority": 4,
+                        "branch": "codex/conflict",
+                        "impact_area": ["docs"],
+                        "validation_gate": "none",
+                        "owned_globs": ["Agentic/Plans/active.md"],
                         "depends_on": ["done"],
                     },
                 ],
@@ -2118,6 +2330,15 @@ def command_self_test(args: argparse.Namespace) -> int:
         item = select_next_item(policy, queue, machine, allow_disabled=False)
         if item is None or item["id"] != "active":
             print("ERROR: self-test next item selection failed.")
+            return 1
+        set_item_state(items_by_id(queue)["active"], "running")
+        item = select_next_item(policy, queue, machine, allow_disabled=False)
+        if item is None or item["id"] != "parallel":
+            print("ERROR: self-test parallel item selection failed.")
+            return 1
+        conflict_errors = start_guard_errors(policy, queue, machine, items_by_id(queue)["conflict"])
+        if not conflict_errors:
+            print("ERROR: self-test overlapping owned_globs did not block parallel start.")
             return 1
 
         report_dir = repo / "Agentic" / "Reports" / "2026-06-16" / "item"

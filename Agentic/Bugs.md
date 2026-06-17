@@ -1,10 +1,11 @@
 # SkullbonezCore — Known Bugs
 
-## Remove YAML from orchestrator
-
-JSON only.  Single source of truth
-
 ## TECH DEBT
+
+## DONE: Remove YAML from orchestrator
+
+Live orchestrator policy, queue, loop, and machine state now use JSON only.
+Historical reports and archived plans may still mention YAML as past context.
 
 ## TODO: Collapse skybox rendering to one draw call
 

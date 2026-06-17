@@ -1,9 +1,8 @@
 # Roadmap Orchestrator Runbook
 
-This runbook explains the manual procedure for sequential roadmap orchestration.
-`tools/orchestrator.py` enforces the JSON policy, queue, and state machine.
-YAML files are readable design mirrors until parser support is intentionally
-added.
+This runbook explains the manual procedure for JSON-only roadmap orchestration.
+`tools/orchestrator.py` enforces the JSON policy, queue, loop map, and state
+machine. Markdown is explanatory; JSON is the only orchestrator control source.
 
 ## Scope
 
@@ -34,7 +33,7 @@ The worker owns only the assigned roadmap implementation.
 4. Read `Agentic/Orchestrator/policy.json`.
 5. Read `Agentic/Orchestrator/queue.json`.
 6. Read `Agentic/Orchestrator/machines/roadmap-item.json`.
-7. Use `Agentic/Orchestrator/agent-loop.yaml` as the human-readable loop map.
+7. Read `Agentic/Orchestrator/agent-loop.json` as the loop map.
 8. Stop if `policy.json` has `enabled: false`, unless the user explicitly asks
    for a dry-run setup step or policy editing.
 9. Do not merge PRs. `AGENTS.md` requires explicit user authorization for PR
@@ -47,8 +46,9 @@ The worker owns only the assigned roadmap implementation.
 2. Confirm every item in `depends_on` is terminal and acceptable:
    `done`, `merged`, `pr_open` for stacked children, `skipped` only when the
    queue says explicit-only or the user approved it.
-3. Confirm no other item is in an active state from
-   `machines/queue.yaml`.
+3. Confirm the selected item fits `policy.max_active_items`,
+   `policy.parallelism`, dependencies, `owned_globs`, and active-item conflict
+   rules.
 4. Mark the selected item `running` only through
    `tools\orchestrator.bat start <item-id>` or
    `tools\orchestrator.bat run-loop <item-id>`, which creates the run
@@ -220,7 +220,10 @@ available, or render the prompt with `tools\orchestrator.bat worker-prompt
 - explicit write ownership,
 - current merge restrictions.
 
-The orchestrator should not begin another roadmap item while a worker is active.
+The orchestrator may begin another roadmap item while a worker is active only
+when `tools\orchestrator.bat next` or `start` accepts the item under the
+parallel capacity and conflict rules. Parallel writer agents should use
+isolated git worktrees; final integration remains orchestrator-owned.
 
 For the executable path, use `tools\orchestrator.bat run-loop [item-id]`.
 That command starts the selected queue item, runs the worker through `codex

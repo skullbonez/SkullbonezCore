@@ -18,7 +18,7 @@ Before reviewing, read:
 4. `Agentic/SessionState.md`
 5. `Agentic/Orchestrator/policy.json`
 6. `Agentic/Orchestrator/queue.json`
-7. `Agentic/Orchestrator/agent-loop.yaml`
+7. `Agentic/Orchestrator/agent-loop.json`
 8. `Agentic/Orchestrator/machines/roadmap-item.json`
 9. `{{plan_path}}`
 10. `Agentic/Runs/{{run_date}}/{{item_id}}/worker-prompt.md`
