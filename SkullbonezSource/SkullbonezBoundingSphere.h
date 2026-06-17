@@ -42,7 +42,7 @@ namespace CollisionDetection
 {
 class BoundingBox;
 class ConvexHullShape;
-}
+} // namespace CollisionDetection
 } // namespace Math
 } // namespace SkullbonezCore
 

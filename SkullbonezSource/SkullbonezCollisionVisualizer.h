@@ -40,7 +40,7 @@ namespace GameObjects
 {
 class GameModel;
 class GameModelCollection;
-}
+} // namespace GameObjects
 
 namespace Physics
 {

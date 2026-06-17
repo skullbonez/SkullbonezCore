@@ -1436,9 +1436,9 @@ bool BuildPolyFaceContact( const GameModel& aModel,
             candidates[candidateCount].point = workA[i].point - refNormal * ( separation * 0.5f );
             candidates[candidateCount].penetration = -separation;
             candidates[candidateCount].featureId = EncodeHullFaceFeature( referenceIsA,
-                                                                           refFace.sourceId,
-                                                                           incFace.sourceId,
-                                                                           workA[i].id );
+                                                                          refFace.sourceId,
+                                                                          incFace.sourceId,
+                                                                          workA[i].id );
             ++candidateCount;
         }
     }
