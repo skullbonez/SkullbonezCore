@@ -300,6 +300,21 @@ def current_branch(repo: Path) -> str:
     return result.stdout.strip()
 
 
+def kill_process_tree_by_pid(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+
+
 def ensure_clean_for_branch(repo: Path, allow_dirty: bool) -> None:
     result = run_git(repo, ["status", "--porcelain"])
     if result.returncode != 0:
@@ -1338,8 +1353,8 @@ def run_codex_exec_visible_console(
         try:
             return helper.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired as exc:
-            helper.kill()
-            helper.wait()
+            kill_process_tree_by_pid(helper.pid)
+            helper.wait(timeout=10)
             raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s in visible console.") from exc
 
 
@@ -1423,8 +1438,8 @@ def run_codex_exec(
         try:
             returncode = process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired as exc:
-            process.kill()
-            process.wait()
+            kill_process_tree_by_pid(process.pid)
+            process.wait(timeout=10)
             stdout_thread.join(timeout=5)
             stderr_thread.join(timeout=5)
             raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
@@ -1451,6 +1466,7 @@ def run_worker_agent(
     codex_bin: str | None,
     no_schema: bool,
     visible_console: bool | None,
+    timeout_seconds: int | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1460,7 +1476,16 @@ def run_worker_agent(
     output = run_dir / ("worker-result.md" if no_schema else "worker-result.json")
     sandbox_mode = sandbox or default_worker_sandbox(policy)
     use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
-    return run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console), output
+    return run_codex_exec(
+        repo,
+        prompt,
+        output,
+        schema,
+        sandbox_mode,
+        codex_bin,
+        timeout_seconds=timeout_seconds,
+        visible_console=use_visible_console,
+    ), output
 
 
 def run_verifier_agent(
@@ -1472,6 +1497,7 @@ def run_verifier_agent(
     no_schema: bool,
     require_clean: bool,
     visible_console: bool | None,
+    timeout_seconds: int | None,
 ) -> tuple[int, Path]:
     policy, queue, _ = load_state(repo)
     item = items_by_id(queue)[item_id]
@@ -1485,7 +1511,16 @@ def run_verifier_agent(
     before = git_status_porcelain(repo)
     sandbox_mode = sandbox or default_verifier_sandbox(policy)
     use_visible_console = default_visible_console(policy) if visible_console is None else visible_console
-    code = run_codex_exec(repo, prompt, output, schema, sandbox_mode, codex_bin, visible_console=use_visible_console)
+    code = run_codex_exec(
+        repo,
+        prompt,
+        output,
+        schema,
+        sandbox_mode,
+        codex_bin,
+        timeout_seconds=timeout_seconds,
+        visible_console=use_visible_console,
+    )
     after = git_status_porcelain(repo)
     if require_clean and after != before:
         raise OrchestratorError("Verifier changed the tracked worktree; inspect and revert/commit intentionally.")
@@ -1502,6 +1537,7 @@ def command_run_worker(args: argparse.Namespace) -> int:
             args.codex_bin,
             args.no_schema,
             args.visible_console,
+            args.timeout_seconds,
         )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
@@ -1544,6 +1580,7 @@ def command_run_verifier(args: argparse.Namespace) -> int:
             args.no_schema,
             require_clean,
             args.visible_console,
+            args.timeout_seconds,
         )
     except (KeyError, OrchestratorError) as exc:
         print(f"ERROR: {exc}")
@@ -2021,6 +2058,7 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     args.codex_bin,
                     no_schema=False,
                     visible_console=args.visible_console,
+                    timeout_seconds=args.worker_timeout_seconds,
                 )
                 print(f"Worker result: {repo_relative(args.repo, worker_output)}")
                 if code != 0:
@@ -2072,6 +2110,7 @@ def command_run_loop(args: argparse.Namespace) -> int:
                     no_schema=False,
                     require_clean=require_clean,
                     visible_console=args.visible_console,
+                    timeout_seconds=args.verifier_timeout_seconds,
                 )
                 print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
                 if code != 0:
@@ -2431,6 +2470,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_worker.add_argument("--sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_worker.add_argument("--codex-bin")
     run_worker.add_argument("--no-schema", action="store_true")
+    run_worker.add_argument("--timeout-seconds", type=int)
     run_worker.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_worker.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_worker.set_defaults(func=command_run_worker)
@@ -2442,6 +2482,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_verifier.add_argument("--codex-bin")
     run_verifier.add_argument("--no-schema", action="store_true")
     run_verifier.add_argument("--allow-dirty-verifier", action="store_true")
+    run_verifier.add_argument("--timeout-seconds", type=int)
     run_verifier.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_verifier.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_verifier.set_defaults(func=command_run_verifier)
@@ -2476,6 +2517,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_loop.add_argument("--worker-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--verifier-sandbox", choices=["read-only", "workspace-write", "danger-full-access"])
     run_loop.add_argument("--codex-bin")
+    run_loop.add_argument("--worker-timeout-seconds", type=int)
+    run_loop.add_argument("--verifier-timeout-seconds", type=int)
     run_loop.add_argument("--visible-console", dest="visible_console", action="store_true", default=None)
     run_loop.add_argument("--no-visible-console", dest="visible_console", action="store_false")
     run_loop.add_argument("--max-verifier-rounds", type=int, default=5)

@@ -48,7 +48,7 @@ namespace GameObjects
 {
 class GameModelCollection;
 struct GameModelBodyStream;
-}
+} // namespace GameObjects
 
 namespace Physics
 {
