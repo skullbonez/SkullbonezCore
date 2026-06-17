@@ -93,6 +93,7 @@ Profiler::Profiler()
     }
     std::memset( m_markers, 0, sizeof( m_markers ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+    std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
 }
@@ -530,6 +531,7 @@ void Profiler::FrameBegin()
         {
             std::lock_guard<std::mutex> lock( m_workerSampleMutex );
             std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
+            std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
             std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
             m_workerCoreSampleCount = 0;
         }
@@ -681,14 +683,38 @@ void Profiler::FrameEnd()
         }
     }
 
-    // Moving average refreshed every 500 ms (CPU and GPU) — skip during warmup
+    // Moving average refreshed every 500 ms (CPU, GPU, and worker core work) — skip during warmup
+    bool refreshAverages = false;
+    if ( m_warmupFrames == 0 )
+    {
+        LARGE_INTEGER t;
+        QueryPerformanceCounter( &t );
+        const int64_t elapsedMs = ( t.QuadPart - m_lastAvgTicks ) * 1000 / m_qpcFrequency;
+        if ( m_lastAvgTicks == 0 || elapsedMs >= TICKS_PER_AVG_REFRESH_MS )
+        {
+            m_lastAvgTicks = t.QuadPart;
+            refreshAverages = true;
+        }
+    }
+
     {
         std::lock_guard<std::mutex> lock( m_workerSampleMutex );
         m_workerCoreSampleCount = 0;
         for ( int workerIndex = 0; workerIndex < MAX_WORKER_CORES; ++workerIndex )
         {
             const WorkerCoreAccumulator& worker = m_workerCoreAccumulators[workerIndex];
-            if ( worker.jobCount <= 0 )
+            const float frameCoreMs = static_cast<float>( worker.accumSecondsThisFrame * 1000.0 );
+            WorkerCoreAverageWindow& average = m_workerCoreAverageWindows[workerIndex];
+            average.accumulatedCoreMs += frameCoreMs;
+            ++average.frameCount;
+            if ( refreshAverages && average.frameCount > 0 )
+            {
+                average.avgCoreMs = static_cast<float>( average.accumulatedCoreMs / static_cast<double>( average.frameCount ) );
+                average.accumulatedCoreMs = 0.0;
+                average.frameCount = 0;
+            }
+
+            if ( worker.jobCount <= 0 && frameCoreMs <= 0.0f && average.avgCoreMs <= 0.0f )
             {
                 continue;
             }
@@ -696,49 +722,43 @@ void Profiler::FrameEnd()
             WorkerCoreSample& sample = m_workerCoreSamples[m_workerCoreSampleCount++];
             sample.workerIndex = workerIndex;
             sample.jobCount = worker.jobCount;
-            sample.coreMs = static_cast<float>( worker.accumSecondsThisFrame * 1000.0 );
+            sample.coreMs = frameCoreMs;
+            sample.avgCoreMs = average.avgCoreMs;
             sample.spanStartMs = worker.spanWrittenThisFrame ? static_cast<float>( worker.firstStartSecondsThisFrame * 1000.0 ) : 0.0f;
             sample.spanEndMs = worker.spanWrittenThisFrame ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 ) : 0.0f;
         }
     }
 
-    if ( m_warmupFrames == 0 )
+    if ( refreshAverages )
     {
-        LARGE_INTEGER t;
-        QueryPerformanceCounter( &t );
-        int64_t elapsedMs = ( t.QuadPart - m_lastAvgTicks ) * 1000 / m_qpcFrequency;
-        if ( m_lastAvgTicks == 0 || elapsedMs >= TICKS_PER_AVG_REFRESH_MS )
+        for ( int i = 0; i < m_markerCount; ++i )
         {
-            m_lastAvgTicks = t.QuadPart;
-            for ( int i = 0; i < m_markerCount; ++i )
+            Marker& m = m_markers[i];
+
+            // CPU average
+            int n = m.ringFilled;
+            if ( n > 0 )
             {
-                Marker& m = m_markers[i];
-
-                // CPU average
-                int n = m.ringFilled;
-                if ( n > 0 )
+                double sum = 0.0;
+                for ( int k = 0; k < n; ++k )
                 {
-                    double sum = 0.0;
-                    for ( int k = 0; k < n; ++k )
-                    {
-                        sum += m.ringMs[k];
-                    }
-                    m.avgMs = static_cast<float>( sum / n );
+                    sum += m.ringMs[k];
                 }
+                m.avgMs = static_cast<float>( sum / n );
+            }
 
-                // GPU average
-                if ( m.hasGpu )
+            // GPU average
+            if ( m.hasGpu )
+            {
+                int gn = m.gpuRingFilled;
+                if ( gn > 0 )
                 {
-                    int gn = m.gpuRingFilled;
-                    if ( gn > 0 )
+                    double gsum = 0.0;
+                    for ( int k = 0; k < gn; ++k )
                     {
-                        double gsum = 0.0;
-                        for ( int k = 0; k < gn; ++k )
-                        {
-                            gsum += m.gpuRingMs[k];
-                        }
-                        m.gpuAvgMs = static_cast<float>( gsum / gn );
+                        gsum += m.gpuRingMs[k];
                     }
+                    m.gpuAvgMs = static_cast<float>( gsum / gn );
                 }
             }
         }

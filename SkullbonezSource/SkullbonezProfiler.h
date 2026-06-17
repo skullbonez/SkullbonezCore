@@ -135,6 +135,7 @@ class Profiler
         int workerIndex;
         int jobCount;
         float coreMs;
+        float avgCoreMs;
         float spanStartMs;
         float spanEndMs;
     };
@@ -219,9 +220,17 @@ class Profiler
         bool spanWrittenThisFrame;
     };
 
+    struct WorkerCoreAverageWindow
+    {
+        double accumulatedCoreMs;
+        int frameCount;
+        float avgCoreMs;
+    };
+
     Marker m_markers[MAX_MARKERS];
     int m_markerCount;
     WorkerCoreAccumulator m_workerCoreAccumulators[MAX_WORKER_CORES];
+    WorkerCoreAverageWindow m_workerCoreAverageWindows[MAX_WORKER_CORES];
     WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
     int m_workerCoreSampleCount;
 
