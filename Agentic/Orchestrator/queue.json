@@ -156,8 +156,8 @@
     },
     {
       "id": "worker-system",
-      "plan": "Agentic/Plans/worker-system-plan.md",
-      "state": "ready",
+      "plan": "Agentic/Plans/Done/worker-system-plan.md",
+      "state": "done",
       "priority": 22,
       "branch": "codex/worker-system",
       "parent_branch": "codex/terrain-tessellation",
