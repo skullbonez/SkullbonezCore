@@ -45,6 +45,29 @@ If profiling marker forwarding changes, also run:
 Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 ```
 
+## Worker Implementation Update: 2026-06-17
+
+The deterministic worker-safe slices are implemented, but two dispatch goals are
+explicitly deferred because focused same-machine probes showed worker overhead
+exceeds the current per-item work:
+
+- Physics per-body jobs remain enabled behind `physics_parallel`: force
+  application, tornado-field updates, terrain candidate detection, and
+  remaining-time integration. These preserve serial commit order for diagnostics
+  and terrain manifolds.
+- Object narrowphase now has a deterministic event/commit boundary and island
+  partitioning code, but `PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED` is `false`.
+  A separated 512-island probe exercised `Frame/Physics/Narrowphase/IslandWorkerDispatch`,
+  but narrowphase itself regressed because each island was too cheap; total
+  physics still improved through the per-body worker phases. Re-enable only
+  after a heavier per-island workload or lower-overhead scheduler is proven.
+- Shadow caster batches are built once per frame and reused for both shadow
+  maps. Ordered worker fill code exists, but
+  `SHADOW_PARALLEL_PREP_WORKER_ENABLED` is `false` because 2048- and
+  4096-caster probes regressed `BuildBatches` and `ObjectBounds`.
+- The remaining shadow/narrowphase performance acceptance criteria should be
+  treated as a follow-up item rather than completed by this branch.
+
 ## Current Constraints
 
 | Area | Constraint |

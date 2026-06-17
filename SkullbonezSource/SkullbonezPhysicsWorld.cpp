@@ -58,6 +58,9 @@ constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
+constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
+// Island dispatch is deterministic, but current island work is too small to beat worker overhead.
+constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = false;
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
@@ -908,90 +911,6 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
-    m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
-    m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
-    m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
-    }
-
-    auto findObjectNarrowphaseRoot = [&]( int index ) -> int
-    {
-        int root = index;
-        while ( m_objectNarrowphaseParent[static_cast<size_t>( root )] != root )
-        {
-            root = m_objectNarrowphaseParent[static_cast<size_t>( root )];
-        }
-        while ( m_objectNarrowphaseParent[static_cast<size_t>( index )] != index )
-        {
-            const int next = m_objectNarrowphaseParent[static_cast<size_t>( index )];
-            m_objectNarrowphaseParent[static_cast<size_t>( index )] = root;
-            index = next;
-        }
-        return root;
-    };
-
-    auto unionObjectNarrowphaseRoots = [&]( int a, int b )
-    {
-        int rootA = findObjectNarrowphaseRoot( a );
-        int rootB = findObjectNarrowphaseRoot( b );
-        if ( rootA == rootB )
-        {
-            return;
-        }
-
-        if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] < m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
-        {
-            std::swap( rootA, rootB );
-        }
-        m_objectNarrowphaseParent[static_cast<size_t>( rootB )] = rootA;
-        if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] == m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
-        {
-            ++m_objectNarrowphaseRank[static_cast<size_t>( rootA )];
-        }
-    };
-
-    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-    {
-        const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
-        const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
-        if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
-        {
-            continue;
-        }
-        unionObjectNarrowphaseRoots( x, y );
-    }
-
-    m_objectNarrowphaseIslands.clear();
-    m_objectNarrowphaseRootToIsland.assign( static_cast<size_t>( modelCount ), -1 );
-    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
-    {
-        const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
-        const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
-        if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
-        {
-            continue;
-        }
-
-        const int root = findObjectNarrowphaseRoot( x );
-        int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
-        if ( islandIndex < 0 )
-        {
-            islandIndex = static_cast<int>( m_objectNarrowphaseIslands.size() );
-            m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )] = islandIndex;
-            m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
-            m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
-        }
-
-        ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
-        island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
-        island.pairIndices.push_back( pairIndex );
-    }
-    std::sort( m_objectNarrowphaseIslands.begin(),
-               m_objectNarrowphaseIslands.end(),
-               []( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )
-               { return a.minPairIndex < b.minPairIndex; } );
 
     auto recordObjectNarrowphaseEvent = []( ObjectNarrowphaseEvent& event,
                                             ObjectNarrowphaseEventKind kind,
@@ -1032,12 +951,37 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         event.hasCollisionCellKey = 1;
     };
 
-    auto processObjectNarrowphasePair = [&]( int pairIndex )
+    auto commitObjectNarrowphaseEvent = [&]( const ObjectNarrowphaseEvent& event )
+    {
+        if ( event.hasPipelineRecord )
+        {
+            RecordPhysicsPipelineStage( event.pipelineRecord );
+        }
+        if ( event.emitCollisionTime )
+        {
+            EmitPhysicsCollisionTime( collection,
+                                      "object",
+                                      event.collisionTimeBodyA,
+                                      event.collisionTimeBodyB,
+                                      event.collisionTime,
+                                      event.availableTime );
+        }
+        if ( event.markVisualContact )
+        {
+            MarkCollisionVisualContact( event.visualBodyA );
+            MarkCollisionVisualContact( event.visualBodyB );
+        }
+        if ( event.hasCollisionCellKey )
+        {
+            m_collisionCellKeys.push_back( event.collisionCellKey );
+        }
+    };
+
+    auto processObjectNarrowphasePair = [&]( int pairIndex, ObjectNarrowphaseEvent& event )
     {
         const auto& cp = candidatePairs[static_cast<size_t>( pairIndex )];
         const int x = cp.first;
         const int y = cp.second;
-        ObjectNarrowphaseEvent& event = m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )];
 
         // Wake a sleeping object only after an energetic awake neighbor proves
         // an actual swept hit or persistent overlap. Underwater-locked sleepers
@@ -1208,58 +1152,145 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
         for ( int pairIndex : island.pairIndices )
         {
-            processObjectNarrowphasePair( pairIndex );
+            processObjectNarrowphasePair( pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
         }
     };
 
-    const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
-    const bool hasSpreadOutNarrowphaseIslands =
-        islandCount > 0 &&
-        candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
-    if ( Cfg().physicsParallel &&
-         islandCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS &&
-         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
-         hasSpreadOutNarrowphaseIslands )
+    auto processObjectNarrowphasePairsSerial = [&]()
     {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                       islandCount,
-                                                                       processObjectNarrowphaseIsland,
-                                                                       PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS );
-    }
-    else
-    {
-        for ( int islandIndex = 0; islandIndex < islandCount; ++islandIndex )
+        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
-            processObjectNarrowphaseIsland( islandIndex );
+            ObjectNarrowphaseEvent event;
+            processObjectNarrowphasePair( pairIndex, event );
+            commitObjectNarrowphaseEvent( event );
+        }
+    };
+
+    auto buildObjectNarrowphaseIslands = [&]()
+    {
+        m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
+        m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            m_objectNarrowphaseParent[static_cast<size_t>( i )] = i;
+        }
+
+        auto findObjectNarrowphaseRoot = [&]( int index ) -> int
+        {
+            int root = index;
+            while ( m_objectNarrowphaseParent[static_cast<size_t>( root )] != root )
+            {
+                root = m_objectNarrowphaseParent[static_cast<size_t>( root )];
+            }
+            while ( m_objectNarrowphaseParent[static_cast<size_t>( index )] != index )
+            {
+                const int next = m_objectNarrowphaseParent[static_cast<size_t>( index )];
+                m_objectNarrowphaseParent[static_cast<size_t>( index )] = root;
+                index = next;
+            }
+            return root;
+        };
+
+        auto unionObjectNarrowphaseRoots = [&]( int a, int b )
+        {
+            int rootA = findObjectNarrowphaseRoot( a );
+            int rootB = findObjectNarrowphaseRoot( b );
+            if ( rootA == rootB )
+            {
+                return;
+            }
+
+            if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] < m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
+            {
+                std::swap( rootA, rootB );
+            }
+            m_objectNarrowphaseParent[static_cast<size_t>( rootB )] = rootA;
+            if ( m_objectNarrowphaseRank[static_cast<size_t>( rootA )] == m_objectNarrowphaseRank[static_cast<size_t>( rootB )] )
+            {
+                ++m_objectNarrowphaseRank[static_cast<size_t>( rootA )];
+            }
+        };
+
+        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+        {
+            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+            {
+                continue;
+            }
+            unionObjectNarrowphaseRoots( x, y );
+        }
+
+        m_objectNarrowphaseIslands.clear();
+        m_objectNarrowphaseRootToIsland.assign( static_cast<size_t>( modelCount ), -1 );
+        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+        {
+            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+            {
+                continue;
+            }
+
+            const int root = findObjectNarrowphaseRoot( x );
+            int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
+            if ( islandIndex < 0 )
+            {
+                islandIndex = static_cast<int>( m_objectNarrowphaseIslands.size() );
+                m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )] = islandIndex;
+                m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
+                m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
+            }
+
+            ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
+            island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
+            island.pairIndices.push_back( pairIndex );
+        }
+        std::sort( m_objectNarrowphaseIslands.begin(),
+                   m_objectNarrowphaseIslands.end(),
+                   []( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )
+                   { return a.minPairIndex < b.minPairIndex; } );
+    };
+
+    m_objectNarrowphaseIslands.clear();
+    bool ranParallelNarrowphase = false;
+    const bool mayBenefitFromIslandDispatch =
+        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED &&
+        Cfg().physicsParallel &&
+        candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
+        candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
+        SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
+    if ( mayBenefitFromIslandDispatch )
+    {
+        buildObjectNarrowphaseIslands();
+
+        const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
+        const bool hasSpreadOutNarrowphaseIslands =
+            islandCount > 0 &&
+            candidatePairCount <= islandCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND;
+        if ( islandCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS &&
+             hasSpreadOutNarrowphaseIslands )
+        {
+            m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
+            {
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
+                SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                               islandCount,
+                                                                               processObjectNarrowphaseIsland,
+                                                                               PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS );
+            }
+            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+            {
+                commitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+            }
+            ranParallelNarrowphase = true;
         }
     }
 
-    for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+    if ( !ranParallelNarrowphase )
     {
-        const ObjectNarrowphaseEvent& event = m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )];
-        if ( event.hasPipelineRecord )
-        {
-            RecordPhysicsPipelineStage( event.pipelineRecord );
-        }
-        if ( event.emitCollisionTime )
-        {
-            EmitPhysicsCollisionTime( collection,
-                                      "object",
-                                      event.collisionTimeBodyA,
-                                      event.collisionTimeBodyB,
-                                      event.collisionTime,
-                                      event.availableTime );
-        }
-        if ( event.markVisualContact )
-        {
-            MarkCollisionVisualContact( event.visualBodyA );
-            MarkCollisionVisualContact( event.visualBodyB );
-        }
-        if ( event.hasCollisionCellKey )
-        {
-            m_collisionCellKeys.push_back( event.collisionCellKey );
-        }
+        processObjectNarrowphasePairsSerial();
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 

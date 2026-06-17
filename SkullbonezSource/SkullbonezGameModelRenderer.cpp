@@ -43,6 +43,8 @@ namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 2048;
+// Measured caster prep remains below worker dispatch granularity at 2048-4096 objects.
+constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
@@ -166,6 +168,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 
     const GameModelRenderStream renderStream = collection.GetRenderStream();
     const int modelCount = renderStream.count;
+
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
         batches.Clear();
@@ -192,7 +195,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
         std::vector<ShadowCasterBatches> chunkOutputs;
@@ -335,7 +338,7 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection, 
     };
 
     BoundsAccumulator bounds;
-    if ( Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep && modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         std::vector<BoundsAccumulator> chunkOutputs;
