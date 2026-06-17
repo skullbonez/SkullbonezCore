@@ -2,6 +2,8 @@
 
 Date: 2026-06-16
 Status: Draft implementation plan
+Last updated: 2026-06-17 - refreshed against current object manifold code and
+Catto/Box2D reference material
 Impact area: physics, collision, scene system, diagnostics, tests, performance
 Validation for this document-only change: none required
 
@@ -27,14 +29,16 @@ Useful pieces already exist:
 | Area | Current state |
 |------|---------------|
 | Shape ownership | `CollisionShape` is `std::variant<BoundingSphere, BoundingBox>`. |
-| Manifold path | `SkullbonezObjectContactManifold.*` already builds object contact manifolds. |
-| Solver | `PhysicsWorld` owns persistent rows, cache entries, feature IDs, solver stats, and sleep policy. |
+| Manifold path | `SkullbonezObjectContactManifold.*` already builds exact sphere/sphere, sphere/OBB, and OBB/OBB object contact manifolds. The OBB path uses SAT, face clipping, edge-edge fallback, and deterministic feature IDs. |
+| Solver | `PersistentContactSolver` consumes manifold points as `PersistentContact` rows. `PhysicsWorld` owns the retained rows, cache entries, feature IDs, solver stats, and sleep policy state. |
 | Broadphase | `SpatialGrid` uses conservative shape radius data to generate candidate pairs. |
 | Diagnostics | SkullScope records body shape, contacts, feature IDs, solver rows, and pipeline stages. |
 | Scene authoring | Scene files currently create balls, floating balls, boxes, and floating boxes. |
 
 The main missing pieces are a convex hull shape type, deterministic hull asset
-or scene authoring, generic hull narrowphase, and hull-aware diagnostics.
+or scene authoring, a generic polytope view built from the existing OBB
+SAT/clipping implementation, sphere/hull closest-feature contacts, and
+hull-aware diagnostics.
 
 ## Non-Goals
 
@@ -68,6 +72,50 @@ Reasoning:
 - Stable contact features matter more to this solver than a pure yes/no hit.
 - GJK/EPA can be added later for distance queries or conservative advancement,
   but it is less convenient for a first stable manifold implementation.
+
+Current-code implication:
+
+- Generalize the helpers already in `SkullbonezObjectContactManifold.cpp`
+  (`BoxWorld`, `SatResult`, clipping vertices, SAT axis selection, face
+  clipping, edge segment fallback) instead of adding a parallel hull collision
+  pipeline.
+- Keep the existing sphere/sphere, sphere/OBB, and OBB/OBB pair builders as the
+  behavior reference while the generic polytope path is introduced.
+- Before enabling hull/hull warm starting, audit the current contact cache key:
+  `PersistentContactSolver` stores only `featureId & 0xffff` in the packed key.
+  The suggested hull limits may require either tighter first-version feature
+  ranges or a deliberate key-widening change.
+
+## External Reference Notes
+
+Relevant Catto and Box2D material:
+
+- Erin Catto, [Contact Manifolds GDC 2007](https://box2d.org/files/ErinCatto_ContactManifolds_GDC2007.pdf):
+  constraint solvers need contact points; SAT can compute a manifold in one
+  shot; GJK can build a manifold point-by-point; contact rows need position,
+  normal, penetration, and contact ID; coherence improves when feature choices
+  and old impulses can be matched frame to frame.
+- The same Contact Manifolds deck recommends feature weighting to avoid
+  flip-flopping between equivalent separating axes, stores clipped feature
+  numbers as contact IDs, and treats deep GJK contacts as a case where SAT, EPA,
+  or brute force may be needed.
+- Erin Catto, [Computing Distance GDC 2010](https://box2d.org/files/ErinCatto_GJK_GDC2010.pdf):
+  useful later for closest-point distance and conservative advancement. It is a
+  2D-focused GJK reference; the concepts extend to 3D, but it explicitly does
+  not cover convex hull construction.
+- Erin Catto, [Continuous Collision GDC 2013](https://box2d.org/files/ErinCatto_ContinuousCollision_GDC2013.pdf):
+  useful later for moving hulls and TOI. It identifies closest features with
+  GJK, V-Clip, or SAT, then reduces polygon/polygon advancement to feature-plane
+  tests.
+- Box2D [Collision](https://box2d.org/documentation/md_collision.html) and
+  [Geometry](https://box2d.org/documentation/group__geometry.html) docs:
+  `b2ComputeHull()` and `b2ValidateHull()` are good 2D examples for load-time
+  hull validation: reject degenerate point sets, weld close points, remove
+  collinear points, and check hull creation before constructing a collision
+  shape.
+- Erin Catto, [Diablo 3 Ragdolls GDC 2012](https://box2d.org/files/ErinCatto_Ragdolls_GDC2012.pdf):
+  useful authoring guidance. Simplified convex hulls with broad faces improve
+  simulation quality and reduce teetering on shallow edges.
 
 ## Shape Representation
 
@@ -111,6 +159,8 @@ Store or derive:
 - bounding radius;
 - approximate volume;
 - approximate inertia tensor or a conservative fallback inertia.
+- deterministic face, edge, and vertex ordering that is frozen after load-time
+  validation.
 
 Set practical first-version caps:
 
@@ -123,6 +173,10 @@ Set practical first-version caps:
 
 If any limit is exceeded, reject the hull at load time with a clear error.
 Keeping limits explicit protects feature IDs and hot-path memory.
+
+Treat the built hull as immutable. If an editor or asset bake step changes
+vertices or faces, rebuild and revalidate all derived normals, planes, edges,
+adjacency, mass properties, and feature IDs.
 
 ## CollisionShape Integration
 
@@ -173,6 +227,11 @@ their public shape type. Hulls provide the view from stored data. This lets
 box-hull and hull-hull reuse the same SAT and clipping code while preserving
 the current optimized sphere/box paths.
 
+The existing OBB path already proves the solver-facing contract:
+`BuildObjectContactManifold()` returns an `ObjectContactManifold` with a normal
+from body A to body B and up to four fixed contact points. Hull work should keep
+that public API and broaden only the shape-pair internals.
+
 Required pair builders:
 
 | Pair | First implementation |
@@ -204,6 +263,8 @@ Important determinism rules:
 - Use deterministic tie-breaking when overlaps are nearly equal.
 - Ignore edge cross axes below a fixed epsilon.
 - Prefer face axes over edge axes when penetration is tied within epsilon.
+- Apply a deterministic face-axis bias when two face normals are nearly tied so
+  the chosen reference face does not flip frame to frame.
 - Avoid unordered maps or address-order dependent sorting.
 
 ## Manifold Generation
@@ -246,6 +307,12 @@ A first version may restrict sphere/hull contact to face contacts if authored
 hull scenes are chosen accordingly, but the plan should not bless false corner
 contacts as final behavior.
 
+GJK is a good later helper for outside-hull closest-feature cases, especially
+near edges and vertices. It should not be the only first-pass answer for deep
+overlap because Catto's own contact-manifold material recommends another method
+such as SAT, EPA, or brute force when GJK produces only an awkward deep-contact
+point.
+
 ## Feature IDs And Cache Keys
 
 Current persistent contact cache keys include a feature field. Convex hulls need
@@ -261,9 +328,11 @@ Recommended first encoding:
 | Hull face contact | reference side + reference face + incident face + point id |
 | Hull edge contact | edge index A + edge index B |
 
-If the existing feature-key packing cannot hold the planned index ranges, do
-not silently truncate. Either lower the first-version hull limits or widen the
-cache key packing in a focused solver change.
+The current solver key keeps only the low 16 bits of `featureId`. That is
+probably too small for full `96 face / 160 edge` hull pair identity with kind,
+side, and point bits. Do not silently truncate. Either lower the first-version
+hull limits for warm-started contacts, or widen the cache key packing in a
+focused solver change before hull/hull warm starting is accepted.
 
 ## Scene And Asset Authoring
 
@@ -295,7 +364,12 @@ validated at load time:
 - face winding is consistent;
 - all vertices lie on or behind every face plane within tolerance;
 - no duplicate or zero-length edges;
-- bounding radius is finite and positive.
+- close duplicate vertices are welded or rejected deterministically;
+- collinear face vertices are removed or rejected deterministically;
+- every undirected edge has exactly two adjacent faces;
+- bounding radius is finite and positive;
+- authored hulls prefer broad, stable faces over skinny facets when either shape
+  is intended to rest or stack.
 
 ## Diagnostics And Debug Rendering
 
@@ -317,8 +391,12 @@ Use bounded `tools\physics_query.bat` queries when diagnostics are needed.
 ### Phase 0 - Design Freeze And Probes
 
 - Confirm shape name, limits, hull asset location, and scene directive syntax.
+- Decide whether hull feature IDs fit the current 16-bit cache field or require
+  a key-widening prerequisite.
 - Add or identify tiny deterministic probe hulls: tetrahedron, wedge, bevelled
   box, triangular prism.
+- Prefer probe hulls with at least one broad rest face before testing skinny
+  edge cases.
 - Draft expected behavior for one hull/sphere and one hull/box scene before
   touching baselines.
 
@@ -330,6 +408,7 @@ Use bounded `tools\physics_query.bat` queries when diagnostics are needed.
   model matrix, and bounding radius support.
 - Add scene directives for dynamic and floating hulls.
 - Add diagnostics strings and nudge snapshot output.
+- Freeze validated hull topology and derived feature ordering at load time.
 
 Development checks:
 
@@ -354,6 +433,8 @@ Development checks:
 
 - Add generic convex polytope SAT helper.
 - Adapt boxes into convex polytope views.
+- Port the existing OBB face clipping and edge-edge helper behavior into the
+  generic path while preserving current OBB/OBB results.
 - Add face clipping and edge-edge contact generation.
 - Add scenes for box on wedge, box against triangular prism, hull stack, and
   hull-hull edge contact.
@@ -412,6 +493,7 @@ tools\validate_full.bat
 | Risk | Mitigation |
 |------|------------|
 | Feature ID churn hurts warm starting | Stable face/edge ordering, deterministic tie-breaking, SkullScope cache-hit checks |
+| Feature IDs exceed current 16-bit cache field | Decide limits or widen the key before accepting hull/hull warm starting |
 | Edge-edge axes create jitter | Epsilon-filter degenerate axes and prefer face axes on near ties |
 | Hull scenes allocate in hot paths | Build all hull data at load time; use fixed scratch buffers during narrowphase |
 | Bad hull assets crash physics | Validate assets strictly and reject non-convex or malformed hulls |
