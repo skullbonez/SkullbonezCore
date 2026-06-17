@@ -529,11 +529,11 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     // will not infer that transition for us; record it explicitly each frame.
     if ( m_reflectionInSRVState )
     {
-        ExecuteGraphTransitionBarrier( "DxrReflectionSrvToUav",
-                                       "DxrReflectionTexture",
-                                       m_reflectionUAV,
-                                       RenderGraphResourceAccess::PixelShaderResource,
-                                       RenderGraphResourceAccess::UnorderedAccess );
+        ExecuteGraphTransition( "DxrReflectionSrvToUav",
+                                "DxrReflectionTexture",
+                                m_reflectionUAV,
+                                RenderGraphResourceAccess::PixelShaderResource,
+                                RenderGraphResourceAccess::UnorderedAccess );
     }
 
     // Update RT constant buffer
@@ -648,11 +648,11 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
 
     // After ordering the writes, transition the texture into SRV state so the
     // raster water shader can read it.
-    ExecuteGraphTransitionBarrier( "DxrReflectionUavToSrv",
-                                   "DxrReflectionTexture",
-                                   m_reflectionUAV,
-                                   RenderGraphResourceAccess::UnorderedAccess,
-                                   RenderGraphResourceAccess::PixelShaderResource );
+    ExecuteGraphTransition( "DxrReflectionUavToSrv",
+                            "DxrReflectionTexture",
+                            m_reflectionUAV,
+                            RenderGraphResourceAccess::UnorderedAccess,
+                            RenderGraphResourceAccess::PixelShaderResource );
     m_reflectionInSRVState = true;
 
     // DXR uses the compute root signature/pipeline path. Mark raster state

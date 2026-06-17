@@ -152,25 +152,31 @@ struct GpuTimerStateDX12
     bool slotWritten[DX12_TIMER_HEAP_SIZE] = {}; // true for each timestamp slot that had EndQuery recorded this frame
 };
 
-// One live DX12 transition barrier observed while the legacy backend records
-// commands.
+// One live DX12 transition barrier emitted through the graph-owned helper while
+// the backend records commands.
 //
 // This is diagnostic data for the render-graph migration. It is deliberately a
-// small CPU-side record: resource pointer identity, before/after DX12 states,
-// and a short source label. It does not affect command recording. The goal is
-// to let engineers compare "what the graph thinks should happen" against "what
-// the current backend actually emitted" before the graph starts owning barriers.
+// small CPU-side record: resource pointer identity, resource name,
+// subresource/all-subresources, graph access, before/after DX12 states, and a
+// short source label. It does not affect command recording. The goal is to make
+// the actual graph-owned barrier path auditable without scattering DX12 policy
+// back into pass code.
 struct LiveBarrierRecordDX12
 {
     const void* resource = nullptr;
+    char resourceName[64] = {};
+    RenderGraphResourceAccess beforeAccess = RenderGraphResourceAccess::Unknown;
+    RenderGraphResourceAccess afterAccess = RenderGraphResourceAccess::Unknown;
     D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
     D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
+    UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     char source[64] = {};
 };
 
 struct LiveUavBarrierRecordDX12
 {
     const void* resource = nullptr;
+    char resourceName[64] = {};
     char source[64] = {};
 };
 
@@ -405,8 +411,15 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
-    void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
-    void RecordLiveUavBarrier( const char* source, ID3D12Resource* resource );
+    void RecordLiveBarrier( const char* source,
+                            const char* resourceName,
+                            ID3D12Resource* resource,
+                            RenderGraphResourceAccess beforeAccess,
+                            RenderGraphResourceAccess afterAccess,
+                            D3D12_RESOURCE_STATES before,
+                            D3D12_RESOURCE_STATES after,
+                            UINT subresource );
+    void RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
@@ -581,7 +594,7 @@ class RenderBackendDX12 : public IRenderBackend
     }
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX, UINT fboDepthSrvIndex = UINT_MAX, DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
-    void ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
+    void ExecuteGraphTransition( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
     void ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
     // Reserve CPU-written upload memory for the current command stream.

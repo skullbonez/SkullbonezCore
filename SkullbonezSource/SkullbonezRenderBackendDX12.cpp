@@ -90,8 +90,8 @@ Related:
 //   Resource Barrier
 //     A synchronization command that tells the GPU a resource is changing use.
 //     Example: "this texture was a render target; now shaders will sample it."
-//     The future render graph exists so these transitions are declared once
-//     from pass/resource usage instead of hand-coded throughout the backend.
+//     Graph-owned DX12 helpers now emit these transitions so pass code names
+//     resource access intent instead of hand-coding D3D12 barrier structs.
 //
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
@@ -257,17 +257,24 @@ void RenderBackendDX12::EnsureCommandListOpen()
 }
 
 
-void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
+void RenderBackendDX12::RecordLiveBarrier( const char* source,
+                                           const char* resourceName,
+                                           ID3D12Resource* resource,
+                                           RenderGraphResourceAccess beforeAccess,
+                                           RenderGraphResourceAccess afterAccess,
+                                           D3D12_RESOURCE_STATES before,
+                                           D3D12_RESOURCE_STATES after,
+                                           UINT subresource )
 {
     if ( !resource || before == after )
     {
         return;
     }
 
-    // This is a migration diagnostic, not a hot-path render feature. Keep a
+    // This is barrier telemetry, not a hot-path render feature. Keep a
     // bounded sample of barriers so long validation runs cannot grow the vector
-    // without limit. The first records are the most useful because they show the
-    // early frame shape the render graph must eventually own.
+    // without limit. The first records are the most useful because they show
+    // the frame's graph-owned transition path in execution order.
     constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
     if ( m_liveBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
     {
@@ -276,14 +283,18 @@ void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* r
 
     LiveBarrierRecordDX12 record;
     record.resource = resource;
+    record.beforeAccess = beforeAccess;
+    record.afterAccess = afterAccess;
     record.before = before;
     record.after = after;
+    record.subresource = subresource;
+    strncpy_s( record.resourceName, resourceName ? resourceName : "unknown", _TRUNCATE );
     strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
     m_liveBarrierRecords.push_back( record );
 }
 
 
-void RenderBackendDX12::RecordLiveUavBarrier( const char* source, ID3D12Resource* resource )
+void RenderBackendDX12::RecordLiveUavBarrier( const char* source, const char* resourceName, ID3D12Resource* resource )
 {
     if ( !resource )
     {
@@ -298,19 +309,18 @@ void RenderBackendDX12::RecordLiveUavBarrier( const char* source, ID3D12Resource
 
     LiveUavBarrierRecordDX12 record;
     record.resource = resource;
+    strncpy_s( record.resourceName, resourceName ? resourceName : "unknown", _TRUNCATE );
     strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
     m_liveUavBarrierRecords.push_back( record );
 }
 
 
-void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource )
+void RenderBackendDX12::ExecuteGraphTransition( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource )
 {
     if ( !resource || before == after )
     {
         return;
     }
-    (void)resourceName;
-
     Dx12RenderGraphSingleTransitionDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;
@@ -329,7 +339,7 @@ void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, con
 
     char source[64] = {};
     snprintf( source, sizeof( source ), "GraphOwned:%s", ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveBarrier( source, resource, result.beforeState, result.afterState );
+    RecordLiveBarrier( source, resourceName, resource, before, after, result.beforeState, result.afterState, subresource );
 }
 
 
@@ -339,8 +349,6 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName, const char
     {
         return;
     }
-    (void)resourceName;
-
     Dx12RenderGraphUavBarrierDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;
@@ -354,7 +362,7 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName, const char
 
     char source[64] = {};
     snprintf( source, sizeof( source ), "GraphOwned:%s", ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveUavBarrier( source, resource );
+    RecordLiveUavBarrier( source, resourceName, resource );
 }
 
 
@@ -456,23 +464,23 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
 
 void RenderBackendDX12::DumpFrameGraphSkeleton() const
 {
-    // Diagnostic-only render graph sketch.
+    // Diagnostic render graph sketch.
     //
-    // This is intentionally not the live renderer yet. The current backend still
-    // records barriers by hand in Clear(), FramebufferDX12::Bind/Unbind(),
-    // DispatchReflectionRays(), GenerateMipsGPU(), screenshot readback, and
-    // Present().
+    // Production transition and UAV barriers now route through graph-owned DX12
+    // helpers. This method keeps the older high-level superset graph around so
+    // reviewers can compare planned pass/resource shape against the actual
+    // emitted graph-owned barrier trace.
     //
     // The purpose of this skeleton is to make the intended frame shape visible
-    // in the same pass/resource language the future render graph will use. It is
-    // a bridge for humans and future code review:
+    // in the same pass/resource language the callback-driven graph will use. It
+    // is a bridge for humans and future code review:
     //
     // - resources below are names for existing backend-owned render targets,
     //   depth buffers, shadow maps, and reflection outputs,
     // - passes below are the current high-level frame phases, including optional
     //   cinematic and DXR paths,
-    // - Compile() emits API-neutral transitions that can later be compared with
-    //   hand-written DX12 barriers before those barriers move into the graph.
+    // - Compile() emits API-neutral transitions that can be compared with the
+    //   graph-owned live barrier trace and the actual runtime frame graph dump.
     //
     // This is a superset of possible frame paths. A normal non-cinematic frame
     // writes directly to the backbuffer; a cinematic frame writes SceneColor and
@@ -563,6 +571,12 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         }
         return nullptr;
     };
+    const auto subresourceText = []( UINT subresource ) -> std::string
+    {
+        return subresource == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
+                   ? std::string( "all" )
+                   : std::to_string( subresource );
+    };
 
     std::ostringstream out;
     out << graph.DumpText();
@@ -587,6 +601,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
             << " pass=" << barrier.passName
             << " resource=" << barrier.nativeResource
             << " name=" << barrier.resourceName
+            << " subresource=" << subresourceText( barrier.subresource )
             << " " << ToString( barrier.beforeAccess ) << "/" << Dx12ResourceStateToString( barrier.beforeState )
             << " -> " << ToString( barrier.afterAccess ) << "/" << Dx12ResourceStateToString( barrier.afterState )
             << " native=" << ( barrier.hasNativeResource ? "true" : "false" )
@@ -605,9 +620,11 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         const char* resourceLabel = liveResourceLabel( live.resource );
         out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
             << " resource=" << live.resource
+            << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
             << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-            << " " << Dx12ResourceStateToString( live.before )
-            << " -> " << Dx12ResourceStateToString( live.after ) << "\n";
+            << " subresource=" << subresourceText( live.subresource )
+            << " " << ToString( live.beforeAccess ) << "/" << Dx12ResourceStateToString( live.before )
+            << " -> " << ToString( live.afterAccess ) << "/" << Dx12ResourceStateToString( live.after ) << "\n";
     }
 
     out << "\nLiveBackendUavBarriers:\n";
@@ -621,6 +638,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         const char* resourceLabel = liveResourceLabel( live.resource );
         out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
             << " resource=" << live.resource
+            << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
             << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
             << " type=UAV\n";
     }
@@ -720,9 +738,11 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
             const char* resourceLabel = liveResourceLabel( live.resource );
             out << "  live_only [" << liveIndex << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
                 << " resource=" << live.resource
+                << " name=" << ( live.resourceName[0] != '\0' ? live.resourceName : "unknown" )
                 << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-                << " " << Dx12ResourceStateToString( live.before )
-                << " -> " << Dx12ResourceStateToString( live.after ) << "\n";
+                << " subresource=" << subresourceText( live.subresource )
+                << " " << ToString( live.beforeAccess ) << "/" << Dx12ResourceStateToString( live.before )
+                << " -> " << ToString( live.afterAccess ) << "/" << Dx12ResourceStateToString( live.after ) << "\n";
         }
         ++liveOnlyDetails;
     }
@@ -733,7 +753,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
     out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
     out << "  live_only_count=" << liveOnlyDetails << "\n";
-    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value. GraphDryRun records production-shaped candidates only; live DX12 barriers still own execution.\n";
+    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value. GraphDryRun records production-shaped candidates; GraphOwned live records show the emitted DX12 barrier path.\n";
 
     const std::string dump = out.str();
     {
@@ -1309,7 +1329,7 @@ void RenderBackendDX12::Shutdown()
     if ( !m_renderingToFBO && m_backBufferIsRT && m_swapChain && m_renderTargets[m_frameIndex] )
     {
         EnsureCommandListOpen();
-        ExecuteGraphTransitionBarrier( "ShutdownBackbufferPresent", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
+        ExecuteGraphTransition( "ShutdownBackbufferPresent", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
         m_backBufferIsRT = false;
     }
 
@@ -1540,7 +1560,7 @@ void RenderBackendDX12::Present()
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) ); // reset for next frame
     }
 
-    ExecuteGraphTransitionBarrier( "PresentBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
+    ExecuteGraphTransition( "PresentBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
     m_backBufferIsRT = false;
 
     // Close the command list — finalizes the recorded commands. A closed command list can be
@@ -1717,7 +1737,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
 
     if ( !m_renderingToFBO && !m_backBufferIsRT )
     {
-        ExecuteGraphTransitionBarrier( "ClearBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
+        ExecuteGraphTransition( "ClearBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
         m_backBufferIsRT = true;
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the

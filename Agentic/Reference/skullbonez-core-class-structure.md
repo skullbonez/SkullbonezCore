@@ -68,7 +68,7 @@ flowchart TB
         IShader["IShader"]
         IMesh["IMesh"]
         IFramebuffer["IFramebuffer"]
-        RenderGraph["RenderGraph\ndiagnostic graph contract"]
+        RenderGraph["RenderGraph\nbarrier graph contract"]
     end
 
     subgraph DX12Internals["DX12 internals"]
@@ -319,6 +319,8 @@ class RenderBackendDX12 {
   +CreateFramebuffer(width, height, colorFormat)
   +PrepareDraw(format, instanced, im, dvb)
   +SubAllocateUpload(size, alignment)
+  +ExecuteGraphTransitionBarrier(...)
+  +ExecuteGraphUavBarrier(...)
   +DumpFrameGraphSkeleton()
 }
 
@@ -372,8 +374,11 @@ GpuTimerStateDX12 *-- Dx12ReadbackBuffer
 
 ## Render Graph Contract
 
-The render graph is not yet the live renderer. It is the contract and diagnostic
-path that describes resources, passes, and intended transitions.
+The render graph is the API-neutral contract for resources, passes, and access
+transitions. DX12 production transition and UAV barriers now route through
+graph-owned executor helpers; pass command recording still lives in the
+extracted runtime pass classes, with actual-frame diagnostics dumped beside the
+barrier trace.
 
 ```mermaid
 classDiagram
@@ -881,8 +886,8 @@ subsystem rather than by dependency edge.
   renderer switching has been retired.
 - `RenderBackendDX12` is split across multiple `.cpp` files but remains one
   class in `SkullbonezRenderBackendDX12.h`.
-- `RenderGraph` is currently diagnostic scaffolding. Live rendering still
-  records commands through `RenderBackendDX12`.
+- `RenderGraph` owns the access vocabulary and DX12 graph-owned barrier helper
+  path. Pass command recording still runs through `SkullbonezRun` pass classes.
 - Many nested solver/UI structs are intentionally plain data. They are listed
   because they are part of the runtime architecture even though they are not
   polymorphic classes.

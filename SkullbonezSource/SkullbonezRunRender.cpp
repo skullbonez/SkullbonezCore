@@ -42,6 +42,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezRenderGraph.h"
+
+#include <fstream>
+#include <sstream>
+#include <string>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -49,6 +54,261 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+
+namespace
+{
+
+struct ActualFrameGraphInputs
+{
+    bool cinematicRender = false;
+    bool useCinematicTarget = false;
+    bool terrainShadowValid = false;
+    bool objectShadowValid = false;
+    bool reflectionUsedDxr = false;
+    bool transparentBodyPass = false;
+    bool waterPassVisible = false;
+    bool waterSamplesReflection = false;
+    bool volumetricReady = false;
+};
+
+
+bool IsSameActualFrameGraphInput( const ActualFrameGraphInputs& lhs, const ActualFrameGraphInputs& rhs )
+{
+    return lhs.cinematicRender == rhs.cinematicRender &&
+           lhs.useCinematicTarget == rhs.useCinematicTarget &&
+           lhs.terrainShadowValid == rhs.terrainShadowValid &&
+           lhs.objectShadowValid == rhs.objectShadowValid &&
+           lhs.reflectionUsedDxr == rhs.reflectionUsedDxr &&
+           lhs.transparentBodyPass == rhs.transparentBodyPass &&
+           lhs.waterPassVisible == rhs.waterPassVisible &&
+           lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.volumetricReady == rhs.volumetricReady;
+}
+
+
+void DumpActualFrameGraph( const ActualFrameGraphInputs& inputs )
+{
+    static bool hasLastInputs = false;
+    static ActualFrameGraphInputs lastInputs;
+    if ( hasLastInputs && IsSameActualFrameGraphInput( inputs, lastInputs ) )
+    {
+        return;
+    }
+    lastInputs = inputs;
+    hasLastInputs = true;
+
+    using namespace SkullbonezCore::Rendering;
+
+    RenderGraph graph;
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer", RenderGraphResourceAccess::Present );
+    const RenderGraphResourceHandle mainDepth = graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite );
+
+    RenderGraphResourceHandle terrainShadow;
+    RenderGraphResourceHandle objectShadow;
+    RenderGraphResourceHandle rasterReflectionColor;
+    RenderGraphResourceHandle rasterReflectionDepth;
+    RenderGraphResourceHandle dxrReflection;
+    RenderGraphResourceHandle sceneColor;
+    RenderGraphResourceHandle sceneDepth;
+    RenderGraphResourceHandle volumetricLight;
+
+    if ( inputs.terrainShadowValid )
+    {
+        terrainShadow = graph.AddExternalResource( "TerrainShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    }
+    if ( inputs.objectShadowValid )
+    {
+        objectShadow = graph.AddExternalResource( "ObjectShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    }
+    if ( inputs.reflectionUsedDxr )
+    {
+        dxrReflection = graph.AddExternalResource( "DxrReflectionTexture", RenderGraphResourceAccess::PixelShaderResource );
+    }
+    else
+    {
+        rasterReflectionColor = graph.AddExternalResource( "RasterReflectionColor", RenderGraphResourceAccess::PixelShaderResource );
+        rasterReflectionDepth = graph.AddExternalResource( "RasterReflectionDepth", RenderGraphResourceAccess::PixelShaderResource );
+    }
+    if ( inputs.useCinematicTarget )
+    {
+        sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
+        sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
+        if ( inputs.volumetricReady )
+        {
+            volumetricLight = graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
+        }
+    }
+
+    const auto colorTarget = [&]() -> RenderGraphResourceHandle
+    {
+        return inputs.useCinematicTarget ? sceneColor : backbuffer;
+    };
+    const auto depthTarget = [&]() -> RenderGraphResourceHandle
+    {
+        return inputs.useCinematicTarget ? sceneDepth : mainDepth;
+    };
+
+    const auto addTargetWrite = [&]( uint32_t pass )
+    {
+        graph.AddWrite( pass, colorTarget(), RenderGraphResourceAccess::RenderTarget );
+        graph.AddWrite( pass, depthTarget(), RenderGraphResourceAccess::DepthWrite );
+    };
+    const auto addShadowReads = [&]( uint32_t pass )
+    {
+        if ( inputs.terrainShadowValid )
+        {
+            graph.AddRead( pass, terrainShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        if ( inputs.objectShadowValid )
+        {
+            graph.AddRead( pass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+    };
+
+    if ( !inputs.cinematicRender || !inputs.useCinematicTarget )
+    {
+        const uint32_t clearPass = graph.AddPass( "BackbufferClear" );
+        graph.AddWrite( clearPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+        graph.AddWrite( clearPass, mainDepth, RenderGraphResourceAccess::DepthWrite );
+    }
+
+    if ( inputs.terrainShadowValid || inputs.objectShadowValid )
+    {
+        const uint32_t shadowPass = graph.AddPass( "ShadowMapPass" );
+        if ( inputs.terrainShadowValid )
+        {
+            graph.AddWrite( shadowPass, terrainShadow, RenderGraphResourceAccess::DepthWrite );
+        }
+        if ( inputs.objectShadowValid )
+        {
+            graph.AddWrite( shadowPass, objectShadow, RenderGraphResourceAccess::DepthWrite );
+        }
+    }
+
+    if ( !inputs.cinematicRender )
+    {
+        const uint32_t skyPass = graph.AddPass( "SkyboxPass" );
+        graph.AddWrite( skyPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    }
+
+    if ( inputs.reflectionUsedDxr )
+    {
+        const uint32_t dxrPass = graph.AddPass( "DxrReflectionPass", RenderGraphQueueType::Compute );
+        graph.AddWrite( dxrPass, dxrReflection, RenderGraphResourceAccess::UnorderedAccess );
+    }
+    else
+    {
+        const uint32_t reflectionPass = graph.AddPass( "RasterReflectionPass" );
+        if ( inputs.objectShadowValid )
+        {
+            graph.AddRead( reflectionPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        graph.AddWrite( reflectionPass, rasterReflectionColor, RenderGraphResourceAccess::RenderTarget );
+        graph.AddWrite( reflectionPass, rasterReflectionDepth, RenderGraphResourceAccess::DepthWrite );
+    }
+
+    if ( inputs.useCinematicTarget )
+    {
+        const uint32_t sceneBegin = graph.AddPass( "CinematicSceneBegin" );
+        graph.AddWrite( sceneBegin, sceneColor, RenderGraphResourceAccess::RenderTarget );
+        graph.AddWrite( sceneBegin, sceneDepth, RenderGraphResourceAccess::DepthWrite );
+    }
+
+    if ( !inputs.transparentBodyPass )
+    {
+        const uint32_t objectPass = graph.AddPass( "ObjectOpaquePass" );
+        if ( inputs.objectShadowValid )
+        {
+            graph.AddRead( objectPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        addTargetWrite( objectPass );
+    }
+
+    const uint32_t terrainPass = graph.AddPass( "TerrainPass" );
+    if ( inputs.terrainShadowValid )
+    {
+        graph.AddRead( terrainPass, terrainShadow, RenderGraphResourceAccess::PixelShaderResource );
+    }
+    addTargetWrite( terrainPass );
+
+    if ( inputs.waterPassVisible )
+    {
+        const uint32_t waterPass = graph.AddPass( "WaterPass" );
+        if ( inputs.waterSamplesReflection )
+        {
+            graph.AddRead( waterPass,
+                           inputs.reflectionUsedDxr ? dxrReflection : rasterReflectionColor,
+                           RenderGraphResourceAccess::PixelShaderResource );
+        }
+        addShadowReads( waterPass );
+        addTargetWrite( waterPass );
+    }
+
+    if ( inputs.transparentBodyPass )
+    {
+        const uint32_t objectPass = graph.AddPass( "ObjectTransparentPass" );
+        if ( inputs.objectShadowValid )
+        {
+            graph.AddRead( objectPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        addTargetWrite( objectPass );
+    }
+
+    const uint32_t debugPass = graph.AddPass( "DebugOverlayPass" );
+    addTargetWrite( debugPass );
+
+    if ( inputs.useCinematicTarget && inputs.volumetricReady )
+    {
+        const uint32_t volumetricPass = graph.AddPass( "VolumetricLightPass" );
+        graph.AddRead( volumetricPass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddRead( volumetricPass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddWrite( volumetricPass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
+    }
+
+    if ( inputs.useCinematicTarget )
+    {
+        const uint32_t tonemapPass = graph.AddPass( "ToneMapPass" );
+        graph.AddRead( tonemapPass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddRead( tonemapPass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+        if ( inputs.volumetricReady )
+        {
+            graph.AddRead( tonemapPass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        graph.AddWrite( tonemapPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    }
+
+    const uint32_t presentPass = graph.AddPass( "Present" );
+    graph.AddWrite( presentPass, backbuffer, RenderGraphResourceAccess::Present );
+
+    std::ostringstream out;
+    out << "ActualExecutedFrameGraph\n";
+    out << "cinematic_render=" << ( inputs.cinematicRender ? "true" : "false" ) << "\n";
+    out << "use_cinematic_target=" << ( inputs.useCinematicTarget ? "true" : "false" ) << "\n";
+    out << "terrain_shadow_valid=" << ( inputs.terrainShadowValid ? "true" : "false" ) << "\n";
+    out << "object_shadow_valid=" << ( inputs.objectShadowValid ? "true" : "false" ) << "\n";
+    out << "reflection_path=" << ( inputs.reflectionUsedDxr ? "DXR" : "Raster" ) << "\n";
+    out << "transparent_body_pass=" << ( inputs.transparentBodyPass ? "true" : "false" ) << "\n";
+    out << "water_pass_visible=" << ( inputs.waterPassVisible ? "true" : "false" ) << "\n";
+    out << "water_samples_reflection=" << ( inputs.waterSamplesReflection ? "true" : "false" ) << "\n";
+    out << "volumetric_ready=" << ( inputs.volumetricReady ? "true" : "false" ) << "\n\n";
+    out << graph.DumpText();
+
+    const std::string dumpText = out.str();
+    static std::string lastDumpText;
+    if ( dumpText == lastDumpText )
+    {
+        return;
+    }
+    lastDumpText = dumpText;
+
+    std::ofstream file( "Debug/dx12_frame_graph_actual.txt", std::ios::binary );
+    if ( file.is_open() )
+    {
+        file << dumpText << "\n";
+    }
+}
+
+} // namespace
 
 
 // The cinematic settings can come from two places:
@@ -286,11 +546,27 @@ void SkullbonezRun::DrawPrimitives()
 
     m_debugOverlayPass.Render( { frame } );
 
+    bool volumetricReady = false;
     if ( useCinematicTarget )
     {
-        const bool volumetricReady = m_volumetricPass.Render( frame );
+        volumetricReady = m_volumetricPass.Render( frame );
         m_tonemapPass.Render( frame, volumetricReady, volumetricReady );
     }
+
+    ActualFrameGraphInputs frameGraphInputs;
+    frameGraphInputs.cinematicRender = cinematicRender;
+    frameGraphInputs.useCinematicTarget = useCinematicTarget;
+    frameGraphInputs.terrainShadowValid = terrainShadowFrame && terrainShadowFrame->valid;
+    frameGraphInputs.objectShadowValid = objectShadowFrame && objectShadowFrame->valid;
+    frameGraphInputs.reflectionUsedDxr = reflection.usedDxr;
+    frameGraphInputs.transparentBodyPass = transparentBodyPass;
+    frameGraphInputs.waterPassVisible = !m_debug.isWaterHidden;
+    frameGraphInputs.waterSamplesReflection =
+        frameGraphInputs.waterPassVisible &&
+        !m_debug.isWaterNoReflect &&
+        reflection.reflectionTextureHandle != 0;
+    frameGraphInputs.volumetricReady = volumetricReady;
+    DumpActualFrameGraph( frameGraphInputs );
 }
 
 

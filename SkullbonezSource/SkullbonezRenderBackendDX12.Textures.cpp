@@ -230,12 +230,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
     // Transition mip 0 from COPY_DEST to NON_PIXEL_SHADER_RESOURCE so the compute
     // shader can sample it. (Subsequent source mips are transitioned at end of each batch.)
-    ExecuteGraphTransitionBarrier( "GenerateMipsMip0",
-                                   "TextureMip0",
-                                   tex,
-                                   RenderGraphResourceAccess::CopyDest,
-                                   RenderGraphResourceAccess::NonPixelShaderResource,
-                                   0 );
+    ExecuteGraphTransition( "GenerateMipsMip0",
+                            "TextureMip0",
+                            tex,
+                            RenderGraphResourceAccess::CopyDest,
+                            RenderGraphResourceAccess::NonPixelShaderResource,
+                            0 );
 
     UINT srcMip = 0;
     UINT srcMipW = w;
@@ -308,12 +308,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            ExecuteGraphTransitionBarrier( "GenerateMipsCopyToUav",
-                                           "TextureMip",
-                                           tex,
-                                           RenderGraphResourceAccess::CopyDest,
-                                           RenderGraphResourceAccess::UnorderedAccess,
-                                           srcMip + 1 + i );
+            ExecuteGraphTransition( "GenerateMipsCopyToUav",
+                                    "TextureMip",
+                                    tex,
+                                    RenderGraphResourceAccess::CopyDest,
+                                    RenderGraphResourceAccess::UnorderedAccess,
+                                    srcMip + 1 + i );
         }
 
         // ------------------------------------------------------------------
@@ -353,12 +353,12 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-            ExecuteGraphTransitionBarrier( "GenerateMipsUavToSrv",
-                                           "TextureMip",
-                                           tex,
-                                           RenderGraphResourceAccess::UnorderedAccess,
-                                           RenderGraphResourceAccess::NonPixelShaderResource,
-                                           srcMip + 1 + i );
+            ExecuteGraphTransition( "GenerateMipsUavToSrv",
+                                    "TextureMip",
+                                    tex,
+                                    RenderGraphResourceAccess::UnorderedAccess,
+                                    RenderGraphResourceAccess::NonPixelShaderResource,
+                                    srcMip + 1 + i );
         }
 
         srcMip += mipsToGenerate;
@@ -368,11 +368,11 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
     // All mips are now in NON_PIXEL_SHADER_RESOURCE. Transition ALL_SUBRESOURCES
     // to PIXEL_SHADER_RESOURCE for use in pixel shaders.
-    ExecuteGraphTransitionBarrier( "GenerateMipsFinalPixelSrv",
-                                   "TextureMips",
-                                   tex,
-                                   RenderGraphResourceAccess::NonPixelShaderResource,
-                                   RenderGraphResourceAccess::PixelShaderResource );
+    ExecuteGraphTransition( "GenerateMipsFinalPixelSrv",
+                            "TextureMips",
+                            tex,
+                            RenderGraphResourceAccess::NonPixelShaderResource,
+                            RenderGraphResourceAccess::PixelShaderResource );
 
     // Force full rebind of graphics state on the next draw call, since we
     // switched root signatures and PSO for the compute dispatch.
@@ -506,11 +506,11 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     }
     else
     {
-        ExecuteGraphTransitionBarrier( "TextureUploadFinalPixelSrv",
-                                       "Texture2D",
-                                       texResource,
-                                       RenderGraphResourceAccess::CopyDest,
-                                       RenderGraphResourceAccess::PixelShaderResource );
+        ExecuteGraphTransition( "TextureUploadFinalPixelSrv",
+                                "Texture2D",
+                                texResource,
+                                RenderGraphResourceAccess::CopyDest,
+                                RenderGraphResourceAccess::PixelShaderResource );
     }
 
     // Create a Shader Resource View exposing the full mip chain.

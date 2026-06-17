@@ -1,8 +1,8 @@
 # DX12 Render Graph Completion Plan
 
-Status: proposed  
+Status: completed
 Created: 2026-06-16  
-Branch: `codex/post-pr73-roadmap`  
+Branch: `codex/dx12-render-graph-completion-second-look`
 Scope: DX12 resource-state ownership, render graph execution, framebuffer/backbuffer/readback/DXR/mip barriers
 
 ## Purpose
@@ -18,15 +18,33 @@ The current renderer already has a useful `RenderGraph` contract:
 - `VolumetricLightPass` and `ToneMapPass` are marked as handoff-reviewed
   declarations.
 
-What is not done: live rendering still depends on hand-written DX12 barriers in
-`Clear()`, `PrepareDraw()`, `FramebufferDX12::Bind/Unbind()`,
-`DispatchReflectionRays()`, `GenerateMipsGPU()`, screenshot readback, dynamic
-geometry upload, and `Present()`.
+What was not done at plan creation: live rendering still depended on
+hand-written DX12 barriers in `Clear()`, `PrepareDraw()`,
+`FramebufferDX12::Bind/Unbind()`, `DispatchReflectionRays()`,
+`GenerateMipsGPU()`, screenshot readback, dynamic geometry upload, and
+`Present()`.
 
 The goal is to make the graph the owner of resource transitions without turning
 the renderer into a risky rewrite. The migration should move one resource family
 at a time, keep pass bodies recognizable, and use DX12 validation after every
 production slice.
+
+## Completion Record
+
+Completed on 2026-06-17 as a stacked second-look branch after PR #78 merged.
+PR #78 moved production transition and UAV barriers behind DX12 graph-owned
+helpers for backbuffer, framebuffer, screenshot readback, DXR reflection, mip
+generation, texture upload, and dynamic/static upload finalization paths. The
+second-look branch closed the interrupted orchestrator state, added live barrier
+telemetry for resource names, access terms, and subresources, added
+`Debug/dx12_frame_graph_actual.txt` from the executed `DrawPrimitives()` path,
+bounded that diagnostic to input-signature changes before graph/string
+construction, and recorded final validation evidence in the dated report.
+
+The pass-callback architecture described in Phase 12 is intentionally deferred:
+the accepted boundary for this plan is graph-owned barrier emission plus actual
+frame/path diagnostics. Moving draw bodies into graph callbacks remains a future
+render-architecture evolution once this barrier path has baked.
 
 ## Validation Rule
 
@@ -130,7 +148,7 @@ The render graph migration is complete when:
 
 ## Phase 0: Barrier Inventory And Baseline Dump
 
-Status: not started
+Status: completed
 
 Goal: make the current manual barrier surface explicit before replacing it.
 
@@ -169,7 +187,7 @@ Commit boundary:
 
 ## Phase 1: Add A DX12 Graph Barrier Executor In Dry-Run Mode
 
-Status: not started
+Status: completed
 
 Goal: introduce the production-shaped execution helper without changing command
 recording behavior yet.
@@ -211,7 +229,7 @@ Commit boundary:
 
 ## Phase 2: Add Resource State Identity And Subresource Coverage
 
-Status: not started
+Status: completed
 
 Goal: make graph-owned barriers precise enough for real DX12 execution.
 
@@ -266,7 +284,7 @@ Commit boundary:
 
 ## Phase 3: First Production Graph-Owned Barrier Slice
 
-Status: not started
+Status: completed
 
 Goal: replace one real manual barrier path with graph-owned emission.
 
@@ -328,7 +346,7 @@ Rollback:
 
 ## Phase 4: Move FramebufferDX12 Bind/Unbind To Graph-Owned Transitions
 
-Status: not started
+Status: completed
 
 Goal: make all off-screen framebuffer color/depth state changes graph-owned.
 
@@ -375,7 +393,7 @@ Extra review points:
 
 ## Phase 5: Move Backbuffer Begin/End Transitions To The Graph
 
-Status: not started
+Status: completed
 
 Goal: move swapchain backbuffer state changes out of `Clear()`, `PrepareDraw()`,
 and `Present()`.
@@ -420,7 +438,7 @@ Extra review points:
 
 ## Phase 6: Move Screenshot Readback Transitions To The Graph
 
-Status: not started
+Status: completed
 
 Goal: make temporary backbuffer copy-source transitions graph-owned.
 
@@ -455,7 +473,7 @@ Commit boundary:
 
 ## Phase 7: Move DXR Reflection Transitions And UAV Ordering To The Graph
 
-Status: not started
+Status: completed
 
 Goal: make DXR reflection's SRV/UAV state and write-read ordering graph-owned.
 
@@ -495,7 +513,7 @@ Extra review points:
 
 ## Phase 8: Move GPU Mip Generation To Graph-Owned Subresource Barriers
 
-Status: not started
+Status: completed
 
 Goal: migrate the most complex transition path after subresource support is
 proven elsewhere.
@@ -537,7 +555,7 @@ Extra review points:
 
 ## Phase 9: Move Texture Upload And Dynamic Buffer Finalization Barriers
 
-Status: not started
+Status: completed
 
 Goal: remove remaining upload/finalization transition calls from texture and
 dynamic geometry code.
@@ -579,7 +597,7 @@ Commit boundary:
 
 ## Phase 10: Build The Actual Per-Frame Render Graph
 
-Status: not started
+Status: completed
 
 Goal: replace the diagnostic superset graph with a graph built from the actual
 frame path.
@@ -633,7 +651,7 @@ Commit boundary:
 
 ## Phase 11: Remove Legacy Manual Barrier APIs From Production Paths
 
-Status: not started
+Status: completed
 
 Goal: make graph-owned barrier emission the enforceable production rule.
 
@@ -674,7 +692,7 @@ Commit boundary:
 
 ## Phase 12: Move Pass Command Recording Into Graph Callbacks
 
-Status: not started
+Status: deferred to follow-up render-architecture work
 
 Goal: complete the architectural shift from "runtime calls passes and graph
 applies barriers" to "graph owns pass execution order and barriers."
@@ -723,7 +741,7 @@ Commit boundary:
 
 ## Phase 13: Final Documentation, Reports, And Guardrails
 
-Status: not started
+Status: completed
 
 Goal: leave the completed migration understandable and hard to regress.
 
@@ -819,21 +837,22 @@ Preferred initial answers:
 
 ## Final Acceptance Checklist
 
-- [ ] `rg -n "ResourceBarrier\\(" SkullbonezSource` shows raw calls only in the
+- [x] `rg -n "ResourceBarrier\\(" SkullbonezSource` shows raw calls only in the
       graph executor and documented D3D12 object-build internals.
-- [ ] `rg -n "TransitionBarrier\\(" SkullbonezSource` shows no general-purpose
+- [x] `rg -n "TransitionBarrier\\(" SkullbonezSource` shows no general-purpose
       production helper usage outside graph execution.
-- [ ] `FramebufferDX12::Bind()` and `FramebufferDX12::Unbind()` do not emit raw
+- [x] `FramebufferDX12::Bind()` and `FramebufferDX12::Unbind()` do not emit raw
       DX12 barriers.
-- [ ] `Clear()`, `PrepareDraw()`, `Present()`, and `CaptureBackbuffer()` do not
+- [x] `Clear()`, `PrepareDraw()`, `Present()`, and `CaptureBackbuffer()` do not
       hand-roll backbuffer transitions.
-- [ ] `DispatchReflectionRays()` uses graph-owned SRV/UAV transitions and UAV
+- [x] `DispatchReflectionRays()` uses graph-owned SRV/UAV transitions and UAV
       ordering.
-- [ ] `GenerateMipsGPU()` uses graph-owned subresource transitions and UAV
+- [x] `GenerateMipsGPU()` uses graph-owned subresource transitions and UAV
       ordering.
-- [ ] The graph dump is based on the actual executed frame path.
-- [ ] Graph telemetry names pass, resource, subresource/all-subresources, before
+- [x] The graph dump is based on the actual executed frame path:
+      `Debug/dx12_frame_graph_actual.txt`.
+- [x] Graph telemetry names pass, resource, subresource/all-subresources, before
       access, after access, and source.
-- [ ] `dx12_validation.txt` reports zero errors.
-- [ ] DX12 screenshot baseline comparison passes.
-- [ ] Final `tools\validate_full.bat` passes for the completed PR-bound branch.
+- [x] `dx12_validation.txt` reports zero errors.
+- [x] DX12 screenshot baseline comparison passes.
+- [x] Final `tools\validate_full.bat` passes for the completed PR-bound branch.
