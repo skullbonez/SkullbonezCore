@@ -24,7 +24,7 @@ if errorlevel 1 (
     exit /b 99
 )
 
-"%PYTHON_EXE%" "%~dp0orchestrator.py" --repo "%REPO%" %*
+"%PYTHON_EXE%" -u "%~dp0orchestrator.py" --repo "%REPO%" %*
 set "RESULT=%ERRORLEVEL%"
 
 popd

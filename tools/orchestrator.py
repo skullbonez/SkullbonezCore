@@ -37,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,6 +75,8 @@ VERIFIER_RESULT_FIELDS = {
     "feedback_for_worker",
     "another_round_required",
 }
+LIVE_LOG_POLL_SECONDS = 1.0
+LIVE_LOG_HEARTBEAT_SECONDS = 30.0
 
 
 class OrchestratorError(RuntimeError):
@@ -236,6 +239,109 @@ def tee_stream(
         if chunk == "\n":
             flush_transcript_buffer()
     flush_transcript_buffer()
+
+
+def tee_stream_to_file(stream: Any, console: Any, stream_log: Any) -> None:
+    while True:
+        chunk = stream.read(1)
+        if not chunk:
+            break
+        console.write(chunk)
+        console.flush()
+        stream_log.write(chunk)
+        stream_log.flush()
+
+
+def elapsed_label(seconds: float) -> str:
+    total = max(0, int(seconds))
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+def size_label(path: Path) -> str:
+    try:
+        return f"{path.stat().st_size} bytes"
+    except OSError:
+        return "not created yet"
+
+
+def emit_file_growth(path: Path, offset: int, console: Any) -> int:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return offset
+    if size < offset:
+        offset = 0
+    if size == offset:
+        return offset
+    with path.open("rb") as file:
+        file.seek(offset)
+        data = file.read()
+    text = decode_text_bytes(data).replace("\x00", "")
+    if text:
+        console.write(text)
+        console.flush()
+    return size
+
+
+def wait_with_heartbeat(
+    process: subprocess.Popen[Any],
+    label: str,
+    log_path: Path,
+    repo: Path,
+    timeout_seconds: int | None,
+) -> int:
+    started = time.monotonic()
+    last_heartbeat = started
+    while True:
+        returncode = process.poll()
+        if returncode is not None:
+            return returncode
+        now = time.monotonic()
+        if timeout_seconds is not None and now - started >= timeout_seconds:
+            raise subprocess.TimeoutExpired(process.args, timeout_seconds)
+        if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
+            print(
+                f"[orchestrator] {label} still running after {elapsed_label(now - started)}; "
+                f"log: {repo_relative(repo, log_path)} ({size_label(log_path)})",
+                flush=True,
+            )
+            last_heartbeat = now
+        time.sleep(LIVE_LOG_POLL_SECONDS)
+
+
+def wait_visible_helper_with_live_transcript(
+    helper: subprocess.Popen[Any],
+    transcript_log: Path,
+    repo: Path,
+    timeout_seconds: int | None,
+) -> int:
+    started = time.monotonic()
+    last_heartbeat = started
+    offset = 0
+    while True:
+        offset = emit_file_growth(transcript_log, offset, sys.stdout)
+        returncode = helper.poll()
+        if returncode is not None:
+            emit_file_growth(transcript_log, offset, sys.stdout)
+            return returncode
+        now = time.monotonic()
+        if timeout_seconds is not None and now - started >= timeout_seconds:
+            emit_file_growth(transcript_log, offset, sys.stdout)
+            raise subprocess.TimeoutExpired(helper.args, timeout_seconds)
+        if now - last_heartbeat >= LIVE_LOG_HEARTBEAT_SECONDS:
+            print(
+                f"[orchestrator] sub-agent still running after {elapsed_label(now - started)}; "
+                f"transcript: {repo_relative(repo, transcript_log)} ({size_label(transcript_log)})",
+                flush=True,
+            )
+            last_heartbeat = now
+        time.sleep(LIVE_LOG_POLL_SECONDS)
 
 
 def normalize_state(state: str) -> str:
@@ -1409,7 +1515,7 @@ def run_codex_exec_visible_console(
             creationflags=creationflags,
         )
         try:
-            return helper.wait(timeout=timeout_seconds)
+            return wait_visible_helper_with_live_transcript(helper, transcript_log, repo, timeout_seconds)
         except subprocess.TimeoutExpired as exc:
             kill_process_tree_by_pid(helper.pid)
             cleanup_new_codex_app_servers(app_server_pids_before)
@@ -1442,20 +1548,20 @@ def run_codex_exec(
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
     if visible_console and os.name == "nt":
-        print("Opening visible sub-agent console...")
-        print(f"  result: {repo_relative(repo, output_path)}")
-        print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+        print("Opening visible sub-agent console and mirroring its transcript here...", flush=True)
+        print(f"  result: {repo_relative(repo, output_path)}", flush=True)
+        print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
         returncode = run_codex_exec_visible_console(repo, prompt, command, output_path, timeout_seconds)
         if returncode != 0:
-            print(f"codex exec exited {returncode}.")
-            print(f"  stdout: {repo_relative(repo, codex_exec_log_paths(output_path)[0])}")
-            print(f"  stderr: {repo_relative(repo, codex_exec_log_paths(output_path)[1])}")
-            print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}")
+            print(f"codex exec exited {returncode}.", flush=True)
+            print(f"  stdout: {repo_relative(repo, codex_exec_log_paths(output_path)[0])}", flush=True)
+            print(f"  stderr: {repo_relative(repo, codex_exec_log_paths(output_path)[1])}", flush=True)
+            print(f"  transcript: {repo_relative(repo, codex_exec_transcript_path(output_path))}", flush=True)
             detail = codex_exec_failure_detail(output_path)
             if detail:
-                print("Last codex output:")
+                print("Last codex output:", flush=True)
                 for line in detail.splitlines():
-                    print(f"  {line}")
+                    print(f"  {line}", flush=True)
         return returncode
     stdout_log, stderr_log = codex_exec_log_paths(output_path)
     transcript_log = codex_exec_transcript_path(output_path)
@@ -1498,7 +1604,7 @@ def run_codex_exec(
         except BrokenPipeError:
             pass
         try:
-            returncode = process.wait(timeout=timeout_seconds)
+            returncode = wait_with_heartbeat(process, "sub-agent", transcript_log, repo, timeout_seconds)
         except subprocess.TimeoutExpired as exc:
             kill_process_tree_by_pid(process.pid)
             cleanup_new_codex_app_servers(app_server_pids_before)
@@ -1980,44 +2086,78 @@ def validation_not_required(item: dict[str, Any]) -> bool:
 
 def run_validation_gate(repo: Path, item: dict[str, Any], run_dir: Path) -> tuple[str, Path]:
     command_text = str(item.get("validation_gate", "")).strip()
+    log_path = run_dir / "validation.log"
     if validation_not_required(item):
-        log_path = run_dir / "validation.log"
         log_path.write_text("No repository validation script required for this item.\n", encoding="utf-8")
         return "not_required", log_path
     if not command_text:
         raise OrchestratorError("Validation gate is empty; cannot run validation.")
 
     started = utc_now()
-    result = subprocess.run(
-        command_text,
-        cwd=repo,
-        shell=True,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    started_monotonic = time.monotonic()
+    stdout_path = run_dir / "validation.stdout.tmp"
+    stderr_path = run_dir / "validation.stderr.tmp"
+    print(f"Running validation gate: {command_text}", flush=True)
+    print(f"  log: {repo_relative(repo, log_path)}", flush=True)
+    with (
+        stdout_path.open("w", encoding="utf-8") as stdout_file,
+        stderr_path.open("w", encoding="utf-8") as stderr_file,
+    ):
+        process = subprocess.Popen(
+            command_text,
+            cwd=repo,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        if process.stdout is None or process.stderr is None:
+            raise OrchestratorError("Validation command did not expose expected stdio pipes.")
+        stdout_thread = threading.Thread(
+            target=tee_stream_to_file,
+            args=(process.stdout, sys.stdout, stdout_file),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=tee_stream_to_file,
+            args=(process.stderr, sys.stderr, stderr_file),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+        returncode = wait_with_heartbeat(process, "validation gate", stdout_path, repo, None)
+        stdout_thread.join()
+        stderr_thread.join()
     finished = utc_now()
-    log_path = run_dir / "validation.log"
+    stdout_text = read_text_file(stdout_path) if stdout_path.exists() else ""
+    stderr_text = read_text_file(stderr_path) if stderr_path.exists() else ""
     log_path.write_text(
         "\n".join(
             [
                 f"command: {command_text}",
                 f"started_at: {started}",
                 f"finished_at: {finished}",
-                f"exit_code: {result.returncode}",
+                f"exit_code: {returncode}",
                 "",
                 "stdout:",
-                result.stdout,
+                stdout_text,
                 "",
                 "stderr:",
-                result.stderr,
+                stderr_text,
             ]
         ),
         encoding="utf-8",
     )
-    return ("passed" if result.returncode == 0 else "failed"), log_path
+    for temp_path in (stdout_path, stderr_path):
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+    print(f"Validation gate exited {returncode} after {elapsed_label(time.monotonic() - started_monotonic)}.", flush=True)
+    return ("passed" if returncode == 0 else "failed"), log_path
 
 
 def latest_commit(repo: Path) -> str:
