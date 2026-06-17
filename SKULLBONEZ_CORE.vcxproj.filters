@@ -807,6 +807,21 @@
     <None Include="SkullbonezData\engine.cfg">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\hulls\diamond.hull">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\hulls\hex_prism.hull">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\hulls\pyramid.hull">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\hulls\tapered_block.hull">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\hulls\tri_prism.hull">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\hulls\wedge.hull">
       <Filter>Scene Files</Filter>
     </None>

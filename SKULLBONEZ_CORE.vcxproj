@@ -350,6 +350,11 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\hulls\diamond.hull" />
+    <None Include="SkullbonezData\hulls\hex_prism.hull" />
+    <None Include="SkullbonezData\hulls\pyramid.hull" />
+    <None Include="SkullbonezData\hulls\tapered_block.hull" />
+    <None Include="SkullbonezData\hulls\tri_prism.hull" />
     <None Include="SkullbonezData\hulls\wedge.hull" />
     <None Include="SkullbonezData\scenes\at_rest.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />

@@ -1,0 +1,12 @@
+hull_version 1
+name pyramid
+vertex -5 -4 -5
+vertex 5 -4 -5
+vertex 5 -4 5
+vertex -5 -4 5
+vertex 0 6 0
+face 0 1 2 3
+face 0 4 1
+face 1 4 2
+face 2 4 3
+face 3 4 0

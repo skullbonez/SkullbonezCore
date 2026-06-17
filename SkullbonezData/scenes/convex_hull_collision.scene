@@ -1,27 +1,35 @@
 # convex_hull_collision.scene
-# Focused smoke scene for authored convex hull collisions.
+# Dynamic pileup fixture for authored convex hull collisions.
 
 seed 42
 physics on
-text off
-vsync off
-frames 180
+text on
+vsync on
+frames 1800
 fixed_step
 exit_on_complete
-world 0.0 0.0 0.0
-flat_slope 0.0 0.0 0.0
+time_scale 1.0
+world -9.81 0.0 0.0
 water_hidden on
-terrain_hidden on
 collision_visualizer on
+physics_debug_axes on
+physics_debug_transparent on
+physics_debug_alpha 0.35
 
-camera overview 520 135 430  520 100 500  0 1 0
+camera overview 340 200 430  520 35 540  0 1 0
 
-# convex_hull/floating_convex_hull <name> <pos> <mass> <restitution> <hull> [euler] [velocity]
-floating_convex_hull hull_vs_ball_fixed 470 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 0 0
-ball hull_ball 478 100 500  4.0 20.0 15.0 0.35
+# 12 dynamic shapes total: 2 balls, 2 boxes, and 8 authored convex hulls.
+ball hull_ball_a 500 135 500  7.0 24.0 12.0 0.35
+ball hull_ball_b 540 150 525  6.0 20.0 10.0 0.35
 
-floating_convex_hull hull_vs_box_fixed 520 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 25 0
-box hull_box 520 100 500  3.0 3.0 3.0  25.0 0.35  0 -10 0
+box hull_box_a 515 120 490  4.0 3.0 3.0  28.0 0.25  0 20 0
+box hull_box_b 480 145 535  3.0 5.0 3.0  32.0 0.30  15 0 30
 
-floating_convex_hull hull_pair_fixed 570 100 500  1000.0 0.25 SkullbonezData/hulls/wedge.hull  0 0 0
-convex_hull hull_pair_moving 570 100 500  25.0 0.35 SkullbonezData/hulls/wedge.hull  0 180 0
+convex_hull hull_hex_a 500 175 520  28.0 0.30 SkullbonezData/hulls/hex_prism.hull  0 15 0
+convex_hull hull_diamond_a 530 185 505  24.0 0.35 SkullbonezData/hulls/diamond.hull  20 0 15
+convex_hull hull_pyramid_a 490 195 515  22.0 0.30 SkullbonezData/hulls/pyramid.hull  0 35 10
+convex_hull hull_wedge_a 520 165 545  26.0 0.25 SkullbonezData/hulls/wedge.hull  10 0 25
+convex_hull hull_tapered_a 470 175 505  30.0 0.25 SkullbonezData/hulls/tapered_block.hull  0 -25 0
+convex_hull hull_tri_prism_a 550 190 545  24.0 0.30 SkullbonezData/hulls/tri_prism.hull  25 15 0
+convex_hull hull_hex_b 505 215 480  28.0 0.30 SkullbonezData/hulls/hex_prism.hull  35 0 45
+convex_hull hull_diamond_b 535 225 535  24.0 0.35 SkullbonezData/hulls/diamond.hull  0 45 25
