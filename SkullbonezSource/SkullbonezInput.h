@@ -107,6 +107,7 @@ class Input
     static void SetMouseCoordinates( const POINT& pNewCoordinates ); // Sets the mouse coordinates
     static void CentreMouseCoordinates();                            // Sets the mouse cursor to the centre of the screen
     static bool IsLeftMouseDown();                                   // Returns true if the left mouse button is pressed
+    static bool IsRightMouseDown();                                  // Returns true if the right mouse button is pressed
     static int ConsumeMouseWheelDelta();                             // Returns and clears accumulated wheel delta from Win32 messages
     static void AccumulateMouseWheelDelta( int delta );              // Adds a Win32 wheel delta to the per-frame queue
 };

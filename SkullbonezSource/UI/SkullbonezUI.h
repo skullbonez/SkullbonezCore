@@ -36,6 +36,7 @@ Related:
 #include "UIState.h"
 #include "UITabBar.h"
 #include "UITabControls.h"
+#include "UITabEditor.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
@@ -51,6 +52,7 @@ enum class InGameUITab
 {
     Profiler,
     Scene,
+    Editor,
     Physics,
     Options,
     Render,
@@ -132,6 +134,8 @@ struct InGameUIFrameData
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
+    bool editorFixedPlacementEnabled = false;
+    bool editorViewportLookActive = false;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;
@@ -212,6 +216,7 @@ class InGameUI
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
     ControlsTab::UIControlsTabState m_controlsTab;
+    EditorTab::UIEditorTabState m_editorTab;
     OptionsTab::UIOptionsTabState m_optionsTab;
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;

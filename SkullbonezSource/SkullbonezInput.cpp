@@ -313,6 +313,17 @@ bool Input::IsLeftMouseDown()
 }
 
 
+bool Input::IsRightMouseDown()
+{
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
+    return ( ( GetKeyState( VK_RBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+}
+
+
 int Input::ConsumeMouseWheelDelta()
 {
     if ( !IsAppFocused() )

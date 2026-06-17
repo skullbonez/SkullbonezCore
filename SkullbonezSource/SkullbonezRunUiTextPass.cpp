@@ -236,8 +236,10 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.waterHidden = m_run.m_debug.isWaterHidden;
         UIData.waterNoReflect = m_run.m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_run.m_debug.isWaterRTReflect;
-        UIData.cameraMouseActive = m_run.m_camera.isFlyMode && !m_run.m_UI.WantsNativeMouseCursor() && !m_run.m_UI.BlocksCameraMouse();
+        UIData.cameraMouseActive = ( m_run.m_camera.isFlyMode || m_run.m_editor.viewportLookActive ) && !m_run.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
+        UIData.editorFixedPlacementEnabled = m_run.m_editor.fixedPlacementEnabled;
+        UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
         UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode &&
                                       m_run.m_sceneRuntime.HasCurrentEntry() &&
                                       !m_run.m_sceneRuntime.CurrentPath()->empty();

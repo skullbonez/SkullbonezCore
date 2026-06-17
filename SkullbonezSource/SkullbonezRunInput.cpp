@@ -21,6 +21,8 @@ Related:
 #include "SkullbonezWorkerPool.h"
 #include "UI/UILayout.h"
 
+#include <cfloat>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -31,6 +33,44 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
+{
+    const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y + inverseViewProjection.m[8] * z + inverseViewProjection.m[12];
+    const float worldY = inverseViewProjection.m[1] * x + inverseViewProjection.m[5] * y + inverseViewProjection.m[9] * z + inverseViewProjection.m[13];
+    const float worldZ = inverseViewProjection.m[2] * x + inverseViewProjection.m[6] * y + inverseViewProjection.m[10] * z + inverseViewProjection.m[14];
+    const float worldW = inverseViewProjection.m[3] * x + inverseViewProjection.m[7] * y + inverseViewProjection.m[11] * z + inverseViewProjection.m[15];
+    if ( fabsf( worldW ) < 1e-6f )
+    {
+        return false;
+    }
+
+    const float invW = 1.0f / worldW;
+    outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
+    return true;
+}
+
+
+Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
+{
+    const float hx2 = halfExtents.x * halfExtents.x;
+    const float hy2 = halfExtents.y * halfExtents.y;
+    const float hz2 = halfExtents.z * halfExtents.z;
+    const float m3 = mass / 3.0f;
+    return Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+}
+
+
+float HullBottomOffset( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        minY = (std::min)( minY, hull.GetVertex( i ).y );
+    }
+    return minY == FLT_MAX ? 0.0f : -minY;
+}
+
+
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -649,6 +689,7 @@ void SkullbonezRun::TakeInput()
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
+        m_editor.viewportLookActive = false;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
@@ -657,7 +698,8 @@ void SkullbonezRun::TakeInput()
 
     const auto CameraMouseOwnsCursor = [&]() -> bool
     {
-        return m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
+        return ( m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse() ) ||
+               ( m_editor.fixedPlacementEnabled && m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() );
     };
     const auto ApplyCursorOwnership = [&]() -> void
     {
@@ -993,6 +1035,20 @@ void SkullbonezRun::TakeInput()
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
         }
+        if ( uiCommands.editor.requestedFixedObjectType >= 0 )
+        {
+            m_editor.fixedObjectType = std::clamp( uiCommands.editor.requestedFixedObjectType, 0, UI::EditorTab::FIXED_TYPE_COUNT - 1 );
+        }
+        if ( uiCommands.editor.toggleFixedPlacement )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.fixedPlacementEnabled = !m_editor.fixedPlacementEnabled;
+            if ( !m_editor.fixedPlacementEnabled )
+            {
+                m_editor.viewportLookActive = false;
+                InputController::ResetMouseLook( m_camera );
+            }
+        }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
@@ -1248,16 +1304,31 @@ void SkullbonezRun::TakeInput()
         }
 
         RunUIStressActions();
+
+        const bool editorViewportLookNow = m_editor.fixedPlacementEnabled && Input::IsRightMouseDown() && !m_UI.BlocksCameraMouse();
+        if ( editorViewportLookNow != m_editor.viewportLookActive )
+        {
+            InputController::ResetMouseLook( m_camera );
+        }
+        m_editor.viewportLookActive = editorViewportLookNow;
+        ApplyCursorOwnership();
     }
 
-    // Nudge mode owns left click for firing the pooled silver bullets.  Keyboard
-    // shortcuts are intentionally avoided so aiming and firing live on the mouse.
+    // Editor placement and nudge-fire both use world clicks. UI hover/capture
+    // suppresses both so panel interaction never spawns bodies or bullets.
     {
         const bool leftMouseNow = Input::IsLeftMouseDown();
-        if ( m_camera.isNudgeMode &&
+        if ( m_editor.fixedPlacementEnabled &&
              leftMouseNow &&
              !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
              !suppressNudgeFireThisFrame )
+        {
+            PlaceFixedObjectAtMouse( m_editor.fixedObjectType );
+        }
+        else if ( m_camera.isNudgeMode &&
+                  leftMouseNow &&
+                  !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
+                  !suppressNudgeFireThisFrame )
         {
             FireProjectile();
         }
@@ -1339,7 +1410,8 @@ void SkullbonezRun::TakeInput()
         }
     }
 
-    if ( m_camera.isFlyMode )
+    const bool viewportCameraControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
+    if ( viewportCameraControlsActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
         // consuming raw Win32 deltas, with cursor-position deltas as a
@@ -1410,7 +1482,7 @@ void SkullbonezRun::TakeInput()
 
 void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( m_camera.isFlyMode )
+    if ( m_camera.isFlyMode || m_editor.viewportLookActive )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
@@ -1444,7 +1516,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_camera.isFlyMode && !SceneState().isSceneMode )
+    if ( !m_camera.isFlyMode && !m_editor.viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
@@ -1641,6 +1713,226 @@ void SkullbonezRun::SpawnPhysicsObjectFromCamera( int spawnType )
         addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull", 0.35f, 0.95f, 0.90f );
         break;
     case UI::PhysicsTab::SPAWN_HULL_DIAMOND:
+        addHull( "diamond", "SkullbonezData/hulls/diamond.hull", 1.0f, 0.86f, 0.40f );
+        break;
+    default:
+        break;
+    }
+
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+}
+
+
+bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
+{
+    if ( !m_systems.window || !m_systems.cameras || !m_systems.terrain )
+    {
+        return false;
+    }
+
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
+    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    if ( mouse.x < 0 || mouse.y < 0 || mouse.x >= screenW || mouse.y >= screenH )
+    {
+        return false;
+    }
+
+    const float ndcX = ( static_cast<float>( mouse.x ) / static_cast<float>( screenW ) ) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - ( static_cast<float>( mouse.y ) / static_cast<float>( screenH ) ) * 2.0f;
+
+    const Vector3 eye = m_systems.cameras->GetCameraTranslation();
+    const Vector3 view = m_systems.cameras->GetCameraView();
+    const Vector3 up = m_systems.cameras->GetCameraUp();
+    const Matrix4 viewMatrix = Matrix4::LookAt( eye, view, up );
+    const Matrix4 inverseViewProjection = ( m_systems.window->GetProjectionMatrix() * viewMatrix ).Inverse();
+
+    Vector3 rayNear;
+    Vector3 rayFar;
+    if ( !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 0.0f, rayNear ) ||
+         !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 1.0f, rayFar ) )
+    {
+        return false;
+    }
+
+    Vector3 rayDirection = rayFar - rayNear;
+    const float dirLenSq = VectorMagSquared( rayDirection );
+    if ( dirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+
+    constexpr float MAX_RAY_DISTANCE = 5000.0f;
+    constexpr int RAY_STEPS = 192;
+    bool hasPrevious = false;
+    float previousT = 0.0f;
+    float previousDiff = 0.0f;
+
+    for ( int step = 0; step <= RAY_STEPS; ++step )
+    {
+        const float t = MAX_RAY_DISTANCE * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
+        const Vector3 sample = rayNear + rayDirection * t;
+        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        {
+            continue;
+        }
+
+        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float diff = sample.y - terrainY;
+        if ( fabsf( diff ) <= 0.01f )
+        {
+            outPosition = Vector3( sample.x, terrainY, sample.z );
+            return true;
+        }
+
+        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
+        {
+            float lowT = previousT;
+            float highT = t;
+            Vector3 hit = sample;
+            float hitY = terrainY;
+            for ( int refine = 0; refine < 12; ++refine )
+            {
+                const float midT = ( lowT + highT ) * 0.5f;
+                const Vector3 mid = rayNear + rayDirection * midT;
+                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                {
+                    lowT = midT;
+                    continue;
+                }
+                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midDiff = mid.y - midTerrainY;
+                hit = mid;
+                hitY = midTerrainY;
+                if ( midDiff > 0.0f )
+                {
+                    lowT = midT;
+                }
+                else
+                {
+                    highT = midT;
+                }
+            }
+            outPosition = Vector3( hit.x, hitY, hit.z );
+            return true;
+        }
+
+        hasPrevious = true;
+        previousT = t;
+        previousDiff = diff;
+    }
+
+    return false;
+}
+
+
+void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
+{
+    Vector3 terrainPoint;
+    if ( !TryGetMouseTerrainPlacement( terrainPoint ) )
+    {
+        return;
+    }
+
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    if ( modelCount >= ActiveGameModelCapacity() )
+    {
+        fprintf( stderr, "[editor] Cannot place fixed object: model capacity reached.\n" );
+        return;
+    }
+
+    EnterInteractiveSceneRun();
+    const int type = std::clamp( fixedObjectType, 0, UI::EditorTab::FIXED_TYPE_COUNT - 1 );
+    const int serial = m_editor.placedObjectSerial++;
+    constexpr float SURFACE_EPSILON = 0.02f;
+
+    auto addSphere = [&]( const char* baseName, float radius, float mass, float restitution, float tintR, float tintG, float tintB )
+    {
+        const float moment = 0.4f * mass * radius * radius;
+        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         Vector3( moment, moment, moment ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( restitution );
+        model.AddBoundingSphere( radius );
+        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        model.SetFixed( true );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%03d", baseName, serial );
+        model.SetName( name );
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+    };
+
+    auto addBox = [&]()
+    {
+        const Vector3 halfExtents( 6.0f, 6.0f, 6.0f );
+        constexpr float mass = 500.0f;
+        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         BoxInertiaForHalfExtents( halfExtents, mass ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddBoundingBox( halfExtents );
+        model.SetRenderTint( 0.75f, 0.86f, 0.95f, 1.0f );
+        model.SetFixed( true );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "fixed_box_%03d", serial );
+        model.SetName( name );
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+    };
+
+    auto addHull = [&]( const char* label, const char* path, float tintR, float tintG, float tintB )
+    {
+        constexpr float mass = 500.0f;
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         hull.ComputeBoxApproxInertia( mass ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddConvexHull( hull );
+        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        model.SetFixed( true );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "fixed_%s_%03d", label, serial );
+        model.SetName( name );
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+    };
+
+    switch ( type )
+    {
+    case UI::EditorTab::FIXED_BOX:
+        addBox();
+        break;
+    case UI::EditorTab::FIXED_BALL:
+        addSphere( "fixed_ball", 4.0f, 120.0f, 0.30f, 0.35f, 0.75f, 1.0f );
+        break;
+    case UI::EditorTab::FIXED_SPHERE:
+        addSphere( "fixed_sphere", 8.0f, 500.0f, 0.25f, 0.95f, 0.92f, 0.82f );
+        break;
+    case UI::EditorTab::FIXED_HULL_WEDGE:
+        addHull( "wedge", "SkullbonezData/hulls/wedge.hull", 0.92f, 0.65f, 0.30f );
+        break;
+    case UI::EditorTab::FIXED_HULL_TRI_PRISM:
+        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull", 0.45f, 0.95f, 0.62f );
+        break;
+    case UI::EditorTab::FIXED_HULL_TAPERED_BLOCK:
+        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull", 0.95f, 0.52f, 0.76f );
+        break;
+    case UI::EditorTab::FIXED_HULL_PYRAMID:
+        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull", 0.78f, 0.62f, 1.0f );
+        break;
+    case UI::EditorTab::FIXED_HULL_HEX_PRISM:
+        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull", 0.35f, 0.95f, 0.90f );
+        break;
+    case UI::EditorTab::FIXED_HULL_DIAMOND:
         addHull( "diamond", "SkullbonezData/hulls/diamond.hull", 1.0f, 0.86f, 0.40f );
         break;
     default:

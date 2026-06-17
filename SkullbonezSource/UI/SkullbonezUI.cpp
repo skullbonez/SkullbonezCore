@@ -32,6 +32,7 @@ Related:
 #include "UIInput.h"
 #include "UILayout.h"
 #include "UITabControls.h"
+#include "UITabEditor.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
@@ -167,6 +168,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.waterRTReflect );
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
+    hash = HashBool( hash, data.editorFixedPlacementEnabled );
+    hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
     hash = HashBool( hash, data.ordinaryRender.shadowsEnabled );
@@ -266,7 +269,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, int activeSlider )
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen, int activeSlider )
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -275,6 +278,7 @@ uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen,
     hash = HashBool( hash, reflectionOpen );
     hash = HashBool( hash, sceneOpen );
     hash = HashBool( hash, cineSceneOpen );
+    hash = HashBool( hash, editorObjectOpen );
     hash = HashInt( hash, activeSlider );
     return hash;
 }
@@ -1016,6 +1020,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_rendererCombo.Close();
     m_reflectionCombo.Close();
     CloseSceneCombo();
+    m_editorTab.objectCombo.Close();
     m_cineSceneCombo.Close();
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
@@ -1044,6 +1049,7 @@ void InGameUI::CancelInputCapture()
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    m_editorTab.objectCombo.Close();
 }
 
 
@@ -1055,7 +1061,7 @@ bool InGameUI::BlocksCameraMouse() const
 
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() );
+    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() || m_editorTab.objectCombo.IsOpen() );
 }
 
 
@@ -1255,6 +1261,10 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Editor:
+        DrawHitboxRect( draw, m_editorTab.placementToggle.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::FIXED_TYPE_COUNT, contentR, contentG, contentB );
+        break;
     case InGameUITab::Physics:
         for ( int i = 0; i < 11; ++i )
         {
@@ -1346,6 +1356,8 @@ int InGameUI::ContentHeight() const
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
         return ProfilerTab::ContentHeight( m_profilerTab );
+    case InGameUITab::Editor:
+        return EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
@@ -1550,6 +1562,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( m_cineSceneCombo.IsOpen() )
         {
@@ -1570,6 +1583,31 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
+            m_editorTab.objectCombo.Close();
+        }
+        else if ( m_editorTab.objectCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUITab::Editor )
+            {
+                const float contentX = static_cast<float>( inputX + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                EditorTab::HandleContentClick( m_editorTab,
+                                               result,
+                                               m_mouseX,
+                                               m_mouseY,
+                                               contentX,
+                                               rowBase,
+                                               contentW );
+            }
+            else
+            {
+                m_editorTab.objectCombo.Close();
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( m_reflectionCombo.IsOpen() )
         {
@@ -1590,6 +1628,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( m_rendererCombo.IsOpen() )
         {
@@ -1604,6 +1643,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
             }
             else if ( !m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -1631,6 +1671,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
@@ -1657,7 +1698,28 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_reflectionCombo.Close();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
             }
+        }
+        else if ( inContent && m_activeTab == InGameUITab::Editor )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            if ( EditorTab::HandleContentClick( m_editorTab,
+                                                result,
+                                                m_mouseX,
+                                                m_mouseY,
+                                                contentX,
+                                                rowBase,
+                                                contentW ) )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
@@ -1677,6 +1739,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
@@ -1698,6 +1761,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Render )
         {
@@ -1963,6 +2027,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
+        m_editorTab.objectCombo.Close();
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         InputControl::EndMouseCapture();
@@ -2074,7 +2139,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
-    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_activeSlider );
+    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_editorTab.objectCombo.IsOpen(), m_activeSlider );
     m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
 
@@ -2101,7 +2166,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Render", "Controls", "Cine" };
+    static const char* kTabs[] = { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2144,6 +2209,19 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                           m_activeSlider,
                           m_mouseX,
                           m_mouseY );
+    }
+    else if ( m_activeTab == InGameUITab::Editor )
+    {
+        EditorTab::Draw( m_editorTab,
+                         draw,
+                         data,
+                         contentX,
+                         contentY,
+                         contentW,
+                         contentH,
+                         scrolledY,
+                         m_mouseX,
+                         m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Options )
     {

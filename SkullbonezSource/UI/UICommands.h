@@ -205,6 +205,12 @@ struct UIPhysicsCommands
     int requestedSpawnObjectType = -1;
 };
 
+struct UIEditorCommands
+{
+    bool toggleFixedPlacement = false;
+    int requestedFixedObjectType = -1;
+};
+
 struct UISceneOptionCommands
 {
     bool toggleTextOnly = false;
@@ -268,6 +274,7 @@ struct InGameUICommands
     UIOnlyCommands ui;
     UIRendererCommands renderer;
     UISceneCommands scene;
+    UIEditorCommands editor;
     UIPhysicsCommands physics;
     UISceneOptionCommands sceneOptions;
     UIWaterCommands water;

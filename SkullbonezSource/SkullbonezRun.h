@@ -312,6 +312,14 @@ struct RunFireState
     bool bulletPoolReady = false;
 };
 
+struct RunEditorPlacementState
+{
+    bool fixedPlacementEnabled = false;
+    bool viewportLookActive = false;
+    int fixedObjectType = UI::EditorTab::FIXED_BOX;
+    int placedObjectSerial = 0;
+};
+
 struct RunRequiredContactState
 {
     char nameA[64] = {};
@@ -839,6 +847,7 @@ class SkullbonezRun
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                // Runtime debug/overlay toggles
     RunFireState m_fire;                  // Runtime silver bullet pool state
+    RunEditorPlacementState m_editor;     // Fixed-object placement editor state
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     RunUIStressState m_uiStress;                              // Deterministic UI stress run state
@@ -862,75 +871,75 @@ class SkullbonezRun
     UiTextPass m_uiTextPass;                 // HUD/UI/text pass
 
     inline static int sPerfPass = 0;
-    void Render();                                                                                                                     // Main render method
-    RunSceneState& SceneState();                                                                                                       // Mutable scene-run state owned by SceneRuntime
-    const RunSceneState& SceneState() const;                                                                                           // Read-only scene-run state owned by SceneRuntime
-    void RelativeUpdateCamera( uint32_t hash );                                                                                        // Relative update specified camera
-    void UpdateLogic( float simulationDt, float cameraDt );                                                                            // Per-frame logic; cameraDt is unscaled wall time
-    void TakeInput();                                                                                                                  // Take user input
-    void StepPhysicsPipelineStage( int direction );                                                                                    // Move the debug pipeline visualization cursor left/right
-    void SetUpCameras();                                                                                                               // Camera init for generated demo mode
-    void SetUpCamerasFromScene( const TestScene& scene );                                                                              // Camera init from scene file
-    void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
-    void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
-    void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
-    void SetUpRequiredContactsFromScene( const TestScene& scene );                                                                     // Resolve scene-authored contact gates to model indices
-    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );                                                             // Copy scene-authored broadphase X-cell gates
-    void UpdateRequiredSceneContacts();                                                                                                // Mark required scene contact gates touched by current physics contacts
+    void Render();                                                                                                                         // Main render method
+    RunSceneState& SceneState();                                                                                                           // Mutable scene-run state owned by SceneRuntime
+    const RunSceneState& SceneState() const;                                                                                               // Read-only scene-run state owned by SceneRuntime
+    void RelativeUpdateCamera( uint32_t hash );                                                                                            // Relative update specified camera
+    void UpdateLogic( float simulationDt, float cameraDt );                                                                                // Per-frame logic; cameraDt is unscaled wall time
+    void TakeInput();                                                                                                                      // Take user input
+    void StepPhysicsPipelineStage( int direction );                                                                                        // Move the debug pipeline visualization cursor left/right
+    void SetUpCameras();                                                                                                                   // Camera init for generated demo mode
+    void SetUpCamerasFromScene( const TestScene& scene );                                                                                  // Camera init from scene file
+    void SetUpGameModels( int count );                                                                                                     // Game model init for generated mixed-object mode
+    void SetUpSolverObjects( int balls, int boxes );                                                                                       // Game model init: exact N solver balls + M solver boxes
+    void SetUpGameModelsFromScene( const TestScene& scene );                                                                               // Game model init from scene file
+    void SetUpRequiredContactsFromScene( const TestScene& scene );                                                                         // Resolve scene-authored contact gates to model indices
+    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );                                                                 // Copy scene-authored broadphase X-cell gates
+    void UpdateRequiredSceneContacts();                                                                                                    // Mark required scene contact gates touched by current physics contacts
     void UpdateRequiredSceneBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount ); // Mark required broadphase X-cell gates touched by current grid frame
-    bool RequiredSceneContactsComplete() const;                                                                                        // True when there are no gates or all gates have been touched
-    bool RequiredSceneBroadphaseXCellsComplete() const;                                                                                // True when there are no gates or all X-cell ranges have been activated
-    void RegisterBuiltInAssets();                                                                                                      // Registers built-in texture and shader source records
-    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );            // Registers and resolves a source asset under DATA_ROOT
-    void DrawPrimitives();                                                                                                             // Draws terrain, objects, helpers, and scene effects
-    RenderFrameContext BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig );                     // Names per-frame camera/light inputs consumed by render passes
-    CinematicRenderConfig& ActiveCinematicConfig();                                                                                    // Mutable cinematic style config for the active scene/run
-    const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                        // Read-only cinematic style config for the active scene/run
-    bool IsCinematicRenderingEnabled() const;                                                                                          // True when the HDR/post stack should wrap the main scene
-    void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive
-    void RebuildRegisteredRenderResources();                                                                                           // Recreates renderer resources from source asset records
-    void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                  // Writes a named resource-lifetime phase to the debug event log
-    Textures::TextureCollection& Textures();                                                                                           // Runtime texture registry accessor used by render passes
-    uint32_t TextureHandle( uint32_t textureHash );                                                                                    // Resolves a runtime texture hash to a renderer handle
-    void SelectRenderTexture( uint32_t textureHash );                                                                                  // Binds a runtime texture hash to the default draw texture slot
-    int WindowScreenWidth() const;                                                                                                     // Current window width, or config fallback before window init
-    int WindowScreenHeight() const;                                                                                                    // Current window height, or config fallback before window init
-    void SetViewingOrientation();                                                                                                      // Renders camera views etc
-    void SaveScreenshot( const char* path );                                                                                           // Saves current backbuffer to a BMP file
-    bool SaveCurrentSceneDefaults();                                                                                                   // Writes UI-controlled defaults back to the active scene file
-    bool SaveRenderDefaults();                                                                                                         // Writes current ordinary Render-tab values back to engine.cfg
-    void RefreshSceneBrowserList();                                                                                                    // Discovers scene files available to the in-game scene dropdown
-    int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list
-    void LoadSceneFromBrowserIndex( int index );                                                                                       // Loads a scene selected from the in-game scene dropdown
-    void LoadDemoSceneFromUI();                                                                                                        // Loads the generated demo scene from the in-game Scene tab
-    bool ApplyCinematicModeFromBrowserIndex( int index );                                                                              // Applies a cine/concept look live without rebuilding the scene
-    bool ApplyAdjacentCinematicMode( int direction );                                                                                  // Cycles live cine/concept looks without rebuilding the scene
-    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                           // Applies style-only cinematic/material directives without rebuilding objects
-    void ApplyDemoHeroStyleOverride();                                                                                                 // Applies the low-poly hero style to generated demo mode
-    void LoadAdjacentSceneFromBrowser( int direction );                                                                                // Keyboard scene cycling through the discovered scene dropdown list
-    void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
-    bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow
-    void HoldCompletedInteractiveScene();                                                                                              // Keep the current scene alive after interactive automation completes
-    bool HasSceneQueueEntry( int index ) const;                                                                                        // True when index points at a queued scene/demo entry
-    bool HasCurrentSceneQueueEntry() const;                                                                                            // True when currentSceneIndex points at a queued entry
-    const std::string* CurrentSceneQueuePath() const;                                                                                  // Current queued scene path, or nullptr if no current entry
-    RunInternal::SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot();                                                         // Captures live runtime controls before a scene reset rebuilds objects
-    void RestoreSceneRuntimeResetSnapshot( const RunInternal::SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );      // Restores preserved live controls after scene file/defaults rebuild
-    void ClearSceneRuntimeUIOverrides();                                                                                               // Clears UI rebuild overrides when a new scene/defaults should be authoritative
-    void LogPerfMemory( const char* checkpoint );                                                                                      // Log memory usage to perf CSV
-    void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = false ); // Resets scene-specific state and loads a scene by queue index
-    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );     // User-triggered reset/reload of current scene or generated demo mode
-    void ApplyUIModelCountOverride( int count );                                                                                       // Rebuilds the active generated model pool from the UI slider
-    void ApplyUISolverObjectCounts( int balls, int boxes );                                                                            // Rebuilds generated solver objects from exact UI counts
-    void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                 // Applies live world/fluid scalar controls
-    void ApplyNoWaterOverride();                                                                                                       // Pushes fluid surface below the active terrain when requested
-    void ApplyTornadoDefaultsForActiveScene();                                                                                         // Centers the tornado around the active inner-water/basin region
-    void SyncTornadoFieldToPhysics();                                                                                                  // Sends live tornado state to the physics collection
-    void UseDefaultTerrain();                                                                                                          // Restores the normal height-map terrain when leaving analytic test scenes
-    void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                               // Activates analytic flat-slope terrain for focused physics scenes
-    void UpdateWorldTerrainBounds();                                                                                                   // Keeps world/fluid helpers aligned with the active terrain bounds
-    bool AdvanceScene();                                                                                                               // Advances to the next scene in the queue (returns false if done)
-    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
+    bool RequiredSceneContactsComplete() const;                                                                                            // True when there are no gates or all gates have been touched
+    bool RequiredSceneBroadphaseXCellsComplete() const;                                                                                    // True when there are no gates or all X-cell ranges have been activated
+    void RegisterBuiltInAssets();                                                                                                          // Registers built-in texture and shader source records
+    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                // Registers and resolves a source asset under DATA_ROOT
+    void DrawPrimitives();                                                                                                                 // Draws terrain, objects, helpers, and scene effects
+    RenderFrameContext BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig );                         // Names per-frame camera/light inputs consumed by render passes
+    CinematicRenderConfig& ActiveCinematicConfig();                                                                                        // Mutable cinematic style config for the active scene/run
+    const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                            // Read-only cinematic style config for the active scene/run
+    bool IsCinematicRenderingEnabled() const;                                                                                              // True when the HDR/post stack should wrap the main scene
+    void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                      // Runs the ordered GPU-resource release hooks while the backend is alive
+    void RebuildRegisteredRenderResources();                                                                                               // Recreates renderer resources from source asset records
+    void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                      // Writes a named resource-lifetime phase to the debug event log
+    Textures::TextureCollection& Textures();                                                                                               // Runtime texture registry accessor used by render passes
+    uint32_t TextureHandle( uint32_t textureHash );                                                                                        // Resolves a runtime texture hash to a renderer handle
+    void SelectRenderTexture( uint32_t textureHash );                                                                                      // Binds a runtime texture hash to the default draw texture slot
+    int WindowScreenWidth() const;                                                                                                         // Current window width, or config fallback before window init
+    int WindowScreenHeight() const;                                                                                                        // Current window height, or config fallback before window init
+    void SetViewingOrientation();                                                                                                          // Renders camera views etc
+    void SaveScreenshot( const char* path );                                                                                               // Saves current backbuffer to a BMP file
+    bool SaveCurrentSceneDefaults();                                                                                                       // Writes UI-controlled defaults back to the active scene file
+    bool SaveRenderDefaults();                                                                                                             // Writes current ordinary Render-tab values back to engine.cfg
+    void RefreshSceneBrowserList();                                                                                                        // Discovers scene files available to the in-game scene dropdown
+    int CurrentSceneBrowserIndex() const;                                                                                                  // Returns current scene index within the discovered scene dropdown list
+    void LoadSceneFromBrowserIndex( int index );                                                                                           // Loads a scene selected from the in-game scene dropdown
+    void LoadDemoSceneFromUI();                                                                                                            // Loads the generated demo scene from the in-game Scene tab
+    bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Applies a cine/concept look live without rebuilding the scene
+    bool ApplyAdjacentCinematicMode( int direction );                                                                                      // Cycles live cine/concept looks without rebuilding the scene
+    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Applies style-only cinematic/material directives without rebuilding objects
+    void ApplyDemoHeroStyleOverride();                                                                                                     // Applies the low-poly hero style to generated demo mode
+    void LoadAdjacentSceneFromBrowser( int direction );                                                                                    // Keyboard scene cycling through the discovered scene dropdown list
+    void EnterInteractiveSceneRun();                                                                                                       // Locks scene automation into non-quitting interactive mode
+    bool CanSceneAutomationQuit() const;                                                                                                   // True for CLI suites/tests; false once the user owns scene flow
+    void HoldCompletedInteractiveScene();                                                                                                  // Keep the current scene alive after interactive automation completes
+    bool HasSceneQueueEntry( int index ) const;                                                                                            // True when index points at a queued scene/demo entry
+    bool HasCurrentSceneQueueEntry() const;                                                                                                // True when currentSceneIndex points at a queued entry
+    const std::string* CurrentSceneQueuePath() const;                                                                                      // Current queued scene path, or nullptr if no current entry
+    RunInternal::SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot();                                                             // Captures live runtime controls before a scene reset rebuilds objects
+    void RestoreSceneRuntimeResetSnapshot( const RunInternal::SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );          // Restores preserved live controls after scene file/defaults rebuild
+    void ClearSceneRuntimeUIOverrides();                                                                                                   // Clears UI rebuild overrides when a new scene/defaults should be authoritative
+    void LogPerfMemory( const char* checkpoint );                                                                                          // Log memory usage to perf CSV
+    void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = false );     // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );         // User-triggered reset/reload of current scene or generated demo mode
+    void ApplyUIModelCountOverride( int count );                                                                                           // Rebuilds the active generated model pool from the UI slider
+    void ApplyUISolverObjectCounts( int balls, int boxes );                                                                                // Rebuilds generated solver objects from exact UI counts
+    void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                     // Applies live world/fluid scalar controls
+    void ApplyNoWaterOverride();                                                                                                           // Pushes fluid surface below the active terrain when requested
+    void ApplyTornadoDefaultsForActiveScene();                                                                                             // Centers the tornado around the active inner-water/basin region
+    void SyncTornadoFieldToPhysics();                                                                                                      // Sends live tornado state to the physics collection
+    void UseDefaultTerrain();                                                                                                              // Restores the normal height-map terrain when leaving analytic test scenes
+    void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                                   // Activates analytic flat-slope terrain for focused physics scenes
+    void UpdateWorldTerrainBounds();                                                                                                       // Keeps world/fluid helpers aligned with the active terrain bounds
+    bool AdvanceScene();                                                                                                                   // Advances to the next scene in the queue (returns false if done)
+    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                     // Moves the camera
     // Builds a tight light-space frame for nearby object receivers.
     // Renders requested depth casters from the sun view.
     unsigned int NextUIStressRandom();
@@ -939,18 +948,20 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickPhysics( double dt );                      // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                             // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                        // Poll live.style/capture.txt and apply look changes without scene reload
-    void TickLiveStyleControlCapture();                 // Save pending harness screenshot after render/UI are drawn
-    void TickAutoCycle();                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                 // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                            // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );         // Slide water surface up/down while held
-    void ResetProjectilePool();                         // Clears cached projectile indices after scene/model rebuilds
-    bool EnsureProjectilePool();                        // Lazily creates the ten runtime silver bullets
-    void FireProjectile();                              // Recycle and launch a high-speed silver bullet from the camera
-    void SpawnPhysicsObjectFromCamera( int spawnType ); // Spawn a UI-selected dynamic body just in front of the camera
+    void TickPhysics( double dt );                                                // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                                                       // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                                                  // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();                                           // Save pending harness screenshot after render/UI are drawn
+    void TickAutoCycle();                                                         // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                                           // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                                                      // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );                                   // Slide water surface up/down while held
+    void ResetProjectilePool();                                                   // Clears cached projectile indices after scene/model rebuilds
+    bool EnsureProjectilePool();                                                  // Lazily creates the ten runtime silver bullets
+    void FireProjectile();                                                        // Recycle and launch a high-speed silver bullet from the camera
+    void SpawnPhysicsObjectFromCamera( int spawnType );                           // Spawn a UI-selected dynamic body just in front of the camera
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const; // Raycast current mouse position to terrain for editor placement
+    void PlaceFixedObjectAtMouse( int fixedObjectType );                          // Place a UI-selected fixed object on the terrain under the mouse
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
