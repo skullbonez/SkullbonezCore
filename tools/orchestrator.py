@@ -163,6 +163,22 @@ def codex_exec_failure_detail(output_path: Path) -> str:
     return ""
 
 
+def decode_text_bytes(data: bytes) -> str:
+    if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
+        return data.decode("utf-16", errors="replace")
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data.decode("utf-8-sig", errors="replace")
+    if data:
+        sample = data[: min(len(data), 4096)]
+        if sample.count(0) / len(sample) > 0.10:
+            return data.decode("utf-16", errors="replace")
+    return data.decode("utf-8", errors="replace")
+
+
+def read_text_file(path: Path) -> str:
+    return decode_text_bytes(path.read_bytes()).replace("\x00", "")
+
+
 def result_json_has_fields(path: Path, required_fields: set[str]) -> bool:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1766,13 +1782,14 @@ def read_report_text_for_check(repo: Path, path: str, commit: str | None) -> str
             cwd=repo,
             check=False,
             capture_output=True,
-            text=True,
+            text=False,
         )
         if result.returncode != 0:
-            raise OrchestratorError(result.stderr.strip() or f"Unable to read {path} from {commit}.")
-        return result.stdout
+            detail = decode_text_bytes(result.stderr).strip()
+            raise OrchestratorError(detail or f"Unable to read {path} from {commit}.")
+        return decode_text_bytes(result.stdout).replace("\x00", "")
     report_path = resolve_repo_path(repo, path)
-    return report_path.read_text(encoding="utf-8", errors="ignore")
+    return read_text_file(report_path)
 
 
 def command_report_check(args: argparse.Namespace) -> int:
@@ -1795,6 +1812,8 @@ def command_report_check(args: argparse.Namespace) -> int:
             raise OrchestratorError("Report-only check requires exactly one report.md file.")
 
         report_text = read_report_text_for_check(args.repo, report_files[0], args.commit)
+        if "\x00" in report_text:
+            raise OrchestratorError(f"Report contains embedded NUL bytes: {report_files[0]}")
         for image in image_files:
             image_name = Path(image).name
             if f"images/{image_name}" not in report_text:
@@ -1808,7 +1827,7 @@ def command_report_check(args: argparse.Namespace) -> int:
 
 
 def referenced_report_files(repo: Path, report_path: Path) -> list[Path]:
-    report_text = report_path.read_text(encoding="utf-8", errors="ignore")
+    report_text = read_text_file(report_path)
     report_dir = report_path.parent
     files = [report_path]
     for match in MARKDOWN_IMAGE_RE.finditer(report_text):
@@ -1869,21 +1888,72 @@ def command_archive_plan(args: argparse.Namespace) -> int:
 
 def read_optional_text(path: Path) -> str:
     if path.exists():
-        return path.read_text(encoding="utf-8", errors="ignore").strip()
+        return read_text_file(path).strip()
     return ""
 
 
+def read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(read_text_file(path))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def read_worker_result(run_dir: Path) -> str:
+    payload = read_optional_json(run_dir / "worker-result.json")
+    if payload:
+        summary = str(payload.get("summary", ""))
+        plain = str(payload.get("plain_language_summary", ""))
+        return "\n\n".join(part for part in (plain, summary) if part)
     json_text = read_optional_text(run_dir / "worker-result.json")
     if json_text:
-        try:
-            payload = json.loads(json_text)
-            summary = payload.get("summary", "")
-            plain = payload.get("plain_language_summary", "")
-            return "\n\n".join(part for part in (plain, summary) if part)
-        except json.JSONDecodeError:
-            return json_text
+        return json_text
     return read_optional_text(run_dir / "worker-result.md")
+
+
+def markdown_list(values: list[Any]) -> str:
+    lines = [f"- `{str(value)}`" for value in values if str(value).strip()]
+    return "\n".join(lines) if lines else "- None recorded."
+
+
+def prose_list(values: list[Any]) -> str:
+    lines = [f"- {str(value)}" for value in values if str(value).strip()]
+    return "\n".join(lines) if lines else "- None recorded."
+
+
+def validation_log_excerpt(text: str) -> str:
+    interesting = (
+        "VALIDATE_",
+        "[1/",
+        "[2/",
+        "[3/",
+        "[4/",
+        "[5/",
+        "[6/",
+        "[7/",
+        "PASS:",
+        "WARNING:",
+        "ERROR:",
+        "DX12 validation",
+        "DX12 baseline",
+        "avg_diff=",
+        "InfoQueue",
+        "ALL PASSED",
+        "COMPLETE",
+        "EXIT_CODE=",
+        "ELAPSED_SECONDS=",
+    )
+    lines = [line.rstrip() for line in text.splitlines()]
+    filtered = [line for line in lines if any(token in line for token in interesting)]
+    if not filtered:
+        filtered = lines[-80:]
+    if len(filtered) > 120:
+        filtered = filtered[:60] + ["... omitted ..."] + filtered[-60:]
+    excerpt = "\n".join(filtered).strip()
+    return excerpt[:12000] + "\n... truncated ..." if len(excerpt) > 12000 else excerpt
 
 
 def read_result_json(path: Path) -> dict[str, Any]:
@@ -1993,8 +2063,33 @@ def command_report_draft(args: argparse.Namespace) -> int:
         image_dir.mkdir(parents=True, exist_ok=True)
         report_path = report_dir / "report.md"
         template = resolve_repo_path(args.repo, REPORT_TEMPLATE).read_text(encoding="utf-8")
+        worker_payload = read_optional_json(run_dir / "worker-result.json")
         worker_result = read_worker_result(run_dir)
         validation = read_optional_text(run_dir / "validation.log")
+        verifier_path = latest_verifier_result_path(run_dir)
+        verifier_payload = read_optional_json(verifier_path) if verifier_path else {}
+        validation_payload = worker_payload.get("validation", {}) if isinstance(worker_payload.get("validation"), dict) else {}
+        validation_commands = validation_payload.get("commands", [])
+        if not isinstance(validation_commands, list):
+            validation_commands = [validation_commands]
+        validation_summary = str(validation_payload.get("result", "")).strip()
+        validation_excerpt = validation_log_excerpt(validation) if validation else ""
+        validation_result = validation_summary
+        if validation_excerpt and validation_excerpt not in validation_result:
+            validation_result = "\n\n".join(part for part in (validation_summary, "Validation log excerpt:\n" + validation_excerpt) if part)
+        changed_files = worker_payload.get("changed_files", [])
+        if not isinstance(changed_files, list):
+            changed_files = []
+        artifacts = worker_payload.get("artifacts", [])
+        if not isinstance(artifacts, list):
+            artifacts = []
+        timings = worker_payload.get("timings", [])
+        if not isinstance(timings, list):
+            timings = []
+        risks = worker_payload.get("risks", [])
+        if not isinstance(risks, list):
+            risks = []
+        commit_sha = str(worker_payload.get("commit_sha") or latest_commit(args.repo))
         transitions = run_state.get("transition_history", [])
         timeline = "\n".join(
             f"- {entry.get('at', '')}: `{entry.get('event', '')}` "
@@ -2007,7 +2102,7 @@ def command_report_draft(args: argparse.Namespace) -> int:
             "plan_path": item.get("plan", ""),
             "archived_plan_path": run_state.get("archived_plan_path") or item.get("plan", ""),
             "branch": item.get("branch", ""),
-            "commit_sha": latest_commit(args.repo),
+            "commit_sha": commit_sha,
             "report_commit_sha": "pending",
             "report_web_url": "pending until report-only commit is pushed",
             "pr_link": "",
@@ -2019,21 +2114,21 @@ def command_report_draft(args: argparse.Namespace) -> int:
             "finished_at": run_state.get("finished_at") or "",
             "elapsed": "pending",
             "progress_timeline": timeline,
-            "timings": "See worker/verifier results.",
+            "timings": prose_list(timings),
             "implementation_summary": worker_result or "Pending worker summary.",
-            "changed_files": "\n".join(f"- `{path}`" for path in git_changed_files(args.repo)),
+            "changed_files": markdown_list(changed_files),
             "validation_gate": item.get("validation_gate", ""),
-            "validation_commands": item.get("validation_gate", ""),
-            "validation_result": validation or "Pending validation evidence.",
+            "validation_commands": "\n".join(str(command) for command in validation_commands) or item.get("validation_gate", ""),
+            "validation_result": validation_result or "Pending validation evidence.",
             "verification_loop": "See `verification-rounds/` under the run directory.",
-            "artifacts": f"Run directory: `{repo_relative(args.repo, run_dir)}`",
+            "artifacts": "\n".join([f"- Run directory: `{repo_relative(args.repo, run_dir)}`", *[f"- `{artifact}`" for artifact in artifacts]]),
             "code_snippets": "Pending final report curation.",
             "pr_status": "Pending.",
             "merge_status": "Not permitted unless AGENTS.md and policy allow it.",
             "conflicts": "None recorded.",
-            "residual_risk": "Pending final report curation.",
+            "residual_risk": prose_list(risks),
             "sub_agent_summary": worker_result or "Pending worker result.",
-            "verifier_summary": "Pending verifier result.",
+            "verifier_summary": str(verifier_payload.get("feedback_for_worker") or verifier_payload.get("validation_assessment") or "Pending verifier result."),
             "next_queue_action": "Pending terminal transition.",
         }
         report_path.write_text(render_template_text(template, values), encoding="utf-8")
