@@ -1008,22 +1008,26 @@ void Draw( UIProfilerTabState& state,
     const float coreSectionY = drawSectionY + ( visibleDrawRowCount > 0 ? drawSectionH + 16.0f : 0.0f );
     const float coreSectionH = coreHeaderH + static_cast<float>( coreSampleCount ) * coreRowH;
     float totalCoreMs = 0.0f;
+    float maxCoreMs = 0.0f;
     for ( int i = 0; i < coreSampleCount; ++i )
     {
-        totalCoreMs += profiler.GetWorkerCoreSample( i ).coreMs;
+        const float coreMs = profiler.GetWorkerCoreSample( i ).coreMs;
+        totalCoreMs += coreMs;
+        maxCoreMs = (std::max)( maxCoreMs, coreMs );
     }
+    const float coreBarAxisMs = (std::max)( 0.25f, maxCoreMs );
 
     if ( coreSectionY + coreSectionH >= tableY && coreSectionY <= tableY + tableH )
     {
         draw.Rect( tableX, coreSectionY, tableW, coreSectionH, 0.018f, 0.030f, 0.038f, 0.52f );
         draw.Outline( tableX, coreSectionY, tableW, coreSectionH, 0.18f, 0.30f, 0.34f, 0.52f );
         draw.Rect( tableX, coreSectionY + coreHeaderH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-        snprintf( buf, sizeof( buf ), "CPU Cores (%d workers in flight)", coreSampleCount );
+        snprintf( buf, sizeof( buf ), "Worker CPU Core Time (%d in flight)", coreSampleCount );
         draw.Text( colScope, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, buf );
         draw.Text( colDraws, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Jobs" );
         draw.Text( colInstances, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Core ms" );
-        draw.Text( colVertices, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Span" );
-        snprintf( buf, sizeof( buf ), "Total %.2f ms", totalCoreMs );
+        draw.Text( colVertices, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Span ms" );
+        snprintf( buf, sizeof( buf ), "Work bars  max %.2f ms  total %.2f ms", coreBarAxisMs, totalCoreMs );
         draw.Text( barX, coreSectionY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, buf );
     }
 
@@ -1048,12 +1052,16 @@ void Draw( UIProfilerTabState& state,
         const float spanMs = (std::max)( 0.0f, sample.spanEndMs - sample.spanStartMs );
         snprintf( buf, sizeof( buf ), "%.2f", spanMs );
         draw.Text( colVertices, rowY + 6.0f, 11.0f, 0.78f, 0.84f, 0.86f, buf );
-        draw.Rect( barX, rowY + 16.0f, barW, 1.0f, 0.46f, 0.56f, 0.60f, 0.86f );
-        if ( spanMs > 0.0f )
+        draw.Rect( barX, rowY + 8.0f, barW, 14.0f, 0.05f, 0.08f, 0.10f, 0.86f );
+        draw.Outline( barX, rowY + 8.0f, barW, 14.0f, 0.22f, 0.34f, 0.38f, 0.72f );
+        if ( sample.coreMs > 0.0f )
         {
-            const float start = std::clamp( sample.spanStartMs / timelineBudgetMs, 0.0f, 1.0f );
-            const float end = std::clamp( sample.spanEndMs / timelineBudgetMs, start, 1.0f );
-            draw.Rect( barX + barW * start, rowY + 11.0f, barW * ( end - start ), 10.0f, color.r, color.g, color.b, 0.88f );
+            const float fill = std::clamp( sample.coreMs / coreBarAxisMs, 0.0f, 1.0f );
+            const float fillW = (std::max)( 1.0f, barW * fill );
+            draw.Rect( barX, rowY + 9.0f, fillW, 12.0f, color.r, color.g, color.b, 0.88f );
+            snprintf( buf, sizeof( buf ), "%.2f ms", sample.coreMs );
+            const float labelX = fillW > 62.0f ? barX + 6.0f : (std::min)( barX + barW - 58.0f, barX + fillW + 6.0f );
+            draw.Text( labelX, rowY + 10.0f, 9.5f, 0.94f, 0.98f, 0.99f, buf );
         }
     }
 }
