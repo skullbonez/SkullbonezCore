@@ -60,6 +60,9 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
+constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
+constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
+constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH = HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
@@ -740,6 +743,92 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
+
+    auto appendCandidatePairIfMissing = [&]( int a, int b )
+    {
+        if ( a == b || a < 0 || b < 0 || a >= modelCount || b >= modelCount )
+        {
+            return;
+        }
+
+        if ( a > b )
+        {
+            std::swap( a, b );
+        }
+
+        for ( const std::pair<int, int>& pair : candidatePairs )
+        {
+            if ( pair.first == a && pair.second == b )
+            {
+                return;
+            }
+        }
+
+        candidatePairs.emplace_back( a, b );
+    };
+
+    auto isFastSmallSweepBody = [&]( int index ) -> bool
+    {
+        if ( bodyStream.isFixed[index] )
+        {
+            return false;
+        }
+
+        const float radius = bodyStream.boundingRadii[index];
+        if ( radius > PHYSICS_FAST_SWEEP_MAX_RADIUS )
+        {
+            return false;
+        }
+
+        const Vector3 displacement = m_gameModels[index].GetVelocity() * dt;
+        const float displacementSq = Vector::VectorMagSquared( displacement );
+        const float minSweepDistance = (std::max)( radius * 2.0f, PHYSICS_FAST_SWEEP_MIN_DISTANCE );
+        return displacementSq > minSweepDistance * minSweepDistance;
+    };
+
+    auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
+    {
+        const Vector3 relativeStart = bodyStream.positions[movingIndex] - bodyStream.positions[targetIndex];
+        const Vector3 relativeDisplacement =
+            ( m_gameModels[movingIndex].GetVelocity() - m_gameModels[targetIndex].GetVelocity() ) * dt;
+        const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
+        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+        {
+            return false;
+        }
+
+        float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+        const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+        const float expandedRadius =
+            bodyStream.boundingRadii[movingIndex] + bodyStream.boundingRadii[targetIndex] +
+            Cfg().contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+        return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
+    };
+
+    // Tiny high-speed projectiles should not depend solely on cell overlap.
+    // If the hash grid samples or capacity ever miss their path, this conservative
+    // segment test still feeds the exact pair to narrowphase CCD.
+    for ( int movingIndex = 0; movingIndex < modelCount; ++movingIndex )
+    {
+        if ( !isFastSmallSweepBody( movingIndex ) )
+        {
+            continue;
+        }
+
+        for ( int targetIndex = 0; targetIndex < modelCount; ++targetIndex )
+        {
+            if ( movingIndex == targetIndex )
+            {
+                continue;
+            }
+            if ( sweptSegmentTouchesExpandedBody( movingIndex, targetIndex ) )
+            {
+                appendCandidatePairIfMissing( movingIndex, targetIndex );
+            }
+        }
+    }
+
     for ( const auto& pair : candidatePairs )
     {
         if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
@@ -1038,6 +1127,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         }
                         wokeBySweptImpact = true;
                         markObjectVisualEvent( event, x, y );
+                        writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( y, x ) )
@@ -1055,6 +1145,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         wakeSleepingModel( x );
                     }
                     markObjectVisualEvent( event, x, y );
+                    writeObjectCollisionCellEvent( event, x, y );
                 }
                 return;
             }
@@ -1091,6 +1182,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         }
                         wokeBySweptImpact = true;
                         markObjectVisualEvent( event, x, y );
+                        writeObjectCollisionCellEvent( event, x, y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( x, y ) )
@@ -1108,6 +1200,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         wakeSleepingModel( y );
                     }
                     markObjectVisualEvent( event, x, y );
+                    writeObjectCollisionCellEvent( event, x, y );
                 }
                 return;
             }

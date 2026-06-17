@@ -7,8 +7,7 @@ text on
 vsync off
 frames 1800
 fixed_step
-exit_on_complete
-time_scale 10.0
+time_scale 5.0
 world -9.81 0.0 0.0
 water_hidden on
 collision_visualizer off

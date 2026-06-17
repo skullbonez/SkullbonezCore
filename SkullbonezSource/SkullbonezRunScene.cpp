@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezWorkerPool.h"
 
 using namespace SkullbonezCore::Basics;
@@ -658,6 +659,115 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             }
         }
     }
+
+    SetUpRequiredContactsFromScene( scene );
+}
+
+
+void SkullbonezRun::SetUpRequiredContactsFromScene( const TestScene& scene )
+{
+    m_requiredSceneContacts.clear();
+    m_requiredSceneContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+
+    auto findModelByName = [&]( const char* name ) -> int
+    {
+        if ( !name || name[0] == '\0' )
+        {
+            return -1;
+        }
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( strcmp( models[static_cast<size_t>( i )].GetName(), name ) == 0 )
+            {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
+    {
+        const SceneRequiredContact& contact = scene.GetRequiredContact( i );
+        RunRequiredContactState state;
+        strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
+        strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
+        state.bodyA = findModelByName( state.nameA );
+        state.bodyB = findModelByName( state.nameB );
+        if ( state.bodyA < 0 || state.bodyB < 0 )
+        {
+            fprintf( stderr,
+                     "[scene] required_contact could not resolve '%s' <-> '%s'\n",
+                     state.nameA,
+                     state.nameB );
+        }
+        m_requiredSceneContacts.push_back( state );
+    }
+}
+
+
+void SkullbonezRun::UpdateRequiredSceneContacts()
+{
+    if ( m_requiredSceneContacts.empty() )
+    {
+        return;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( RunRequiredContactState& required : m_requiredSceneContacts )
+    {
+        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
+        {
+            continue;
+        }
+
+        ObjectContactManifold manifold;
+        if ( BuildObjectContactManifold( models[static_cast<size_t>( required.bodyA )],
+                                         models[static_cast<size_t>( required.bodyB )],
+                                         required.bodyA,
+                                         required.bodyB,
+                                         Cfg().contactEpsilon + 0.25f,
+                                         manifold ) )
+        {
+            required.touched = true;
+        }
+    }
+
+    const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+    for ( const PhysicsDebugContact& contact : contacts )
+    {
+        if ( contact.bodyA < 0 || contact.bodyB < 0 )
+        {
+            continue;
+        }
+        for ( RunRequiredContactState& required : m_requiredSceneContacts )
+        {
+            if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
+            {
+                continue;
+            }
+            const bool sameOrder = contact.bodyA == required.bodyA && contact.bodyB == required.bodyB;
+            const bool swappedOrder = contact.bodyA == required.bodyB && contact.bodyB == required.bodyA;
+            if ( sameOrder || swappedOrder )
+            {
+                required.touched = true;
+                break;
+            }
+        }
+    }
+}
+
+
+bool SkullbonezRun::RequiredSceneContactsComplete() const
+{
+    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
+    {
+        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -867,6 +977,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_uiStress = RunUIStressState{};
+    m_requiredSceneContacts.clear();
 
     // Reset cameras and game models
     m_systems.cameras->Reset();

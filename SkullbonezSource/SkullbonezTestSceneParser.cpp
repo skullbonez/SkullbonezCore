@@ -82,23 +82,19 @@ bool ParseOnOff( const char* value, bool& out )
 bool ParseUITab( const char* value, int& outTab )
 {
     static const SceneIntOption kTabs[] = {
-        { "whats_new", 0 },
-        { "whatsnew", 0 },
-        { "overview", 0 },
-        { "info", 0 },
-        { "profiler", 1 },
-        { "profile", 1 },
-        { "scene", 2 },
-        { "physics", 3 },
-        { "options", 4 },
-        { "params", 4 },
-        { "render", 5 },
-        { "renderer", 5 },
-        { "keys", 6 },
-        { "controls", 6 },
-        { "cinematic", 7 },
-        { "cine", 7 },
-        { "look", 7 },
+        { "profiler", 0 },
+        { "profile", 0 },
+        { "scene", 1 },
+        { "physics", 2 },
+        { "options", 3 },
+        { "params", 3 },
+        { "render", 4 },
+        { "renderer", 4 },
+        { "keys", 5 },
+        { "controls", 5 },
+        { "cinematic", 6 },
+        { "cine", 6 },
+        { "look", 6 },
     };
     return TryParseIntOption( value, kTabs, outTab );
 }
@@ -620,7 +616,7 @@ class TestSceneParser
         static const UIDirective directives[] = {
             { "visible", &TestSceneParser::ParseUIVisible, "ui visible on|off" },
             { "minimized", &TestSceneParser::ParseUIMinimized, "ui minimized on|off" },
-            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <whats_new|profiler|scene|physics|options|render|controls|cine>" },
+            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <profiler|scene|physics|options|render|controls|cine>" },
             { "rect", &TestSceneParser::ParseUIRect, "ui rect <x> <y> <w> <h>" },
             { "blur", &TestSceneParser::ParseUIBlur, "ui blur on|off" },
             { "renderer_combo", &TestSceneParser::ParseUIRendererCombo, "ui renderer_combo open|closed" },
@@ -1278,6 +1274,21 @@ class TestSceneParser
         ParseConvexHullCommon( args, true );
     }
 
+    void ParseRequiredContact( const char* args )
+    {
+        char tokens[2][64] = {};
+        const int parsed = ParseTokenList( "required_contact", args, "required_contact <nameA> <nameB>", tokens, 2 );
+        if ( parsed != 2 )
+        {
+            Fail( "Invalid required_contact at line %d (expected 2 fields, got %d)", m_lineNumber, parsed );
+        }
+
+        SceneRequiredContact contact;
+        strcpy_s( contact.nameA, sizeof( contact.nameA ), tokens[0] );
+        strcpy_s( contact.nameB, sizeof( contact.nameB ), tokens[1] );
+        m_scene.m_requiredContacts.push_back( contact );
+    }
+
     void ParseTimeScale( const char* args )
     {
         const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
@@ -1900,6 +1911,7 @@ class TestSceneParser
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
             { "convex_hull", &TestSceneParser::ParseConvexHull, "convex_hull <name> ..." },
             { "floating_convex_hull", &TestSceneParser::ParseFloatingConvexHull, "floating_convex_hull <name> ..." },
+            { "required_contact", &TestSceneParser::ParseRequiredContact, "required_contact <nameA> <nameB>" },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
             { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },

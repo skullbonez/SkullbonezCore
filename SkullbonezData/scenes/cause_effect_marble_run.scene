@@ -1,31 +1,91 @@
 # cause_effect_marble_run.scene
-# Ball drops onto a fixed floating ramp, rolls to the ground, then bowls over a cube tower.
+# Convex-hull marble-run fixture for chain-reaction physics testing.
 
+seed 31415
 physics on
 text on
-frames 3600
+vsync off
+frames 4200
 exit_on_complete
 fixed_step
-vsync off
+time_scale 1.0
 world -9.81 0.0 0.0
 water_hidden on
 flat_slope 30.0 0.0 0.0
+collision_visualizer on
+physics_debug_axes off
+physics_debug_transparent off
+physics_debug_alpha 0.35
 
-# Overview camera watching the ramp, landing zone, and tower.
-camera overview  370 125 575  535 50 500  0 1 0
+camera overview 275 145 625  575 54 500  0 1 0
 
-# Dropped marble. The ramp supplies the horizontal velocity.
-# ball <name> <posX> <posY> <posZ> <radius> <mass> <moment> <restitution>
-ball marble  430 125 500  7.0 10.0 196.0 0.65
+# Primary marble starts high, rolls through convex hull runners, circles the
+# funnel, jumps, and starts the domino transfer.
+ball_state marble_1  330 151 500  12 -1 0  0 0 0  0 0 0 1  5.0 12.0 0.55  12.0 12.0 12.0
 
-# Fixed floating ramp. This renders as #F1F1F1 at rest, goes red during contact,
-# and fades back to grey over 0.5 seconds after contact stops.
-# floating_box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
-floating_box floating_ramp  465 72 500  38.0 2.0 8.0  1000.0 0.9  0 0 12
+# Second marble is parked just beyond the dominoes. The last falling domino must
+# touch it before it drives into the tower.
+ball_state marble_2  420 151 500  8 0 0  0 0 0  0 0 0 1  5.0 12.0 0.50  12.0 12.0 12.0
 
-# Cube tower on the flat ground downstream.
-# box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution>
-box tower_0  555 34 500  4.0 4.0 4.0  4.0 0.2
-box tower_1  553 42 500  4.0 4.0 4.0  4.0 0.2
-box tower_2  551 50 500  4.0 4.0 4.0  4.0 0.2
-box tower_3  549 58 500  4.0 4.0 4.0  4.0 0.2
+# Convex hull U/V groove runners. Each station uses side wedges and a tapered
+# bottom hull so the marble touches authored hull geometry, not plain boxes.
+floating_convex_hull runner_u_left_01  330 144 491  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 0 18
+floating_convex_hull runner_u_floor_01  330 142 500  3000.0 0.45 SkullbonezData/hulls/tapered_block.hull  0 0 12
+floating_convex_hull runner_u_right_01  330 144 509  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 180 -18
+
+floating_convex_hull runner_u_left_02  330 144 491  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 0 14
+floating_convex_hull runner_u_floor_02  330 142 500  3000.0 0.45 SkullbonezData/hulls/tapered_block.hull  0 0 10
+floating_convex_hull runner_u_right_02  330 144 509  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 180 -14
+
+floating_convex_hull runner_u_left_03  330 144 491  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 0 10
+floating_convex_hull runner_u_floor_03  330 142 500  3000.0 0.45 SkullbonezData/hulls/tapered_block.hull  0 0 8
+floating_convex_hull runner_u_right_03  330 144 509  3000.0 0.45 SkullbonezData/hulls/wedge.hull  0 180 -10
+
+# Funnel made from fixed convex hulls. The open side points toward the jump lane.
+floating_convex_hull funnel_01  330 142 500  3000.0 0.55 SkullbonezData/hulls/hex_prism.hull  0 0 18
+floating_convex_hull funnel_02  362 142 482  3000.0 0.55 SkullbonezData/hulls/tri_prism.hull  0 35 12
+floating_convex_hull funnel_03  370 142 490  3000.0 0.55 SkullbonezData/hulls/hex_prism.hull  0 70 8
+floating_convex_hull funnel_04  330 142 500  3000.0 0.55 SkullbonezData/hulls/tapered_block.hull  0 100 0
+floating_convex_hull funnel_05  370 142 510  3000.0 0.55 SkullbonezData/hulls/hex_prism.hull  0 145 -8
+floating_convex_hull funnel_06  330 142 500  3000.0 0.55 SkullbonezData/hulls/tri_prism.hull  0 205 -12
+floating_convex_hull funnel_07  354 142 508  3000.0 0.55 SkullbonezData/hulls/tapered_block.hull  0 250 -12
+
+# Jump takeoff and landing pads are convex hull wedges with a visible gap.
+floating_convex_hull jump_takeoff  330 142 500  3000.0 0.65 SkullbonezData/hulls/tapered_block.hull  0 0 0
+floating_convex_hull jump_marker  386 142 492  3000.0 0.30 SkullbonezData/hulls/diamond.hull  0 30 0
+floating_convex_hull jump_landing  330 142 500  3000.0 0.45 SkullbonezData/hulls/tapered_block.hull  0 0 0
+
+# Dominoes: thin dynamic boxes on the ground. The first marble hits domino_01;
+# domino_06 is placed to knock marble_2 toward the tower.
+box domino_01  334.0 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+box domino_02  336.4 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+box domino_03  338.8 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+box domino_04  341.2 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+box domino_05  343.6 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+box domino_06  414.0 151 500  1.2 13.0 5.0  10.0 0.18  0 0 0
+
+# End tower. The lower block is the explicit required smash target; the rest
+# makes the finish visually obvious when the second marble arrives.
+box tower_00  429 151 500  4.0 4.0 4.0  5.0 0.18
+box tower_01  429 159 500  4.0 4.0 4.0  5.0 0.18
+box tower_02  429 167 500  4.0 4.0 4.0  5.0 0.18
+box tower_03  421 151 500  4.0 4.0 4.0  5.0 0.18
+box tower_04  421 159 500  4.0 4.0 4.0  5.0 0.18
+box tower_05  437 151 500  4.0 4.0 4.0  5.0 0.18
+box tower_06  437 159 500  4.0 4.0 4.0  5.0 0.18
+box tower_07  429 175 500  4.0 4.0 4.0  5.0 0.18
+
+# Required contacts are the proof checklist for this test scene.
+required_contact marble_1 runner_u_floor_01
+required_contact marble_1 runner_u_floor_02
+required_contact marble_1 runner_u_floor_03
+required_contact marble_1 funnel_01
+required_contact marble_1 funnel_04
+required_contact marble_1 funnel_06
+required_contact marble_1 jump_takeoff
+required_contact marble_1 jump_landing
+required_contact marble_1 domino_01
+required_contact domino_01 domino_02
+required_contact domino_03 domino_04
+required_contact domino_06 marble_2
+required_contact marble_2 tower_00

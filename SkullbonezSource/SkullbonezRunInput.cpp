@@ -1157,6 +1157,11 @@ void SkullbonezRun::TakeInput()
         {
             m_debug.physicsDebugContactLinger = std::clamp( uiCommands.physics.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
         }
+        if ( uiCommands.physics.requestedSpawnObjectType >= 0 )
+        {
+            EnterInteractiveSceneRun();
+            SpawnPhysicsObjectFromCamera( uiCommands.physics.requestedSpawnObjectType );
+        }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
             ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
@@ -1545,4 +1550,103 @@ void SkullbonezRun::FireProjectile()
     model.SetLinearVelocity( forward * fireSpeed );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
     model.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
+}
+
+
+void SkullbonezRun::SpawnPhysicsObjectFromCamera( int spawnType )
+{
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    if ( modelCount >= ActiveGameModelCapacity() )
+    {
+        fprintf( stderr, "[ui] Cannot spawn physics object: model capacity reached.\n" );
+        return;
+    }
+
+    const Vector3 camPos = m_systems.cameras->GetCameraTranslation();
+    Vector3 forward = m_systems.cameras->GetCameraView() - camPos;
+    const float forwardLenSq = SkullbonezCore::Math::Vector::VectorMagSquared( forward );
+    if ( forwardLenSq > TOLERANCE * TOLERANCE )
+    {
+        forward = forward * ( 1.0f / sqrtf( forwardLenSq ) );
+    }
+    else
+    {
+        forward = Vector3( 0.0f, 0.0f, 1.0f );
+    }
+
+    const Vector3 spawnPos = camPos + forward * 28.0f;
+    const int clampedSpawnType = std::clamp( spawnType, 0, UI::PhysicsTab::SPAWN_TYPE_COUNT - 1 );
+
+    auto addSphere = [&]( const char* baseName, float radius, float mass, float restitution, float tintR, float tintG, float tintB )
+    {
+        const float moment = 0.4f * mass * radius * radius;
+        GameModel model( &m_cWorldEnvironment,
+                         spawnPos,
+                         Vector3( moment, moment, moment ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( restitution );
+        model.AddBoundingSphere( radius );
+        model.SetLinearVelocity( forward * 8.0f );
+        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%03d", baseName, modelCount );
+        model.SetName( name );
+        const int index = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+        m_cGameModelCollection.WakeModel( index );
+    };
+
+    auto addHull = [&]( const char* label, const char* path, float tintR, float tintG, float tintB )
+    {
+        constexpr float hullMass = 24.0f;
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
+        GameModel model( &m_cWorldEnvironment,
+                         spawnPos,
+                         hull.ComputeBoxApproxInertia( hullMass ),
+                         hullMass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.30f );
+        model.AddConvexHull( hull );
+        model.SetLinearVelocity( forward * 6.0f );
+        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "spawn_%s_%03d", label, modelCount );
+        model.SetName( name );
+        const int index = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+        m_cGameModelCollection.WakeModel( index );
+    };
+
+    switch ( clampedSpawnType )
+    {
+    case UI::PhysicsTab::SPAWN_BALL:
+        addSphere( "spawn_ball", 4.0f, 6.0f, 0.45f, 0.35f, 0.75f, 1.0f );
+        break;
+    case UI::PhysicsTab::SPAWN_SPHERE:
+        addSphere( "spawn_sphere", 8.0f, 24.0f, 0.35f, 0.95f, 0.92f, 0.82f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_WEDGE:
+        addHull( "wedge", "SkullbonezData/hulls/wedge.hull", 0.92f, 0.65f, 0.30f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_TRI_PRISM:
+        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull", 0.45f, 0.95f, 0.62f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_TAPERED_BLOCK:
+        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull", 0.95f, 0.52f, 0.76f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_PYRAMID:
+        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull", 0.78f, 0.62f, 1.0f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_HEX_PRISM:
+        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull", 0.35f, 0.95f, 0.90f );
+        break;
+    case UI::PhysicsTab::SPAWN_HULL_DIAMOND:
+        addHull( "diamond", "SkullbonezData/hulls/diamond.hull", 1.0f, 0.86f, 0.40f );
+        break;
+    default:
+        break;
+    }
+
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }

@@ -202,6 +202,7 @@ struct UIPhysicsCommands
     uint32_t togglePhysicsDebugFlags = 0;
     bool stepPhysicsPipelinePrevious = false;
     bool stepPhysicsPipelineNext = false;
+    int requestedSpawnObjectType = -1;
 };
 
 struct UISceneOptionCommands

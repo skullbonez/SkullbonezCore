@@ -86,6 +86,7 @@ void SkullbonezRun::Run()
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
             m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            UpdateRequiredSceneContacts();
             PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
             PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
@@ -366,17 +367,62 @@ bool SkullbonezRun::TickSceneAdvance()
 {
     ++SceneState().currentFrame;
 
+    const bool hasRequiredContactGate = !m_requiredSceneContacts.empty();
+    const bool requiredContactsComplete = RequiredSceneContactsComplete();
+    if ( hasRequiredContactGate && requiredContactsComplete && !SceneState().isTestComplete )
+    {
+#ifdef _DEBUG
+        LogSceneFinished( "required_contacts" );
+#endif
+        if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
+        {
+            if ( !AdvanceScene() )
+            {
+                PostQuitMessage( 0 );
+            }
+            return true;
+        }
+
+        if ( CanSceneAutomationQuit() )
+        {
+            SceneState().isTestComplete = true;
+        }
+        else
+        {
+            HoldCompletedInteractiveScene();
+        }
+    }
+
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
     if ( SceneState().targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
     {
         if ( SceneState().currentFrame >= SceneState().targetFrameCount )
         {
+            const bool frameCountCompletesScene = !hasRequiredContactGate || requiredContactsComplete;
 #ifdef _DEBUG
-            if ( !SceneState().isTestComplete )
+            if ( !SceneState().isTestComplete && ( frameCountCompletesScene || SceneState().currentFrame == SceneState().targetFrameCount ) )
             {
-                LogSceneFinished( "frame_count" );
+                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_contacts_missing" );
+                if ( !frameCountCompletesScene )
+                {
+                    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
+                    {
+                        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
+                        {
+                            fprintf( stderr,
+                                     "[scene] required_contact missing: %s <-> %s\n",
+                                     contact.nameA,
+                                     contact.nameB );
+                        }
+                    }
+                }
             }
 #endif
+            if ( !frameCountCompletesScene )
+            {
+                return false;
+            }
+
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
@@ -387,11 +433,11 @@ bool SkullbonezRun::TickSceneAdvance()
             }
             else
             {
-                if ( CanSceneAutomationQuit() )
+                if ( frameCountCompletesScene && CanSceneAutomationQuit() )
                 {
                     SceneState().isTestComplete = true;
                 }
-                else
+                else if ( frameCountCompletesScene )
                 {
                     HoldCompletedInteractiveScene();
                 }

@@ -26,6 +26,7 @@ Related:
 #pragma once
 
 #include "UICommands.h"
+#include "UISlider.h"
 
 namespace SkullbonezCore
 {
@@ -42,14 +43,18 @@ namespace SceneTab
 
 constexpr int DEMO_SCENE_BROWSER_INDEX = -2;
 constexpr const char* DEMO_SCENE_OPTION = "Demo Scene";
+constexpr int SLIDER_TIME_SCALE = 30;
 
 struct UISceneTabState
 {
     char filter[64] = {};
     bool filterKeyWasDown[256] = {};
     int comboScroll = 0;
+    UISlider timeScaleSlider;
+    float previewTimeScale = -1.0f;
 };
 
+int ContentHeight();
 bool FilterMatches( const char* option, const char* filter );
 int CountFilteredOptions( const char* const* options, int optionCount, const char* filter );
 int FindFilteredOptionIndex( const char* const* options, int optionCount, const char* filter, int filteredIndex );
@@ -59,6 +64,7 @@ void ClearFilter( UISceneTabState& state );
 void SetFilter( UISceneTabState& state, const char* filter );
 void CloseCombo( UISceneTabState& state, UIComboBox& combo );
 void CaptureFilterKeyState( UISceneTabState& state );
+void ResetPreviewState( UISceneTabState& state );
 
 void UpdateFilterTyping( UISceneTabState& state,
                          UIComboBox& combo,
@@ -97,6 +103,7 @@ bool HandleContentClick( UISceneTabState& state,
                          UIButton& resetDefaultsButton,
                          UIButton& saveDefaultsButton,
                          InGameUIInputResult& result,
+                         int& activeSlider,
                          const char* const* sceneOptions,
                          int sceneOptionCount,
                          int selectedSceneOption,
@@ -105,6 +112,9 @@ bool HandleContentClick( UISceneTabState& state,
                          float contentX,
                          float rowBase,
                          float contentW );
+
+bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
+bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result );
 
 void Draw( UISceneTabState& state,
            UIComboBox& combo,

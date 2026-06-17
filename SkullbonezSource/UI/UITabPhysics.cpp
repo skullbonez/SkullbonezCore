@@ -50,6 +50,21 @@ constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 560.0f;
 constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 600.0f;
 constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 640.0f;
 constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 680.0f;
+constexpr float PHYSICS_SPAWN_SECTION_Y = 736.0f;
+constexpr float PHYSICS_SPAWN_CONTROL_Y = 762.0f;
+constexpr float PHYSICS_SPAWN_BUTTON_W = 76.0f;
+constexpr float PHYSICS_SPAWN_GAP = 8.0f;
+
+const char* const kPhysicsSpawnOptions[] = {
+    "Ball",
+    "Sphere",
+    "Hull wedge",
+    "Hull tri prism",
+    "Hull tapered",
+    "Hull pyramid",
+    "Hull hex prism",
+    "Hull diamond",
+};
 
 void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                       int index,
@@ -93,6 +108,10 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     state.tornadoInwardSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_INWARD_SLIDER_Y, contentW, 34.0f );
     state.tornadoSwirlSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_SWIRL_SLIDER_Y, contentW, 34.0f );
     state.tornadoLiftSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_LIFT_SLIDER_Y, contentW, 34.0f );
+    const float spawnComboW = (std::max)( 180.0f, contentW - PHYSICS_SPAWN_BUTTON_W - PHYSICS_SPAWN_GAP );
+    state.spawnCombo.SetBounds( contentX, contentBaseY + PHYSICS_SPAWN_CONTROL_Y, spawnComboW, 24.0f );
+    state.spawnButton.SetBounds( contentX + spawnComboW + PHYSICS_SPAWN_GAP, contentBaseY + PHYSICS_SPAWN_CONTROL_Y, PHYSICS_SPAWN_BUTTON_W, 24.0f );
+    state.spawnCombo.SetDropUp( true );
 }
 
 } // namespace
@@ -106,7 +125,7 @@ namespace PhysicsTab
 
 int ContentHeight()
 {
-    return 728;
+    return 812;
 }
 
 
@@ -133,7 +152,36 @@ bool HandleContentClick( UIPhysicsTabState& state,
 {
     SetContentBounds( state, contentX, rowBase, contentW );
 
-    if ( state.toggles[0].HitTest( mouseX, mouseY ) )
+    if ( state.spawnCombo.IsOpen() )
+    {
+        const int option = state.spawnCombo.HitOption( mouseX, mouseY, SPAWN_TYPE_COUNT );
+        if ( option >= 0 && option < SPAWN_TYPE_COUNT )
+        {
+            state.selectedSpawnType = option;
+            result.commands.physics.requestedSpawnObjectType = option;
+            state.spawnCombo.Close();
+            return true;
+        }
+        if ( state.spawnCombo.HitBox( mouseX, mouseY ) )
+        {
+            state.spawnCombo.ToggleOpen();
+            return true;
+        }
+        state.spawnCombo.Close();
+        return true;
+    }
+
+    if ( state.spawnCombo.HitBox( mouseX, mouseY ) )
+    {
+        state.spawnCombo.ToggleOpen();
+        return true;
+    }
+    else if ( state.spawnButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.requestedSpawnObjectType = std::clamp( state.selectedSpawnType, 0, SPAWN_TYPE_COUNT - 1 );
+        return true;
+    }
+    else if ( state.toggles[0].HitTest( mouseX, mouseY ) )
     {
         result.commands.physics.toggleCollisionVisualizer = true;
     }
@@ -467,6 +515,26 @@ void Draw( UIPhysicsTabState& state,
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_LIFT_SLIDER_Y, 34.0f ) )
     {
         state.tornadoLiftSlider.Draw( draw, "Lift force", buf, displayTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_SPAWN_SECTION_Y, 18.0f ) )
+    {
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + PHYSICS_SPAWN_SECTION_Y, 12.0f, "Spawn Body" );
+    }
+    const float spawnComboW = (std::max)( 180.0f, contentW - PHYSICS_SPAWN_BUTTON_W - PHYSICS_SPAWN_GAP );
+    state.spawnCombo.SetBounds( contentX, scrolledY + PHYSICS_SPAWN_CONTROL_Y, spawnComboW, 24.0f );
+    state.spawnButton.SetBounds( contentX + spawnComboW + PHYSICS_SPAWN_GAP, scrolledY + PHYSICS_SPAWN_CONTROL_Y, PHYSICS_SPAWN_BUTTON_W, 24.0f );
+    state.spawnCombo.SetDropUp( true );
+    state.selectedSpawnType = std::clamp( state.selectedSpawnType, 0, SPAWN_TYPE_COUNT - 1 );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_SPAWN_CONTROL_Y, 24.0f ) || state.spawnCombo.IsOpen() )
+    {
+        state.spawnCombo.Draw( draw,
+                               "Type",
+                               kPhysicsSpawnOptions,
+                               SPAWN_TYPE_COUNT,
+                               state.selectedSpawnType,
+                               mouseX,
+                               mouseY );
+        state.spawnButton.Draw( draw, "Spawn", mouseX, mouseY );
     }
 }
 

@@ -1167,7 +1167,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, 
     // Support policy is metadata, not collision response. Unsupported edge or
     // point contacts still generate rows and solve penetration, but they cannot
     // seed sleep, receive rest-only gravity warm start, or keep cached impulses.
-    out.supportsRestingPolicy = !terrainSupport.isBox || terrainSupport.supportsRestingPolicy;
+    out.supportsRestingPolicy = !( terrainSupport.isBox || terrainSupport.isConvexHull ) || terrainSupport.supportsRestingPolicy;
     out.inhibitsSleep = !out.supportsRestingPolicy;
     return true;
 }

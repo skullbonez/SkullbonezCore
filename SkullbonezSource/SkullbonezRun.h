@@ -312,6 +312,15 @@ struct RunFireState
     bool bulletPoolReady = false;
 };
 
+struct RunRequiredContactState
+{
+    char nameA[64] = {};
+    char nameB[64] = {};
+    int bodyA = -1;
+    int bodyB = -1;
+    bool touched = false;
+};
+
 struct RunUIStressState
 {
     bool enabled = false;                   // Deterministic scene-driven UI stress runner
@@ -806,16 +815,17 @@ class SkullbonezRun
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
 #endif
-    RunRuntimeSettings m_runtimeSettings;                     // Scene/app runtime swap policy toggles
-    RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and pass resource ownership
-    RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
-    SimulationSystem m_simulation;                            // Simulation timestep policy and physics accumulators
-    RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
-    RunLiveStyleControlState m_liveStyle;                     // Live style tweak/capture harness state
-    UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
-    RunDebugState m_debug;                                    // Runtime debug/overlay toggles
-    RunFireState m_fire;                                      // Runtime silver bullet pool state
+    RunRuntimeSettings m_runtimeSettings; // Scene/app runtime swap policy toggles
+    RunTimerState m_timers;               // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;          // Window, camera, texture, terrain, and pass resource ownership
+    RunCameraState m_camera;              // Camera/input state and ball-tracking settings
+    SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
+    RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
+    RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
+    UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
+    RunDebugState m_debug;                // Runtime debug/overlay toggles
+    RunFireState m_fire;                  // Runtime silver bullet pool state
+    std::vector<RunRequiredContactState> m_requiredSceneContacts;
     RunUIStressState m_uiStress;                              // Deterministic UI stress run state
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
@@ -849,6 +859,9 @@ class SkullbonezRun
     void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
+    void SetUpRequiredContactsFromScene( const TestScene& scene );                                                                     // Resolve scene-authored contact gates to model indices
+    void UpdateRequiredSceneContacts();                                                                                                // Mark required scene contact gates touched by current physics contacts
+    bool RequiredSceneContactsComplete() const;                                                                                        // True when there are no gates or all gates have been touched
     void RegisterBuiltInAssets();                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                             // Draws terrain, objects, helpers, and scene effects
@@ -908,17 +921,18 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickPhysics( double dt );              // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                     // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                // Poll live.style/capture.txt and apply look changes without scene reload
-    void TickLiveStyleControlCapture();         // Save pending harness screenshot after render/UI are drawn
-    void TickAutoCycle();                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                         // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                    // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt ); // Slide water surface up/down while held
-    void ResetProjectilePool();                 // Clears cached projectile indices after scene/model rebuilds
-    bool EnsureProjectilePool();                // Lazily creates the ten runtime silver bullets
-    void FireProjectile();                      // Recycle and launch a high-speed silver bullet from the camera
+    void TickPhysics( double dt );                      // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                             // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                        // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();                 // Save pending harness screenshot after render/UI are drawn
+    void TickAutoCycle();                               // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                 // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                            // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );         // Slide water surface up/down while held
+    void ResetProjectilePool();                         // Clears cached projectile indices after scene/model rebuilds
+    bool EnsureProjectilePool();                        // Lazily creates the ten runtime silver bullets
+    void FireProjectile();                              // Recycle and launch a high-speed silver bullet from the camera
+    void SpawnPhysicsObjectFromCamera( int spawnType ); // Spawn a UI-selected dynamic body just in front of the camera
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );

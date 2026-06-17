@@ -189,6 +189,12 @@ struct SceneObjectMaterialOverride
     Rendering::RenderMaterial material;
 };
 
+struct SceneRequiredContact
+{
+    char nameA[64] = {};
+    char nameB[64] = {};
+};
+
 struct SceneOptions
 {
     bool isPhysicsEnabled = true;
@@ -334,6 +340,7 @@ class TestScene
     std::vector<SceneBox> m_boxes;
     std::vector<SceneConvexHull> m_convexHulls;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
+    std::vector<SceneRequiredContact> m_requiredContacts;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -412,6 +419,8 @@ class TestScene
     const SceneConvexHull& GetConvexHull( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
+    int GetRequiredContactCount() const;
+    const SceneRequiredContact& GetRequiredContact( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

@@ -439,6 +439,23 @@ const SceneConvexHull& TestScene::GetConvexHull( int index ) const
 }
 
 
+int TestScene::GetRequiredContactCount() const
+{
+    return static_cast<int>( m_requiredContacts.size() );
+}
+
+
+const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
+    {
+        throw std::runtime_error( "RequiredContact index out of range.  (TestScene::GetRequiredContact)" );
+    }
+
+    return m_requiredContacts[index];
+}
+
+
 int TestScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );

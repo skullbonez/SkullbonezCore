@@ -23,7 +23,9 @@ Related:
 */
 #pragma once
 
+#include "UIButton.h"
 #include "UICheckBox.h"
+#include "UIComboBox.h"
 #include "UICommands.h"
 #include "UIDraw.h"
 #include "UISlider.h"
@@ -37,6 +39,16 @@ struct InGameUIFrameData;
 
 namespace PhysicsTab
 {
+
+constexpr int SPAWN_BALL = 0;
+constexpr int SPAWN_SPHERE = 1;
+constexpr int SPAWN_HULL_WEDGE = 2;
+constexpr int SPAWN_HULL_TRI_PRISM = 3;
+constexpr int SPAWN_HULL_TAPERED_BLOCK = 4;
+constexpr int SPAWN_HULL_PYRAMID = 5;
+constexpr int SPAWN_HULL_HEX_PRISM = 6;
+constexpr int SPAWN_HULL_DIAMOND = 7;
+constexpr int SPAWN_TYPE_COUNT = 8;
 
 constexpr int SLIDER_ALPHA = 3;
 constexpr int SLIDER_CONTACT_LINGER = 4;
@@ -52,6 +64,8 @@ struct UIPhysicsTabState
     UICheckBox toggles[11];
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
+    UIComboBox spawnCombo;
+    UIButton spawnButton;
     UISlider alphaSlider;
     UISlider contactLingerSlider;
     UISlider worldGravitySlider;
@@ -67,6 +81,7 @@ struct UIPhysicsTabState
     float previewTornadoInward = -1.0f;
     float previewTornadoSwirl = -1.0f;
     float previewTornadoLift = -1.0f;
+    int selectedSpawnType = SPAWN_BALL;
 };
 
 int ContentHeight();

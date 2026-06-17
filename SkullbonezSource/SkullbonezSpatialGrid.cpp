@@ -179,14 +179,17 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
         }
     }
 
-    if ( entryPoolUsed < MAX_CELL_ENTRIES )
+    if ( entryPoolUsed >= MAX_CELL_ENTRIES )
     {
-        entries[entryPoolUsed].objectIndex = index;
-        entries[entryPoolUsed].next = b.head;
-        b.head = entryPoolUsed;
-        ++entryPoolUsed;
-        ++b.count;
+        assert( false && "SpatialGrid cell entry capacity exceeded" );
+        throw std::runtime_error( "SpatialGrid cell entry capacity exceeded" );
     }
+
+    entries[entryPoolUsed].objectIndex = index;
+    entries[entryPoolUsed].next = b.head;
+    b.head = entryPoolUsed;
+    ++entryPoolUsed;
+    ++b.count;
 }
 
 

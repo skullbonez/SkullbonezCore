@@ -463,19 +463,6 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
 
-constexpr int UI_WHATS_NEW_CONTENT_HEIGHT = 470;
-constexpr float UI_WHATS_NEW_CARD_H = 134.0f;
-constexpr float UI_WHATS_NEW_CARD_GAP = 8.0f;
-constexpr float UI_WHATS_NEW_CONTROL_Y = 66.0f;
-constexpr float UI_WHATS_NEW_SLIDER_Y = 90.0f;
-constexpr float UI_WHATS_NEW_SLIDER_DESC_Y = 122.0f;
-constexpr int UI_WHATS_NEW_TOGGLE_GRAPHITE = 0;
-constexpr int UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY = 1;
-constexpr int UI_WHATS_NEW_TOGGLE_DX12_GATE = 2;
-constexpr int UI_WHATS_NEW_SLIDER_UI_FILES = 0;
-constexpr int UI_WHATS_NEW_SLIDER_TEXTURES = 1;
-constexpr int UI_WHATS_NEW_SLIDER_PARITY = 2;
-
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
 {
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
@@ -551,176 +538,6 @@ void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, 
     snprintf( text, sizeof( text ), "%s", value ? value : "" );
     EllipsizeToWidth( text, sizeof( text ), pxSize, maxWidth );
     draw.Text( x, y, pxSize, color.r, color.g, color.b, text );
-}
-
-void DrawFittedContentText( const UIDrawContext& draw,
-                            float contentY,
-                            float contentH,
-                            float x,
-                            float y,
-                            float pxSize,
-                            const Style::UIColor& color,
-                            const char* value,
-                            float maxWidth )
-{
-    if ( !IsRowVisible( contentY, contentH, y, pxSize + 4.0f ) )
-    {
-        return;
-    }
-
-    DrawFittedText( draw, x, y, pxSize, color, value, maxWidth );
-}
-
-void DrawWhatsNewCard( const UIDrawContext& draw,
-                       float contentY,
-                       float contentH,
-                       float x,
-                       float y,
-                       float w,
-                       float h,
-                       const char* title,
-                       const char* tag,
-                       const char* line1,
-                       const char* line2 )
-{
-    if ( !IsRowVisible( contentY, contentH, y, h ) )
-    {
-        return;
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    draw.RoundedPanel( { x, y, w, h }, Style::Radii().window, palette.windowSubtle, palette.border );
-    DrawFittedText( draw, x + 14.0f, y + 12.0f, 12.5f, palette.textPrimary, title, w - 132.0f );
-    DrawFittedText( draw, x + w - 112.0f, y + 13.0f, 9.5f, palette.textMuted, tag, 100.0f );
-    DrawFittedText( draw, x + 14.0f, y + 34.0f, 10.0f, palette.textSecondary, line1, w - 28.0f );
-    DrawFittedText( draw, x + 14.0f, y + 49.0f, 10.0f, palette.textMuted, line2, w - 28.0f );
-}
-
-void DrawWhatsNewDescription( const UIDrawContext& draw, float contentY, float contentH, float x, float y, float w, const char* text )
-{
-    if ( !IsRowVisible( contentY, contentH, y, 14.0f ) )
-    {
-        return;
-    }
-
-    DrawFittedText( draw, x, y, 9.5f, Style::Palette().textMuted, text, w );
-}
-
-void SetWhatsNewControlBounds( UICheckBox toggles[3],
-                               UISlider statusSliders[3],
-                               float contentX,
-                               float rowBase,
-                               float contentW )
-{
-    const float innerX = contentX + 16.0f;
-    const float innerW = (std::max)( 180.0f, contentW - 32.0f );
-    const float firstCardY = 42.0f;
-    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-
-    toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-
-    toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-
-    toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_PARITY].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-}
-
-void DrawWhatsNewTab( UICheckBox toggles[3],
-                      UISlider statusSliders[3],
-                      const UIDrawContext& draw,
-                      float contentX,
-                      float contentY,
-                      float contentW,
-                      float contentH,
-                      float scrolledY )
-{
-    const Style::UIPalette& palette = Style::Palette();
-    const float innerX = contentX + 16.0f;
-    const float descX = innerX + 210.0f;
-    const float descW = (std::max)( 120.0f, contentX + contentW - descX - 16.0f );
-    const float firstCardY = 42.0f;
-    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "WHATS NEW" );
-    DrawFittedContentText( draw,
-                           contentY,
-                           contentH,
-                           contentX,
-                           scrolledY + 20.0f,
-                           10.0f,
-                           palette.textSecondary,
-                           "Latest completed implementation PRs only.",
-                           contentW );
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + firstCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Graphite overlay UI",
-                      "PR #58",
-                      "Matte graphite surfaces, rounded controls, sage accents, and the WHATS NEW landing tab.",
-                      "The shared UI draw path now uses style tokens and rounded panel primitives." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].DrawToggle( draw, "Graphite restyle", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Shows that the overlay styling pass is active." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].Draw( draw, "UI files touched", "22 / 22", 22.0f, 0.0f, 22.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Tracks the graphite PR surface area instead of changing scene state." );
-    }
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + secondCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Asset texture registry",
-                      "PR #57",
-                      "Textures now have stable source records while legacy numeric texture hashes keep working.",
-                      "DX12 resource rebuilds can restore registered GPU handles from the source registry." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].DrawToggle( draw, "Source records", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Indicates built-in texture sources are registered." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].Draw( draw, "Built-ins indexed", "8 / 8", 8.0f, 0.0f, 8.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Eight default texture assets are available to dump and rebuild." );
-    }
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + thirdCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Validation harness upgrade",
-                      "PR #56",
-                      "Renderer validation now writes manifests, summaries, heatmaps, and explicit DX12 gate output.",
-                      "The screenshot diff budget is visible here so the gate is easy to interpret." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].DrawToggle( draw, "DX12 gate", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Clean runs report zero DX12 validation errors." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "DX12 screenshots must remain under this average pixel difference." );
-    }
 }
 
 int RenderSliderIndexFromActiveSlider( int activeSlider )
@@ -1189,6 +1006,11 @@ void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
 
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
+    const int tabIndex = static_cast<int>( tab );
+    if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) )
+    {
+        tab = InGameUITab::Scene;
+    }
     m_activeTab = tab;
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
@@ -1196,6 +1018,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     CloseSceneCombo();
     m_cineSceneCombo.Close();
     m_activeSlider = 0;
+    SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
@@ -1217,6 +1040,7 @@ void InGameUI::CancelInputCapture()
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
     m_activeSlider = 0;
+    SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
@@ -1424,18 +1248,12 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
 
     switch ( m_activeTab )
     {
-    case InGameUITab::WhatsNew:
-        for ( int i = 0; i < 3; ++i )
-        {
-            DrawHitboxRect( draw, m_whatsNewToggles[i].Bounds(), contentR, contentG, contentB );
-            DrawHitboxRect( draw, m_whatsNewSliders[i].Bounds(), contentR, contentG, contentB );
-        }
-        break;
     case InGameUITab::Scene:
         DrawComboHitboxes( draw, m_sceneCombo, SceneDropdownHitboxOptionCount( m_sceneTab, data ), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Physics:
         for ( int i = 0; i < 11; ++i )
@@ -1452,6 +1270,8 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw, m_physicsTab.spawnCombo, PhysicsTab::SPAWN_TYPE_COUNT, contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.spawnButton.Bounds(), buttonR, buttonG, buttonB );
         break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
@@ -1520,8 +1340,8 @@ int InGameUI::ContentHeight() const
 {
     switch ( m_activeTab )
     {
-    case InGameUITab::WhatsNew:
-        return UI_WHATS_NEW_CONTENT_HEIGHT;
+    case InGameUITab::Scene:
+        return SceneTab::ContentHeight();
     case InGameUITab::Keys:
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
@@ -1790,13 +1610,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
             }
         }
-        else if ( inContent && m_activeTab == InGameUITab::WhatsNew )
-        {
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            m_cineSceneCombo.Close();
-        }
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
@@ -1830,6 +1643,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                          m_resetDefaultsButton,
                                                                          m_saveDefaultsButton,
                                                                          result,
+                                                                         m_activeSlider,
                                                                          sceneOptions,
                                                                          sceneOptionCount,
                                                                          selectedSceneOption,
@@ -2060,7 +1874,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Sliders update previews continuously while dragged.  Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-        if ( !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount, result ) &&
+        if ( !SceneTab::UpdateActiveSlider( m_sceneTab, m_activeSlider, m_mouseX, result ) &&
+             !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount, result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
@@ -2119,7 +1934,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.
-        if ( !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
+        if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
+             !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
@@ -2142,6 +1958,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
         }
         m_activeSlider = 0;
+        SceneTab::ResetPreviewState( m_sceneTab );
         ProfilerTab::ResetPreviewState( m_profilerTab );
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
@@ -2284,7 +2101,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "WHATS NEW", "Profile", "Scene", "Physics", "Options", "Render", "Controls", "Cine" };
+    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Render", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2293,19 +2110,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window, palette.windowSubtle, palette.innerBorder );
 
-    if ( m_activeTab == InGameUITab::WhatsNew )
-    {
-        SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, contentX, scrolledY, contentW );
-        DrawWhatsNewTab( m_whatsNewToggles,
-                         m_whatsNewSliders,
-                         draw,
-                         contentX,
-                         contentY,
-                         contentW,
-                         contentH,
-                         scrolledY );
-    }
-    else if ( m_activeTab == InGameUITab::Profiler )
+    if ( m_activeTab == InGameUITab::Profiler )
     {
         ProfilerTab::Draw( m_profilerTab, draw, data, contentX, contentY, contentW, contentH, m_scrollY, m_activeSlider );
     }
