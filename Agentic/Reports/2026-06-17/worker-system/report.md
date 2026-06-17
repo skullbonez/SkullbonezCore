@@ -11,14 +11,19 @@ and be referenced with a relative Markdown link.
 
 ## What Changed, In Plain English
 
-['Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.', 'Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.', 'Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.', 'Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.', 'Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.', 'Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.']
+- Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.
+- Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.
+- Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.
+- Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.
+- Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.
+- Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.
 
 ## At A Glance
 
 - Source plan: `Agentic/Plans/Done/worker-system-plan.md`
 - Archived plan: `Agentic/Plans/Done/worker-system-plan.md`
 - Branch: `codex/worker-system`
-- Implementation commit: `35cca26a`
+- Implementation commit: `43a82d77d81189532ffb84e42bff7f878294ffc2`
 - Report commit: `pending`
 - Report web URL: pending until report-only commit is pushed
 - PR: ``
@@ -41,11 +46,20 @@ and be referenced with a relative Markdown link.
 
 ## Timings
 
-- None recorded.
+- tools\validate_build.bat Profile: 82.8s
+- Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 0: 0.9s
+- Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 2: 0.9s
+- tools\validate_full.bat: 3.2s
+- tools\validate_full.bat: 190.3s
 
 ## Implementation
 
-['Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.', 'Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.', 'Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.', 'Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.', 'Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.', 'Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.']
+- Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.
+- Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.
+- Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.
+- Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.
+- Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.
+- Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.
 
 ## Changed Files
 
@@ -69,12 +83,22 @@ and be referenced with a relative Markdown link.
 - Commands run:
 
 ```text
+tools\validate_build.bat Profile
+Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 0
+Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 2
+tools\validate_full.bat
 tools\validate_full.bat
 ```
 
 - Result:
 
 ```text
+- `tools\validate_build.bat Profile` - passed - 82.8s - log `Agentic/Runs/2026-06-17/worker-system/artifacts/validate_build_profile_worker_infra.log`
+- `Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 0` - passed - 0.9s - log `Agentic/Runs/2026-06-17/worker-system/artifacts/worker_self_test_workers0.log`
+- `Profile\SKULLBONEZ_CORE.exe --worker-self-test --workers 2` - passed - 0.9s - log `Agentic/Runs/2026-06-17/worker-system/artifacts/worker_self_test_workers2.log`
+- `tools\validate_full.bat` - failed - 3.2s - log `Agentic/Runs/2026-06-17/worker-system/artifacts/validate_full_worker_system.log`: Initial gate stopped at formatting for new worker source/header files. Fixed with targeted clang-format on only the reported files.
+- `tools\validate_full.bat` - passed - 190.3s - log `Agentic/Runs/2026-06-17/worker-system/artifacts/validate_full_worker_system_after_format.log`: Formatting passed; Profile and Debug builds completed with 0 warnings/0 errors; DX12 validation errors were 0; DX12 screenshots matched committed baselines; physics validation passed.
+
 Validation log excerpt:
 VALIDATE_FULL - Complete Validation Pipeline
   VALIDATE_DX12_RENDERER
@@ -164,7 +188,12 @@ None recorded.
 
 ## Sub-Agent Result Summary
 
-['Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.', 'Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.', 'Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.', 'Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.', 'Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.', 'Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.']
+- Added SkullbonezCore::Threading worker infrastructure with a fixed startup worker pool, deterministic ParallelFor chunking, ordered chunk-local collection and merge, and a CPU fence.
+- Added worker-backed AmortizedTask infrastructure for latency-tolerant multi-frame work.
+- Added a Debug lock-order validator and TrackedMutex wrapper for ABBA-style cycle detection.
+- Exposed worker_threads, physics_parallel, and shadow_parallel_prep through engine.cfg/config, with --workers and --worker-self-test CLI coverage.
+- Initialized the worker pool once after startup parsing and shut it down before process exit. worker_threads=0 remains the explicit disabled baseline.
+- Fixed GUI console output redirection so worker self-tests and orchestration launches can be mirrored into logs.
 
 ## Verifier Result Summary
 

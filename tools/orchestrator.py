@@ -62,6 +62,7 @@ WORKER_RESULT_FIELDS = {
     "timings",
     "plain_language_summary",
     "commit_sha",
+    "implementation_commit",
     "blockers",
     "risks",
 }
@@ -2011,8 +2012,8 @@ def read_optional_json(path: Path) -> dict[str, Any]:
 def read_worker_result(run_dir: Path) -> str:
     payload = read_optional_json(run_dir / "worker-result.json")
     if payload:
-        summary = str(payload.get("summary", ""))
-        plain = str(payload.get("plain_language_summary", ""))
+        summary = prose_value(payload.get("summary", ""))
+        plain = prose_value(payload.get("plain_language_summary", ""))
         return "\n\n".join(part for part in (plain, summary) if part)
     json_text = read_optional_text(run_dir / "worker-result.json")
     if json_text:
@@ -2028,6 +2029,58 @@ def markdown_list(values: list[Any]) -> str:
 def prose_list(values: list[Any]) -> str:
     lines = [f"- {str(value)}" for value in values if str(value).strip()]
     return "\n".join(lines) if lines else "- None recorded."
+
+
+def prose_value(value: Any) -> str:
+    if isinstance(value, list):
+        return prose_list(value)
+    if isinstance(value, dict):
+        lines = [f"- {key}: {entry_value}" for key, entry_value in value.items() if str(entry_value).strip()]
+        return "\n".join(lines)
+    return str(value).strip()
+
+
+def validation_details_from_payload(validation_payload: Any) -> tuple[list[str], str, list[str]]:
+    if isinstance(validation_payload, dict):
+        commands = validation_payload.get("commands", [])
+        if not isinstance(commands, list):
+            commands = [commands]
+        return [str(command) for command in commands if str(command).strip()], str(validation_payload.get("result", "")).strip(), []
+
+    if isinstance(validation_payload, list):
+        commands: list[str] = []
+        summaries: list[str] = []
+        timings: list[str] = []
+        for entry in validation_payload:
+            if not isinstance(entry, dict):
+                continue
+            command = str(entry.get("command", "")).strip()
+            result = str(entry.get("result", "")).strip()
+            elapsed = entry.get("elapsed_seconds")
+            log = str(entry.get("log", "")).strip()
+            notes = str(entry.get("notes", "")).strip()
+            if command:
+                commands.append(command)
+
+            parts = []
+            if command:
+                parts.append(f"`{command}`")
+            if result:
+                parts.append(result)
+            if elapsed is not None:
+                parts.append(f"{elapsed}s")
+            if log:
+                parts.append(f"log `{log}`")
+            line = " - ".join(parts)
+            if notes:
+                line = f"{line}: {notes}" if line else notes
+            if line:
+                summaries.append(line)
+            if command and elapsed is not None:
+                timings.append(f"{command}: {elapsed}s")
+        return commands, prose_list(summaries), timings
+
+    return [], "", []
 
 
 def validation_log_excerpt(text: str) -> str:
@@ -2208,11 +2261,7 @@ def command_report_draft(args: argparse.Namespace) -> int:
         validation = read_optional_text(run_dir / "validation.log")
         verifier_path = latest_verifier_result_path(run_dir)
         verifier_payload = read_optional_json(verifier_path) if verifier_path else {}
-        validation_payload = worker_payload.get("validation", {}) if isinstance(worker_payload.get("validation"), dict) else {}
-        validation_commands = validation_payload.get("commands", [])
-        if not isinstance(validation_commands, list):
-            validation_commands = [validation_commands]
-        validation_summary = str(validation_payload.get("result", "")).strip()
+        validation_commands, validation_summary, validation_timings = validation_details_from_payload(worker_payload.get("validation", {}))
         validation_excerpt = validation_log_excerpt(validation) if validation else ""
         validation_result = validation_summary
         if validation_excerpt and validation_excerpt not in validation_result:
@@ -2226,10 +2275,12 @@ def command_report_draft(args: argparse.Namespace) -> int:
         timings = worker_payload.get("timings", [])
         if not isinstance(timings, list):
             timings = []
+        if not timings and validation_timings:
+            timings = validation_timings
         risks = worker_payload.get("risks", [])
         if not isinstance(risks, list):
             risks = []
-        commit_sha = str(worker_payload.get("commit_sha") or latest_commit(args.repo))
+        commit_sha = str(worker_payload.get("commit_sha") or worker_payload.get("implementation_commit") or latest_commit(args.repo))
         transitions = run_state.get("transition_history", [])
         timeline = "\n".join(
             f"- {entry.get('at', '')}: `{entry.get('event', '')}` "
