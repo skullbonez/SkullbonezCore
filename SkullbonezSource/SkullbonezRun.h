@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   Render pass: A named slice of DrawPrimitives() with explicit inputs,
   outputs, and resource ownership.
   Render target: Texture the renderer draws into before another pass samples or
@@ -19,10 +17,6 @@ Glossary:
   removed; old command-line values now fail early.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
   HDR (High Dynamic Range): Floating-point scene color that can hold values

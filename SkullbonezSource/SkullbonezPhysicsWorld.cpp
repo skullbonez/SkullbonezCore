@@ -9,8 +9,6 @@ Mental model:
   reading anchors.
 
 Glossary:
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
   CCD (Continuous Collision Detection): Swept collision test that asks whether

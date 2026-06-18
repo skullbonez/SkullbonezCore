@@ -8,8 +8,6 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.

@@ -8,8 +8,6 @@ Mental model:
   boxes, emits draw commands, and returns requests for the run loop to apply.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   FBO (Framebuffer Object): Engine off-screen render target abstraction used by

@@ -8,8 +8,6 @@ Mental model:
   the DX12 runtime against them, and captures requested screenshots/status.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   Live style control: Runtime mode that watches a style descriptor and applies
   visual look changes without editing committed scene files.
   Harness root: Scratch directory that holds control files, status text, and

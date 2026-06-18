@@ -8,10 +8,6 @@ Mental model:
   layout each pass expects. They are diagnostics, not a new binding backend.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API whose root parameters and shader
-  registers must match these contracts.
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   Uniform: Named shader constant set by engine code before drawing.
   Resource: Shader-visible texture or buffer binding declared by a shader.
   SRV (Shader Resource View): Descriptor row used when shaders read textures

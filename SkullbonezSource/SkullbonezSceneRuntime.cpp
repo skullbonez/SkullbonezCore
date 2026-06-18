@@ -13,8 +13,6 @@ Glossary:
   the generated demo scene.
   Scene-run state: Counters, flags, and overrides that describe the currently
   loaded scene.
-  UI (User Interface): In-engine diagnostic and control overlay drawn after the
-  world render pass.
 
 Related:
   - SkullbonezSource/SkullbonezSceneRuntime.h

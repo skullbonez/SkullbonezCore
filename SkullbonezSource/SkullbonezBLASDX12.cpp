@@ -17,8 +17,6 @@ Glossary:
   instances that point at BLAS geometry.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
   shaders write textures or buffers.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.

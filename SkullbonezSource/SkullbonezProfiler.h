@@ -9,10 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
   Validation gate: Repository script that proves a class of changes before

@@ -9,8 +9,6 @@
 @rem   productive while routing them to the DX12 screenshot and InfoQueue gate.
 @rem
 @rem Glossary:
-@rem   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-@rem   descriptor, and command-list control.
 @rem   InfoQueue: DX12 debug-message stream checked by validation; zero errors
 @rem   are allowed.
 @rem   Validation gate: Repository script that proves a class of changes before

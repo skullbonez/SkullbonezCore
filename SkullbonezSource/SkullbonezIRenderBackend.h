@@ -9,14 +9,10 @@ Mental model:
   those requests to descriptors, resources, command lists, and fences.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   Render device: Engine-facing object that owns the active GPU backend and its
   resources.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.

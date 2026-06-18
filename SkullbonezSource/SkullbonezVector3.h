@@ -9,8 +9,6 @@ Mental model:
   through rendering and physics.
 
 Glossary:
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
 
 Related:
   - SkullbonezSource/SkullbonezVector3.cpp

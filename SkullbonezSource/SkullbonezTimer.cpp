@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 

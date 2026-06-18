@@ -8,10 +8,6 @@ Mental model:
   boxes, emits draw commands, and returns requests for the run loop to apply.
 
 Glossary:
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a

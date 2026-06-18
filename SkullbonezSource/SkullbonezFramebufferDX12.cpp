@@ -9,16 +9,12 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
   DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
   depth/stencil data for depth testing.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
   Descriptor: Small binding record that tells a renderer how to interpret a

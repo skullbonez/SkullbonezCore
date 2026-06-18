@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API that owns this shader's root
-  signature, input layout, and descriptor bindings.
   HDR (High Dynamic Range): Floating-point scene color that can hold values
   brighter than display white until tonemapping resolves it.
   Descriptor: Small binding record that tells a renderer how to interpret a

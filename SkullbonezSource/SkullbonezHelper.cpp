@@ -9,14 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render stages.
   Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
   Material table: Fixed t4 texture that stores default per-kind material response
   values for object shaders.

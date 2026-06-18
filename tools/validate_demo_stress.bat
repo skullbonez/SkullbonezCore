@@ -9,8 +9,6 @@
 @rem   keep output bounded for humans and agents.
 @rem
 @rem Glossary:
-@rem   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-@rem   descriptor, and command-list control.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem

@@ -9,12 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
   explain why old command lines are rejected.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   COM (Component Object Model): Windows interface lifetime model used by DX12
   and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable

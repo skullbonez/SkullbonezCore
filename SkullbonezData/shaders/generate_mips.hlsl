@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing

@@ -9,8 +9,6 @@ Mental model:
   the concrete transition barrier.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   Resource state: DX12 usage mode that controls which reads or writes are legal.
   Barrier: Command-list operation that orders GPU work or transitions a
   resource between states.

@@ -11,8 +11,6 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
-  UI (User Interface): In-engine diagnostic and control overlay that can pause,
-  nudge, or step simulation.
 
 Related:
   - SkullbonezSource/SkullbonezSimulationSystem.h

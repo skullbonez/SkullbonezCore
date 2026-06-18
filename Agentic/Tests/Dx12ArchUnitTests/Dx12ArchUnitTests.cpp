@@ -9,8 +9,6 @@ Mental model:
   related files.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 

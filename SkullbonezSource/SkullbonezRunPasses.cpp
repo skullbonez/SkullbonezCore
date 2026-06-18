@@ -10,16 +10,12 @@ Mental model:
   passes so pass contracts are visible where the work happens.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
   TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
   instances that point at BLAS geometry.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Render pass: A named slice of frame rendering with explicit inputs, outputs,
   and GPU resource ownership.
   GPU resource: Backend-owned texture, framebuffer, shader, descriptor, or

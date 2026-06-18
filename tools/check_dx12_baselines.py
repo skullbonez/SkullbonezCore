@@ -9,8 +9,6 @@
 #   keep output bounded for humans and agents.
 #
 # Glossary:
-#   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-#   descriptor, and command-list control.
 #   Baseline: Committed reference artifact used to detect visual regression.
 #   Manifest: JSON record describing validation inputs, outputs, and artifacts.
 #   Validation gate: Repository script that proves a class of changes before

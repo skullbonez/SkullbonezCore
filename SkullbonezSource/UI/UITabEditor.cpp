@@ -8,8 +8,6 @@ Mental model:
   selection, placement, and physics mutation so mouse raycasts stay out of UI.
 
 Glossary:
-  UI (User Interface): In-engine diagnostic and control overlay drawn after the
-  world render pass.
   Editor command: Intent emitted by a widget and applied later by runtime code.
   Placement mode: Editor state where a picked object kind can be inserted into
   the active scene.

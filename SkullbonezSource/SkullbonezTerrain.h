@@ -9,8 +9,6 @@ Mental model:
   reading anchors.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer path that backs terrain mesh resources
-  through IMesh.
   DXR (DirectX Raytracing): DirectX 12 feature used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
