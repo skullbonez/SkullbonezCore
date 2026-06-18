@@ -93,6 +93,7 @@ void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObjec
 
 constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
 constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
+constexpr float EDITOR_PLACEMENT_LIFT_MOUSE_SCALE = 32.0f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
 
@@ -1275,24 +1276,47 @@ void SkullbonezRun::TakeInput()
         m_editor.tabShortcutWasDown = false;
         m_editor.tildeShortcutWasDown = false;
         m_editor.placementLiftActive = false;
+        m_editor.placementLiftHasLastClient = false;
+        m_editor.placementLiftFramePixels = 0.0f;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
     }
 
-    const auto CameraMouseOwnsCursor = [&]() -> bool
+    const auto MouseLookOwnsCursor = [&]() -> bool
     {
-        return ( m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse() ) ||
-               ( m_editor.editorModeEnabled && m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() );
+        if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
+        {
+            return false;
+        }
+
+        if ( m_editor.editorModeEnabled )
+        {
+            return m_editor.viewportLookActive;
+        }
+
+        return m_camera.isFlyMode;
+    };
+    const auto ShouldHideNativeCursor = [&]() -> bool
+    {
+        if ( MouseLookOwnsCursor() )
+        {
+            return true;
+        }
+
+        return m_editor.editorModeEnabled &&
+               m_editor.placementModeEnabled &&
+               !m_UI.WantsNativeMouseCursor() &&
+               !m_UI.BlocksCameraMouse();
     };
     const auto ApplyCursorOwnership = [&]() -> void
     {
-        Input::SetSystemCursorVisible( !CameraMouseOwnsCursor() );
+        Input::SetSystemCursorVisible( !ShouldHideNativeCursor() );
     };
     const auto ReleaseMouseToUI = [&]() -> void
     {
-        if ( !CameraMouseOwnsCursor() )
+        if ( !MouseLookOwnsCursor() )
         {
             ReleaseCapture();
             InputController::ResetMouseLook( m_camera );
@@ -1314,7 +1338,7 @@ void SkullbonezRun::TakeInput()
         unbounded.m_zMax = 99999.9f;
         uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
         m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-        if ( CameraMouseOwnsCursor() )
+        if ( ShouldHideNativeCursor() )
         {
             Input::SetSystemCursorVisible( false );
         }
@@ -2000,7 +2024,24 @@ void SkullbonezRun::TakeInput()
             InputController::ResetMouseLook( m_camera );
         }
         m_editor.viewportLookActive = editorViewportLookNow;
-        m_editor.placementLiftActive = m_editor.editorModeEnabled && Input::IsMiddleMouseDown() && !m_UI.BlocksCameraMouse();
+
+        m_editor.placementLiftFramePixels = 0.0f;
+        const bool editorPlacementLiftNow = m_editor.editorModeEnabled && Input::IsMiddleMouseDown() && !m_UI.BlocksCameraMouse();
+        if ( editorPlacementLiftNow )
+        {
+            const POINT currentClient = Input::GetClientMouseCoordinates();
+            if ( m_editor.placementLiftActive && m_editor.placementLiftHasLastClient )
+            {
+                m_editor.placementLiftFramePixels = static_cast<float>( m_editor.placementLiftLastClient.y - currentClient.y );
+            }
+            m_editor.placementLiftLastClient = currentClient;
+            m_editor.placementLiftHasLastClient = true;
+        }
+        else
+        {
+            m_editor.placementLiftHasLastClient = false;
+        }
+        m_editor.placementLiftActive = editorPlacementLiftNow;
         ApplyCursorOwnership();
     }
 
@@ -2241,8 +2282,9 @@ void SkullbonezRun::TakeInput()
         }
     }
 
-    const bool viewportCameraControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
-    if ( viewportCameraControlsActive )
+    const bool cameraMouseLookActive = ( !m_editor.editorModeEnabled && m_camera.isFlyMode ) || m_editor.viewportLookActive;
+    const bool cameraKeyboardControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
+    if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
         // consuming raw Win32 deltas, with cursor-position deltas as a
@@ -2251,9 +2293,9 @@ void SkullbonezRun::TakeInput()
         {
             InputController::ResetMouseLook( m_camera );
         }
-        else if ( !CameraMouseOwnsCursor() )
+        else if ( !MouseLookOwnsCursor() )
         {
-            Input::SetSystemCursorVisible( true );
+            ApplyCursorOwnership();
             InputController::ResetMouseLook( m_camera );
         }
         else
@@ -2293,7 +2335,15 @@ void SkullbonezRun::TakeInput()
                 m_camera.mouseLookLastClient = currentClient;
             }
         }
+    }
+    else
+    {
+        InputController::ResetMouseLook( m_camera );
+        ApplyCursorOwnership();
+    }
 
+    if ( cameraKeyboardControlsActive )
+    {
         // WASD movement
         m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
         m_camera.input.Set( InputState::Left, Input::IsKeyDown( 'A' ) );
@@ -2319,7 +2369,8 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
         // Mouse look
-        if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
+        if ( ( !m_editor.editorModeEnabled || m_editor.viewportLookActive ) &&
+             ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 ) )
         {
             m_systems.cameras->RotatePrimary( m_camera.input.xMove * mouseMovementQty,
                                               m_camera.input.yMove * mouseMovementQty );
@@ -2347,10 +2398,19 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 
         if ( m_editor.placementLiftActive )
         {
-            const float liftAmount = keyMovementQty * speedMult;
-            const Vector3 cameraPosition = m_systems.cameras->GetCameraTranslation();
-            m_systems.cameras->AmmendPrimaryY( cameraPosition.y + liftAmount );
-            m_editor.placementHeightOffset = (std::max)( 0.0f, m_editor.placementHeightOffset + liftAmount );
+            const float requestedLift = m_editor.placementLiftFramePixels *
+                                        EDITOR_PLACEMENT_LIFT_MOUSE_SCALE *
+                                        mouseMovementQty *
+                                        speedMult;
+            const float previousOffset = m_editor.placementHeightOffset;
+            const float nextOffset = (std::max)( 0.0f, previousOffset + requestedLift );
+            const float acceptedLift = nextOffset - previousOffset;
+            if ( fabsf( acceptedLift ) > TOLERANCE )
+            {
+                const Vector3 cameraPosition = m_systems.cameras->GetCameraTranslation();
+                m_systems.cameras->AmmendPrimaryY( cameraPosition.y + acceptedLift );
+                m_editor.placementHeightOffset = nextOffset;
+            }
         }
     }
 

@@ -1183,11 +1183,11 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
     const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
-    const float desiredW = 96.0f +
+    const float desiredW = 140.0f +
                            Text2d::MeasureText( 12.0f, shapeLabel ) +
                            EditorMiniChipWidth( modeLabel ) +
                            EditorMiniChipWidth( bodyLabel );
-    return std::clamp( desiredW, 284.0f, maxW );
+    return std::clamp( desiredW, 328.0f, maxW );
 }
 
 
