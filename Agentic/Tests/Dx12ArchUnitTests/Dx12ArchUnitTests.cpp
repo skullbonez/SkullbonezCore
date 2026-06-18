@@ -194,6 +194,112 @@ void TestRenderGraphExplicitInitialStateTransitions()
     EXPECT_TRUE( compiled.transitions[1].after == RenderGraphResourceAccess::Present );
 }
 
+void TestRenderGraphTracksSubresourceTransitionsIndependently()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "MipTexture", RenderGraphResourceAccess::PixelShaderResource, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x6000u ) ) );
+
+    const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
+    graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
+
+    const uint32_t writeMipTwo = graph.AddPass( "WriteMipTwo" );
+    graph.AddWrite( writeMipTwo, texture, RenderGraphResourceAccess::CopyDest, 2u );
+
+    const uint32_t readMipOne = graph.AddPass( "ReadMipOne" );
+    graph.AddRead( readMipOne, texture, RenderGraphResourceAccess::PixelShaderResource, 1u );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 3 ) );
+
+    EXPECT_EQ( compiled.transitions[0].passIndex, writeMipOne );
+    EXPECT_EQ( compiled.transitions[0].subresource, 1u );
+    EXPECT_TRUE( compiled.transitions[0].before == RenderGraphResourceAccess::PixelShaderResource );
+    EXPECT_TRUE( compiled.transitions[0].after == RenderGraphResourceAccess::UnorderedAccess );
+
+    EXPECT_EQ( compiled.transitions[1].passIndex, writeMipTwo );
+    EXPECT_EQ( compiled.transitions[1].subresource, 2u );
+    EXPECT_TRUE( compiled.transitions[1].before == RenderGraphResourceAccess::PixelShaderResource );
+    EXPECT_TRUE( compiled.transitions[1].after == RenderGraphResourceAccess::CopyDest );
+
+    EXPECT_EQ( compiled.transitions[2].passIndex, readMipOne );
+    EXPECT_EQ( compiled.transitions[2].subresource, 1u );
+    EXPECT_TRUE( compiled.transitions[2].before == RenderGraphResourceAccess::UnorderedAccess );
+    EXPECT_TRUE( compiled.transitions[2].after == RenderGraphResourceAccess::PixelShaderResource );
+
+    Dx12RenderGraphExecutionDesc desc;
+    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 3 ) );
+    EXPECT_EQ( result.barriers[0].subresource, 1u );
+    EXPECT_EQ( result.barriers[1].subresource, 2u );
+    EXPECT_EQ( result.barriers[2].subresource, 1u );
+}
+
+void TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "UniformTexture", RenderGraphResourceAccess::PixelShaderResource );
+
+    const uint32_t readMipOne = graph.AddPass( "ReadMipOne" );
+    graph.AddRead( readMipOne, texture, RenderGraphResourceAccess::PixelShaderResource, 1u );
+
+    const uint32_t writeAll = graph.AddPass( "WriteAll" );
+    graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transitions[0].passIndex, writeAll );
+    EXPECT_EQ( compiled.transitions[0].subresource, RENDER_GRAPH_ALL_SUBRESOURCES );
+    EXPECT_TRUE( compiled.transitions[0].before == RenderGraphResourceAccess::PixelShaderResource );
+    EXPECT_TRUE( compiled.transitions[0].after == RenderGraphResourceAccess::RenderTarget );
+}
+
+void TestRenderGraphClearsSpecificStateWhenItReturnsToAllState()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "ReturnedTexture", RenderGraphResourceAccess::PixelShaderResource );
+
+    const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
+    graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
+
+    const uint32_t readMipOne = graph.AddPass( "ReadMipOne" );
+    graph.AddRead( readMipOne, texture, RenderGraphResourceAccess::PixelShaderResource, 1u );
+
+    const uint32_t writeAll = graph.AddPass( "WriteAll" );
+    graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 3 ) );
+
+    EXPECT_EQ( compiled.transitions[0].passIndex, writeMipOne );
+    EXPECT_EQ( compiled.transitions[0].subresource, 1u );
+    EXPECT_TRUE( compiled.transitions[0].before == RenderGraphResourceAccess::PixelShaderResource );
+    EXPECT_TRUE( compiled.transitions[0].after == RenderGraphResourceAccess::UnorderedAccess );
+
+    EXPECT_EQ( compiled.transitions[1].passIndex, readMipOne );
+    EXPECT_EQ( compiled.transitions[1].subresource, 1u );
+    EXPECT_TRUE( compiled.transitions[1].before == RenderGraphResourceAccess::UnorderedAccess );
+    EXPECT_TRUE( compiled.transitions[1].after == RenderGraphResourceAccess::PixelShaderResource );
+
+    EXPECT_EQ( compiled.transitions[2].passIndex, writeAll );
+    EXPECT_EQ( compiled.transitions[2].subresource, RENDER_GRAPH_ALL_SUBRESOURCES );
+    EXPECT_TRUE( compiled.transitions[2].before == RenderGraphResourceAccess::PixelShaderResource );
+    EXPECT_TRUE( compiled.transitions[2].after == RenderGraphResourceAccess::RenderTarget );
+}
+
+void TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle texture = graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
+
+    const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
+    graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
+
+    const uint32_t writeAll = graph.AddPass( "WriteAll" );
+    graph.AddWrite( writeAll, texture, RenderGraphResourceAccess::RenderTarget );
+
+    EXPECT_THROWS( graph.Compile() );
+}
+
 void TestRenderGraphRejectsUnknownPassAccess()
 {
     RenderGraph graph;
@@ -343,6 +449,10 @@ const TestCase kTests[] = {
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
+    { "Render graph tracks subresource transitions independently", TestRenderGraphTracksSubresourceTransitionsIndependently },
+    { "Render graph allows uniform specific then all-subresource transition", TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition },
+    { "Render graph clears specific state when it returns to all-state", TestRenderGraphClearsSpecificStateWhenItReturnsToAllState },
+    { "Render graph rejects mixed specific then all-subresource transition", TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition },
     { "Render graph rejects Unknown pass access", TestRenderGraphRejectsUnknownPassAccess },
     { "Render graph rejects bad handles", TestRenderGraphRejectsBadHandles },
     { "DX12 render graph access maps to DX12 states", TestDx12RenderGraphAccessMapsToDx12States },

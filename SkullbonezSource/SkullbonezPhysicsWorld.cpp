@@ -207,7 +207,7 @@ void PhysicsWorld::EnsureUnderwaterSleepLockBuffer( int modelCount )
 
 bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection, const GameModelBodyStream& bodyStream, int index )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     if ( index < 0 ||
          index >= bodyStream.count ||
          index >= static_cast<int>( m_gameModels.size() ) ||
@@ -223,6 +223,7 @@ bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection, const 
 
 void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection, const GameModelBodyStream& bodyStream, int index )
 {
+    auto& m_gameModels = collection.PhysicsModels();
     EnsureUnderwaterSleepLockBuffer( bodyStream.count );
     if ( index < 0 ||
          index >= bodyStream.count ||
@@ -239,8 +240,8 @@ void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection
     {
         m_timeRemaining[index] = 0.0f;
     }
-    collection.m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
-    collection.m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
+    m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
+    m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
 }
 
 
@@ -273,7 +274,7 @@ void PhysicsWorld::MarkCollisionVisualContact( int index )
 
 void PhysicsWorld::MarkFixedContact( GameModelCollection& collection, int index )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
     {
         return;
@@ -325,7 +326,7 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     const int modelCount = static_cast<int>( m_gameModels.size() );
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
@@ -385,13 +386,13 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
     m_diagnostics.EmitFrame( collection, fChangeInTime );
 #endif
 
-    collection.InvalidateSoA();
+    collection.InvalidatePhysicsStreams();
 }
 
 
 void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     if ( index >= 0 &&
          index < static_cast<int>( m_gameModels.size() ) &&
          m_gameModels[index].IsFixed() )
@@ -415,7 +416,7 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
     }
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        collection.InvalidateSoA();
+        collection.InvalidatePhysicsStreams();
         m_sleepState[index] = 0;
         m_sleepCounter[index] = 0;
         m_underwaterSleepLocked[index] = 0;
@@ -481,7 +482,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
     }
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     const GameModelBodyStream bodyStream = collection.GetBodyStream();
     const int modelCount = bodyStream.count;
     const float step = (std::max)( 0.0f, dt );
@@ -660,7 +661,7 @@ void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
 
 void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    auto& m_gameModels = collection.PhysicsModels();
     const GameModelBodyStream bodyStream = collection.GetBodyStream();
     const int modelCount = bodyStream.count;
 

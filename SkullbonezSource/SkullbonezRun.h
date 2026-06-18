@@ -322,14 +322,13 @@ struct RunEditorPlacementState
     bool restoreRayTestModeAfterEditor = false;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
+    bool placementScaleActive = false;
     bool gizmoDragActive = false;
     bool gizmoDragIsRotation = false;
     bool gizmoDragIsScale = false;
     bool altShortcutWasDown = false;
     bool tabShortcutWasDown = false;
     bool tildeShortcutWasDown = false;
-    bool placementLiftActive = false;
-    bool placementLiftHasLastClient = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     int selectedModelIndex = -1;
@@ -338,13 +337,17 @@ struct RunEditorPlacementState
     int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
     float gizmoDragStartRotationAngle = 0.0f;
-    float placementHeightOffset = 0.0f;
-    float placementLiftFramePixels = 0.0f;
-    POINT placementLiftLastClient = {};
+    int placementAltitudeSteps = 0;
+    int placementScaleWheelSteps = 0;
     Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScale = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleStart = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScaleRayOrigin = Math::Vector::ZERO_VECTOR;
+    POINT placementScaleStartClient = {};
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::CollisionDetection::CollisionShape gizmoDragStartShape;
@@ -365,7 +368,7 @@ class RunEditorTracer
     RunEditorTracer();
     void Clear();
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
-    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center );
+    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& placementScale );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
@@ -960,9 +963,11 @@ class SkullbonezRun
     void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Backbuffer capture path; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                                                                                       // UI-controlled scene defaults persisted to the active scene file.
+    bool SaveCurrentEditableSceneSnapshot();                                                                                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                                                                             // Ordinary Render-tab values persisted to engine.cfg.
     void RefreshSceneBrowserList();                                                                                                        // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                                                                  // Current scene index within the discovered scene dropdown list.
+    bool CreateSceneFromUI( const char* requestedName );                                                                                   // Creates and loads a flat starter scene from the Scene tab.
     void LoadSceneFromBrowserIndex( int index );                                                                                           // In-game scene dropdown selection loader.
     void LoadDemoSceneFromUI();                                                                                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Live cine/concept style change; leaves scene objects intact.
@@ -1005,32 +1010,32 @@ class SkullbonezRun
     bool TickScreenshots();        // Screenshot triggers; returns true when frame should restart (continue)
     void TickLiveStyleControl();   // Poll live.style/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
-    void TickAutoCycle();                                                                                                                                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                                                                                                                         // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                                                                                                                                    // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );                                                                                                                 // Slide water surface up/down while held
-    void ClearRayCastTestLines();                                                                                                                               // Scene/model rebuilds invalidate fading ray-test visuals.
-    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                  // One fading ray visual, gated by runtime test-line visibility.
-    void TickRayCastTestLines( float dt );                                                                                                                      // Ages fading ray-test visuals
-    bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT ); // Finds closest model hit along a ray
-    void FireRayCastTest();                                                                                                                                     // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
-    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                  // Mouse position projected into a world-space ray.
-    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                               // Raycast current mouse position to terrain for editor placement
-    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;  // Raycast with optional ray output
-    bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, Math::Vector::Vector3& outCenter ) const;                     // Terrain hit converted to object center; false when placement is invalid.
-    bool TryComputeEditorPlacementPreview( int objectType );                                                                                                    // Snapped ghost placement data from the mouse ray.
-    void UpdateEditorInteractionPreview();                                                                                                                      // Refreshes ghost and gizmo hover state before world-click handling
-    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                          // Ray-picks editable objects
-    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                          // Hovered gizmo axis, or -1 when none is hit.
-    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                  // Hovered rotation ring axis, or -1 when none is hit.
-    bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;       // Projects mouse ray onto a gizmo axis
-    bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;       // Projects mouse ray onto a rotation ring plane
-    void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                // Active gizmo drag along a selected axis.
-    void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                             // Active rotation-ring drag around a selected axis.
-    void ScaleSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                               // Active scale-axis drag along a selected axis.
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                            // Placement ghost and object gizmo line overlay.
-    void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                          // Place a UI-selected object on the terrain under the mouse
-    void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                        // Places an object at an already-resolved terrain hit
+    void TickAutoCycle();                                                                                                                                                                // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                                                                                                                                                  // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                                                                                                                                                             // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );                                                                                                                                          // Slide water surface up/down while held
+    void ClearRayCastTestLines();                                                                                                                                                        // Scene/model rebuilds invalidate fading ray-test visuals.
+    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                                           // One fading ray visual, gated by runtime test-line visibility.
+    void TickRayCastTestLines( float dt );                                                                                                                                               // Ages fading ray-test visuals
+    bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT );                          // Finds closest model hit along a ray
+    void FireRayCastTest();                                                                                                                                                              // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
+    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                                           // Mouse position projected into a world-space ray.
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                                                        // Raycast current mouse position to terrain for editor placement
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;                           // Raycast with optional ray output
+    bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, Math::Vector::Vector3& outCenter ) const; // Terrain hit converted to object center; false when placement is invalid.
+    bool TryComputeEditorPlacementPreview( int objectType );                                                                                                                             // Snapped ghost placement data from the mouse ray.
+    void UpdateEditorInteractionPreview();                                                                                                                                               // Refreshes ghost and gizmo hover state before world-click handling
+    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                                                   // Ray-picks editable objects
+    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                                                   // Hovered gizmo axis, or -1 when none is hit.
+    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                                           // Hovered rotation ring axis, or -1 when none is hit.
+    bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;                                // Projects mouse ray onto a gizmo axis
+    bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;                                // Projects mouse ray onto a rotation ring plane
+    void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                         // Active gizmo drag along a selected axis.
+    void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                      // Active rotation-ring drag around a selected axis.
+    void ScaleSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                        // Active scale-axis drag along a selected axis.
+    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                                                     // Placement ghost and object gizmo line overlay.
+    void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                                                   // Place a UI-selected object on the terrain under the mouse
+    void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                                                 // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );

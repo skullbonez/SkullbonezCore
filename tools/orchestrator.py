@@ -43,6 +43,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from orchestrator_git import git_changed_files, git_has_staged_changes, git_status, latest_commit, run_git
+
 
 ORCH_DIR = Path("Agentic") / "Orchestrator"
 POLICY_PATH = ORCH_DIR / "policy.json"
@@ -850,53 +852,11 @@ def nested_get(payload: dict[str, Any], dotted_path: str) -> Any:
     return value
 
 
-def git_status(repo: Path) -> str:
-    result = subprocess.run(
-        ["git", "status", "--short", "--branch"],
-        cwd=repo,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return result.stderr.strip() or "git status failed"
-    return result.stdout.strip()
-
-
 def git_status_porcelain(repo: Path) -> str:
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=repo,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = run_git(repo, ["status", "--porcelain"])
     if result.returncode != 0:
         raise OrchestratorError(result.stderr.strip() or "Unable to inspect worktree.")
     return result.stdout.strip()
-
-
-def git_changed_files(repo: Path) -> list[str]:
-    result = subprocess.run(
-        ["git", "diff", "--name-only"],
-        cwd=repo,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return []
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-
-
-def run_git(repo: Path, git_args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *git_args],
-        cwd=repo,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
 
 
 def current_branch(repo: Path) -> str:
@@ -2824,16 +2784,6 @@ def run_validation_gate(repo: Path, item: dict[str, Any], run_dir: Path) -> tupl
             pass
     print(f"Validation gate exited {returncode} after {elapsed_label(time.monotonic() - started_monotonic)}.", flush=True)
     return ("passed" if returncode == 0 else "failed"), log_path
-
-
-def latest_commit(repo: Path) -> str:
-    result = run_git(repo, ["rev-parse", "--short", "HEAD"])
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
-def git_has_staged_changes(repo: Path) -> bool:
-    result = run_git(repo, ["diff", "--cached", "--quiet"])
-    return result.returncode == 1
 
 
 def commit_paths(repo: Path, paths: list[Path], message: str, allow_main: bool) -> str | None:

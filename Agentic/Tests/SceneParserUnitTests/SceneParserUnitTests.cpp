@@ -241,6 +241,12 @@ void TestMaterialAuthoringRejectsMalformedOptions()
     ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style",
                           "object_material bad metal tint=0.1,0.2\n",
                           "expected r,g,b" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style",
+                          "object_material bad metal tint=0.1,0.2,0.3,0.4\n",
+                          "expected r,g,b" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_trailing.style",
+                          "object_material bad metal tint=0.1,0.2,0.3,\n",
+                          "expected r,g,b" );
 }
 
 const TestCase kTests[] = {

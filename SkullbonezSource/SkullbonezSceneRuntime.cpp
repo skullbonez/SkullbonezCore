@@ -62,6 +62,38 @@ bool IsCineScenePath( const std::string& path )
 }
 } // namespace
 
+
+void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults )
+{
+    isScenePhysics = true;
+    isSceneText = true;
+    targetFrameCount = -1;
+    currentFrame = 0;
+    solverBallCount = 0;
+    solverBoxCount = 0;
+    timeScale = 1.0f;
+    isFixedStep = false;
+    isExitOnComplete = false;
+    isTestComplete = false;
+    isFinishLogged = false;
+    isEditableScene = false;
+    hasFlatSlope = false;
+    flatBaseY = 0.0f;
+    flatSlopeX = 0.0f;
+    flatSlopeZ = 0.0f;
+
+    hasCinematicRenderingOverride = false;
+    isCinematicRenderingEnabled = false;
+    hasCinematicExposure = false;
+    cinematicExposure = cinematicDefaults.exposure;
+    hasCinematicGamma = false;
+    cinematicGamma = cinematicDefaults.gamma;
+    cinematicOverrideMask = 0;
+    uiCinematicOverrideMask = 0;
+    cinematicRender = cinematicDefaults;
+}
+
+
 SceneRuntime::SceneRuntime( std::vector<std::string> queue )
     : m_queue( std::move( queue ) )
 {

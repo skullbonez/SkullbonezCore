@@ -32,6 +32,7 @@ Any single differing byte is a real regression.
 Exit 0 = all match, Exit 1 = regression detected or files missing.
 """
 import os
+import shutil
 import sys
 
 REPO = os.environ.get("SKORE_REPO", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,6 +48,11 @@ TESTS = [
 
 
 def main():
+    update = len(sys.argv) == 2 and sys.argv[1] == "--update"
+    if len(sys.argv) > 1 and not update:
+        print("usage: check_physics_regression.py [--update]")
+        return 2
+
     all_pass = True
 
     for output_path, baseline_name in TESTS:
@@ -57,13 +63,17 @@ def main():
             all_pass = False
             continue
 
-        if not os.path.exists(baseline_path):
-            import shutil
-
+        if update:
             shutil.copy(output_path, baseline_path)
-            with open(output_path) as f:
-                lines = f.readlines()
-            print(f"  BASELINE CREATED: {baseline_name} ({len(lines)} lines)")
+            with open(output_path, "rb") as f:
+                current = f.read()
+            line_count = current.count(b"\n")
+            print(f"  BASELINE UPDATED: {baseline_name} ({line_count} lines)")
+            continue
+
+        if not os.path.exists(baseline_path):
+            print(f"  FAIL: missing committed baseline {baseline_name}")
+            all_pass = False
             continue
 
         with open(output_path, "rb") as f:

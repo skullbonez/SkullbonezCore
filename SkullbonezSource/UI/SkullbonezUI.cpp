@@ -606,116 +606,6 @@ constexpr RenderSliderSpec kRenderSliderSpecs[] = {
 static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) == static_cast<int>( UIRenderParam::Count ),
                "Render slider specs must match UIRenderParam." );
 
-constexpr int UI_CINEMATIC_SLIDER_BASE = 5000;
-constexpr int UI_CINE_SCENE_MAX_OPTIONS = 32;
-constexpr float UI_CINEMATIC_SCENE_Y = 42.0f;
-constexpr float UI_CINEMATIC_FEATURE_START_Y = 96.0f;
-constexpr float UI_CINEMATIC_START_Y = 266.0f;
-constexpr float UI_CINEMATIC_SECTION_H = 28.0f;
-constexpr float UI_CINEMATIC_ROW_H = 42.0f;
-
-struct CinematicSliderSpec
-{
-    // One row in the Cine tab. Keeping label/range/step together makes it clear
-    // which UI slider controls which render setting.
-    const char* section;
-    const char* label;
-    UICinematicParam param;
-    float minValue;
-    float maxValue;
-    float step;
-    const char* valueFormat;
-};
-
-struct CinematicFeatureSpec
-{
-    // One toggle in the Cine tab, such as Bloom or Fog.
-    const char* label;
-    UICinematicFeature feature;
-};
-
-constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
-    { "Tonemap", "Exposure", UICinematicParam::Exposure, 0.05f, 3.00f, 0.01f, "%.2f" },
-    { nullptr, "Gamma", UICinematicParam::Gamma, 1.00f, 3.00f, 0.01f, "%.2f" },
-    { "Style", "Sky mode", UICinematicParam::SkyMode, 0.00f, 32.00f, 1.00f, "%.0f" },
-    { nullptr, "Terrain mode", UICinematicParam::TerrainMode, 0.00f, 32.00f, 1.00f, "%.0f" },
-    { nullptr, "Object style", UICinematicParam::ObjectStyle, 0.00f, 32.00f, 1.00f, "%.0f" },
-    { nullptr, "Water mode", UICinematicParam::WaterMode, 0.00f, 4.00f, 1.00f, "%.0f" },
-    { nullptr, "Saturation", UICinematicParam::StyleSaturation, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { nullptr, "Contrast", UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { nullptr, "Vignette", UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { "Sun", "Sun X", UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { nullptr, "Sun Y", UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
-    { nullptr, "Brightness", UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
-    { nullptr, "Sun R", UICinematicParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun G", UICinematicParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun B", UICinematicParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { "Sky", "Glow", UICinematicParam::SkyGlow, 0.00f, 8.00f, 0.05f, "%.2f" },
-    { nullptr, "Horizon R", UICinematicParam::HorizonRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Horizon G", UICinematicParam::HorizonGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Horizon B", UICinematicParam::HorizonBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Zenith R", UICinematicParam::ZenithRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Zenith G", UICinematicParam::ZenithGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Zenith B", UICinematicParam::ZenithBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Clouds", "Coverage", UICinematicParam::CloudCoverage, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Softness", UICinematicParam::CloudSoftness, 0.01f, 0.65f, 0.01f, "%.2f" },
-    { nullptr, "Scale", UICinematicParam::CloudScale, 0.50f, 12.00f, 0.05f, "%.2f" },
-    { nullptr, "Intensity", UICinematicParam::CloudIntensity, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Shafts", "Strength", UICinematicParam::ShaftStrength, 0.00f, 3.00f, 0.01f, "%.2f" },
-    { nullptr, "Falloff", UICinematicParam::ShaftFalloff, 0.25f, 5.00f, 0.01f, "%.2f" },
-    { "Volume", "Strength", UICinematicParam::VolumetricStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Density", UICinematicParam::VolumetricDensity, 0.00f, 2.50f, 0.01f, "%.2f" },
-    { nullptr, "Decay", UICinematicParam::VolumetricDecay, 0.800f, 0.995f, 0.001f, "%.3f" },
-    { "Bloom", "Threshold", UICinematicParam::BloomThreshold, 0.00f, 4.00f, 0.01f, "%.2f" },
-    { nullptr, "Knee", UICinematicParam::BloomKnee, 0.01f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Strength", UICinematicParam::BloomStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Radius", UICinematicParam::BloomRadius, 0.25f, 8.00f, 0.05f, "%.2f" },
-    { "Terrain", "Relief", UICinematicParam::TerrainRelief, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground R", UICinematicParam::TerrainTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground G", UICinematicParam::TerrainTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground B", UICinematicParam::TerrainTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Accent R", UICinematicParam::TerrainAccentRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Accent G", UICinematicParam::TerrainAccentGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Accent B", UICinematicParam::TerrainAccentBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Grid scale", UICinematicParam::TerrainGridScale, 0.10f, 120.00f, 0.10f, "%.1f" },
-    { nullptr, "Grid strength", UICinematicParam::TerrainGridStrength, 0.00f, 4.00f, 0.01f, "%.2f" },
-    { "Water", "Water R", UICinematicParam::WaterTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water G", UICinematicParam::WaterTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water B", UICinematicParam::WaterTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Alpha", UICinematicParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Reflection", UICinematicParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Glint", UICinematicParam::WaterGlint, 0.00f, 4.00f, 0.01f, "%.2f" },
-    { "Basin", "Center X", UICinematicParam::BasinCenterX, 0.00f, 1200.00f, 1.00f, "%.0f" },
-    { nullptr, "Center Z", UICinematicParam::BasinCenterZ, 0.00f, 1200.00f, 1.00f, "%.0f" },
-    { nullptr, "Radius X", UICinematicParam::BasinRadiusX, 1.00f, 500.00f, 1.00f, "%.0f" },
-    { nullptr, "Radius Z", UICinematicParam::BasinRadiusZ, 1.00f, 500.00f, 1.00f, "%.0f" },
-    { nullptr, "Feather", UICinematicParam::BasinFeather, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Basin Depth", UICinematicParam::BasinDepth, 0.00f, 80.00f, 1.00f, "%.0f" },
-    { nullptr, "Rim Lift", UICinematicParam::BasinRimLift, 0.00f, 60.00f, 1.00f, "%.0f" },
-    { "Fog", "Density", UICinematicParam::FogDensity, 0.00000f, 0.00600f, 0.00005f, "%.5f" },
-    { nullptr, "Opacity", UICinematicParam::FogOpacity, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Start", UICinematicParam::FogStart, 0.00f, 500.00f, 1.00f, "%.0f" },
-    { nullptr, "End", UICinematicParam::FogEnd, 100.00f, 4000.00f, 10.00f, "%.0f" },
-    { nullptr, "Fog R", UICinematicParam::FogRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Fog G", UICinematicParam::FogGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Fog B", UICinematicParam::FogBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-};
-static_assert( sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) == static_cast<int>( UICinematicParam::Count ),
-               "Cinematic slider specs must match UICinematicParam." );
-
-constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
-    { "Sky", UICinematicFeature::Sky },
-    { "Clouds", UICinematicFeature::Clouds },
-    { "God rays", UICinematicFeature::GodRays },
-    { "Volume", UICinematicFeature::VolumetricLight },
-    { "Bloom", UICinematicFeature::Bloom },
-    { "Fog", UICinematicFeature::Fog },
-    { "Relief", UICinematicFeature::TerrainRelief },
-    { "Shadows", UICinematicFeature::Shadows },
-};
-static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
-               "Cinematic feature specs must match UICinematicFeature." );
-
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
 {
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
@@ -901,275 +791,6 @@ void SetRenderSliderResult( InGameUIInputResult& result, const UISlider& slider,
     result.commands.renderTuning.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
 }
 
-bool IsCineSceneOptionName( const char* name )
-{
-    if ( !name )
-    {
-        return false;
-    }
-    return strncmp( name, "concept_", 8 ) == 0 ||
-           strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr ||
-           strstr( name, "cine_" ) == name;
-}
-
-int BuildCineSceneOptions( const char* const* sceneOptions,
-                           int sceneOptionCount,
-                           const char* labels[UI_CINE_SCENE_MAX_OPTIONS],
-                           int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] )
-{
-    int count = 0;
-    labels[count] = SceneTab::DEMO_SCENE_OPTION;
-    sceneIndices[count] = -1;
-    ++count;
-
-    for ( int i = 0; i < sceneOptionCount && sceneOptions && count < UI_CINE_SCENE_MAX_OPTIONS; ++i )
-    {
-        if ( IsCineSceneOptionName( sceneOptions[i] ) )
-        {
-            labels[count] = sceneOptions[i];
-            sceneIndices[count] = i;
-            ++count;
-        }
-    }
-    return count;
-}
-
-int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], int cineOptionCount, int selectedSceneOption )
-{
-    for ( int i = 0; i < cineOptionCount; ++i )
-    {
-        if ( sceneIndices[i] == selectedSceneOption )
-        {
-            return i;
-        }
-    }
-    return 0;
-}
-
-int CinematicSliderIndexFromActiveSlider( int activeSlider )
-{
-    // Other UI tabs already use m_activeSlider. Give Cine sliders their own id
-    // range so dragging can continue even if the mouse leaves the slider bounds.
-    const int index = activeSlider - UI_CINEMATIC_SLIDER_BASE;
-    return ( index >= 0 && index < static_cast<int>( UICinematicParam::Count ) ) ? index : -1;
-}
-
-float CinematicSliderY( int index, float baseY )
-{
-    // Sections add extra vertical space. Calculating this from the spec array
-    // keeps hit testing and drawing in lockstep.
-    float y = baseY;
-    for ( int i = 0; i <= index; ++i )
-    {
-        if ( kCinematicSliderSpecs[i].section )
-        {
-            y += UI_CINEMATIC_SECTION_H;
-        }
-        if ( i == index )
-        {
-            return y;
-        }
-        y += UI_CINEMATIC_ROW_H;
-    }
-    return y;
-}
-
-int CinematicContentHeight()
-{
-    float height = UI_CINEMATIC_START_Y;
-    for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-    {
-        if ( kCinematicSliderSpecs[i].section )
-        {
-            height += UI_CINEMATIC_SECTION_H;
-        }
-        height += UI_CINEMATIC_ROW_H;
-    }
-    return static_cast<int>( height + 18.0f );
-}
-
-float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinematicParam param )
-{
-    // Read the live value for a Cine slider. This is the inverse of the command
-    // application in SkullbonezRunInput.cpp.
-    switch ( param )
-    {
-    case UICinematicParam::Exposure:
-        return cinematic.exposure;
-    case UICinematicParam::Gamma:
-        return cinematic.gamma;
-    case UICinematicParam::SkyMode:
-        return static_cast<float>( cinematic.skyMode );
-    case UICinematicParam::TerrainMode:
-        return static_cast<float>( cinematic.terrainMode );
-    case UICinematicParam::ObjectStyle:
-        return static_cast<float>( cinematic.objectStyle );
-    case UICinematicParam::WaterMode:
-        return static_cast<float>( cinematic.waterMode );
-    case UICinematicParam::StyleSaturation:
-        return cinematic.styleSaturation;
-    case UICinematicParam::StyleContrast:
-        return cinematic.styleContrast;
-    case UICinematicParam::StyleVignette:
-        return cinematic.styleVignette;
-    case UICinematicParam::SunX:
-        return cinematic.sunScreenX;
-    case UICinematicParam::SunY:
-        return cinematic.sunScreenY;
-    case UICinematicParam::SunBrightness:
-        return cinematic.sunIntensity;
-    case UICinematicParam::SunRed:
-        return cinematic.sunColorR;
-    case UICinematicParam::SunGreen:
-        return cinematic.sunColorG;
-    case UICinematicParam::SunBlue:
-        return cinematic.sunColorB;
-    case UICinematicParam::SkyGlow:
-        return cinematic.skyGlowStrength;
-    case UICinematicParam::HorizonRed:
-        return cinematic.skyHorizonR;
-    case UICinematicParam::HorizonGreen:
-        return cinematic.skyHorizonG;
-    case UICinematicParam::HorizonBlue:
-        return cinematic.skyHorizonB;
-    case UICinematicParam::ZenithRed:
-        return cinematic.skyZenithR;
-    case UICinematicParam::ZenithGreen:
-        return cinematic.skyZenithG;
-    case UICinematicParam::ZenithBlue:
-        return cinematic.skyZenithB;
-    case UICinematicParam::CloudCoverage:
-        return cinematic.cloudCoverage;
-    case UICinematicParam::CloudSoftness:
-        return cinematic.cloudSoftness;
-    case UICinematicParam::CloudScale:
-        return cinematic.cloudScale;
-    case UICinematicParam::CloudIntensity:
-        return cinematic.cloudIntensity;
-    case UICinematicParam::ShaftStrength:
-        return cinematic.sunShaftStrength;
-    case UICinematicParam::ShaftFalloff:
-        return cinematic.sunShaftFalloff;
-    case UICinematicParam::VolumetricStrength:
-        return cinematic.volumetricStrength;
-    case UICinematicParam::VolumetricDensity:
-        return cinematic.volumetricDensity;
-    case UICinematicParam::VolumetricDecay:
-        return cinematic.volumetricDecay;
-    case UICinematicParam::BloomThreshold:
-        return cinematic.bloomThreshold;
-    case UICinematicParam::BloomKnee:
-        return cinematic.bloomKnee;
-    case UICinematicParam::BloomStrength:
-        return cinematic.bloomStrength;
-    case UICinematicParam::BloomRadius:
-        return cinematic.bloomRadius;
-    case UICinematicParam::TerrainRelief:
-        return cinematic.terrainRelief;
-    case UICinematicParam::TerrainTintRed:
-        return cinematic.terrainTintR;
-    case UICinematicParam::TerrainTintGreen:
-        return cinematic.terrainTintG;
-    case UICinematicParam::TerrainTintBlue:
-        return cinematic.terrainTintB;
-    case UICinematicParam::TerrainAccentRed:
-        return cinematic.terrainAccentR;
-    case UICinematicParam::TerrainAccentGreen:
-        return cinematic.terrainAccentG;
-    case UICinematicParam::TerrainAccentBlue:
-        return cinematic.terrainAccentB;
-    case UICinematicParam::TerrainGridScale:
-        return cinematic.terrainGridScale;
-    case UICinematicParam::TerrainGridStrength:
-        return cinematic.terrainGridStrength;
-    case UICinematicParam::WaterTintRed:
-        return cinematic.waterTintR;
-    case UICinematicParam::WaterTintGreen:
-        return cinematic.waterTintG;
-    case UICinematicParam::WaterTintBlue:
-        return cinematic.waterTintB;
-    case UICinematicParam::WaterAlpha:
-        return cinematic.waterAlpha;
-    case UICinematicParam::WaterReflection:
-        return cinematic.waterReflectionStrength;
-    case UICinematicParam::WaterGlint:
-        return cinematic.waterGlintStrength;
-    case UICinematicParam::BasinCenterX:
-        return cinematic.basinCenterX;
-    case UICinematicParam::BasinCenterZ:
-        return cinematic.basinCenterZ;
-    case UICinematicParam::BasinRadiusX:
-        return cinematic.basinRadiusX;
-    case UICinematicParam::BasinRadiusZ:
-        return cinematic.basinRadiusZ;
-    case UICinematicParam::BasinFeather:
-        return cinematic.basinFeather;
-    case UICinematicParam::BasinDepth:
-        return cinematic.basinDepth;
-    case UICinematicParam::BasinRimLift:
-        return cinematic.basinRimLift;
-    case UICinematicParam::FogDensity:
-        return cinematic.fogDensity;
-    case UICinematicParam::FogOpacity:
-        return cinematic.fogMaxOpacity;
-    case UICinematicParam::FogStart:
-        return cinematic.fogStart;
-    case UICinematicParam::FogEnd:
-        return cinematic.fogEnd;
-    case UICinematicParam::FogRed:
-        return cinematic.fogColorR;
-    case UICinematicParam::FogGreen:
-        return cinematic.fogColorG;
-    case UICinematicParam::FogBlue:
-        return cinematic.fogColorB;
-    default:
-        return 0.0f;
-    }
-}
-
-void SetCinematicSliderResult( InGameUIInputResult& result, const UISlider& slider, int mouseX, const CinematicSliderSpec& spec )
-{
-    result.commands.cinematic.requestedParam = spec.param;
-    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
-}
-
-float CinematicFeatureY( int index, float baseY )
-{
-    return baseY + static_cast<float>( index / 2 ) * CONTENT_TOGGLE_ROW_H;
-}
-
-float CinematicFeatureX( int index, float contentX, float colW )
-{
-    return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
-}
-
-bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, UICinematicFeature feature )
-{
-    switch ( feature )
-    {
-    case UICinematicFeature::Sky:
-        return cinematic.skyAtmosphereEnabled;
-    case UICinematicFeature::Clouds:
-        return cinematic.cloudsEnabled;
-    case UICinematicFeature::GodRays:
-        return cinematic.godRaysEnabled;
-    case UICinematicFeature::VolumetricLight:
-        return cinematic.volumetricLightingEnabled;
-    case UICinematicFeature::Bloom:
-        return cinematic.bloomEnabled;
-    case UICinematicFeature::Fog:
-        return cinematic.fogEnabled;
-    case UICinematicFeature::TerrainRelief:
-        return cinematic.terrainReliefEnabled;
-    case UICinematicFeature::Shadows:
-        return cinematic.shadowsEnabled;
-    default:
-        return false;
-    }
-}
-
-
 float EditorMiniChipWidth( const char* label )
 {
     return Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
@@ -1302,7 +923,7 @@ void InGameUI::SetVisible( bool visible, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
-        m_cineSceneCombo.Close();
+        CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
     }
 }
@@ -1338,7 +959,7 @@ void InGameUI::SetMinimized( bool minimized, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
-        m_cineSceneCombo.Close();
+        CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
         m_activeSlider = 0;
     }
@@ -1384,7 +1005,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
-    m_cineSceneCombo.Close();
+    CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
@@ -1426,7 +1047,7 @@ bool InGameUI::BlocksCameraMouse() const
 
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() || m_editorTab.objectCombo.IsOpen() || m_renderTargetCombo.IsOpen() );
+    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() || m_renderTargetCombo.IsOpen() );
 }
 
 
@@ -1474,7 +1095,7 @@ void InGameUI::SetRendererComboOpen( bool open )
     {
         m_reflectionCombo.Close();
         CloseSceneCombo();
-        m_cineSceneCombo.Close();
+        CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
     }
 }
@@ -1487,7 +1108,7 @@ void InGameUI::SetWaterComboOpen( bool open )
     {
         m_rendererCombo.Close();
         CloseSceneCombo();
-        m_cineSceneCombo.Close();
+        CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
     }
 }
@@ -1500,7 +1121,7 @@ void InGameUI::SetSceneComboOpen( bool open )
     {
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
-        m_cineSceneCombo.Close();
+        CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
         SceneTab::CaptureFilterKeyState( m_sceneTab );
     }
@@ -1680,21 +1301,8 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
-    {
-        const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
-        int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
-        const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
-        DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
-        for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
-        {
-            DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
-        }
-        for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-        {
-            DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
-        }
-    }
-    break;
+        CinematicTab::DrawHitboxes( m_cinematicTab, draw, data, contentR, contentG, contentB );
+        break;
     case InGameUITab::Profiler:
         DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
@@ -1740,7 +1348,7 @@ int InGameUI::ContentHeight() const
     case InGameUITab::Targets:
         return RenderTargetsContentHeight();
     case InGameUITab::Cinematic:
-        return CinematicContentHeight();
+        return CinematicTab::ContentHeight();
     default:
         return ControlsTab::ContentHeight();
     }
@@ -1760,6 +1368,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_interaction.blocksCameraMouse = false;
     const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
+    result.unhandledWheelDelta = wheelDelta;
     if ( !m_window.isVisible )
     {
         return result;
@@ -1794,6 +1403,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     {
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
+        if ( insideMinimized )
+        {
+            result.unhandledWheelDelta = 0;
+        }
         if ( input.leftPressed && insideMinimized )
         {
             SetMinimized( false, now );
@@ -1822,6 +1435,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( inputHitBounds );
 
+    if ( inside )
+    {
+        result.unhandledWheelDelta = 0;
+    }
+
     m_tabBar.SetBounds( static_cast<float>( inputX + 14 ), static_cast<float>( inputY + titleH ), static_cast<float>( inputW - 28 ), static_cast<float>( tabH ) );
     const float footerX = static_cast<float>( inputX );
     const float footerY = static_cast<float>( bottomY );
@@ -1848,10 +1466,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
         m_renderTargetCombo.SetDropUp( false );
     }
-
-    const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
-    int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
-    const int cineSceneOptionCount = BuildCineSceneOptions( sceneOptions, sceneOptionCount, cineSceneOptions, cineSceneIndices );
 
     if ( ( leftNow && ( inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0 ) ) ||
          ( wheelDelta != 0 && inside ) )
@@ -1943,26 +1557,13 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
             m_renderTargetCombo.Close();
         }
-        else if ( m_cineSceneCombo.IsOpen() )
+        else if ( CinematicTab::IsComboOpen( m_cinematicTab ) )
         {
-            const int option = m_cineSceneCombo.HitOption( m_mouseX, m_mouseY, cineSceneOptionCount );
-            if ( option >= 0 && option < cineSceneOptionCount )
-            {
-                result.commands.cinematic.requestedModeSceneIndex = cineSceneIndices[option];
-                m_cineSceneCombo.Close();
-            }
-            else if ( m_cineSceneCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_cineSceneCombo.ToggleOpen();
-            }
-            else
-            {
-                m_cineSceneCombo.Close();
-            }
+            CinematicTab::HandleOpenComboClick( m_cinematicTab, result, sceneOptions, sceneOptionCount, m_mouseX, m_mouseY );
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
@@ -1997,7 +1598,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
         else if ( m_editorTab.objectCombo.IsOpen() )
@@ -2022,7 +1623,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_renderTargetCombo.Close();
         }
         else if ( m_reflectionCombo.IsOpen() )
@@ -2043,7 +1644,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             CloseSceneCombo();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
             m_renderTargetCombo.Close();
         }
@@ -2059,7 +1660,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.ToggleOpen();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
                 m_renderTargetCombo.Close();
             }
@@ -2088,7 +1689,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             CloseSceneCombo();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
@@ -2115,7 +1716,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             if ( sceneClickHandled )
             {
                 m_reflectionCombo.Close();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
             }
         }
@@ -2134,7 +1735,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
@@ -2156,7 +1757,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
@@ -2178,7 +1779,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Render )
@@ -2221,7 +1822,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_renderTargetCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Targets )
@@ -2236,7 +1837,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
             }
             else
@@ -2244,7 +1845,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
                 m_renderTargetCombo.Close();
             }
@@ -2254,48 +1855,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const float colW = (std::max)( 148.0f, contentW * 0.46f );
-            bool capturedSlider = false;
-
-            m_cineSceneCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
-            if ( m_cineSceneCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_cineSceneCombo.ToggleOpen();
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-                CloseSceneCombo();
-            }
-            else
-            {
-                const float featureBaseY = scrolledY + UI_CINEMATIC_FEATURE_START_Y + 26.0f;
-                for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
-                {
-                    const float tx = CinematicFeatureX( i, contentX, colW );
-                    const float toggleY = CinematicFeatureY( i, featureBaseY );
-                    m_cinematicFeatureToggles[i].SetBounds( tx, toggleY, colW, 24.0f );
-                    if ( m_cinematicFeatureToggles[i].HitTest( m_mouseX, m_mouseY ) )
-                    {
-                        result.commands.cinematic.requestedFeature = kCinematicFeatureSpecs[i].feature;
-                        break;
-                    }
-                }
-
-                if ( result.commands.cinematic.requestedFeature == UICinematicFeature::None )
-                {
-                    const float rowBase = scrolledY + UI_CINEMATIC_START_Y;
-                    for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-                    {
-                        m_cinematicSliders[i].SetBounds( contentX, CinematicSliderY( i, rowBase ), contentW, 34.0f );
-                        if ( m_cinematicSliders[i].HitTest( m_mouseX, m_mouseY ) )
-                        {
-                            m_activeSlider = UI_CINEMATIC_SLIDER_BASE + i;
-                            SetCinematicSliderResult( result, m_cinematicSliders[i], m_mouseX, kCinematicSliderSpecs[i] );
-                            capturedSlider = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            const bool capturedSlider = CinematicTab::HandleContentClick( m_cinematicTab,
+                                                                          result,
+                                                                          m_activeSlider,
+                                                                          m_mouseX,
+                                                                          m_mouseY,
+                                                                          contentX,
+                                                                          scrolledY,
+                                                                          contentW );
 
             if ( capturedSlider )
             {
@@ -2303,10 +1870,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            if ( capturedSlider )
-            {
-                m_cineSceneCombo.Close();
-            }
         }
         else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
@@ -2329,7 +1892,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
         }
         else if ( inside && m_mouseY >= inputY + inputH - bottomH )
         {
@@ -2338,7 +1901,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.ToggleOpen();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
                 m_renderTargetCombo.Close();
             }
@@ -2347,7 +1910,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_reflectionCombo.ToggleOpen();
                 m_rendererCombo.Close();
                 CloseSceneCombo();
-                m_cineSceneCombo.Close();
+                CinematicTab::CloseCombo( m_cinematicTab );
                 m_editorTab.objectCombo.Close();
                 m_renderTargetCombo.Close();
             }
@@ -2377,7 +1940,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         {
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
-            m_cineSceneCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
             m_renderTargetCombo.Close();
         }
@@ -2400,12 +1963,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             else
             {
-                const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
-                if ( cinematicSlider >= 0 )
-                {
-                    SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
-                }
-                else
+                if ( !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
                     ControlsTab::UpdateActiveSlider( m_controlsTab,
                                                      m_activeSlider,
@@ -2460,12 +2018,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             else
             {
-                const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
-                if ( cinematicSlider >= 0 )
-                {
-                    SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
-                }
-                else
+                if ( !CinematicTab::CommitActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
                     ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
                 }
@@ -2603,7 +2156,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                                                  m_rendererCombo.IsOpen(),
                                                                  m_reflectionCombo.IsOpen(),
                                                                  m_sceneCombo.IsOpen(),
-                                                                 m_cineSceneCombo.IsOpen(),
+                                                                 CinematicTab::IsComboOpen( m_cinematicTab ),
                                                                  m_editorTab.objectCombo.IsOpen(),
                                                                  m_renderTargetCombo.IsOpen(),
                                                                  m_selectedRenderTargetPreview,
@@ -2843,55 +2396,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( m_activeTab == InGameUITab::Cinematic )
     {
-        char buf[128];
-        const float colW = (std::max)( 148.0f, contentW * 0.46f );
-        const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
-        int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
-        const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions, cineSceneIndices );
-        const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount, data.selectedCineModeSceneOption );
-
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Cine" );
-        m_cineSceneCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
-        if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_SCENE_Y, 24.0f ) )
-        {
-            m_cineSceneCombo.Draw( draw, "Mode", cineSceneOptions, cineSceneOptionCount, selectedCineSceneOption, m_mouseX, m_mouseY );
-        }
-        if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )
-        {
-            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 12.0f, "Passes" );
-        }
-        const float featureBaseY = scrolledY + UI_CINEMATIC_FEATURE_START_Y + 26.0f;
-        for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
-        {
-            const float tx = CinematicFeatureX( i, contentX, colW );
-            const float toggleY = CinematicFeatureY( i, featureBaseY );
-            DrawContentToggle( draw,
-                               contentY,
-                               contentH,
-                               m_cinematicFeatureToggles[i],
-                               tx,
-                               toggleY,
-                               colW,
-                               kCinematicFeatureSpecs[i].label,
-                               CinematicFeatureEnabled( data.cinematic, kCinematicFeatureSpecs[i].feature ) );
-        }
-        const float baseY = scrolledY + UI_CINEMATIC_START_Y;
-        for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-        {
-            const CinematicSliderSpec& spec = kCinematicSliderSpecs[i];
-            const float sliderY = CinematicSliderY( i, baseY );
-            if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 18.0f ) )
-            {
-                DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 12.0f, spec.section );
-            }
-            const float value = std::clamp( CinematicValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );
-            snprintf( buf, sizeof( buf ), spec.valueFormat, value );
-            m_cinematicSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
-            if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
-            {
-                m_cinematicSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
-            }
-        }
+        CinematicTab::Draw( m_cinematicTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_mouseX, m_mouseY );
     }
     else
     {

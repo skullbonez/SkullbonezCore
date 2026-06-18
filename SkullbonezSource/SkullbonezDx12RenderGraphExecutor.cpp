@@ -210,6 +210,7 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         record.nativeResource = transition.nativeResource;
         record.beforeAccess = transition.before;
         record.afterAccess = transition.after;
+        record.subresource = static_cast<UINT>( transition.subresource );
         record.hasNativeResource = transition.nativeResource != nullptr;
         record.hasConcreteStates =
             TryDx12RenderGraphAccessToResourceState( transition.before, record.beforeState ) &&
@@ -249,7 +250,7 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
             singleDesc.resource = static_cast<ID3D12Resource*>( const_cast<void*>( record.nativeResource ) );
             singleDesc.before = transition.before;
             singleDesc.after = transition.after;
-            singleDesc.subresource = record.subresource;
+            singleDesc.subresource = static_cast<UINT>( transition.subresource );
             const Dx12RenderGraphSingleTransitionResult singleResult = EmitDx12RenderGraphTransitionBarrier( singleDesc );
             if ( singleResult.emitted )
             {

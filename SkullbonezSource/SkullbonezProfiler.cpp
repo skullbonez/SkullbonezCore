@@ -151,14 +151,19 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.ringFilled = 0;
     m.ringHead = 0;
     m.lastFrameMs = 0.0f;
+    m.lastSelfMs = 0.0f;
     m.lastFrameStartMs = 0.0f;
     m.lastFrameEndMs = 0.0f;
     m.avgMs = 0.0f;
+    m.selfAvgMs = 0.0f;
     m.p50Ms = 0.0f;
     m.p99Ms = 0.0f;
     m.p99_9Ms = 0.0f;
     m.minMs = FLT_MAX;
     m.maxMs = 0.0f;
+    m.selfRingFilled = 0;
+    m.selfRingHead = 0;
+    std::memset( m.selfRingMs, 0, sizeof( m.selfRingMs ) );
 
     // GPU state initialised to inactive
     m.hasGpu = false;
@@ -677,6 +682,40 @@ void Profiler::FrameEnd()
         }
     }
 
+    // Direct self time explains parent rows whose visible children do not sum
+    // to the parent total. Frame is already VSync-excluded, so skip VsyncWait
+    // when accounting for Frame's direct children.
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        Marker& marker = m_markers[i];
+        float directChildMs = 0.0f;
+        for ( int childIndex = 0; childIndex < m_markerCount; ++childIndex )
+        {
+            const Marker& child = m_markers[childIndex];
+            if ( child.parentIndex != i )
+            {
+                continue;
+            }
+            if ( marker.hash == kFrameHash && child.hash == kVsyncHash )
+            {
+                continue;
+            }
+            directChildMs += child.lastFrameMs;
+        }
+
+        marker.lastSelfMs = (std::max)( 0.0f, marker.lastFrameMs - directChildMs );
+        if ( m_warmupFrames > 0 )
+        {
+            continue;
+        }
+        marker.selfRingMs[marker.selfRingHead] = marker.lastSelfMs;
+        marker.selfRingHead = ( marker.selfRingHead + 1 ) % RING_SIZE;
+        if ( marker.selfRingFilled < RING_SIZE )
+        {
+            ++marker.selfRingFilled;
+        }
+    }
+
     // Moving average refreshed every 500 ms (CPU, GPU, and worker core work) — skip during warmup
     bool refreshAverages = false;
     if ( m_warmupFrames == 0 )
@@ -739,6 +778,17 @@ void Profiler::FrameEnd()
                     sum += m.ringMs[k];
                 }
                 m.avgMs = static_cast<float>( sum / n );
+            }
+
+            int sn = m.selfRingFilled;
+            if ( sn > 0 )
+            {
+                double selfSum = 0.0;
+                for ( int k = 0; k < sn; ++k )
+                {
+                    selfSum += m.selfRingMs[k];
+                }
+                m.selfAvgMs = static_cast<float>( selfSum / sn );
             }
 
             // GPU average
@@ -899,8 +949,9 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float colName = 0.0f;
     const float valueColStep = fSize * 7.0f;
     const float colAvg = markerNameW + fSize * 1.5f;
-    const float colGpu = anyGpu ? colAvg + valueColStep : -1.0f;
-    const float colP50 = anyGpu ? colGpu + valueColStep : colAvg + valueColStep;
+    const float colSelf = colAvg + valueColStep;
+    const float colGpu = anyGpu ? colSelf + valueColStep : -1.0f;
+    const float colP50 = anyGpu ? colGpu + valueColStep : colSelf + valueColStep;
     const float colP99 = colP50 + valueColStep;
     const float colMin = colP99 + valueColStep;
     const float colMax = colMin + valueColStep;
@@ -954,6 +1005,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Column labels
     Text2d::Render2dTextColor( xLeft + colName, y, fSize, colR, colG, colB, "MARKER" );
     Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "CPU" );
+    Text2d::Render2dTextColor( xLeft + colSelf, y, fSize, colR, colG, colB, "SELF" );
     if ( anyGpu )
     {
         Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "GPU" );
@@ -1019,6 +1071,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
         Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%s", nameBuf );
         Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
+        const float selfMs = m.selfAvgMs > 0.0f ? m.selfAvgMs : m.lastSelfMs;
+        Text2d::Render2dTextColor( xLeft + colSelf, y, fSize, mr, mg, mb, "%6.2f", selfMs );
         if ( anyGpu )
         {
             if ( m.hasGpu && m.gpuRingFilled > 0 )

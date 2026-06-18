@@ -53,6 +53,7 @@ echo [2/4] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 del /q "%REPO%\Debug\bullet_sweep_*.csv" 2>nul
 del /q "%REPO%\Debug\shooting_reaction_*.csv" 2>nul
+del /q "%REPO%\Debug\physics_known_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene --physics-regression-log Debug/physics_regression_solver.csv
@@ -89,6 +90,27 @@ if errorlevel 1 (
     exit /b 2
 )
 
+echo   Running physics_known_stacking...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene --physics-regression-log Debug/physics_known_stacking.csv
+if errorlevel 1 (
+    echo FAIL: physics_known_stacking crashed or errored.
+    exit /b 2
+)
+
+echo   Running physics_known_at_rest...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/at_rest.scene --physics-regression-log Debug/physics_known_at_rest.csv
+if errorlevel 1 (
+    echo FAIL: physics_known_at_rest crashed or errored.
+    exit /b 2
+)
+
+echo   Running physics_known_terrain_contact...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/terrain_contact_probe_debug.scene --physics-regression-log Debug/physics_known_terrain_contact.csv
+if errorlevel 1 (
+    echo FAIL: physics_known_terrain_contact crashed or errored.
+    exit /b 2
+)
+
 echo [3/4] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_physics_regression.py"
@@ -96,6 +118,15 @@ if errorlevel 1 (
     echo FAIL: Physics regression detected. Output differs from baselines.
     echo       Baseline dir: TestOutput\baselines
     echo       Actual dir:   Debug
+    exit /b 2
+)
+
+echo   Checking known physics issue signatures...
+"%PYTHON_EXE%" "%~dp0check_physics_known_issue_regression.py"
+if errorlevel 1 (
+    echo FAIL: Known physics issue signature changed.
+    echo       Baseline: TestOutput\baselines\physics_known_issue_signatures.json
+    echo       Actual dir: Debug
     exit /b 2
 )
 

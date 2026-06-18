@@ -85,7 +85,7 @@ void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t ou
 }
 } // namespace
 
-void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderBackend& backend, const char* path )
+void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
 {
     if ( !backend.GetCapabilities().supportsBackbufferCapture )
     {

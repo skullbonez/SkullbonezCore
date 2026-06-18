@@ -118,9 +118,23 @@ void GameModelCollection::ResetRenderResources()
 }
 
 
-bool GameModelCollection::SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp )
+bool GameModelCollection::SaveSceneSnapshot( const char* path,
+                                             bool physicsOn,
+                                             bool textOn,
+                                             Environment::WorldEnvironment& worldEnv,
+                                             const Vector3& camEye,
+                                             const Vector3& camView,
+                                             const Vector3& camUp,
+                                             bool editableScene,
+                                             bool fixedStep,
+                                             bool waterHidden,
+                                             bool terrainHidden,
+                                             bool hasFlatSlope,
+                                             float flatBaseY,
+                                             float flatSlopeX,
+                                             float flatSlopeZ )
 {
-    return SceneSnapshotWriter::Save( *this, path, physicsOn, textOn, worldEnv, camEye, camView, camUp );
+    return SceneSnapshotWriter::Save( *this, path, physicsOn, textOn, worldEnv, camEye, camView, camUp, editableScene, fixedStep, waterHidden, terrainHidden, hasFlatSlope, flatBaseY, flatSlopeX, flatSlopeZ );
 }
 
 
@@ -142,6 +156,18 @@ int GameModelCollection::GetModelCount() const
 
 
 const std::vector<GameModel>& GameModelCollection::Models() const
+{
+    return m_gameModels;
+}
+
+
+std::vector<GameModel>& GameModelCollection::PhysicsModels()
+{
+    return m_gameModels;
+}
+
+
+const std::vector<GameModel>& GameModelCollection::PhysicsModels() const
 {
     return m_gameModels;
 }
@@ -199,6 +225,12 @@ double GameModelCollection::GetSceneKineticEnergy()
         totalEnergy += 0.5 * static_cast<double>( model.GetMass() ) * speedSq + angularEnergy;
     }
     return totalEnergy;
+}
+
+
+void GameModelCollection::InvalidatePhysicsStreams()
+{
+    InvalidateSoA();
 }
 
 

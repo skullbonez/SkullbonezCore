@@ -36,6 +36,7 @@ Related:
 #include "UISlider.h"
 #include "UIState.h"
 #include "UITabBar.h"
+#include "UITabCinematic.h"
 #include "UITabControls.h"
 #include "UITabEditor.h"
 #include "UITabOptions.h"
@@ -216,14 +217,11 @@ class InGameUI
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
-    UIComboBox m_cineSceneCombo;
     UIComboBox m_renderTargetCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
     UIButton m_saveRenderDefaultsButton;
     UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
-    UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
-    UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
     std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
@@ -250,6 +248,7 @@ class InGameUI
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;
     SceneTab::UISceneTabState m_sceneTab;
+    CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp

@@ -33,6 +33,8 @@ namespace Basics
 {
 struct RunSceneState
 {
+    void ResetForLoad( const CinematicRenderConfig& cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
+
     int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
     int loadCount = 0;             // Number of scene/generated loads since startup
     int manualResetCount = 0;      // Number of user-triggered resets since startup
@@ -52,6 +54,11 @@ struct RunSceneState
     bool isTestComplete = false;   // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
     bool isFinishLogged = false;   // Debug event log guard for scene completion
     bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
+    bool isEditableScene = false;  // Scene-tab-created file that should save live object state back to its scene file
+    bool hasFlatSlope = false;     // Active terrain was authored as flat_slope and can be preserved by live scene saves
+    float flatBaseY = 0.0f;
+    float flatSlopeX = 0.0f;
+    float flatSlopeZ = 0.0f;
 
     // Live cinematic scene state. Scene files can override only selected fields,
     // while UI sliders mutate this copy at runtime so the user can tune the look

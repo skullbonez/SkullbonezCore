@@ -22,7 +22,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderBackend;
+class IRenderCaptureBackend;
 }
 
 namespace Basics
@@ -71,7 +71,7 @@ class RuntimeCaptureSink
 class CaptureSystem
 {
   public:
-    static void SaveBackbufferBmp( Rendering::IRenderBackend& backend, const char* path );
+    static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context, RuntimeCaptureSink& sink );
     static RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount, float& autoCycleInterval, float& autoCycleAccum, int& autoCycleShotsTaken, int& trackBallIndex, RuntimeCaptureSink& sink );
 };

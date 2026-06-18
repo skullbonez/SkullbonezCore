@@ -80,6 +80,18 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
     state.comboScroll = 0;
 }
 
+void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result )
+{
+    if ( state.filter[0] == '\0' )
+    {
+        return;
+    }
+
+    result.commands.scene.createScene = true;
+    strncpy_s( result.commands.scene.requestedSceneName, sizeof( result.commands.scene.requestedSceneName ), state.filter, _TRUNCATE );
+    result.commands.ui.userInteracted = true;
+}
+
 void SetSceneHeaderBounds( SkullbonezCore::UI::UIComboBox& combo,
                            SkullbonezCore::UI::UIButton& resetSceneButton,
                            SkullbonezCore::UI::UIButton& resetDefaultsButton,
@@ -143,9 +155,54 @@ bool FilterMatches( const char* option, const char* filter )
 }
 
 
+bool TextEqualsIgnoreAsciiCase( const char* left, const char* right )
+{
+    if ( !left || !right )
+    {
+        return false;
+    }
+    while ( *left != '\0' && *right != '\0' )
+    {
+        if ( LowerAscii( *left ) != LowerAscii( *right ) )
+        {
+            return false;
+        }
+        ++left;
+        ++right;
+    }
+    return *left == '\0' && *right == '\0';
+}
+
+
+int FindExactOptionIndex( const char* const* options, int optionCount, const char* filter )
+{
+    if ( !filter || filter[0] == '\0' )
+    {
+        return -1;
+    }
+    if ( TextEqualsIgnoreAsciiCase( DEMO_SCENE_OPTION, filter ) )
+    {
+        return DEMO_SCENE_BROWSER_INDEX;
+    }
+    if ( !options || optionCount <= 0 )
+    {
+        return -1;
+    }
+    for ( int i = 0; i < optionCount; ++i )
+    {
+        if ( TextEqualsIgnoreAsciiCase( options[i], filter ) )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
 int CountFilteredOptions( const char* const* options, int optionCount, const char* filter )
 {
-    int count = FilterMatches( DEMO_SCENE_OPTION, filter ) ? 1 : 0;
+    int count = filter && filter[0] != '\0' ? 1 : 0;
+    count += FilterMatches( DEMO_SCENE_OPTION, filter ) ? 1 : 0;
     if ( !options || optionCount <= 0 )
     {
         return count;
@@ -169,6 +226,14 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
     }
 
     int filteredPosition = 0;
+    if ( filter && filter[0] != '\0' )
+    {
+        if ( filteredPosition == filteredIndex )
+        {
+            return NEW_SCENE_BROWSER_INDEX;
+        }
+        ++filteredPosition;
+    }
     if ( FilterMatches( DEMO_SCENE_OPTION, filter ) )
     {
         if ( filteredPosition == filteredIndex )
@@ -199,6 +264,14 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
 int FilteredPositionForIndex( const char* const* options, int optionCount, const char* filter, int optionIndex )
 {
     int filteredPosition = 0;
+    if ( filter && filter[0] != '\0' )
+    {
+        if ( optionIndex == NEW_SCENE_BROWSER_INDEX )
+        {
+            return filteredPosition;
+        }
+        ++filteredPosition;
+    }
     if ( FilterMatches( DEMO_SCENE_OPTION, filter ) )
     {
         if ( optionIndex < 0 )
@@ -329,8 +402,17 @@ void UpdateFilterTyping( UISceneTabState& state,
     }
     if ( ConsumeFilterKeyPress( state, VK_RETURN ) && combo.IsOpen() )
     {
-        const int sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, 0 );
-        if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
+        int sceneIndex = FindExactOptionIndex( sceneOptions, sceneOptionCount, state.filter );
+        if ( sceneIndex < 0 )
+        {
+            sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, 0 );
+        }
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        {
+            RequestNewScene( state, result );
+            CloseCombo( state, combo );
+        }
+        else if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
         {
             result.commands.scene.requestDemoScene = true;
             CloseCombo( state, combo );
@@ -341,6 +423,11 @@ void UpdateFilterTyping( UISceneTabState& state,
             result.commands.scene.requestedSceneIndex = sceneIndex;
             CloseCombo( state, combo );
             result.commands.ui.userInteracted = true;
+        }
+        else if ( state.filter[0] != '\0' )
+        {
+            RequestNewScene( state, result );
+            CloseCombo( state, combo );
         }
     }
 }
@@ -422,7 +509,11 @@ bool HandleOpenComboClick( UISceneTabState& state,
     else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
     {
         const int sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, state.comboScroll + option );
-        if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        {
+            RequestNewScene( state, result );
+        }
+        else if ( sceneIndex == DEMO_SCENE_BROWSER_INDEX )
         {
             result.commands.scene.requestDemoScene = true;
         }
@@ -548,14 +639,16 @@ void Draw( UISceneTabState& state,
     for ( int i = 0; i < sceneVisibleCount; ++i )
     {
         const int sceneIndex = FindFilteredOptionIndex( data.sceneOptions, data.sceneOptionCount, state.filter, sceneFirstOption + i );
-        visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX ? DEMO_SCENE_OPTION : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
+        if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
+        {
+            visibleSceneOptions[i] = NEW_SCENE_OPTION;
+        }
+        else
+        {
+            visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX ? DEMO_SCENE_OPTION : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
+        }
     }
     int sceneDrawCount = sceneVisibleCount;
-    if ( sceneDrawCount == 0 && sceneFilterActive )
-    {
-        visibleSceneOptions[0] = "No matches";
-        sceneDrawCount = 1;
-    }
     const char* selectedSceneName = DEMO_SCENE_OPTION;
     if ( data.sceneOptions && data.selectedSceneOption >= 0 && data.selectedSceneOption < data.sceneOptionCount )
     {

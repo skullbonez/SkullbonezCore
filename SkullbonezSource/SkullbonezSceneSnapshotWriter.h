@@ -39,7 +39,7 @@ class GameModelCollection;
 class SceneSnapshotWriter
 {
   public:
-    static bool Save( GameModelCollection& collection, const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp );
+    static bool Save( GameModelCollection& collection, const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp, bool editableScene = false, bool fixedStep = false, bool waterHidden = false, bool terrainHidden = false, bool hasFlatSlope = false, float flatBaseY = 0.0f, float flatSlopeX = 0.0f, float flatSlopeZ = 0.0f );
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

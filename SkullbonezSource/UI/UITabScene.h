@@ -42,7 +42,9 @@ namespace SceneTab
 {
 
 constexpr int DEMO_SCENE_BROWSER_INDEX = -2;
+constexpr int NEW_SCENE_BROWSER_INDEX = -3;
 constexpr const char* DEMO_SCENE_OPTION = "Demo Scene";
+constexpr const char* NEW_SCENE_OPTION = "Create new scene";
 constexpr int SLIDER_TIME_SCALE = 30;
 
 struct UISceneTabState
