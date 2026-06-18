@@ -316,8 +316,39 @@ struct RunEditorPlacementState
 {
     bool fixedPlacementEnabled = false;
     bool viewportLookActive = false;
+    bool placementPreviewVisible = false;
+    bool gizmoDragActive = false;
     int fixedObjectType = UI::EditorTab::FIXED_BOX;
     int placedObjectSerial = 0;
+    int selectedModelIndex = -1;
+    int hotGizmoAxis = -1;
+    int activeGizmoAxis = -1;
+    float gizmoDragStartAxisT = 0.0f;
+    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+};
+
+class RunEditorTracer
+{
+  private:
+    std::vector<float> m_lineData;
+
+    void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
+    void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis, const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
+
+  public:
+    RunEditorTracer();
+    void Clear();
+    void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
+    void AddPlacementGhost( int fixedObjectType, const Math::Vector::Vector3& center );
+    void AddSelectionOutline( const GameObjects::GameModel& model );
+    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotAxis, int activeAxis );
+    void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
 struct RunRequiredContactState
@@ -848,6 +879,7 @@ class SkullbonezRun
     RunDebugState m_debug;                // Runtime debug/overlay toggles
     RunFireState m_fire;                  // Runtime silver bullet pool state
     RunEditorPlacementState m_editor;     // Fixed-object placement editor state
+    RunEditorTracer m_editorTracer;       // Render-only ghost previews and editor gizmo lines
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     RunUIStressState m_uiStress;                              // Deterministic UI stress run state
@@ -948,20 +980,31 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickPhysics( double dt );                                                // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                                                       // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                                                  // Poll live.style/capture.txt and apply look changes without scene reload
-    void TickLiveStyleControlCapture();                                           // Save pending harness screenshot after render/UI are drawn
-    void TickAutoCycle();                                                         // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                                           // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                                                      // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );                                   // Slide water surface up/down while held
-    void ResetProjectilePool();                                                   // Clears cached projectile indices after scene/model rebuilds
-    bool EnsureProjectilePool();                                                  // Lazily creates the ten runtime silver bullets
-    void FireProjectile();                                                        // Recycle and launch a high-speed silver bullet from the camera
-    void SpawnPhysicsObjectFromCamera( int spawnType );                           // Spawn a UI-selected dynamic body just in front of the camera
-    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const; // Raycast current mouse position to terrain for editor placement
-    void PlaceFixedObjectAtMouse( int fixedObjectType );                          // Place a UI-selected fixed object on the terrain under the mouse
+    void TickPhysics( double dt );                                                                                                                             // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                                                                                                                                    // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                                                                                                                               // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();                                                                                                                        // Save pending harness screenshot after render/UI are drawn
+    void TickAutoCycle();                                                                                                                                      // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                                                                                                                        // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                                                                                                                                   // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );                                                                                                                // Slide water surface up/down while held
+    void ResetProjectilePool();                                                                                                                                // Clears cached projectile indices after scene/model rebuilds
+    bool EnsureProjectilePool();                                                                                                                               // Lazily creates the ten runtime silver bullets
+    void FireProjectile();                                                                                                                                     // Recycle and launch a high-speed silver bullet from the camera
+    void SpawnPhysicsObjectFromCamera( int spawnType );                                                                                                        // Spawn a UI-selected dynamic body just in front of the camera
+    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                 // Builds a world ray from the current mouse position
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                              // Raycast current mouse position to terrain for editor placement
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const; // Raycast with optional ray output
+    bool TryComputeEditorObjectCenter( int fixedObjectType, const Math::Vector::Vector3& terrainPoint, Math::Vector::Vector3& outCenter ) const;               // Converts terrain hit to object center
+    bool TryComputeEditorPlacementPreview( int fixedObjectType );                                                                                              // Updates snapped ghost placement data from the mouse ray
+    void UpdateEditorInteractionPreview();                                                                                                                     // Refreshes ghost and gizmo hover state before world-click handling
+    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                         // Ray-picks editable objects
+    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                         // Returns hovered gizmo axis or -1
+    bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;      // Projects mouse ray onto a gizmo axis
+    void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                               // Applies active gizmo drag
+    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                           // Draws placement ghost and object gizmo lines
+    void PlaceFixedObjectAtMouse( int fixedObjectType );                                                                                                       // Place a UI-selected fixed object on the terrain under the mouse
+    void PlaceFixedObjectAtTerrainPoint( int fixedObjectType, const Math::Vector::Vector3& terrainPoint );                                                     // Places a fixed object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );

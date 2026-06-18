@@ -158,7 +158,6 @@ bool HandleContentClick( UIPhysicsTabState& state,
         if ( option >= 0 && option < SPAWN_TYPE_COUNT )
         {
             state.selectedSpawnType = option;
-            result.commands.physics.requestedSpawnObjectType = option;
             state.spawnCombo.Close();
             return true;
         }

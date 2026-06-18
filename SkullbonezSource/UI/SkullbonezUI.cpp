@@ -1726,6 +1726,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const int previousActiveSlider = m_activeSlider;
             if ( PhysicsTab::HandleContentClick( m_physicsTab,
                                                  result,
                                                  m_activeSlider,
@@ -1733,7 +1734,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                  m_mouseY,
                                                  contentX,
                                                  rowBase,
-                                                 contentW ) )
+                                                 contentW ) &&
+                 m_activeSlider != 0 &&
+                 m_activeSlider != previousActiveSlider )
             {
                 InputControl::BeginMouseCapture( hwnd );
             }

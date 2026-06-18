@@ -71,6 +71,132 @@ float HullBottomOffset( const ConvexHullShape& hull )
 }
 
 
+constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
+constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
+
+
+const char* FixedHullPathForType( int fixedObjectType )
+{
+    switch ( fixedObjectType )
+    {
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_WEDGE:
+        return "SkullbonezData/hulls/wedge.hull";
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_TRI_PRISM:
+        return "SkullbonezData/hulls/tri_prism.hull";
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_TAPERED_BLOCK:
+        return "SkullbonezData/hulls/tapered_block.hull";
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_PYRAMID:
+        return "SkullbonezData/hulls/pyramid.hull";
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_HEX_PRISM:
+        return "SkullbonezData/hulls/hex_prism.hull";
+    case SkullbonezCore::UI::EditorTab::FIXED_HULL_DIAMOND:
+        return "SkullbonezData/hulls/diamond.hull";
+    default:
+        return nullptr;
+    }
+}
+
+
+const ConvexHullShape* CachedFixedHullForType( int fixedObjectType )
+{
+    const int type = std::clamp( fixedObjectType, 0, SkullbonezCore::UI::EditorTab::FIXED_TYPE_COUNT - 1 );
+    const char* path = FixedHullPathForType( type );
+    if ( !path )
+    {
+        return nullptr;
+    }
+
+    static std::array<ConvexHullShape, SkullbonezCore::UI::EditorTab::FIXED_TYPE_COUNT> hulls = {};
+    static std::array<bool, SkullbonezCore::UI::EditorTab::FIXED_TYPE_COUNT> loaded = {};
+    if ( !loaded[type] )
+    {
+        hulls[type] = ConvexHullShape::LoadFromFile( path );
+        loaded[type] = true;
+    }
+    return &hulls[type];
+}
+
+
+Vector3 EditorAxisVector( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    default:
+        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    }
+}
+
+
+float EditorModelRadius( const GameModel& model )
+{
+    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+
+float EditorGizmoAxisLength( float modelRadius )
+{
+    return (std::max)( 14.0f, modelRadius + 12.0f );
+}
+
+
+float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   const Vector3& segmentA,
+                                   const Vector3& segmentB )
+{
+    const Vector3 segment = segmentB - segmentA;
+    const float segmentLenSq = segment * segment;
+    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
+    {
+        const Vector3 toPoint = segmentA - rayOrigin;
+        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
+    }
+
+    const Vector3 w0 = rayOrigin - segmentA;
+    const float a = rayDirection * rayDirection;
+    const float b = rayDirection * segment;
+    const float c = segmentLenSq;
+    const float d = rayDirection * w0;
+    const float e = segment * w0;
+    const float denom = a * c - b * b;
+
+    float rayT = 0.0f;
+    float segmentT = 0.0f;
+    if ( fabsf( denom ) > 1e-5f )
+    {
+        rayT = ( b * e - c * d ) / denom;
+        segmentT = ( a * e - b * d ) / denom;
+    }
+
+    if ( rayT < 0.0f )
+    {
+        rayT = 0.0f;
+        segmentT = std::clamp( e / c, 0.0f, 1.0f );
+    }
+    else if ( segmentT < 0.0f )
+    {
+        segmentT = 0.0f;
+        rayT = (std::max)( 0.0f, -d / a );
+    }
+    else if ( segmentT > 1.0f )
+    {
+        segmentT = 1.0f;
+        rayT = (std::max)( 0.0f, ( b - d ) / a );
+    }
+
+    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
+    const Vector3 segmentPoint = segmentA + segment * segmentT;
+    return VectorMagSquared( rayPoint - segmentPoint );
+}
+
+
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -666,6 +792,242 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
 }
 } // namespace
 
+RunEditorTracer::RunEditorTracer()
+{
+    m_lineData.reserve( 4096 );
+}
+
+
+void RunEditorTracer::Clear()
+{
+    m_lineData.clear();
+}
+
+
+void RunEditorTracer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
+}
+
+
+void RunEditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    EmitLine( a, b, r, g, bl );
+
+    Vector3 dir = b - a;
+    const float len = VectorMag( dir );
+    if ( len <= TOLERANCE )
+    {
+        return;
+    }
+    dir /= len;
+
+    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) ) : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
+    const float sideLen = VectorMag( side );
+    if ( sideLen <= TOLERANCE )
+    {
+        return;
+    }
+    side /= sideLen;
+
+    const float head = (std::min)( len * 0.25f, 2.0f );
+    const Vector3 base = b - dir * head;
+    EmitLine( b, base + side * ( head * 0.45f ), r, g, bl );
+    EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
+}
+
+
+void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 32;
+    for ( int plane = 0; plane < 3; ++plane )
+    {
+        Vector3 previous;
+        for ( int i = 0; i <= segments; ++i )
+        {
+            const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+            const float c = cosf( theta ) * radius;
+            const float s = sinf( theta ) * radius;
+            Vector3 next = center;
+            if ( plane == 0 )
+            {
+                next.x += c;
+                next.z += s;
+            }
+            else if ( plane == 1 )
+            {
+                next.x += c;
+                next.y += s;
+            }
+            else
+            {
+                next.y += c;
+                next.z += s;
+            }
+
+            if ( i > 0 )
+            {
+                EmitLine( previous, next, r, g, bl );
+            }
+            previous = next;
+        }
+    }
+}
+
+
+void RunEditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r, float g, float bl )
+{
+    const Vector3 corners[8] = {
+        center - xAxis - yAxis - zAxis,
+        center + xAxis - yAxis - zAxis,
+        center + xAxis + yAxis - zAxis,
+        center - xAxis + yAxis - zAxis,
+        center - xAxis - yAxis + zAxis,
+        center + xAxis - yAxis + zAxis,
+        center + xAxis + yAxis + zAxis,
+        center - xAxis + yAxis + zAxis,
+    };
+
+    static constexpr int kEdges[12][2] = {
+        { 0, 1 },
+        { 1, 2 },
+        { 2, 3 },
+        { 3, 0 },
+        { 4, 5 },
+        { 5, 6 },
+        { 6, 7 },
+        { 7, 4 },
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 },
+    };
+    for ( const auto& edge : kEdges )
+    {
+        EmitLine( corners[edge[0]], corners[edge[1]], r, g, bl );
+    }
+}
+
+
+void RunEditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& hitPoint )
+{
+    EmitLine( rayOrigin, hitPoint, 0.25f, 0.80f, 1.0f );
+}
+
+
+void RunEditorTracer::AddPlacementGhost( int fixedObjectType, const Vector3& center )
+{
+    const int type = std::clamp( fixedObjectType, 0, SkullbonezCore::UI::EditorTab::FIXED_TYPE_COUNT - 1 );
+    constexpr float ghostR = 0.25f;
+    constexpr float ghostG = 1.0f;
+    constexpr float ghostB = 0.85f;
+
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::FIXED_BOX:
+        EmitBox( center, Vector3( 6.0f, 0.0f, 0.0f ), Vector3( 0.0f, 6.0f, 0.0f ), Vector3( 0.0f, 0.0f, 6.0f ), ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::FIXED_BALL:
+        EmitSphere( center, 4.0f, ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::FIXED_SPHERE:
+        EmitSphere( center, 8.0f, ghostR, ghostG, ghostB );
+        break;
+    default:
+    {
+        const ConvexHullShape* hull = CachedFixedHullForType( type );
+        if ( !hull )
+        {
+            return;
+        }
+        const Vector3 hullCenter = center + hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + hull->GetVertex( edge.vertexA ), hullCenter + hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+        }
+        break;
+    }
+    }
+}
+
+
+void RunEditorTracer::AddSelectionOutline( const GameModel& model )
+{
+    Quaternion orientation = model.GetOrientation();
+    const RotationMatrix rot = orientation.GetOrientationMatrix();
+    constexpr float outlineR = 1.0f;
+    constexpr float outlineG = 1.0f;
+    constexpr float outlineB = 0.55f;
+
+    const CollisionShape& shape = model.GetCollisionShape();
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        EmitSphere( model.GetPosition() + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), outlineR, outlineG, outlineB );
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = model.GetPosition() + rot * box->GetPosition();
+        EmitBox( center,
+                 rot * Vector3( he.x, 0.0f, 0.0f ),
+                 rot * Vector3( 0.0f, he.y, 0.0f ),
+                 rot * Vector3( 0.0f, 0.0f, he.z ),
+                 outlineR,
+                 outlineG,
+                 outlineB );
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = model.GetPosition() + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ), hullCenter + rot * hull->GetVertex( edge.vertexB ), outlineR, outlineG, outlineB );
+        }
+    }
+}
+
+
+void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotAxis, int activeAxis )
+{
+    const float length = EditorGizmoAxisLength( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+
+        const Vector3 axisVector = EditorAxisVector( axis );
+        EmitArrow( origin, origin + axisVector * length, r, g, b );
+    }
+}
+
+
+void RunEditorTracer::Render( const Matrix4& viewProjection )
+{
+    if ( m_lineData.empty() || !IsGfxReady() )
+    {
+        return;
+    }
+    Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
+}
+
+
 void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 {
     const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
@@ -1046,6 +1408,9 @@ void SkullbonezRun::TakeInput()
             if ( !m_editor.fixedPlacementEnabled )
             {
                 m_editor.viewportLookActive = false;
+                m_editor.placementPreviewVisible = false;
+                m_editor.gizmoDragActive = false;
+                m_editor.activeGizmoAxis = -1;
                 InputController::ResetMouseLook( m_camera );
             }
         }
@@ -1314,21 +1679,94 @@ void SkullbonezRun::TakeInput()
         ApplyCursorOwnership();
     }
 
+    UpdateEditorInteractionPreview();
+
     // Editor placement and nudge-fire both use world clicks. UI hover/capture
     // suppresses both so panel interaction never spawns bodies or bullets.
     {
         const bool leftMouseNow = Input::IsLeftMouseDown();
-        if ( m_editor.fixedPlacementEnabled &&
-             leftMouseNow &&
-             !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
-             !suppressNudgeFireThisFrame )
+        const bool leftMouseWasDown = m_camera.input.Get( InputState::LeftMouseWasDown );
+        const bool leftPressed = leftMouseNow && !leftMouseWasDown;
+        const bool leftReleased = !leftMouseNow && leftMouseWasDown;
+        bool consumedWorldClick = false;
+
+        if ( m_editor.gizmoDragActive )
         {
-            PlaceFixedObjectAtMouse( m_editor.fixedObjectType );
+            consumedWorldClick = true;
+            if ( leftMouseNow && !suppressNudgeFireThisFrame )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+                {
+                    MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                }
+            }
+            if ( leftReleased || suppressNudgeFireThisFrame )
+            {
+                m_editor.gizmoDragActive = false;
+                m_editor.activeGizmoAxis = -1;
+            }
         }
-        else if ( m_camera.isNudgeMode &&
-                  leftMouseNow &&
-                  !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
-                  !suppressNudgeFireThisFrame )
+
+        if ( !consumedWorldClick && leftPressed && !suppressNudgeFireThisFrame )
+        {
+            if ( !m_camera.isNudgeMode &&
+                 !m_editor.fixedPlacementEnabled &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.hotGizmoAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float axisT = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.gizmoDragActive = true;
+                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                    m_editor.gizmoDragStartAxisT = axisT;
+                    m_editor.gizmoDragStartPosition = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+                    consumedWorldClick = true;
+                }
+            }
+
+            if ( !consumedWorldClick && m_editor.fixedPlacementEnabled )
+            {
+                if ( m_editor.placementPreviewVisible )
+                {
+                    const int previousModelCount = m_cGameModelCollection.GetModelCount();
+                    PlaceFixedObjectAtTerrainPoint( m_editor.fixedObjectType, m_editor.placementTerrainPoint );
+                    if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                    {
+                        m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                    }
+                }
+                consumedWorldClick = true;
+            }
+
+            if ( !consumedWorldClick && !m_camera.isNudgeMode )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                int pickedIndex = -1;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                {
+                    m_editor.selectedModelIndex = pickedIndex;
+                }
+                else
+                {
+                    m_editor.selectedModelIndex = -1;
+                }
+                consumedWorldClick = true;
+            }
+        }
+
+        if ( !consumedWorldClick &&
+             m_camera.isNudgeMode &&
+             leftPressed &&
+             !suppressNudgeFireThisFrame )
         {
             FireProjectile();
         }
@@ -1723,9 +2161,9 @@ void SkullbonezRun::SpawnPhysicsObjectFromCamera( int spawnType )
 }
 
 
-bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
+bool SkullbonezRun::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection ) const
 {
-    if ( !m_systems.window || !m_systems.cameras || !m_systems.terrain )
+    if ( !m_systems.window || !m_systems.cameras )
     {
         return false;
     }
@@ -1761,7 +2199,39 @@ bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
     {
         return false;
     }
-    rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    outOrigin = rayNear;
+    outDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    return true;
+}
+
+
+bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
+{
+    return TryGetMouseTerrainPlacement( outPosition, nullptr, nullptr );
+}
+
+
+bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrigin, Vector3* outRayDirection ) const
+{
+    if ( !m_systems.terrain )
+    {
+        return false;
+    }
+
+    Vector3 rayNear;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayNear, rayDirection ) )
+    {
+        return false;
+    }
+    if ( outRayOrigin )
+    {
+        *outRayOrigin = rayNear;
+    }
+    if ( outRayDirection )
+    {
+        *outRayDirection = rayDirection;
+    }
 
     constexpr float MAX_RAY_DISTANCE = 5000.0f;
     constexpr int RAY_STEPS = 192;
@@ -1827,6 +2297,243 @@ bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
 }
 
 
+bool SkullbonezRun::TryComputeEditorObjectCenter( int fixedObjectType, const Vector3& terrainPoint, Vector3& outCenter ) const
+{
+    const int type = std::clamp( fixedObjectType, 0, UI::EditorTab::FIXED_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case UI::EditorTab::FIXED_BOX:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 6.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::FIXED_BALL:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 4.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::FIXED_SPHERE:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 8.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    default:
+    {
+        const ConvexHullShape* hull = CachedFixedHullForType( type );
+        if ( !hull )
+        {
+            return false;
+        }
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + HullBottomOffset( *hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    }
+    }
+}
+
+
+bool SkullbonezRun::TryComputeEditorPlacementPreview( int fixedObjectType )
+{
+    Vector3 terrainPoint;
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryGetMouseTerrainPlacement( terrainPoint, &rayOrigin, &rayDirection ) )
+    {
+        return false;
+    }
+
+    if ( m_systems.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
+    {
+        const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+        const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+        if ( m_systems.terrain->IsInBounds( snappedX, snappedZ ) )
+        {
+            terrainPoint.x = snappedX;
+            terrainPoint.z = snappedZ;
+            terrainPoint.y = m_systems.terrain->GetTerrainHeightAt( snappedX, snappedZ );
+        }
+    }
+
+    Vector3 center;
+    if ( !TryComputeEditorObjectCenter( fixedObjectType, terrainPoint, center ) )
+    {
+        return false;
+    }
+
+    m_editor.placementTerrainPoint = terrainPoint;
+    m_editor.placementCenter = center;
+    m_editor.placementRayOrigin = rayOrigin;
+    m_editor.placementRayHit = terrainPoint;
+    return true;
+}
+
+
+bool SkullbonezRun::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirection, int& outIndex ) const
+{
+    outIndex = -1;
+    float bestT = FLT_MAX;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[i];
+        const float radius = EditorModelRadius( model ) + 1.0f;
+        const Vector3 toCenter = model.GetPosition() - rayOrigin;
+        const float rayT = toCenter * rayDirection;
+        if ( rayT < 0.0f || rayT >= bestT )
+        {
+            continue;
+        }
+
+        const Vector3 closest = rayOrigin + rayDirection * rayT;
+        if ( VectorMagSquared( model.GetPosition() - closest ) <= radius * radius )
+        {
+            bestT = rayT;
+            outIndex = i;
+        }
+    }
+    return outIndex >= 0;
+}
+
+
+int SkullbonezRun::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const float length = EditorGizmoAxisLength( radius );
+    const float threshold = (std::max)( 1.25f, length * 0.06f );
+    const float thresholdSq = threshold * threshold;
+
+    int bestAxis = -1;
+    float bestDistanceSq = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, origin + axisVector * length );
+        if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
+        {
+            bestDistanceSq = distanceSq;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+bool SkullbonezRun::TryEditorAxisRayParameter( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 axisOrigin = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 axisVector = EditorAxisVector( axis );
+    const Vector3 w = axisOrigin - rayOrigin;
+    const float b = axisVector * rayDirection;
+    const float d = axisVector * w;
+    const float e = rayDirection * w;
+    const float denom = 1.0f - b * b;
+    if ( fabsf( denom ) <= 1e-5f )
+    {
+        return false;
+    }
+
+    outAxisT = ( b * e - d ) / denom;
+    return true;
+}
+
+
+void SkullbonezRun::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    const Vector3 axisVector = EditorAxisVector( m_editor.activeGizmoAxis );
+    const Vector3 newPosition = m_editor.gizmoDragStartPosition + axisVector * ( axisT - m_editor.gizmoDragStartAxisT );
+    model.SetPosition( newPosition );
+    model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( !model.IsFixed() )
+    {
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
+void SkullbonezRun::UpdateEditorInteractionPreview()
+{
+    m_editor.placementPreviewVisible = false;
+    m_editor.hotGizmoAxis = -1;
+
+    if ( m_UI.BlocksCameraMouse() || m_editor.viewportLookActive )
+    {
+        return;
+    }
+
+    if ( m_editor.fixedPlacementEnabled )
+    {
+        m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.fixedObjectType );
+        return;
+    }
+
+    if ( m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.selectedModelIndex = -1;
+        m_editor.gizmoDragActive = false;
+        m_editor.activeGizmoAxis = -1;
+    }
+
+    if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive )
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        {
+            m_editor.hotGizmoAxis = HitEditorGizmoAxis( rayOrigin, rayDirection );
+        }
+    }
+}
+
+
+void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
+{
+    m_editorTracer.Clear();
+    if ( m_editor.placementPreviewVisible )
+    {
+        m_editorTracer.AddPlacementRay( m_editor.placementRayOrigin, m_editor.placementRayHit );
+        m_editorTracer.AddPlacementGhost( m_editor.fixedObjectType, m_editor.placementCenter );
+    }
+
+    if ( !m_editor.fixedPlacementEnabled &&
+         m_editor.selectedModelIndex >= 0 &&
+         m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
+        const float radius = EditorModelRadius( selected );
+        m_editorTracer.AddSelectionOutline( selected );
+        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.activeGizmoAxis );
+    }
+    m_editorTracer.Render( viewProjection );
+}
+
+
 void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
 {
     Vector3 terrainPoint;
@@ -1835,6 +2542,12 @@ void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
         return;
     }
 
+    PlaceFixedObjectAtTerrainPoint( fixedObjectType, terrainPoint );
+}
+
+
+void SkullbonezRun::PlaceFixedObjectAtTerrainPoint( int fixedObjectType, const Vector3& terrainPoint )
+{
     const int modelCount = m_cGameModelCollection.GetModelCount();
     if ( modelCount >= ActiveGameModelCapacity() )
     {
@@ -1845,12 +2558,11 @@ void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
     EnterInteractiveSceneRun();
     const int type = std::clamp( fixedObjectType, 0, UI::EditorTab::FIXED_TYPE_COUNT - 1 );
     const int serial = m_editor.placedObjectSerial++;
-    constexpr float SURFACE_EPSILON = 0.02f;
 
     auto addSphere = [&]( const char* baseName, float radius, float mass, float restitution, float tintR, float tintG, float tintB )
     {
         const float moment = 0.4f * mass * radius * radius;
-        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         GameModel model( &m_cWorldEnvironment,
                          center,
                          Vector3( moment, moment, moment ),
@@ -1870,7 +2582,7 @@ void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
     {
         const Vector3 halfExtents( 6.0f, 6.0f, 6.0f );
         constexpr float mass = 500.0f;
-        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         GameModel model( &m_cWorldEnvironment,
                          center,
                          BoxInertiaForHalfExtents( halfExtents, mass ),
@@ -1890,7 +2602,7 @@ void SkullbonezRun::PlaceFixedObjectAtMouse( int fixedObjectType )
     {
         constexpr float mass = 500.0f;
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
-        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         GameModel model( &m_cWorldEnvironment,
                          center,
                          hull.ComputeBoxApproxInertia( mass ),
