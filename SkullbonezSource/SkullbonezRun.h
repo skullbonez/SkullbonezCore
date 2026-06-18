@@ -913,8 +913,8 @@ class SkullbonezRun
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
-    Environment::WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
-    GameObjects::GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
+    Environment::WorldEnvironment m_cWorldEnvironment;        // Fluid, gravity, and terrain bounds shared by physics and water.
+    GameObjects::GameModelCollection m_cGameModelCollection;  // Scene bodies plus solver-visible object state.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
     FullscreenQuadPass m_fullscreenQuadPass; // Shared full-screen vertex buffer pass used by sky/post effects
     SkyPass m_skyPass;                       // Background sky pass, reused by reflection and scene target passes
@@ -930,27 +930,27 @@ class SkullbonezRun
     UiTextPass m_uiTextPass;                 // HUD/UI/text pass
 
     inline static int sPerfPass = 0;
-    void Render();                                           // Main render method
+    void Render();                                           // Skips 3D in text-only runs, then records passes for the current camera state.
     RunSceneState& SceneState();                             // Mutable scene-run state owned by SceneRuntime
     const RunSceneState& SceneState() const;                 // Read-only scene-run state owned by SceneRuntime
-    void RelativeUpdateCamera( uint32_t hash );              // Relative update specified camera
-    void UpdateLogic( float simulationDt, float cameraDt );  // Per-frame logic; cameraDt is unscaled wall time
-    void TakeInput();                                        // Take user input
+    void RelativeUpdateCamera( uint32_t hash );              // Keeps non-selected relative cameras inside terrain height limits.
+    void UpdateLogic( float simulationDt, float cameraDt );  // simulationDt drives physics; cameraDt is unscaled wall time.
+    void TakeInput();                                        // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     void StepPhysicsPipelineStage( int direction );          // direction is a left/right cursor step for pipeline visualization.
-    void SetUpCameras();                                     // Camera init for generated demo mode
-    void SetUpCamerasFromScene( const TestScene& scene );    // Camera init from scene file
-    void SetUpGameModels( int count );                       // Game model init for generated mixed-object mode
-    void SetUpSolverObjects( int balls, int boxes );         // Game model init: exact N solver balls + M solver boxes
-    void SetUpGameModelsFromScene( const TestScene& scene ); // Game model init from scene file
+    void SetUpCameras();                                     // Creates generated-demo cameras when no scene file supplies them.
+    void SetUpCamerasFromScene( const TestScene& scene );    // Applies authored camera records without disturbing scene automation gates.
+    void SetUpGameModels( int count );                       // Populates generated mixed-object scenes for legacy launch paths.
+    void SetUpSolverObjects( int balls, int boxes );         // Populates deterministic solver scenes with exact ball/box counts.
+    void SetUpGameModelsFromScene( const TestScene& scene ); // Converts authored scene models into runtime objects and solver bodies.
     void SetUpRequiredContactsFromScene( const TestScene& scene );
     void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );
-    void UpdateRequiredSceneContacts();                                                                                                    // Mark required scene contact gates touched by current physics contacts
-    void UpdateRequiredSceneBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount ); // Mark required broadphase X-cell gates touched by current grid frame
+    void UpdateRequiredSceneContacts();                                                                                                    // Scene automation waits for authored contact gates to appear in live physics contacts.
+    void UpdateRequiredSceneBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount ); // Scene automation waits for authored X-cell ranges to appear in the live grid.
     bool RequiredSceneContactsComplete() const;                                                                                            // True when there are no gates or all gates have been touched
     bool RequiredSceneBroadphaseXCellsComplete() const;                                                                                    // True when there are no gates or all X-cell ranges have been activated
-    void RegisterBuiltInAssets();                                                                                                          // Registers built-in texture and shader source records
-    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                // Registers and resolves a source asset under DATA_ROOT
-    void DrawPrimitives();                                                                                                                 // Main scene draw orchestration for terrain, objects, helpers, and effects.
+    void RegisterBuiltInAssets();                                                                                                          // Seeds source asset records before renderer-owned resources are rebuilt.
+    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                // Returns the resolved data path while preserving source asset identity for rebuilds.
+    void DrawPrimitives();                                                                                                                 // Orders terrain, object, helper, water, post, and overlay passes for one frame.
     RenderFrameContext BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig );                         // Names per-frame camera/light inputs consumed by render passes
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                        // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                            // Read-only cinematic style config for the active scene/run

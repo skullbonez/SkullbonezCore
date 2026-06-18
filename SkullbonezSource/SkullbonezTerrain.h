@@ -9,15 +9,21 @@ Mental model:
   reading anchors.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  DX12 (DirectX 12): Production renderer path that backs terrain mesh resources
+  through IMesh.
+  DXR (DirectX Raytracing): DirectX 12 feature used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
+  RAW (Raw Heightmap): Uncompressed terrain height byte data used to author
+  coarse physics posts and denser render-only samples.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  VBO (Vertex Buffer Object): Legacy engine term for renderer-owned terrain
+  vertex/index storage; the DX12 path backs it through IMesh.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -107,7 +113,7 @@ class Terrain
     };
 
     UINT displayListReference;                           // Reference to the display list (retained for fallback)
-    std::unique_ptr<Rendering::IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
+    std::unique_ptr<Rendering::IMesh> m_terrainMesh;     // Renderer-owned terrain vertex/index storage consumed by the active shader.
     std::unique_ptr<Rendering::IShader> m_terrainShader; // Lit+textured m_shader program
     std::unique_ptr<Rendering::IShader> m_shadowDepthShader;
     std::vector<TerrainPost> m_postData; // Physics-authoritative coarse terrain posts
@@ -144,8 +150,8 @@ class Terrain
     TerrainPost BuildRenderPost( float rawX, float rawZ ) const;
     void TranslatePostings();                       // Centers authored posts into world space.
     void GenerateNormals();                         // Post normals are shared by lighting and terrain contacts.
-    void BuildMesh();                               // VBO mesh from render-only height samples.
-    void BuildFlatSlopeMesh();                      // VBO mesh for analytic flat slope scenes.
+    void BuildMesh();                               // Render-only height samples keep mesh density independent of physics posts.
+    void BuildFlatSlopeMesh();                      // Analytic flat slope scenes bypass RAW height data but still need vertex storage.
     int GetPixelHeightAt( int xCoord, int yCoord ); // RAW pixel height before terrain post translation.
 };
 } // namespace Geometry
