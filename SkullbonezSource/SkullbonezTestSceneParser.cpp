@@ -21,7 +21,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTestScene.h"
-#include "SkullbonezWorkerPool.h"
 #include <algorithm>
 #include <cerrno>
 #include <climits>
@@ -30,6 +29,7 @@ Related:
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+#include <thread>
 
 
 namespace SkullbonezCore
@@ -99,6 +99,12 @@ bool ParseUITab( const char* value, int& outTab )
         { "look", 7 },
     };
     return TryParseIntOption( value, kTabs, outTab );
+}
+
+int MaxConfigurableWorkerThreadCount()
+{
+    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
+    return (std::max)( 1, static_cast<int>( hardwareThreads ) );
 }
 
 struct FileCloser
@@ -506,17 +512,46 @@ class TestSceneParser
         return std::clamp( ParseMaterialOptionFloat( key, value ), 0.0f, 1.0f );
     }
 
+    bool ReadCommaToken( const char*& cursor, char* out, size_t outSize, bool& outHadDelimiter ) const
+    {
+        outHadDelimiter = false;
+        if ( !cursor || !out || outSize == 0 || *cursor == '\0' )
+        {
+            return false;
+        }
+
+        const char* tokenBegin = cursor;
+        const char* comma = strchr( cursor, ',' );
+        const char* tokenEnd = comma ? comma : cursor + strlen( cursor );
+        const size_t tokenLength = static_cast<size_t>( tokenEnd - tokenBegin );
+        if ( tokenLength == 0 || tokenLength >= outSize )
+        {
+            return false;
+        }
+
+        memcpy( out, tokenBegin, tokenLength );
+        out[tokenLength] = '\0';
+        outHadDelimiter = comma != nullptr;
+        cursor = comma ? comma + 1 : tokenEnd;
+        return true;
+    }
+
     void ParseMaterialOptionVec3( const char* key, const char* value, float& outR, float& outG, float& outB )
     {
-        char local[128] = {};
-        strcpy_s( local, sizeof( local ), value );
-
-        char* context = nullptr;
-        char* partR = strtok_s( local, ",", &context );
-        char* partG = strtok_s( nullptr, ",", &context );
-        char* partB = strtok_s( nullptr, ",", &context );
-        char* extra = strtok_s( nullptr, ",", &context );
-        if ( !partR || !partG || !partB || extra )
+        char partR[64] = {};
+        char partG[64] = {};
+        char partB[64] = {};
+        const char* cursor = value;
+        bool hasDelimiterAfterR = false;
+        bool hasDelimiterAfterG = false;
+        bool hasDelimiterAfterB = false;
+        if ( !ReadCommaToken( cursor, partR, sizeof( partR ), hasDelimiterAfterR ) ||
+             !hasDelimiterAfterR ||
+             !ReadCommaToken( cursor, partG, sizeof( partG ), hasDelimiterAfterG ) ||
+             !hasDelimiterAfterG ||
+             !ReadCommaToken( cursor, partB, sizeof( partB ), hasDelimiterAfterB ) ||
+             hasDelimiterAfterB ||
+             *cursor != '\0' )
         {
             Fail( "Invalid object_material %s value at line %d (expected r,g,b): %s", key, m_lineNumber, value ? value : "" );
         }
@@ -1703,7 +1738,7 @@ class TestSceneParser
     void ParseWorkerThreads( const char* args )
     {
         m_scene.m_sceneOptions.workerThreads = ParseIntArg( "worker_threads", args, "worker_threads <-1|0|count>" );
-        const int maxWorkerThreads = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+        const int maxWorkerThreads = MaxConfigurableWorkerThreadCount();
         if ( m_scene.m_sceneOptions.workerThreads < -1 || m_scene.m_sceneOptions.workerThreads > maxWorkerThreads )
         {
             Fail( "Invalid worker_threads at line %d (expected -1, 0, or 1..%d)", m_lineNumber, maxWorkerThreads );
