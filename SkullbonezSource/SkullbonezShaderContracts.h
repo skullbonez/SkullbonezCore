@@ -180,7 +180,7 @@ inline bool ShaderContractMatchesBaseName( const char* baseName, const char* pat
            std::strncmp( baseName, candidate, candidateLength ) == 0;
 }
 
-// Returns the high-risk shader families that get runtime contract diagnostics.
+// High-risk shader families that get runtime contract diagnostics.
 // This is intentionally a curated table, not a full reflection cache; the goal
 // is to catch stale hand-written setters around passes that are expensive to
 // debug visually.

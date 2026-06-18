@@ -963,18 +963,18 @@ class SkullbonezRun
     void SelectRenderTexture( uint32_t textureHash );                                                                                      // Binds a runtime texture hash to the default draw texture slot
     int WindowScreenWidth() const;                                                                                                         // Current window width, or config fallback before window init
     int WindowScreenHeight() const;                                                                                                        // Current window height, or config fallback before window init
-    void SetViewingOrientation();                                                                                                          // Renders camera views etc
+    void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Saves current backbuffer to a BMP file
     bool SaveCurrentSceneDefaults();                                                                                                       // Writes UI-controlled defaults back to the active scene file
     bool SaveRenderDefaults();                                                                                                             // Writes current ordinary Render-tab values back to engine.cfg
     void RefreshSceneBrowserList();                                                                                                        // Discovers scene files available to the in-game scene dropdown
-    int CurrentSceneBrowserIndex() const;                                                                                                  // Returns current scene index within the discovered scene dropdown list
-    void LoadSceneFromBrowserIndex( int index );                                                                                           // Loads a scene selected from the in-game scene dropdown
-    void LoadDemoSceneFromUI();                                                                                                            // Loads the generated demo scene from the in-game Scene tab
+    int CurrentSceneBrowserIndex() const;                                                                                                  // Current scene index within the discovered scene dropdown list.
+    void LoadSceneFromBrowserIndex( int index );                                                                                           // In-game scene dropdown selection loader.
+    void LoadDemoSceneFromUI();                                                                                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Applies a cine/concept look live without rebuilding the scene
     bool ApplyAdjacentCinematicMode( int direction );                                                                                      // Cycles live cine/concept looks without rebuilding the scene
     void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Applies style-only cinematic/material directives without rebuilding objects
-    void ApplyDemoHeroStyleOverride();                                                                                                     // Applies the low-poly hero style to generated demo mode
+    void ApplyDemoHeroStyleOverride();                                                                                                     // Low-poly hero style override for generated demo mode.
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                    // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                                   // True for CLI suites/tests; false once the user owns scene flow
@@ -998,9 +998,9 @@ class SkullbonezRun
     void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                                   // Activates analytic flat-slope terrain for focused physics scenes
     void UpdateWorldTerrainBounds();                                                                                                       // Keeps world/fluid helpers aligned with the active terrain bounds
     bool AdvanceScene();                                                                                                                   // Advances to the next scene in the queue (returns false if done)
-    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                     // Moves the camera
-    // Builds a tight light-space frame for nearby object receivers.
-    // Renders requested depth casters from the sun view.
+    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                     // Keyboard/mouse deltas dispatched to CameraCollection.
+    // Tight light-space frame for nearby object receivers.
+    // Depth casters requested from the sun view.
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
@@ -1020,15 +1020,15 @@ class SkullbonezRun
     void TickRayCastTestLines( float dt );                                                                                                                      // Ages fading ray-test visuals
     bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT ); // Finds closest model hit along a ray
     void FireRayCastTest();                                                                                                                                     // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
-    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                  // Builds a world ray from the current mouse position
+    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                  // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                               // Raycast current mouse position to terrain for editor placement
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;  // Raycast with optional ray output
     bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, Math::Vector::Vector3& outCenter ) const;                     // Converts terrain hit to object center
-    bool TryComputeEditorPlacementPreview( int objectType );                                                                                                    // Updates snapped ghost placement data from the mouse ray
+    bool TryComputeEditorPlacementPreview( int objectType );                                                                                                    // Snapped ghost placement data from the mouse ray.
     void UpdateEditorInteractionPreview();                                                                                                                      // Refreshes ghost and gizmo hover state before world-click handling
     bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                          // Ray-picks editable objects
-    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                          // Returns hovered gizmo axis or -1
-    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                  // Returns hovered rotation ring axis or -1
+    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                          // Hovered gizmo axis, or -1 when none is hit.
+    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                  // Hovered rotation ring axis, or -1 when none is hit.
     bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;       // Projects mouse ray onto a gizmo axis
     bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;       // Projects mouse ray onto a rotation ring plane
     void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                // Applies active gizmo drag
@@ -1046,10 +1046,10 @@ class SkullbonezRun
 #endif
 
   public:
-    SkullbonezRun( std::vector<std::string> sceneQueue );               // Constructor (scene queue; empty string = generated demo scene)
-    ~SkullbonezRun();                                                   // Default destructor
+    SkullbonezRun( std::vector<std::string> sceneQueue ); // sceneQueue empty string selects generated demo mode.
+    ~SkullbonezRun();
     void Initialise();                                                  // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly();                                            // Loads every queued scene once, then returns without entering the frame loop
+    void RunSceneLoadOnly();                                            // Scene-load smoke path; skips the frame loop.
     void Run();                                                         // Runs all scenes in sequence — main message loop
     void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)

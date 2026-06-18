@@ -37,13 +37,13 @@ class Vector3
   public:
     float x, y, z; // Vector components
 
-    Vector3(); // Default constructor
+    Vector3();
     Vector3( const Vector3& v );
-    Vector3( float fX, float fY, float fZ ); // Overloaded constructor
+    Vector3( float fX, float fY, float fZ );
     void Zero();
     void Normalise();           // Normalise the vector
     void Absolute();            // Converts vector to its absolute value
-    bool IsCloseToZero() const; // Returns true if vector is close to zero
+    bool IsCloseToZero() const; // Tolerance check for float noise near zero.
     void Simplify();            // Converts tiny float components to zero
     void SetAll( float nx, float ny, float nz );
     Vector3& operator=( const Vector3& v );      // Vector assignment

@@ -49,8 +49,8 @@ class SkyBox
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // VBO mesh per face
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash per face
 
-    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Overloaded constructor
-    ~SkyBox() = default;                                                  // Destructor
+    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
+    ~SkyBox() = default;
     void LoadTextures();
     void BuildMeshes();
 

@@ -69,61 +69,61 @@ class RigidBody
     Math::Vector::Vector3 m_forceApplicationPoint; // Vector representative of the location of the force applied			[Units: point]
     Math::Vector::Vector3 m_angularVelocity;       // Vector representative of the bodies angular velocity					[Units: radians/s]
     Math::Vector::Vector3 m_angularAcceleration;   // Vector representative of the bodies angular acceleration				[Units: radians/s^2]
-    Math::Vector::Vector3 m_rotationalInertia;     // Diagonal of the 3×3 inertia tensor (off-diagonal terms are zero for symmetric bodies)  [Units: kg·m²]
+    Math::Vector::Vector3 m_rotationalInertia;     // Diagonal of the 3x3 inertia tensor (off-diagonal terms are zero for symmetric bodies) [Units: kg*m^2]
     Math::Vector::Vector3 m_torque;                // Vector representative of the bodies m_torque							[Units: Nm]
     /* m_changeInAngularVelocity / m_changeInLinearVelocity are DEFERRED IMPULSE BUFFERS.
        During collision resolution, both objects' velocity changes are computed first and
        stored here, then applied simultaneously via ApplyChange*Velocity(). This prevents
        the second object's response from being affected by the first's already-updated velocity,
        giving order-independent (symmetric) results. */
-    Math::Vector::Vector3 m_changeInAngularVelocity; // Buffered angular-velocity delta — staged here, applied via ApplyChangeInAngularVelocity() [Units: rad/s]
-    Math::Vector::Vector3 m_changeInLinearVelocity;  // Buffered linear-velocity delta  — staged here, applied via ApplyChangeInLinearVelocity()  [Units: m/s]
+    Math::Vector::Vector3 m_changeInAngularVelocity; // Solver-staged angular-velocity delta consumed after pair rows finish [Units: rad/s]
+    Math::Vector::Vector3 m_changeInLinearVelocity;  // Solver-staged linear-velocity delta consumed after pair rows finish [Units: m/s]
     Math::Orientation::Quaternion m_orientation;     // Quaternion representative of the m_orientation of the rigid body		[Units: Qrtn]
 
-    void ApplyWorldForce(); // Applies continuous world forces (gravity) each frame: a = F/m, v += a
+    void ApplyWorldForce(); // Continuous world forces, such as gravity, update velocity through a = F/m.
     /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
        (instantaneous velocity changes) rather than continuous forces. The impulse is
        consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */
-    void ApplyLinearForce();                 // Applies the buffered linear impulse: a = F/m, v += a
-    void ApplyAngularForce();                // Applies the buffered angular impulse: τ = r×F, α = τ/I, ω += α
-    Math::Vector::Vector3 GetRollVelocity(); // Gets the linear velocity derived from rolling angular velocity (ω × ground normal)
+    void ApplyLinearForce();                 // Consumes the one-shot linear impulse as an immediate velocity delta.
+    void ApplyAngularForce();                // Converts the one-shot force at its application point into angular velocity.
+    Math::Vector::Vector3 GetRollVelocity(); // Rolling contribution derived from angular velocity around the contact normal.
 
   public:
-    RigidBody();                               // Default constructor
-    ~RigidBody();                              // Default destructor
-    void ApplyForces();                        // Update the rigid body's velocity based on its current state
-    void UpdatePosition( float changeInTime ); // Update the rigid body's position based on its current state
+    RigidBody();
+    ~RigidBody();
+    void ApplyForces();                        // Integrates accumulated world forces and one-shot impulses for one physics tick.
+    void UpdatePosition( float changeInTime ); // changeInTime is seconds; advances pose from the current velocities.
     void ApplyImpulseForce();
-    void ZeroForce();                                            // Zero the force vectors
-    const Math::Orientation::Quaternion& GetOrientation() const; // Returns the orientation quaternion
+    void ZeroForce(); // Clears accumulated force/torque after the tick consumes them.
+    const Math::Orientation::Quaternion& GetOrientation() const;
     void SetMass( float fMass );
     void SetFrictionCoefficient( float fFriction );
-    void SetVolume( float fVolume );                                 // Sets the volume member
-    void SetCoefficientRestitution( float fCoefficientRestitution ); // Set the coefficient of restitution (bounciness)
+    void SetVolume( float fVolume );
+    void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetPosition( const Math::Vector::Vector3& vPosition );
-    void SetRotationalInertia( const Math::Vector::Vector3& vRotationalInertia );     // Sets the rotational inertia for the obect
-    void SetChangeInAngularVelocity( const Math::Vector::Vector3& vAngularVelocity ); // Sets the change in angular velocity
-    void SetChangeInLinearVelocity( const Math::Vector::Vector3& vLinearVelocity );   // Sets the change in linear velocity
-    void ApplyChangeInAngularVelocity();                                              // Applies the change in angular velocity
-    void ThrottleAngularVelocity();                                                   // Slows angular velocity to ensure it does not reach astronomical speeds
-    void ApplyChangeInLinearVelocity();                                               // Applies the change in linear velocity
-    float GetCoefficientRestitution();                                                // Get the coefficient of restitution (bounciness)
+    void SetRotationalInertia( const Math::Vector::Vector3& vRotationalInertia );
+    void SetChangeInAngularVelocity( const Math::Vector::Vector3& vAngularVelocity ); // Stages solver angular delta until simultaneous pair response is ready.
+    void SetChangeInLinearVelocity( const Math::Vector::Vector3& vLinearVelocity );   // Stages solver linear delta until simultaneous pair response is ready.
+    void ApplyChangeInAngularVelocity();                                              // Consumes the staged angular delta after all pair rows solve.
+    void ThrottleAngularVelocity();                                                   // Caps spin to avoid destabilizing collision rows.
+    void ApplyChangeInLinearVelocity();                                               // Consumes the staged linear delta after all pair rows solve.
+    float GetCoefficientRestitution();
     float GetFrictionCoefficient();
-    float GetMass();                                     // Returns the mass of the rigid body
-    float GetInvertedMass();                             // Returns the inverted mass of the rigid body
-    float GetVolume();                                   // Returns the volume of the rigid body
-    const Math::Vector::Vector3& GetVelocity();          // Returns a const reference to the velocity of the rigid body
-    const Math::Vector::Vector3& GetPosition();          // Returns a const reference to the position of the rigid body
-    const Math::Vector::Vector3& GetPosition() const;    // Const center read for Catto-style contact-arm setup
-    const Math::Vector::Vector3& GetAngularVelocity();   // Returns a const reference to the angular velocity of the rigid body
-    const Math::Vector::Vector3& GetRotationalInertia(); // Returns a const reference to the rotational inertia of the rigid body
-    float GetDensity();                                  // Calculates and returns the density of the body
+    float GetMass();
+    float GetInvertedMass();
+    float GetVolume();
+    const Math::Vector::Vector3& GetVelocity();
+    const Math::Vector::Vector3& GetPosition();
+    const Math::Vector::Vector3& GetPosition() const; // Const center read for Catto-style contact-arm setup
+    const Math::Vector::Vector3& GetAngularVelocity();
+    const Math::Vector::Vector3& GetRotationalInertia();
+    float GetDensity(); // Density assumes mass and volume caches are already current.
     void SetLinearVelocity( const Math::Vector::Vector3& vLinear );
     void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
     void SetOrientation( const Math::Orientation::Quaternion& q );
     void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint );
-    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque ); // Sets the forces being acted upon the object by the world environment
-    Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );                           // Gets the rotation matrix representing the bodies orientation at the specified time (0.0f returns CURRENT orientation matrix)
+    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque ); // Continuous environment force/torque consumed by ApplyWorldForce().
+    Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );                           // fTime=0 reads current pose; nonzero extrapolates from angular velocity.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

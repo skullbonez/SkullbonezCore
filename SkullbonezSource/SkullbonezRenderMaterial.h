@@ -80,7 +80,7 @@ struct RenderMaterial
     uint32_t flags = 0;
 };
 
-// Returns the stable scene-file spelling for a material category. These names
+// Stable scene-file spelling for a material category. These names
 // are authoring surface, so keep old spellings valid when adding new categories.
 inline const char* RenderMaterialKindName( RenderMaterialKind kind )
 {
@@ -160,7 +160,7 @@ inline uint32_t RenderMaterialKindIndex( RenderMaterialKind kind )
     return index <= static_cast<uint32_t>( RenderMaterialKind::Pine ) ? index : 0u;
 }
 
-// Returns the material mode value mirrored into material0.w. The value keeps
+// Material mode value mirrored into material0.w. The value keeps
 // the old tint.a shader decision tree alive while newer fields carry typed
 // material response data in material1/material2.
 inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
@@ -172,7 +172,7 @@ inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
     return material.textureMode;
 }
 
-// Applies the default shader response for a material kind. Scene/material
+// Default shader response for a material kind. Scene/material
 // authoring can override these fields later, but the generated t4 material table
 // uses the same defaults so CPU payloads and shader table rows stay coherent.
 inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
@@ -280,7 +280,7 @@ inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const Re
     return payload;
 }
 
-// Builds render intent from the current shader-facing object payload. Callers
+// Render intent reconstructed from the current shader-facing object payload. Callers
 // should prefer explicit RenderMaterial data when they have it, but this helper
 // keeps legacy scene directives and generated objects on the same path.
 inline RenderMaterial MakeRenderMaterialFromLegacyTint( float tintR, float tintG, float tintB, float legacyMode )

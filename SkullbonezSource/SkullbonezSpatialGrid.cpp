@@ -115,7 +115,7 @@ void SpatialGrid::Clear()
 // Look up or create a bucket for the given hash key.
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
-// Returns the bucket index for this key.
+// Output is the bucket index for this key.
 int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );

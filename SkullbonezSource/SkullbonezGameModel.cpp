@@ -339,7 +339,7 @@ float GameModel::GetBoundingRadius()
 
 Vector3 GameModel::GetOrientationUp()
 {
-    // Returns the world-space up vector of the ball (local +Y after physics orientation).
+    // World-space up vector of the ball (local +Y after physics orientation).
     //
     // DERIVATION:
     //   GetModelMatrix() uses T * FromQuaternion(q) * Scale.

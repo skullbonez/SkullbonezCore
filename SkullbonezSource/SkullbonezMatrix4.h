@@ -55,7 +55,7 @@ class Matrix4
   public:
     float m[16];
 
-    Matrix4();                      // Default constructor (identity)
+    Matrix4();                      // Identity matrix by default.
     Matrix4( const float* values ); // Construct from 16-element column-major array
 
     static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );                      // Perspective projection matrix with legacy [-1,1] depth

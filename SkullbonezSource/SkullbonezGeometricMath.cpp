@@ -235,7 +235,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
 
 
 // Evaluates the parametric ray at time t: P(t) = origin + t * direction
-// Returns the 3D world position that lies fraction t along the ray vector.
+// 3D world position at fraction t along the ray vector.
 // t = 0 → ray origin;  t = 1 → tip of direction vector;  t ∈ (0,1) → somewhere between.
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )

@@ -88,9 +88,9 @@ Related:
 //
 // --- Shader Types in DXR ---
 //
-//  [shader("raygeneration")] — Called once per pixel. Generates rays.
+//  [shader("raygeneration")] - One invocation per pixel; launches reflection rays.
 //  [shader("closesthit")]    — Called when a ray hits geometry. Computes color.
-//  [shader("miss")]          — Called when a ray hits nothing. Returns sky color.
+//  [shader("miss")]          - Sky color path when a ray hits no geometry.
 //
 // --- Compiled With ---
 //

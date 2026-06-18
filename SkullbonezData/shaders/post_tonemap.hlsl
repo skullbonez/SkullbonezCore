@@ -207,7 +207,7 @@ float HeroCloudMask(float2 screenUV)
 
 float CloudRayOpen(float2 screenUV)
 {
-    // Returns how open the sky is at this screen position. 1 means light can pass
+    // Sky openness at this screen position. 1 means light can pass
     // through freely; lower values mean a cloud is blocking the ray.
     float2 lowerUV = float2(screenUV.x * 1.28f + 0.12f, screenUV.y * 2.55f + 0.18f) * max(uCloudParams.z, 0.001f);
     lowerUV.x += sin(screenUV.y * 5.0f) * 0.07f;

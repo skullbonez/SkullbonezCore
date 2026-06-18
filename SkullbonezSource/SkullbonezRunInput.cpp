@@ -1522,7 +1522,7 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterHidden = !m_debug.isWaterHidden;
             }
         }
-        // V key: collision visualizer. Renders balls and boxes as solid debug colours.
+        // V key: collision visualizer for balls and boxes as solid debug colours.
         {
             const RuntimeKeyEdge vEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::VWasDown, 'V' );
             if ( vEdge.wasPressed )

@@ -63,32 +63,35 @@ class Terrain
   public:
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f; // XZ extent of the analytic flat slope play area
 
-    Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
+    Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // RAW heightmap path plus authoring dimensions; step size feeds both pixels and physics posts.
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
-    ~Terrain();                                                                      // Default destructor
+    ~Terrain();
 
-    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Renders the terrain with shader
-    void RenderShadowDepth( const Math::Transformation::Matrix4& lightView, const Math::Transformation::Matrix4& lightProjection, const Basics::CinematicRenderConfig* cinematic = nullptr );                                                            // Renders terrain into directional shadow depth
+    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Terrain color pass with optional cinematic and shadow inputs.
+    void RenderShadowDepth( const Math::Transformation::Matrix4& lightView, const Math::Transformation::Matrix4& lightProjection, const Basics::CinematicRenderConfig* cinematic = nullptr );                                                            // Depth-only terrain caster pass for directional shadows.
     void ResetRenderResources();                                                                                                                                                                                                                         // Rebuild backend-specific mesh/shader resources after a device reset or resize
+    // Borrowed mesh pointer for DXR BLAS construction; Terrain retains ownership.
     Rendering::IMesh* GetMesh() const
     {
         return m_terrainMesh.get();
-    } // Returns the internal mesh (for DXR BLAS)
+    }
+    // Cached maximum Y height supports cheap airborne early-outs.
     float GetMaxHeight() const
     {
         return m_maxTerrainHeight;
-    } // Returns the maximum Y height across all terrain posts (used for airborne early-out)
+    }
+    // Cached minimum Y height supports cheap below-terrain checks.
     float GetMinHeight() const
     {
         return m_minTerrainHeight;
-    } // Returns the minimum Y height across all terrain posts
-    XZBounds GetXZBounds();                                                                                                   // Returns the XZ bounds of the terrain
-    Triangle LocatePolygon( float xPosition, float zPosition );                                                               // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
-    bool IsInBounds( float xPosition, float zPosition );                                                                      // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
-    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );                                    // Returns the height of the terrain at the specified coordinates
-    Math::Vector::Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                                             // Returns the surface normal of the terrain at the specified coordinates
-    void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3& outNormal ); // Combined lookup — single LocatePolygon call vs two separate calls
-    void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight, Plane& outPlane );                   // Physics fast path — direct cached plane + height lookup
+    }
+    XZBounds GetXZBounds();
+    Triangle LocatePolygon( float xPosition, float zPosition );                                                               // Orthographic X/Z lookup; see http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
+    bool IsInBounds( float xPosition, float zPosition );                                                                      // World X/Z coordinates inside the terrain collision domain.
+    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );                                    // Height sample; isFluidMin asks water tests for the lowest terrain support.
+    Math::Vector::Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                                             // Surface normal used by contact rows and slope alignment.
+    void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3& outNormal ); // Combined lookup: one cached-cell query instead of two.
+    void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight, Plane& outPlane );                   // Physics fast path: direct cached plane plus height lookup.
 
   private:
     struct CachedTriangleData
@@ -128,10 +131,10 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    void LoadTerrainData( const char* sFileName ); // Loads terrain from .RAW file into terrainData member
-    void InitialiseTerrainShader();                // Creates and configures lit terrain shader for active backend
+    void LoadTerrainData( const char* sFileName ); // RAW byte load retained for render mesh rebuilds.
+    void InitialiseTerrainShader();                // Lit terrain shader setup for the active backend.
     void ConfigureRenderStepSize();                // Chooses a safe render-only terrain step size
-    void BuildTerrain();                           // Builds the terrain
+    void BuildTerrain();                           // Converts raw height data into physics-authoritative terrain posts.
     void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
     void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal, Plane* outPlane );
@@ -139,11 +142,11 @@ class Terrain
     float SampleRenderHeightRaw( float rawX, float rawZ ) const;
     Math::Vector::Vector3 SampleRenderNormalRaw( float rawX, float rawZ ) const;
     TerrainPost BuildRenderPost( float rawX, float rawZ ) const;
-    void TranslatePostings();                       // Translates terrain posts
-    void GenerateNormals();                         // Generates normals for posts
-    void BuildMesh();                               // Builds VBO mesh from render-only height samples
-    void BuildFlatSlopeMesh();                      // Builds VBO mesh for analytic flat slope
-    int GetPixelHeightAt( int xCoord, int yCoord ); // Returns the .raw height at the specified pixel coordinates
+    void TranslatePostings();                       // Centers authored posts into world space.
+    void GenerateNormals();                         // Post normals are shared by lighting and terrain contacts.
+    void BuildMesh();                               // VBO mesh from render-only height samples.
+    void BuildFlatSlopeMesh();                      // VBO mesh for analytic flat slope scenes.
+    int GetPixelHeightAt( int xCoord, int yCoord ); // RAW pixel height before terrain post translation.
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

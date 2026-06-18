@@ -393,8 +393,8 @@ class TestScene
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
     float GetPhysicsDebugContactLinger() const;
-    float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
-    float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
+    float GetTrackHeight() const;       // Tracking camera height above ball; -1 disables.
+    float GetAutoCycleInterval() const; // Per-ball screenshot interval in seconds; -1 disables.
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit
     bool IsExitOnComplete() const;      // True if scene should exit automatically when frame count is reached
     bool IsCollisionVisualizerEnabled() const;

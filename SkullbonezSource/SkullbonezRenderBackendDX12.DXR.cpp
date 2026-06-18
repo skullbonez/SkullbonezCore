@@ -571,7 +571,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     cb.skyColorBottom[2] = 0.95f;
     memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
 
-    // Set the compute root signature for raytracing. DXR uses the compute pipeline (not graphics)
+    // Compute root signature path for raytracing. DXR uses the compute pipeline (not graphics)
     // because ray tracing doesn't use the traditional rasterization pipeline (no vertex/pixel stages).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setcomputerootsignature
     m_cmdList4->SetComputeRootSignature( m_rtRootSignature );

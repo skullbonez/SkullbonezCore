@@ -504,8 +504,8 @@ bool CopyOptionPath( const char* value, const char* optionName, char* outPath, s
 
 // ---------------------------------------------------------------------------
 // --gen-atlas early exit
-// Generates the SDF font atlas to a file and exits — no GPU context needed.
-// Returns true if the flag was present; outExitCode is 0 on success, 1 on failure.
+// SDF font atlas file generation path: exits before GPU context setup.
+// True means the flag was present; outExitCode is 0 on success, 1 on failure.
 // ---------------------------------------------------------------------------
 
 bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
@@ -1439,7 +1439,7 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
 }
 
 // Guards --physics-regression-log against use in non-Debug builds.
-// Returns false if startup should abort.
+// False means startup should abort.
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 {
     if ( !HasOption( commandLine, "--physics-regression-log" ) )
@@ -1456,7 +1456,7 @@ bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 
 
 // Guards --physics-collision-time-log against use in non-Debug builds.
-// Returns false if startup should abort.
+// False means startup should abort.
 bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 {
     if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
@@ -1547,7 +1547,7 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 
 // Parses all command-line options into a ParsedArgs struct.
 // Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
-// Returns false if startup should abort (e.g. --physics-regression-log in Release build).
+// False means startup should abort, such as --physics-regression-log in Release.
 bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 {
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )

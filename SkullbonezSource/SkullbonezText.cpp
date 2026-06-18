@@ -255,7 +255,7 @@ static bool LoadSdfAtlasFromFile( const char* path )
 // Text2d::GenerateSdfAtlasToFile
 // =============================================================================
 //
-// Renders all 96 printable ASCII glyphs at SDF_SCALE × resolution using GDI,
+// All 96 printable ASCII glyphs are drawn at SDF_SCALE x resolution using GDI,
 // computes a per-cell Signed Distance Field via two 2D Euclidean Distance
 // Transforms, box-filters the result down to the final atlas size, then writes
 // a binary .sdf file that LoadSdfAtlasFromFile / BuildFont can read directly.

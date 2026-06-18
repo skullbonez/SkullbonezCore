@@ -30,7 +30,7 @@ Related:
 // GENERATE MIPMAPS COMPUTE SHADER — HLSL 5.0
 // =============================================================================
 //
-// Generates up to 4 consecutive mip levels per 8x8 thread group dispatch.
+// One 8x8 thread group can write up to 4 consecutive mip levels.
 // The first output mip is sampled from the SRV source (handles NPOT via
 // multiple samples). Subsequent mips use group shared memory reduction.
 //

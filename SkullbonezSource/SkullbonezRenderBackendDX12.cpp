@@ -153,7 +153,7 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
 
 
-// --- Constructor ---
+// --- Backend Setup Entry Point ---
 
 
 RenderBackendDX12::RenderBackendDX12()
@@ -1751,7 +1751,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-omsetrendertargets
     m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
 
-    // Set the viewport (the rectangle on screen where rendering appears) and scissor rect
+    // Viewport defines where rendering appears, and the scissor rect clips pixels
     // (pixels outside the scissor are clipped/discarded). Both must be set every time in DX12.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects

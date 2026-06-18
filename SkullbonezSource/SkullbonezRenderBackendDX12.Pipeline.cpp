@@ -541,7 +541,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_targetsDirty = false;
     }
 
-    // Set the primitive topology — tells the Input Assembler how to interpret vertex data.
+    // Primitive topology tells the Input Assembler how to interpret vertex data.
     // TRIANGLELIST means every 3 vertices form an independent triangle.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );

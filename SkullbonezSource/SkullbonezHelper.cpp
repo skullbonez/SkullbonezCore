@@ -708,7 +708,7 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchEnd()
 // BOX INSTANCED RENDERING
 // =============================================================================
 //
-// Renders unit cubes [-1,1]^3 scaled by half-extents via the model matrix.
+// Unit cubes [-1,1]^3 scaled by half-extents via the model matrix.
 // Uses the same lit_textured_instanced shader as spheres so lighting is
 // consistent. The cube has outward-facing normals and simple planar UV.
 //
