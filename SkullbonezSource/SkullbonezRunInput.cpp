@@ -145,6 +145,58 @@ float EditorGizmoAxisLength( float modelRadius )
 }
 
 
+float EditorGizmoRotationRadius( float modelRadius )
+{
+    return (std::max)( 12.0f, modelRadius + 7.0f );
+}
+
+
+Vector3 EditorRotationRingBasisA( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 2:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    default:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    }
+}
+
+
+Vector3 EditorRotationRingBasisB( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 1:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    default:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    }
+}
+
+
+float WrapEditorAngleDelta( float delta )
+{
+    while ( delta > _PI )
+    {
+        delta -= 2.0f * _PI;
+    }
+    while ( delta < -_PI )
+    {
+        delta += 2.0f * _PI;
+    }
+    return delta;
+}
+
+
 float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
                                    const Vector3& rayDirection,
                                    const Vector3& segmentA,
@@ -837,6 +889,22 @@ void RunEditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, fl
 }
 
 
+void RunEditorTracer::EmitRing( const Vector3& center, int axis, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 64;
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    Vector3 previous = center + basisA * radius;
+    for ( int i = 1; i <= segments; ++i )
+    {
+        const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+        const Vector3 next = center + basisA * ( cosf( theta ) * radius ) + basisB * ( sinf( theta ) * radius );
+        EmitLine( previous, next, r, g, bl );
+        previous = next;
+    }
+}
+
+
 void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
 {
     constexpr int segments = 32;
@@ -991,7 +1059,7 @@ void RunEditorTracer::AddSelectionOutline( const GameModel& model )
 }
 
 
-void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotAxis, int activeAxis )
+void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation )
 {
     const float length = EditorGizmoAxisLength( radius );
     for ( int axis = 0; axis < 3; ++axis )
@@ -999,13 +1067,13 @@ void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotAxis
         float r = axis == 0 ? 1.0f : 0.08f;
         float g = axis == 1 ? 0.95f : 0.10f;
         float b = axis == 2 ? 1.0f : 0.08f;
-        if ( activeAxis == axis )
+        if ( !activeRotation && activeAxis == axis )
         {
             r = 1.0f;
             g = 1.0f;
             b = 0.15f;
         }
-        else if ( hotAxis == axis )
+        else if ( hotTranslateAxis == axis )
         {
             r = (std::min)( 1.0f, r + 0.45f );
             g = (std::min)( 1.0f, g + 0.45f );
@@ -1014,6 +1082,27 @@ void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotAxis
 
         const Vector3 axisVector = EditorAxisVector( axis );
         EmitArrow( origin, origin + axisVector * length, r, g, b );
+    }
+
+    const float ringRadius = EditorGizmoRotationRadius( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( activeRotation && activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotRotationAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+        EmitRing( origin, axis, ringRadius, r, g, b );
     }
 }
 
@@ -1410,6 +1499,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.viewportLookActive = false;
                 m_editor.placementPreviewVisible = false;
                 m_editor.gizmoDragActive = false;
+                m_editor.gizmoDragIsRotation = false;
                 m_editor.activeGizmoAxis = -1;
                 InputController::ResetMouseLook( m_camera );
             }
@@ -1699,12 +1789,20 @@ void SkullbonezRun::TakeInput()
                 Vector3 rayDirection;
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
                 {
-                    MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                    if ( m_editor.gizmoDragIsRotation )
+                    {
+                        RotateSelectedEditorObjectAroundAxis( rayOrigin, rayDirection );
+                    }
+                    else
+                    {
+                        MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                    }
                 }
             }
             if ( leftReleased || suppressNudgeFireThisFrame )
             {
                 m_editor.gizmoDragActive = false;
+                m_editor.gizmoDragIsRotation = false;
                 m_editor.activeGizmoAxis = -1;
             }
         }
@@ -1712,6 +1810,28 @@ void SkullbonezRun::TakeInput()
         if ( !consumedWorldClick && leftPressed && !suppressNudgeFireThisFrame )
         {
             if ( !m_camera.isNudgeMode &&
+                 !m_editor.fixedPlacementEnabled &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.hotRotationAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float startAngle = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = true;
+                    m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
+                    m_editor.gizmoDragStartRotationAngle = startAngle;
+                    m_editor.gizmoDragStartOrientation = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
+                    consumedWorldClick = true;
+                }
+            }
+
+            if ( !consumedWorldClick &&
+                 !m_camera.isNudgeMode &&
                  !m_editor.fixedPlacementEnabled &&
                  m_editor.selectedModelIndex >= 0 &&
                  m_editor.hotGizmoAxis >= 0 )
@@ -1724,6 +1844,7 @@ void SkullbonezRun::TakeInput()
                 {
                     EnterInteractiveSceneRun();
                     m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = false;
                     m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
                     m_editor.gizmoDragStartAxisT = axisT;
                     m_editor.gizmoDragStartPosition = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
@@ -2419,6 +2540,50 @@ int SkullbonezRun::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& 
 }
 
 
+int SkullbonezRun::HitEditorRotationGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float ringRadius = EditorGizmoRotationRadius( EditorModelRadius( model ) );
+    const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
+
+    int bestAxis = -1;
+    float bestDiff = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 normal = EditorAxisVector( axis );
+        const float denom = normal * rayDirection;
+        if ( fabsf( denom ) <= 1e-4f )
+        {
+            continue;
+        }
+
+        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        if ( rayT < 0.0f )
+        {
+            continue;
+        }
+
+        const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
+        const Vector3 radial = hitPoint - origin;
+        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float diff = fabsf( radialDistance - ringRadius );
+        if ( diff <= threshold && diff < bestDiff )
+        {
+            bestDiff = diff;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
 bool SkullbonezRun::TryEditorAxisRayParameter( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT ) const
 {
     if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
@@ -2439,6 +2604,43 @@ bool SkullbonezRun::TryEditorAxisRayParameter( int axis, const Vector3& rayOrigi
     }
 
     outAxisT = ( b * e - d ) / denom;
+    return true;
+}
+
+
+bool SkullbonezRun::TryEditorRotationRayAngle( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAngle ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 origin = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 normal = EditorAxisVector( axis );
+    const float denom = normal * rayDirection;
+    if ( fabsf( denom ) <= 1e-4f )
+    {
+        return false;
+    }
+
+    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    if ( rayT < 0.0f )
+    {
+        return false;
+    }
+
+    Vector3 radial = rayOrigin + rayDirection * rayT - origin;
+    radial -= normal * ( radial * normal );
+    const float radialLenSq = radial * radial;
+    if ( radialLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    radial = radial * ( 1.0f / sqrtf( radialLenSq ) );
+
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    outAngle = atan2f( radial * basisB, radial * basisA );
     return true;
 }
 
@@ -2477,10 +2679,47 @@ void SkullbonezRun::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin,
 }
 
 
+void SkullbonezRun::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsRotation || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float currentAngle = 0.0f;
+    if ( !TryEditorRotationRayAngle( m_editor.activeGizmoAxis, rayOrigin, rayDirection, currentAngle ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    Quaternion orientation = m_editor.gizmoDragStartOrientation;
+    orientation.RotateAboutAxis( EditorAxisVector( m_editor.activeGizmoAxis ), WrapEditorAngleDelta( currentAngle - m_editor.gizmoDragStartRotationAngle ) );
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    model.SetOrientation( orientation );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( !model.IsFixed() )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
 void SkullbonezRun::UpdateEditorInteractionPreview()
 {
     m_editor.placementPreviewVisible = false;
     m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
 
     if ( m_UI.BlocksCameraMouse() || m_editor.viewportLookActive )
     {
@@ -2497,6 +2736,7 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
     {
         m_editor.selectedModelIndex = -1;
         m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
         m_editor.activeGizmoAxis = -1;
     }
 
@@ -2506,7 +2746,8 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
         Vector3 rayDirection;
         if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
         {
-            m_editor.hotGizmoAxis = HitEditorGizmoAxis( rayOrigin, rayDirection );
+            m_editor.hotRotationAxis = HitEditorRotationGizmoAxis( rayOrigin, rayDirection );
+            m_editor.hotGizmoAxis = m_editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( rayOrigin, rayDirection ) : -1;
         }
     }
 }
@@ -2528,7 +2769,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
         const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
         const float radius = EditorModelRadius( selected );
         m_editorTracer.AddSelectionOutline( selected );
-        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.activeGizmoAxis );
+        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation );
     }
     m_editorTracer.Render( viewProjection );
 }

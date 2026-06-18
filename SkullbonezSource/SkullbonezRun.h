@@ -318,17 +318,21 @@ struct RunEditorPlacementState
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
     bool gizmoDragActive = false;
+    bool gizmoDragIsRotation = false;
     int fixedObjectType = UI::EditorTab::FIXED_BOX;
     int placedObjectSerial = 0;
     int selectedModelIndex = -1;
     int hotGizmoAxis = -1;
+    int hotRotationAxis = -1;
     int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
+    float gizmoDragStartRotationAngle = 0.0f;
     Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 class RunEditorTracer
@@ -338,6 +342,7 @@ class RunEditorTracer
 
     void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
     void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
     void EmitBox( const Math::Vector::Vector3& center, const Math::Vector::Vector3& xAxis, const Math::Vector::Vector3& yAxis, const Math::Vector::Vector3& zAxis, float r, float g, float bl );
 
@@ -347,7 +352,7 @@ class RunEditorTracer
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int fixedObjectType, const Math::Vector::Vector3& center );
     void AddSelectionOutline( const GameObjects::GameModel& model );
-    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotAxis, int activeAxis );
+    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation );
     void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
@@ -1000,8 +1005,11 @@ class SkullbonezRun
     void UpdateEditorInteractionPreview();                                                                                                                     // Refreshes ghost and gizmo hover state before world-click handling
     bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                         // Ray-picks editable objects
     int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                         // Returns hovered gizmo axis or -1
+    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                 // Returns hovered rotation ring axis or -1
     bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;      // Projects mouse ray onto a gizmo axis
+    bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;      // Projects mouse ray onto a rotation ring plane
     void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                               // Applies active gizmo drag
+    void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                            // Applies active rotation-ring drag
     void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                           // Draws placement ghost and object gizmo lines
     void PlaceFixedObjectAtMouse( int fixedObjectType );                                                                                                       // Place a UI-selected fixed object on the terrain under the mouse
     void PlaceFixedObjectAtTerrainPoint( int fixedObjectType, const Math::Vector::Vector3& terrainPoint );                                                     // Places a fixed object at an already-resolved terrain hit
