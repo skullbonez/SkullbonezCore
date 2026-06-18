@@ -58,7 +58,6 @@ class GameModelCollection
     friend class SkullScope;
     friend class SceneSnapshotWriter;
     friend class Physics::PhysicsDiagnosticsSink;
-    friend class Physics::PhysicsWorld;
     friend class Physics::PersistentContactSolver;
     friend class Physics::SleepIslandSystem;
 
@@ -86,10 +85,13 @@ class GameModelCollection
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
     const std::vector<GameModel>& Models() const;
+    std::vector<GameModel>& PhysicsModels();
+    const std::vector<GameModel>& PhysicsModels() const;
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
+    void InvalidatePhysicsStreams();
 
     void WakeModel( int index );
     void SetPhysicsSleepEnabled( bool enabled );

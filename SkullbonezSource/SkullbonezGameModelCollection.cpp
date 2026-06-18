@@ -161,6 +161,18 @@ const std::vector<GameModel>& GameModelCollection::Models() const
 }
 
 
+std::vector<GameModel>& GameModelCollection::PhysicsModels()
+{
+    return m_gameModels;
+}
+
+
+const std::vector<GameModel>& GameModelCollection::PhysicsModels() const
+{
+    return m_gameModels;
+}
+
+
 GameModelBodyStream GameModelCollection::GetBodyStream()
 {
     return GameModelStreamProvider::GetBodyStream( m_soaCache, m_gameModels );
@@ -213,6 +225,12 @@ double GameModelCollection::GetSceneKineticEnergy()
         totalEnergy += 0.5 * static_cast<double>( model.GetMass() ) * speedSq + angularEnergy;
     }
     return totalEnergy;
+}
+
+
+void GameModelCollection::InvalidatePhysicsStreams()
+{
+    InvalidateSoA();
 }
 
 
