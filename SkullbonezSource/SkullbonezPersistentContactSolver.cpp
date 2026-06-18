@@ -163,25 +163,28 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     //   with a contact identifier and retrieve it for matching contacts next
     //   frame.
     // ENGINE-SPECIFIC:
-    //   This key is a compact pair+feature id. Manifold rows assign deterministic
-    //   feature ids so warm starting survives multi-point box contacts.
+    //   This key is a compact pair+feature id. Full 32-bit feature IDs are kept
+    //   so authored hull face/edge identifiers are not truncated before warm
+    //   starting. MAX_GAME_MODELS is 8192, so 15 bits per body leaves 32 bits
+    //   for the feature and one high kind bit for terrain rows.
     // Catto's cache needs a stable name for "body A touching body B at this
-    // contact feature".  Box manifolds assign distinct feature ids per row.
+    // contact feature". Box and hull manifolds assign distinct feature ids per row.
     auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
     {
+        constexpr uint64_t BODY_MASK = 0x7fffull;
         if ( b == TERRAIN_BODY_INDEX )
         {
-            uint64_t packed = ( uint64_t( 0xffffu ) << 48 ) |
-                              ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) << 16 ) |
-                              static_cast<uint64_t>( featureId & 0xffffu );
+            uint64_t packed = ( 1ull << 62 ) |
+                              ( ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) & BODY_MASK ) << 32 ) |
+                              static_cast<uint64_t>( featureId );
             return static_cast<int64_t>( packed );
         }
 
         int lo = ( a < b ) ? a : b;
         int hi = ( a < b ) ? b : a;
-        uint64_t packed = ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) << 40 ) |
-                          ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) << 16 ) |
-                          static_cast<uint64_t>( featureId & 0xffffu );
+        uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
+                          ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 ) |
+                          static_cast<uint64_t>( featureId );
         return static_cast<int64_t>( packed );
     };
 
@@ -217,7 +220,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 body.angularVelocity = model.GetAngularVelocity();
                 body.invMass = model.GetInvertedMass();
                 body.invInertia = model.GetInvertedRotationalInertia();
-                body.useWorldInertia = model.IsBox();
+                body.useWorldInertia = model.UsesWorldInertia();
             }
             if ( body.useWorldInertia )
             {
@@ -359,7 +362,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
         {
             int aIndex = cp.first;
             int bIndex = cp.second;
-            if ( aIndex == bIndex || ( m_sleepState[aIndex] && m_sleepState[bIndex] ) )
+            if ( aIndex == bIndex ||
+                 aIndex < 0 || bIndex < 0 ||
+                 aIndex >= modelCount || bIndex >= modelCount ||
+                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) ||
+                 ( m_soaIsFixed[aIndex] && m_soaIsFixed[bIndex] ) )
             {
                 continue;
             }
@@ -382,8 +389,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             Vector3 contactNormal = ZERO_VECTOR;
             bool hasContact = false;
             ObjectContactManifold manifold;
-            if ( BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold ) )
+            bool manifoldBuilt = false;
             {
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
+                manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold );
+            }
+            if ( manifoldBuilt )
+            {
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
                 contactNormal = manifold.normal;
                 for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
                 {
@@ -883,10 +896,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                     {
                         return shape.GetRadius();
                     }
-                    else
+                    else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
                     {
                         const Vector3& he = shape.GetHalfExtents();
                         return ( he.x + he.y + he.z ) / 3.0f;
+                    }
+                    else
+                    {
+                        return shape.GetBoundingRadius() * 0.5f;
                     } },
                                          model.GetCollisionShape() );
 

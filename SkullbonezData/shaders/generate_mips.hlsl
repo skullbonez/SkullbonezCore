@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
@@ -30,7 +28,7 @@ Related:
 // GENERATE MIPMAPS COMPUTE SHADER — HLSL 5.0
 // =============================================================================
 //
-// Generates up to 4 consecutive mip levels per 8x8 thread group dispatch.
+// One 8x8 thread group can write up to 4 consecutive mip levels.
 // The first output mip is sampled from the SRV source (handles NPOT via
 // multiple samples). Subsequent mips use group shared memory reduction.
 //
@@ -122,7 +120,8 @@ void main_cs(
     OutMip1[DispatchThreadID.xy] = Src1;
     if (NumMipLevels == 1) return;
 
-    // Store mip 1 result in group shared memory for subsequent reductions.
+    // Why: mip 2+ reductions can reuse the mip 1 color from group memory
+    // instead of sampling the source texture again.
     StoreColor(GroupIndex, Src1);
     GroupMemoryBarrierWithGroupSync();
 

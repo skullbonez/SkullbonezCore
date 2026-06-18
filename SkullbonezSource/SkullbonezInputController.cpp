@@ -7,6 +7,12 @@ Mental model:
   This layer is intentionally narrow: it does not apply gameplay commands, it
   only normalizes keyboard/mouse edges for the runtime.
 
+Glossary:
+  Input edge: Transition from not pressed to pressed, used for one-shot
+  commands.
+  Mouse look: Camera mode where relative mouse movement rotates the view.
+  Runtime command: Normalized input event consumed later by SkullbonezRun.
+
 Related:
   - SkullbonezSource/SkullbonezInputController.h
   - SkullbonezSource/SkullbonezRunInput.cpp
@@ -23,7 +29,7 @@ namespace Basics
 {
 RuntimeKeyEdge InputController::CaptureKeyEdge( Hardware::InputState& state,
                                                 Hardware::InputState::Key memoryKey,
-                                                char virtualKey )
+                                                int virtualKey )
 {
     const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
     const bool wasPressed = isDown && !state.Get( memoryKey );
@@ -31,7 +37,7 @@ RuntimeKeyEdge InputController::CaptureKeyEdge( Hardware::InputState& state,
     return { isDown, wasPressed };
 }
 
-bool InputController::CaptureKeyPress( bool& wasDown, char virtualKey )
+bool InputController::CaptureKeyPress( bool& wasDown, int virtualKey )
 {
     const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
     const bool wasPressed = isDown && !wasDown;

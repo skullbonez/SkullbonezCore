@@ -9,6 +9,10 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   Descriptor: Small binding record that tells a renderer how to interpret a

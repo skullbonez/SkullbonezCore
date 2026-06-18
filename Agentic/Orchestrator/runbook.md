@@ -260,6 +260,18 @@ before marking the item successful. The verifier is a rubber-duck reviewer: it
 checks the requested outcome, the source plan, the diff, validation evidence,
 artifacts, commenting standards, and worker handoff.
 
+Use the repo-local rubber-duck skill as the verifier critique reference when it is
+available:
+
+```text
+Agentic/Skills/rubber-duck/SKILL.md
+```
+
+That skill keeps the verifier read-only and asks for findings by severity:
+blocking, non-blocking, missing evidence, and the smallest useful next step. Do
+not claim the verifier is a separate model or independent process unless the
+orchestrator actually invoked a separate verifier run.
+
 Generate each verifier prompt from
 `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
 `verification-rounds/`.

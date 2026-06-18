@@ -126,7 +126,7 @@ bool Input::IsSystemCursorVisibleRequested()
 }
 
 
-bool Input::IsKeyDown( const char cKey )
+bool Input::IsKeyDown( int virtualKey )
 {
     if ( !IsAppFocused() )
     {
@@ -137,7 +137,7 @@ bool Input::IsKeyDown( const char cKey )
         recall that HIGHEST_ORDER_BIT_16 = 1000 0000 0000 0000 (binary)
         recall that a conditional statement in C++ simply checks if the value is
         nonzero, and if it is nonzero returns true, otherwise false.
-        GetKeyState(cKey) will return a 16 bit SHORT and if the key is pressed,
+        GetKeyState(virtualKey) will return a 16 bit SHORT and if the key is pressed,
         the SHORT returned will have the highest order bit set to 1.
         the binary AND operator '&' will do the comparision on the two SHORTs
         1000 0000 0000 0000 & 1000 0000 0000 0000 (if the key is pressed)
@@ -145,11 +145,11 @@ bool Input::IsKeyDown( const char cKey )
         1000 0000 0000 0000 & 0000 0000 0000 0000 (if the key is not pressed)
            = 0000 0000 0000 0000 == 0
     */
-    return ( ( GetKeyState( cKey ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+    return ( ( GetKeyState( virtualKey ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 
-bool Input::IsKeyToggled( const char cKey )
+bool Input::IsKeyToggled( int virtualKey )
 {
     if ( !IsAppFocused() )
     {
@@ -158,7 +158,7 @@ bool Input::IsKeyToggled( const char cKey )
 
     // lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
     // for an explanation on the conditional statement below
-    return ( ( GetKeyState( cKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
+    return ( ( GetKeyState( virtualKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
 }
 
 
@@ -310,6 +310,28 @@ bool Input::IsLeftMouseDown()
     }
 
     return ( ( GetKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+}
+
+
+bool Input::IsRightMouseDown()
+{
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
+    return ( ( GetKeyState( VK_RBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+}
+
+
+bool Input::IsMiddleMouseDown()
+{
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
+    return ( ( GetKeyState( VK_MBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 

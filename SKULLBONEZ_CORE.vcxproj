@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="BUIld" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbUIld/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -15,7 +15,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGUId>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGUId>
+    <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -140,6 +140,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezConvexHullShape.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
@@ -212,6 +213,7 @@
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabEditor.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
@@ -246,6 +248,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
@@ -277,7 +280,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezInputController.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezLockOrderValidator.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBUIlder.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezResponseInformation.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRigidBody.h" />
@@ -319,6 +322,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabControls.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabEditor.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabOptions.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
@@ -348,6 +352,12 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\hulls\diamond.hull" />
+    <None Include="SkullbonezData\hulls\hex_prism.hull" />
+    <None Include="SkullbonezData\hulls\pyramid.hull" />
+    <None Include="SkullbonezData\hulls\tapered_block.hull" />
+    <None Include="SkullbonezData\hulls\tri_prism.hull" />
+    <None Include="SkullbonezData\hulls\wedge.hull" />
     <None Include="SkullbonezData\scenes\at_rest.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene" />
@@ -358,6 +368,7 @@
     <None Include="SkullbonezData\scenes\box_slope_test.scene" />
     <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
     <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
+    <None Include="SkullbonezData\scenes\bullet_x_axis_cells.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_object.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_terrain.scene" />
     <None Include="SkullbonezData\scenes\bullet_sweep_wall.scene" />
@@ -385,6 +396,7 @@
     <None Include="SkullbonezData\scenes\concept_18_nordic_winter.scene" />
     <None Include="SkullbonezData\scenes\concept_19_abstract_render_showcase.scene" />
     <None Include="SkullbonezData\scenes\concept_20_pixar_inspired.scene" />
+    <None Include="SkullbonezData\scenes\convex_hull_collision.scene" />
     <None Include="SkullbonezData\scenes\rolling_shadow_contact.scene" />
     <None Include="SkullbonezData\scenes\shadow_contact.scene" />
     <None Include="SkullbonezData\scenes\shadow_map_plain.scene" />
@@ -394,7 +406,7 @@
     <None Include="SkullbonezData\scenes\ui_blur_moved_off.scene" />
     <None Include="SkullbonezData\scenes\ui_blur_moved_on.scene" />
     <None Include="SkullbonezData\scenes\cause_effect_marble_run.scene" />
-    <None Include="SkullbonezData\scenes\collision_demo.sUIte" />
+    <None Include="SkullbonezData\scenes\collision_demo.suite" />
     <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
     <None Include="SkullbonezData\scenes\collision_demo_box_ball.scene" />
     <None Include="SkullbonezData\scenes\collision_demo_box_box.scene" />
@@ -404,21 +416,21 @@
     <None Include="SkullbonezData\scenes\perf_1000.scene" />
     <None Include="SkullbonezData\scenes\perf_test.scene" />
     <None Include="SkullbonezData\scenes\physics_baseline.scene" />
-    <None Include="SkullbonezData\scenes\physics_bench.sUIte" />
+    <None Include="SkullbonezData\scenes\physics_bench.suite" />
     <None Include="SkullbonezData\scenes\physics_bench_solver.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_varied.scene" />
     <None Include="SkullbonezData\scenes\physics_regression_solver.scene" />
     <None Include="SkullbonezData\scenes\physics_roll.scene" />
-    <None Include="SkullbonezData\scenes\render_tests.sUIte" />
+    <None Include="SkullbonezData\scenes\render_tests.suite" />
     <None Include="SkullbonezData\scenes\roll_axis_test.scene" />
     <None Include="SkullbonezData\scenes\settle_test.scene" />
     <None Include="SkullbonezData\scenes\stacking.scene" />
     <None Include="SkullbonezData\scenes\standing_box_repro.scene" />
     <None Include="SkullbonezData\scenes\terrain_compare.scene" />
-    <None Include="SkullbonezData\scenes\UI_blur_off.scene" />
-    <None Include="SkullbonezData\scenes\UI_blur_on.scene" />
+    <None Include="SkullbonezData\scenes\ui_blur_off.scene" />
+    <None Include="SkullbonezData\scenes\ui_blur_on.scene" />
     <None Include="SkullbonezData\scenes\ui_controls.scene" />
     <None Include="SkullbonezData\scenes\ui_controls_bottom.scene" />
     <None Include="SkullbonezData\scenes\ui_controls_bottom_bg.scene" />
@@ -429,14 +441,14 @@
     <None Include="SkullbonezData\scenes\ui_performance_histogram.scene" />
     <None Include="SkullbonezData\scenes\ui_physics_toggles.scene" />
     <None Include="SkullbonezData\scenes\ui_profiler_default.scene" />
-    <None Include="SkullbonezData\scenes\UI_profiler_hierarchy.scene" />
+    <None Include="SkullbonezData\scenes\ui_profiler_hierarchy.scene" />
     <None Include="SkullbonezData\scenes\ui_profiler_timeline.scene" />
-    <None Include="SkullbonezData\scenes\UI_renderer_combo.scene" />
+    <None Include="SkullbonezData\scenes\ui_renderer_combo.scene" />
     <None Include="SkullbonezData\scenes\ui_scene_complete.scene" />
     <None Include="SkullbonezData\scenes\ui_scene_options.scene" />
-    <None Include="SkullbonezData\scenes\UI_small_scroll.scene" />
+    <None Include="SkullbonezData\scenes\ui_small_scroll.scene" />
     <None Include="SkullbonezData\scenes\ui_stress.scene" />
-    <None Include="SkullbonezData\scenes\UI_tests.sUIte" />
+    <None Include="SkullbonezData\scenes\ui_tests.suite" />
     <None Include="SkullbonezData\scenes\ui_water_combo.scene" />
     <None Include="SkullbonezData\scenes\water_ball_test.scene" />
     <None Include="SkullbonezData\shaders\collision_visualizer.hlsl" />
@@ -455,6 +467,7 @@
     <None Include="SkullbonezData\shaders\solid_color_batch.hlsl" />
     <None Include="SkullbonezData\shaders\text.hlsl" />
     <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl" />
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.hlsl" />
     <None Include="SkullbonezData\shaders\unlit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\water_calm.hlsl" />
     <None Include="SkullbonezData\shaders\water_ocean.hlsl" />

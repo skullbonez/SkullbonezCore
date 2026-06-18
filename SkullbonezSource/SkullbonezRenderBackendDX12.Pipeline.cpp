@@ -9,18 +9,14 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -530,7 +526,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_texBindingsDirty = false;
     }
 
-    // Set viewport/scissor/render targets only when changed
+    // Avoid redundant OM/RS binds; target changes are tracked explicitly.
     if ( m_targetsDirty )
     {
         m_commandList->RSSetViewports( 1, &m_viewport );
@@ -539,7 +535,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_targetsDirty = false;
     }
 
-    // Set the primitive topology — tells the Input Assembler how to interpret vertex data.
+    // Primitive topology tells the Input Assembler how to interpret vertex data.
     // TRIANGLELIST means every 3 vertices form an independent triangle.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );

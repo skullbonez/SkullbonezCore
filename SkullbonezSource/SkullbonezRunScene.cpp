@@ -9,6 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
+  CLI (Command-Line Interface): Text arguments or scripts used to launch
+  validation and tooling paths.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -21,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezWorkerPool.h"
 
 using namespace SkullbonezCore::Basics;
@@ -60,11 +65,15 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strcmp( material.target, "balls" ) == 0 )
     {
-        return !model.IsBox();
+        return model.IsSphere();
     }
     if ( strcmp( material.target, "boxes" ) == 0 )
     {
         return model.IsBox();
+    }
+    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
+    {
+        return model.IsConvexHull();
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
@@ -506,10 +515,8 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
         m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
     }
 
-    // set the camera m_boundaries
     m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
 
-    // set the m_terrain
     m_systems.cameras->SetTerrain( m_systems.terrain.get() );
 
     // lock the m_cameras
@@ -519,7 +526,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount();
+    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() + scene.GetConvexHullCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -542,7 +549,6 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
         }
 
-        // apply force if any is specified
         if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
         {
             gameModel.SetImpulseForce(
@@ -611,6 +617,37 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 
+    // convex_hull entries: authored immutable hull assets
+    for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
+    {
+        const SceneConvexHull& hullScene = scene.GetConvexHull( i );
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( hullScene.hullPath );
+        const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                             inertia,
+                             hullScene.mass );
+
+        gameModel.SetCoefficientRestitution( hullScene.restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.SetName( hullScene.name );
+        gameModel.AddConvexHull( hull );
+
+        if ( hullScene.hasInitOrient )
+        {
+            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+        }
+
+        if ( hullScene.hasInitVelocity )
+        {
+            gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
+        }
+
+        gameModel.SetFixed( hullScene.isFixed );
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
@@ -623,6 +660,212 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             }
         }
     }
+
+    SetUpRequiredContactsFromScene( scene );
+    SetUpRequiredBroadphaseXCellsFromScene( scene );
+}
+
+
+void SkullbonezRun::SetUpRequiredContactsFromScene( const TestScene& scene )
+{
+    m_requiredSceneContacts.clear();
+    m_requiredSceneContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+
+    auto findModelByName = [&]( const char* name ) -> int
+    {
+        if ( !name || name[0] == '\0' )
+        {
+            return -1;
+        }
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( strcmp( models[static_cast<size_t>( i )].GetName(), name ) == 0 )
+            {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
+    {
+        const SceneRequiredContact& contact = scene.GetRequiredContact( i );
+        RunRequiredContactState state;
+        strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
+        strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
+        state.bodyA = findModelByName( state.nameA );
+        state.bodyB = findModelByName( state.nameB );
+        if ( state.bodyA < 0 || state.bodyB < 0 )
+        {
+            fprintf( stderr,
+                     "[scene] required_contact could not resolve '%s' <-> '%s'\n",
+                     state.nameA,
+                     state.nameB );
+        }
+        m_requiredSceneContacts.push_back( state );
+    }
+}
+
+
+void SkullbonezRun::UpdateRequiredSceneContacts()
+{
+    if ( m_requiredSceneContacts.empty() )
+    {
+        return;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( RunRequiredContactState& required : m_requiredSceneContacts )
+    {
+        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
+        {
+            continue;
+        }
+
+        ObjectContactManifold manifold;
+        if ( BuildObjectContactManifold( models[static_cast<size_t>( required.bodyA )],
+                                         models[static_cast<size_t>( required.bodyB )],
+                                         required.bodyA,
+                                         required.bodyB,
+                                         Cfg().contactEpsilon + 0.25f,
+                                         manifold ) )
+        {
+            required.touched = true;
+        }
+    }
+
+    const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+    for ( const PhysicsDebugContact& contact : contacts )
+    {
+        if ( contact.bodyA < 0 || contact.bodyB < 0 )
+        {
+            continue;
+        }
+        for ( RunRequiredContactState& required : m_requiredSceneContacts )
+        {
+            if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
+            {
+                continue;
+            }
+            const bool sameOrder = contact.bodyA == required.bodyA && contact.bodyB == required.bodyB;
+            const bool swappedOrder = contact.bodyA == required.bodyB && contact.bodyB == required.bodyA;
+            if ( sameOrder || swappedOrder )
+            {
+                required.touched = true;
+                break;
+            }
+        }
+    }
+}
+
+
+bool SkullbonezRun::RequiredSceneContactsComplete() const
+{
+    for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
+    {
+        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void SkullbonezRun::SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene )
+{
+    m_requiredBroadphaseXCells.clear();
+    m_requiredBroadphaseXCells.reserve( static_cast<size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
+    for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
+    {
+        const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
+        RunRequiredBroadphaseXCellsState state;
+        state.minCellX = sceneCells.minCellX;
+        state.maxCellX = sceneCells.maxCellX;
+        state.cellY = sceneCells.cellY;
+        state.cellZ = sceneCells.cellZ;
+        m_requiredBroadphaseXCells.push_back( state );
+    }
+}
+
+
+void SkullbonezRun::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
+{
+    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
+    {
+        return;
+    }
+
+    for ( RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    {
+        if ( required.activated )
+        {
+            continue;
+        }
+
+        required.lastActiveCellCount = activeCellCount;
+        required.lastMissingCellX = -1;
+        required.hasObservedXRange = false;
+        for ( int i = 0; i < activeCellCount; ++i )
+        {
+            const SpatialGrid::ActiveCell& active = activeCells[i];
+            if ( active.iy == required.cellY && active.iz == required.cellZ )
+            {
+                if ( !required.hasObservedXRange )
+                {
+                    required.lastObservedMinX = active.ix;
+                    required.lastObservedMaxX = active.ix;
+                    required.hasObservedXRange = true;
+                }
+                else
+                {
+                    required.lastObservedMinX = (std::min)( required.lastObservedMinX, static_cast<int>( active.ix ) );
+                    required.lastObservedMaxX = (std::max)( required.lastObservedMaxX, static_cast<int>( active.ix ) );
+                }
+            }
+        }
+
+        bool allActive = true;
+        for ( int x = required.minCellX; x <= required.maxCellX; ++x )
+        {
+            bool found = false;
+            for ( int i = 0; i < activeCellCount; ++i )
+            {
+                const SpatialGrid::ActiveCell& active = activeCells[i];
+                if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if ( !found )
+            {
+                allActive = false;
+                required.lastMissingCellX = x;
+                break;
+            }
+        }
+
+        if ( allActive )
+        {
+            required.activated = true;
+        }
+    }
+}
+
+
+bool SkullbonezRun::RequiredSceneBroadphaseXCellsComplete() const
+{
+    for ( const RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    {
+        if ( !required.activated )
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -796,7 +1039,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    // Reset scene config to defaults
+    // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().isScenePhysics = true;
     SceneState().isSceneText = true;
     m_perfLogState.isPerfTest = false;
@@ -832,15 +1075,14 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_uiStress = RunUIStressState{};
+    m_requiredSceneContacts.clear();
 
-    // Reset cameras and game models
     m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
 
-    // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -872,7 +1114,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
     m_camera.selectedCamera = 0;
 
-    // Reset timing
     m_timers.timeSinceLastRender = 0.0f;
     m_timers.renderTime = 0.0f;
     m_camera.cameraTime = 0.0f;
@@ -1313,7 +1554,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     BeginPhysicsDiagnosticsRun( scenePath.c_str() );
 #endif
 
-    // Apply runtime swap policy after config/scene overrides are resolved.
+    // Runtime swap policy is chosen after config/scene overrides are resolved.
     Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
 
     // Restart timers
@@ -1951,7 +2192,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
@@ -1996,7 +2237,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
@@ -2114,7 +2355,6 @@ bool SkullbonezRun::AdvanceScene()
         return true;
     }
 
-    // Reset perf pass counter for next scene
     sPerfPass = 0;
 
     const int nextIndex = runtime.NextIndex();

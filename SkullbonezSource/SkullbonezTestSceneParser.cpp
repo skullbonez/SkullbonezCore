@@ -82,13 +82,11 @@ bool ParseOnOff( const char* value, bool& out )
 bool ParseUITab( const char* value, int& outTab )
 {
     static const SceneIntOption kTabs[] = {
-        { "whats_new", 0 },
-        { "whatsnew", 0 },
-        { "overview", 0 },
-        { "info", 0 },
-        { "profiler", 1 },
-        { "profile", 1 },
-        { "scene", 2 },
+        { "profiler", 0 },
+        { "profile", 0 },
+        { "scene", 1 },
+        { "editor", 2 },
+        { "placement", 2 },
         { "physics", 3 },
         { "options", 4 },
         { "params", 4 },
@@ -263,6 +261,25 @@ class TestSceneParser
         return true;
     }
 
+    static bool TryParseUnsignedInt( const char* value, unsigned int& out )
+    {
+        if ( !value || value[0] == '\0' || value[0] == '-' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const unsigned long long parsed = strtoull( value, &end, 10 );
+        if ( end == value || *end != '\0' || errno == ERANGE || parsed > UINT_MAX )
+        {
+            return false;
+        }
+
+        out = static_cast<unsigned int>( parsed );
+        return true;
+    }
+
     static bool TryParseFloat( const char* value, float& out )
     {
         if ( !value || value[0] == '\0' )
@@ -295,6 +312,21 @@ class TestSceneParser
     int ParseIntArg( const char* directive, const char* args, const char* expected )
     {
         return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
+    }
+
+    unsigned int ParseUnsignedIntValue( const char* directive, const char* value )
+    {
+        unsigned int parsed = 0;
+        if ( !TryParseUnsignedInt( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    unsigned int ParseUnsignedIntArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseUnsignedIntValue( directive, RequireArgs( directive, args, expected ) );
     }
 
     int ParseNextIntToken( const char* directive, const char*& cursor, const char* expected )
@@ -620,7 +652,7 @@ class TestSceneParser
         static const UIDirective directives[] = {
             { "visible", &TestSceneParser::ParseUIVisible, "ui visible on|off" },
             { "minimized", &TestSceneParser::ParseUIMinimized, "ui minimized on|off" },
-            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <whats_new|profiler|scene|physics|options|render|controls|cine>" },
+            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <profiler|scene|physics|options|render|controls|cine>" },
             { "rect", &TestSceneParser::ParseUIRect, "ui rect <x> <y> <w> <h>" },
             { "blur", &TestSceneParser::ParseUIBlur, "ui blur on|off" },
             { "renderer_combo", &TestSceneParser::ParseUIRendererCombo, "ui renderer_combo open|closed" },
@@ -889,7 +921,7 @@ class TestSceneParser
 
     void ParseSeed( const char* args )
     {
-        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( ParseIntArg( "seed", args, "seed <N>" ) );
+        m_scene.m_sceneOptions.seed = ParseUnsignedIntArg( "seed", args, "seed <N>" );
         if ( m_scene.m_sceneOptions.seed == 0 )
         {
             Fail( "Invalid seed at line %d (must be > 0)", m_lineNumber );
@@ -1213,6 +1245,102 @@ class TestSceneParser
     void ParseFloatingBox( const char* args )
     {
         ParseBoxCommon( args, true );
+    }
+
+    void ParseConvexHullCommon( const char* args, bool isFixed )
+    {
+        const char* directive = isFixed ? "floating_convex_hull" : "convex_hull";
+        const char* expected = isFixed ? "floating_convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]" : "convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]";
+        char tokens[13][64] = {};
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 13 );
+        if ( parsed != 7 && parsed != 10 && parsed != 13 )
+        {
+            Fail( "Invalid convex_hull/floating_convex_hull at line %d (expected 7, 10, or 13 fields, got %d)", m_lineNumber, parsed );
+        }
+
+        SceneConvexHull hull;
+        memset( &hull, 0, sizeof( hull ) );
+        hull.hasInitOrient = false;
+        hull.hasInitVelocity = false;
+        hull.isFixed = isFixed;
+
+        strcpy_s( hull.name, sizeof( hull.name ), tokens[0] );
+        hull.posX = ParseFloatValue( directive, tokens[1] );
+        hull.posY = ParseFloatValue( directive, tokens[2] );
+        hull.posZ = ParseFloatValue( directive, tokens[3] );
+        hull.mass = ParseFloatValue( directive, tokens[4] );
+        hull.restitution = ParseFloatValue( directive, tokens[5] );
+
+        const char* hullPath = tokens[6];
+        if ( strncmp( hullPath, "hull=", 5 ) == 0 )
+        {
+            hullPath += 5;
+        }
+        if ( hullPath[0] == '\0' )
+        {
+            Fail( "Invalid %s hull path at line %d", directive, m_lineNumber );
+        }
+        strcpy_s( hull.hullPath, sizeof( hull.hullPath ), hullPath );
+
+        if ( parsed == 10 || parsed == 13 )
+        {
+            hull.eulerX = ParseFloatValue( directive, tokens[7] );
+            hull.eulerY = ParseFloatValue( directive, tokens[8] );
+            hull.eulerZ = ParseFloatValue( directive, tokens[9] );
+            hull.hasInitOrient = true;
+        }
+        if ( parsed == 13 )
+        {
+            hull.velX = ParseFloatValue( directive, tokens[10] );
+            hull.velY = ParseFloatValue( directive, tokens[11] );
+            hull.velZ = ParseFloatValue( directive, tokens[12] );
+            hull.hasInitVelocity = true;
+        }
+
+        m_scene.m_convexHulls.push_back( hull );
+    }
+
+    void ParseConvexHull( const char* args )
+    {
+        ParseConvexHullCommon( args, false );
+    }
+
+    void ParseFloatingConvexHull( const char* args )
+    {
+        ParseConvexHullCommon( args, true );
+    }
+
+    void ParseRequiredContact( const char* args )
+    {
+        char tokens[2][64] = {};
+        const int parsed = ParseTokenList( "required_contact", args, "required_contact <nameA> <nameB>", tokens, 2 );
+        if ( parsed != 2 )
+        {
+            Fail( "Invalid required_contact at line %d (expected 2 fields, got %d)", m_lineNumber, parsed );
+        }
+
+        SceneRequiredContact contact;
+        strcpy_s( contact.nameA, sizeof( contact.nameA ), tokens[0] );
+        strcpy_s( contact.nameB, sizeof( contact.nameB ), tokens[1] );
+        m_scene.m_requiredContacts.push_back( contact );
+    }
+
+    void ParseRequiredBroadphaseXCells( const char* args )
+    {
+        const char* expected = "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>";
+        const char* cursor = RequireArgs( "required_broadphase_x_cells", args, expected );
+
+        SceneRequiredBroadphaseXCells cells;
+        cells.minCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.maxCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.cellY = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        cells.cellZ = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
+        if ( cells.maxCellX < cells.minCellX )
+        {
+            Fail( "Invalid required_broadphase_x_cells at line %d (maxCellX must be >= minCellX)", m_lineNumber );
+        }
+
+        m_scene.m_requiredBroadphaseXCells.push_back( cells );
     }
 
     void ParseTimeScale( const char* args )
@@ -1835,6 +1963,10 @@ class TestSceneParser
             { "floating_ball", &TestSceneParser::ParseFloatingBall, "floating_ball <name> ..." },
             { "box", &TestSceneParser::ParseBox, "box <name> ..." },
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
+            { "convex_hull", &TestSceneParser::ParseConvexHull, "convex_hull <name> ..." },
+            { "floating_convex_hull", &TestSceneParser::ParseFloatingConvexHull, "floating_convex_hull <name> ..." },
+            { "required_contact", &TestSceneParser::ParseRequiredContact, "required_contact <nameA> <nameB>" },
+            { "required_broadphase_x_cells", &TestSceneParser::ParseRequiredBroadphaseXCells, "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>" },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
             { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },

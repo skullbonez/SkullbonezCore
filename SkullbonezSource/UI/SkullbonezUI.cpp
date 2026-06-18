@@ -22,7 +22,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezUI.h"
+#include "../SkullbonezAssetSystem.h"
 #include "../SkullbonezIRenderBackend.h"
+#include "../SkullbonezMatrix4.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
@@ -32,6 +34,7 @@ Related:
 #include "UIInput.h"
 #include "UILayout.h"
 #include "UITabControls.h"
+#include "UITabEditor.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
@@ -45,7 +48,9 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
 using namespace SkullbonezCore::UI::Widgets;
@@ -92,6 +97,24 @@ uint32_t HashInt( uint32_t seed, int value )
 uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
 {
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
+}
+
+uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData& data )
+{
+    const int count = std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
+    hash = HashInt( hash, count );
+    for ( int i = 0; i < count; ++i )
+    {
+        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        hash = HashTextValue( hash, resource.label );
+        hash = HashInt( hash, static_cast<int>( resource.textureHandle ) );
+        hash = HashInt( hash, resource.width );
+        hash = HashInt( hash, resource.height );
+        hash = HashBool( hash, resource.available );
+        hash = HashBool( hash, resource.depth );
+        hash = HashBool( hash, resource.hdr );
+    }
+    return hash;
 }
 
 
@@ -154,11 +177,13 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.broadphaseOverlay );
     hash = HashBool( hash, data.tornadoEnabled );
     hash = HashBool( hash, data.tornadoFieldVectors );
+    hash = HashBool( hash, data.rayCastVisualization );
     hash = HashFloat( hash, data.tornadoRadius, 100.0f );
     hash = HashFloat( hash, data.tornadoHeight, 100.0f );
     hash = HashFloat( hash, data.tornadoInwardAcceleration, 100.0f );
     hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
     hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
+    hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
     hash = HashBool( hash, data.waterFreezeDebug );
     hash = HashBool( hash, data.waterFlatDebug );
     hash = HashBool( hash, data.terrainHidden );
@@ -167,6 +192,11 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.waterRTReflect );
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
+    hash = HashBool( hash, data.editorModeEnabled );
+    hash = HashBool( hash, data.editorPlacementMode );
+    hash = HashBool( hash, data.editorPlaceStatic );
+    hash = HashBool( hash, data.editorViewportLookActive );
+    hash = HashInt( hash, data.editorObjectType );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
     hash = HashBool( hash, data.ordinaryRender.shadowsEnabled );
@@ -262,11 +292,12 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.cinematic.basinRadiusX, 10.0f );
     hash = HashFloat( hash, data.cinematic.basinRadiusZ, 10.0f );
     hash = HashFloat( hash, data.cinematic.basinFeather, 1000.0f );
+    hash = HashRenderTargetPreviewCatalog( hash, data );
     return hash;
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, int activeSlider )
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, bool editorObjectOpen, bool renderTargetOpen, int selectedRenderTarget, int activeSlider )
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -275,6 +306,9 @@ uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen,
     hash = HashBool( hash, reflectionOpen );
     hash = HashBool( hash, sceneOpen );
     hash = HashBool( hash, cineSceneOpen );
+    hash = HashBool( hash, editorObjectOpen );
+    hash = HashBool( hash, renderTargetOpen );
+    hash = HashInt( hash, selectedRenderTarget );
     hash = HashInt( hash, activeSlider );
     return hash;
 }
@@ -296,6 +330,220 @@ void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, floa
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
 
+int RenderTargetPreviewCount( const InGameUIFrameData& data )
+{
+    return std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
+}
+
+uint32_t RenderTargetPreviewDisabledMask( const InGameUIFrameData& data )
+{
+    uint32_t mask = 0;
+    const int count = RenderTargetPreviewCount( data );
+    for ( int i = 0; i < count; ++i )
+    {
+        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        if ( !resource.available || resource.textureHandle == 0 || resource.width <= 0 || resource.height <= 0 )
+        {
+            mask |= 1u << i;
+        }
+    }
+    return mask;
+}
+
+int FirstAvailableRenderTargetPreview( const InGameUIFrameData& data )
+{
+    const int count = RenderTargetPreviewCount( data );
+    for ( int i = 0; i < count; ++i )
+    {
+        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+        {
+            return i;
+        }
+    }
+    return count > 0 ? 0 : -1;
+}
+
+int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int selectedIndex )
+{
+    const int count = RenderTargetPreviewCount( data );
+    if ( count <= 0 )
+    {
+        return -1;
+    }
+
+    if ( selectedIndex >= 0 && selectedIndex < count )
+    {
+        const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[selectedIndex];
+        if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+        {
+            return selectedIndex;
+        }
+    }
+    return FirstAvailableRenderTargetPreview( data );
+}
+
+const char* RenderTargetPreviewTypeText( const UIRenderTargetPreviewResource& resource )
+{
+    if ( resource.depth )
+    {
+        return "Depth SRV";
+    }
+    return resource.hdr ? "RGBA16F SRV" : "RGBA8 SRV";
+}
+
+UIRect IntersectRect( const UIRect& a, const UIRect& b )
+{
+    const float left = (std::max)( a.x, b.x );
+    const float top = (std::max)( a.y, b.y );
+    const float right = (std::min)( a.x + a.w, b.x + b.w );
+    const float bottom = (std::min)( a.y + a.h, b.y + b.h );
+    if ( right <= left || bottom <= top )
+    {
+        return {};
+    }
+    return { left, top, right - left, bottom - top };
+}
+
+UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
+{
+    if ( bounds.w <= 1.0f || bounds.h <= 1.0f || width <= 0 || height <= 0 )
+    {
+        return bounds;
+    }
+
+    const float sourceAspect = static_cast<float>( width ) / static_cast<float>( height );
+    float drawW = bounds.w;
+    float drawH = bounds.w / sourceAspect;
+    if ( drawH > bounds.h )
+    {
+        drawH = bounds.h;
+        drawW = bounds.h * sourceAspect;
+    }
+    return { bounds.x + ( bounds.w - drawW ) * 0.5f, bounds.y + ( bounds.h - drawH ) * 0.5f, drawW, drawH };
+}
+
+void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+{
+    if ( !IsGfxReady() )
+    {
+        return;
+    }
+
+    if ( !shader )
+    {
+        shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.ui_render_target_preview" );
+        shader->Use();
+        shader->SetInt( "uTexture", 0 );
+    }
+
+    if ( dynamicVB == 0 )
+    {
+        const int attribs[] = { 2, 2 };
+        dynamicVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+    }
+}
+
+void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+{
+    shader.reset();
+    if ( dynamicVB != 0 )
+    {
+        if ( IsGfxReady() )
+        {
+            Gfx().DestroyDynamicVB( dynamicVB );
+        }
+        dynamicVB = 0;
+    }
+}
+
+void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
+                                     uint32_t& dynamicVB,
+                                     const UIDrawContext& draw,
+                                     const UIRenderTargetPreviewResource& resource,
+                                     const UIRect& bounds,
+                                     const UIRect& clipBounds )
+{
+    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
+    {
+        return;
+    }
+
+    EnsureRenderTargetPreviewResources( shader, dynamicVB );
+    if ( !shader || dynamicVB == 0 )
+    {
+        return;
+    }
+
+    const UIRect visible = IntersectRect( bounds, clipBounds );
+    if ( visible.w <= 1.0f || visible.h <= 1.0f )
+    {
+        return;
+    }
+
+    const float uvLeft = std::clamp( ( visible.x - bounds.x ) / bounds.w, 0.0f, 1.0f );
+    const float uvRight = std::clamp( ( visible.x + visible.w - bounds.x ) / bounds.w, 0.0f, 1.0f );
+    const float uvTop = std::clamp( ( visible.y - bounds.y ) / bounds.h, 0.0f, 1.0f );
+    const float uvBottom = std::clamp( ( visible.y + visible.h - bounds.y ) / bounds.h, 0.0f, 1.0f );
+    const float left = draw.TextX( visible.x );
+    const float right = draw.TextX( visible.x + visible.w );
+    const float top = draw.TextY( visible.y );
+    const float bottom = draw.TextY( visible.y + visible.h );
+    const float verts[] = {
+        left,
+        bottom,
+        uvLeft,
+        uvBottom,
+        right,
+        bottom,
+        uvRight,
+        uvBottom,
+        right,
+        top,
+        uvRight,
+        uvTop,
+        left,
+        bottom,
+        uvLeft,
+        uvBottom,
+        right,
+        top,
+        uvRight,
+        uvTop,
+        left,
+        top,
+        uvLeft,
+        uvTop,
+    };
+
+    const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
+    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    BlendFactor blendSrc = BlendFactor::One;
+    BlendFactor blendDst = BlendFactor::Zero;
+    Gfx().GetBlendFunc( blendSrc, blendDst );
+
+    const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
+    Gfx().SetDepthTest( false );
+    Gfx().SetDepthWrite( false );
+    Gfx().SetBlend( false );
+    shader->Use();
+    shader->SetMat4( "uProjection", proj );
+    shader->SetInt( "uTexture", 0 );
+    shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
+    Gfx().BindTexture( resource.textureHandle, 0 );
+    {
+        DRAW_CALL_TRACE_SCOPE( "RenderTargetPreview" );
+        Gfx().UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+    }
+    Gfx().BindTexture( 0, 0 );
+    Gfx().SetDepthWrite( depthWriteWasEnabled );
+    Gfx().SetDepthTest( depthTestWasEnabled );
+    Gfx().SetBlendFunc( blendSrc, blendDst );
+    Gfx().SetBlend( blendWasEnabled );
+}
+
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
 {
     if ( data.waterNoReflect )
@@ -311,6 +559,11 @@ constexpr float UI_RENDER_START_Y = 118.0f;
 constexpr float UI_RENDER_SECTION_H = 28.0f;
 constexpr float UI_RENDER_ROW_H = 42.0f;
 constexpr float UI_RENDER_SAVE_BUTTON_W = 126.0f;
+constexpr float UI_TARGETS_COMBO_Y = 42.0f;
+constexpr float UI_TARGETS_META_Y = 86.0f;
+constexpr float UI_TARGETS_PREVIEW_Y = 132.0f;
+constexpr float UI_TARGETS_PREVIEW_H = 260.0f;
+constexpr float UI_TARGETS_CONTENT_H = 430.0f;
 
 struct RenderSliderSpec
 {
@@ -463,19 +716,6 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
 
-constexpr int UI_WHATS_NEW_CONTENT_HEIGHT = 470;
-constexpr float UI_WHATS_NEW_CARD_H = 134.0f;
-constexpr float UI_WHATS_NEW_CARD_GAP = 8.0f;
-constexpr float UI_WHATS_NEW_CONTROL_Y = 66.0f;
-constexpr float UI_WHATS_NEW_SLIDER_Y = 90.0f;
-constexpr float UI_WHATS_NEW_SLIDER_DESC_Y = 122.0f;
-constexpr int UI_WHATS_NEW_TOGGLE_GRAPHITE = 0;
-constexpr int UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY = 1;
-constexpr int UI_WHATS_NEW_TOGGLE_DX12_GATE = 2;
-constexpr int UI_WHATS_NEW_SLIDER_UI_FILES = 0;
-constexpr int UI_WHATS_NEW_SLIDER_TEXTURES = 1;
-constexpr int UI_WHATS_NEW_SLIDER_PARITY = 2;
-
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
 {
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
@@ -553,176 +793,6 @@ void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, 
     draw.Text( x, y, pxSize, color.r, color.g, color.b, text );
 }
 
-void DrawFittedContentText( const UIDrawContext& draw,
-                            float contentY,
-                            float contentH,
-                            float x,
-                            float y,
-                            float pxSize,
-                            const Style::UIColor& color,
-                            const char* value,
-                            float maxWidth )
-{
-    if ( !IsRowVisible( contentY, contentH, y, pxSize + 4.0f ) )
-    {
-        return;
-    }
-
-    DrawFittedText( draw, x, y, pxSize, color, value, maxWidth );
-}
-
-void DrawWhatsNewCard( const UIDrawContext& draw,
-                       float contentY,
-                       float contentH,
-                       float x,
-                       float y,
-                       float w,
-                       float h,
-                       const char* title,
-                       const char* tag,
-                       const char* line1,
-                       const char* line2 )
-{
-    if ( !IsRowVisible( contentY, contentH, y, h ) )
-    {
-        return;
-    }
-
-    const Style::UIPalette& palette = Style::Palette();
-    draw.RoundedPanel( { x, y, w, h }, Style::Radii().window, palette.windowSubtle, palette.border );
-    DrawFittedText( draw, x + 14.0f, y + 12.0f, 12.5f, palette.textPrimary, title, w - 132.0f );
-    DrawFittedText( draw, x + w - 112.0f, y + 13.0f, 9.5f, palette.textMuted, tag, 100.0f );
-    DrawFittedText( draw, x + 14.0f, y + 34.0f, 10.0f, palette.textSecondary, line1, w - 28.0f );
-    DrawFittedText( draw, x + 14.0f, y + 49.0f, 10.0f, palette.textMuted, line2, w - 28.0f );
-}
-
-void DrawWhatsNewDescription( const UIDrawContext& draw, float contentY, float contentH, float x, float y, float w, const char* text )
-{
-    if ( !IsRowVisible( contentY, contentH, y, 14.0f ) )
-    {
-        return;
-    }
-
-    DrawFittedText( draw, x, y, 9.5f, Style::Palette().textMuted, text, w );
-}
-
-void SetWhatsNewControlBounds( UICheckBox toggles[3],
-                               UISlider statusSliders[3],
-                               float contentX,
-                               float rowBase,
-                               float contentW )
-{
-    const float innerX = contentX + 16.0f;
-    const float innerW = (std::max)( 180.0f, contentW - 32.0f );
-    const float firstCardY = 42.0f;
-    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-
-    toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-
-    toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-
-    toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    statusSliders[UI_WHATS_NEW_SLIDER_PARITY].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-}
-
-void DrawWhatsNewTab( UICheckBox toggles[3],
-                      UISlider statusSliders[3],
-                      const UIDrawContext& draw,
-                      float contentX,
-                      float contentY,
-                      float contentW,
-                      float contentH,
-                      float scrolledY )
-{
-    const Style::UIPalette& palette = Style::Palette();
-    const float innerX = contentX + 16.0f;
-    const float descX = innerX + 210.0f;
-    const float descW = (std::max)( 120.0f, contentX + contentW - descX - 16.0f );
-    const float firstCardY = 42.0f;
-    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "WHATS NEW" );
-    DrawFittedContentText( draw,
-                           contentY,
-                           contentH,
-                           contentX,
-                           scrolledY + 20.0f,
-                           10.0f,
-                           palette.textSecondary,
-                           "Latest completed implementation PRs only.",
-                           contentW );
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + firstCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Graphite overlay UI",
-                      "PR #58",
-                      "Matte graphite surfaces, rounded controls, sage accents, and the WHATS NEW landing tab.",
-                      "The shared UI draw path now uses style tokens and rounded panel primitives." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].DrawToggle( draw, "Graphite restyle", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Shows that the overlay styling pass is active." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].Draw( draw, "UI files touched", "22 / 22", 22.0f, 0.0f, 22.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Tracks the graphite PR surface area instead of changing scene state." );
-    }
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + secondCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Asset texture registry",
-                      "PR #57",
-                      "Textures now have stable source records while legacy numeric texture hashes keep working.",
-                      "DX12 resource rebuilds can restore registered GPU handles from the source registry." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].DrawToggle( draw, "Source records", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Indicates built-in texture sources are registered." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].Draw( draw, "Built-ins indexed", "8 / 8", 8.0f, 0.0f, 8.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Eight default texture assets are available to dump and rebuild." );
-    }
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + thirdCardY,
-                      contentW,
-                      UI_WHATS_NEW_CARD_H,
-                      "Validation harness upgrade",
-                      "PR #56",
-                      "Renderer validation now writes manifests, summaries, heatmaps, and explicit DX12 gate output.",
-                      "The screenshot diff budget is visible here so the gate is easy to interpret." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].DrawToggle( draw, "DX12 gate", true, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Clean runs report zero DX12 validation errors." );
-    }
-    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "DX12 screenshots must remain under this average pixel difference." );
-    }
-}
-
 int RenderSliderIndexFromActiveSlider( int activeSlider )
 {
     const int index = activeSlider - UI_RENDER_SLIDER_BASE;
@@ -759,6 +829,11 @@ int RenderContentHeight()
         height += UI_RENDER_ROW_H;
     }
     return static_cast<int>( height + 18.0f );
+}
+
+int RenderTargetsContentHeight()
+{
+    return static_cast<int>( UI_TARGETS_CONTENT_H );
 }
 
 float RenderValueForParam( const OrdinaryRenderConfig& ordinary, UIRenderParam param )
@@ -1095,6 +1170,111 @@ bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, UICinemati
 }
 
 
+float EditorMiniChipWidth( const char* label )
+{
+    return Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
+}
+
+
+float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
+{
+    constexpr float margin = 14.0f;
+    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
+    const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
+    const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const float desiredW = 140.0f +
+                           Text2d::MeasureText( 12.0f, shapeLabel ) +
+                           EditorMiniChipWidth( modeLabel ) +
+                           EditorMiniChipWidth( bodyLabel );
+    return std::clamp( desiredW, 328.0f, maxW );
+}
+
+
+void DrawEditorMiniChip( const UIDrawContext& draw,
+                         float x,
+                         float y,
+                         const char* label,
+                         const Style::UIColor& fill,
+                         const Style::UIColor& text )
+{
+    const float w = EditorMiniChipWidth( label );
+    draw.RoundedRect( x, y, w, 20.0f, Style::Radii().smallButton, fill.r, fill.g, fill.b, fill.a );
+    draw.Text( x + 9.0f, y + 5.0f, 10.5f, text.r, text.g, text.b, label );
+}
+
+
+void DrawEditorMiniGlyph( const UIDrawContext& draw, const UIRect& bounds, int objectType )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, 6.0f, palette.control.r, palette.control.g, palette.control.b, 0.92f );
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.border.r, palette.border.g, palette.border.b, 0.75f );
+
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.31f;
+    const int type = std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( type == EditorTab::OBJECT_BALL || type == EditorTab::OBJECT_SPHERE )
+    {
+        draw.RoundedRect( cx - r, cy - r, r * 2.0f, r * 2.0f, 999.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_BOX )
+    {
+        draw.Rect( cx - r, cy - r, r * 2.0f, r * 2.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.94f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_HULL_DIAMOND )
+    {
+        draw.Triangle( cx, cy - r, cx + r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        draw.Triangle( cx, cy - r, cx - r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        return;
+    }
+
+    draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+}
+
+
+void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
+    draw.RoundedRect( minimized.x + 4.0f, minimized.y + 5.0f, minimized.w, minimized.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( minimized, Style::Radii().window, palette.window, palette.border );
+
+    const UIRect glyph = { minimized.x + 11.0f, minimized.y + 7.0f, 24.0f, 24.0f };
+    DrawEditorMiniGlyph( draw, glyph, data.editorObjectType );
+
+    const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
+    const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const float bodyW = EditorMiniChipWidth( bodyLabel );
+    const float modeW = EditorMiniChipWidth( modeLabel );
+    const float chipY = minimized.y + 9.0f;
+    const float bodyX = restoreButton.x - 10.0f - bodyW;
+    const float modeX = bodyX - 8.0f - modeW;
+
+    char shapeLabel[64] = {};
+    snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
+    const float labelX = glyph.x + glyph.w + 10.0f;
+    const float labelMaxW = (std::max)( 42.0f, modeX - labelX - 10.0f );
+    Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, labelMaxW );
+    draw.Text( labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, shapeLabel );
+
+    Style::UIColor modeFill = palette.accent;
+    modeFill.a = 0.92f;
+    Style::UIColor bodyFill = data.editorPlaceStatic ? palette.control : palette.warningAccent;
+    bodyFill.a = 0.92f;
+    DrawEditorMiniChip( draw, modeX, chipY, modeLabel, modeFill, palette.textPrimary );
+    DrawEditorMiniChip( draw, bodyX, chipY, bodyLabel, bodyFill, palette.textPrimary );
+
+    draw.RoundedPanel( restoreButton, Style::Radii().smallButton, palette.control, palette.border );
+    const float plusX = restoreButton.x + restoreButton.w * 0.5f;
+    const float plusY = restoreButton.y + restoreButton.h * 0.5f;
+    draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+    draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+}
+
+
 } // namespace
 
 bool InGameUI::IsVisible() const
@@ -1122,6 +1302,8 @@ void InGameUI::SetVisible( bool visible, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
+        m_cineSceneCombo.Close();
+        m_renderTargetCombo.Close();
     }
 }
 
@@ -1156,6 +1338,8 @@ void InGameUI::SetMinimized( bool minimized, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
+        m_cineSceneCombo.Close();
+        m_renderTargetCombo.Close();
         m_activeSlider = 0;
     }
     else
@@ -1189,13 +1373,21 @@ void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
 
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
+    const int tabIndex = static_cast<int>( tab );
+    if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) )
+    {
+        tab = InGameUITab::Scene;
+    }
     m_activeTab = tab;
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
     m_reflectionCombo.Close();
     CloseSceneCombo();
+    m_editorTab.objectCombo.Close();
     m_cineSceneCombo.Close();
+    m_renderTargetCombo.Close();
     m_activeSlider = 0;
+    SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
@@ -1217,9 +1409,12 @@ void InGameUI::CancelInputCapture()
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
     m_activeSlider = 0;
+    SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    m_editorTab.objectCombo.Close();
+    m_renderTargetCombo.Close();
 }
 
 
@@ -1231,7 +1426,7 @@ bool InGameUI::BlocksCameraMouse() const
 
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() );
+    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() || m_editorTab.objectCombo.IsOpen() || m_renderTargetCombo.IsOpen() );
 }
 
 
@@ -1280,6 +1475,7 @@ void InGameUI::SetRendererComboOpen( bool open )
         m_reflectionCombo.Close();
         CloseSceneCombo();
         m_cineSceneCombo.Close();
+        m_renderTargetCombo.Close();
     }
 }
 
@@ -1292,6 +1488,7 @@ void InGameUI::SetWaterComboOpen( bool open )
         m_rendererCombo.Close();
         CloseSceneCombo();
         m_cineSceneCombo.Close();
+        m_renderTargetCombo.Close();
     }
 }
 
@@ -1304,6 +1501,7 @@ void InGameUI::SetSceneComboOpen( bool open )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         m_cineSceneCombo.Close();
+        m_renderTargetCombo.Close();
         SceneTab::CaptureFilterKeyState( m_sceneTab );
     }
     else
@@ -1384,6 +1582,7 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
 void InGameUI::ResetResources()
 {
     m_backdropBlur.ResetResources();
+    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB );
     m_cache.Reset();
 }
 
@@ -1424,21 +1623,21 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
 
     switch ( m_activeTab )
     {
-    case InGameUITab::WhatsNew:
-        for ( int i = 0; i < 3; ++i )
-        {
-            DrawHitboxRect( draw, m_whatsNewToggles[i].Bounds(), contentR, contentG, contentB );
-            DrawHitboxRect( draw, m_whatsNewSliders[i].Bounds(), contentR, contentG, contentB );
-        }
-        break;
     case InGameUITab::Scene:
         DrawComboHitboxes( draw, m_sceneCombo, SceneDropdownHitboxOptionCount( m_sceneTab, data ), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        break;
+    case InGameUITab::Editor:
+        DrawHitboxRect( draw, m_editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
         break;
     case InGameUITab::Physics:
-        for ( int i = 0; i < 11; ++i )
+        for ( int i = 0; i < 12; ++i )
         {
             DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
@@ -1446,6 +1645,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
@@ -1469,6 +1669,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
             DrawHitboxRect( draw, m_renderSliders[i].Bounds(), contentR, contentG, contentB );
         }
         break;
+    case InGameUITab::Targets:
+        DrawComboHitboxes( draw, m_renderTargetCombo, m_lastRenderTargetPreviewCount, contentR, contentG, contentB );
+        break;
     case InGameUITab::Keys:
         DrawHitboxRect( draw, m_controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
@@ -1477,21 +1680,21 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
+    {
+        const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
+        DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
+        for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
         {
-            const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
-            int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
-            const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
-            DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
-            for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
-            {
-                DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
-            }
-            for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-            {
-                DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
-            }
+            DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
         }
-        break;
+        for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+        {
+            DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
+        }
+    }
+    break;
     case InGameUITab::Profiler:
         DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
@@ -1520,18 +1723,22 @@ int InGameUI::ContentHeight() const
 {
     switch ( m_activeTab )
     {
-    case InGameUITab::WhatsNew:
-        return UI_WHATS_NEW_CONTENT_HEIGHT;
+    case InGameUITab::Scene:
+        return SceneTab::ContentHeight();
     case InGameUITab::Keys:
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
         return ProfilerTab::ContentHeight( m_profilerTab );
+    case InGameUITab::Editor:
+        return EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
     case InGameUITab::Render:
         return RenderContentHeight();
+    case InGameUITab::Targets:
+        return RenderTargetsContentHeight();
     case InGameUITab::Cinematic:
         return CinematicContentHeight();
     default:
@@ -1634,6 +1841,13 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
     m_histogramToggle.SetBounds( perfBounds.x, perfBounds.y, perfBounds.w, perfBounds.h );
     m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
+    {
+        const float contentX = static_cast<float>( inputX + contentPad );
+        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+        m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+        m_renderTargetCombo.SetDropUp( false );
+    }
 
     const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
     int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
@@ -1730,6 +1944,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
         }
         else if ( m_cineSceneCombo.IsOpen() )
         {
@@ -1750,6 +1966,64 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
+        }
+        else if ( m_renderTargetCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUITab::Targets )
+            {
+                const int option = m_renderTargetCombo.HitOption( m_mouseX, m_mouseY, m_lastRenderTargetPreviewCount );
+                const bool optionDisabled = option >= 0 && option < 32 && ( m_lastRenderTargetDisabledMask & ( 1u << option ) ) != 0;
+                if ( option >= 0 && option < m_lastRenderTargetPreviewCount && !optionDisabled )
+                {
+                    m_selectedRenderTargetPreview = option;
+                    m_renderTargetCombo.Close();
+                    m_cache.Reset();
+                }
+                else if ( m_renderTargetCombo.HitBox( m_mouseX, m_mouseY ) )
+                {
+                    m_renderTargetCombo.ToggleOpen();
+                }
+                else if ( option < 0 )
+                {
+                    m_renderTargetCombo.Close();
+                }
+            }
+            else
+            {
+                m_renderTargetCombo.Close();
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
+        }
+        else if ( m_editorTab.objectCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUITab::Editor )
+            {
+                const float contentX = static_cast<float>( inputX + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                EditorTab::HandleContentClick( m_editorTab,
+                                               result,
+                                               m_mouseX,
+                                               m_mouseY,
+                                               contentX,
+                                               rowBase,
+                                               contentW );
+            }
+            else
+            {
+                m_editorTab.objectCombo.Close();
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
+            m_renderTargetCombo.Close();
         }
         else if ( m_reflectionCombo.IsOpen() )
         {
@@ -1770,6 +2044,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
         }
         else if ( m_rendererCombo.IsOpen() )
         {
@@ -1784,18 +2060,13 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_renderTargetCombo.Close();
             }
             else if ( !m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
                 m_rendererCombo.Close();
             }
-        }
-        else if ( inContent && m_activeTab == InGameUITab::WhatsNew )
-        {
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
@@ -1818,6 +2089,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
@@ -1830,6 +2102,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                          m_resetDefaultsButton,
                                                                          m_saveDefaultsButton,
                                                                          result,
+                                                                         m_activeSlider,
                                                                          sceneOptions,
                                                                          sceneOptionCount,
                                                                          selectedSceneOption,
@@ -1843,13 +2116,32 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_reflectionCombo.Close();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
             }
+        }
+        else if ( inContent && m_activeTab == InGameUITab::Editor )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            EditorTab::HandleContentClick( m_editorTab,
+                                           result,
+                                           m_mouseX,
+                                           m_mouseY,
+                                           contentX,
+                                           rowBase,
+                                           contentW );
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const int previousActiveSlider = m_activeSlider;
             if ( PhysicsTab::HandleContentClick( m_physicsTab,
                                                  result,
                                                  m_activeSlider,
@@ -1857,12 +2149,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                  m_mouseY,
                                                  contentX,
                                                  rowBase,
-                                                 contentW ) )
+                                                 contentW ) &&
+                 m_activeSlider != 0 &&
+                 m_activeSlider != previousActiveSlider )
             {
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
@@ -1884,6 +2179,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Render )
         {
@@ -1926,6 +2222,32 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_renderTargetCombo.Close();
+        }
+        else if ( inContent && m_activeTab == InGameUITab::Targets )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+            if ( m_renderTargetCombo.HitBox( m_mouseX, m_mouseY ) )
+            {
+                m_renderTargetCombo.ToggleOpen();
+                m_rendererCombo.Close();
+                m_reflectionCombo.Close();
+                CloseSceneCombo();
+                m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+            }
+            else
+            {
+                m_rendererCombo.Close();
+                m_reflectionCombo.Close();
+                CloseSceneCombo();
+                m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_renderTargetCombo.Close();
+            }
         }
         else if ( inContent && m_activeTab == InGameUITab::Cinematic )
         {
@@ -2017,6 +2339,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_renderTargetCombo.Close();
             }
             else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -2024,6 +2348,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
+                m_editorTab.objectCombo.Close();
+                m_renderTargetCombo.Close();
             }
             else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -2052,6 +2378,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
         }
     }
 
@@ -2060,7 +2388,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Sliders update previews continuously while dragged.  Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-        if ( !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount, result ) &&
+        if ( !SceneTab::UpdateActiveSlider( m_sceneTab, m_activeSlider, m_mouseX, result ) &&
+             !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount, result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
@@ -2119,7 +2448,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.
-        if ( !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
+        if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
+             !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
@@ -2142,6 +2472,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
         }
         m_activeSlider = 0;
+        SceneTab::ResetPreviewState( m_sceneTab );
         ProfilerTab::ResetPreviewState( m_profilerTab );
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
@@ -2175,6 +2506,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
     m_lastMaxWorkerThreadCount = (std::max)( 1, data.maxWorkerThreadCount );
     m_lastWorkerThreadCount = std::clamp( data.workerThreadCount, 0, m_lastMaxWorkerThreadCount );
+    m_lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
+    m_lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
+    m_selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data, m_selectedRenderTargetPreview );
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
@@ -2203,10 +2537,17 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
         char titleText[192] = {};
         Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
-        m_window.minimizedWidth = MinimizedWidthForTitle( titleText, screenW );
+        m_window.minimizedWidth = data.editorModeEnabled ? EditorMinimizedWidth( data, screenW ) : MinimizedWidthForTitle( titleText, screenW );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
-        Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
-        Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+        if ( data.editorModeEnabled )
+        {
+            DrawEditorMinimizedWindow( draw, minimized, data );
+        }
+        else
+        {
+            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
+            Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+        }
         if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
         {
             ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
@@ -2257,11 +2598,21 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
-    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_activeSlider );
+    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX,
+                                                                 m_mouseY,
+                                                                 m_rendererCombo.IsOpen(),
+                                                                 m_reflectionCombo.IsOpen(),
+                                                                 m_sceneCombo.IsOpen(),
+                                                                 m_cineSceneCombo.IsOpen(),
+                                                                 m_editorTab.objectCombo.IsOpen(),
+                                                                 m_renderTargetCombo.IsOpen(),
+                                                                 m_selectedRenderTargetPreview,
+                                                                 m_activeSlider );
     m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
 
-    if ( m_cache.CanReplayPositionOnly( cacheKey ) )
+    const bool drawsLiveRenderTargetPreview = m_activeTab == InGameUITab::Targets;
+    if ( !drawsLiveRenderTargetPreview && m_cache.CanReplayPositionOnly( cacheKey ) )
     {
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
@@ -2284,7 +2635,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "WHATS NEW", "Profile", "Scene", "Physics", "Options", "Render", "Controls", "Cine" };
+    static const char* kTabs[] = { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2293,19 +2644,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window, palette.windowSubtle, palette.innerBorder );
 
-    if ( m_activeTab == InGameUITab::WhatsNew )
-    {
-        SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, contentX, scrolledY, contentW );
-        DrawWhatsNewTab( m_whatsNewToggles,
-                         m_whatsNewSliders,
-                         draw,
-                         contentX,
-                         contentY,
-                         contentW,
-                         contentH,
-                         scrolledY );
-    }
-    else if ( m_activeTab == InGameUITab::Profiler )
+    if ( m_activeTab == InGameUITab::Profiler )
     {
         ProfilerTab::Draw( m_profilerTab, draw, data, contentX, contentY, contentW, contentH, m_scrollY, m_activeSlider );
     }
@@ -2339,6 +2678,19 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                           m_activeSlider,
                           m_mouseX,
                           m_mouseY );
+    }
+    else if ( m_activeTab == InGameUITab::Editor )
+    {
+        EditorTab::Draw( m_editorTab,
+                         draw,
+                         data,
+                         contentX,
+                         contentY,
+                         contentW,
+                         contentH,
+                         scrolledY,
+                         m_mouseX,
+                         m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Options )
     {
@@ -2380,6 +2732,113 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             {
                 m_renderSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
             }
+        }
+    }
+    else if ( m_activeTab == InGameUITab::Targets )
+    {
+        const int targetCount = RenderTargetPreviewCount( data );
+        const int selectedIndex = m_selectedRenderTargetPreview;
+        const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
+        const UIRenderTargetPreviewResource* selected = hasSelection ? &data.renderTargetPreviews[selectedIndex] : nullptr;
+        const bool selectedAvailable = selected && selected->available && selected->textureHandle != 0 && selected->width > 0 && selected->height > 0;
+        const Style::UIPalette& targetPalette = Style::Palette();
+        const char* options[UI_RENDER_TARGET_PREVIEW_MAX] = {};
+        int liveCount = 0;
+        for ( int i = 0; i < targetCount; ++i )
+        {
+            const UIRenderTargetPreviewResource& resource = data.renderTargetPreviews[i];
+            options[i] = resource.label;
+            if ( resource.available && resource.textureHandle != 0 && resource.width > 0 && resource.height > 0 )
+            {
+                ++liveCount;
+            }
+        }
+
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Targets" );
+
+        char countText[64];
+        snprintf( countText, sizeof( countText ), "%d / %d live", liveCount, targetCount );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_META_Y - 24.0f, 18.0f ) )
+        {
+            DrawLabelValueAt( draw,
+                              contentY,
+                              contentH,
+                              contentX,
+                              scrolledY + UI_TARGETS_META_Y - 24.0f,
+                              "Resources",
+                              countText,
+                              targetPalette.accent.r,
+                              targetPalette.accent.g,
+                              targetPalette.accent.b );
+        }
+
+        if ( selected )
+        {
+            char detailText[160];
+            if ( selectedAvailable )
+            {
+                snprintf( detailText,
+                          sizeof( detailText ),
+                          "%s, %d x %d, #%u",
+                          RenderTargetPreviewTypeText( *selected ),
+                          selected->width,
+                          selected->height,
+                          selected->textureHandle );
+            }
+            else
+            {
+                snprintf( detailText, sizeof( detailText ), "%s, n/a", RenderTargetPreviewTypeText( *selected ) );
+            }
+            DrawLabelValueAt( draw,
+                              contentY,
+                              contentH,
+                              contentX,
+                              scrolledY + UI_TARGETS_META_Y,
+                              "Selected",
+                              detailText,
+                              selectedAvailable ? targetPalette.textPrimary.r : targetPalette.textMuted.r,
+                              selectedAvailable ? targetPalette.textPrimary.g : targetPalette.textMuted.g,
+                              selectedAvailable ? targetPalette.textPrimary.b : targetPalette.textMuted.b );
+        }
+
+        const UIRect previewPanel = { contentX, scrolledY + UI_TARGETS_PREVIEW_Y, contentW, UI_TARGETS_PREVIEW_H };
+        const UIRect previewClip = { contentX, contentY, contentW, contentH };
+        UIRect previewImage = previewPanel;
+        if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+        {
+            draw.RoundedPanel( previewPanel, Style::Radii().control, targetPalette.windowSubtle, targetPalette.innerBorder );
+            const UIRect previewInset = { previewPanel.x + 10.0f, previewPanel.y + 10.0f, (std::max)( 1.0f, previewPanel.w - 20.0f ), (std::max)( 1.0f, previewPanel.h - 20.0f ) };
+            previewImage = selected ? FitRectToAspect( previewInset, selected->width, selected->height ) : previewInset;
+            draw.RoundedRect( previewImage.x - 1.0f, previewImage.y - 1.0f, previewImage.w + 2.0f, previewImage.h + 2.0f, Style::Radii().control, 0.01f, 0.015f, 0.018f, 0.92f );
+        }
+
+        if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
+        {
+            FlushUIDrawList( drawList, screenW, screenH );
+            drawList.Clear();
+            DrawRenderTargetPreviewTexture( m_renderTargetPreviewShader, m_renderTargetPreviewVB, draw, *selected, previewImage, previewClip );
+        }
+        else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
+        {
+            draw.Text( previewPanel.x + 18.0f,
+                       previewPanel.y + 116.0f,
+                       12.0f,
+                       targetPalette.textMuted.r,
+                       targetPalette.textMuted.g,
+                       targetPalette.textMuted.b,
+                       "Not available this frame" );
+        }
+
+        if ( IsBlockVisible( contentY, contentH, previewPanel.y, previewPanel.h ) )
+        {
+            draw.Outline( previewImage.x, previewImage.y, previewImage.w, previewImage.h, targetPalette.border.r, targetPalette.border.g, targetPalette.border.b, 0.72f );
+        }
+
+        const char* selectedText = selected ? selected->label : "No targets";
+        m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
+        {
+            m_renderTargetCombo.Draw( draw, "View", selectedText, options, targetCount, selectedIndex, m_mouseX, m_mouseY, m_lastRenderTargetDisabledMask );
         }
     }
     else if ( m_activeTab == InGameUITab::Cinematic )
@@ -2546,6 +3005,13 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH }, { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
-    m_cache.StoreFrame( cacheKey );
     FlushUIDrawList( drawList, screenW, screenH );
+    if ( drawsLiveRenderTargetPreview )
+    {
+        m_cache.Reset();
+    }
+    else
+    {
+        m_cache.StoreFrame( cacheKey );
+    }
 }

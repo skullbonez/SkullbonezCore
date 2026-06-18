@@ -8,6 +8,14 @@ Mental model:
   for fork-join work, or ordered chunk collection for deterministic local
   output followed by main-thread merge in chunk order.
 
+Glossary:
+  Worker pool: Persistent thread group that runs bounded jobs outside the main
+  thread.
+  Fork-join: Pattern where the main thread splits work, workers run chunks, and
+  the main thread waits before merging results.
+  Deterministic merge: Main-thread combine step that consumes worker chunks in a
+  stable order so validation output remains reproducible.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - Agentic/Plans/physics-shadow-worker-parallelization-plan.md

@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -19,10 +17,6 @@ Glossary:
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -129,8 +123,7 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     vbv.BufferLocation = vbAddr;
     vbv.SizeInBytes = (UINT)dataSize;
     vbv.StrideInBytes = (UINT)dvb.stride;
-    // Bind and draw the dynamic vertex buffer directly from upload heap memory.
-    // Dynamic VBs (for example text quads) change every frame, so they are
+    // Dynamic vertex buffers, such as text quads, change every frame and are
     // drawn from upload memory without copying to a default-heap buffer. That
     // is simpler but slightly slower for large batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
@@ -205,12 +198,12 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
-    // Set pipeline state and draw
     m_commandList->SetPipelineState( m_gridLinePSO );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 
-    // Set the viewProj matrix via root constants or CB slot 0
+    // Grid lines use the same constant-buffer slot as ordinary shader constants
+    // so the debug path can share the renderer root-signature contract.
     ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
     m_activeShader = shader;
     m_psoDirty = true; // Force PSO rebind on next normal draw
@@ -223,7 +216,6 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
     }
 
-    // Bind vertex buffer view
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = (UINT)dataSize;
@@ -265,7 +257,6 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     // This holds geometry that does not change, such as sphere or box mesh
     // vertices. It is uploaded once and reused across instance batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    // Create static VB on default heap
     UINT64 dataSize = (UINT64)staticVertCount * staticFloatsPerVert * sizeof( float );
 
     D3D12_HEAP_PROPERTIES defaultHeap = {};

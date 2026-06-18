@@ -125,14 +125,14 @@ class GameModel
     bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
-    void BuildSpherePhysicsCache( float radius );                                  // Precompute immutable sphere data used in hot paths
-    const Math::CollisionDetection::BoundingSphere& GetBoundingSphere() const;     // Sphere-only fast path accessor (variant-backed)
-    Math::CollisionDetection::BoundingSphere& GetBoundingSphere();                 // Mutable sphere-only fast path accessor (variant-backed)
-    void CalculateVolume();                                                        // Calculates the volume of the model
-    void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
-    void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
-    float GetTerrainCollisionTime( float changeInTime );                           // Gets the time of collision between the current GameModel instance and the terrain
-    float GetModelCollisionTime( GameModel& collisionTarget, float changeInTime ); // Gets the time of collision between the current GameModel instance and collisionTarget
+    void BuildSpherePhysicsCache( float radius );                              // Hot-path cache built from authoring radius before broadphase and drag sampling.
+    const Math::CollisionDetection::BoundingSphere& GetBoundingSphere() const; // Precondition: m_boundingVolume currently holds BoundingSphere.
+    Math::CollisionDetection::BoundingSphere& GetBoundingSphere();             // Mutable sphere fast path; caller owns the shape-kind precondition.
+    void CalculateVolume();                                                    // Refreshes cached collision volume after shape changes.
+    void ApplyWorldForces( float changeInTime );
+    void UpdateModelInfo();                                                        // Refreshes derived physics/render scalars after object-list mutations.
+    float GetTerrainCollisionTime( float changeInTime );                           // Swept terrain time-of-impact over changeInTime seconds.
+    float GetModelCollisionTime( GameModel& collisionTarget, float changeInTime ); // Swept object/object time-of-impact over changeInTime seconds.
 
     // Box/terrain contact must be measured from the actual oriented box vertices,
     // not from the model center plus a vertical support extent. On uneven terrain,
@@ -140,6 +140,7 @@ class GameModel
     // is still visibly above the surface. This helper returns the closest true
     // vertex, the terrain sample under that vertex, and the signed vertical gap.
     bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Geometry::Plane& outPlane, float& outGap );
+    bool GetClosestHullTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Geometry::Plane& outPlane, float& outGap );
     void ClampToTerrainSurface(); // Keep residual terrain penetration from leaking past integration
 
   public:
@@ -149,61 +150,67 @@ class GameModel
         float collisionTime = 0.0f;
     };
 
-    GameModel( Environment::WorldEnvironment* pWorldEnv, const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
+    GameModel( Environment::WorldEnvironment* pWorldEnv, const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vRotationalInertia, float fMass ); // Scene construction path; world pointer is borrowed.
     ~GameModel() = default;
-    GameModel( GameModel&& ) noexcept = default;            // Move constructor
-    GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
+    GameModel( GameModel&& ) noexcept = default;
+    GameModel& operator=( GameModel&& ) noexcept = default;
 
-    Math::Transformation::Matrix4 GetModelMatrix();                                                                                   // Returns the model matrix for rendering (T*R*T*S)
-    bool IsResponseRequired();                                                                                                        // Indicates whether terrain/deprecated response is required
-    void ClearResponseRequired();                                                                                                     // Clears the terrain/deprecated response flag after the owner consumes it
-    float GetSubmergedVolumePercent();                                                                                                // Returns the percentage of the game model submerged in fluid
-    float GetMass();                                                                                                                  // Returns the mass of the game model
-    float GetInvertedMass();                                                                                                          // Returns inverted mass (cached immutable)
-    float GetVolume();                                                                                                                // Returns the volume of the game model
-    void CalculateProjectedSurfaceArea();                                                                                             // Calculates the sum of the surface area of the game model
-    void CalculateDragCoefficient();                                                                                                  // Calculates the drag coefficient of the model
-    float GetProjectedSurfaceArea();                                                                                                  // Returns the projected surface area of the model
-    float GetDragCoefficient();                                                                                                       // Returns the drag coefficient of the model
-    const Math::Vector::Vector3& GetPosition();                                                                                       // Returns the position of the game model
-    const Math::Vector::Vector3& GetPosition() const;                                                                                 // Const read for manifold row rA/rB setup
-    const Math::Vector::Vector3& GetVelocity();                                                                                       // Returns the velocity of the model
-    const Math::Vector::Vector3& GetAngularVelocity();                                                                                // Returns the angular velocity of the model
-    void ApplyForces( float changeInTime );                                                                                           // Update the models velocity based on its current physicsInfo
-    void UpdatePosition( float changeInTime );                                                                                        // Update the models position based on its current physicsInfo
-    void SetTerrain( Geometry::Terrain* pTerrain );                                                                                   // Sets the terrain pointer
-    float CollisionDetectTerrain( float changeInTime );                                                                               // Collision detect model against terrain
-    bool BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out ); // Builds terrain contact geometry for the shared row solver
-    void SetImpulseForce( const Math::Vector::Vector3& vForce, const Math::Vector::Vector3& vApplicationPoint );                      // Sets an impulse force for the model
-    void SetCoefficientRestitution( float fCoefficientRestitution );                                                                  // Sets the coefficient of restitution for the game model
-    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );                        // Sets the worlds forces acting on the model
-    void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg );                                               // Sets the initial orientation from euler angles (degrees)
-    void SetName( const char* name );                                                                                                 // Sets the ball's log name (up to 63 chars)
-    const char* GetName() const;                                                                                                      // Returns the ball's log name
-    void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );                                                 // Sets per-instance render tint/override
-    void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const;                                       // Returns per-instance render tint/override
-    void SetRenderMaterial( const Rendering::RenderMaterial& material );                                                              // Sets render-only material intent
-    const Rendering::RenderMaterial& GetRenderMaterial() const;                                                                       // Returns render-only material intent
-    void AddBoundingSphere( float fRadius );                                                                                          // Add a bounding sphere to the game model
-    void AddBoundingBox( const Math::Vector::Vector3& halfExtents );                                                                  // Add a bounding box to the game model
-    bool IsBox() const;                                                                                                               // True if bounding volume is a BoundingBox
-    void SetFixed( bool isFixed );                                                                                                    // Make this model immovable while still participating in contacts
-    bool IsFixed() const;                                                                                                             // True if the model is an immovable collision body
-    void NotifyFixedContact( float highlightSeconds );                                                                                // Refresh fixed-body contact highlight timer
-    void TickFixedContactHighlight( float dt );                                                                                       // Decay fixed-body contact highlight timer
-    float GetFixedContactHighlightAlpha() const;                                                                                      // 0=no contact tint, 1=full red contact tint
-    ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime );                                               // Swept object/object query with explicit hit state
-    float GetBoundingRadius();                                                                                                        // Returns the radius of the bounding sphere
-    Math::Vector::Vector3 GetOrientationUp();                                                                                         // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
-    const Math::Orientation::Quaternion& GetOrientation() const;                                                                      // Returns the orientation quaternion (passthrough to RigidBody)
-    const Math::Vector::Vector3& GetRotationalInertia();                                                                              // Returns the rotational inertia (passthrough to RigidBody)
-    const Math::Vector::Vector3& GetInvertedRotationalInertia();                                                                      // Returns component-wise inverse rotational inertia (cached immutable)
-    float GetCoefficientRestitution();                                                                                                // Returns the coefficient of restitution (passthrough to RigidBody)
-    const Math::CollisionDetection::CollisionShape& GetCollisionShape() const;                                                        // Const shape variant for narrowphase manifold dispatch
-    void SetLinearVelocity( const Math::Vector::Vector3& v );                                                                         // Sets the linear velocity (passthrough to RigidBody)
-    void SetAngularVelocity( const Math::Vector::Vector3& v );                                                                        // Sets the angular velocity (passthrough to RigidBody)
-    void SetPosition( const Math::Vector::Vector3& pos );                                                                             // Teleports the model to a world position (passthrough to RigidBody)
-    void SetOrientation( const Math::Orientation::Quaternion& q );                                                                    // Sets the orientation quaternion (passthrough to RigidBody)
+    Math::Transformation::Matrix4 GetModelMatrix(); // World transform sent to rendering; order is translate * rotate * terrain-offset * scale.
+    bool IsResponseRequired();                      // Legacy terrain-response mailbox has data waiting for the owner.
+    void ClearResponseRequired();                   // Owner has consumed the terrain-response mailbox for this tick.
+    float GetSubmergedVolumePercent();              // Fraction in [0,1] used by buoyancy and fluid drag.
+    float GetMass();
+    float GetInvertedMass(); // Immutable inverse mass cache; fixed bodies use zero.
+    float GetVolume();
+    void CalculateProjectedSurfaceArea(); // Refreshes fluid-drag area from the current collision shape.
+    void CalculateDragCoefficient();      // Refreshes fluid-drag coefficient from the current collision shape.
+    float GetProjectedSurfaceArea();
+    float GetDragCoefficient();
+    const Math::Vector::Vector3& GetPosition();
+    const Math::Vector::Vector3& GetPosition() const; // Const read for manifold row rA/rB setup
+    const Math::Vector::Vector3& GetVelocity();
+    const Math::Vector::Vector3& GetAngularVelocity();
+    void ApplyForces( float changeInTime );
+    void UpdatePosition( float changeInTime );
+    void SetTerrain( Geometry::Terrain* pTerrain );                                                                                   // Borrowed scene terrain; caller keeps it alive for this model.
+    float CollisionDetectTerrain( float changeInTime );                                                                               // Swept terrain query that fills the response mailbox but applies no impulse.
+    bool BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out ); // Shared solver-row geometry from the terrain mailbox; false when no contact is ready.
+    void SetImpulseForce( const Math::Vector::Vector3& vForce, const Math::Vector::Vector3& vApplicationPoint );                      // Stages a one-shot impulse at a world-space application point.
+    void SetCoefficientRestitution( float fCoefficientRestitution );
+    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque ); // Continuous environment force/torque consumed during integration.
+    void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg );                        // Input angles are degrees in the engine's Euler order.
+    void SetName( const char* name );                                                                          // Diagnostic name is capped at 63 bytes for deterministic logs.
+    const char* GetName() const;
+    void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );           // Render-only color override; physics state is unaffected.
+    void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const; // Mirrors the shader-facing tint payload.
+    void SetRenderMaterial( const Rendering::RenderMaterial& material );                        // Render intent only; collision material stays elsewhere.
+    const Rendering::RenderMaterial& GetRenderMaterial() const;
+    void AddBoundingSphere( float fRadius );
+    void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
+    void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );
+    bool ScaleCollisionShapeAxisFromBase( const Math::CollisionDetection::CollisionShape& baseShape, int axis, float factor ); // Rebuilds this model shape from a base copy scaled along one axis.
+    bool IsSphere() const;
+    bool IsBox() const;
+    bool IsConvexHull() const;
+    bool UsesWorldInertia() const;    // Non-spherical inertia must rotate with the body before solving.
+    const char* GetShapeName() const; // Stable diagnostic spelling for logs and SkullScope output.
+    void SetFixed( bool isFixed );    // Immovable models still contribute contacts to dynamic bodies.
+    bool IsFixed() const;
+    void NotifyFixedContact( float highlightSeconds );                                  // Restarts red contact feedback when a dynamic body hits fixed geometry.
+    void TickFixedContactHighlight( float dt );                                         // dt is seconds; saturates at no-contact tint.
+    float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint.
+    ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime ); // Swept object/object query with explicit hit state.
+    float GetBoundingRadius();                                                          // Conservative broadphase radius; convex hulls and boxes are not sphere geometry.
+    Math::Vector::Vector3 GetOrientationUp();                                           // Local +Y axis rotated into world space by the visual orientation.
+    const Math::Orientation::Quaternion& GetOrientation() const;
+    const Math::Vector::Vector3& GetRotationalInertia();
+    const Math::Vector::Vector3& GetInvertedRotationalInertia(); // Component-wise inverse inertia cache for solver rows.
+    float GetCoefficientRestitution();
+    const Math::CollisionDetection::CollisionShape& GetCollisionShape() const; // Const shape variant for narrowphase manifold dispatch
+    void SetLinearVelocity( const Math::Vector::Vector3& v );
+    void SetAngularVelocity( const Math::Vector::Vector3& v );
+    void SetPosition( const Math::Vector::Vector3& pos ); // Teleports the model; bypasses force accumulation.
+    void SetOrientation( const Math::Orientation::Quaternion& q );
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

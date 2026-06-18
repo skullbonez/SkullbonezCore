@@ -57,6 +57,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
+        { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
         { "shader.reflect_rt", "shaders/reflect.rt" },
         { "shader.generate_mips", "shaders/generate_mips" },
     };
@@ -338,7 +339,8 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logic
     }
 
     const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : logicalNameOrBaseName );
+    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
+    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
 }
 
 void AssetSystem::Clear()

@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -21,6 +23,8 @@ Related:
 #include "SkullbonezWorkerPool.h"
 #include "UI/UILayout.h"
 
+#include <cfloat>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -31,6 +35,317 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
+{
+    const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y + inverseViewProjection.m[8] * z + inverseViewProjection.m[12];
+    const float worldY = inverseViewProjection.m[1] * x + inverseViewProjection.m[5] * y + inverseViewProjection.m[9] * z + inverseViewProjection.m[13];
+    const float worldZ = inverseViewProjection.m[2] * x + inverseViewProjection.m[6] * y + inverseViewProjection.m[10] * z + inverseViewProjection.m[14];
+    const float worldW = inverseViewProjection.m[3] * x + inverseViewProjection.m[7] * y + inverseViewProjection.m[11] * z + inverseViewProjection.m[15];
+    if ( fabsf( worldW ) < 1e-6f )
+    {
+        return false;
+    }
+
+    const float invW = 1.0f / worldW;
+    outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
+    return true;
+}
+
+
+Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
+{
+    const float hx2 = halfExtents.x * halfExtents.x;
+    const float hy2 = halfExtents.y * halfExtents.y;
+    const float hz2 = halfExtents.z * halfExtents.z;
+    const float m3 = mass / 3.0f;
+    return Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+}
+
+
+float HullBottomOffset( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        minY = (std::min)( minY, hull.GetVertex( i ).y );
+    }
+    return minY == FLT_MAX ? 0.0f : -minY;
+}
+
+
+constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
+
+
+void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObject )
+{
+    if ( fixedObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
+    }
+    else if ( boxObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
+    }
+    else
+    {
+        model.SetRenderTint( 0.42f, 0.50f, 1.0f, -1.0f );
+    }
+}
+
+
+constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
+constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
+constexpr float EDITOR_PLACEMENT_LIFT_MOUSE_SCALE = 32.0f;
+constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
+constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
+
+
+const char* EditorHullPathForType( int objectType )
+{
+    switch ( objectType )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_WEDGE:
+        return "SkullbonezData/hulls/wedge.hull";
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TRI_PRISM:
+        return "SkullbonezData/hulls/tri_prism.hull";
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
+        return "SkullbonezData/hulls/tapered_block.hull";
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_PYRAMID:
+        return "SkullbonezData/hulls/pyramid.hull";
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_HEX_PRISM:
+        return "SkullbonezData/hulls/hex_prism.hull";
+    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_DIAMOND:
+        return "SkullbonezData/hulls/diamond.hull";
+    default:
+        return nullptr;
+    }
+}
+
+
+const ConvexHullShape* CachedEditorHullForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const char* path = EditorHullPathForType( type );
+    if ( !path )
+    {
+        return nullptr;
+    }
+
+    static std::array<ConvexHullShape, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> hulls = {};
+    static std::array<bool, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> loaded = {};
+    if ( !loaded[type] )
+    {
+        hulls[type] = ConvexHullShape::LoadFromFile( path );
+        loaded[type] = true;
+    }
+    return &hulls[type];
+}
+
+
+Vector3 EditorAxisVector( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    default:
+        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    }
+}
+
+
+float EditorModelRadius( const GameModel& model )
+{
+    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
+{
+    if ( axis < 0 || axis > 2 )
+    {
+        return 1.0f;
+    }
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        return (std::max)( sphere->GetRadius(), 0.25f );
+    }
+
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& halfExtents = box->GetHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3& halfExtents = hull->GetInertiaHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    return 1.0f;
+}
+
+
+float EditorGizmoAxisLength( float modelRadius )
+{
+    return (std::max)( 14.0f, modelRadius + 12.0f );
+}
+
+
+float EditorGizmoRotationRadius( float modelRadius )
+{
+    return (std::max)( 12.0f, modelRadius + 7.0f );
+}
+
+
+Vector3 EditorRotationRingBasisA( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 2:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    default:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    }
+}
+
+
+Vector3 EditorRotationRingBasisB( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 1:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    default:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    }
+}
+
+
+float WrapEditorAngleDelta( float delta )
+{
+    while ( delta > _PI )
+    {
+        delta -= 2.0f * _PI;
+    }
+    while ( delta < -_PI )
+    {
+        delta += 2.0f * _PI;
+    }
+    return delta;
+}
+
+
+float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   const Vector3& segmentA,
+                                   const Vector3& segmentB )
+{
+    const Vector3 segment = segmentB - segmentA;
+    const float segmentLenSq = segment * segment;
+    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
+    {
+        const Vector3 toPoint = segmentA - rayOrigin;
+        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
+    }
+
+    const Vector3 w0 = rayOrigin - segmentA;
+    const float a = rayDirection * rayDirection;
+    const float b = rayDirection * segment;
+    const float c = segmentLenSq;
+    const float d = rayDirection * w0;
+    const float e = segment * w0;
+    const float denom = a * c - b * b;
+
+    float rayT = 0.0f;
+    float segmentT = 0.0f;
+    if ( fabsf( denom ) > 1e-5f )
+    {
+        rayT = ( b * e - c * d ) / denom;
+        segmentT = ( a * e - b * d ) / denom;
+    }
+
+    if ( rayT < 0.0f )
+    {
+        rayT = 0.0f;
+        segmentT = std::clamp( e / c, 0.0f, 1.0f );
+    }
+    else if ( segmentT < 0.0f )
+    {
+        segmentT = 0.0f;
+        rayT = (std::max)( 0.0f, -d / a );
+    }
+    else if ( segmentT > 1.0f )
+    {
+        segmentT = 1.0f;
+        rayT = (std::max)( 0.0f, ( b - d ) / a );
+    }
+
+    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
+    const Vector3 segmentPoint = segmentA + segment * segmentT;
+    return VectorMagSquared( rayPoint - segmentPoint );
+}
+
+
+bool IntersectRaySphere( const Vector3& rayOrigin,
+                         const Vector3& rayDirection,
+                         const Vector3& center,
+                         float radius,
+                         float& outT )
+{
+    const Vector3 m = rayOrigin - center;
+    const float b = m * rayDirection;
+    const float c = ( m * m ) - radius * radius;
+    if ( c > 0.0f && b > 0.0f )
+    {
+        return false;
+    }
+
+    const float discriminant = b * b - c;
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+
+    outT = -b - sqrtf( discriminant );
+    if ( outT < 0.0f )
+    {
+        outT = 0.0f;
+    }
+    return true;
+}
+
+
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -626,6 +941,315 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
 }
 } // namespace
 
+RunEditorTracer::RunEditorTracer()
+{
+    m_lineData.reserve( 4096 );
+}
+
+
+void RunEditorTracer::Clear()
+{
+    m_lineData.clear();
+}
+
+
+void RunEditorTracer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
+}
+
+
+void RunEditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    EmitLine( a, b, r, g, bl );
+
+    Vector3 dir = b - a;
+    const float len = VectorMag( dir );
+    if ( len <= TOLERANCE )
+    {
+        return;
+    }
+    dir /= len;
+
+    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) ) : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
+    const float sideLen = VectorMag( side );
+    if ( sideLen <= TOLERANCE )
+    {
+        return;
+    }
+    side /= sideLen;
+
+    const float head = (std::min)( len * 0.25f, 2.0f );
+    const Vector3 base = b - dir * head;
+    EmitLine( b, base + side * ( head * 0.45f ), r, g, bl );
+    EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
+}
+
+
+void RunEditorTracer::EmitRing( const Vector3& center, int axis, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 64;
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    Vector3 previous = center + basisA * radius;
+    for ( int i = 1; i <= segments; ++i )
+    {
+        const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+        const Vector3 next = center + basisA * ( cosf( theta ) * radius ) + basisB * ( sinf( theta ) * radius );
+        EmitLine( previous, next, r, g, bl );
+        previous = next;
+    }
+}
+
+
+void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 32;
+    for ( int plane = 0; plane < 3; ++plane )
+    {
+        Vector3 previous;
+        for ( int i = 0; i <= segments; ++i )
+        {
+            const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+            const float c = cosf( theta ) * radius;
+            const float s = sinf( theta ) * radius;
+            Vector3 next = center;
+            if ( plane == 0 )
+            {
+                next.x += c;
+                next.z += s;
+            }
+            else if ( plane == 1 )
+            {
+                next.x += c;
+                next.y += s;
+            }
+            else
+            {
+                next.y += c;
+                next.z += s;
+            }
+
+            if ( i > 0 )
+            {
+                EmitLine( previous, next, r, g, bl );
+            }
+            previous = next;
+        }
+    }
+}
+
+
+void RunEditorTracer::EmitBox( const Vector3& center, const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, float r, float g, float bl )
+{
+    const Vector3 corners[8] = {
+        center - xAxis - yAxis - zAxis,
+        center + xAxis - yAxis - zAxis,
+        center + xAxis + yAxis - zAxis,
+        center - xAxis + yAxis - zAxis,
+        center - xAxis - yAxis + zAxis,
+        center + xAxis - yAxis + zAxis,
+        center + xAxis + yAxis + zAxis,
+        center - xAxis + yAxis + zAxis,
+    };
+
+    static constexpr int kEdges[12][2] = {
+        { 0, 1 },
+        { 1, 2 },
+        { 2, 3 },
+        { 3, 0 },
+        { 4, 5 },
+        { 5, 6 },
+        { 6, 7 },
+        { 7, 4 },
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 },
+    };
+    for ( const auto& edge : kEdges )
+    {
+        EmitLine( corners[edge[0]], corners[edge[1]], r, g, bl );
+    }
+}
+
+
+void RunEditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& hitPoint )
+{
+    EmitLine( rayOrigin, hitPoint, 0.25f, 0.80f, 1.0f );
+}
+
+
+void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    constexpr float ghostR = 0.25f;
+    constexpr float ghostG = 1.0f;
+    constexpr float ghostB = 0.85f;
+
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
+        EmitBox( center, Vector3( 6.0f, 0.0f, 0.0f ), Vector3( 0.0f, 6.0f, 0.0f ), Vector3( 0.0f, 0.0f, 6.0f ), ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
+        EmitSphere( center, 4.0f, ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
+        EmitSphere( center, 8.0f, ghostR, ghostG, ghostB );
+        break;
+    default:
+    {
+        const ConvexHullShape* hull = CachedEditorHullForType( type );
+        if ( !hull )
+        {
+            return;
+        }
+        const Vector3 hullCenter = center + hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + hull->GetVertex( edge.vertexA ), hullCenter + hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+        }
+        break;
+    }
+    }
+}
+
+
+void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& end, float alpha, bool hit )
+{
+    alpha = std::clamp( alpha, 0.0f, 1.0f );
+    if ( alpha <= 0.0f )
+    {
+        return;
+    }
+
+    const float r = hit ? 1.0f : 0.35f;
+    const float g = hit ? 0.34f : 0.72f;
+    const float b = hit ? 0.12f : 1.0f;
+    EmitLine( start, end, r * alpha, g * alpha, b * alpha );
+}
+
+
+void RunEditorTracer::AddSelectionOutline( const GameModel& model )
+{
+    Quaternion orientation = model.GetOrientation();
+    const RotationMatrix rot = orientation.GetOrientationMatrix();
+    constexpr float outlineR = 1.0f;
+    constexpr float outlineG = 1.0f;
+    constexpr float outlineB = 0.55f;
+
+    const CollisionShape& shape = model.GetCollisionShape();
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        EmitSphere( model.GetPosition() + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), outlineR, outlineG, outlineB );
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = model.GetPosition() + rot * box->GetPosition();
+        EmitBox( center,
+                 rot * Vector3( he.x, 0.0f, 0.0f ),
+                 rot * Vector3( 0.0f, he.y, 0.0f ),
+                 rot * Vector3( 0.0f, 0.0f, he.z ),
+                 outlineR,
+                 outlineG,
+                 outlineB );
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = model.GetPosition() + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ), hullCenter + rot * hull->GetVertex( edge.vertexB ), outlineR, outlineG, outlineB );
+        }
+    }
+}
+
+
+void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale )
+{
+    const float length = EditorGizmoAxisLength( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( ( activeScale || ( !scaleMode && !activeRotation ) ) && activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotTranslateAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const Vector3 endpoint = origin + axisVector * length;
+        if ( scaleMode || activeScale )
+        {
+            const float handle = (std::max)( 0.75f, length * 0.045f );
+            EmitLine( origin, endpoint, r, g, b );
+            EmitBox( endpoint,
+                     Vector3( handle, 0.0f, 0.0f ),
+                     Vector3( 0.0f, handle, 0.0f ),
+                     Vector3( 0.0f, 0.0f, handle ),
+                     r,
+                     g,
+                     b );
+        }
+        else
+        {
+            EmitArrow( origin, endpoint, r, g, b );
+        }
+    }
+
+    if ( scaleMode || activeScale )
+    {
+        return;
+    }
+
+    const float ringRadius = EditorGizmoRotationRadius( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( activeRotation && activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotRotationAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+        EmitRing( origin, axis, ringRadius, r, g, b );
+    }
+}
+
+
+void RunEditorTracer::Render( const Matrix4& viewProjection )
+{
+    if ( m_lineData.empty() || !IsGfxReady() )
+    {
+        return;
+    }
+    Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
+}
+
+
 void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 {
     const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
@@ -649,45 +1273,131 @@ void SkullbonezRun::TakeInput()
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
+        m_editor.viewportLookActive = false;
+        m_editor.altShortcutWasDown = false;
+        m_editor.tabShortcutWasDown = false;
+        m_editor.tildeShortcutWasDown = false;
+        m_editor.placementLiftActive = false;
+        m_editor.placementLiftHasLastClient = false;
+        m_editor.placementLiftFramePixels = 0.0f;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
     }
 
-    const auto CameraMouseOwnsCursor = [&]() -> bool
+    const auto MouseLookOwnsCursor = [&]() -> bool
     {
-        return m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
+        if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
+        {
+            return false;
+        }
+
+        if ( m_editor.editorModeEnabled )
+        {
+            return m_editor.viewportLookActive;
+        }
+
+        return m_camera.isFlyMode;
+    };
+    const auto ShouldHideNativeCursor = [&]() -> bool
+    {
+        if ( MouseLookOwnsCursor() )
+        {
+            return true;
+        }
+
+        return m_editor.editorModeEnabled &&
+               m_editor.placementModeEnabled &&
+               m_editor.placementPreviewVisible &&
+               !m_UI.WantsNativeMouseCursor() &&
+               !m_UI.BlocksCameraMouse();
     };
     const auto ApplyCursorOwnership = [&]() -> void
     {
-        Input::SetSystemCursorVisible( !CameraMouseOwnsCursor() );
+        Input::SetSystemCursorVisible( !ShouldHideNativeCursor() );
     };
     const auto ReleaseMouseToUI = [&]() -> void
     {
-        if ( !CameraMouseOwnsCursor() )
+        if ( !MouseLookOwnsCursor() )
         {
             ReleaseCapture();
             InputController::ResetMouseLook( m_camera );
         }
     };
+    const auto ClearEditorManipulationState = [&]() -> void
+    {
+        m_editor.placementPreviewVisible = false;
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+    };
+    const auto ToggleEditorPlacementMode = [&]() -> void
+    {
+        EnterInteractiveSceneRun();
+        m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+        ClearEditorManipulationState();
+    };
+    const auto EnterFlyModeCamera = [&]() -> void
+    {
+        // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
+        // on the current camera so fly controls work without requiring CAMERA_FREE
+        if ( !SceneState().isSceneMode )
+        {
+            m_systems.cameras->SelectCamera( CAMERA_FREE, false );
+        }
+        m_camera.cameraTime = 0.0f;
+        XZBounds unbounded;
+        unbounded.m_xMin = -99999.9f;
+        unbounded.m_xMax = 99999.9f;
+        unbounded.m_zMin = -99999.9f;
+        unbounded.m_zMax = 99999.9f;
+        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+        m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+        if ( ShouldHideNativeCursor() )
+        {
+            Input::SetSystemCursorVisible( false );
+        }
+        else
+        {
+            ReleaseMouseToUI();
+            Input::SetSystemCursorVisible( true );
+        }
+        InputController::ResetMouseLook( m_camera );
+    };
+    const auto ExitFlyModeCamera = [&]() -> void
+    {
+        // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
+        // the stock Windows cursor.
+        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+        m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+        Input::SetSystemCursorVisible( true );
+        m_camera.cameraTime = 0.0f;
+        // Exiting fly mode also exits ray-test mode
+        m_camera.isNudgeMode = false;
+        InputController::ResetMouseLook( m_camera );
+    };
 
     ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    bool keyboardToggleEditorMode = false;
     if ( !UIBlocksKeyboardBeforeInput )
     {
+        keyboardToggleEditorMode = InputController::CaptureKeyPress( m_editor.tildeShortcutWasDown, VK_OEM_3 );
+
         // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
         bool prevFlyMode = m_camera.isFlyMode;
         const RuntimeKeyEdge fEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::FWasDown, 'F' );
         if ( fEdge.wasPressed )
         {
             m_camera.isFlyMode = !m_camera.isFlyMode;
-            m_camera.isNudgeMode = false; // F-key fly never implies nudge
+            m_camera.isNudgeMode = false; // F-key fly never implies ray-test mode
         }
 
-        // N key: toggle nudge mode — free camera with live simulation (edge-detected).
-        // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
+        // N key: toggle ray-test mode with live simulation (edge-detected).
+        // Entering also enters fly mode; exiting also exits fly mode.
         {
             const RuntimeKeyEdge nEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::NWasDown, 'N' );
             if ( nEdge.wasPressed )
@@ -707,46 +1417,43 @@ void SkullbonezRun::TakeInput()
         }
 #endif
 
+        if ( m_editor.editorModeEnabled )
+        {
+            m_camera.isFlyMode = true;
+            m_camera.isNudgeMode = false;
+            if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
+            {
+                ToggleEditorPlacementMode();
+            }
+            if ( InputController::CaptureKeyPress( m_editor.tabShortcutWasDown, VK_TAB ) )
+            {
+                if ( Input::IsKeyDown( VK_CONTROL ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
+                    m_editor.placementPreviewVisible = false;
+                }
+                else
+                {
+                    ToggleEditorPlacementMode();
+                }
+            }
+        }
+        else
+        {
+            m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+            m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+        }
+
         if ( m_camera.isFlyMode != prevFlyMode )
         {
             if ( m_camera.isFlyMode )
             {
-                // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
-                // on the current camera so fly controls work without requiring CAMERA_FREE
-                if ( !SceneState().isSceneMode )
-                {
-                    m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-                }
-                m_camera.cameraTime = 0.0f;
-                XZBounds unbounded;
-                unbounded.m_xMin = -99999.9f;
-                unbounded.m_xMax = 99999.9f;
-                unbounded.m_zMin = -99999.9f;
-                unbounded.m_zMax = 99999.9f;
-                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                if ( CameraMouseOwnsCursor() )
-                {
-                    Input::SetSystemCursorVisible( false );
-                }
-                else
-                {
-                    ReleaseMouseToUI();
-                    Input::SetSystemCursorVisible( true );
-                }
-                InputController::ResetMouseLook( m_camera );
+                EnterFlyModeCamera();
             }
             else
             {
-                // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
-                // the stock Windows cursor.
-                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-                Input::SetSystemCursorVisible( true );
-                m_camera.cameraTime = 0.0f;
-                // Exiting fly mode also exits nudge mode
-                m_camera.isNudgeMode = false;
-                InputController::ResetMouseLook( m_camera );
+                ExitFlyModeCamera();
             }
         }
 
@@ -811,7 +1518,7 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterHidden = !m_debug.isWaterHidden;
             }
         }
-        // V key: collision visualizer. Renders balls and boxes as solid debug colours.
+        // V key: collision visualizer for balls and boxes as solid debug colours.
         {
             const RuntimeKeyEdge vEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::VWasDown, 'V' );
             if ( vEdge.wasPressed )
@@ -943,9 +1650,12 @@ void SkullbonezRun::TakeInput()
     {
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
+        m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+        m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+        m_editor.tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
     }
 
-    bool suppressNudgeFireThisFrame = UIBlocksKeyboardBeforeInput;
+    bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
     if ( m_systems.window )
     {
         const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
@@ -961,7 +1671,7 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
-        suppressNudgeFireThisFrame = suppressNudgeFireThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -992,6 +1702,70 @@ void SkullbonezRun::TakeInput()
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+        }
+        if ( uiCommands.editor.requestedObjectType >= 0 )
+        {
+            m_editor.objectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+        }
+        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
+            if ( m_editor.editorModeEnabled )
+            {
+                const bool wasFlyMode = m_camera.isFlyMode;
+                if ( keyboardToggleEditorMode )
+                {
+                    m_editor.placementModeEnabled = false;
+                    ClearEditorManipulationState();
+                }
+                m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
+                m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
+                m_camera.isFlyMode = true;
+                m_camera.isNudgeMode = false;
+                if ( !wasFlyMode )
+                {
+                    EnterFlyModeCamera();
+                }
+                else
+                {
+                    InputController::ResetMouseLook( m_camera );
+                }
+            }
+            else
+            {
+                const bool wasFlyMode = m_camera.isFlyMode;
+                m_editor.viewportLookActive = false;
+                m_editor.placementPreviewVisible = false;
+                m_editor.placementModeEnabled = false;
+                m_editor.gizmoDragActive = false;
+                m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
+                m_editor.activeGizmoAxis = -1;
+                m_editor.placementLiftActive = false;
+                m_editor.placementHeightOffset = 0.0f;
+                m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
+                m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
+                m_editor.restoreFlyModeAfterEditor = false;
+                m_editor.restoreRayTestModeAfterEditor = false;
+                if ( wasFlyMode && !m_camera.isFlyMode )
+                {
+                    ExitFlyModeCamera();
+                }
+                else
+                {
+                    InputController::ResetMouseLook( m_camera );
+                }
+            }
+        }
+        if ( uiCommands.editor.togglePlacementMode )
+        {
+            ToggleEditorPlacementMode();
+        }
+        if ( uiCommands.editor.togglePlaceStatic )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.placeStaticObject = !m_editor.placeStaticObject;
         }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
@@ -1032,6 +1806,10 @@ void SkullbonezRun::TakeInput()
         {
             m_runtimeSettings.tornadoField.visualizeVelocityField = !m_runtimeSettings.tornadoField.visualizeVelocityField;
             tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.toggleRayCastVisualization )
+        {
+            m_rayCastTest.visualizeRays = !m_rayCastTest.visualizeRays;
         }
         if ( uiCommands.physics.requestTornadoRadius )
         {
@@ -1142,7 +1920,6 @@ void SkullbonezRun::TakeInput()
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
             SceneState().timeScale = m_UITimeScaleOverride;
-            m_simulation.Reset();
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {
@@ -1156,6 +1933,10 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.physics.requestedPhysicsDebugContactLinger >= 0.0f )
         {
             m_debug.physicsDebugContactLinger = std::clamp( uiCommands.physics.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+        }
+        if ( uiCommands.physics.requestRayCastImpulseStrength )
+        {
+            m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
         }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
@@ -1244,18 +2025,192 @@ void SkullbonezRun::TakeInput()
         }
 
         RunUIStressActions();
+
+        const bool editorViewportLookNow = m_editor.editorModeEnabled && Input::IsRightMouseDown() && !m_UI.BlocksCameraMouse();
+        if ( editorViewportLookNow != m_editor.viewportLookActive )
+        {
+            InputController::ResetMouseLook( m_camera );
+        }
+        m_editor.viewportLookActive = editorViewportLookNow;
+
+        m_editor.placementLiftFramePixels = 0.0f;
+        const bool editorPlacementLiftNow = m_editor.editorModeEnabled && Input::IsMiddleMouseDown() && !m_UI.BlocksCameraMouse();
+        if ( editorPlacementLiftNow )
+        {
+            const POINT currentClient = Input::GetClientMouseCoordinates();
+            if ( m_editor.placementLiftActive && m_editor.placementLiftHasLastClient )
+            {
+                m_editor.placementLiftFramePixels = static_cast<float>( m_editor.placementLiftLastClient.y - currentClient.y );
+            }
+            m_editor.placementLiftLastClient = currentClient;
+            m_editor.placementLiftHasLastClient = true;
+        }
+        else
+        {
+            m_editor.placementLiftHasLastClient = false;
+        }
+        m_editor.placementLiftActive = editorPlacementLiftNow;
+        ApplyCursorOwnership();
     }
 
-    // Nudge mode owns left click for firing the pooled silver bullets.  Keyboard
-    // shortcuts are intentionally avoided so aiming and firing live on the mouse.
+    UpdateEditorInteractionPreview();
+
+    // Editor and ray-test actions share world clicks. UI hover/capture
+    // suppresses both so panel interaction never mutates the scene.
     {
         const bool leftMouseNow = Input::IsLeftMouseDown();
-        if ( m_camera.isNudgeMode &&
-             leftMouseNow &&
-             !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
-             !suppressNudgeFireThisFrame )
+        const bool leftMouseWasDown = m_camera.input.Get( InputState::LeftMouseWasDown );
+        const bool leftPressed = leftMouseNow && !leftMouseWasDown;
+        const bool leftReleased = !leftMouseNow && leftMouseWasDown;
+        bool consumedWorldClick = false;
+
+        if ( m_editor.gizmoDragActive )
         {
-            FireProjectile();
+            consumedWorldClick = true;
+            if ( leftMouseNow && !suppressWorldActionThisFrame )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+                {
+                    if ( m_editor.gizmoDragIsScale )
+                    {
+                        ScaleSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                    }
+                    else if ( m_editor.gizmoDragIsRotation )
+                    {
+                        RotateSelectedEditorObjectAroundAxis( rayOrigin, rayDirection );
+                    }
+                    else
+                    {
+                        MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                    }
+                }
+            }
+            if ( leftReleased || suppressWorldActionThisFrame )
+            {
+                m_editor.gizmoDragActive = false;
+                m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
+                m_editor.activeGizmoAxis = -1;
+            }
+        }
+
+        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
+        {
+            const bool editorScaleMode = m_editor.editorModeEnabled &&
+                                         !m_editor.placementModeEnabled &&
+                                         Input::IsKeyDown( VK_CONTROL );
+            if ( editorScaleMode &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() &&
+                 m_editor.hotGizmoAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float axisT = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+                {
+                    EnterInteractiveSceneRun();
+                    GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
+                    m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = false;
+                    m_editor.gizmoDragIsScale = true;
+                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                    m_editor.gizmoDragStartAxisT = axisT;
+                    m_editor.gizmoDragStartShape = model.GetCollisionShape();
+                    consumedWorldClick = true;
+                }
+            }
+
+            if ( m_editor.editorModeEnabled &&
+                 !m_editor.placementModeEnabled &&
+                 !editorScaleMode &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.hotRotationAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float startAngle = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = true;
+                    m_editor.gizmoDragIsScale = false;
+                    m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
+                    m_editor.gizmoDragStartRotationAngle = startAngle;
+                    m_editor.gizmoDragStartOrientation = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
+                    consumedWorldClick = true;
+                }
+            }
+
+            if ( !consumedWorldClick &&
+                 m_editor.editorModeEnabled &&
+                 !m_editor.placementModeEnabled &&
+                 !editorScaleMode &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.hotGizmoAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float axisT = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = false;
+                    m_editor.gizmoDragIsScale = false;
+                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                    m_editor.gizmoDragStartAxisT = axisT;
+                    m_editor.gizmoDragStartPosition = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+                    consumedWorldClick = true;
+                }
+            }
+
+            if ( !consumedWorldClick && m_editor.editorModeEnabled )
+            {
+                if ( m_editor.placementModeEnabled )
+                {
+                    if ( m_editor.placementPreviewVisible )
+                    {
+                        const int previousModelCount = m_cGameModelCollection.GetModelCount();
+                        PlaceEditorObjectAtTerrainPoint( m_editor.objectType, m_editor.placeStaticObject, m_editor.placementTerrainPoint );
+                        if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                        {
+                            m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                        }
+                    }
+                }
+                else
+                {
+                    Vector3 rayOrigin;
+                    Vector3 rayDirection;
+                    int pickedIndex = -1;
+                    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                         TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                    {
+                        m_editor.selectedModelIndex = pickedIndex;
+                    }
+                    else
+                    {
+                        m_editor.selectedModelIndex = -1;
+                    }
+                }
+                consumedWorldClick = true;
+            }
+        }
+
+        if ( !consumedWorldClick &&
+             m_camera.isNudgeMode &&
+             leftPressed &&
+             !suppressWorldActionThisFrame &&
+             !m_UI.WantsNativeMouseCursor() )
+        {
+            FireRayCastTest();
         }
         m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
     }
@@ -1335,7 +2290,9 @@ void SkullbonezRun::TakeInput()
         }
     }
 
-    if ( m_camera.isFlyMode )
+    const bool cameraMouseLookActive = ( !m_editor.editorModeEnabled && m_camera.isFlyMode ) || m_editor.viewportLookActive;
+    const bool cameraKeyboardControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
+    if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
         // consuming raw Win32 deltas, with cursor-position deltas as a
@@ -1344,9 +2301,9 @@ void SkullbonezRun::TakeInput()
         {
             InputController::ResetMouseLook( m_camera );
         }
-        else if ( !CameraMouseOwnsCursor() )
+        else if ( !MouseLookOwnsCursor() )
         {
-            Input::SetSystemCursorVisible( true );
+            ApplyCursorOwnership();
             InputController::ResetMouseLook( m_camera );
         }
         else
@@ -1386,7 +2343,15 @@ void SkullbonezRun::TakeInput()
                 m_camera.mouseLookLastClient = currentClient;
             }
         }
+    }
+    else
+    {
+        InputController::ResetMouseLook( m_camera );
+        ApplyCursorOwnership();
+    }
 
+    if ( cameraKeyboardControlsActive )
+    {
         // WASD movement
         m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
         m_camera.input.Set( InputState::Left, Input::IsKeyDown( 'A' ) );
@@ -1406,13 +2371,14 @@ void SkullbonezRun::TakeInput()
 
 void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( m_camera.isFlyMode )
+    if ( m_camera.isFlyMode || m_editor.viewportLookActive )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
         // Mouse look
-        if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
+        if ( ( !m_editor.editorModeEnabled || m_editor.viewportLookActive ) &&
+             ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 ) )
         {
             m_systems.cameras->RotatePrimary( m_camera.input.xMove * mouseMovementQty,
                                               m_camera.input.yMove * mouseMovementQty );
@@ -1437,10 +2403,27 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         }
 
         m_systems.cameras->ApplyPrimaryMovementBuffer();
+
+        if ( m_editor.placementLiftActive )
+        {
+            const float requestedLift = m_editor.placementLiftFramePixels *
+                                        EDITOR_PLACEMENT_LIFT_MOUSE_SCALE *
+                                        mouseMovementQty *
+                                        speedMult;
+            const float previousOffset = m_editor.placementHeightOffset;
+            const float nextOffset = (std::max)( 0.0f, previousOffset + requestedLift );
+            const float acceptedLift = nextOffset - previousOffset;
+            if ( fabsf( acceptedLift ) > TOLERANCE )
+            {
+                const Vector3 cameraPosition = m_systems.cameras->GetCameraTranslation();
+                m_systems.cameras->AmmendPrimaryY( cameraPosition.y + acceptedLift );
+                m_editor.placementHeightOffset = nextOffset;
+            }
+        }
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_camera.isFlyMode && !SceneState().isSceneMode )
+    if ( !m_camera.isFlyMode && !m_editor.viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
@@ -1456,93 +2439,797 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 }
 
 
-void SkullbonezRun::ResetProjectilePool()
+void SkullbonezRun::ClearRayCastTestLines()
 {
-    m_fire.bulletIndices.fill( -1 );
-    m_fire.bulletNext = 0;
-    m_fire.bulletPoolReady = false;
+    m_rayCastTest.lines = {};
+    m_rayCastTest.nextLine = 0;
 }
 
 
-bool SkullbonezRun::EnsureProjectilePool()
+void SkullbonezRun::AddRayCastTestLine( const Vector3& start, const Vector3& end, bool hit )
 {
-    if ( m_fire.bulletPoolReady )
+    if ( !m_rayCastTest.visualizeRays )
     {
-        return true;
+        return;
     }
 
-    if ( m_cGameModelCollection.GetModelCount() > ActiveGameModelCapacity() - RUNTIME_PROJECTILE_POOL_SIZE )
+    RunRayCastTestLine& line = m_rayCastTest.lines[static_cast<std::size_t>( m_rayCastTest.nextLine ) % RunRayCastTestState::MAX_LINES];
+    line.start = start;
+    line.end = end;
+    line.ageSeconds = 0.0f;
+    line.active = true;
+    line.hit = hit;
+    m_rayCastTest.nextLine = ( m_rayCastTest.nextLine + 1 ) % static_cast<int>( RunRayCastTestState::MAX_LINES );
+}
+
+
+void SkullbonezRun::TickRayCastTestLines( float dt )
+{
+    if ( dt <= 0.0f )
+    {
+        return;
+    }
+
+    for ( RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        if ( line.active )
+        {
+            line.ageSeconds += dt;
+        }
+    }
+}
+
+
+bool SkullbonezRun::TryRayCastTestHit( const Vector3& rayOrigin, const Vector3& rayDirection, float maxDistance, int& outIndex, float& outT )
+{
+    outIndex = -1;
+    outT = maxDistance;
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[static_cast<size_t>( i )];
+        const float radius = EditorModelRadius( model );
+        float rayT = 0.0f;
+        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) &&
+             rayT <= maxDistance &&
+             rayT < outT )
+        {
+            outIndex = i;
+            outT = rayT;
+        }
+    }
+
+    return outIndex >= 0;
+}
+
+
+void SkullbonezRun::FireRayCastTest()
+{
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    const Vector3 rayOrigin = m_systems.cameras->GetCameraTranslation();
+    Vector3 rayDirection = m_systems.cameras->GetCameraView() - rayOrigin;
+    const float dirLenSq = VectorMagSquared( rayDirection );
+    if ( dirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return;
+    }
+    rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+
+    int hitIndex = -1;
+    float hitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
+    const Vector3 visualEnd = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    AddRayCastTestLine( rayOrigin, visualEnd, hit );
+
+    if ( !hit || hitIndex < 0 || hitIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return;
+    }
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( hitIndex );
+    if ( model.IsFixed() )
+    {
+        return;
+    }
+
+    const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
+    model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
+    m_cGameModelCollection.WakeModel( hitIndex );
+}
+
+
+bool SkullbonezRun::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection ) const
+{
+    if ( !m_systems.window || !m_systems.cameras )
     {
         return false;
     }
 
-    m_fire.bulletIndices.fill( -1 );
-    for ( int i = 0; i < RUNTIME_PROJECTILE_POOL_SIZE; ++i )
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
+    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    if ( mouse.x < 0 || mouse.y < 0 || mouse.x >= screenW || mouse.y >= screenH )
     {
-        const float parkOffset = static_cast<float>( i ) * ( CAMERA_PROJECTILE_RADIUS * 4.0f );
-        GameModel bullet( &m_cWorldEnvironment,
-                          Vector3( CAMERA_PROJECTILE_PARK_BASE, CAMERA_PROJECTILE_PARK_BASE - parkOffset, CAMERA_PROJECTILE_PARK_BASE ),
-                          Vector3( CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT ),
-                          CAMERA_PROJECTILE_MASS );
-        bullet.SetTerrain( m_systems.terrain.get() );
-        bullet.SetCoefficientRestitution( CAMERA_PROJECTILE_RESTITUTION );
-        bullet.AddBoundingSphere( CAMERA_PROJECTILE_RADIUS );
-        bullet.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
-        bullet.SetFixed( true );
-
-        char name[64];
-        sprintf_s( name, sizeof( name ), "silver_bullet_%02d", i );
-        bullet.SetName( name );
-
-        const int bulletIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( bullet ) );
-        m_fire.bulletIndices[i] = bulletIndex;
+        return false;
     }
 
-    m_fire.bulletNext = 0;
-    m_fire.bulletPoolReady = true;
+    const float ndcX = ( static_cast<float>( mouse.x ) / static_cast<float>( screenW ) ) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - ( static_cast<float>( mouse.y ) / static_cast<float>( screenH ) ) * 2.0f;
+
+    const Vector3 eye = m_systems.cameras->GetCameraTranslation();
+    const Vector3 view = m_systems.cameras->GetCameraView();
+    const Vector3 up = m_systems.cameras->GetCameraUp();
+    const Matrix4 viewMatrix = Matrix4::LookAt( eye, view, up );
+    const Matrix4 inverseViewProjection = ( m_systems.window->GetProjectionMatrix() * viewMatrix ).Inverse();
+
+    Vector3 rayNear;
+    Vector3 rayFar;
+    if ( !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 0.0f, rayNear ) ||
+         !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 1.0f, rayFar ) )
+    {
+        return false;
+    }
+
+    Vector3 rayDirection = rayFar - rayNear;
+    const float dirLenSq = VectorMagSquared( rayDirection );
+    if ( dirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    outOrigin = rayNear;
+    outDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
     return true;
 }
 
 
-void SkullbonezRun::FireProjectile()
+bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
 {
-    if ( !EnsureProjectilePool() )
+    return TryGetMouseTerrainPlacement( outPosition, nullptr, nullptr );
+}
+
+
+bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrigin, Vector3* outRayDirection ) const
+{
+    if ( !m_systems.terrain )
+    {
+        return false;
+    }
+
+    Vector3 rayNear;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayNear, rayDirection ) )
+    {
+        return false;
+    }
+    if ( outRayOrigin )
+    {
+        *outRayOrigin = rayNear;
+    }
+    if ( outRayDirection )
+    {
+        *outRayDirection = rayDirection;
+    }
+
+    constexpr float MAX_RAY_DISTANCE = 5000.0f;
+    constexpr int RAY_STEPS = 192;
+    bool hasPrevious = false;
+    float previousT = 0.0f;
+    float previousDiff = 0.0f;
+
+    for ( int step = 0; step <= RAY_STEPS; ++step )
+    {
+        const float t = MAX_RAY_DISTANCE * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
+        const Vector3 sample = rayNear + rayDirection * t;
+        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        {
+            continue;
+        }
+
+        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float diff = sample.y - terrainY;
+        if ( fabsf( diff ) <= 0.01f )
+        {
+            outPosition = Vector3( sample.x, terrainY, sample.z );
+            return true;
+        }
+
+        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
+        {
+            float lowT = previousT;
+            float highT = t;
+            Vector3 hit = sample;
+            float hitY = terrainY;
+            for ( int refine = 0; refine < 12; ++refine )
+            {
+                const float midT = ( lowT + highT ) * 0.5f;
+                const Vector3 mid = rayNear + rayDirection * midT;
+                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                {
+                    lowT = midT;
+                    continue;
+                }
+                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midDiff = mid.y - midTerrainY;
+                hit = mid;
+                hitY = midTerrainY;
+                if ( midDiff > 0.0f )
+                {
+                    lowT = midT;
+                }
+                else
+                {
+                    highT = midT;
+                }
+            }
+            outPosition = Vector3( hit.x, hitY, hit.z );
+            return true;
+        }
+
+        hasPrevious = true;
+        previousT = t;
+        previousDiff = diff;
+    }
+
+    return false;
+}
+
+
+bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, Vector3& outCenter ) const
+{
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case UI::EditorTab::OBJECT_BOX:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 6.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::OBJECT_BALL:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 4.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::OBJECT_SPHERE:
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + 8.0f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    default:
+    {
+        const ConvexHullShape* hull = CachedEditorHullForType( type );
+        if ( !hull )
+        {
+            return false;
+        }
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + HullBottomOffset( *hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    }
+    }
+}
+
+
+bool SkullbonezRun::TryComputeEditorPlacementPreview( int objectType )
+{
+    Vector3 terrainPoint;
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryGetMouseTerrainPlacement( terrainPoint, &rayOrigin, &rayDirection ) )
+    {
+        return false;
+    }
+
+    if ( m_systems.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
+    {
+        const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+        const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+        if ( m_systems.terrain->IsInBounds( snappedX, snappedZ ) )
+        {
+            terrainPoint.x = snappedX;
+            terrainPoint.z = snappedZ;
+            terrainPoint.y = m_systems.terrain->GetTerrainHeightAt( snappedX, snappedZ );
+        }
+    }
+
+    terrainPoint.y += m_editor.placementHeightOffset;
+
+    Vector3 center;
+    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, center ) )
+    {
+        return false;
+    }
+
+    m_editor.placementTerrainPoint = terrainPoint;
+    m_editor.placementCenter = center;
+    m_editor.placementRayOrigin = rayOrigin;
+    m_editor.placementRayHit = terrainPoint;
+    return true;
+}
+
+
+bool SkullbonezRun::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirection, int& outIndex ) const
+{
+    outIndex = -1;
+    float bestT = FLT_MAX;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[i];
+        const float radius = EditorModelRadius( model ) + 1.0f;
+        const Vector3 toCenter = model.GetPosition() - rayOrigin;
+        const float rayT = toCenter * rayDirection;
+        if ( rayT < 0.0f || rayT >= bestT )
+        {
+            continue;
+        }
+
+        const Vector3 closest = rayOrigin + rayDirection * rayT;
+        if ( VectorMagSquared( model.GetPosition() - closest ) <= radius * radius )
+        {
+            bestT = rayT;
+            outIndex = i;
+        }
+    }
+    return outIndex >= 0;
+}
+
+
+int SkullbonezRun::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const float length = EditorGizmoAxisLength( radius );
+    const float threshold = (std::max)( 1.25f, length * 0.06f );
+    const float thresholdSq = threshold * threshold;
+
+    int bestAxis = -1;
+    float bestDistanceSq = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, origin + axisVector * length );
+        if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
+        {
+            bestDistanceSq = distanceSq;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+int SkullbonezRun::HitEditorRotationGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float ringRadius = EditorGizmoRotationRadius( EditorModelRadius( model ) );
+    const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
+
+    int bestAxis = -1;
+    float bestDiff = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 normal = EditorAxisVector( axis );
+        const float denom = normal * rayDirection;
+        if ( fabsf( denom ) <= 1e-4f )
+        {
+            continue;
+        }
+
+        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        if ( rayT < 0.0f )
+        {
+            continue;
+        }
+
+        const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
+        const Vector3 radial = hitPoint - origin;
+        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float diff = fabsf( radialDistance - ringRadius );
+        if ( diff <= threshold && diff < bestDiff )
+        {
+            bestDiff = diff;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+bool SkullbonezRun::TryEditorAxisRayParameter( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 axisOrigin = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 axisVector = EditorAxisVector( axis );
+    const Vector3 w = axisOrigin - rayOrigin;
+    const float b = axisVector * rayDirection;
+    const float d = axisVector * w;
+    const float e = rayDirection * w;
+    const float denom = 1.0f - b * b;
+    if ( fabsf( denom ) <= 1e-5f )
+    {
+        return false;
+    }
+
+    outAxisT = ( b * e - d ) / denom;
+    return true;
+}
+
+
+bool SkullbonezRun::TryEditorRotationRayAngle( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAngle ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 origin = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 normal = EditorAxisVector( axis );
+    const float denom = normal * rayDirection;
+    if ( fabsf( denom ) <= 1e-4f )
+    {
+        return false;
+    }
+
+    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    if ( rayT < 0.0f )
+    {
+        return false;
+    }
+
+    Vector3 radial = rayOrigin + rayDirection * rayT - origin;
+    radial -= normal * ( radial * normal );
+    const float radialLenSq = radial * radial;
+    if ( radialLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    radial = radial * ( 1.0f / sqrtf( radialLenSq ) );
+
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    outAngle = atan2f( radial * basisB, radial * basisA );
+    return true;
+}
+
+
+void SkullbonezRun::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || m_editor.activeGizmoAxis < 0 )
     {
         return;
     }
 
-    const int slot = m_fire.bulletNext;
-    m_fire.bulletNext = ( m_fire.bulletNext + 1 ) % RUNTIME_PROJECTILE_POOL_SIZE;
-
-    const int found = m_fire.bulletIndices[slot];
-    if ( found < 0 || found >= m_cGameModelCollection.GetModelCount() )
-    {
-        ResetProjectilePool();
-        return;
-    }
-
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( found );
-
-    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
-    const Vector3& camView = m_systems.cameras->GetCameraView();
-    Vector3 forward = camView - camPos;
-    const float lenSq = forward * forward;
-    if ( lenSq < 1e-8f )
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
     {
         return;
     }
-    forward = forward * ( 1.0f / sqrtf( lenSq ) );
 
-    const Vector3 spawnPos = camPos + forward * CAMERA_PROJECTILE_SPAWN_CLEARANCE;
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
 
-    const float speedMult = Input::IsKeyDown( VK_SHIFT ) ? CAMERA_PROJECTILE_SHIFT_MULTIPLIER : 1.0f;
-    const float fireSpeed = CAMERA_PROJECTILE_SPEED * speedMult;
-
-    model.SetFixed( false );
-    m_cGameModelCollection.WakeModel( found );
-    model.SetPosition( spawnPos );
-    model.SetLinearVelocity( forward * fireSpeed );
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    const Vector3 axisVector = EditorAxisVector( m_editor.activeGizmoAxis );
+    const Vector3 newPosition = m_editor.gizmoDragStartPosition + axisVector * ( axisT - m_editor.gizmoDragStartAxisT );
+    model.SetPosition( newPosition );
+    model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-    model.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
+    if ( !model.IsFixed() )
+    {
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
+void SkullbonezRun::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsScale || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    const float startExtent = EditorShapeAxisExtent( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis );
+    const float targetExtent = (std::max)( 0.25f, startExtent + axisT - m_editor.gizmoDragStartAxisT );
+    const float factor = targetExtent / startExtent;
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    if ( model.ScaleCollisionShapeAxisFromBase( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis, factor ) )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        if ( !model.IsFixed() )
+        {
+            m_cGameModelCollection.WakeModel( index );
+        }
+    }
+}
+
+
+void SkullbonezRun::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsRotation || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float currentAngle = 0.0f;
+    if ( !TryEditorRotationRayAngle( m_editor.activeGizmoAxis, rayOrigin, rayDirection, currentAngle ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    Quaternion orientation = m_editor.gizmoDragStartOrientation;
+    orientation.RotateAboutAxis( EditorAxisVector( m_editor.activeGizmoAxis ), WrapEditorAngleDelta( currentAngle - m_editor.gizmoDragStartRotationAngle ) );
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    model.SetOrientation( orientation );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( !model.IsFixed() )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
+void SkullbonezRun::UpdateEditorInteractionPreview()
+{
+    m_editor.placementPreviewVisible = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+
+    if ( m_UI.BlocksCameraMouse() || m_editor.viewportLookActive )
+    {
+        return;
+    }
+
+    if ( !m_editor.editorModeEnabled )
+    {
+        return;
+    }
+
+    if ( m_editor.placementModeEnabled )
+    {
+        m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
+    }
+
+    if ( m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.selectedModelIndex = -1;
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+    }
+
+    if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive && !m_editor.placementModeEnabled )
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        {
+            if ( Input::IsKeyDown( VK_CONTROL ) )
+            {
+                m_editor.hotGizmoAxis = HitEditorGizmoAxis( rayOrigin, rayDirection );
+            }
+            else
+            {
+                m_editor.hotRotationAxis = HitEditorRotationGizmoAxis( rayOrigin, rayDirection );
+                m_editor.hotGizmoAxis = m_editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( rayOrigin, rayDirection ) : -1;
+            }
+        }
+    }
+}
+
+
+void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
+{
+    m_editorTracer.Clear();
+    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    if ( rayLinger > 0.0f )
+    {
+        for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+        {
+            if ( line.active && line.ageSeconds < rayLinger )
+            {
+                m_editorTracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );
+            }
+        }
+    }
+
+    if ( m_editor.editorModeEnabled &&
+         m_editor.placementModeEnabled &&
+         m_editor.placementPreviewVisible )
+    {
+        m_editorTracer.AddPlacementRay( m_editor.placementRayOrigin, m_editor.placementRayHit );
+        m_editorTracer.AddPlacementGhost( m_editor.objectType, m_editor.placementCenter );
+    }
+
+    if ( m_editor.editorModeEnabled &&
+         !m_editor.placementModeEnabled &&
+         m_editor.selectedModelIndex >= 0 &&
+         m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
+        const float radius = EditorModelRadius( selected );
+        const bool scaleMode = m_editor.gizmoDragIsScale || Input::IsKeyDown( VK_CONTROL );
+        m_editorTracer.AddSelectionOutline( selected );
+        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
+    }
+    m_editorTracer.Render( viewProjection );
+}
+
+
+void SkullbonezRun::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
+{
+    Vector3 terrainPoint;
+    if ( !TryGetMouseTerrainPlacement( terrainPoint ) )
+    {
+        return;
+    }
+
+    PlaceEditorObjectAtTerrainPoint( objectType, fixedObject, terrainPoint );
+}
+
+
+void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
+{
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    if ( modelCount >= ActiveGameModelCapacity() )
+    {
+        fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
+        return;
+    }
+
+    EnterInteractiveSceneRun();
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const int serial = m_editor.placedObjectSerial++;
+    const char* modePrefix = fixedObject ? "static" : "dynamic";
+
+    auto addModel = [&]( GameModel model )
+    {
+        model.SetFixed( fixedObject );
+        const int index = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+        if ( !fixedObject )
+        {
+            m_cGameModelCollection.WakeModel( index );
+        }
+    };
+
+    auto addSphere = [&]( const char* label, float radius, float mass, float restitution )
+    {
+        const float moment = 0.4f * mass * radius * radius;
+        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         Vector3( moment, moment, moment ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( restitution );
+        model.AddBoundingSphere( radius );
+        ApplyEditorSpawnMaterial( model, fixedObject, false );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        model.SetName( name );
+        addModel( std::move( model ) );
+    };
+
+    auto addBox = [&]()
+    {
+        const Vector3 halfExtents( 6.0f, 6.0f, 6.0f );
+        constexpr float mass = 24.0f;
+        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         BoxInertiaForHalfExtents( halfExtents, mass ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddBoundingBox( halfExtents );
+        ApplyEditorSpawnMaterial( model, fixedObject, true );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
+        model.SetName( name );
+        addModel( std::move( model ) );
+    };
+
+    auto addHull = [&]( const char* label, const char* path )
+    {
+        constexpr float mass = 24.0f;
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment,
+                         center,
+                         hull.ComputeBoxApproxInertia( mass ),
+                         mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddConvexHull( hull );
+        ApplyEditorSpawnMaterial( model, fixedObject, false );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        model.SetName( name );
+        addModel( std::move( model ) );
+    };
+
+    switch ( type )
+    {
+    case UI::EditorTab::OBJECT_BOX:
+        addBox();
+        break;
+    case UI::EditorTab::OBJECT_BALL:
+        addSphere( "ball", 4.0f, 6.0f, 0.45f );
+        break;
+    case UI::EditorTab::OBJECT_SPHERE:
+        addSphere( "sphere", 8.0f, 24.0f, 0.35f );
+        break;
+    case UI::EditorTab::OBJECT_HULL_WEDGE:
+        addHull( "wedge", "SkullbonezData/hulls/wedge.hull" );
+        break;
+    case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
+        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull" );
+        break;
+    case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
+        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull" );
+        break;
+    case UI::EditorTab::OBJECT_HULL_PYRAMID:
+        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull" );
+        break;
+    case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
+        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull" );
+        break;
+    case UI::EditorTab::OBJECT_HULL_DIAMOND:
+        addHull( "diamond", "SkullbonezData/hulls/diamond.hull" );
+        break;
+    default:
+        break;
+    }
+
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }

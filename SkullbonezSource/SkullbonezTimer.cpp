@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -44,7 +42,6 @@ Timer::Timer()
         NoPerformanceCounterSupport();
     }
 
-    // set the performace frequency member
     m_performanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
 
     // we now do one final test to ensure the system supports the performance
@@ -56,10 +53,8 @@ Timer::Timer()
         NoPerformanceCounterSupport();
     }
 
-    // set our initial time (time this class was created)
     m_initialTime = GetCurrentTimeInSeconds();
 
-    // initialise our other variables
     m_frameCountCurrentSecond = 0;
     m_currentFPSValue = 0;
     m_frameTimer = 0;
@@ -76,28 +71,24 @@ void Timer::NoPerformanceCounterSupport()
 
 void Timer::StartTimer()
 {
-    // set member m_startTime to current time
     m_startTime = GetCurrentTimeInSeconds();
 }
 
 
 void Timer::StopTimer()
 {
-    // set member m_endTime to current time
     m_endTime = GetCurrentTimeInSeconds();
 }
 
 
 double Timer::GetElapsedTime()
 {
-    // return the number of seconds passed between StartTimer and EndTimer call
     return m_endTime - m_startTime;
 }
 
 
 double Timer::GetTimeSinceLastStart()
 {
-    // return time passed since last StartTimer call
     return GetCurrentTimeInSeconds() - m_startTime;
 }
 
@@ -110,37 +101,30 @@ double Timer::GetTotalTime()
 
 double Timer::GetCurrentTimeInSeconds()
 {
-    // get the current time
     LARGE_INTEGER currTimeTmp;
     QueryPerformanceCounter( &currTimeTmp );
 
-    // return the current time
     return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
 }
 
 
 bool Timer::IncrementFrameCount()
 {
-    // set the frame timer to the current time if the frame counter has been reset
     if ( !m_frameCountCurrentSecond )
     {
         m_frameTimer = GetCurrentTimeInSeconds();
     }
 
-    // increment the fps
     ++m_frameCountCurrentSecond;
 
-    // return whether a second has passed
     return ( GetCurrentTimeInSeconds() - m_frameTimer > 1 );
 }
 
 
 void Timer::StoreFpsAndResetFrameCounter()
 {
-    // store fps count
     m_currentFPSValue = m_frameCountCurrentSecond;
 
-    // reset frame counter
     m_frameCountCurrentSecond = 0;
 }
 

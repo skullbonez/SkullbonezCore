@@ -8,6 +8,13 @@ Mental model:
   the thread to the new lock. A DFS detects ABBA-style cycles immediately in
   Debug builds.
 
+Glossary:
+  ABBA cycle: Deadlock pattern where one path locks A then B while another
+  locks B then A.
+  DFS (Depth-First Search): Graph walk used here to detect whether lock-order
+  edges contain a cycle.
+  Debug build: Configuration where validation asserts are active.
+
 Related:
   - SkullbonezSource/SkullbonezLockOrderValidator.h
 */

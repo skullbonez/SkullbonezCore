@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.

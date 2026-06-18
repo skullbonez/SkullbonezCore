@@ -7,6 +7,14 @@
 @rem   Parser tests exercise user-facing scene/style authoring syntax without
 @rem   launching the renderer or updating screenshot baselines.
 @rem
+@rem Glossary:
+@rem   CPU-only test: Test that exercises parser and data contracts without a
+@rem   renderer launch.
+@rem   Scene/style syntax: User-facing text directives accepted by authored
+@rem   .scene and .style files.
+@rem   Validation gate: Repository script that proves a class of changes before
+@rem   commit or PR.
+@rem
 @rem Invariants:
 @rem   - Scene/style syntax is repository compatibility surface.
 @rem   - Unit-test failures should stop before PR-bound renderer validation.

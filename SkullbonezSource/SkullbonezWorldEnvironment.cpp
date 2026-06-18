@@ -460,7 +460,7 @@ void WorldEnvironment::SetFluidDensity( float density )
 }
 
 
-// Computes and accumulates all world-space forces acting on the target body for this frame.
+// World-space forces acting on the target body accumulate here for this frame.
 // Forces are scaled by changeInTime before being set on the rigid body, converting
 // force (N) to impulse (N·s = kg·m/s) — matching the semi-implicit Euler integrator
 // which adds impulse directly to velocity.
@@ -476,25 +476,18 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     Vector3 m_worldForce = Math::Vector::ZERO_VECTOR;
     Vector3 m_worldTorque = Math::Vector::ZERO_VECTOR;
 
-    // get the total m_volume of the target
     float totalVolume = target.GetVolume();
 
-    // get the submerged percentage of the m_volume of the target
     float submergedVolumePercent = target.GetSubmergedVolumePercent();
 
-    // get the drag coefficient of the target
     float m_dragCoefficient = target.GetDragCoefficient();
 
-    // get the projected surface area of the target
     float m_projectedSurfaceArea = target.GetProjectedSurfaceArea();
 
-    // add the force of m_gravity to the world force
     m_worldForce.y += CalculateGravity( target.GetMass() );
 
-    // add the force of buoyancy to the world force
     m_worldForce.y += CalculateBuoyancy( totalVolume * submergedVolumePercent );
 
-    // add the linear viscous drag to the world force
     m_worldForce += CalculateViscousDrag( target.GetVelocity(),
                                           submergedVolumePercent,
                                           m_dragCoefficient,
@@ -578,7 +571,6 @@ Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
         return Math::Vector::ZERO_VECTOR;
     }
 
-    // calculate the squared magnitude of the velocity vector
     float distanceSquared = Math::Vector::VectorMagSquared( velocityVector );
 
     // normalise the velocity vector

@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -108,7 +106,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 {
     DEVMODE dmSettings = { 0 }; // Device mode variable - required to change modes
 
-    if ( !EnumDisplaySettings( nullptr, // Get current screen settings
+    if ( !EnumDisplaySettings( nullptr,
                                ENUM_CURRENT_SETTINGS,
                                &dmSettings ) )
     {
@@ -116,16 +114,15 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
         PostQuitMessage( 0 );
     }
 
-    dmSettings.dmPelsWidth = xResolution;  // Set new m_width
-    dmSettings.dmPelsHeight = yResolution; // Set new m_height
+    dmSettings.dmPelsWidth = xResolution;
+    dmSettings.dmPelsHeight = yResolution;
 
     // Specifiy what we have changed
     dmSettings.dmFields = DM_PELSWIDTH | // We changed m_width
                           DM_PELSHEIGHT; // We changed m_height
 
-    // Save result of our change
-    int result = ChangeDisplaySettings( &dmSettings,      // Change to this struct
-                                        CDS_FULLSCREEN ); // Remove start bar
+    int result = ChangeDisplaySettings( &dmSettings,
+                                        CDS_FULLSCREEN );
 
     // If we failed, quit
     if ( result != DISP_CHANGE_SUCCESSFUL )
@@ -139,7 +136,6 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 // "Windows Procedure" - this function handles messages for our window
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
-    // Create an instance of our window class
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
 
@@ -161,8 +157,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
         // WM_PAINT fired when client area is invalidated
         case WM_PAINT:
-            BeginPaint( hWnd, &ps ); // Init paint struct
-            EndPaint( hWnd, &ps );   // End painting
+            BeginPaint( hWnd, &ps );
+            EndPaint( hWnd, &ps ); // End painting
             break;
 
         case WM_MOUSEWHEEL:
@@ -234,12 +230,10 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
 
     RegisterClass( &wndclass ); // Register class with OS
 
-    // Set full screen mode flag member
     m_fIsFullScreenMode = isFullScreenMode;
 
     if ( m_fIsFullScreenMode )
     {
-        // Set window properties for full screen mode
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
@@ -249,7 +243,6 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     }
     else
     {
-        // Set window properties for non full screen mode
         dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     }
 
@@ -272,9 +265,9 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
 
     hWnd = CreateWindow( WINDOW_NAME, // Window class name
                          TITLE_TEXT,  // Window title text
-                         dwStyle,     // Set defined style
-                         windowX,     // Window xPos
-                         windowY,     // Window yPos
+                         dwStyle,
+                         windowX, // Window xPos
+                         windowY, // Window yPos
                          windowW,
                          windowH,
                          nullptr,   // Parent window handle
@@ -287,9 +280,8 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         throw std::runtime_error( "Window creation failed" ); // Throw exception on failure
     }
     ShowWindow( hWnd, SW_SHOWNORMAL ); // Show window
-    UpdateWindow( hWnd );              // Draw window
-    SetFocus( hWnd );                  // Set keyboard focus
-                                       // to our window
+    UpdateWindow( hWnd );
+    SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
 
@@ -299,7 +291,6 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
 
 void SkullbonezWindow::SetTitleText( const char* cText )
 {
-    // set the window title text
     SetWindowText( m_sWindow, cText );
 }
 

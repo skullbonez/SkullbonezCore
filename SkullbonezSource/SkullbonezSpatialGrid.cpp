@@ -86,6 +86,7 @@ Related:
 
 #include "SkullbonezSpatialGrid.h"
 #include <algorithm>
+#include <cfloat>
 #include <stdexcept>
 
 
@@ -114,7 +115,7 @@ void SpatialGrid::Clear()
 // Look up or create a bucket for the given hash key.
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
-// Returns the bucket index for this key.
+// Output is the bucket index for this key.
 int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
@@ -179,14 +180,17 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
         }
     }
 
-    if ( entryPoolUsed < MAX_CELL_ENTRIES )
+    if ( entryPoolUsed >= MAX_CELL_ENTRIES )
     {
-        entries[entryPoolUsed].objectIndex = index;
-        entries[entryPoolUsed].next = b.head;
-        b.head = entryPoolUsed;
-        ++entryPoolUsed;
-        ++b.count;
+        assert( false && "SpatialGrid cell entry capacity exceeded" );
+        throw std::runtime_error( "SpatialGrid cell entry capacity exceeded" );
     }
+
+    entries[entryPoolUsed].objectIndex = index;
+    entries[entryPoolUsed].next = b.head;
+    b.head = entryPoolUsed;
+    ++entryPoolUsed;
+    ++b.count;
 }
 
 
@@ -272,19 +276,90 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
         return;
     }
 
-    const float distance = sqrtf( distanceSq );
-    const float stepLength = (std::max)( cellSize * 0.5f, 0.01f );
-    int steps = static_cast<int>( ceilf( distance / stepLength ) );
-    steps = (std::max)( 1, (std::min)( steps, MAX_SWEPT_SAMPLE_STEPS ) );
-
-    // If the swept AABB would flood the fixed entry pool, sample along the path
-    // instead. This is conservative for projectiles without letting one extreme
-    // move consume the entire broadphase grid.
-    for ( int sample = 0; sample <= steps; ++sample )
+    auto cellFor = [&]( float value ) -> int
     {
-        const float t = static_cast<float>( sample ) / static_cast<float>( steps );
+        return static_cast<int>( floorf( value * inverseCellSize ) );
+    };
+
+    int cx = cellFor( position.x );
+    int cy = cellFor( position.y );
+    int cz = cellFor( position.z );
+    const int endX = cellFor( endPosition.x );
+    const int endY = cellFor( endPosition.y );
+    const int endZ = cellFor( endPosition.z );
+
+    auto axisTraversal = [&]( float start, float delta, int cell, int& outStep, float& outTMax, float& outTDelta )
+    {
+        if ( fabsf( delta ) <= TOLERANCE )
+        {
+            outStep = 0;
+            outTMax = FLT_MAX;
+            outTDelta = FLT_MAX;
+            return;
+        }
+
+        if ( delta > 0.0f )
+        {
+            outStep = 1;
+            const float nextBoundary = static_cast<float>( cell + 1 ) * cellSize;
+            outTMax = ( nextBoundary - start ) / delta;
+            outTDelta = cellSize / delta;
+        }
+        else
+        {
+            outStep = -1;
+            const float nextBoundary = static_cast<float>( cell ) * cellSize;
+            outTMax = ( start - nextBoundary ) / -delta;
+            outTDelta = cellSize / -delta;
+        }
+
+        if ( outTMax < 0.0f )
+        {
+            outTMax = 0.0f;
+        }
+    };
+
+    int stepX = 0;
+    int stepY = 0;
+    int stepZ = 0;
+    float tMaxX = FLT_MAX;
+    float tMaxY = FLT_MAX;
+    float tMaxZ = FLT_MAX;
+    float tDeltaX = FLT_MAX;
+    float tDeltaY = FLT_MAX;
+    float tDeltaZ = FLT_MAX;
+    axisTraversal( position.x, displacement.x, cx, stepX, tMaxX, tDeltaX );
+    axisTraversal( position.y, displacement.y, cy, stepY, tMaxY, tDeltaY );
+    axisTraversal( position.z, displacement.z, cz, stepZ, tMaxZ, tDeltaZ );
+
+    Insert( index, position, radius );
+    int visitedCells = 0;
+    while ( ( cx != endX || cy != endY || cz != endZ ) && visitedCells < MAX_SWEPT_TRAVERSED_CELLS )
+    {
+        const float nextT = (std::min)( tMaxX, (std::min)( tMaxY, tMaxZ ) );
+        constexpr float AXIS_TIE_EPSILON = 1e-5f;
+        if ( tMaxX <= nextT + AXIS_TIE_EPSILON )
+        {
+            cx += stepX;
+            tMaxX += tDeltaX;
+        }
+        if ( tMaxY <= nextT + AXIS_TIE_EPSILON )
+        {
+            cy += stepY;
+            tMaxY += tDeltaY;
+        }
+        if ( tMaxZ <= nextT + AXIS_TIE_EPSILON )
+        {
+            cz += stepZ;
+            tMaxZ += tDeltaZ;
+        }
+
+        const float t = (std::max)( 0.0f, (std::min)( 1.0f, nextT ) );
         Insert( index, position + displacement * t, radius );
+        ++visitedCells;
     }
+
+    Insert( index, endPosition, radius );
 }
 
 
@@ -299,7 +374,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 {
     outPairs.clear();
 
-    // Clear pair dedup bits
+    // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
     if ( objectCount < 0 || objectCount > MAX_GAME_MODELS )
     {
@@ -403,7 +478,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 }
 
 
-// Copies active cell info into the caller-provided array.
+// Active cell info is written into the caller-provided array.
 // Each entry contains the grid coordinate (ix, iy, iz) and object count.
 void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
 {

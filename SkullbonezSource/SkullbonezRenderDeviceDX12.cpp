@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
   DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
@@ -23,10 +21,8 @@ Glossary:
   loss, breadcrumbs, and page-fault clues.
   PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
   object names.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  through reference-counted objects.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
 

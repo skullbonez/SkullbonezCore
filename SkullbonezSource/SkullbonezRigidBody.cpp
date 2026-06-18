@@ -86,7 +86,6 @@ using namespace SkullbonezCore::Math::Transformation;
 
 RigidBody::RigidBody()
 {
-    // set all members to default values
     m_frictionCoefficient = 0.5f;
     m_invertedMass = 0.1f;
     m_coefficientRestitution = 0.9f;
@@ -114,7 +113,7 @@ RigidBody::~RigidBody()
 }
 
 
-// Apply persistent world-space forces (e.g., gravity) to the body.
+// Persistent world-space forces, such as gravity, affect the body every tick.
 // These forces act continuously every frame (unlike impulse forces which are one-shot).
 //
 // Newton's 2nd Law: F = m·a  →  a = F/m
@@ -134,7 +133,7 @@ void RigidBody::ApplyWorldForce()
 }
 
 
-// Apply a one-shot linear impulse force to the body.
+// One-shot linear impulse forces are consumed on the first integration pass.
 // Used for collision responses — the force is applied once and then consumed.
 //
 // --- Newton's 2nd Law ---
@@ -153,7 +152,7 @@ void RigidBody::ApplyLinearForce()
 }
 
 
-// Apply a one-shot angular impulse (torque) to the body.
+// One-shot angular impulse torque is consumed on the first integration pass.
 //
 // --- How Torque Works ---
 //
@@ -250,10 +249,8 @@ void RigidBody::ApplyChangeInLinearVelocity()
 
 void RigidBody::ApplyForces()
 {
-    // apply the world force
     ApplyWorldForce();
 
-    // apply the impulse force
     ApplyImpulseForce();
 }
 
@@ -270,10 +267,8 @@ void RigidBody::ApplyImpulseForce()
         m_isForceApplied = true;
     }
 
-    // apply linear impulse
     ApplyLinearForce();
 
-    // apply angular impulse
     ApplyAngularForce();
 }
 
@@ -309,7 +304,6 @@ Vector3 RigidBody::GetRollVelocity()
     // z == -x
     rollVelocity.z = -m_angularVelocity.x;
 
-    // return the result
     return rollVelocity;
 }
 

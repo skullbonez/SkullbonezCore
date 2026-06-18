@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -29,6 +27,8 @@ Glossary:
   state that DX12 binds before drawing or dispatching.
   DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
   loss, breadcrumbs, and page-fault clues.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  through reference-counted objects.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -207,7 +207,6 @@ void RenderBackendDX12::CreateRTPipeline()
     // workflows so runtime startup never shells out or depends on SDK paths.
     std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
 
-    // Load compiled DXIL blob
     FILE* dxilFile = nullptr;
     fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
     if ( !dxilFile )
@@ -253,7 +252,8 @@ void RenderBackendDX12::CreateRTPipeline()
     D3D12_GLOBAL_ROOT_SIGNATURE globalRootSig = {};
     globalRootSig.pGlobalRootSignature = m_rtRootSignature;
 
-    // Build state object description with subobjects
+    // State objects are assembled from typed subobjects instead of one flat
+    // pipeline descriptor.
     D3D12_STATE_SUBOBJECT subobjects[6] = {};
 
     subobjects[0].Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
@@ -331,15 +331,14 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     }
     NameDx12Object( m_reflectionUAV, L"Skullbonez DX12 Reflection UAV Texture" );
 
-    // Create the UAV descriptor row used by DispatchRays while writing the
-    // reflection texture.
+    // DispatchRays writes through a UAV row while the later water pass reads the
+    // same texture through an SRV row.
     m_reflectionUAVIndex = AllocateStaticSRV();
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_device->CreateUnorderedAccessView( m_reflectionUAV, nullptr, &uavDesc, GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
 
-    // Also copy to shader-visible heap
     D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionUAVIndex );
     m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionUAVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
@@ -384,8 +383,8 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
         return;
     }
 
-    // Create the raytracing binding contract and pipeline before building any
-    // scene acceleration structures.
+    // The binding contract and pipeline must exist before scene acceleration
+    // structures can be used by reflection dispatch.
     CreateRTRootSignature();
     CreateRTPipeline();
 
@@ -537,8 +536,8 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
                                 RenderGraphResourceAccess::UnorderedAccess );
     }
 
-    // Update RT constant buffer
-    // Layout: float4x4 invVP, float3 cameraPos, float waterY, float3 lightPos, float time, float3 skyTop, pad, float3 skyBottom, pad
+    // Layout mirrors reflect.rt.hlsl: invVP, camera/water, light/time, and sky
+    // colors packed for constant-buffer alignment.
     struct RTConstants
     {
         float invViewProj[16];
@@ -570,7 +569,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     cb.skyColorBottom[2] = 0.95f;
     memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
 
-    // Set the compute root signature for raytracing. DXR uses the compute pipeline (not graphics)
+    // Compute root signature path for raytracing. DXR uses the compute pipeline (not graphics)
     // because ray tracing doesn't use the traditional rasterization pipeline (no vertex/pixel stages).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setcomputerootsignature
     m_cmdList4->SetComputeRootSignature( m_rtRootSignature );

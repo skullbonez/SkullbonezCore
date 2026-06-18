@@ -9,10 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
@@ -316,9 +312,6 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
                                     srcMip + 1 + i );
         }
 
-        // ------------------------------------------------------------------
-        // Dispatch the compute shader
-        // ------------------------------------------------------------------
         struct GenMipsCB
         {
             UINT NumMipLevels;
@@ -386,7 +379,6 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 {
     EnsureCommandListOpen();
 
-    // Resolve format and bytes-per-pixel
     DXGI_FORMAT fmt;
     int bytesPerPixel;
     if ( channels == 1 )
@@ -431,7 +423,6 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
         }
     }
 
-    // Create the texture resource on the Default Heap.
     // ALLOW_UNORDERED_ACCESS is required when generating mips via compute shader.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     D3D12_HEAP_PROPERTIES defaultHeap = {};
@@ -513,7 +504,8 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
                                 RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    // Create a Shader Resource View exposing the full mip chain.
+    // The SRV exposes every generated mip so samplers can choose the right
+    // level for minified textures.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     UINT srvIdx = AllocateStaticSRV();
     NameDx12ObjectIndexed( texResource, L"Skullbonez DX12 Texture2D", srvIdx );

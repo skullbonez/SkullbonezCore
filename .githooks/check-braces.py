@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
-"""
-Check for multi-line braceless if/for/while statements.
-Single-line forms like "if ( x ) doThing();" are OK.
-Multi-line without braces like:
-  if ( x )
-      doThing();
-Are NOT OK — must use braces.
-"""
+#
+# File: .githooks/check-braces.py
+# Purpose:
+#   Rejects multi-line braceless if/for/while statements before commit.
+#
+# Mental model:
+#   This hook is a lightweight style guard. It scans staged source text for
+#   risky control-flow shapes that are easy to misread in reviews.
+#
+# Glossary:
+#   Braceless conditional: An if/for/while whose body is controlled only by
+#   indentation instead of an explicit `{ ... }` block.
+#   Hook: Local Git script that runs before a commit and can block style or
+#   validation failures.
+#
+# Invariants:
+#   - Single-line conditionals remain allowed for legacy source style.
+#   - Multi-line conditionals must use braces so later edits cannot change
+#   control flow accidentally.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
 import sys
 import re
 
@@ -28,8 +44,8 @@ def check_file(filepath):
         if re.search(r'(if|for|while)\s*\([^)]*\)\s*\w+.*;', stripped):
             continue
         
-        # Check if this line is a bare if/for/while with condition but no braces or single-line body
-        # Pattern: keyword ( condition ) with next line indented (multi-line without braces)
+        # Hazard: a condition on one line with an indented next line can grow a
+        # second statement later while only the first remains controlled.
         if re.match(r'(if|else\s+if|for|while)\s*\([^)]*\)\s*$', stripped):
             # Condition ends here, next line should start with { or else it's an error
             if i < len(lines):

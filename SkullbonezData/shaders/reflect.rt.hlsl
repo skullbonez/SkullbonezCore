@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -88,9 +86,9 @@ Related:
 //
 // --- Shader Types in DXR ---
 //
-//  [shader("raygeneration")] — Called once per pixel. Generates rays.
+//  [shader("raygeneration")] - One invocation per pixel; launches reflection rays.
 //  [shader("closesthit")]    — Called when a ray hits geometry. Computes color.
-//  [shader("miss")]          — Called when a ray hits nothing. Returns sky color.
+//  [shader("miss")]          - Sky color path when a ray hits no geometry.
 //
 // --- Compiled With ---
 //
@@ -306,7 +304,6 @@ void RayGen()
             // reflect(I, N) = I - 2*dot(I,N)*N — mirrors the ray off the surface.
             float3 reflected = reflect( direction, float3( 0.0f, 1.0f, 0.0f ) );
 
-            // Build a ray descriptor for the reflected ray.
             RayDesc ray;
             ray.Origin = hitPoint + float3( 0, 0.01f, 0 ); // Offset slightly above surface to avoid self-intersection
             ray.Direction = reflected;

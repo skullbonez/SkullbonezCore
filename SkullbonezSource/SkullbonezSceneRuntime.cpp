@@ -8,6 +8,12 @@ Mental model:
   scene-run state, while SkullbonezRun still performs the current object,
   camera, terrain, UI, and renderer side effects around scene loads.
 
+Glossary:
+  Scene queue: Ordered list of authored scene paths, where an empty path means
+  the generated demo scene.
+  Scene-run state: Counters, flags, and overrides that describe the currently
+  loaded scene.
+
 Related:
   - SkullbonezSource/SkullbonezSceneRuntime.h
   - Agentic/Reference/runtime-reference.md

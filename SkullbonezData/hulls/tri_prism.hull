@@ -1,0 +1,13 @@
+hull_version 1
+name tri_prism
+vertex -5 -3 -5
+vertex 5 -3 -5
+vertex 0 5 -5
+vertex -5 -3 5
+vertex 5 -3 5
+vertex 0 5 5
+face 0 1 2
+face 3 5 4
+face 0 3 4 1
+face 1 4 5 2
+face 2 5 3 0

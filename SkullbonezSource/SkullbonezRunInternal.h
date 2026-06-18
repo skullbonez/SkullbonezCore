@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
@@ -88,17 +86,6 @@ inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
-inline constexpr float CAMERA_PROJECTILE_SPEED = 12000.0f;
-inline constexpr float CAMERA_PROJECTILE_SHIFT_MULTIPLIER = 3.0f;
-inline constexpr float CAMERA_PROJECTILE_RADIUS = 0.25f;
-inline constexpr float CAMERA_PROJECTILE_MASS = 0.25f;
-inline constexpr float CAMERA_PROJECTILE_RESTITUTION = 0.2f;
-inline constexpr float CAMERA_PROJECTILE_MOMENT = 0.025f;
-inline constexpr float CAMERA_PROJECTILE_SPAWN_CLEARANCE = 12.0f;
-inline constexpr float CAMERA_PROJECTILE_PARK_BASE = -5000.0f;
-inline constexpr float CAMERA_PROJECTILE_SILVER_R = 1.0f;
-inline constexpr float CAMERA_PROJECTILE_SILVER_G = 1.0f;
-inline constexpr float CAMERA_PROJECTILE_SILVER_B = 1.0f;
 #ifdef _DEBUG
 inline constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
 inline constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;

@@ -9,12 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.

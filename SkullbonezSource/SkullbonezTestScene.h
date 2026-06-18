@@ -95,6 +95,20 @@ struct SceneBox
     bool isFixed;
 };
 
+struct SceneConvexHull
+{
+    char name[64];
+    char hullPath[260];
+    float posX, posY, posZ;
+    float mass;
+    float restitution;
+    float eulerX, eulerY, eulerZ;
+    float velX, velY, velZ;
+    bool hasInitOrient;
+    bool hasInitVelocity;
+    bool isFixed;
+};
+
 enum SceneCinematicOverrideBits : uint64_t
 {
     // Scene files may specify any subset of cinematic_* directives. Each bit says
@@ -175,6 +189,20 @@ struct SceneObjectMaterialOverride
     Rendering::RenderMaterial material;
 };
 
+struct SceneRequiredContact
+{
+    char nameA[64] = {};
+    char nameB[64] = {};
+};
+
+struct SceneRequiredBroadphaseXCells
+{
+    int minCellX = 0;
+    int maxCellX = 0;
+    int cellY = 0;
+    int cellZ = 0;
+};
+
 struct SceneOptions
 {
     bool isPhysicsEnabled = true;
@@ -188,18 +216,18 @@ struct SceneOptions
     int workerThreads = -2;                                   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep/pipeline markers
-    bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
+    bool physicsDebugTransparent = false;                     // Translucent collision volumes while physics debug is visible.
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible
     float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
     float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
     bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
     bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;                         // Render solid collision/sleep debug colours
-    bool broadphaseOverlay = false;                           // Render spatial broadphase debug overlay
+    bool collisionVisualizer = false;                         // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                           // Spatial broadphase debug overlay.
     bool waterFreezeDebug = false;                            // Freeze water animation at load time
-    bool waterFlatDebug = false;                              // Render water as a flat mesh
+    bool waterFlatDebug = false;                              // Flat water mesh for debug captures.
     int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
     bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
     bool terrainHidden = false;                               // Suppress terrain rendering
@@ -318,7 +346,10 @@ class TestScene
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
     std::vector<SceneBox> m_boxes;
+    std::vector<SceneConvexHull> m_convexHulls;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
+    std::vector<SceneRequiredContact> m_requiredContacts;
+    std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -362,8 +393,8 @@ class TestScene
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
     float GetPhysicsDebugContactLinger() const;
-    float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
-    float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
+    float GetTrackHeight() const;       // Tracking camera height above ball; -1 disables.
+    float GetAutoCycleInterval() const; // Per-ball screenshot interval in seconds; -1 disables.
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit
     bool IsExitOnComplete() const;      // True if scene should exit automatically when frame count is reached
     bool IsCollisionVisualizerEnabled() const;
@@ -393,8 +424,14 @@ class TestScene
     const SceneBallState& GetBallState( int index ) const;
     int GetBoxCount() const;
     const SceneBox& GetBox( int index ) const;
+    int GetConvexHullCount() const;
+    const SceneConvexHull& GetConvexHull( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
+    int GetRequiredContactCount() const;
+    const SceneRequiredContact& GetRequiredContact( int index ) const;
+    int GetRequiredBroadphaseXCellCount() const;
+    const SceneRequiredBroadphaseXCells& GetRequiredBroadphaseXCell( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

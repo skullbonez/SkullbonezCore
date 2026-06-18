@@ -60,18 +60,18 @@ class GeometricMath
     static GeometricMath::PointPlaneClassification ClassifyPointAgainstPlane( const Geometry::Plane& plane, const Vector::Vector3& point );
 
     // PRECONDITION: 'point' MUST lie on the same plane as 'triangle'.
-    // Returns true if the point is inside the triangle boundary.
+    // Contract: true means the point is inside the triangle boundary.
     // Delegates to ComputeBarycentricCoordinates; all weights ≥ 0 → inside.
     static bool IsPointInsideTriangle( const Geometry::Triangle& triangle, const Vector::Vector3& point );
 
-    // Computes barycentric coordinates (u, v, w) of 'point' relative to 'triangle'.
+    // Barycentric output is (u, v, w) for 'point' relative to 'triangle'.
     // All weights sum to 1.  Any weight < 0 means the point is outside that edge.
     // Projects to the most numerically stable 2D axis (largest normal component) to
     // avoid near-degenerate area computations on steep or sliver triangles.
     // Reference: 3D Math Primer for Games and Graphics Development, Dunn & Parberry, p.260
     static Vector::Vector3 ComputeBarycentricCoordinates( const Geometry::Triangle& triangle, const Vector::Vector3& point );
 
-    // Returns the CCW-winding outward unit normal of the triangle:
+    // CCW-winding outward unit normal of the triangle:
     //   n = normalise( (v2 - v1) × (v3 - v2) )
     static Vector::Vector3 ComputeTriangleNormal( const Geometry::Triangle& triangle );
 
@@ -84,18 +84,18 @@ class GeometricMath
     // plane.distance = dot( normal, v1 )  (satisfies the plane equation for any point on it).
     static Geometry::Plane ComputePlane( const Geometry::Triangle& triangle );
 
-    // Compute the 3D intersection point of a ray with a plane or triangle.
+    // Throws when the supplied ray does not reach the plane/triangle segment.
     // Throws if the ray does not intersect the plane within [0,1] (overloaded).
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Plane& plane, const Geometry::Ray& ray );
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Ray& ray, float fCollisionTime );
 
     // Parametric intersection time t ∈ [0,1] for a ray hitting a plane:
     //   t = -( dot(n, origin) - d ) / dot(n, direction)
-    // Returns NO_COLLISION if the ray is parallel to the plane or has no extent (overloaded).
+    // NO_COLLISION means the ray is parallel to the plane or has no extent.
     static float CalculateIntersectionTime( const Geometry::Plane& plane, const Geometry::Ray& ray );
     static float CalculateIntersectionTime( const Geometry::Triangle& triangle, const Geometry::Ray& ray );
 
-    // Returns the Y-height of the terrain plane at (xCoord, zCoord) using the Law of Sines.
+    // Terrain-plane Y-height at (xCoord, zCoord) using the Law of Sines.
     // Probes with Y=0, measures signed distance to plane, then corrects vertically.
     // Formula:  Y = -( dot(n, probe) - d ) / sin( π/2 - arccos(n.y) )
     static float GetHeightFromPlane( const Geometry::Triangle& triangle, float xCoord, float zCoord );

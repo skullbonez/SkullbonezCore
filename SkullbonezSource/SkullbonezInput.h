@@ -96,8 +96,8 @@ class Input
     static bool IsAppFocused();                                      // True when the game window owns foreground input
     static void SetSystemCursorVisible( bool visible );              // Shows or hides the Win32 cursor display counter
     static bool IsSystemCursorVisibleRequested();                    // Last requested native cursor ownership state
-    static bool IsKeyDown( const char cKey );                        // Returns true if specified key is pressed (use upper case)
-    static bool IsKeyToggled( const char cKey );                     // Returns true if specified key is toggled (use upper case)
+    static bool IsKeyDown( int virtualKey );                         // Returns true if specified key is pressed (use upper case)
+    static bool IsKeyToggled( int virtualKey );                      // Returns true if specified key is toggled (use upper case)
     static bool RegisterRawMouseInput( HWND window );                // Registers the window for relative mouse movement messages
     static void AccumulateRawMouseDelta( HRAWINPUT rawInput );       // Adds mouse movement from WM_INPUT to the per-frame queue
     static bool ConsumeRawMouseDelta( long& xMove, long& yMove );    // Returns and clears accumulated raw mouse movement
@@ -107,6 +107,8 @@ class Input
     static void SetMouseCoordinates( const POINT& pNewCoordinates ); // Sets the mouse coordinates
     static void CentreMouseCoordinates();                            // Sets the mouse cursor to the centre of the screen
     static bool IsLeftMouseDown();                                   // Returns true if the left mouse button is pressed
+    static bool IsRightMouseDown();                                  // Returns true if the right mouse button is pressed
+    static bool IsMiddleMouseDown();                                 // Returns true if the middle mouse button is pressed
     static int ConsumeMouseWheelDelta();                             // Returns and clears accumulated wheel delta from Win32 messages
     static void AccumulateMouseWheelDelta( int delta );              // Adds a Win32 wheel delta to the per-frame queue
 };

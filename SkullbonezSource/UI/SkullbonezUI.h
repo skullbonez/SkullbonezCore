@@ -25,6 +25,7 @@ Related:
 
 #include "../SkullbonezCommon.h"
 #include "../SkullbonezConfig.h"
+#include "../SkullbonezIShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -36,11 +37,13 @@ Related:
 #include "UIState.h"
 #include "UITabBar.h"
 #include "UITabControls.h"
+#include "UITabEditor.h"
 #include "UITabOptions.h"
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
 #include <cstdint>
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -49,15 +52,29 @@ namespace UI
 
 enum class InGameUITab
 {
-    WhatsNew,
     Profiler,
     Scene,
+    Editor,
     Physics,
     Options,
     Render,
+    Targets,
     Keys,
     Cinematic,
     Count
+};
+
+constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
+
+struct UIRenderTargetPreviewResource
+{
+    const char* label = "";
+    uint32_t textureHandle = 0;
+    int width = 0;
+    int height = 0;
+    bool available = false;
+    bool depth = false;
+    bool hdr = false;
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -120,11 +137,13 @@ struct InGameUIFrameData
     bool broadphaseOverlay = false;
     bool tornadoEnabled = false;
     bool tornadoFieldVectors = false;
+    bool rayCastVisualization = false;
     float tornadoRadius = 0.0f;
     float tornadoHeight = 0.0f;
     float tornadoInwardAcceleration = 0.0f;
     float tornadoSwirlAcceleration = 0.0f;
     float tornadoLiftAcceleration = 0.0f;
+    float rayCastImpulseStrength = 0.0f;
     bool waterFreezeDebug = false;
     bool waterFlatDebug = false;
     bool terrainHidden = false;
@@ -133,10 +152,17 @@ struct InGameUIFrameData
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
+    bool editorModeEnabled = false;
+    bool editorPlacementMode = false;
+    bool editorPlaceStatic = true;
+    bool editorViewportLookActive = false;
+    int editorObjectType = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;
     Basics::CinematicRenderConfig cinematic;
+    UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
+    int renderTargetPreviewCount = 0;
 };
 
 class InGameUI
@@ -177,10 +203,8 @@ class InGameUI
     UIWindowState m_window;
     UIInteractionState m_interaction;
     bool m_blurPreviewEnabled = false;
-    InGameUITab m_activeTab = InGameUITab::WhatsNew;
+    InGameUITab m_activeTab = InGameUITab::Scene;
     UITabBar m_tabBar;
-    UICheckBox m_whatsNewToggles[3];
-    UISlider m_whatsNewSliders[3];
     UICheckBox m_blurToggle;
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
@@ -193,6 +217,7 @@ class InGameUI
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
     UIComboBox m_cineSceneCombo;
+    UIComboBox m_renderTargetCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
     UIButton m_saveRenderDefaultsButton;
@@ -201,6 +226,8 @@ class InGameUI
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
+    std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
+    uint32_t m_renderTargetPreviewVB = 0;
     UIScrollBar m_scrollBar;
     int m_mouseX = 0;
     int m_mouseY = 0;
@@ -211,10 +238,14 @@ class InGameUI
     int m_lastSolverBoxCount = 0;
     int m_lastWorkerThreadCount = 0;
     int m_lastMaxWorkerThreadCount = 1;
+    int m_lastRenderTargetPreviewCount = 0;
+    uint32_t m_lastRenderTargetDisabledMask = 0;
+    int m_selectedRenderTargetPreview = 0;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
     ControlsTab::UIControlsTabState m_controlsTab;
+    EditorTab::UIEditorTabState m_editorTab;
     OptionsTab::UIOptionsTabState m_optionsTab;
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;

@@ -12,6 +12,7 @@ audits when it is still useful.
 | Active objective | JSON-only orchestrator policy and parallel-safe queue selection. |
 | Pending work | Validate and commit the orchestrator hardening after the current dirty user-owned work is handled. Future orchestrator role, hook, generated-doc, and workflow-eval tooling remains optional next work. |
 | Blockers | None known. |
+| Orchestrator policy | Disabled by user request on 2026-06-18; `Agentic/Orchestrator/policy.json` has `enabled: false`. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
 | Validation | Current scope touches `tools/*`; use `tools\validate_fast.bat` plus `tools\orchestrator.bat check --self-test` and doctor checks before committing. |
 

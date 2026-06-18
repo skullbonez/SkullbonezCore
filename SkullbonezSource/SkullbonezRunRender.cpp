@@ -10,14 +10,8 @@ Mental model:
 Glossary:
   Render pass: Named slice of DrawPrimitives() with explicit inputs, outputs,
   and resource ownership.
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used here for optional raytraced water
   reflection dispatch.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -389,7 +383,7 @@ void SkullbonezRun::Render()
     // rendering asks for view matrices.
     SetViewingOrientation();
 
-    // Apply the selected camera to the camera collection so render code below
+    // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
@@ -589,10 +583,8 @@ void SkullbonezRun::SetUpCameras()
                                   Vector3( 0.0f, 1.0f, 0.0f ),       // Up
                                   CAMERA_FREE );
 
-    // set the camera m_boundaries
     m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
 
-    // set the m_terrain
     m_systems.cameras->SetTerrain( m_systems.terrain.get() );
 
     // lock the m_cameras
@@ -665,7 +657,6 @@ void SkullbonezRun::SetViewingOrientation()
         return;
     }
 
-    // set viewing m_orientation
     /*
         if(Input::IsKeyDown('1')) m_camera.selectedCamera = 0;
         if(Input::IsKeyDown('2')) m_camera.selectedCamera = 1;
@@ -702,7 +693,8 @@ void SkullbonezRun::SetViewingOrientation()
         break;
     }
 
-    // set the view m_position of the selected camera based on the game model m_position
+    // Object-follow cameras keep their eye fixed and retarget their view point
+    // to the tracked model each frame.
     if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
         m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
@@ -713,7 +705,7 @@ void SkullbonezRun::SetViewingOrientation()
     }
 
     /*
-        // reset relativity when a new request for synchronisation comes in
+        // New synchronization requests start a fresh relative-camera baseline.
         if(m_camera.input.Get( InputState::Aux1 )) m_systems.cameras->ResetRelativity();
 
         // sync m_cameras if in sync mode
@@ -724,7 +716,7 @@ void SkullbonezRun::SetViewingOrientation()
             RelativeUpdateCamera(CAMERA_GAME_MODEL_2);
             RelativeUpdateCamera(CAMERA_FREE);
 
-            // reset the relative variable as we have already performed the action on desired m_cameras
+            // The requested relative update has been consumed for this frame.
             m_systems.cameras->ResetRelativity();
         }
     */

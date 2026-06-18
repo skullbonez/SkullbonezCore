@@ -422,6 +422,57 @@ const SceneBox& TestScene::GetBox( int index ) const
 }
 
 
+int TestScene::GetConvexHullCount() const
+{
+    return static_cast<int>( m_convexHulls.size() );
+}
+
+
+const SceneConvexHull& TestScene::GetConvexHull( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
+    {
+        throw std::runtime_error( "ConvexHull index out of range.  (TestScene::GetConvexHull)" );
+    }
+
+    return m_convexHulls[index];
+}
+
+
+int TestScene::GetRequiredContactCount() const
+{
+    return static_cast<int>( m_requiredContacts.size() );
+}
+
+
+const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
+    {
+        throw std::runtime_error( "RequiredContact index out of range.  (TestScene::GetRequiredContact)" );
+    }
+
+    return m_requiredContacts[index];
+}
+
+
+int TestScene::GetRequiredBroadphaseXCellCount() const
+{
+    return static_cast<int>( m_requiredBroadphaseXCells.size() );
+}
+
+
+const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
+    {
+        throw std::runtime_error( "RequiredBroadphaseXCell index out of range.  (TestScene::GetRequiredBroadphaseXCell)" );
+    }
+
+    return m_requiredBroadphaseXCells[index];
+}
+
+
 int TestScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );

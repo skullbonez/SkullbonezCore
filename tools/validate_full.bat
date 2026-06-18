@@ -40,7 +40,15 @@ set "PREVIOUS_ASSUME_PROFILE_BUILT=%SKULLBONEZ_ASSUME_PROFILE_BUILT%"
 set "PREVIOUS_ASSUME_DEBUG_BUILT=%SKULLBONEZ_ASSUME_DEBUG_BUILT%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
-echo === Phase 0: Build Required Configurations ===
+echo === Phase 0: Project Metadata Validation ===
+call "%~dp0validate_project_filters.bat"
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at project filter validation.
+    exit /b 1
+)
+
+echo === Phase 1: Build Required Configurations ===
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 (
     echo.
@@ -56,7 +64,7 @@ if errorlevel 1 (
 set "SKULLBONEZ_ASSUME_PROFILE_BUILT=1"
 set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
 
-echo === Phase 1: DX12 Renderer Validation ===
+echo === Phase 2: DX12 Renderer Validation ===
 call "%~dp0validate_dx12_renderer.bat"
 if errorlevel 1 (
     echo.
@@ -65,7 +73,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo === Phase 2: Physics Validation ===
+echo === Phase 3: Physics Validation ===
 call "%~dp0validate_physics.bat"
 if errorlevel 1 (
     echo.
@@ -74,7 +82,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo === Phase 3: Performance Validation ===
+echo === Phase 4: Performance Validation ===
 call "%~dp0validate_perf.bat"
 if errorlevel 1 (
     echo.

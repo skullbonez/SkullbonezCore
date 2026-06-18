@@ -37,12 +37,10 @@ using namespace SkullbonezCore::Geometry;
 // that the result points outward from the surface.
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 {
-    // get the vectors representing the edges of the triangle
-    // (counter-clockwise rotation)
+    // Counter-clockwise edge order preserves the outward-facing normal.
     Vector3 edge1 = triangle.v2 - triangle.v1;
     Vector3 edge2 = triangle.v3 - triangle.v2;
 
-    // compute the m_normal to the triangle
     Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
 
     // normalise and return
@@ -51,8 +49,6 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 }
 
 
-// Build a Plane from a triangle.
-//
 // A plane is defined by the equation:   dot( n, P ) = d
 //
 // where n is the unit normal, P is any point on the plane, and d is the
@@ -65,14 +61,10 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
     Plane plane;
     ZeroMemory( &plane, sizeof( plane ) );
 
-    // compute the m_normal of the plane Triangle 'triangle' is sitting on
     plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
-    // compute the m_distance of the plane from the origin by taking the
-    // dot product of the plane m_normal and one of the points lying on the plane
     plane.m_distance = triangle.v1 * plane.m_normal;
 
-    // return computed plane
     return plane;
 }
 
@@ -228,7 +220,6 @@ float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
 Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
                                                  const Ray& ray )
 {
-    // get the time of intersection
     float collisionTime = GeometricMath::CalculateIntersectionTime( plane, ray );
 
     // ensure the ray intersects with the plane
@@ -244,7 +235,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
 
 
 // Evaluates the parametric ray at time t: P(t) = origin + t * direction
-// Returns the 3D world position that lies fraction t along the ray vector.
+// 3D world position at fraction t along the ray vector.
 // t = 0 → ray origin;  t = 1 → tip of direction vector;  t ∈ (0,1) → somewhere between.
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )
@@ -256,7 +247,6 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
 bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
                                            const Vector3& point )
 {
-    // compute the barycentric coordinates for the point on the triangle plane
     Vector3 barycentricCoords =
         GeometricMath::ComputeBarycentricCoordinates( triangle, point );
 
@@ -272,7 +262,6 @@ bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
                                                       const Vector3& point )
 {
-    // compute the m_normal of the triangle
     Vector3 m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
     // convert the m_normal to an absolute representation
@@ -419,7 +408,6 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
         throw std::runtime_error( "Division by zero due to co-linear triangle.  (GeometricMath::ComputeBarycentricCoordinates)" );
     }
 
-    // compute the X and Y barycentric coordinates
     Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 -
                                            v2_v1_axis2 * v2_p_axis1 ) /
                                              denominator,

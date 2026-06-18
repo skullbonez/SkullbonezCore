@@ -8,8 +8,6 @@ Mental model:
   layout each pass expects. They are diagnostics, not a new binding backend.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   Uniform: Named shader constant set by engine code before drawing.
   Resource: Shader-visible texture or buffer binding declared by a shader.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
@@ -178,7 +176,7 @@ inline bool ShaderContractMatchesBaseName( const char* baseName, const char* pat
            std::strncmp( baseName, candidate, candidateLength ) == 0;
 }
 
-// Returns the high-risk shader families that get runtime contract diagnostics.
+// High-risk shader families that get runtime contract diagnostics.
 // This is intentionally a curated table, not a full reflection cache; the goal
 // is to catch stale hand-written setters around passes that are expensive to
 // debug visually.

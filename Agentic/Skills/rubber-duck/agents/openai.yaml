@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rubber Duck"
+  short_description: "Second-opinion critique for plans and code"
+  default_prompt: "Use $rubber-duck to critique my plan or changes before we continue."

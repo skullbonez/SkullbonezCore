@@ -43,13 +43,15 @@ constexpr float PHYSICS_FIRST_TOGGLE_Y = 42.0f;
 constexpr float PHYSICS_PIPELINE_BUTTON_Y = 254.0f;
 constexpr float PHYSICS_ALPHA_SLIDER_Y = 302.0f;
 constexpr float PHYSICS_CONTACT_LINGER_SLIDER_Y = 350.0f;
-constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 434.0f;
-constexpr float PHYSICS_TORNADO_SECTION_Y = 494.0f;
-constexpr float PHYSICS_TORNADO_RADIUS_SLIDER_Y = 520.0f;
-constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 560.0f;
-constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 600.0f;
-constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 640.0f;
-constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 680.0f;
+constexpr float PHYSICS_RAY_SECTION_Y = 390.0f;
+constexpr float PHYSICS_RAY_IMPULSE_SLIDER_Y = 414.0f;
+constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 486.0f;
+constexpr float PHYSICS_TORNADO_SECTION_Y = 546.0f;
+constexpr float PHYSICS_TORNADO_RADIUS_SLIDER_Y = 572.0f;
+constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 612.0f;
+constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 652.0f;
+constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 692.0f;
+constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 732.0f;
 
 void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                       int index,
@@ -84,9 +86,11 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     SetToggleBounds( state, 8, 4, 0, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 9, 4, 1, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 10, 5, 0, col1, col2, firstToggleY, colW );
+    SetToggleBounds( state, 11, 5, 1, col1, col2, firstToggleY, colW );
     SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, contentBaseY + PHYSICS_PIPELINE_BUTTON_Y );
     state.alphaSlider.SetBounds( contentX, contentBaseY + PHYSICS_ALPHA_SLIDER_Y, contentW, 34.0f );
     state.contactLingerSlider.SetBounds( contentX, contentBaseY + PHYSICS_CONTACT_LINGER_SLIDER_Y, contentW, 34.0f );
+    state.rayImpulseSlider.SetBounds( contentX, contentBaseY + PHYSICS_RAY_IMPULSE_SLIDER_Y, contentW, 34.0f );
     state.worldGravitySlider.SetBounds( contentX, contentBaseY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, contentW, 34.0f );
     state.tornadoRadiusSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
     state.tornadoHeightSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
@@ -106,7 +110,7 @@ namespace PhysicsTab
 
 int ContentHeight()
 {
-    return 728;
+    return 784;
 }
 
 
@@ -114,6 +118,7 @@ void ResetPreviewState( UIPhysicsTabState& state )
 {
     state.previewAlpha = -1.0f;
     state.previewContactLinger = -1.0f;
+    state.previewRayImpulse = -1.0f;
     state.previewTornadoRadius = -1.0f;
     state.previewTornadoHeight = -1.0f;
     state.previewTornadoInward = -1.0f;
@@ -177,6 +182,10 @@ bool HandleContentClick( UIPhysicsTabState& state,
     {
         result.commands.physics.toggleTornadoFieldVectors = true;
     }
+    else if ( state.toggles[11].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.toggleRayCastVisualization = true;
+    }
     else if ( state.pipelinePrevButton.Contains( mouseX, mouseY ) )
     {
         result.commands.physics.stepPhysicsPipelinePrevious = true;
@@ -199,14 +208,22 @@ bool HandleContentClick( UIPhysicsTabState& state,
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
         return true;
     }
+    else if ( state.rayImpulseSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_RAY_IMPULSE;
+        state.previewRayImpulse = state.rayImpulseSlider.ValueFromMouse( mouseX, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
+        result.commands.physics.requestRayCastImpulseStrength = true;
+        result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
+        return true;
+    }
     else if ( state.worldGravitySlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_WORLD_GRAVITY;
         result.commands.water.requestWorldGravity = true;
         result.commands.water.requestedWorldGravity = WorldGravityFromStrength( state.worldGravitySlider.ValueFromMouse( mouseX,
-                                                                                                                          UI_WORLD_GRAVITY_MIN,
-                                                                                                                          UI_WORLD_GRAVITY_MAX,
-                                                                                                                          UI_WORLD_GRAVITY_STEP ) );
+                                                                                                                         UI_WORLD_GRAVITY_MIN,
+                                                                                                                         UI_WORLD_GRAVITY_MAX,
+                                                                                                                         UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
     else if ( state.tornadoRadiusSlider.HitTest( mouseX, mouseY ) )
@@ -267,13 +284,20 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
         return true;
     }
+    if ( activeSlider == SLIDER_RAY_IMPULSE )
+    {
+        state.previewRayImpulse = state.rayImpulseSlider.ValueFromMouse( mouseX, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX, UI_RAY_IMPULSE_STEP );
+        result.commands.physics.requestRayCastImpulseStrength = true;
+        result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
+        return true;
+    }
     if ( activeSlider == SLIDER_WORLD_GRAVITY )
     {
         result.commands.water.requestWorldGravity = true;
         result.commands.water.requestedWorldGravity = WorldGravityFromStrength( state.worldGravitySlider.ValueFromMouse( mouseX,
-                                                                                                                          UI_WORLD_GRAVITY_MIN,
-                                                                                                                          UI_WORLD_GRAVITY_MAX,
-                                                                                                                          UI_WORLD_GRAVITY_STEP ) );
+                                                                                                                         UI_WORLD_GRAVITY_MIN,
+                                                                                                                         UI_WORLD_GRAVITY_MAX,
+                                                                                                                         UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_RADIUS )
@@ -325,6 +349,12 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
     if ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f )
     {
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
+        return true;
+    }
+    if ( activeSlider == SLIDER_RAY_IMPULSE && state.previewRayImpulse >= 0.0f )
+    {
+        result.commands.physics.requestRayCastImpulseStrength = true;
+        result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f )
@@ -379,6 +409,7 @@ void Draw( UIPhysicsTabState& state,
     const float col2 = contentX + colW + 18.0f;
     const float displayAlpha = ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f ) ? state.previewAlpha : data.physicsDebugAlpha;
     const float displayLinger = ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f ) ? state.previewContactLinger : data.physicsDebugContactLinger;
+    const float displayRayImpulse = ( activeSlider == SLIDER_RAY_IMPULSE && state.previewRayImpulse >= 0.0f ) ? state.previewRayImpulse : data.rayCastImpulseStrength;
     const float displayTornadoRadius = ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f ) ? state.previewTornadoRadius : data.tornadoRadius;
     const float displayTornadoHeight = ( activeSlider == SLIDER_TORNADO_HEIGHT && state.previewTornadoHeight >= 0.0f ) ? state.previewTornadoHeight : data.tornadoHeight;
     const float displayTornadoInward = ( activeSlider == SLIDER_TORNADO_INWARD && state.previewTornadoInward >= 0.0f ) ? state.previewTornadoInward : data.tornadoInwardAcceleration;
@@ -396,6 +427,7 @@ void Draw( UIPhysicsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[8], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f, colW, "Terrain probe", ( data.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 );
     DrawContentToggle( draw, contentY, contentH, state.toggles[9], col2, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f, colW, "Tornado", data.tornadoEnabled );
     DrawContentToggle( draw, contentY, contentH, state.toggles[10], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f, colW, "Field vectors", data.tornadoFieldVectors );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[11], col2, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f, colW, "Ray visual", data.rayCastVisualization );
     const Style::UIPalette& palette = Style::Palette();
     snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
     DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 230.0f, "Debug flags", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
@@ -423,9 +455,19 @@ void Draw( UIPhysicsTabState& state,
     {
         state.contactLingerSlider.Draw( draw, "Contact linger", buf, displayLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX );
     }
-    if ( IsRowVisible( contentY, contentH, scrolledY + 408.0f, 18.0f ) )
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_RAY_SECTION_Y, 18.0f ) )
     {
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 408.0f, 12.0f, "World" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + PHYSICS_RAY_SECTION_Y, 12.0f, "Ray Test" );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayRayImpulse );
+    state.rayImpulseSlider.SetBounds( contentX, scrolledY + PHYSICS_RAY_IMPULSE_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_RAY_IMPULSE_SLIDER_Y, 34.0f ) )
+    {
+        state.rayImpulseSlider.Draw( draw, "Ray impulse", buf, displayRayImpulse, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + 460.0f, 18.0f ) )
+    {
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 460.0f, 12.0f, "World" );
     }
     const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
     snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );

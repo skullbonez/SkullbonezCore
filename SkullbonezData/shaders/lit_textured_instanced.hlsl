@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
   SRV (Shader Resource View): Descriptor row used when shaders read textures or
   buffers.
   TEXCOORD semantic: Named vertex/interpolator channel shared between the input
@@ -527,9 +525,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 materialColor = input.material0.rgb;
     if (materialMode == 0)
     {
-        materialColor = (uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
-                                              : ProceduralBeachBallColorFromUv(input.texCoord)) *
-                        input.material0.rgb;
+        float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
+                                                      : ProceduralBeachBallColorFromUv(input.texCoord);
+        if (input.material0.a < -1.5f)
+        {
+            proceduralColor = 1.0f - proceduralColor;
+        }
+        materialColor = proceduralColor * input.material0.rgb;
     }
     float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
 

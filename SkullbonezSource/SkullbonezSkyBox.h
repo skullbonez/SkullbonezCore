@@ -49,16 +49,16 @@ class SkyBox
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // VBO mesh per face
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash per face
 
-    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Overloaded constructor
-    ~SkyBox() = default;                                                  // Destructor
-    void LoadTextures();                                                  // Load sky textures into TextureCollection
-    void BuildMeshes();                                                   // Build VBO meshes for each face
+    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
+    ~SkyBox() = default;
+    void LoadTextures();
+    void BuildMeshes();
 
   public:
-    static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );               // Request for singleton instance
-    static void Destroy();                                                                               // Destroy singleton instance
-    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj ); // Render the sky box
-    void ResetRenderResources();                                                                         // Rebuild meshes/shader after renderer reset/switch
+    static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
+    static void Destroy();
+    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
+    void ResetRenderResources(); // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

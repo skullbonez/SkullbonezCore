@@ -9,8 +9,6 @@ Mental model:
   through rendering and physics.
 
 Glossary:
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
 
 Related:
   - SkullbonezSource/SkullbonezVector3.cpp
@@ -37,15 +35,15 @@ class Vector3
   public:
     float x, y, z; // Vector components
 
-    Vector3();                                   // Default constructor
-    Vector3( const Vector3& v );                 // Copy constructor
-    Vector3( float fX, float fY, float fZ );     // Overloaded constructor
-    void Zero();                                 // Set the vector to zero
-    void Normalise();                            // Normalise the vector
-    void Absolute();                             // Converts vector to its absolute value
-    bool IsCloseToZero() const;                  // Returns true if vector is close to zero
-    void Simplify();                             // Converts tiny float components to zero
-    void SetAll( float nx, float ny, float nz ); // Set all vector components
+    Vector3();
+    Vector3( const Vector3& v );
+    Vector3( float fX, float fY, float fZ );
+    void Zero();
+    void Normalise();           // Normalise the vector
+    void Absolute();            // Component-wise absolute value; mutates this vector.
+    bool IsCloseToZero() const; // Tolerance check for float noise near zero.
+    void Simplify();            // Components within the engine epsilon snap to 0.0f.
+    void SetAll( float nx, float ny, float nz );
     Vector3& operator=( const Vector3& v );      // Vector assignment
     Vector3& operator+=( const Vector3& v );     // += Overload
     Vector3& operator-=( const Vector3& v );     // -= Overload
@@ -58,9 +56,9 @@ class Vector3
     Vector3 operator*( float f ) const;          // Multiplication by scalar
     Vector3 operator/( float f ) const;          // Division by scalar
     Vector3 operator/( const Vector3& v ) const; // Division by vector (individual component division)
-    bool operator==( const Vector3& v ) const;   // Check for equality
-    bool operator!=( const Vector3& v ) const;   // Check for inequality
-    float operator*( const Vector3& v ) const;   // Vector dot product
+    bool operator==( const Vector3& v ) const;
+    bool operator!=( const Vector3& v ) const;
+    float operator*( const Vector3& v ) const; // Vector dot product
 };
 
 const Vector3 ZERO_VECTOR = Vector3( 0.0f, 0.0f, 0.0f ); // Zero vector
@@ -77,25 +75,21 @@ inline Vector3 VectorMultiply( const Vector3& v1, const Vector3& v2 )
     return Vector3( v1.x * v2.x, v1.y * v2.y, v1.z * v2.z );
 }
 
-// Compute the magnitude of a vector
 inline float VectorMag( const Vector3& v )
 {
     return sqrtf( v.x * v.x + v.y * v.y + v.z * v.z );
 }
 
-// Compute the squared magnitude of a vector
 inline float VectorMagSquared( const Vector3& v )
 {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-// Compute the cross product of two vectors
 inline Vector3 CrossProduct( const Vector3& v1, const Vector3& v2 )
 {
     return Vector3( v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x );
 }
 
-// Compute the distance between two points
 inline float Distance( const Vector3& v1, const Vector3& v2 )
 {
     float dx = v1.x - v2.x;

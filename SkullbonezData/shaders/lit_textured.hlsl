@@ -9,12 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  HLSL (High Level Shader Language): Shader language compiled for Direct3D
-  render, compute, and raytracing stages.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -321,7 +315,6 @@ VS_OUT main_vs(VS_IN input)
     float4 worldPos    = mul(uModel, float4(input.position, 1.0));
     worldPos.y += CinematicTerrainOffset(worldPos.xz);
     float4 viewPos     = mul(uView, worldPos);
-    // Apply perspective projection to get final screen position.
     output.position    = mul(uProjection, viewPos);
 
     // Clip distance: dot product with clip plane in WORLD space.

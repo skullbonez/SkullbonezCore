@@ -8,6 +8,12 @@ Mental model:
   acquisition order in a directed graph and assert if a new edge creates a
   cycle. Profile/Release keep only the mutex wrapper.
 
+Glossary:
+  TrackedMutex: std::mutex wrapper that reports lock acquisition and release to
+  the Debug validator.
+  Lock graph: Directed graph of observed "held before acquired" relationships.
+  Debug build: Configuration where validation asserts are active.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/SkullbonezWorkerPool.h

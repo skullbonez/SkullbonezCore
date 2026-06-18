@@ -8,6 +8,12 @@ Mental model:
   fixtures through the same TestScene entry points used by runtime code and then
   inspect the parsed data model.
 
+Glossary:
+  Fixture: Checked-in scene/style input file used as stable test data.
+  Contract test: Focused test that protects user-visible syntax and parsed
+  output rather than renderer screenshots.
+  Scene authoring syntax: Text commands accepted by .scene and .style files.
+
 Related:
   - SkullbonezSource/SkullbonezTestScene.h
   - SkullbonezSource/SkullbonezTestSceneParser.cpp

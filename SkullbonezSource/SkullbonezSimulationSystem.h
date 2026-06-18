@@ -8,6 +8,11 @@ Mental model:
   state into deterministic physics ticks. SkullbonezRun remains responsible for
   camera/UI logic that consumes the returned simulation/camera deltas.
 
+Glossary:
+  Fixed-step: Deterministic mode that advances physics by one fixed delta per
+  requested tick instead of wall-clock time.
+  Accumulator: Stored fractional tick state that carries time across frames.
+
 Related:
   - SkullbonezSource/SkullbonezSimulationSystem.cpp
   - SkullbonezSource/SkullbonezRunFrame.cpp

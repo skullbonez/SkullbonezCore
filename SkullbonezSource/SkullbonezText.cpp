@@ -8,12 +8,6 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
-  CPU (Central Processing Unit): Host processor running engine code and
-  recording GPU commands.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -174,8 +168,8 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 }
 
 
-// Apply ComputeEDT1D to every row then every column.
-// Allocates scratch once and reuses it across all 1D passes.
+// Reuse one scratch buffer while running the 1D distance transform across rows
+// and then columns.
 static void ComputeEDT2D( float* grid, int w, int h )
 {
     const int maxN = ( w > h ) ? w : h;
@@ -206,8 +200,8 @@ static void ComputeEDT2D( float* grid, int w, int h )
 }
 
 
-// Load a pre-generated SDF atlas from disk and upload it to the GPU.
-// Returns true on success, false if the file is absent or its header is invalid.
+// Load a pre-generated SDF atlas only when the file matches the current font
+// contract.
 static bool LoadSdfAtlasFromFile( const char* path )
 {
     FILE* rawFile = nullptr;
@@ -238,8 +232,7 @@ static bool LoadSdfAtlasFromFile( const char* path )
         return false;
     }
 
-    // Upload as a single-channel R8 texture with bilinear filtering.
-    // SDF rendering REQUIRES linear filtering — nearest-neighbour would staircase
+    // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
     Text2d::fontTexture = Gfx().CreateTexture2D(
         pixels.get(),
@@ -256,7 +249,7 @@ static bool LoadSdfAtlasFromFile( const char* path )
 // Text2d::GenerateSdfAtlasToFile
 // =============================================================================
 //
-// Renders all 96 printable ASCII glyphs at SDF_SCALE × resolution using GDI,
+// All 96 printable ASCII glyphs are drawn at SDF_SCALE x resolution using GDI,
 // computes a per-cell Signed Distance Field via two 2D Euclidean Distance
 // Transforms, box-filters the result down to the final atlas size, then writes
 // a binary .sdf file that LoadSdfAtlasFromFile / BuildFont can read directly.
@@ -541,7 +534,6 @@ void Text2d::BuildFont( const char* cFontName )
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
     Text2d::pSolidBatchShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.solid_color_batch" );
 
-    // Build the initial orthographic projection from the config dimensions.
     // RebuildProjection() must be called whenever the window is resized so the
     // ortho extents stay matched to the actual viewport aspect ratio.
     Text2d::RebuildProjection( Cfg().window.screenX, Cfg().window.screenY );
@@ -941,8 +933,7 @@ void Text2d::BatchTriangle( float x0, float y0, float x1, float y1, float x2, fl
 
 void Text2d::FlushQuads()
 {
-    // Upload all accumulated quad vertices and draw them in a single call.
-    // This is the counterpart to FlushText() — together they give exactly two
+    // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).
 
     if ( s_quadBatchVerts == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )

@@ -29,6 +29,7 @@ Related:
 #include <variant>
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezBoundingBox.h"
+#include "SkullbonezConvexHullShape.h"
 
 namespace SkullbonezCore
 {
@@ -44,10 +45,10 @@ namespace CollisionDetection
     variant will cause compiler errors at every unhandled dispatch site.
 
     Layman version: this is the engine's tagged box saying "this model's
-    collision volume is either a sphere or a box." Callers do not ask through a
+    collision volume is either a sphere, box, or convex hull." Callers do not ask through a
     base class; they visit the tag and run the shape-specific code directly.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-using CollisionShape = std::variant<BoundingSphere, BoundingBox>;
+using CollisionShape = std::variant<BoundingSphere, BoundingBox, ConvexHullShape>;
 
 /* -- Free-function visitors -----------------------------------------------------------------------------------------------------------------------------------------
 

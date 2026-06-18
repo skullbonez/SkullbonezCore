@@ -7,6 +7,13 @@ Mental model:
   The main thread queues bounded work chunks, wakes persistent workers, then
   waits on a fence. Worker-disabled mode runs the same work inline.
 
+Glossary:
+  Worker pool: Persistent thread group that runs bounded jobs outside the main
+  thread.
+  Fork-join: Pattern where the main thread splits work, workers run chunks, and
+  the main thread waits before merging results.
+  Fence: Synchronization primitive used to wait for all queued chunks.
+
 Related:
   - SkullbonezSource/SkullbonezWorkerPool.h
   - SkullbonezSource/SkullbonezAmortizedTask.h
@@ -17,6 +24,7 @@ Related:
 
 #include <algorithm>
 #include <atomic>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -28,6 +36,52 @@ namespace
 {
 thread_local bool g_isWorkerThread = false;
 thread_local int g_workerThreadIndex = -1;
+
+struct ParallelForChunksState
+{
+    ParallelForChunksState( int taskCount, const WorkerPool::ChunkFunction& function )
+        : fence( taskCount ), fn( function )
+    {
+    }
+
+    void CaptureCurrentException()
+    {
+        std::lock_guard<std::mutex> lock( exceptionMutex );
+        if ( !firstException )
+        {
+            firstException = std::current_exception();
+        }
+    }
+
+    Fence fence;
+    WorkerPool::ChunkFunction fn;
+    std::mutex exceptionMutex;
+    std::exception_ptr firstException;
+};
+
+class FenceSignalGuard
+{
+  public:
+    explicit FenceSignalGuard( Fence& targetFence )
+        : m_fence( targetFence ), m_active( true )
+    {
+    }
+
+    ~FenceSignalGuard()
+    {
+        if ( m_active )
+        {
+            m_fence.Signal();
+        }
+    }
+
+    FenceSignalGuard( const FenceSignalGuard& ) = delete;
+    FenceSignalGuard& operator=( const FenceSignalGuard& ) = delete;
+
+  private:
+    Fence& m_fence;
+    bool m_active;
+};
 } // namespace
 
 WorkerPool::WorkerPool()
@@ -188,12 +242,13 @@ void WorkerPool::ParallelFor( int begin, int end, const IndexFunction& fn, int m
         return;
     }
 
+    const IndexFunction fnCopy = fn;
     const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
-    ParallelForChunks( chunks, [&]( int, int chunkBegin, int chunkEnd )
+    ParallelForChunks( chunks, [fnCopy]( int, int chunkBegin, int chunkEnd )
                        {
                            for ( int index = chunkBegin; index < chunkEnd; ++index )
                            {
-                               fn( index );
+                               fnCopy( index );
                            } } );
 }
 
@@ -220,18 +275,21 @@ void WorkerPool::ParallelForProfiled( int begin,
         return;
     }
 
+    const IndexFunction fnCopy = fn;
+    const char* markerPath = workerMarkerPath;
+    const uint32_t markerHash = workerMarkerHash;
     const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
-    ParallelForChunks( chunks, [&]( int, int chunkBegin, int chunkEnd )
+    ParallelForChunks( chunks, [fnCopy, markerPath, markerHash]( int, int chunkBegin, int chunkEnd )
                        {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-                           ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( workerMarkerPath, workerMarkerHash );
+                           ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
 #else
-                           static_cast<void>( workerMarkerPath );
-                           static_cast<void>( workerMarkerHash );
+                           static_cast<void>( markerPath );
+                           static_cast<void>( markerHash );
 #endif
                            for ( int index = chunkBegin; index < chunkEnd; ++index )
                            {
-                               fn( index );
+                               fnCopy( index );
                            } } );
 }
 
@@ -252,33 +310,36 @@ void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks,
         return;
     }
 
-    Fence fence( static_cast<int>( chunks.size() ) );
-    std::mutex exceptionMutex;
-    std::exception_ptr firstException;
+    const std::shared_ptr<ParallelForChunksState> state =
+        std::make_shared<ParallelForChunksState>( static_cast<int>( chunks.size() ), fn );
 
     for ( const WorkerChunkRange& chunk : chunks )
     {
-        Submit( [&, chunk]()
-                {
-                    try
+        try
+        {
+            Submit( [state, chunk]()
                     {
-                        fn( chunk.chunkIndex, chunk.begin, chunk.end );
-                    }
-                    catch ( ... )
-                    {
-                        std::lock_guard<std::mutex> lock( exceptionMutex );
-                        if ( !firstException )
+                        FenceSignalGuard signalGuard( state->fence );
+                        try
                         {
-                            firstException = std::current_exception();
+                            state->fn( chunk.chunkIndex, chunk.begin, chunk.end );
                         }
-                    }
-                    fence.Signal(); } );
+                        catch ( ... )
+                        {
+                            state->CaptureCurrentException();
+                        } } );
+        }
+        catch ( ... )
+        {
+            state->CaptureCurrentException();
+            state->fence.Signal();
+        }
     }
 
-    fence.Wait();
-    if ( firstException )
+    state->fence.Wait();
+    if ( state->firstException )
     {
-        std::rethrow_exception( firstException );
+        std::rethrow_exception( state->firstException );
     }
 }
 

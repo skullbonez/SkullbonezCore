@@ -42,6 +42,8 @@ using namespace SkullbonezCore::UI::Widgets;
 
 namespace
 {
+constexpr int UI_SCENE_CONTENT_HEIGHT = 252;
+constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 196.0f;
 
 char LowerAscii( char value )
 {
@@ -105,6 +107,12 @@ namespace UI
 {
 namespace SceneTab
 {
+
+int ContentHeight()
+{
+    return UI_SCENE_CONTENT_HEIGHT;
+}
+
 
 bool FilterMatches( const char* option, const char* filter )
 {
@@ -244,6 +252,12 @@ void CloseCombo( UISceneTabState& state, UIComboBox& combo )
 void CaptureFilterKeyState( UISceneTabState& state )
 {
     InputControl::CaptureKeyStates( state.filterKeyWasDown );
+}
+
+
+void ResetPreviewState( UISceneTabState& state )
+{
+    state.previewTimeScale = -1.0f;
 }
 
 
@@ -432,6 +446,7 @@ bool HandleContentClick( UISceneTabState& state,
                          UIButton& resetDefaultsButton,
                          UIButton& saveDefaultsButton,
                          InGameUIInputResult& result,
+                         int& activeSlider,
                          const char* const* sceneOptions,
                          int sceneOptionCount,
                          int selectedSceneOption,
@@ -467,6 +482,38 @@ bool HandleContentClick( UISceneTabState& state,
         const int filteredSceneCount = CountFilteredOptions( sceneOptions, sceneOptionCount, state.filter );
         state.comboScroll = SceneComboScrollForSelection( FilteredPositionForIndex( sceneOptions, sceneOptionCount, state.filter, selectedSceneOption ), filteredSceneCount );
         combo.SetOpen( true );
+        return true;
+    }
+    state.timeScaleSlider.SetBounds( contentX, rowBase + ( UI_SCENE_TIME_SCALE_SLIDER_Y - 42.0f ), contentW, 34.0f );
+    if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TIME_SCALE;
+        state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+        result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
+        return true;
+    }
+    return false;
+}
+
+
+bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
+{
+    if ( activeSlider != SLIDER_TIME_SCALE )
+    {
+        return false;
+    }
+
+    state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+    result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
+    return true;
+}
+
+
+bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result )
+{
+    if ( activeSlider == SLIDER_TIME_SCALE && state.previewTimeScale > 0.0f )
+    {
+        result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
         return true;
     }
     return false;
@@ -536,6 +583,7 @@ void Draw( UISceneTabState& state,
     {
         const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
         const Style::UIPalette& palette = Style::Palette();
+        const float displayTimeScale = state.previewTimeScale > 0.0f ? state.previewTimeScale : data.timeScale;
         char statusBuf[64] = {};
         snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
         DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
@@ -549,6 +597,12 @@ void Draw( UISceneTabState& state,
         DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
         DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+        snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
+        state.timeScaleSlider.SetBounds( contentX, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, contentW, 34.0f );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, 34.0f ) )
+        {
+            state.timeScaleSlider.Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
+        }
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {

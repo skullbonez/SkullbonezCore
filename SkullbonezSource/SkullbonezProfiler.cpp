@@ -9,10 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -180,7 +176,7 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     }
     else
     {
-        // Build a temporary parent path on the stack
+        // Parent names are the marker path before the final slash.
         char parentPath[256];
         const char* lastSlash = nullptr;
         for ( const char* p = fullPath; *p; ++p )
@@ -198,7 +194,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
         std::memcpy( parentPath, fullPath, plen );
         parentPath[plen] = '\0';
 
-        // Compute hash of parent path and resolve
         uint32_t pHash = HashStr( parentPath );
         int pIdx = -1;
         for ( int i = 0; i < m_markerCount; ++i )
@@ -560,7 +555,6 @@ void Profiler::FrameBegin()
     // Read any pending GPU results from previous frames (non-blocking)
     ReadPendingGpuResults();
 
-    // Reset per-frame accumulators
     for ( int i = 0; i < m_markerCount; ++i )
     {
         m_markers[i].accumSecondsThisFrame = 0.0;
@@ -870,7 +864,6 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 {
     using SkullbonezCore::Text::Text2d;
 
-    // Check if any marker has GPU timing
     bool anyGpu = false;
     for ( int i = 0; i < m_markerCount; ++i )
     {
@@ -1218,7 +1211,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     // Draw background (dark grey = empty / absolute idle)
     Text2d::BatchQuad( cpuBarX0, cpuBarY, barX1, cpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
 
-    // Compute scale factor
+    // Scale bars either against the absolute frame or the CPU subtotal.
     float cpuScale = 1.0f;
     if ( absolute )
     {
@@ -1229,7 +1222,6 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         cpuScale = ( cpuTotalMs > 0.001f ) ? ( cpuBarWidth / cpuTotalMs ) : 0.0f;
     }
 
-    // Draw segments
     float cx = cpuBarX0;
     for ( int i = 0; i < cpuLeafCount; ++i )
     {
@@ -1241,7 +1233,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         }
         if ( cx + segW > barX1 )
         {
-            segW = barX1 - cx; // clamp to bar
+            segW = barX1 - cx; // Keep the segment inside the panel.
         }
         const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
         Text2d::BatchQuad( cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );

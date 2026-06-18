@@ -9,8 +9,6 @@ Mental model:
   mode, ResourceBarrier calls.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
   shaders write textures or buffers.
   Resource barrier: DX12 synchronization command that transitions or orders GPU

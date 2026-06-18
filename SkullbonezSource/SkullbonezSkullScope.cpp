@@ -637,8 +637,8 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
         const float slipSpeed = Vector::VectorMag( tangentVel );
         const double tangentImpulse = sqrt( static_cast<double>( c.accT1 ) * c.accT1 +
                                             static_cast<double>( c.accT2 ) * c.accT2 );
-        const char* shapeA = a.IsBox() ? "box" : "sphere";
-        const char* shapeB = c.isTerrain ? "terrain" : ( m_gameModels[c.bodyB].IsBox() ? "box" : "sphere" );
+        const char* shapeA = a.GetShapeName();
+        const char* shapeB = c.isTerrain ? "terrain" : m_gameModels[c.bodyB].GetShapeName();
         char contactType[32] = "";
         sprintf_s( contactType, sizeof( contactType ), "%s/%s", shapeA, shapeB );
         const int supportsSleep = c.isTerrain
@@ -729,7 +729,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     for ( int i = 0; i < modelCount; ++i )
     {
         GameModel& model = m_gameModels[i];
-        const char* shapeType = model.IsBox() ? "box" : "sphere";
+        const char* shapeType = model.GetShapeName();
         std::string escapedName = EscapeSkullScopeJson( model.GetName() );
         const Vector3& pos = model.GetPosition();
         const Vector3& vel = model.GetVelocity();
@@ -764,6 +764,10 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
 
         float radius = 0.0f;
         Vector3 halfExtents = ZERO_VECTOR;
+        uint16_t hullVertices = 0;
+        uint16_t hullFaces = 0;
+        uint16_t hullEdges = 0;
+        std::string escapedHullName;
         std::visit( [&]( const auto& shape )
                     {
             using ShapeT = std::decay_t<decltype( shape )>;
@@ -771,14 +775,22 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
             {
                 radius = shape.GetRadius();
             }
-            else
+            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
             {
                 halfExtents = shape.GetHalfExtents();
+            }
+            else
+            {
+                radius = shape.GetBoundingRadius();
+                hullVertices = shape.GetVertexCount();
+                hullFaces = shape.GetFaceCount();
+                hullEdges = shape.GetEdgeCount();
+                escapedHullName = EscapeSkullScopeJson( shape.GetName() );
             } },
                     model.GetCollisionShape() );
 
         Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"body\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"name\":\"%s\",\"shape\":\"%s\",\"pos\":[%.6f,%.6f,%.6f],\"vel\":[%.6f,%.6f,%.6f],\"omega\":[%.6f,%.6f,%.6f],\"q\":[%.6f,%.6f,%.6f,%.6f],\"speed\":%.6f,\"omega_mag\":%.6f,\"mass\":%.6f,\"inv_mass\":%.6f,\"inertia\":[%.6f,%.6f,%.6f],\"radius\":%.6f,\"half_extents\":[%.6f,%.6f,%.6f],\"linear_energy\":%.6f,\"angular_energy\":%.6f,\"sleeping\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"sleep_counter\":%d,\"island_id\":%d}\n",
+                      "{\"kind\":\"body\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"name\":\"%s\",\"shape\":\"%s\",\"pos\":[%.6f,%.6f,%.6f],\"vel\":[%.6f,%.6f,%.6f],\"omega\":[%.6f,%.6f,%.6f],\"q\":[%.6f,%.6f,%.6f,%.6f],\"speed\":%.6f,\"omega_mag\":%.6f,\"mass\":%.6f,\"inv_mass\":%.6f,\"inertia\":[%.6f,%.6f,%.6f],\"radius\":%.6f,\"half_extents\":[%.6f,%.6f,%.6f],\"hull_name\":\"%s\",\"hull_vertices\":%u,\"hull_faces\":%u,\"hull_edges\":%u,\"linear_energy\":%.6f,\"angular_energy\":%.6f,\"sleeping\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"sleep_counter\":%d,\"island_id\":%d}\n",
                       m_physicsDiagnosticsRunId,
                       frame,
                       i,
@@ -808,6 +820,10 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                       halfExtents.x,
                       halfExtents.y,
                       halfExtents.z,
+                      escapedHullName.c_str(),
+                      static_cast<unsigned>( hullVertices ),
+                      static_cast<unsigned>( hullFaces ),
+                      static_cast<unsigned>( hullEdges ),
                       linearEnergy,
                       angularEnergy,
                       sleeping,

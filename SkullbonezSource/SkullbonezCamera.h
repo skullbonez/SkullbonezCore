@@ -1,16 +1,23 @@
 /*
 File: SkullbonezSource/SkullbonezCamera.h
 Purpose:
-  Stores camera pose and builds view/projection transforms for rendering.
+  Stores one camera pose and the scratch state used to stage bounded camera
+  movement.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  CameraCollection is the public facade. Camera keeps eye, view, and up
+  vectors private, stages movement in a buffer, then lets FinishTranslation
+  clamp or repair the pose before render code reads it.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+  XZ bounds: Horizontal world-space rectangle that prevents camera movement
+    outside the playable terrain.
+  View vector: Stored look target for the camera; older camera code keeps it as
+    a point paired with the eye position.
+
+Invariants:
+  - Bounded movement must go through PrepareTranslation and FinishTranslation
+  so the position, view target, and preserved view distance stay coherent.
 
 Related:
   - SkullbonezSource/SkullbonezCamera.cpp
@@ -30,14 +37,9 @@ namespace Environment
 {
 class CameraCollection; // Forward declaration
 
-/* -- Camera ------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    The camera class provides the base functionality for a manouverable camera in 3d space.  Uses matrix rotations, therefore Gimbel lock safe.
-    This class has no public interface, but defines CameraCollection as a Friend.
-*/
 class Camera
 {
-    friend CameraCollection; // Friend declaration
+    friend CameraCollection; // CameraCollection is the only owner/caller of raw camera state.
 
   public:
     enum class TravelDirection
@@ -46,41 +48,41 @@ class Camera
         Left,
         Right,
         Backward
-    }; // Helps with moving the camera around the scene
+    }; // Camera-local keyboard travel command consumed by MoveCamera.
 
   private:
-    Math::Vector::Vector3 m_position;       // m_position
-    Math::Vector::Vector3 m_view;           // m_view
-    Math::Vector::Vector3 m_upVector;       // Up vector
-    Math::Vector::Vector3 m_movementBuffer; // Temporary storage to test a translation before applying it
-    float m_viewMagnitude;                  // Keeps track of the magnitude of the view vector
-    bool m_isFinishedTranslationRecursed;   // Makes sure finished translation method is only recursed once (used for view vector magnitude preservation)
-    bool m_doCalculateViewMagnitude;        // Specifies whether the view magnitude should be calculated or not (used for view vector magnitude preservation)
-    bool m_doPreserveViewMagnitude;         // Specified whether view magnitude preservation should be enforced
-    bool m_isLockedMode;                    // Locks the view vector from being moved
-    Geometry::XZBounds m_boundary;          // m_boundary the camera must not translate beyond
-    Geometry::XZCoords m_xzStore;           // Stores XZ coordinates for bounds checking
+    Math::Vector::Vector3 m_position;       // Camera eye in world space.
+    Math::Vector::Vector3 m_view;           // World-space look target paired with m_position.
+    Math::Vector::Vector3 m_upVector;       // Camera up basis used for pitch caps and view matrices.
+    Math::Vector::Vector3 m_movementBuffer; // Candidate translation staged until XZ bounds accept it.
+    float m_viewMagnitude;                  // Eye-to-view distance preserved by locked and bounded movement.
+    bool m_isFinishedTranslationRecursed;   // Guard for the single repair pass inside FinishTranslation.
+    bool m_doCalculateViewMagnitude;        // Next translation refreshes m_viewMagnitude before preserving it.
+    bool m_doPreserveViewMagnitude;         // Translation must recover the previous eye-to-view distance.
+    bool m_isLockedMode;                    // Locked orbit mode moves the eye while keeping the view target fixed.
+    Geometry::XZBounds m_boundary;          // Horizontal movement limits for this camera.
+    Geometry::XZCoords m_xzStore;           // Scratch coordinates used by bounds checks.
 
-    Camera(); // Default constructor
+    Camera();
     ~Camera() = default;
-    void PrepareTranslation();                                                                                                         // Assists in keeping translations within bounds, should be called before all translations
-    void FinishTranslation();                                                                                                          // Assists in keeping translations within bounds, should be called after all translations
-    void ApplyMovementBuffer();                                                                                                        // Applies a camera translation
-    void ZeroCamera();                                                                                                                 // Sets all vector members to zero vector
-    Math::Vector::Vector3 GetViewVectorNormalised();                                                                                   // Returns the normalised view vector
-    Math::Vector::Vector3 GetViewVectorRaw();                                                                                          // Returns the non-normalised view vector
-    Math::Vector::Vector3 GetRightVector();                                                                                            // Returns the normalised right vector
-    float UpVectorViewVectorRotationCap( float requestRadians );                                                                       // Returns a capped value in radians of what is safe to rotate before the view vector hits the up vector
-    void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ );                                                                     // Recovers view magnitude if under quota, indirectly recurses FinishTranslation function
-    void SetAll( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView, const Math::Vector::Vector3& vUpVector ); // Set all by vectors
-    void MoveCamera( const TravelDirection enumDir, float fQuantity );                                                                 // Move the camera specified amount in specified direction
-    void ApplyDelta( const Camera& delta );                                                                                            // Applies a camera position/view/up delta to this camera
-    void RotateCamera( float xMove, float yMove );                                                                                     // Offers an arbitrary rotation suitable for mouse input
+    void PrepareTranslation();  // Starts a bounded translation and captures state needed by FinishTranslation.
+    void FinishTranslation();   // Commits or clamps the staged translation while preserving view distance.
+    void ApplyMovementBuffer(); // Commits m_movementBuffer after bounds and locked-mode rules are enforced.
+    void ZeroCamera();          // Reset path for scene camera slots before authored values are loaded.
+    Math::Vector::Vector3 GetViewVectorNormalised();
+    Math::Vector::Vector3 GetViewVectorRaw();
+    Math::Vector::Vector3 GetRightVector();
+    float UpVectorViewVectorRotationCap( float requestRadians );   // Caps pitch so view and up vectors cannot collapse into the same direction.
+    void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ ); // One-axis bound clamps may need a guarded repair pass to restore eye-to-view distance.
+    void SetAll( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView, const Math::Vector::Vector3& vUpVector );
+    void MoveCamera( const TravelDirection enumDir, float fQuantity ); // fQuantity is world-space travel along camera-local axes.
+    void ApplyDelta( const Camera& delta );                            // Relative cameras add the primary-camera pose delta through this helper.
+    void RotateCamera( float xMove, float yMove );                     // Offers an arbitrary rotation suitable for mouse input
 
-    Camera& operator=( const Camera& target );  // Equality operator overload
-    Camera& operator+=( const Camera& target ); // += Overload
-    Camera operator-( const Camera& target );   // Binary subtraction operator overload
-    Camera operator*( float f );                // Multiplication by scalar overload
+    Camera& operator=( const Camera& target );
+    Camera& operator+=( const Camera& target );
+    Camera operator-( const Camera& target );
+    Camera operator*( float f );
 };
 } // namespace Environment
 } // namespace SkullbonezCore

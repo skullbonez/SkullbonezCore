@@ -13,6 +13,8 @@ Glossary:
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.

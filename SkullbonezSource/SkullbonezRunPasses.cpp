@@ -10,6 +10,12 @@ Mental model:
   passes so pass contracts are visible where the work happens.
 
 Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
   Render pass: A named slice of frame rendering with explicit inputs, outputs,
   and GPU resource ownership.
   GPU resource: Backend-owned texture, framebuffer, shader, descriptor, or
@@ -1049,6 +1055,8 @@ void SkullbonezRun::DebugOverlayPass::Render( const DebugOverlayPassInputs& inpu
         DRAW_CALL_TRACE_SCOPE( "TornadoField" );
         m_run.m_cGameModelCollection.RenderTornadoFieldVectors( inputs.frame.viewProjection );
     }
+
+    m_run.RenderEditorOverlay( inputs.frame.viewProjection );
 
     if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {

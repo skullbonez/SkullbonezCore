@@ -310,6 +310,31 @@ void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )
     }
 }
 
+void PhysicsDebugVisualizer::EmitConvexHullWireframes( GameModelCollection& models )
+{
+    int count = models.GetModelCount();
+    for ( int i = 0; i < count; ++i )
+    {
+        GameModel& model = models.GetModelAtIndex( i );
+        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
+        if ( !hull )
+        {
+            continue;
+        }
+
+        Quaternion orientation = model.GetOrientation();
+        RotationMatrix rot = orientation.GetOrientationMatrix();
+        const Vector3 center = model.GetPosition() + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            const Vector3 a = center + rot * hull->GetVertex( edge.vertexA );
+            const Vector3 b = center + rot * hull->GetVertex( edge.vertexB );
+            EmitLine( a, b, 1.0f, 0.72f, 0.10f );
+        }
+    }
+}
+
 void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )
 {
     // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
@@ -560,6 +585,7 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
         EmitObjectAxes( models );
+        EmitConvexHullWireframes( models );
     }
     if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
     {

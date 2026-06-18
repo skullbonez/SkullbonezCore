@@ -69,14 +69,15 @@ struct BoxTerrainVertexSupportProbe
 
 struct BoxTerrainSupportClassification
 {
-    // Non-box terrain contacts preserve the legacy support behavior. The stricter
-    // face/vertex footprint checks are only for OBBs because boxes are the shape
-    // that exposed false sleep support on edges and points.
+    // Sphere-style terrain contacts preserve the legacy support behavior. The
+    // stricter face/vertex footprint checks apply to shapes that can balance on
+    // a narrow edge or point: OBBs and authored convex hulls.
     bool isBox = false;
+    bool isConvexHull = false;
 
-    // Best absolute alignment between any box face normal and the terrain contact
-    // normal. Values near one mean a face is close to parallel with the terrain
-    // plane; lower values indicate edge/point style contact geometry.
+    // Best absolute alignment between any support face normal and the terrain
+    // contact normal. Values near one mean a face is close to parallel with the
+    // terrain plane; lower values indicate edge/point style contact geometry.
     float bestFaceNormalDot = 1.0f;
 
     BoxTerrainVertexSupportProbe vertices;
@@ -199,12 +200,99 @@ inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( const Math::Collisi
     return ProbeBoxTerrainVerticesImpl( box, position, orientation, terrain, contactEpsilon );
 }
 
+inline float ComputeConvexHullTerrainBestFaceNormalDotImpl( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Transformation::RotationMatrix& orientation, const Math::Vector::Vector3& terrainNormal )
+{
+    float bestDot = 0.0f;
+    const uint16_t faceCount = hull.GetFaceCount();
+    for ( uint16_t faceIndex = 0; faceIndex < faceCount; ++faceIndex )
+    {
+        const Math::CollisionDetection::ConvexHullFace& face = hull.GetFace( faceIndex );
+        const Math::Vector::Vector3 worldNormal = orientation * face.normalLocal;
+        const float absDot = fabsf( worldNormal * terrainNormal );
+        if ( absDot > bestDot )
+        {
+            bestDot = absDot;
+        }
+    }
+
+    return bestDot;
+}
+
+inline float ComputeConvexHullTerrainBestFaceNormalDot( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Transformation::RotationMatrix& orientation, const Math::Vector::Vector3& terrainNormal, bool profile )
+{
+    if ( profile )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyFaces" );
+        return ComputeConvexHullTerrainBestFaceNormalDotImpl( hull, orientation, terrainNormal );
+    }
+
+    return ComputeConvexHullTerrainBestFaceNormalDotImpl( hull, orientation, terrainNormal );
+}
+
+inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation, Geometry::Terrain& terrain, float contactEpsilon )
+{
+    BoxTerrainVertexSupportProbe result;
+    const Math::Vector::Vector3 hullCenter = position + ( orientation * hull.GetPosition() );
+    const float supportGap = contactEpsilon + BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+
+    const uint16_t vertexCount = hull.GetVertexCount();
+    for ( uint16_t vertexIndex = 0; vertexIndex < vertexCount; ++vertexIndex )
+    {
+        const Math::Vector::Vector3 worldVertex = hullCenter + ( orientation * hull.GetVertex( vertexIndex ) );
+        if ( !terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
+        {
+            continue;
+        }
+
+        const float terrainHeight = terrain.GetTerrainHeightAt( worldVertex.x, worldVertex.z );
+        const float gap = worldVertex.y - terrainHeight;
+        if ( gap <= supportGap )
+        {
+            ++result.supportedVertices;
+        }
+
+        if ( !result.hasTerrainGaps )
+        {
+            result.minTerrainGap = gap;
+            result.maxTerrainGap = gap;
+            result.hasTerrainGaps = true;
+        }
+        else
+        {
+            if ( gap < result.minTerrainGap )
+            {
+                result.minTerrainGap = gap;
+            }
+            if ( gap > result.maxTerrainGap )
+            {
+                result.maxTerrainGap = gap;
+            }
+        }
+    }
+
+    return result;
+}
+
+inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation, Geometry::Terrain& terrain, float contactEpsilon, bool profile )
+{
+    if ( profile )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyVerts" );
+        return ProbeConvexHullTerrainVerticesImpl( hull, position, orientation, terrain, contactEpsilon );
+    }
+
+    return ProbeConvexHullTerrainVerticesImpl( hull, position, orientation, terrain, contactEpsilon );
+}
+
 inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( const Math::CollisionDetection::CollisionShape& shape, const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation, const Math::Vector::Vector3& terrainNormal, Geometry::Terrain* terrain, int contactCount, float contactEpsilon, bool profileChildren )
 {
     using Math::CollisionDetection::BoundingBox;
+    using Math::CollisionDetection::ConvexHullShape;
 
     BoxTerrainSupportClassification result;
-    if ( !std::holds_alternative<BoundingBox>( shape ) )
+    const BoundingBox* box = std::get_if<BoundingBox>( &shape );
+    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape );
+    if ( !box && !hull )
     {
         // Sphere/capsule-style terrain contacts do not have an oriented face
         // footprint to test here, so leave supportsRestingPolicy at the legacy
@@ -213,8 +301,9 @@ inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( const Math
         return result;
     }
 
-    result.isBox = true;
-    result.bestFaceNormalDot = ComputeBoxTerrainBestFaceNormalDot( orientation, terrainNormal, profileChildren );
+    result.isBox = box != nullptr;
+    result.isConvexHull = hull != nullptr;
+    result.bestFaceNormalDot = box ? ComputeBoxTerrainBestFaceNormalDot( orientation, terrainNormal, profileChildren ) : ComputeConvexHullTerrainBestFaceNormalDot( *hull, orientation, terrainNormal, profileChildren );
 
     bool supportsRestingPolicy = true;
     if ( contactCount > 0 && contactCount < 4 )
@@ -230,8 +319,7 @@ inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( const Math
     {
         if ( terrain )
         {
-            const BoundingBox& box = std::get<BoundingBox>( shape );
-            result.vertices = ProbeBoxTerrainVertices( box, position, orientation, *terrain, contactEpsilon, profileChildren );
+            result.vertices = box ? ProbeBoxTerrainVertices( *box, position, orientation, *terrain, contactEpsilon, profileChildren ) : ProbeConvexHullTerrainVertices( *hull, position, orientation, *terrain, contactEpsilon, profileChildren );
 
             const bool hasHeightfieldFootprint = result.vertices.supportedVertices >= 3;
             const bool hasStablePlanePatch = result.vertices.supportedVertices >= 2 &&

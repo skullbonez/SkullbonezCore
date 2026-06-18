@@ -9,12 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
   explain why old command lines are rejected.
-  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
-  and raytracing commands asynchronously from the CPU.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   Validation gate: Repository script that proves a class of changes before
@@ -502,8 +500,8 @@ bool CopyOptionPath( const char* value, const char* optionName, char* outPath, s
 
 // ---------------------------------------------------------------------------
 // --gen-atlas early exit
-// Generates the SDF font atlas to a file and exits — no GPU context needed.
-// Returns true if the flag was present; outExitCode is 0 on success, 1 on failure.
+// SDF font atlas file generation path: exits before GPU context setup.
+// True means the flag was present; outExitCode is 0 on success, 1 on failure.
 // ---------------------------------------------------------------------------
 
 bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
@@ -1148,7 +1146,7 @@ bool ParseRendererArg( const CommandLineView& commandLine )
     return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
 }
 
-// Applies --vsync on|off to the already-loaded Cfg() singleton.
+// --vsync on|off patches the already-loaded Cfg() singleton.
 bool ApplyVsyncOverride( const CommandLineView& commandLine )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
@@ -1437,7 +1435,7 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
 }
 
 // Guards --physics-regression-log against use in non-Debug builds.
-// Returns false if startup should abort.
+// False means startup should abort.
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 {
     if ( !HasOption( commandLine, "--physics-regression-log" ) )
@@ -1454,7 +1452,7 @@ bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 
 
 // Guards --physics-collision-time-log against use in non-Debug builds.
-// Returns false if startup should abort.
+// False means startup should abort.
 bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 {
     if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
@@ -1543,9 +1541,9 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 }
 #endif
 
-// Parses all command-line options into a ParsedArgs struct.
+// ParsedArgs owns all command-line option state after this pass.
 // Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
-// Returns false if startup should abort (e.g. --physics-regression-log in Release build).
+// False means startup should abort, such as --physics-regression-log in Release.
 bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 {
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )

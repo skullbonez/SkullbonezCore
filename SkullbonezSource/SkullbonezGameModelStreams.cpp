@@ -7,6 +7,13 @@ Mental model:
   GameModelCollection owns storage. GameModelStreamProvider owns the rules for
   presenting cache-backed body and render views to subsystem clients.
 
+Glossary:
+  SoA (Structure of Arrays): Data layout that stores each field in a separate
+  contiguous array for cache-friendly iteration.
+  Stream view: Borrowed pointer/count bundle over existing model storage.
+  Cache validity: Flagged state showing whether the SoA arrays mirror the
+  current GameModel list.
+
 Related:
   - SkullbonezSource/SkullbonezGameModelStreams.h
   - Agentic/Reference/comment-style-guide.md

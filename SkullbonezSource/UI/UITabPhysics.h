@@ -38,22 +38,25 @@ struct InGameUIFrameData;
 namespace PhysicsTab
 {
 
-constexpr int SLIDER_ALPHA = 3;
-constexpr int SLIDER_CONTACT_LINGER = 4;
-constexpr int SLIDER_WORLD_GRAVITY = 11;
-constexpr int SLIDER_TORNADO_RADIUS = 14;
-constexpr int SLIDER_TORNADO_HEIGHT = 15;
-constexpr int SLIDER_TORNADO_INWARD = 16;
-constexpr int SLIDER_TORNADO_SWIRL = 17;
-constexpr int SLIDER_TORNADO_LIFT = 18;
+constexpr int SLIDER_PHYSICS_BASE = 3000;
+constexpr int SLIDER_ALPHA = SLIDER_PHYSICS_BASE + 0;
+constexpr int SLIDER_CONTACT_LINGER = SLIDER_PHYSICS_BASE + 1;
+constexpr int SLIDER_WORLD_GRAVITY = SLIDER_PHYSICS_BASE + 2;
+constexpr int SLIDER_TORNADO_RADIUS = SLIDER_PHYSICS_BASE + 3;
+constexpr int SLIDER_TORNADO_HEIGHT = SLIDER_PHYSICS_BASE + 4;
+constexpr int SLIDER_TORNADO_INWARD = SLIDER_PHYSICS_BASE + 5;
+constexpr int SLIDER_TORNADO_SWIRL = SLIDER_PHYSICS_BASE + 6;
+constexpr int SLIDER_TORNADO_LIFT = SLIDER_PHYSICS_BASE + 7;
+constexpr int SLIDER_RAY_IMPULSE = SLIDER_PHYSICS_BASE + 8;
 
 struct UIPhysicsTabState
 {
-    UICheckBox toggles[11];
+    UICheckBox toggles[12];
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
     UISlider alphaSlider;
     UISlider contactLingerSlider;
+    UISlider rayImpulseSlider;
     UISlider worldGravitySlider;
     UISlider tornadoRadiusSlider;
     UISlider tornadoHeightSlider;
@@ -62,6 +65,7 @@ struct UIPhysicsTabState
     UISlider tornadoLiftSlider;
     float previewAlpha = -1.0f;
     float previewContactLinger = -1.0f;
+    float previewRayImpulse = -1.0f;
     float previewTornadoRadius = -1.0f;
     float previewTornadoHeight = -1.0f;
     float previewTornadoInward = -1.0f;

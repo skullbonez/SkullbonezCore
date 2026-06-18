@@ -9,8 +9,6 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
-  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
-  descriptor, and command-list control.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
   Descriptor: Small binding record that tells a renderer how to interpret a

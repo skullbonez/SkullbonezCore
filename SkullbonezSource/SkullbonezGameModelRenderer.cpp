@@ -32,6 +32,7 @@ Related:
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
+using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::RenderMaterial;
@@ -98,7 +99,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
         SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
         for ( int x = 0; x < modelCount; ++x )
         {
-            if ( !renderStream.isBox[x] )
+            if ( models[x].IsSphere() )
             {
                 RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
                 SkullbonezHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
@@ -150,6 +151,27 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawPineBatchEnd();
     }
+
+    {
+        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            if ( !models[x].IsConvexHull() )
+            {
+                continue;
+            }
+
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+            if ( !hull )
+            {
+                continue;
+            }
+
+            const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) * Matrix4::FromQuaternion( models[x].GetOrientation() );
+            const RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
+            SkullbonezHelper::DrawConvexHullModel( *hull, bodyModel, material, view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        }
+    }
 }
 
 
@@ -176,9 +198,14 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         batches.pines.reserve( static_cast<size_t>( end - begin ) );
         for ( int x = begin; x < end; ++x )
         {
-            if ( !renderStream.isBox[x] )
+            if ( models[x].IsSphere() )
             {
                 batches.spheres.push_back( renderStream.modelMatrices[x] );
+                continue;
+            }
+
+            if ( models[x].IsConvexHull() )
+            {
                 continue;
             }
 
@@ -272,6 +299,25 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( collection, batches );
     SubmitShadowCasterBatches( batches, view, proj, cinematic );
+
+    const std::vector<GameModel>& models = collection.Models();
+    DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+    for ( const GameModel& model : models )
+    {
+        if ( !model.IsConvexHull() )
+        {
+            continue;
+        }
+
+        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
+        if ( !hull )
+        {
+            continue;
+        }
+
+        const Matrix4 bodyModel = Matrix4::Translate( model.GetPosition() ) * Matrix4::FromQuaternion( model.GetOrientation() );
+        SkullbonezHelper::DrawShadowDepthConvexHullModel( *hull, bodyModel, view, proj );
+    }
 }
 
 

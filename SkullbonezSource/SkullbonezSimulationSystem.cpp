@@ -7,6 +7,11 @@ Mental model:
   This system preserves the old SkullbonezRun stepping rules while moving the
   accumulator state and tick decision into one owner.
 
+Glossary:
+  Fixed-step: Deterministic mode that advances physics by one fixed delta per
+  requested tick instead of wall-clock time.
+  Accumulator: Stored fractional tick state that carries time across frames.
+
 Related:
   - SkullbonezSource/SkullbonezSimulationSystem.h
   - Agentic/Reference/runtime-reference.md
@@ -59,6 +64,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             PROFILE_BEGIN( "Frame/Physics" );
             for ( int tick = 0; tick < ticksThisFrame; ++tick )
             {
+                PROFILE_SCOPED( "Frame/Physics/Step" );
                 input.models->RunPhysics( PHYSICS_FIXED_DT );
             }
             PROFILE_END( "Frame/Physics" );
@@ -80,6 +86,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         int steps = 0;
         while ( m_physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
         {
+            PROFILE_SCOPED( "Frame/Physics/Step" );
             input.models->RunPhysics( PHYSICS_FIXED_DT );
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
             ++steps;
