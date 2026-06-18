@@ -16,6 +16,7 @@ validation.
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
+| `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
 | `orchestrator.bat` | Roadmap queue/state-machine helper and Codex exec wrapper | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
@@ -37,6 +38,7 @@ tools\validate_select.bat dx12-renderer
 tools\validate_select.bat dx12-renderer physics
 tools\validate_select.bat concepts
 tools\validate_select.bat shaders
+tools\validate_select.bat project-filters
 tools\validate_select.bat ui
 tools\validate_select.bat build-profile
 ```
@@ -50,6 +52,7 @@ tools\validate_select.bat build-profile
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
+| `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
 | `orchestrator.bat` | Check/start/transition roadmap queue items, run setup doctor checks, drive `run-loop`, render worker/verifier prompts, invoke `codex exec`, finalize reports, and validate report-only commits |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |

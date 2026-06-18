@@ -73,6 +73,7 @@ You can also run any targeted subset with one line:
 tools\validate_select.bat fast
 tools\validate_select.bat dx12-renderer
 tools\validate_select.bat physics dx12-renderer
+tools\validate_select.bat project-filters
 tools\validate_select.bat format build-profile
 ```
 

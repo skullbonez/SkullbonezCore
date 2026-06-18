@@ -339,7 +339,8 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logic
     }
 
     const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : logicalNameOrBaseName );
+    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
+    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
 }
 
 void AssetSystem::Clear()
