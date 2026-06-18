@@ -1,0 +1,33 @@
+{
+  "format": "sha256 over Debug physics CSV artifacts",
+  "name": "Known physics issue regression signatures",
+  "tests": [
+    {
+      "artifact": "Debug/physics_known_stacking.csv",
+      "bytes": 6193638,
+      "lines": 45001,
+      "name": "stacking_stability_watch",
+      "risk": "Stacking drift or topple in stacking.scene.",
+      "scene": "SkullbonezData/scenes/stacking.scene",
+      "sha256": "4a711d54919c2908859a68d1de1961db16f4476f0eb921a05acff56b3392200f"
+    },
+    {
+      "artifact": "Debug/physics_known_at_rest.csv",
+      "bytes": 15269202,
+      "lines": 108001,
+      "name": "at_rest_settling_watch",
+      "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.",
+      "scene": "SkullbonezData/scenes/at_rest.scene",
+      "sha256": "869c366bc631533f47a210de882121cba3350309bd639275c2a1a6ba93c094d3"
+    },
+    {
+      "artifact": "Debug/physics_known_terrain_contact.csv",
+      "bytes": 18274,
+      "lines": 121,
+      "name": "terrain_contact_watch",
+      "risk": "Terrain contact micro-bounce or support classification drift.",
+      "scene": "SkullbonezData/scenes/terrain_contact_probe_debug.scene",
+      "sha256": "823d6756b9cdb11e973cdc7e38dd8efc1f32a00efc40b65f5cb207130c9e8631"
+    }
+  ]
+}
