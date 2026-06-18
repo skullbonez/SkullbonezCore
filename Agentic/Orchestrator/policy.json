@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Executable JSON-only orchestrator policy consumed by tools/orchestrator.py.",
-  "enabled": true,
+  "enabled": false,
   "base_branch": "main",
   "branch_prefix": "codex/",
   "max_active_items": 3,
