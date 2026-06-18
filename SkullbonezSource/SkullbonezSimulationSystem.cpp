@@ -59,6 +59,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             PROFILE_BEGIN( "Frame/Physics" );
             for ( int tick = 0; tick < ticksThisFrame; ++tick )
             {
+                PROFILE_SCOPED( "Frame/Physics/Step" );
                 input.models->RunPhysics( PHYSICS_FIXED_DT );
             }
             PROFILE_END( "Frame/Physics" );
@@ -80,6 +81,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         int steps = 0;
         while ( m_physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
         {
+            PROFILE_SCOPED( "Frame/Physics/Step" );
             input.models->RunPhysics( PHYSICS_FIXED_DT );
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
             ++steps;

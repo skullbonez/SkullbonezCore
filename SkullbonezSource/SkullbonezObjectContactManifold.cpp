@@ -35,6 +35,7 @@ Related:
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezConvexHullShape.h"
+#include "SkullbonezProfiler.h"
 #include "SkullbonezQuaternion.h"
 
 using namespace SkullbonezCore::GameObjects;
@@ -1635,6 +1636,8 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
                                                           float contactSkin,
                                                           ObjectContactManifold& out )
 {
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold" );
+
     // Shape dispatch is intentionally explicit. The solver wants one uniform
     // manifold shape, but the geometry needed to produce it differs a lot:
     // sphere/sphere is center distance, sphere/box is closest point, and box/box
@@ -1650,14 +1653,17 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
     {
         if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/SphereSphere" );
             return BuildSphereSphere( a, *sphereA, b, *sphereB, contactSkin, out );
         }
         if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/SphereBox" );
             return BuildSphereBoxOrdered( a, *sphereA, b, *boxB, true, contactSkin, out );
         }
         if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/SphereHull" );
             return BuildSphereHullOrdered( a, *sphereA, b, *hullB, true, contactSkin, out );
         }
     }
@@ -1666,14 +1672,17 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
     {
         if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/SphereBox" );
             return BuildSphereBoxOrdered( b, *sphereB, a, *boxA, false, contactSkin, out );
         }
         if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/BoxBox" );
             return BuildBoxBox( a, *boxA, b, *boxB, contactSkin, out );
         }
         if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/BoxHull" );
             return BuildBoxHull( a, *boxA, b, *hullB, true, contactSkin, out );
         }
     }
@@ -1682,14 +1691,17 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
     {
         if ( const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/SphereHull" );
             return BuildSphereHullOrdered( b, *sphereB, a, *hullA, false, contactSkin, out );
         }
         if ( const BoundingBox* boxB = std::get_if<BoundingBox>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/BoxHull" );
             return BuildBoxHull( b, *boxB, a, *hullA, false, contactSkin, out );
         }
         if ( const ConvexHullShape* hullB = std::get_if<ConvexHullShape>( &shapeB ) )
         {
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold/HullHull" );
             return BuildHullHull( a, *hullA, b, *hullB, contactSkin, out );
         }
     }

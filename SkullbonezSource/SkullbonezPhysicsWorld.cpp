@@ -725,24 +725,27 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
-    m_spatialGrid.Clear();
-    m_collisionCellKeys.clear();
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const float radius = bodyStream.boundingRadii[i];
-        const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
-        const float displacementSq = Vector::VectorMagSquared( displacement );
-        if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
-        {
-            m_spatialGrid.InsertSwept( i, bodyStream.positions[i], displacement, radius );
-        }
-        else
-        {
-            m_spatialGrid.Insert( i, bodyStream.positions[i], radius );
-        }
-    }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    m_spatialGrid.GetCandidatePairs( candidatePairs );
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
+        m_spatialGrid.Clear();
+        m_collisionCellKeys.clear();
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            const float radius = bodyStream.boundingRadii[i];
+            const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
+            const float displacementSq = Vector::VectorMagSquared( displacement );
+            if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
+            {
+                m_spatialGrid.InsertSwept( i, bodyStream.positions[i], displacement, radius );
+            }
+            else
+            {
+                m_spatialGrid.Insert( i, bodyStream.positions[i], radius );
+            }
+        }
+        m_spatialGrid.GetCandidatePairs( candidatePairs );
+    }
 
     auto appendCandidatePairIfMissing = [&]( int a, int b )
     {
@@ -809,43 +812,66 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     // Tiny high-speed projectiles should not depend solely on cell overlap.
     // If the hash grid samples or capacity ever miss their path, this conservative
     // segment test still feeds the exact pair to narrowphase CCD.
-    for ( int movingIndex = 0; movingIndex < modelCount; ++movingIndex )
     {
-        if ( !isFastSmallSweepBody( movingIndex ) )
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
+        for ( int movingIndex = 0; movingIndex < modelCount; ++movingIndex )
         {
-            continue;
-        }
-
-        for ( int targetIndex = 0; targetIndex < modelCount; ++targetIndex )
-        {
-            if ( movingIndex == targetIndex )
+            if ( !isFastSmallSweepBody( movingIndex ) )
             {
                 continue;
             }
-            if ( sweptSegmentTouchesExpandedBody( movingIndex, targetIndex ) )
+
+            for ( int targetIndex = 0; targetIndex < modelCount; ++targetIndex )
             {
-                appendCandidatePairIfMissing( movingIndex, targetIndex );
+                if ( movingIndex == targetIndex )
+                {
+                    continue;
+                }
+                if ( sweptSegmentTouchesExpandedBody( movingIndex, targetIndex ) )
+                {
+                    appendCandidatePairIfMissing( movingIndex, targetIndex );
+                }
             }
         }
     }
 
-    for ( const auto& pair : candidatePairs )
     {
-        if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
-        {
-            continue;
-        }
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneFixedPairs" );
+        candidatePairs.erase(
+            std::remove_if( candidatePairs.begin(),
+                            candidatePairs.end(),
+                            [&]( const std::pair<int, int>& pair )
+                            {
+                                const int a = pair.first;
+                                const int b = pair.second;
+                                return a >= 0 && b >= 0 &&
+                                       a < modelCount && b < modelCount &&
+                                       bodyStream.isFixed[a] &&
+                                       bodyStream.isFixed[b];
+                            } ),
+            candidatePairs.end() );
+    }
 
-        Physics::PhysicsPipelineRecord record;
-        record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
-        record.bodyA = pair.first;
-        record.bodyB = pair.second;
-        record.point = ( m_gameModels[pair.first].GetPosition() + m_gameModels[pair.second].GetPosition() ) * 0.5f;
-        Vector3 delta = m_gameModels[pair.second].GetPosition() - m_gameModels[pair.first].GetPosition();
-        float deltaMag = Vector::VectorMag( delta );
-        record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
-        record.scalarA = static_cast<float>( candidatePairs.size() );
-        RecordPhysicsPipelineStage( record );
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );
+        for ( const auto& pair : candidatePairs )
+        {
+            if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
+            {
+                continue;
+            }
+
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
+            record.bodyA = pair.first;
+            record.bodyB = pair.second;
+            record.point = ( m_gameModels[pair.first].GetPosition() + m_gameModels[pair.second].GetPosition() ) * 0.5f;
+            Vector3 delta = m_gameModels[pair.second].GetPosition() - m_gameModels[pair.first].GetPosition();
+            float deltaMag = Vector::VectorMag( delta );
+            record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
+            record.scalarA = static_cast<float>( candidatePairs.size() );
+            RecordPhysicsPipelineStage( record );
+        }
     }
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSleepPairs" );
@@ -922,6 +948,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
+
         // A swept test can miss a sleeper that is already overlapping after an
         // awake body's correction step. This fresh manifold test catches that
         // persistent contact so the sleeper cannot remain frozen inside the
@@ -937,6 +965,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
+
         // Temporarily place both bodies at a candidate time, ask the exact
         // narrowphase whether they touch there, then restore positions. This is
         // a query only; it must leave the world exactly as it found it.
@@ -960,6 +990,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
+
         // The broad sweep can give a conservative first time. Refinement walks
         // forward until exact manifold contact appears, then binary-searches the
         // edge of that contact window. This keeps fast objects from advancing
@@ -1007,6 +1039,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             }
         }
         return hi;
+    };
+
+    auto sweepObjectPair = [&]( int a, int b, float availableTime ) -> GameModel::ObjectSweepResult
+    {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
+        return m_gameModels[a].SweepGameModel( m_gameModels[b], availableTime );
     };
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
@@ -1104,7 +1142,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[y] > 0.0f )
                 {
-                    GameModel::ObjectSweepResult sweep = m_gameModels[y].SweepGameModel( m_gameModels[x], m_timeRemaining[y] );
+                    GameModel::ObjectSweepResult sweep = sweepObjectPair( y, x, m_timeRemaining[y] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[y];
@@ -1159,7 +1197,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[x] > 0.0f )
                 {
-                    GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], m_timeRemaining[x] );
+                    GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, m_timeRemaining[x] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[x];
@@ -1217,7 +1255,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         }
 
         float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
-        GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], availableTime );
+        GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, availableTime );
 
         if ( sweep.hit )
         {
@@ -1265,6 +1303,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto processObjectNarrowphasePairsSerial = [&]()
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
             ObjectNarrowphaseEvent event;
@@ -1275,6 +1314,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto buildObjectNarrowphaseIslands = [&]()
     {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
         m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
         m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
         for ( int i = 0; i < modelCount; ++i )
@@ -1390,9 +1430,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                                                                                        "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
                                                                                        PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
             }
-            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
             {
-                commitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
+                for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+                {
+                    commitObjectNarrowphaseEvent( m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+                }
             }
             ranParallelNarrowphase = true;
         }

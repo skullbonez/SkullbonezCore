@@ -362,7 +362,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
         {
             int aIndex = cp.first;
             int bIndex = cp.second;
-            if ( aIndex == bIndex || ( m_sleepState[aIndex] && m_sleepState[bIndex] ) )
+            if ( aIndex == bIndex ||
+                 aIndex < 0 || bIndex < 0 ||
+                 aIndex >= modelCount || bIndex >= modelCount ||
+                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) ||
+                 ( m_soaIsFixed[aIndex] && m_soaIsFixed[bIndex] ) )
             {
                 continue;
             }
@@ -385,8 +389,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             Vector3 contactNormal = ZERO_VECTOR;
             bool hasContact = false;
             ObjectContactManifold manifold;
-            if ( BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold ) )
+            bool manifoldBuilt = false;
             {
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
+                manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold );
+            }
+            if ( manifoldBuilt )
+            {
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
                 contactNormal = manifold.normal;
                 for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
                 {
