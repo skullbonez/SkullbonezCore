@@ -200,7 +200,7 @@
     {
       "id": "physics-shadow-worker-parallelization",
       "plan": "Agentic/Plans/physics-shadow-worker-parallelization-plan.md",
-      "state": "verifying",
+      "state": "done",
       "priority": 23,
       "branch": "codex/physics-shadow-worker-parallelization",
       "parent_branch": "codex/worker-system",
@@ -253,12 +253,15 @@
         "worker-system"
       ],
       "dependency_mode": "normal",
+      "archive_deferred": {
+        "reason": "User declared this item finished on 2026-06-18 and directed the queue to be cleared so the latest two plans can run."
+      },
       "report_required": true
     },
     {
       "id": "architecture-pass-2026-06-02",
       "plan": "Agentic/Plans/architecture_pass_2026-06-02.md",
-      "state": "ready",
+      "state": "skipped",
       "priority": 30,
       "branch": "codex/architecture-pass-2026-06-02",
       "parent_branch": "codex/dx12-render-graph-completion-second-look",
@@ -295,6 +298,100 @@
       ],
       "depends_on": [
         "dx12-render-graph-completion"
+      ],
+      "dependency_mode": "normal",
+      "skip_reason": "Queue cleared by user on 2026-06-18 to start the two latest active plans.",
+      "report_required": true
+    },
+    {
+      "id": "comment-style-audit-findings-2026-06-18",
+      "plan": "Agentic/Plans/comment-style-audit-findings-2026-06-18.md",
+      "state": "ready",
+      "priority": 5,
+      "branch": "codex/comment-style-audit-findings-2026-06-18",
+      "parent_branch": "codex/convex-hull-collision-implementation-plan",
+      "impact_area": [
+        "documentation",
+        "comments",
+        "DX12",
+        "physics",
+        "runtime",
+        "tools",
+        "shaders",
+        "UI",
+        "scene system"
+      ],
+      "validation_gate": "tools\\validate_full.bat",
+      "validation_notes": "This task implements the comment-style audit findings across source, shaders, hooks, tools, and tests. Use focused inspection while iterating. Because the scoped task can touch multiple engine areas and shader files, use tools\\validate_full.bat as the final PR-bound gate unless the worker narrows the final diff enough for a smaller gate and records why.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "parallel_group": "comment-style-cleanup",
+      "owned_globs": [
+        "Agentic/Plans/comment-style-audit-findings-2026-06-18.md",
+        ".githooks/*",
+        "Agentic/Tests/*",
+        "SkullbonezData/shaders/*",
+        "SkullbonezSource/*",
+        "SkullbonezSource/UI/*",
+        "tools/*"
+      ],
+      "conflicts_with_areas": [
+        "documentation",
+        "comments",
+        "DX12",
+        "physics",
+        "runtime",
+        "tools",
+        "shaders",
+        "UI",
+        "scene system"
+      ],
+      "depends_on": [],
+      "dependency_mode": "normal",
+      "report_required": true
+    },
+    {
+      "id": "codebase-top-10-cleanup",
+      "plan": "Agentic/Plans/codebase-top-10-cleanup-plan.md",
+      "state": "ready",
+      "priority": 6,
+      "branch": "codex/codebase-top-10-cleanup",
+      "parent_branch": "codex/comment-style-audit-findings-2026-06-18",
+      "impact_area": [
+        "architecture",
+        "runtime",
+        "DX12",
+        "physics",
+        "scene system",
+        "UI",
+        "tooling",
+        "diagnostics"
+      ],
+      "validation_gate": "tools\\validate_full.bat",
+      "validation_notes": "This user-directed task treats the top-10 cleanup plan as a scoped implementation task. The plan spans runtime, renderer, physics, parser, UI, tooling, diagnostics, and validation coverage, so use tools\\validate_full.bat as the final PR-bound gate unless the worker explicitly narrows the completed slice and records the smaller required gate.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "parallel_group": "top-10-cleanup",
+      "owned_globs": [
+        "Agentic/Plans/codebase-top-10-cleanup-plan.md",
+        "Agentic/Bugs.md",
+        "SkullbonezSource/*",
+        "SkullbonezSource/UI/*",
+        "SkullbonezData/*",
+        "tools/*"
+      ],
+      "conflicts_with_areas": [
+        "architecture",
+        "runtime",
+        "DX12",
+        "physics",
+        "scene system",
+        "UI",
+        "tooling",
+        "diagnostics"
+      ],
+      "depends_on": [
+        "comment-style-audit-findings-2026-06-18"
       ],
       "dependency_mode": "normal",
       "report_required": true
