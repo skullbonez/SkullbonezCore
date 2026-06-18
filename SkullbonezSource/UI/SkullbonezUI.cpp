@@ -1368,6 +1368,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_interaction.blocksCameraMouse = false;
     const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
+    result.unhandledWheelDelta = wheelDelta;
     if ( !m_window.isVisible )
     {
         return result;
@@ -1402,6 +1403,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     {
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
+        if ( insideMinimized )
+        {
+            result.unhandledWheelDelta = 0;
+        }
         if ( input.leftPressed && insideMinimized )
         {
             SetMinimized( false, now );
@@ -1429,6 +1434,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( inputHitBounds );
+
+    if ( inside )
+    {
+        result.unhandledWheelDelta = 0;
+    }
 
     m_tabBar.SetBounds( static_cast<float>( inputX + 14 ), static_cast<float>( inputY + titleH ), static_cast<float>( inputW - 28 ), static_cast<float>( tabH ) );
     const float footerX = static_cast<float>( inputX );

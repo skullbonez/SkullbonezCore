@@ -291,6 +291,7 @@ struct InGameUICommands
 struct InGameUIInputResult
 {
     InGameUICommands commands;
+    int unhandledWheelDelta = 0;
 };
 
 } // namespace UI

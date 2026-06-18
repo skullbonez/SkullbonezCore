@@ -77,6 +77,20 @@ float HullBottomOffset( const ConvexHullShape& hull )
 }
 
 
+float HullVerticalSize( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    float maxY = -FLT_MAX;
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        const float y = hull.GetVertex( i ).y;
+        minY = (std::min)( minY, y );
+        maxY = (std::max)( maxY, y );
+    }
+    return minY == FLT_MAX ? 1.0f : (std::max)( 1.0f, maxY - minY );
+}
+
+
 constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 
@@ -99,7 +113,6 @@ void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObjec
 
 constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
 constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
-constexpr float EDITOR_PLACEMENT_LIFT_MOUSE_SCALE = 32.0f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
 
@@ -149,6 +162,36 @@ const ConvexHullShape* CachedEditorHullForType( int objectType )
         loaded[type] = true;
     }
     return &hulls[type];
+}
+
+
+int EditorMouseWheelSteps( int wheelDelta )
+{
+    if ( wheelDelta == 0 )
+    {
+        return 0;
+    }
+    return wheelDelta / WHEEL_DELTA;
+}
+
+
+float EditorPlacementAltitudeStepSize( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
+        return 12.0f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
+        return 8.0f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
+        return 16.0f;
+    default:
+    {
+        const ConvexHullShape* hull = CachedEditorHullForType( type );
+        return hull ? HullVerticalSize( *hull ) : 1.0f;
+    }
+    }
 }
 
 
@@ -1287,9 +1330,6 @@ void SkullbonezRun::TakeInput()
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
         m_editor.tildeShortcutWasDown = false;
-        m_editor.placementLiftActive = false;
-        m_editor.placementLiftHasLastClient = false;
-        m_editor.placementLiftFramePixels = 0.0f;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
@@ -1342,6 +1382,7 @@ void SkullbonezRun::TakeInput()
         m_editor.gizmoDragIsRotation = false;
         m_editor.gizmoDragIsScale = false;
         m_editor.activeGizmoAxis = -1;
+        m_editor.placementAltitudeSteps = 0;
     };
     const auto ToggleEditorPlacementMode = [&]() -> void
     {
@@ -1666,6 +1707,7 @@ void SkullbonezRun::TakeInput()
     }
 
     bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
+    int editorUnhandledWheelDelta = 0;
     if ( m_systems.window )
     {
         const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
@@ -1676,6 +1718,7 @@ void SkullbonezRun::TakeInput()
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
+        editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
         const InGameUICommands& uiCommands = UIResult.commands;
         if ( uiCommands.ui.userInteracted )
         {
@@ -1715,7 +1758,12 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.editor.requestedObjectType >= 0 )
         {
-            m_editor.objectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+            const int requestedObjectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+            if ( requestedObjectType != m_editor.objectType )
+            {
+                m_editor.placementAltitudeSteps = 0;
+            }
+            m_editor.objectType = requestedObjectType;
         }
         if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
@@ -1752,8 +1800,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = -1;
-                m_editor.placementLiftActive = false;
-                m_editor.placementHeightOffset = 0.0f;
+                m_editor.placementAltitudeSteps = 0;
                 m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
                 m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
                 m_editor.restoreFlyModeAfterEditor = false;
@@ -2047,23 +2094,20 @@ void SkullbonezRun::TakeInput()
         }
         m_editor.viewportLookActive = editorViewportLookNow;
 
-        m_editor.placementLiftFramePixels = 0.0f;
-        const bool editorPlacementLiftNow = m_editor.editorModeEnabled && Input::IsMiddleMouseDown() && !m_UI.BlocksCameraMouse();
-        if ( editorPlacementLiftNow )
+        const int placementWheelSteps = EditorMouseWheelSteps( editorUnhandledWheelDelta );
+        if ( placementWheelSteps != 0 &&
+             m_editor.editorModeEnabled &&
+             m_editor.placementModeEnabled &&
+             !m_editor.viewportLookActive &&
+             !m_UI.BlocksCameraMouse() )
         {
-            const POINT currentClient = Input::GetClientMouseCoordinates();
-            if ( m_editor.placementLiftActive && m_editor.placementLiftHasLastClient )
+            const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
+            if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
             {
-                m_editor.placementLiftFramePixels = static_cast<float>( m_editor.placementLiftLastClient.y - currentClient.y );
+                EnterInteractiveSceneRun();
+                m_editor.placementAltitudeSteps = nextAltitudeSteps;
             }
-            m_editor.placementLiftLastClient = currentClient;
-            m_editor.placementLiftHasLastClient = true;
         }
-        else
-        {
-            m_editor.placementLiftHasLastClient = false;
-        }
-        m_editor.placementLiftActive = editorPlacementLiftNow;
         ApplyCursorOwnership();
     }
 
@@ -2417,23 +2461,6 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         }
 
         m_systems.cameras->ApplyPrimaryMovementBuffer();
-
-        if ( m_editor.placementLiftActive )
-        {
-            const float requestedLift = m_editor.placementLiftFramePixels *
-                                        EDITOR_PLACEMENT_LIFT_MOUSE_SCALE *
-                                        mouseMovementQty *
-                                        speedMult;
-            const float previousOffset = m_editor.placementHeightOffset;
-            const float nextOffset = (std::max)( 0.0f, previousOffset + requestedLift );
-            const float acceptedLift = nextOffset - previousOffset;
-            if ( fabsf( acceptedLift ) > TOLERANCE )
-            {
-                const Vector3 cameraPosition = m_systems.cameras->GetCameraTranslation();
-                m_systems.cameras->AmmendPrimaryY( cameraPosition.y + acceptedLift );
-                m_editor.placementHeightOffset = nextOffset;
-            }
-        }
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
@@ -2743,7 +2770,8 @@ bool SkullbonezRun::TryComputeEditorPlacementPreview( int objectType )
         }
     }
 
-    terrainPoint.y += m_editor.placementHeightOffset;
+    terrainPoint.y += static_cast<float>( m_editor.placementAltitudeSteps ) *
+                      EditorPlacementAltitudeStepSize( objectType );
 
     Vector3 center;
     if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, center ) )
