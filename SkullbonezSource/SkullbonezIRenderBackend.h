@@ -58,6 +58,17 @@ struct RenderCapabilities
     bool supportsDebugLines = false;
 };
 
+class IRenderCaptureBackend
+{
+  public:
+    virtual ~IRenderCaptureBackend() = default;
+
+    virtual RenderCapabilities GetCapabilities() const = 0;
+
+    // Returns BGR pixel data, bottom-up for BMP compatibility.
+    virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
+};
+
 
 /* -- IRenderBackend ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -69,7 +80,7 @@ struct RenderCapabilities
     root parameters, command allocator fences, and D3D12 barrier structs belong
     in RenderBackendDX12 and its helper subsystems, not in callers.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class IRenderBackend
+class IRenderBackend : public IRenderCaptureBackend
 {
 
   public:
@@ -138,11 +149,6 @@ class IRenderBackend
     virtual void DeleteTexture( uint32_t handle ) = 0;
 
 
-    // --- Screenshot (returns BGR pixel data, bottom-up for BMP compatibility) ---
-
-    virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
-
-
     // --- Window Dimensions ---
 
     virtual int GetWidth() const = 0;
@@ -160,7 +166,6 @@ class IRenderBackend
     // Runtime identity and optional feature flags. DX12 is the only renderer,
     // but the UI and diagnostics still consume this compact description.
     virtual const char* GetRendererName() const = 0;
-    virtual RenderCapabilities GetCapabilities() const = 0;
 
 
     // --- Frame Diagnostics ---
