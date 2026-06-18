@@ -467,6 +467,7 @@
     <None Include="SkullbonezData\shaders\solid_color_batch.hlsl" />
     <None Include="SkullbonezData\shaders\text.hlsl" />
     <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl" />
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.hlsl" />
     <None Include="SkullbonezData\shaders\unlit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\water_calm.hlsl" />
     <None Include="SkullbonezData\shaders\water_ocean.hlsl" />

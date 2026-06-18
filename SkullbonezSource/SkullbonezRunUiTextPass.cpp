@@ -250,6 +250,55 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.cinematicRendering = m_run.IsCinematicRenderingEnabled();
         UIData.ordinaryRender = Cfg().ordinaryRender;
         UIData.cinematic = m_run.ActiveCinematicConfig();
+        {
+            auto addPreview = [&]( const char* label, uint32_t textureHandle, int width, int height, bool available, bool depth, bool hdr )
+            {
+                if ( UIData.renderTargetPreviewCount >= SkullbonezCore::UI::UI_RENDER_TARGET_PREVIEW_MAX )
+                {
+                    return;
+                }
+
+                SkullbonezCore::UI::UIRenderTargetPreviewResource& preview = UIData.renderTargetPreviews[UIData.renderTargetPreviewCount++];
+                preview.label = label;
+                preview.textureHandle = textureHandle;
+                preview.width = width;
+                preview.height = height;
+                preview.available = available && textureHandle != 0 && width > 0 && height > 0;
+                preview.depth = depth;
+                preview.hdr = hdr;
+            };
+
+            auto addFramebufferPreview = [&]( const char* label, const SkullbonezCore::Rendering::IFramebuffer* target, bool depth, bool available )
+            {
+                const uint32_t textureHandle = target ? ( depth ? target->GetDepthTextureHandle() : target->GetColorTextureHandle() ) : 0;
+                const bool hdr = target && !depth && target->GetColorFormat() == SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
+                addPreview( label, textureHandle, target ? target->GetWidth() : 0, target ? target->GetHeight() : 0, available, depth, hdr );
+            };
+
+            const RunRenderPassResources& passes = m_run.m_systems.renderPasses;
+            const bool shadowsAvailable = UIData.cinematicRendering ? UIData.cinematic.shadowsEnabled : UIData.ordinaryRender.shadowsEnabled;
+            const bool cinematicTargetsAvailable = UIData.cinematicRendering;
+
+            addFramebufferPreview( "Reflection Color", passes.reflection.target.get(), false, passes.reflection.target != nullptr );
+            addFramebufferPreview( "Reflection Depth", passes.reflection.target.get(), true, passes.reflection.target != nullptr );
+            addFramebufferPreview( "Terrain Shadow Depth", passes.shadows.terrainTarget.get(), true, shadowsAvailable );
+            addFramebufferPreview( "Object Shadow Depth", passes.shadows.objectTarget.get(), true, shadowsAvailable );
+            addFramebufferPreview( "Terrain Shadow Color", passes.shadows.terrainTarget.get(), false, shadowsAvailable );
+            addFramebufferPreview( "Object Shadow Color", passes.shadows.objectTarget.get(), false, shadowsAvailable );
+            addFramebufferPreview( "Cinematic Scene Color", passes.cinematicScene.hdrTarget.get(), false, cinematicTargetsAvailable );
+            addFramebufferPreview( "Cinematic Scene Depth", passes.cinematicScene.hdrTarget.get(), true, cinematicTargetsAvailable );
+            addFramebufferPreview( "Volumetric Color", passes.volumetricLight.target.get(), false, cinematicTargetsAvailable && UIData.cinematic.volumetricLightingEnabled );
+            addFramebufferPreview( "Volumetric Depth", passes.volumetricLight.target.get(), true, cinematicTargetsAvailable && UIData.cinematic.volumetricLightingEnabled );
+
+            const uint32_t dxrReflection = IsGfxReady() ? Gfx().GetReflectionUAVTexture() : 0;
+            addPreview( "DXR Reflection",
+                        dxrReflection,
+                        m_run.WindowScreenWidth() * 2,
+                        m_run.WindowScreenHeight() * 2,
+                        UIData.waterRTReflect && !UIData.waterNoReflect,
+                        false,
+                        false );
+        }
         PROFILE_END( "Frame/UI/BuildData" );
 
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );

@@ -25,6 +25,7 @@ Related:
 
 #include "../SkullbonezCommon.h"
 #include "../SkullbonezConfig.h"
+#include "../SkullbonezIShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -42,6 +43,7 @@ Related:
 #include "UITabProfiler.h"
 #include "UITabScene.h"
 #include <cstdint>
+#include <memory>
 
 namespace SkullbonezCore
 {
@@ -56,9 +58,23 @@ enum class InGameUITab
     Physics,
     Options,
     Render,
+    Targets,
     Keys,
     Cinematic,
     Count
+};
+
+constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
+
+struct UIRenderTargetPreviewResource
+{
+    const char* label = "";
+    uint32_t textureHandle = 0;
+    int width = 0;
+    int height = 0;
+    bool available = false;
+    bool depth = false;
+    bool hdr = false;
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -144,6 +160,8 @@ struct InGameUIFrameData
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;
     Basics::CinematicRenderConfig cinematic;
+    UIRenderTargetPreviewResource renderTargetPreviews[UI_RENDER_TARGET_PREVIEW_MAX];
+    int renderTargetPreviewCount = 0;
 };
 
 class InGameUI
@@ -198,6 +216,7 @@ class InGameUI
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
     UIComboBox m_cineSceneCombo;
+    UIComboBox m_renderTargetCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
     UIButton m_saveRenderDefaultsButton;
@@ -206,6 +225,8 @@ class InGameUI
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
+    std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
+    uint32_t m_renderTargetPreviewVB = 0;
     UIScrollBar m_scrollBar;
     int m_mouseX = 0;
     int m_mouseY = 0;
@@ -216,6 +237,9 @@ class InGameUI
     int m_lastSolverBoxCount = 0;
     int m_lastWorkerThreadCount = 0;
     int m_lastMaxWorkerThreadCount = 1;
+    int m_lastRenderTargetPreviewCount = 0;
+    uint32_t m_lastRenderTargetDisabledMask = 0;
+    int m_selectedRenderTargetPreview = 0;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;

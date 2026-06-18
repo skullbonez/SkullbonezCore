@@ -759,6 +759,9 @@
     <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\ui_render_target_preview.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\unlit_textured.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
