@@ -1,0 +1,79 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 42,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 3,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        130,
+        470
+      ],
+      "view": [
+        500,
+        75,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "bullet_terrain",
+      "position": [
+        500,
+        130,
+        500
+      ],
+      "radius": 2.0,
+      "mass": 5.0,
+      "moment": 8.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        0,
+        -60000,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

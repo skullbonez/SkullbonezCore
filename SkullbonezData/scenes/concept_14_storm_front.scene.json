@@ -1,0 +1,291 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1014,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "storm_front"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        610,
+        142,
+        930
+      ],
+      "view": [
+        610,
+        48,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "lightning_a",
+      "position": [
+        590,
+        150,
+        500
+      ],
+      "halfExtents": [
+        3,
+        90,
+        3
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        24
+      ]
+    },
+    {
+      "type": "box",
+      "name": "lightning_b",
+      "position": [
+        635,
+        115,
+        515
+      ],
+      "halfExtents": [
+        3,
+        62,
+        3
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        -32
+      ]
+    },
+    {
+      "type": "box",
+      "name": "debris_01",
+      "position": [
+        440,
+        88,
+        555
+      ],
+      "halfExtents": [
+        24,
+        7,
+        15
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        8,
+        20,
+        16
+      ]
+    },
+    {
+      "type": "box",
+      "name": "debris_02",
+      "position": [
+        790,
+        86,
+        545
+      ],
+      "halfExtents": [
+        28,
+        8,
+        17
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        -8,
+        -25,
+        12
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        615,
+        52,
+        650
+      ],
+      "radius": 26.0,
+      "mass": 104.0,
+      "moment": 24.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_01",
+      "position": [
+        470,
+        58,
+        695
+      ],
+      "radius": 14.0,
+      "mass": 58.0,
+      "moment": 13.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        66,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_02",
+      "position": [
+        755,
+        56,
+        680
+      ],
+      "radius": 15.0,
+      "mass": 60.0,
+      "moment": 14.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        126,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_03",
+      "position": [
+        390,
+        74,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_04",
+      "position": [
+        520,
+        68,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        50,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_05",
+      "position": [
+        690,
+        66,
+        540
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rain_06",
+      "position": [
+        825,
+        78,
+        580
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cloud_ball",
+      "position": [
+        860,
+        175,
+        505
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    }
+  ]
+}

@@ -59,7 +59,7 @@ echo [3/4] Running DX12 perf tests...
 echo.
 echo Running dx12 perf test...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json
 if errorlevel 1 (
     echo FAIL: perf_test scene crashed for dx12.
     exit /b 4
@@ -77,7 +77,7 @@ if errorlevel 1 (
 echo.
 echo Running physics_bench physics perf test...
 del /q "%REPO%\Profile\varied_physics_perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json
 if errorlevel 1 (
     echo FAIL: physics_bench_varied scene crashed for physics_bench.
     exit /b 6

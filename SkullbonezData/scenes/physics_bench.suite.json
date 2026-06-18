@@ -1,0 +1,10 @@
+{
+  "format": "skullbonez.suite.json",
+  "version": 1,
+  "scenes": [
+    "SkullbonezData/scenes/physics_bench_solver_balls.scene.json",
+    "SkullbonezData/scenes/physics_bench_solver.scene.json",
+    "SkullbonezData/scenes/physics_bench_solver_boxes.scene.json",
+    "SkullbonezData/scenes/physics_bench_varied.scene.json"
+  ]
+}

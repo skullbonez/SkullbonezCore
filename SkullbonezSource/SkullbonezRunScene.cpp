@@ -29,6 +29,10 @@ Related:
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezWorkerPool.h"
 
+#pragma warning( push, 0 )
+#include "../ThirdPtySource/nlohmann/json.hpp"
+#pragma warning( pop )
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -39,6 +43,8 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+using Json = nlohmann::ordered_json;
+
 int NextSceneRand( unsigned int& state )
 {
     // Match the MSVC CRT sequence so seeded scene layouts stay stable while avoiding
@@ -93,6 +99,12 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "cine_" ) == name;
 }
 
+bool IsSceneJsonFile( const std::filesystem::path& path )
+{
+    const std::string name = path.filename().string();
+    return name.size() > 11 && name.compare( name.size() - 11, 11, ".scene.json" ) == 0;
+}
+
 bool IsSceneNameChar( char value )
 {
     return ( value >= 'a' && value <= 'z' ) ||
@@ -134,7 +146,7 @@ std::string SanitizeSceneFileName( const char* requestedName )
 
 std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName )
 {
-    std::filesystem::path candidate = sceneDir / ( baseName + ".scene" );
+    std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
     if ( !std::filesystem::exists( candidate ) )
     {
         return candidate;
@@ -143,7 +155,7 @@ std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, co
     for ( int suffix = 2; suffix < 1000; ++suffix )
     {
         char numberedName[80] = {};
-        snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene", baseName.c_str(), suffix );
+        snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene.json", baseName.c_str(), suffix );
         candidate = sceneDir / numberedName;
         if ( !std::filesystem::exists( candidate ) )
         {
@@ -161,150 +173,193 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
         return false;
     }
 
-    output << "# " << displayName << ".scene\n";
-    output << "# Created from the Scene tab.\n\n";
-    output << "physics on\n";
-    output << "text on\n";
-    output << "editable_scene on\n";
-    output << "frames unlimited\n";
-    output << "fixed_step\n";
-    output << "world -9.81 0.0 0.0\n";
-    output << "water_hidden on\n";
-    output << "flat_slope 30.0 0.0 0.0\n\n";
-    output << "camera main 500 120 760  500 45 500  0 1 0\n";
+    Json scene;
+    scene["format"] = "skullbonez.scene.json";
+    scene["version"] = 1;
+    scene["name"] = displayName;
+    scene["simulation"] = {
+        { "physics", true },
+        { "text", true },
+        { "world",
+          {
+              { "gravity", -9.81f },
+              { "fluidHeight", 0.0f },
+              { "fluidDensity", 0.0f },
+          } },
+    };
+    scene["editor"] = {
+        { "editableScene", true },
+    };
+    scene["playback"] = {
+        { "frames", "unlimited" },
+        { "fixedStep", true },
+    };
+    scene["debug"] = {
+        { "waterHidden", true },
+    };
+    scene["terrain"] = {
+        { "flatSlope",
+          {
+              { "baseY", 30.0f },
+              { "slopeX", 0.0f },
+              { "slopeZ", 0.0f },
+          } },
+    };
+    scene["cameras"] = Json::array( {
+        {
+            { "name", "main" },
+            { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
+            { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
+            { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
+        },
+    } );
+    scene["objects"] = Json::array();
+    output << scene.dump( 2 ) << '\n';
     return output.good();
 }
 
-void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64_t touchedMask, const CinematicRenderConfig& c )
+Json& EnsureJsonObject( Json& parent, const char* key )
+{
+    Json& child = parent[key];
+    if ( !child.is_object() )
+    {
+        child = Json::object();
+    }
+    return child;
+}
+
+void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask, const CinematicRenderConfig& c )
 {
     // Concept: save only values the UI actually touched.
     //
-    // Scene files can include reusable style files plus a few local overrides.
+    // Scene JSON can include reusable style files plus a few local overrides.
     // The touched mask prevents "Save Defaults" from expanding every engine.cfg
-    // or style default into the scene file. That keeps authored intent readable:
-    // only the controls changed in the UI are written back as scene directives.
-    char buf[256] = {};
+    // or style default into the scene file.
+    if ( touchedMask == 0 )
+    {
+        return;
+    }
+
+    Json& cinematic = EnsureJsonObject( root, "cinematic" );
     const auto writeBool = [&]( uint64_t bit, const char* key, bool value )
     {
         if ( ( touchedMask & bit ) != 0 )
         {
-            snprintf( buf, sizeof( buf ), "%s %s", key, OnOff( value ) );
-            SetSceneDirective( lines, key, buf, true );
+            cinematic[key] = value;
         }
     };
-    const auto writeFloat = [&]( uint64_t bit, const char* key, float value, const char* format )
+    const auto writeFloat = [&]( uint64_t bit, const char* key, float value )
     {
         if ( ( touchedMask & bit ) != 0 )
         {
-            snprintf( buf, sizeof( buf ), format, key, value );
-            SetSceneDirective( lines, key, buf, true );
+            cinematic[key] = value;
         }
     };
     const auto writeInt = [&]( uint64_t bit, const char* key, int value )
     {
         if ( ( touchedMask & bit ) != 0 )
         {
-            snprintf( buf, sizeof( buf ), "%s %d", key, value );
-            SetSceneDirective( lines, key, buf, true );
+            cinematic[key] = value;
         }
     };
 
-    writeBool( SCENE_CINE_RENDERING, "cinematic_rendering", c.enabled );
-    writeBool( SCENE_CINE_SKY_ATMOSPHERE, "cinematic_sky_atmosphere", c.skyAtmosphereEnabled );
-    writeBool( SCENE_CINE_CLOUDS, "cinematic_clouds", c.cloudsEnabled );
-    writeBool( SCENE_CINE_GOD_RAYS, "cinematic_god_rays", c.godRaysEnabled );
-    writeBool( SCENE_CINE_VOLUMETRIC_LIGHTING, "cinematic_volumetric_lighting", c.volumetricLightingEnabled );
-    writeBool( SCENE_CINE_BLOOM, "cinematic_bloom", c.bloomEnabled );
-    writeBool( SCENE_CINE_FOG, "cinematic_fog", c.fogEnabled );
-    writeBool( SCENE_CINE_TERRAIN_RELIEF_ENABLED, "cinematic_terrain_relief_enabled", c.terrainReliefEnabled );
+    writeBool( SCENE_CINE_RENDERING, "rendering", c.enabled );
+    writeBool( SCENE_CINE_SKY_ATMOSPHERE, "skyAtmosphere", c.skyAtmosphereEnabled );
+    writeBool( SCENE_CINE_CLOUDS, "clouds", c.cloudsEnabled );
+    writeBool( SCENE_CINE_GOD_RAYS, "godRays", c.godRaysEnabled );
+    writeBool( SCENE_CINE_VOLUMETRIC_LIGHTING, "volumetricLighting", c.volumetricLightingEnabled );
+    writeBool( SCENE_CINE_BLOOM, "bloom", c.bloomEnabled );
+    writeBool( SCENE_CINE_FOG, "fog", c.fogEnabled );
+    writeBool( SCENE_CINE_TERRAIN_RELIEF_ENABLED, "terrainReliefEnabled", c.terrainReliefEnabled );
 
-    writeFloat( SCENE_CINE_EXPOSURE, "cinematic_exposure", c.exposure, "%s %.2f" );
-    writeFloat( SCENE_CINE_GAMMA, "cinematic_gamma", c.gamma, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_SCREEN_X, "cinematic_sun_screen_x", c.sunScreenX, "%s %.3f" );
-    writeFloat( SCENE_CINE_SUN_SCREEN_Y, "cinematic_sun_screen_y", c.sunScreenY, "%s %.3f" );
-    writeFloat( SCENE_CINE_SUN_COLOR_R, "cinematic_sun_color_r", c.sunColorR, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_COLOR_G, "cinematic_sun_color_g", c.sunColorG, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_COLOR_B, "cinematic_sun_color_b", c.sunColorB, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_INTENSITY, "cinematic_sun_intensity", c.sunIntensity, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_HORIZON_R, "cinematic_sky_horizon_r", c.skyHorizonR, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_HORIZON_G, "cinematic_sky_horizon_g", c.skyHorizonG, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_HORIZON_B, "cinematic_sky_horizon_b", c.skyHorizonB, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_ZENITH_R, "cinematic_sky_zenith_r", c.skyZenithR, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_ZENITH_G, "cinematic_sky_zenith_g", c.skyZenithG, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_ZENITH_B, "cinematic_sky_zenith_b", c.skyZenithB, "%s %.2f" );
-    writeFloat( SCENE_CINE_SKY_GLOW_STRENGTH, "cinematic_sky_glow_strength", c.skyGlowStrength, "%s %.2f" );
-    writeFloat( SCENE_CINE_CLOUD_COVERAGE, "cinematic_cloud_coverage", c.cloudCoverage, "%s %.2f" );
-    writeFloat( SCENE_CINE_CLOUD_SOFTNESS, "cinematic_cloud_softness", c.cloudSoftness, "%s %.2f" );
-    writeFloat( SCENE_CINE_CLOUD_SCALE, "cinematic_cloud_scale", c.cloudScale, "%s %.2f" );
-    writeFloat( SCENE_CINE_CLOUD_INTENSITY, "cinematic_cloud_intensity", c.cloudIntensity, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_SHAFT_STRENGTH, "cinematic_sun_shaft_strength", c.sunShaftStrength, "%s %.2f" );
-    writeFloat( SCENE_CINE_SUN_SHAFT_FALLOFF, "cinematic_sun_shaft_falloff", c.sunShaftFalloff, "%s %.2f" );
-    writeFloat( SCENE_CINE_VOLUMETRIC_STRENGTH, "cinematic_volumetric_strength", c.volumetricStrength, "%s %.2f" );
-    writeFloat( SCENE_CINE_VOLUMETRIC_DENSITY, "cinematic_volumetric_density", c.volumetricDensity, "%s %.2f" );
-    writeFloat( SCENE_CINE_VOLUMETRIC_DECAY, "cinematic_volumetric_decay", c.volumetricDecay, "%s %.3f" );
-    writeFloat( SCENE_CINE_BLOOM_THRESHOLD, "cinematic_bloom_threshold", c.bloomThreshold, "%s %.2f" );
-    writeFloat( SCENE_CINE_BLOOM_KNEE, "cinematic_bloom_knee", c.bloomKnee, "%s %.2f" );
-    writeFloat( SCENE_CINE_BLOOM_STRENGTH, "cinematic_bloom_strength", c.bloomStrength, "%s %.2f" );
-    writeFloat( SCENE_CINE_BLOOM_RADIUS, "cinematic_bloom_radius", c.bloomRadius, "%s %.2f" );
-    writeFloat( SCENE_CINE_TERRAIN_RELIEF, "cinematic_terrain_relief", c.terrainRelief, "%s %.2f" );
-    writeFloat( SCENE_CINE_BASIN_DEPTH, "cinematic_basin_depth", c.basinDepth, "%s %.2f" );
-    writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "cinematic_basin_rim_lift", c.basinRimLift, "%s %.2f" );
-    writeBool( SCENE_CINE_SHADOWS, "cinematic_shadows", c.shadowsEnabled );
-    writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "cinematic_shadow_map_size", c.shadowMapSize );
-    writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "cinematic_shadow_pcf_radius", c.shadowPcfRadius );
-    writeFloat( SCENE_CINE_SHADOW_STRENGTH, "cinematic_shadow_strength", c.shadowStrength, "%s %.3f" );
-    writeFloat( SCENE_CINE_SHADOW_SOFTNESS, "cinematic_shadow_softness", c.shadowSoftness, "%s %.2f" );
-    writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "cinematic_shadow_depth_bias", c.shadowDepthBias, "%s %.5f" );
-    writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "cinematic_shadow_slope_bias", c.shadowSlopeBias, "%s %.5f" );
-    writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "cinematic_shadow_max_distance", c.shadowMaxDistance, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_COLOR_R, "cinematic_fog_color_r", c.fogColorR, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_COLOR_G, "cinematic_fog_color_g", c.fogColorG, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_COLOR_B, "cinematic_fog_color_b", c.fogColorB, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_START, "cinematic_fog_start", c.fogStart, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_END, "cinematic_fog_end", c.fogEnd, "%s %.2f" );
-    writeFloat( SCENE_CINE_FOG_DENSITY, "cinematic_fog_density", c.fogDensity, "%s %.5f" );
-    writeFloat( SCENE_CINE_FOG_MAX_OPACITY, "cinematic_fog_max_opacity", c.fogMaxOpacity, "%s %.2f" );
+    writeFloat( SCENE_CINE_EXPOSURE, "exposure", c.exposure );
+    writeFloat( SCENE_CINE_GAMMA, "gamma", c.gamma );
+    writeFloat( SCENE_CINE_SUN_SCREEN_X, "sunScreenX", c.sunScreenX );
+    writeFloat( SCENE_CINE_SUN_SCREEN_Y, "sunScreenY", c.sunScreenY );
+    writeFloat( SCENE_CINE_SUN_COLOR_R, "sunColorR", c.sunColorR );
+    writeFloat( SCENE_CINE_SUN_COLOR_G, "sunColorG", c.sunColorG );
+    writeFloat( SCENE_CINE_SUN_COLOR_B, "sunColorB", c.sunColorB );
+    writeFloat( SCENE_CINE_SUN_INTENSITY, "sunIntensity", c.sunIntensity );
+    writeFloat( SCENE_CINE_SKY_HORIZON_R, "skyHorizonR", c.skyHorizonR );
+    writeFloat( SCENE_CINE_SKY_HORIZON_G, "skyHorizonG", c.skyHorizonG );
+    writeFloat( SCENE_CINE_SKY_HORIZON_B, "skyHorizonB", c.skyHorizonB );
+    writeFloat( SCENE_CINE_SKY_ZENITH_R, "skyZenithR", c.skyZenithR );
+    writeFloat( SCENE_CINE_SKY_ZENITH_G, "skyZenithG", c.skyZenithG );
+    writeFloat( SCENE_CINE_SKY_ZENITH_B, "skyZenithB", c.skyZenithB );
+    writeFloat( SCENE_CINE_SKY_GLOW_STRENGTH, "skyGlowStrength", c.skyGlowStrength );
+    writeFloat( SCENE_CINE_CLOUD_COVERAGE, "cloudCoverage", c.cloudCoverage );
+    writeFloat( SCENE_CINE_CLOUD_SOFTNESS, "cloudSoftness", c.cloudSoftness );
+    writeFloat( SCENE_CINE_CLOUD_SCALE, "cloudScale", c.cloudScale );
+    writeFloat( SCENE_CINE_CLOUD_INTENSITY, "cloudIntensity", c.cloudIntensity );
+    writeFloat( SCENE_CINE_SUN_SHAFT_STRENGTH, "sunShaftStrength", c.sunShaftStrength );
+    writeFloat( SCENE_CINE_SUN_SHAFT_FALLOFF, "sunShaftFalloff", c.sunShaftFalloff );
+    writeFloat( SCENE_CINE_VOLUMETRIC_STRENGTH, "volumetricStrength", c.volumetricStrength );
+    writeFloat( SCENE_CINE_VOLUMETRIC_DENSITY, "volumetricDensity", c.volumetricDensity );
+    writeFloat( SCENE_CINE_VOLUMETRIC_DECAY, "volumetricDecay", c.volumetricDecay );
+    writeFloat( SCENE_CINE_BLOOM_THRESHOLD, "bloomThreshold", c.bloomThreshold );
+    writeFloat( SCENE_CINE_BLOOM_KNEE, "bloomKnee", c.bloomKnee );
+    writeFloat( SCENE_CINE_BLOOM_STRENGTH, "bloomStrength", c.bloomStrength );
+    writeFloat( SCENE_CINE_BLOOM_RADIUS, "bloomRadius", c.bloomRadius );
+    writeFloat( SCENE_CINE_TERRAIN_RELIEF, "terrainRelief", c.terrainRelief );
+    writeFloat( SCENE_CINE_BASIN_DEPTH, "basinDepth", c.basinDepth );
+    writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "basinRimLift", c.basinRimLift );
+    writeBool( SCENE_CINE_SHADOWS, "shadows", c.shadowsEnabled );
+    writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "shadowMapSize", c.shadowMapSize );
+    writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "shadowPcfRadius", c.shadowPcfRadius );
+    writeFloat( SCENE_CINE_SHADOW_STRENGTH, "shadowStrength", c.shadowStrength );
+    writeFloat( SCENE_CINE_SHADOW_SOFTNESS, "shadowSoftness", c.shadowSoftness );
+    writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "shadowDepthBias", c.shadowDepthBias );
+    writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "shadowSlopeBias", c.shadowSlopeBias );
+    writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "shadowMaxDistance", c.shadowMaxDistance );
+    writeFloat( SCENE_CINE_FOG_COLOR_R, "fogColorR", c.fogColorR );
+    writeFloat( SCENE_CINE_FOG_COLOR_G, "fogColorG", c.fogColorG );
+    writeFloat( SCENE_CINE_FOG_COLOR_B, "fogColorB", c.fogColorB );
+    writeFloat( SCENE_CINE_FOG_START, "fogStart", c.fogStart );
+    writeFloat( SCENE_CINE_FOG_END, "fogEnd", c.fogEnd );
+    writeFloat( SCENE_CINE_FOG_DENSITY, "fogDensity", c.fogDensity );
+    writeFloat( SCENE_CINE_FOG_MAX_OPACITY, "fogMaxOpacity", c.fogMaxOpacity );
 
     if ( ( touchedMask & SCENE_CINE_STYLE_MODES ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_style_modes %d %d %d %d", c.skyMode, c.terrainMode, c.objectStyle, c.waterMode );
-        SetSceneDirective( lines, "cinematic_style_modes", buf, true );
+        cinematic["styleModes"] = Json::array( { c.skyMode, c.terrainMode, c.objectStyle, c.waterMode } );
     }
     if ( ( touchedMask & SCENE_CINE_STYLE_GRADE ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_style_grade %.2f %.2f %.2f", c.styleSaturation, c.styleContrast, c.styleVignette );
-        SetSceneDirective( lines, "cinematic_style_grade", buf, true );
+        cinematic["styleGrade"] = Json::array( { c.styleSaturation, c.styleContrast, c.styleVignette } );
     }
     if ( ( touchedMask & SCENE_CINE_TERRAIN_TINT ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_terrain_tint %.2f %.2f %.2f", c.terrainTintR, c.terrainTintG, c.terrainTintB );
-        SetSceneDirective( lines, "cinematic_terrain_tint", buf, true );
+        cinematic["terrainTint"] = Json::array( { c.terrainTintR, c.terrainTintG, c.terrainTintB } );
     }
     if ( ( touchedMask & SCENE_CINE_TERRAIN_ACCENT ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_terrain_accent %.2f %.2f %.2f", c.terrainAccentR, c.terrainAccentG, c.terrainAccentB );
-        SetSceneDirective( lines, "cinematic_terrain_accent", buf, true );
+        cinematic["terrainAccent"] = Json::array( { c.terrainAccentR, c.terrainAccentG, c.terrainAccentB } );
     }
     if ( ( touchedMask & SCENE_CINE_TERRAIN_GRID ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_terrain_grid %.2f %.2f", c.terrainGridScale, c.terrainGridStrength );
-        SetSceneDirective( lines, "cinematic_terrain_grid", buf, true );
+        cinematic["terrainGrid"] = Json::array( { c.terrainGridScale, c.terrainGridStrength } );
     }
     if ( ( touchedMask & SCENE_CINE_WATER_TINT ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_water_tint %.2f %.2f %.2f", c.waterTintR, c.waterTintG, c.waterTintB );
-        SetSceneDirective( lines, "cinematic_water_tint", buf, true );
+        cinematic["waterTint"] = Json::array( { c.waterTintR, c.waterTintG, c.waterTintB } );
     }
     if ( ( touchedMask & SCENE_CINE_WATER_PROFILE ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_water_profile %.2f %.2f %.2f", c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength );
-        SetSceneDirective( lines, "cinematic_water_profile", buf, true );
+        cinematic["waterProfile"] = Json::array( { c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength } );
     }
     if ( ( touchedMask & SCENE_CINE_BASIN_MASK ) != 0 )
     {
-        snprintf( buf, sizeof( buf ), "cinematic_basin_mask %.2f %.2f %.2f %.2f %.2f", c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather );
-        SetSceneDirective( lines, "cinematic_basin_mask", buf, true );
+        cinematic["basinMask"] = Json::array( { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
     }
+}
+
+const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
+{
+    if ( noReflect )
+    {
+        return "none";
+    }
+    return rtReflect ? "dxr" : "fbo";
 }
 
 bool ConfigLineMatchesKey( const std::string& line, const char* key )
@@ -1270,7 +1325,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
-            // Other visual/debug controls are restored later after scene directives have loaded.
+            // Other visual/debug controls are restored later after scene JSON has loaded.
             ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
         }
 
@@ -1330,7 +1385,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         SceneState().timeScale = scene.GetTimeScale();
         SceneState().isFixedStep = scene.IsFixedStep();
         // Start with engine.cfg defaults, then apply only the cinematic fields
-        // that the .scene file explicitly authored.
+        // that the .scene.json file explicitly authored.
         SceneState().hasCinematicRenderingOverride = scene.HasCinematicRenderingOverride();
         SceneState().isCinematicRenderingEnabled = scene.IsCinematicRenderingEnabled();
         SceneState().hasCinematicExposure = scene.HasCinematicExposure();
@@ -1356,11 +1411,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             if ( !UIOptions.hasVisible )
             {
-                if ( isAutomationScene && !UIOptions.hasDirective )
+                if ( isAutomationScene && !UIOptions.hasSettings )
                 {
                     m_UI.SetVisible( false, UINow );
                 }
-                else if ( !UIOptions.hasDirective )
+                else if ( !UIOptions.hasSettings )
                 {
                     if ( !m_UI.IsVisible() )
                     {
@@ -1529,7 +1584,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
-            // Restore them after terrain/world directives and --no-water have resolved,
+            // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
             ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
         }
@@ -1761,95 +1816,95 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         return false;
     }
 
-    std::vector<std::string> lines;
-    std::string line;
-    while ( std::getline( input, line ) )
+    Json root;
+    try
     {
-        if ( !line.empty() && line.back() == '\r' )
-        {
-            line.pop_back();
-        }
-        lines.push_back( line );
+        input >> root;
+    }
+    catch ( const std::exception& )
+    {
+        return false;
     }
 
-    char buf[128] = {};
-    SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( SceneState().isScenePhysics ), true );
-    SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( SceneState().isSceneText ), true );
-    SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
-    SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
-    SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
-    // Deprecated directives are intentionally removed on save.  Keeping this
-    // cleanup here lets old local scene files self-heal without reintroducing
-    // parser support for legacy physics, physics_mode, or roll_align.
-    SetSceneDirective( lines, "legacy_balls", "", false );
-    SetSceneDirective( lines, "physics_mode", "", false );
-    SetSceneDirective( lines, "roll_align", "", false );
-    SetSceneDirective( lines, "fixed_step", "fixed_step", SceneState().isFixedStep );
+    if ( !root.is_object() )
+    {
+        return false;
+    }
+
+    root["format"] = "skullbonez.scene.json";
+    root["version"] = 1;
+    Json& simulation = EnsureJsonObject( root, "simulation" );
+    Json& playback = EnsureJsonObject( root, "playback" );
+    Json& runtime = EnsureJsonObject( root, "runtime" );
+    Json& debug = EnsureJsonObject( root, "debug" );
+    Json& physicsDebug = EnsureJsonObject( debug, "physics" );
+    Json& world = EnsureJsonObject( simulation, "world" );
+
+    simulation["physics"] = SceneState().isScenePhysics;
+    simulation["text"] = SceneState().isSceneText;
+    simulation["textOnly"] = m_debug.isTextOnly;
+    runtime["vsync"] = m_runtimeSettings.isVsyncEnabled;
+    runtime["pipelineSync"] = m_runtimeSettings.isPipelineSyncEnabled;
+    playback["fixedStep"] = SceneState().isFixedStep;
     if ( SceneState().targetFrameCount > 0 )
     {
-        snprintf( buf, sizeof( buf ), "frames %d", SceneState().targetFrameCount );
+        playback["frames"] = SceneState().targetFrameCount;
     }
     else
     {
-        strcpy_s( buf, sizeof( buf ), "frames unlimited" );
+        playback["frames"] = "unlimited";
     }
-    SetSceneDirective( lines, "frames", buf, true );
-    snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, SceneState().rngSeed ) );
-    SetSceneDirective( lines, "seed", buf, true );
-    SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", SceneState().isExitOnComplete );
-    SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
-    SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
-    SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
-    SetSceneDirective( lines, "physics_debug_pipeline", std::string( "physics_debug_pipeline " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 ), true );
-    SetSceneDirective( lines, "physics_debug_terrain_contact", std::string( "physics_debug_terrain_contact " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 ), true );
-    SetSceneDirective( lines, "physics_debug_transparent", std::string( "physics_debug_transparent " ) + OnOff( m_debug.isPhysicsDebugTransparent ), true );
-    snprintf( buf, sizeof( buf ), "physics_debug_alpha %.2f", m_debug.physicsDebugAlpha );
-    SetSceneDirective( lines, "physics_debug_alpha", buf, true );
-    snprintf( buf, sizeof( buf ), "physics_debug_contact_linger %.2f", m_debug.physicsDebugContactLinger );
-    SetSceneDirective( lines, "physics_debug_contact_linger", buf, true );
-    snprintf( buf, sizeof( buf ), "time_scale %.2f", SceneState().timeScale );
-    SetSceneDirective( lines, "time_scale", buf, true );
-    SetSceneDirective( lines, "collision_visualizer", std::string( "collision_visualizer " ) + OnOff( m_debug.isCollisionVisualizer ), true );
-    SetSceneDirective( lines, "broadphase_overlay", std::string( "broadphase_overlay " ) + OnOff( m_debug.isBroadphaseOverlay ), true );
-    SetSceneDirective( lines, "water_freeze", std::string( "water_freeze " ) + OnOff( m_debug.isWaterFreezeDebug ), true );
-    SetSceneDirective( lines, "water_flat", std::string( "water_flat " ) + OnOff( m_debug.isWaterFlatDebug ), true );
-    SetSceneDirective( lines, "water_hidden", std::string( "water_hidden " ) + OnOff( m_debug.isWaterHidden ), true );
-    SetSceneDirective( lines, "terrain_hidden", std::string( "terrain_hidden " ) + OnOff( m_debug.isTerrainHidden ), true );
-    SetSceneDirective( lines, "water_reflection", std::string( "water_reflection " ) + WaterReflectionDirectiveValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect ), true );
+
+    simulation["seed"] = (std::max)( 1u, SceneState().rngSeed );
+    simulation["timeScale"] = SceneState().timeScale;
+    playback["exitOnComplete"] = SceneState().isExitOnComplete;
+
+    physicsDebug["axes"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0;
+    physicsDebug["contacts"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0;
+    physicsDebug["sleep"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0;
+    physicsDebug["pipeline"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0;
+    physicsDebug["terrainContact"] = ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0;
+    physicsDebug["transparent"] = m_debug.isPhysicsDebugTransparent;
+    physicsDebug["alpha"] = m_debug.physicsDebugAlpha;
+    physicsDebug["contactLinger"] = m_debug.physicsDebugContactLinger;
+
+    debug["collisionVisualizer"] = m_debug.isCollisionVisualizer;
+    debug["broadphaseOverlay"] = m_debug.isBroadphaseOverlay;
+    debug["waterFreeze"] = m_debug.isWaterFreezeDebug;
+    debug["waterFlat"] = m_debug.isWaterFlatDebug;
+    debug["waterHidden"] = m_debug.isWaterHidden;
+    debug["terrainHidden"] = m_debug.isTerrainHidden;
+    debug["waterReflection"] = WaterReflectionJsonValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect );
     if ( m_camera.trackBallIndex >= 0 && m_camera.trackHeight > 0.0f )
     {
-        snprintf( buf, sizeof( buf ), "track_height %.2f", m_camera.trackHeight );
-        SetSceneDirective( lines, "track_height", buf, true );
+        playback["trackHeight"] = m_camera.trackHeight;
     }
     else
     {
-        SetSceneDirective( lines, "track_height", "", false );
+        playback.erase( "trackHeight" );
     }
     if ( m_camera.autoCycleInterval > 0.0f )
     {
-        snprintf( buf, sizeof( buf ), "auto_cycle_interval %.2f", m_camera.autoCycleInterval );
-        SetSceneDirective( lines, "auto_cycle_interval", buf, true );
+        playback["autoCycleInterval"] = m_camera.autoCycleInterval;
     }
     else
     {
-        SetSceneDirective( lines, "auto_cycle_interval", "", false );
+        playback.erase( "autoCycleInterval" );
     }
-    snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
-    SetSceneDirective( lines, "world", buf, true );
-    SetTouchedCinematicSceneDirectives( lines, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
+    world["gravity"] = m_cWorldEnvironment.GetGravity();
+    world["fluidHeight"] = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
+    SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
     if ( m_UIModelCountOverride >= 0 )
     {
-        snprintf( buf, sizeof( buf ), "solver_balls %d", m_UIModelCountOverride );
-        SetSceneDirective( lines, "solver_balls", buf, true );
-        SetSceneDirective( lines, "solver_boxes", "", false );
+        simulation["solverBalls"] = m_UIModelCountOverride;
+        simulation.erase( "solverBoxes" );
     }
     else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
     {
-        snprintf( buf, sizeof( buf ), "solver_balls %d", SceneState().solverBallCount );
-        SetSceneDirective( lines, "solver_balls", buf, true );
-        snprintf( buf, sizeof( buf ), "solver_boxes %d", SceneState().solverBoxCount );
-        SetSceneDirective( lines, "solver_boxes", buf, true );
+        simulation["solverBalls"] = SceneState().solverBallCount;
+        simulation["solverBoxes"] = SceneState().solverBoxCount;
     }
 
     std::ofstream output( *scenePath, std::ios::trunc );
@@ -1858,10 +1913,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         return false;
     }
 
-    for ( const std::string& outLine : lines )
-    {
-        output << outLine << '\n';
-    }
+    output << root.dump( 2 ) << '\n';
     return output.good();
 }
 
@@ -1979,7 +2031,7 @@ void SkullbonezRun::RefreshSceneBrowserList()
 
         for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
         {
-            if ( !entry.is_regular_file() || entry.path().extension() != ".scene" )
+            if ( !entry.is_regular_file() || !IsSceneJsonFile( entry.path() ) )
             {
                 continue;
             }
@@ -2235,7 +2287,7 @@ void SkullbonezRun::ApplyDemoHeroStyleOverride()
         return;
     }
 
-    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style";
+    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
     const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
     ApplyLiveStyleScene( styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );

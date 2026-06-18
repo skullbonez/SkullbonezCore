@@ -1,0 +1,281 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1020,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "pixar_inspired"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        650,
+        155,
+        900
+      ],
+      "view": [
+        610,
+        52,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "hill_l",
+      "position": [
+        420,
+        48,
+        650
+      ],
+      "halfExtents": [
+        80,
+        14,
+        34
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "hill_r",
+      "position": [
+        805,
+        45,
+        625
+      ],
+      "halfExtents": [
+        95,
+        13,
+        32
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "cloud_01",
+      "position": [
+        480,
+        155,
+        505
+      ],
+      "halfExtents": [
+        38,
+        10,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "cloud_02",
+      "position": [
+        760,
+        168,
+        520
+      ],
+      "halfExtents": [
+        44,
+        10,
+        20
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        56,
+        650
+      ],
+      "radius": 28.0,
+      "mass": 112.0,
+      "moment": 26.0,
+      "restitution": 0.48,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_01",
+      "position": [
+        470,
+        64,
+        705
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.44,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_02",
+      "position": [
+        760,
+        58,
+        690
+      ],
+      "radius": 16.0,
+      "mass": 66.0,
+      "moment": 15.0,
+      "restitution": 0.44,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_03",
+      "position": [
+        390,
+        80,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_04",
+      "position": [
+        520,
+        74,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_05",
+      "position": [
+        675,
+        70,
+        540
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cute_06",
+      "position": [
+        825,
+        82,
+        575
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "sky_buddy",
+      "position": [
+        870,
+        178,
+        505
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    }
+  ]
+}

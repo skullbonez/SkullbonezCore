@@ -1,0 +1,402 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "timeScale": 10.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 1800,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        340,
+        200,
+        430
+      ],
+      "view": [
+        520,
+        30,
+        540
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.012,
+      "slopeZ": -0.008
+    }
+  },
+  "objects": [
+    {
+      "type": "box",
+      "name": "base_a",
+      "position": [
+        486,
+        35.2,
+        500
+      ],
+      "halfExtents": [
+        5.0,
+        2.5,
+        4.0
+      ],
+      "mass": 60.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "base_b",
+      "position": [
+        497,
+        35.4,
+        501
+      ],
+      "halfExtents": [
+        4.0,
+        2.5,
+        4.0
+      ],
+      "mass": 55.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "base_c",
+      "position": [
+        508,
+        35.1,
+        499
+      ],
+      "halfExtents": [
+        5.0,
+        2.5,
+        3.5
+      ],
+      "mass": 58.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        17,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "mid_a",
+      "position": [
+        491,
+        43.5,
+        500
+      ],
+      "halfExtents": [
+        3.5,
+        3.0,
+        3.5
+      ],
+      "mass": 36.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        2,
+        23,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "mid_b",
+      "position": [
+        503,
+        44.0,
+        501
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        4.0
+      ],
+      "mass": 34.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        -3,
+        -19,
+        4
+      ]
+    },
+    {
+      "type": "box",
+      "name": "top_a",
+      "position": [
+        497,
+        52.0,
+        500
+      ],
+      "halfExtents": [
+        2.5,
+        2.5,
+        2.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        6,
+        33,
+        -5
+      ]
+    },
+    {
+      "type": "box",
+      "name": "top_b",
+      "position": [
+        508,
+        57.0,
+        503
+      ],
+      "halfExtents": [
+        2.0,
+        3.0,
+        2.5
+      ],
+      "mass": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        -8,
+        -27,
+        7
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_a",
+      "position": [
+        464,
+        39.0,
+        485
+      ],
+      "halfExtents": [
+        2.0,
+        5.0,
+        2.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        44
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_b",
+      "position": [
+        536,
+        39.0,
+        525
+      ],
+      "halfExtents": [
+        2.0,
+        5.0,
+        2.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        -42
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_c",
+      "position": [
+        478,
+        40.0,
+        542
+      ],
+      "halfExtents": [
+        1.8,
+        4.5,
+        2.2
+      ],
+      "mass": 22.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        18,
+        0,
+        39
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_d",
+      "position": [
+        526,
+        40.0,
+        462
+      ],
+      "halfExtents": [
+        2.2,
+        4.2,
+        1.8
+      ],
+      "mass": 22.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -16,
+        0,
+        -37
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_a",
+      "position": [
+        482,
+        82,
+        478
+      ],
+      "halfExtents": [
+        2.8,
+        2.8,
+        2.8
+      ],
+      "mass": 26.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        13,
+        22,
+        8
+      ],
+      "velocity": [
+        12,
+        -4,
+        10
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_b",
+      "position": [
+        518,
+        86,
+        530
+      ],
+      "halfExtents": [
+        3.2,
+        2.2,
+        3.0
+      ],
+      "mass": 28.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        -10,
+        -18,
+        17
+      ],
+      "velocity": [
+        -14,
+        -5,
+        -8
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_c",
+      "position": [
+        545,
+        94,
+        502
+      ],
+      "halfExtents": [
+        2.0,
+        4.0,
+        2.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        30,
+        4,
+        -14
+      ],
+      "velocity": [
+        -20,
+        -6,
+        2
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_d",
+      "position": [
+        456,
+        98,
+        520
+      ],
+      "halfExtents": [
+        4.0,
+        2.0,
+        2.5
+      ],
+      "mass": 30.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        -24,
+        12,
+        11
+      ],
+      "velocity": [
+        18,
+        -6,
+        -5
+      ]
+    }
+  ]
+}

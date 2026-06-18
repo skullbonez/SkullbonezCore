@@ -1,0 +1,266 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1006,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "none"
+  },
+  "styles": [
+    "desert_storm"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        575,
+        118,
+        870
+      ],
+      "view": [
+        610,
+        45,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "dune_ridge_l",
+      "position": [
+        430,
+        38,
+        665
+      ],
+      "halfExtents": [
+        92,
+        8,
+        18
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "dune_ridge_r",
+      "position": [
+        780,
+        36,
+        625
+      ],
+      "halfExtents": [
+        120,
+        7,
+        17
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        610,
+        50,
+        650
+      ],
+      "radius": 27.0,
+      "mass": 108.0,
+      "moment": 25.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "storm_01",
+      "position": [
+        470,
+        54,
+        690
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        56,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "storm_02",
+      "position": [
+        745,
+        50,
+        680
+      ],
+      "radius": 17.0,
+      "mass": 68.0,
+      "moment": 15.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        118,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dust_01",
+      "position": [
+        390,
+        70,
+        580
+      ],
+      "radius": 8.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dust_02",
+      "position": [
+        500,
+        64,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dust_03",
+      "position": [
+        640,
+        60,
+        530
+      ],
+      "radius": 7.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dust_04",
+      "position": [
+        805,
+        72,
+        560
+      ],
+      "radius": 8.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "silhouette_01",
+      "position": [
+        540,
+        126,
+        505
+      ],
+      "radius": 6.0,
+      "mass": 24.0,
+      "moment": 6.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "silhouette_02",
+      "position": [
+        800,
+        170,
+        520
+      ],
+      "radius": 9.0,
+      "mass": 30.0,
+      "moment": 8.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -306,7 +306,7 @@ void DumpActualFrameGraph( const ActualFrameGraphInputs& inputs )
 
 
 // The cinematic settings can come from two places:
-//  1. a .scene file, when a test/preview scene is loaded, or
+//  1. a .scene.json file, when a test/preview scene is loaded, or
 //  2. the normal engine config, when the app is running without a scene override.
 // This helper hides that choice so the render code below can just ask for "the
 // current cinematic look" without caring where it was authored.

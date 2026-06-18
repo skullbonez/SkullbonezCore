@@ -1,4 +1,4 @@
-﻿# Agent Instructions
+# Agent Instructions
 
 > Universal contract for any AI agent working on this repository.
 > Framework-agnostic: applies to any current or future AI coding agent.
@@ -195,7 +195,7 @@ tools\validate_build.bat Debug
 | Source code | `SkullbonezSource/` |
 | Shaders | `SkullbonezData/shaders/` |
 | Test scenes | `SkullbonezData/scenes/` |
-| Suite files | `SkullbonezData/scenes/*.suite` |
+| Suite files | `SkullbonezData/scenes/*.suite.json` |
 | Visual baselines | `TestOutput/baselines/*.png` |
 | Physics baselines | `TestOutput/baselines/*.csv` |
 | Perf baselines | `TestOutput/baselines/*_perf.json` |

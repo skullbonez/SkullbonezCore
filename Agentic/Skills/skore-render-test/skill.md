@@ -15,7 +15,7 @@ its targeted gate.
 tools\validate_dx12_renderer.bat
 ```
 
-This builds Profile, runs `SkullbonezData/scenes/render_tests.suite` with DX12, checks stdout/stderr, verifies DX12 InfoQueue output, and compares screenshots against committed DX12 baselines.
+This builds Profile, runs `SkullbonezData/scenes/render_tests.suite.json` with DX12, checks stdout/stderr, verifies DX12 InfoQueue output, and compares screenshots against committed DX12 baselines.
 
 Expected captures are written to `Profile\`:
 - `dx12_screenshot.bmp`, `dx12_solver_smoke.bmp`

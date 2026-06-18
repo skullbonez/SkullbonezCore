@@ -1,0 +1,269 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1004,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "neon_cyberpunk"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        135,
+        900
+      ],
+      "view": [
+        620,
+        42,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "black_tower_l",
+      "position": [
+        420,
+        118,
+        510
+      ],
+      "halfExtents": [
+        18,
+        92,
+        18
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "black_tower_r",
+      "position": [
+        805,
+        124,
+        500
+      ],
+      "halfExtents": [
+        20,
+        98,
+        20
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "neon_cyan_sign_l",
+      "position": [
+        420,
+        180,
+        535
+      ],
+      "halfExtents": [
+        4,
+        34,
+        16
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "neon_magenta_sign_r",
+      "position": [
+        805,
+        188,
+        530
+      ],
+      "halfExtents": [
+        4,
+        38,
+        16
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "neon_cyan_strip",
+      "position": [
+        620,
+        34,
+        690
+      ],
+      "halfExtents": [
+        230,
+        3,
+        5
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        52,
+        650
+      ],
+      "radius": 26.0,
+      "mass": 110.0,
+      "moment": 25.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        32,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "puddle_01",
+      "position": [
+        500,
+        42,
+        690
+      ],
+      "radius": 13.0,
+      "mass": 58.0,
+      "moment": 12.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        72,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "puddle_02",
+      "position": [
+        735,
+        40,
+        690
+      ],
+      "radius": 14.0,
+      "mass": 62.0,
+      "moment": 13.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        132,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "crowd_01",
+      "position": [
+        430,
+        50,
+        590
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "crowd_02",
+      "position": [
+        520,
+        46,
+        555
+      ],
+      "radius": 7.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "crowd_03",
+      "position": [
+        700,
+        45,
+        550
+      ],
+      "radius": 7.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "crowd_04",
+      "position": [
+        820,
+        52,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    }
+  ]
+}

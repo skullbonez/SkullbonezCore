@@ -27,7 +27,7 @@ param(
     [string]$Command = "status",
     [string]$Root = "Agentic\style-harness",
     [string]$Style = "low_poly_art_style",
-    [string]$Scene = "SkullbonezData\scenes\concept_12_low_poly_art_style.scene",
+    [string]$Scene = "SkullbonezData\scenes\concept_12_low_poly_art_style.scene.json",
     [ValidateSet("dx12")]
     [string]$Renderer = "dx12",
     [string]$Key = "",
@@ -50,7 +50,7 @@ function Resolve-RepoPath {
 }
 
 $HarnessRoot = Resolve-RepoPath $Root
-$LiveStylePath = Join-Path $HarnessRoot "live.style"
+$LiveStylePath = Join-Path $HarnessRoot "live.style.json"
 $CapturePath = Join-Path $HarnessRoot "capture.txt"
 $StatusPath = Join-Path $HarnessRoot "status.txt"
 $ShotRoot = Join-Path $HarnessRoot "shots"
@@ -60,11 +60,14 @@ function Ensure-Harness {
     New-Item -ItemType Directory -Force -Path $ShotRoot | Out-Null
 
     if ($Force -or -not (Test-Path $LiveStylePath)) {
-        @(
-            "# Live style descriptor watched by --live-style-control."
-            "# Keep this style-only: cinematic_* and object_material directives."
-            "style $Style"
-        ) | Set-Content -Path $LiveStylePath -Encoding ASCII
+        $root = [ordered]@{
+            format = "skullbonez.style.json"
+            version = 1
+            includes = @($Style)
+            cinematic = [ordered]@{}
+            objectMaterials = @()
+        }
+        $root | ConvertTo-Json -Depth 8 | Set-Content -Path $LiveStylePath -Encoding ASCII
     }
 
     if (-not (Test-Path $CapturePath)) {
@@ -72,33 +75,143 @@ function Ensure-Harness {
     }
 }
 
-function Set-StyleDirective {
+function Get-JsonMember {
     param(
-        [string]$Directive,
-        [string]$DirectiveValue
+        [object]$Object,
+        [string]$Name
     )
+    return $Object.PSObject.Properties[$Name]
+}
 
-    if ([string]::IsNullOrWhiteSpace($Directive)) {
-        throw "Set requires -Key <directive>."
+function Set-JsonMember {
+    param(
+        [object]$Object,
+        [string]$Name,
+        [object]$Value
+    )
+    $member = Get-JsonMember -Object $Object -Name $Name
+    if ($null -eq $member) {
+        $Object | Add-Member -MemberType NoteProperty -Name $Name -Value $Value
+    } else {
+        $member.Value = $Value
+    }
+}
+
+function Ensure-JsonObjectMember {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+    $member = Get-JsonMember -Object $Object -Name $Name
+    if ($null -eq $member -or $null -eq $member.Value) {
+        $child = [pscustomobject]@{}
+        Set-JsonMember -Object $Object -Name $Name -Value $child
+        return $child
+    }
+    return $member.Value
+}
+
+function Convert-ScalarStyleValue {
+    param([string]$RawValue)
+
+    $trimmed = $RawValue.Trim()
+    if ($trimmed -match '^(on|open|all|true|yes)$') {
+        return $true
+    }
+    if ($trimmed -match '^(off|closed|none|false|no)$') {
+        return $false
+    }
+    if ($trimmed -match '^-?\d+$') {
+        return [int]$trimmed
+    }
+    if ($trimmed -match '^-?(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?$' -or $trimmed -match '^-?\d+[eE][+-]?\d+$') {
+        return [double]::Parse($trimmed, [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    return $trimmed
+}
+
+function Convert-StyleValue {
+    param([string]$RawValue)
+
+    if ([string]::IsNullOrWhiteSpace($RawValue)) {
+        return $true
     }
 
-    Ensure-Harness
-    $replacement = if ([string]::IsNullOrWhiteSpace($DirectiveValue)) { $Directive } else { "$Directive $DirectiveValue" }
-    $lines = @(Get-Content -Path $LiveStylePath)
-    $matched = $false
-    for ($i = 0; $i -lt $lines.Count; ++$i) {
-        $trimmed = $lines[$i].TrimStart()
-        if ($trimmed -eq $Directive -or $trimmed.StartsWith("$Directive ")) {
-            $lines[$i] = $replacement
-            $matched = $true
-            break
+    $trimmed = $RawValue.Trim()
+    if ($trimmed.StartsWith("[") -or $trimmed.StartsWith("{") -or $trimmed.StartsWith('"')) {
+        try {
+            return $trimmed | ConvertFrom-Json
+        } catch {
+            throw "Value is not valid JSON: $RawValue"
         }
     }
-    if (-not $matched) {
-        $lines += $replacement
+
+    $parts = @($trimmed -split '[,\s]+' | Where-Object { $_ -ne "" })
+    if ($parts.Count -gt 1) {
+        $values = @($parts | ForEach-Object { Convert-ScalarStyleValue $_ })
+        return ,$values
     }
-    $lines | Set-Content -Path $LiveStylePath -Encoding ASCII
-    Write-Host "[style-harness] set $replacement"
+
+    return Convert-ScalarStyleValue $trimmed
+}
+
+function Convert-SnakeToCamel {
+    param([string]$Name)
+
+    $parts = @($Name -split '_' | Where-Object { $_ -ne "" })
+    if ($parts.Count -eq 0) {
+        return $Name
+    }
+    $camel = $parts[0].ToLowerInvariant()
+    for ($i = 1; $i -lt $parts.Count; ++$i) {
+        $part = $parts[$i].ToLowerInvariant()
+        $camel += $part.Substring(0, 1).ToUpperInvariant() + $part.Substring(1)
+    }
+    return $camel
+}
+
+function Read-LiveStyleJson {
+    Ensure-Harness
+    $root = Get-Content -Raw -Path $LiveStylePath | ConvertFrom-Json
+    Set-JsonMember -Object $root -Name "format" -Value "skullbonez.style.json"
+    Set-JsonMember -Object $root -Name "version" -Value 1
+    [void](Ensure-JsonObjectMember -Object $root -Name "cinematic")
+    return $root
+}
+
+function Write-LiveStyleJson {
+    param([object]$Root)
+    $Root | ConvertTo-Json -Depth 8 | Set-Content -Path $LiveStylePath -Encoding ASCII
+}
+
+function Set-StyleJsonValue {
+    param(
+        [string]$StyleKey,
+        [string]$StyleValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($StyleKey)) {
+        throw "Set requires -Key <json-path>."
+    }
+
+    $root = Read-LiveStyleJson
+    $value = Convert-StyleValue $StyleValue
+    $key = $StyleKey.Trim()
+
+    if ($key -eq "style" -or $key -eq "include") {
+        Set-JsonMember -Object $root -Name "includes" -Value @([string]$value)
+    } elseif ($key.StartsWith("cinematic.")) {
+        $field = $key.Substring("cinematic.".Length)
+        Set-JsonMember -Object (Ensure-JsonObjectMember -Object $root -Name "cinematic") -Name $field -Value $value
+    } elseif ($key.StartsWith("cinematic_")) {
+        $field = Convert-SnakeToCamel $key.Substring("cinematic_".Length)
+        Set-JsonMember -Object (Ensure-JsonObjectMember -Object $root -Name "cinematic") -Name $field -Value $value
+    } else {
+        Set-JsonMember -Object $root -Name $key -Value $value
+    }
+
+    Write-LiveStyleJson -Root $root
+    Write-Host "[style-harness] set $key"
 }
 
 function New-ShotPath {
@@ -159,13 +272,13 @@ switch ($Command) {
         Write-Host "[style-harness] launched pid $($process.Id)"
     }
     "set" {
-        Set-StyleDirective -Directive $Key -DirectiveValue $Value
+        Set-StyleJsonValue -StyleKey $Key -StyleValue $Value
     }
     "shot" {
         Request-Shot -ShotName $Name
     }
     "setshot" {
-        Set-StyleDirective -Directive $Key -DirectiveValue $Value
+        Set-StyleJsonValue -StyleKey $Key -StyleValue $Value
         Start-Sleep -Milliseconds 120
         Request-Shot -ShotName $Name
     }

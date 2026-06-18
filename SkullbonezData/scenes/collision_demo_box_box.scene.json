@@ -1,0 +1,95 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 900,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        380,
+        165,
+        580
+      ],
+      "view": [
+        500,
+        140,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "box_a",
+      "position": [
+        435,
+        144,
+        500
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ],
+      "velocity": [
+        18,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_b",
+      "position": [
+        565,
+        140,
+        500
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        15,
+        0
+      ],
+      "velocity": [
+        -18,
+        0,
+        0
+      ]
+    }
+  ]
+}

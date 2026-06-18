@@ -56,56 +56,56 @@ del /q "%REPO%\Debug\shooting_reaction_*.csv" 2>nul
 del /q "%REPO%\Debug\physics_known_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene --physics-regression-log Debug/physics_regression_solver.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/physics_regression_solver.scene.json --physics-regression-log Debug/physics_regression_solver.csv
 if errorlevel 1 (
     echo FAIL: physics_regression_solver crashed or errored.
     exit /b 2
 )
 
 echo   Running bullet_sweep_wall...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_wall.scene --physics-collision-time-log Debug/bullet_sweep_wall.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_wall.scene.json --physics-collision-time-log Debug/bullet_sweep_wall.csv
 if errorlevel 1 (
     echo FAIL: bullet_sweep_wall crashed or errored.
     exit /b 2
 )
 
 echo   Running bullet_sweep_object...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_object.scene --physics-collision-time-log Debug/bullet_sweep_object.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_object.scene.json --physics-collision-time-log Debug/bullet_sweep_object.csv
 if errorlevel 1 (
     echo FAIL: bullet_sweep_object crashed or errored.
     exit /b 2
 )
 
 echo   Running bullet_sweep_terrain...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_terrain.scene --physics-collision-time-log Debug/bullet_sweep_terrain.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/bullet_sweep_terrain.scene.json --physics-collision-time-log Debug/bullet_sweep_terrain.csv
 if errorlevel 1 (
     echo FAIL: bullet_sweep_terrain crashed or errored.
     exit /b 2
 )
 
 echo   Running shooting_reaction_volley...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/shooting_reaction_volley.scene --physics-regression-log Debug/shooting_reaction_volley.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/shooting_reaction_volley.scene.json --physics-regression-log Debug/shooting_reaction_volley.csv
 if errorlevel 1 (
     echo FAIL: shooting_reaction_volley crashed or errored.
     exit /b 2
 )
 
 echo   Running physics_known_stacking...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene --physics-regression-log Debug/physics_known_stacking.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/stacking.scene.json --physics-regression-log Debug/physics_known_stacking.csv
 if errorlevel 1 (
     echo FAIL: physics_known_stacking crashed or errored.
     exit /b 2
 )
 
 echo   Running physics_known_at_rest...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/at_rest.scene --physics-regression-log Debug/physics_known_at_rest.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/at_rest.scene.json --physics-regression-log Debug/physics_known_at_rest.csv
 if errorlevel 1 (
     echo FAIL: physics_known_at_rest crashed or errored.
     exit /b 2
 )
 
 echo   Running physics_known_terrain_contact...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/terrain_contact_probe_debug.scene --physics-regression-log Debug/physics_known_terrain_contact.csv
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --shadows off --scene SkullbonezData/scenes/terrain_contact_probe_debug.scene.json --physics-regression-log Debug/physics_known_terrain_contact.csv
 if errorlevel 1 (
     echo FAIL: physics_known_terrain_contact crashed or errored.
     exit /b 2

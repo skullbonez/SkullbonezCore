@@ -86,7 +86,7 @@ tools\validate_build.bat Debug
 2. Start the capture command from the repo root:
 
 ```powershell
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene --seed 4096348761 --no-water
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene.json --seed 4096348761 --no-water
 ```
 
 3. When a snapshot is needed, rerun the same command with `Debug\SKULLBONEZ_CORE.exe`, enter nudge
@@ -100,7 +100,7 @@ If a future detector writes a log, preserve hit artifacts before rerunning the s
 Example command:
 
 ```powershell
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene --no-water --seed 4096348761
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene.json --no-water --seed 4096348761
 ```
 
 Edge-rest predicate used for manual review and any future detector:

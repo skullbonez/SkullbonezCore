@@ -1,0 +1,156 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 998.0
+    }
+  },
+  "playback": {
+    "frames": 1200,
+    "fixedStep": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "TestOutput/box_flush_test.bmp",
+      "frame": 1200
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        80,
+        500
+      ],
+      "view": [
+        500,
+        35,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "box_flat_drop",
+      "position": [
+        500,
+        60,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.3,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "box_tilt_drop",
+      "position": [
+        520,
+        60,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        20
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_45_drop",
+      "position": [
+        540,
+        60,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        45
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_slope_drop",
+      "position": [
+        500,
+        60,
+        520
+      ],
+      "halfExtents": [
+        2.0,
+        3.0,
+        2.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        15,
+        0,
+        15
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_large",
+      "position": [
+        520,
+        70,
+        520
+      ],
+      "halfExtents": [
+        4.0,
+        1.5,
+        3.0
+      ],
+      "mass": 40.0,
+      "restitution": 0.2,
+      "fixed": false
+    }
+  ]
+}

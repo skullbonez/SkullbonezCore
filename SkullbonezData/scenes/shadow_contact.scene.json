@@ -1,0 +1,199 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "shadows": true,
+    "shadowMapSize": 2048,
+    "shadowPcfRadius": 1,
+    "shadowStrength": 0.72,
+    "shadowSoftness": 1.0,
+    "shadowDepthBias": 5e-05,
+    "shadowSlopeBias": 0.0001,
+    "shadowMaxDistance": 1400.0
+  },
+  "simulation": {
+    "seed": 6203,
+    "physics": false,
+    "text": true,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": 40,
+    "exitOnComplete": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/shadow_contact.bmp",
+      "frame": 40
+    }
+  },
+  "logging": {
+    "perfLog": "Profile/shadow_contact_perf_log.csv",
+    "perfLogFlush": false,
+    "perfLogFlushInterval": 0
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        145,
+        900
+      ],
+      "view": [
+        625,
+        38,
+        625
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "contact_ball_big",
+      "position": [
+        535,
+        58,
+        620
+      ],
+      "radius": 28.0,
+      "mass": 120.0,
+      "moment": 24.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        36,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "contact_ball_mid",
+      "position": [
+        635,
+        50,
+        660
+      ],
+      "radius": 20.0,
+      "mass": 85.0,
+      "moment": 18.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        112,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "contact_ball_small",
+      "position": [
+        720,
+        43,
+        610
+      ],
+      "radius": 13.0,
+      "mass": 52.0,
+      "moment": 10.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        184,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "contact_box_tall",
+      "position": [
+        470,
+        72,
+        690
+      ],
+      "halfExtents": [
+        15.0,
+        42.0,
+        15.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "contact_box_low",
+      "position": [
+        795,
+        39,
+        735
+      ],
+      "halfExtents": [
+        34.0,
+        9.0,
+        24.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "contact_pillar",
+      "position": [
+        650,
+        85,
+        535
+      ],
+      "halfExtents": [
+        10.0,
+        55.0,
+        10.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

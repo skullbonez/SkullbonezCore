@@ -2454,7 +2454,7 @@ void SkullbonezRun::TakeInput()
             for ( int tries = 0; tries < 100 && !saved; ++tries )
             {
                 char path[256];
-                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
+                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene.json", sSnapshotSeq++ );
                 saved = m_cGameModelCollection.SaveSceneSnapshot(
                     path,
                     SceneState().isScenePhysics,

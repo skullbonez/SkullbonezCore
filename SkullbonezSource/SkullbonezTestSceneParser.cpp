@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezTestSceneParser.cpp
 Purpose:
-  Parses plain-text .scene files into TestScene directives.
+  Loads JSON scene and style descriptions into TestScene data.
 
 Mental model:
   Runtime code connects authored scene data, input, simulation, render
@@ -13,24 +13,29 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - Command-line and scene-file spellings are user-facing compatibility
-  surface.
+  - Scene, style, and suite files are JSON documents.
+  - Command-line scene/style field names are user-facing compatibility surface.
 
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTestScene.h"
+
 #include <algorithm>
-#include <cerrno>
-#include <climits>
-#include <cstdarg>
-#include <cstdlib>
+#include <cctype>
 #include <cstring>
-#include <memory>
+#include <fstream>
+#include <iterator>
+#include <limits>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <thread>
 
+#pragma warning( push, 0 )
+#include "../ThirdPtySource/nlohmann/json.hpp"
+#pragma warning( pop )
 
 namespace SkullbonezCore
 {
@@ -38,6 +43,10 @@ namespace Basics
 {
 namespace
 {
+using Json = nlohmann::ordered_json;
+
+constexpr int kMaxStyleIncludeDepth = 8;
+
 struct SceneIntOption
 {
     const char* name;
@@ -45,16 +54,11 @@ struct SceneIntOption
 };
 
 template <size_t N>
-bool TryParseIntOption( const char* token, const SceneIntOption ( &options )[N], int& out )
+bool TryParseIntOption( const std::string& token, const SceneIntOption ( &options )[N], int& out )
 {
-    if ( !token )
-    {
-        return false;
-    }
-
     for ( const SceneIntOption& option : options )
     {
-        if ( strcmp( token, option.name ) == 0 )
+        if ( token == option.name )
         {
             out = option.value;
             return true;
@@ -63,14 +67,171 @@ bool TryParseIntOption( const char* token, const SceneIntOption ( &options )[N],
     return false;
 }
 
-bool ParseOnOff( const char* value, bool& out )
+std::string Lowercase( std::string value )
 {
-    if ( strcmp( value, "on" ) == 0 || strcmp( value, "open" ) == 0 || strcmp( value, "all" ) == 0 )
+    std::transform( value.begin(), value.end(), value.begin(), []( unsigned char c )
+                    { return static_cast<char>( std::tolower( c ) ); } );
+    return value;
+}
+
+bool EndsWith( const std::string& value, const char* suffix )
+{
+    const size_t valueLen = value.size();
+    const size_t suffixLen = strlen( suffix );
+    return valueLen >= suffixLen && value.compare( valueLen - suffixLen, suffixLen, suffix ) == 0;
+}
+
+std::string JsonTypeName( const Json& value )
+{
+    if ( value.is_null() )
+    {
+        return "null";
+    }
+    if ( value.is_boolean() )
+    {
+        return "bool";
+    }
+    if ( value.is_number() )
+    {
+        return "number";
+    }
+    if ( value.is_string() )
+    {
+        return "string";
+    }
+    if ( value.is_array() )
+    {
+        return "array";
+    }
+    if ( value.is_object() )
+    {
+        return "object";
+    }
+    return "value";
+}
+
+[[noreturn]] void Fail( const std::string& path, const std::string& detail )
+{
+    std::ostringstream message;
+    message << detail << " in " << path << "  (TestScene::LoadFromFile)";
+    throw std::runtime_error( message.str() );
+}
+
+void RequireObject( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_object() )
+    {
+        std::ostringstream message;
+        message << context << " must be an object, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+}
+
+void RequireArray( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_array() )
+    {
+        std::ostringstream message;
+        message << context << " must be an array, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+}
+
+const Json* FindMember( const Json& object, const char* key )
+{
+    if ( !object.is_object() )
+    {
+        return nullptr;
+    }
+    const auto it = object.find( key );
+    return it == object.end() ? nullptr : &( *it );
+}
+
+const Json& RequireMember( const Json& object, const std::string& path, const char* context, const char* key )
+{
+    RequireObject( object, path, context );
+    const Json* member = FindMember( object, key );
+    if ( !member )
+    {
+        std::ostringstream message;
+        message << context << " is missing required field '" << key << "'";
+        Fail( path, message.str() );
+    }
+    return *member;
+}
+
+std::string ReadString( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_string() )
+    {
+        std::ostringstream message;
+        message << context << " must be a string, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+    return value.get<std::string>();
+}
+
+float ReadFloat( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_number() )
+    {
+        std::ostringstream message;
+        message << context << " must be a number, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+    return value.get<float>();
+}
+
+int ReadInt( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_number_integer() && !value.is_number_unsigned() )
+    {
+        std::ostringstream message;
+        message << context << " must be an integer, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+    return value.get<int>();
+}
+
+unsigned int ReadUInt( const Json& value, const std::string& path, const char* context )
+{
+    if ( !value.is_number_integer() && !value.is_number_unsigned() )
+    {
+        std::ostringstream message;
+        message << context << " must be an unsigned integer, got " << JsonTypeName( value );
+        Fail( path, message.str() );
+    }
+    if ( value.is_number_unsigned() )
+    {
+        const unsigned long long parsed = value.get<unsigned long long>();
+        if ( parsed > ( std::numeric_limits<unsigned int>::max )() )
+        {
+            std::ostringstream message;
+            message << context << " must fit in uint32";
+            Fail( path, message.str() );
+        }
+        return static_cast<unsigned int>( parsed );
+    }
+
+    const long long parsed = value.get<long long>();
+    if ( parsed < 0 || parsed > ( std::numeric_limits<unsigned int>::max )() )
+    {
+        std::ostringstream message;
+        message << context << " must fit in uint32";
+        Fail( path, message.str() );
+    }
+    return static_cast<unsigned int>( parsed );
+}
+
+bool TryParseBoolWord( const std::string& value, bool& out )
+{
+    const std::string token = Lowercase( value );
+    if ( token == "on" || token == "open" || token == "all" || token == "true" || token == "yes" )
     {
         out = true;
         return true;
     }
-    if ( strcmp( value, "off" ) == 0 || strcmp( value, "closed" ) == 0 || strcmp( value, "none" ) == 0 )
+    if ( token == "off" || token == "closed" || token == "none" || token == "false" || token == "no" )
     {
         out = false;
         return true;
@@ -78,12 +239,109 @@ bool ParseOnOff( const char* value, bool& out )
     return false;
 }
 
-
-bool ParseUITab( const char* value, int& outTab )
+bool ReadBool( const Json& value, const std::string& path, const char* context )
 {
+    if ( value.is_boolean() )
+    {
+        return value.get<bool>();
+    }
+    if ( value.is_number_integer() || value.is_number_unsigned() )
+    {
+        return value.get<int>() != 0;
+    }
+    if ( value.is_string() )
+    {
+        bool parsed = false;
+        if ( TryParseBoolWord( value.get<std::string>(), parsed ) )
+        {
+            return parsed;
+        }
+    }
+
+    std::ostringstream message;
+    message << context << " must be a bool, got " << JsonTypeName( value );
+    Fail( path, message.str() );
+}
+
+template <size_t N>
+void CopyStringField( char ( &out )[N], const std::string& text )
+{
+    strncpy_s( out, N, text.c_str(), _TRUNCATE );
+}
+
+template <size_t N>
+void ReadRequiredStringField( char ( &out )[N], const Json& object, const std::string& path, const char* context, const char* key )
+{
+    CopyStringField( out, ReadString( RequireMember( object, path, context, key ), path, key ) );
+}
+
+void ReadVec3( const Json& value, const std::string& path, const char* context, float& x, float& y, float& z )
+{
+    RequireArray( value, path, context );
+    if ( value.size() != 3 )
+    {
+        std::ostringstream message;
+        message << context << " must contain exactly 3 numbers";
+        Fail( path, message.str() );
+    }
+    x = ReadFloat( value[0], path, context );
+    y = ReadFloat( value[1], path, context );
+    z = ReadFloat( value[2], path, context );
+}
+
+void ReadVec4( const Json& value, const std::string& path, const char* context, float& x, float& y, float& z, float& w )
+{
+    RequireArray( value, path, context );
+    if ( value.size() != 4 )
+    {
+        std::ostringstream message;
+        message << context << " must contain exactly 4 numbers";
+        Fail( path, message.str() );
+    }
+    x = ReadFloat( value[0], path, context );
+    y = ReadFloat( value[1], path, context );
+    z = ReadFloat( value[2], path, context );
+    w = ReadFloat( value[3], path, context );
+}
+
+Json ReadJsonFile( const std::string& path )
+{
+    std::ifstream input( path );
+    if ( !input )
+    {
+        Fail( path, "Failed to open JSON file" );
+    }
+
+    try
+    {
+        return Json::parse( input );
+    }
+    catch ( const std::exception& e )
+    {
+        std::ostringstream message;
+        message << "Invalid JSON: " << e.what();
+        Fail( path, message.str() );
+    }
+}
+
+int MaxConfigurableWorkerThreadCount()
+{
+    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
+    return (std::max)( 1, static_cast<int>( hardwareThreads ) );
+}
+
+int ParseUITab( const Json& value, const std::string& path )
+{
+    if ( value.is_number_integer() || value.is_number_unsigned() )
+    {
+        return value.get<int>();
+    }
+
+    const std::string tab = Lowercase( ReadString( value, path, "ui.tab" ) );
     static const SceneIntOption kTabs[] = {
         { "profiler", 0 },
         { "profile", 0 },
+        { "overview", 0 },
         { "scene", 1 },
         { "editor", 2 },
         { "placement", 2 },
@@ -98,2101 +356,1293 @@ bool ParseUITab( const char* value, int& outTab )
         { "cine", 7 },
         { "look", 7 },
     };
-    return TryParseIntOption( value, kTabs, outTab );
-}
 
-int MaxConfigurableWorkerThreadCount()
-{
-    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
-    return (std::max)( 1, static_cast<int>( hardwareThreads ) );
-}
-
-struct FileCloser
-{
-    void operator()( FILE* file ) const
+    int parsed = 0;
+    if ( TryParseIntOption( tab, kTabs, parsed ) )
     {
-        if ( file )
-        {
-            fclose( file );
-        }
+        return parsed;
     }
-};
+    Fail( path, "ui.tab has an unknown tab name: " + tab );
+}
 
-using SceneFileHandle = std::unique_ptr<FILE, FileCloser>;
+int ParseWaterReflectionMode( const Json& value, const std::string& path )
+{
+    if ( value.is_number_integer() || value.is_number_unsigned() )
+    {
+        return value.get<int>();
+    }
+
+    const std::string mode = Lowercase( ReadString( value, path, "debug.waterReflection" ) );
+    static const SceneIntOption kModes[] = {
+        { "fbo", 0 },
+        { "render_target", 0 },
+        { "render-target", 0 },
+        { "dxr", 1 },
+        { "raytraced", 1 },
+        { "ray_traced", 1 },
+        { "none", 2 },
+        { "off", 2 },
+    };
+    int parsed = 0;
+    if ( TryParseIntOption( mode, kModes, parsed ) )
+    {
+        return parsed;
+    }
+    Fail( path, "debug.waterReflection must be fbo, dxr, or none" );
+}
+
+uint32_t ParsePhysicsDebugMode( const Json& value, const std::string& path )
+{
+    const std::string mode = Lowercase( ReadString( value, path, "debug.physics.mode" ) );
+    if ( mode == "none" || mode == "off" )
+    {
+        return Physics::PHYSICS_DEBUG_NONE;
+    }
+    if ( mode == "axes" )
+    {
+        return Physics::PHYSICS_DEBUG_AXES;
+    }
+    if ( mode == "contacts" )
+    {
+        return Physics::PHYSICS_DEBUG_CONTACTS;
+    }
+    if ( mode == "sleep" )
+    {
+        return Physics::PHYSICS_DEBUG_SLEEP;
+    }
+    if ( mode == "pipeline" )
+    {
+        return Physics::PHYSICS_DEBUG_PIPELINE;
+    }
+    if ( mode == "terrain" || mode == "terrain_contact" || mode == "terrain-contact" || mode == "terrain_probe" || mode == "terrain-probe" )
+    {
+        return Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
+    }
+    if ( mode == "all" || mode == "on" )
+    {
+        return Physics::PHYSICS_DEBUG_ALL;
+    }
+    Fail( path, "debug.physics.mode must be none, axes, contacts, sleep, pipeline, terrain, or all" );
+}
+
+float ParseMaterialModeValue( const Json& value, const std::string& path, const char* context )
+{
+    if ( value.is_number() )
+    {
+        return value.get<float>();
+    }
+
+    const std::string token = Lowercase( ReadString( value, path, context ) );
+    static const SceneIntOption kMaterialModes[] = {
+        { "texture", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
+        { "textured", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
+        { "beachball", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
+        { "matte", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
+        { "solid", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
+        { "metal", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
+        { "chrome", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
+        { "emissive", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
+        { "neon", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
+        { "glass", static_cast<int>( Rendering::RenderMaterialKind::Glass ) },
+        { "toon", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
+        { "pixar", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
+        { "lowpoly", static_cast<int>( Rendering::RenderMaterialKind::LowPoly ) },
+        { "low_poly", static_cast<int>( Rendering::RenderMaterialKind::LowPoly ) },
+        { "shadow", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
+        { "black", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
+        { "foliage", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+        { "leaf", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+        { "leaves", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+        { "bark", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
+        { "trunk", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
+        { "stone", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
+        { "rock", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
+        { "ridge", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
+        { "distant", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
+        { "shore", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
+        { "sand", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
+        { "pine", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
+        { "conifer", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
+    };
+
+    int mode = 0;
+    if ( TryParseIntOption( token, kMaterialModes, mode ) )
+    {
+        return static_cast<float>( mode );
+    }
+    Fail( path, std::string( context ) + " has an unknown material mode: " + token );
+}
+
+void SetObjectMaterialBaseColor( SceneObjectMaterialOverride& material, float r, float g, float b )
+{
+    const bool mirrorEmissiveToBase =
+        material.material.kind == Rendering::RenderMaterialKind::Emissive &&
+        material.material.emissiveColor[0] == material.material.baseColor[0] &&
+        material.material.emissiveColor[1] == material.material.baseColor[1] &&
+        material.material.emissiveColor[2] == material.material.baseColor[2];
+
+    material.tintR = r;
+    material.tintG = g;
+    material.tintB = b;
+    material.material.baseColor[0] = r;
+    material.material.baseColor[1] = g;
+    material.material.baseColor[2] = b;
+    material.material.baseColor[3] = 1.0f;
+
+    if ( mirrorEmissiveToBase )
+    {
+        material.material.emissiveColor[0] = r;
+        material.material.emissiveColor[1] = g;
+        material.material.emissiveColor[2] = b;
+    }
+}
+
+float ReadUnitFloat( const Json& value, const std::string& path, const char* context )
+{
+    return std::clamp( ReadFloat( value, path, context ), 0.0f, 1.0f );
+}
+
 } // namespace
-
 
 class TestSceneParser
 {
   private:
-    using ParseFn = void ( TestSceneParser::* )( const char* args );
-
-    // Concept: scene parsing is table-driven command dispatch.
-    //
-    // Each plain-text directive name maps to one parser member function and an
-    // "expected" string used in error messages. That keeps scene-file syntax
-    // visible in one table instead of scattering strcmp chains throughout the
-    // parser. These names are user-facing compatibility surface; changing a
-    // spelling can break checked-in scenes and validation suites.
-    struct SceneDirective
-    {
-        const char* name;
-        ParseFn parse;
-        const char* expected;
-    };
-
-    struct UIDirective
-    {
-        const char* name;
-        ParseFn parse;
-        const char* expected;
-    };
-
-    const char* m_path = nullptr;
-    SceneFileHandle m_file;
-    int m_lineNumber = 0;
-
-    // Style files may include other style files. Keep a depth counter so a bad
-    // include loop reports a clean parser error instead of recursing forever.
-    int m_styleIncludeDepth = 0;
     TestScene m_scene;
 
-    static bool IsSpace( char c )
+    std::string ResolveStylePath( const std::string& token ) const
     {
-        return c == ' ' || c == '\t';
+        if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos || EndsWith( token, ".style.json" ) )
+        {
+            return token;
+        }
+        return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
     }
 
-    static bool MatchDirective( const char* line, const char* name, const char*& outArgs )
+    void LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth )
     {
-        const size_t nameLen = strlen( name );
-        if ( strncmp( line, name, nameLen ) != 0 )
+        const Json* includes = FindMember( root, memberName );
+        if ( !includes )
         {
-            return false;
-        }
-
-        if ( line[nameLen] == '\0' )
-        {
-            outArgs = line + nameLen;
-            return true;
-        }
-
-        if ( !IsSpace( line[nameLen] ) )
-        {
-            return false;
-        }
-
-        outArgs = line + nameLen;
-        while ( IsSpace( *outArgs ) )
-        {
-            ++outArgs;
-        }
-        return true;
-    }
-
-    static bool ReadToken( const char*& cursor, char* out, size_t outSize )
-    {
-        while ( IsSpace( *cursor ) )
-        {
-            ++cursor;
-        }
-
-        const char* start = cursor;
-        while ( *cursor != '\0' && !IsSpace( *cursor ) )
-        {
-            ++cursor;
-        }
-
-        const size_t len = static_cast<size_t>( cursor - start );
-        if ( len == 0 || outSize == 0 )
-        {
-            if ( outSize > 0 )
-            {
-                out[0] = '\0';
-            }
-            return false;
-        }
-
-        const size_t copyLen = ( len < outSize - 1 ) ? len : outSize - 1;
-        memcpy( out, start, copyLen );
-        out[copyLen] = '\0';
-        return true;
-    }
-
-    [[noreturn]] void Fail( const char* fmt, ... )
-    {
-        // Fail closes the file before throwing so Windows does not keep a stale
-        // handle open after parser errors. The line number is intentionally part
-        // of most messages because scene files are hand-authored text.
-        if ( m_file )
-        {
-            m_file.reset();
-        }
-
-        char detail[256] = {};
-        va_list args;
-        va_start( args, fmt );
-        vsprintf_s( detail, sizeof( detail ), fmt, args );
-        va_end( args );
-
-        char msg[384];
-        sprintf_s( msg, sizeof( msg ), "%s  (TestScene::LoadFromFile)", detail );
-        throw std::runtime_error( msg );
-    }
-
-    const char* RequireArgs( const char* directive, const char* args, const char* expected )
-    {
-        if ( !args || args[0] == '\0' )
-        {
-            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
-        }
-        return args;
-    }
-
-    static bool TryParseInt( const char* value, int& out )
-    {
-        if ( !value || value[0] == '\0' )
-        {
-            return false;
-        }
-
-        errno = 0;
-        char* end = nullptr;
-        const long parsed = strtol( value, &end, 10 );
-        if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
-        {
-            return false;
-        }
-
-        out = static_cast<int>( parsed );
-        return true;
-    }
-
-    static bool TryParseUnsignedInt( const char* value, unsigned int& out )
-    {
-        if ( !value || value[0] == '\0' || value[0] == '-' )
-        {
-            return false;
-        }
-
-        errno = 0;
-        char* end = nullptr;
-        const unsigned long long parsed = strtoull( value, &end, 10 );
-        if ( end == value || *end != '\0' || errno == ERANGE || parsed > UINT_MAX )
-        {
-            return false;
-        }
-
-        out = static_cast<unsigned int>( parsed );
-        return true;
-    }
-
-    static bool TryParseFloat( const char* value, float& out )
-    {
-        if ( !value || value[0] == '\0' )
-        {
-            return false;
-        }
-
-        errno = 0;
-        char* end = nullptr;
-        const double parsed = strtod( value, &end );
-        if ( end == value || *end != '\0' || errno == ERANGE )
-        {
-            return false;
-        }
-
-        out = static_cast<float>( parsed );
-        return true;
-    }
-
-    int ParseIntValue( const char* directive, const char* value )
-    {
-        int parsed = 0;
-        if ( !TryParseInt( value, parsed ) )
-        {
-            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
-        }
-        return parsed;
-    }
-
-    int ParseIntArg( const char* directive, const char* args, const char* expected )
-    {
-        return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
-    }
-
-    unsigned int ParseUnsignedIntValue( const char* directive, const char* value )
-    {
-        unsigned int parsed = 0;
-        if ( !TryParseUnsignedInt( value, parsed ) )
-        {
-            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
-        }
-        return parsed;
-    }
-
-    unsigned int ParseUnsignedIntArg( const char* directive, const char* args, const char* expected )
-    {
-        return ParseUnsignedIntValue( directive, RequireArgs( directive, args, expected ) );
-    }
-
-    int ParseNextIntToken( const char* directive, const char*& cursor, const char* expected )
-    {
-        char value[64] = {};
-        if ( !ReadToken( cursor, value, sizeof( value ) ) )
-        {
-            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
-        }
-        return ParseIntValue( directive, value );
-    }
-
-    void ParseNextToken( const char* directive, const char*& cursor, char* out, size_t outSize, const char* expected )
-    {
-        if ( !ReadToken( cursor, out, outSize ) )
-        {
-            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
-        }
-    }
-
-    int ParseTokenList( const char* directive, const char* args, const char* expected, char tokens[][64], int maxTokens )
-    {
-        const char* cursor = RequireArgs( directive, args, expected );
-        int count = 0;
-        while ( true )
-        {
-            while ( IsSpace( *cursor ) )
-            {
-                ++cursor;
-            }
-            if ( *cursor == '\0' )
-            {
-                return count;
-            }
-
-            char discard[64] = {};
-            char* target = ( count < maxTokens ) ? tokens[count] : discard;
-            ParseNextToken( directive, cursor, target, 64, expected );
-            ++count;
-        }
-    }
-
-    float ParseFloatValue( const char* directive, const char* value )
-    {
-        float parsed = 0.0f;
-        if ( !TryParseFloat( value, parsed ) )
-        {
-            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
-        }
-        return parsed;
-    }
-
-    float ParseFloatArg( const char* directive, const char* args, const char* expected )
-    {
-        return ParseFloatValue( directive, RequireArgs( directive, args, expected ) );
-    }
-
-    float ParseNextFloatToken( const char* directive, const char*& cursor, const char* expected )
-    {
-        char value[64] = {};
-        if ( !ReadToken( cursor, value, sizeof( value ) ) )
-        {
-            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
-        }
-        return ParseFloatValue( directive, value );
-    }
-
-    bool ParseOnOffOnly( const char* value, bool& out ) const
-    {
-        if ( strcmp( value, "on" ) == 0 )
-        {
-            out = true;
-            return true;
-        }
-        if ( strcmp( value, "off" ) == 0 )
-        {
-            out = false;
-            return true;
-        }
-        return false;
-    }
-
-    void ParseStrictOnOff( const char* directive, const char* value, bool& out )
-    {
-        if ( !ParseOnOffOnly( value, out ) )
-        {
-            Fail( "Invalid %s value at line %d: %s", directive, m_lineNumber, value );
-        }
-    }
-
-    void ParseAliasOnOff( const char* directive, const char* value, bool& out )
-    {
-        if ( !ParseOnOff( value, out ) )
-        {
-            Fail( "Invalid %s value at line %d: %s", directive, m_lineNumber, value );
-        }
-    }
-
-    float ParseMaterialModeValue( const char* directive, const char* value )
-    {
-        float parsed = 0.0f;
-        if ( TryParseFloat( value, parsed ) )
-        {
-            return parsed;
-        }
-
-        static const SceneIntOption kMaterialModes[] = {
-            { "texture", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
-            { "beachball", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
-            { "matte", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
-            { "solid", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
-            { "metal", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
-            { "chrome", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
-            { "emissive", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
-            { "neon", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
-            { "glass", static_cast<int>( Rendering::RenderMaterialKind::Glass ) },
-            { "toon", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
-            { "pixar", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
-            { "lowpoly", static_cast<int>( Rendering::RenderMaterialKind::LowPoly ) },
-            { "shadow", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
-            { "black", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
-            { "foliage", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
-            { "leaf", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
-            { "leaves", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
-            { "bark", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
-            { "trunk", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
-            { "stone", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
-            { "rock", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
-            { "ridge", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
-            { "distant", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
-            { "shore", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
-            { "sand", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
-            { "pine", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
-            { "conifer", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
-        };
-        int mode = 0;
-        if ( TryParseIntOption( value, kMaterialModes, mode ) )
-        {
-            return static_cast<float>( mode );
-        }
-
-        Fail( "Invalid %s material mode at line %d: %s", directive, m_lineNumber, value ? value : "" );
-    }
-
-    bool SplitKeyValueToken( const char* token, char* key, size_t keySize, const char*& value ) const
-    {
-        const char* equals = strchr( token, '=' );
-        if ( !equals || equals == token || equals[1] == '\0' || keySize == 0 )
-        {
-            return false;
-        }
-
-        const size_t keyLen = static_cast<size_t>( equals - token );
-        if ( keyLen >= keySize )
-        {
-            return false;
-        }
-
-        memcpy( key, token, keyLen );
-        key[keyLen] = '\0';
-        value = equals + 1;
-        return true;
-    }
-
-    float ParseMaterialOptionFloat( const char* key, const char* value )
-    {
-        float parsed = 0.0f;
-        if ( !TryParseFloat( value, parsed ) )
-        {
-            Fail( "Invalid object_material %s value at line %d: %s", key, m_lineNumber, value ? value : "" );
-        }
-        return parsed;
-    }
-
-    float ParseMaterialOptionUnitFloat( const char* key, const char* value )
-    {
-        return std::clamp( ParseMaterialOptionFloat( key, value ), 0.0f, 1.0f );
-    }
-
-    bool ReadCommaToken( const char*& cursor, char* out, size_t outSize, bool& outHadDelimiter ) const
-    {
-        outHadDelimiter = false;
-        if ( !cursor || !out || outSize == 0 || *cursor == '\0' )
-        {
-            return false;
-        }
-
-        const char* tokenBegin = cursor;
-        const char* comma = strchr( cursor, ',' );
-        const char* tokenEnd = comma ? comma : cursor + strlen( cursor );
-        const size_t tokenLength = static_cast<size_t>( tokenEnd - tokenBegin );
-        if ( tokenLength == 0 || tokenLength >= outSize )
-        {
-            return false;
-        }
-
-        memcpy( out, tokenBegin, tokenLength );
-        out[tokenLength] = '\0';
-        outHadDelimiter = comma != nullptr;
-        cursor = comma ? comma + 1 : tokenEnd;
-        return true;
-    }
-
-    void ParseMaterialOptionVec3( const char* key, const char* value, float& outR, float& outG, float& outB )
-    {
-        char partR[64] = {};
-        char partG[64] = {};
-        char partB[64] = {};
-        const char* cursor = value;
-        bool hasDelimiterAfterR = false;
-        bool hasDelimiterAfterG = false;
-        bool hasDelimiterAfterB = false;
-        if ( !ReadCommaToken( cursor, partR, sizeof( partR ), hasDelimiterAfterR ) ||
-             !hasDelimiterAfterR ||
-             !ReadCommaToken( cursor, partG, sizeof( partG ), hasDelimiterAfterG ) ||
-             !hasDelimiterAfterG ||
-             !ReadCommaToken( cursor, partB, sizeof( partB ), hasDelimiterAfterB ) ||
-             hasDelimiterAfterB ||
-             *cursor != '\0' )
-        {
-            Fail( "Invalid object_material %s value at line %d (expected r,g,b): %s", key, m_lineNumber, value ? value : "" );
-        }
-
-        outR = ParseMaterialOptionFloat( key, partR );
-        outG = ParseMaterialOptionFloat( key, partG );
-        outB = ParseMaterialOptionFloat( key, partB );
-    }
-
-    void SetObjectMaterialBaseColor( SceneObjectMaterialOverride& material, float r, float g, float b )
-    {
-        const bool mirrorEmissiveToBase =
-            material.material.kind == Rendering::RenderMaterialKind::Emissive &&
-            material.material.emissiveColor[0] == material.material.baseColor[0] &&
-            material.material.emissiveColor[1] == material.material.baseColor[1] &&
-            material.material.emissiveColor[2] == material.material.baseColor[2];
-
-        material.tintR = r;
-        material.tintG = g;
-        material.tintB = b;
-        material.material.baseColor[0] = r;
-        material.material.baseColor[1] = g;
-        material.material.baseColor[2] = b;
-        material.material.baseColor[3] = 1.0f;
-
-        if ( mirrorEmissiveToBase )
-        {
-            material.material.emissiveColor[0] = r;
-            material.material.emissiveColor[1] = g;
-            material.material.emissiveColor[2] = b;
-        }
-    }
-
-    void ApplyObjectMaterialOption( SceneObjectMaterialOverride& material, const char* token )
-    {
-        char key[64] = {};
-        const char* value = nullptr;
-        if ( !SplitKeyValueToken( token, key, sizeof( key ), value ) )
-        {
-            Fail( "Invalid object_material option at line %d (expected key=value): %s", m_lineNumber, token ? token : "" );
-        }
-
-        if ( strcmp( key, "tint" ) == 0 || strcmp( key, "base" ) == 0 || strcmp( key, "base_color" ) == 0 )
-        {
-            float r = 1.0f;
-            float g = 1.0f;
-            float b = 1.0f;
-            ParseMaterialOptionVec3( key, value, r, g, b );
-            SetObjectMaterialBaseColor( material, r, g, b );
-        }
-        else if ( strcmp( key, "roughness" ) == 0 )
-        {
-            material.material.roughness = ParseMaterialOptionUnitFloat( key, value );
-        }
-        else if ( strcmp( key, "metallic" ) == 0 || strcmp( key, "metalness" ) == 0 )
-        {
-            material.material.metallic = ParseMaterialOptionUnitFloat( key, value );
-        }
-        else if ( strcmp( key, "specular" ) == 0 )
-        {
-            material.material.specular = ParseMaterialOptionUnitFloat( key, value );
-        }
-        else if ( strcmp( key, "transmission" ) == 0 )
-        {
-            material.material.transmission = ParseMaterialOptionUnitFloat( key, value );
-        }
-        else if ( strcmp( key, "stylization" ) == 0 || strcmp( key, "style" ) == 0 )
-        {
-            material.material.stylization = ParseMaterialOptionUnitFloat( key, value );
-        }
-        else if ( strcmp( key, "emissive" ) == 0 || strcmp( key, "emissive_color" ) == 0 || strcmp( key, "emit_color" ) == 0 )
-        {
-            ParseMaterialOptionVec3( key,
-                                     value,
-                                     material.material.emissiveColor[0],
-                                     material.material.emissiveColor[1],
-                                     material.material.emissiveColor[2] );
-        }
-        else if ( strcmp( key, "strength" ) == 0 || strcmp( key, "emissive_strength" ) == 0 || strcmp( key, "emit" ) == 0 )
-        {
-            material.material.emissiveStrength = (std::max)( 0.0f, ParseMaterialOptionFloat( key, value ) );
-        }
-        else if ( strcmp( key, "flags" ) == 0 )
-        {
-            material.material.flags = static_cast<uint32_t>( ParseIntValue( key, value ) );
-        }
-        else if ( strcmp( key, "name" ) == 0 )
-        {
-            strncpy_s( material.material.name, sizeof( material.material.name ), value, _TRUNCATE );
-        }
-        else
-        {
-            Fail( "Unknown object_material option at line %d: %s", m_lineNumber, key );
-        }
-    }
-
-    void ParsePhysics( const char* args )
-    {
-        ParseStrictOnOff( "physics", RequireArgs( "physics", args, "physics on|off" ), m_scene.m_sceneOptions.isPhysicsEnabled );
-    }
-
-    void ParseText( const char* args )
-    {
-        ParseStrictOnOff( "text", RequireArgs( "text", args, "text on|off" ), m_scene.m_sceneOptions.isTextEnabled );
-    }
-
-    void ParseTextOnly( const char* args )
-    {
-        ParseStrictOnOff( "text_only", RequireArgs( "text_only", args, "text_only on|off" ), m_scene.m_sceneOptions.isTextOnly );
-    }
-
-    void ParseUI( const char* args )
-    {
-        args = RequireArgs( "ui", args, "ui <command> <value>" );
-
-        char command[64] = {};
-        const char* valueArgs = args;
-        if ( !ReadToken( valueArgs, command, sizeof( command ) ) )
-        {
-            Fail( "Invalid UI directive at line %d", m_lineNumber );
-        }
-        while ( IsSpace( *valueArgs ) )
-        {
-            ++valueArgs;
-        }
-        if ( valueArgs[0] == '\0' )
-        {
-            Fail( "Invalid UI directive at line %d", m_lineNumber );
-        }
-
-        m_scene.m_UIOptions.hasDirective = true;
-
-        static const UIDirective directives[] = {
-            { "visible", &TestSceneParser::ParseUIVisible, "ui visible on|off" },
-            { "minimized", &TestSceneParser::ParseUIMinimized, "ui minimized on|off" },
-            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <profiler|scene|physics|options|render|controls|cine>" },
-            { "rect", &TestSceneParser::ParseUIRect, "ui rect <x> <y> <w> <h>" },
-            { "blur", &TestSceneParser::ParseUIBlur, "ui blur on|off" },
-            { "renderer_combo", &TestSceneParser::ParseUIRendererCombo, "ui renderer_combo open|closed" },
-            { "water_combo", &TestSceneParser::ParseUIWaterCombo, "ui water_combo open|closed" },
-            { "scene_combo", &TestSceneParser::ParseUISceneCombo, "ui scene_combo open|closed" },
-            { "scene_filter", &TestSceneParser::ParseUISceneFilter, "ui scene_filter <text>" },
-            { "profiler_expand", &TestSceneParser::ParseUIProfilerExpand, "ui profiler_expand on|off" },
-            { "timeline", &TestSceneParser::ParseUITimeline, "ui timeline on|off" },
-            { "histogram", &TestSceneParser::ParseUIHistogram, "ui histogram on|off" },
-            { "hitboxes", &TestSceneParser::ParseUIHitboxes, "ui hitboxes on|off" },
-            { "scroll", &TestSceneParser::ParseUIScroll, "ui scroll <y|bottom>" },
-            { "mouse", &TestSceneParser::ParseUIMouse, "ui mouse <x> <y>" },
-            { "stress", &TestSceneParser::ParseUIStress, "ui stress on|off" },
-            { "stress_seed", &TestSceneParser::ParseUIStressSeed, "ui stress_seed <seed>" },
-            { "stress_actions", &TestSceneParser::ParseUIStressActions, "ui stress_actions <count>" },
-        };
-
-        for ( const UIDirective& directive : directives )
-        {
-            if ( strcmp( command, directive.name ) == 0 )
-            {
-                ( this->*directive.parse )( valueArgs );
-                return;
-            }
-        }
-
-        Fail( "Unknown UI directive at line %d: %s", m_lineNumber, command );
-    }
-
-    void ParseUIVisible( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI visible", args, parsedValue );
-        m_scene.m_UIOptions.hasVisible = true;
-        m_scene.m_UIOptions.isVisible = parsedValue;
-    }
-
-    void ParseUIMinimized( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI minimized", args, parsedValue );
-        m_scene.m_UIOptions.hasMinimized = true;
-        m_scene.m_UIOptions.isMinimized = parsedValue;
-    }
-
-    void ParseUITabDirective( const char* args )
-    {
-        char value[64] = {};
-        const char* cursor = args;
-        ReadToken( cursor, value, sizeof( value ) );
-        int tab = 0;
-        if ( !ParseUITab( value, tab ) )
-        {
-            Fail( "Invalid UI tab value at line %d: %s", m_lineNumber, value );
-        }
-        m_scene.m_UIOptions.hasActiveTab = true;
-        m_scene.m_UIOptions.activeTab = tab;
-    }
-
-    void ParseUIRect( const char* args )
-    {
-        const char* cursor = RequireArgs( "UI rect", args, "UI rect <x> <y> <w> <h>" );
-        const int x = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
-        const int y = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
-        const int w = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
-        const int h = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
-        if ( w <= 0 || h <= 0 )
-        {
-            Fail( "Invalid UI rect at line %d (expected: UI rect <x> <y> <w> <h>)", m_lineNumber );
-        }
-        m_scene.m_UIOptions.hasWindowRect = true;
-        m_scene.m_UIOptions.windowX = x;
-        m_scene.m_UIOptions.windowY = y;
-        m_scene.m_UIOptions.windowW = w;
-        m_scene.m_UIOptions.windowH = h;
-    }
-
-    void ParseUIBlur( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI blur", args, parsedValue );
-        m_scene.m_UIOptions.hasBlur = true;
-        m_scene.m_UIOptions.blurEnabled = parsedValue;
-    }
-
-    void ParseUIRendererCombo( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI renderer_combo", args, parsedValue );
-        m_scene.m_UIOptions.hasRendererComboOpen = true;
-        m_scene.m_UIOptions.rendererComboOpen = parsedValue;
-    }
-
-    void ParseUIWaterCombo( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI water_combo", args, parsedValue );
-        m_scene.m_UIOptions.hasWaterComboOpen = true;
-        m_scene.m_UIOptions.waterComboOpen = parsedValue;
-    }
-
-    void ParseUISceneCombo( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI scene_combo", args, parsedValue );
-        m_scene.m_UIOptions.hasSceneComboOpen = true;
-        m_scene.m_UIOptions.sceneComboOpen = parsedValue;
-    }
-
-    void ParseUISceneFilter( const char* args )
-    {
-        char value[64] = {};
-        const char* cursor = args;
-        if ( !ReadToken( cursor, value, sizeof( value ) ) )
-        {
-            Fail( "Invalid UI scene_filter value at line %d", m_lineNumber );
-        }
-        m_scene.m_UIOptions.hasSceneFilter = true;
-        strncpy_s( m_scene.m_UIOptions.sceneFilter, sizeof( m_scene.m_UIOptions.sceneFilter ), value, _TRUNCATE );
-    }
-
-    void ParseUIProfilerExpand( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI profiler_expand", args, parsedValue );
-        m_scene.m_UIOptions.hasProfilerExpandAll = true;
-        m_scene.m_UIOptions.profilerExpandAll = parsedValue;
-    }
-
-    void ParseUITimeline( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI timeline", args, parsedValue );
-        m_scene.m_UIOptions.hasProfilerTimeline = true;
-        m_scene.m_UIOptions.profilerTimeline = parsedValue;
-    }
-
-    void ParseUIHistogram( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI histogram", args, parsedValue );
-        m_scene.m_UIOptions.hasPerformanceHistogram = true;
-        m_scene.m_UIOptions.performanceHistogram = parsedValue;
-    }
-
-    void ParseUIHitboxes( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI hitboxes", args, parsedValue );
-        m_scene.m_UIOptions.hasHitboxOverlay = true;
-        m_scene.m_UIOptions.hitboxOverlay = parsedValue;
-    }
-
-    void ParseUIScroll( const char* args )
-    {
-        char value[64] = {};
-        const char* cursor = args;
-        if ( !ReadToken( cursor, value, sizeof( value ) ) )
-        {
-            Fail( "Invalid UI scroll value at line %d", m_lineNumber );
-        }
-        m_scene.m_UIOptions.hasScrollY = true;
-        m_scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : ParseFloatValue( "UI scroll", value );
-    }
-
-    void ParseUIMouse( const char* args )
-    {
-        const char* cursor = RequireArgs( "UI mouse", args, "UI mouse <x> <y>" );
-        const int x = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
-        const int y = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
-        m_scene.m_UIOptions.hasMouseOverride = true;
-        m_scene.m_UIOptions.mouseX = x;
-        m_scene.m_UIOptions.mouseY = y;
-    }
-
-    void ParseUIStress( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI stress", args, parsedValue );
-        m_scene.m_UIOptions.hasStress = true;
-        m_scene.m_UIOptions.stressEnabled = parsedValue;
-    }
-
-    void ParseUIStressSeed( const char* args )
-    {
-        const int seed = ParseIntArg( "UI stress_seed", args, "UI stress_seed <N>" );
-        if ( seed <= 0 )
-        {
-            Fail( "Invalid UI stress_seed value at line %d: %s", m_lineNumber, args );
-        }
-        m_scene.m_UIOptions.hasStressSeed = true;
-        m_scene.m_UIOptions.stressSeed = static_cast<unsigned int>( seed );
-    }
-
-    void ParseUIStressActions( const char* args )
-    {
-        const int actions = ParseIntArg( "UI stress_actions", args, "UI stress_actions <N>" );
-        if ( actions <= 0 )
-        {
-            Fail( "Invalid UI stress_actions value at line %d: %s", m_lineNumber, args );
-        }
-        m_scene.m_UIOptions.hasStressActions = true;
-        m_scene.m_UIOptions.stressActionsPerFrame = actions > 32 ? 32 : actions;
-    }
-
-    void ParseUITestPattern( const char* args )
-    {
-        bool parsedValue = false;
-        ParseAliasOnOff( "UI_test_pattern", RequireArgs( "ui_test_pattern", args, "ui_test_pattern on|off" ), parsedValue );
-        m_scene.m_UIOptions.hasTestPattern = true;
-        m_scene.m_UIOptions.testPatternEnabled = parsedValue;
-    }
-
-    void ParseFrames( const char* args )
-    {
-        args = RequireArgs( "frames", args, "frames <N|unlimited>" );
-        if ( strcmp( args, "unlimited" ) == 0 )
-        {
-            m_scene.m_sceneOptions.frameCount = -1;
             return;
         }
-
-        m_scene.m_sceneOptions.frameCount = ParseIntValue( "frames", args );
-        if ( m_scene.m_sceneOptions.frameCount <= 0 && strcmp( args, "-1" ) != 0 )
+        RequireArray( *includes, path, memberName );
+        for ( const Json& include : *includes )
         {
-            Fail( "Invalid frame count at line %d: %s", m_lineNumber, args );
-        }
-        if ( m_scene.m_sceneOptions.frameCount <= 0 )
-        {
-            m_scene.m_sceneOptions.frameCount = -1;
+            const std::string token = ReadString( include, path, memberName );
+            const std::string stylePath = ResolveStylePath( token );
+            LoadDocumentIntoScene( stylePath, true, depth + 1 );
         }
     }
 
-    void ParseScreenshot( const char* args )
+    void ApplyPlayback( const Json& playback, const std::string& path )
     {
-        const char* expected = "screenshot <path> frame|ms <N>";
-        const char* cursor = RequireArgs( "screenshot", args, expected );
-        char outPath[256] = {};
-        char triggerType[16] = {};
-        ParseNextToken( "screenshot", cursor, outPath, sizeof( outPath ), expected );
-        ParseNextToken( "screenshot", cursor, triggerType, sizeof( triggerType ), expected );
-        const int triggerValue = ParseNextIntToken( "screenshot", cursor, expected );
-
-        if ( triggerValue <= 0 )
+        RequireObject( playback, path, "playback" );
+        if ( const Json* frames = FindMember( playback, "frames" ) )
         {
-            Fail( "Invalid screenshot at line %d (expected: %s)", m_lineNumber, expected );
+            if ( frames->is_string() )
+            {
+                const std::string value = Lowercase( frames->get<std::string>() );
+                if ( value != "unlimited" )
+                {
+                    Fail( path, "playback.frames string value must be 'unlimited'" );
+                }
+                m_scene.m_sceneOptions.frameCount = -1;
+            }
+            else
+            {
+                m_scene.m_sceneOptions.frameCount = ReadInt( *frames, path, "playback.frames" );
+            }
         }
-
-        strcpy_s( m_scene.m_captureOptions.screenshotPath, sizeof( m_scene.m_captureOptions.screenshotPath ), outPath );
-
-        if ( strcmp( triggerType, "frame" ) == 0 )
+        if ( const Json* fixedStep = FindMember( playback, "fixedStep" ) )
         {
-            m_scene.m_captureOptions.screenshotFrame = triggerValue;
-            m_scene.m_captureOptions.screenshotMs = -1;
+            m_scene.m_sceneOptions.isFixedStep = ReadBool( *fixedStep, path, "playback.fixedStep" );
         }
-        else if ( strcmp( triggerType, "ms" ) == 0 )
+        if ( const Json* exitOnComplete = FindMember( playback, "exitOnComplete" ) )
         {
-            m_scene.m_captureOptions.screenshotMs = triggerValue;
-            m_scene.m_captureOptions.screenshotFrame = -1;
+            m_scene.m_sceneOptions.exitOnComplete = ReadBool( *exitOnComplete, path, "playback.exitOnComplete" );
         }
-        else
+        if ( const Json* trackHeight = FindMember( playback, "trackHeight" ) )
         {
-            Fail( "Invalid screenshot trigger '%s' at line %d (expected 'frame' or 'ms')", triggerType, m_lineNumber );
+            const float value = ReadFloat( *trackHeight, path, "playback.trackHeight" );
+            if ( value <= 0.0f )
+            {
+                Fail( path, "playback.trackHeight must be > 0" );
+            }
+            m_scene.m_sceneOptions.trackHeight = value;
         }
-    }
-
-    void ParseSeed( const char* args )
-    {
-        m_scene.m_sceneOptions.seed = ParseUnsignedIntArg( "seed", args, "seed <N>" );
-        if ( m_scene.m_sceneOptions.seed == 0 )
+        if ( const Json* autoCycle = FindMember( playback, "autoCycleInterval" ) )
         {
-            Fail( "Invalid seed at line %d (must be > 0)", m_lineNumber );
-        }
-    }
-
-    void ParsePerfLog( const char* args )
-    {
-        strcpy_s( m_scene.m_loggingOptions.perfLogPath, sizeof( m_scene.m_loggingOptions.perfLogPath ), RequireArgs( "perf_log", args, "perf_log <path>" ) );
-    }
-
-    void ParsePerfLogFlush( const char* args )
-    {
-        ParseStrictOnOff( "perf_log_flush", RequireArgs( "perf_log_flush", args, "perf_log_flush on|off" ), m_scene.m_loggingOptions.isPerfLogFlush );
-    }
-
-    void ParsePerfLogFlushInterval( const char* args )
-    {
-        m_scene.m_loggingOptions.perfLogFlushInterval = ParseIntArg( "perf_log_flush_interval", args, "perf_log_flush_interval <N>" );
-        if ( m_scene.m_loggingOptions.perfLogFlushInterval < 0 )
-        {
-            Fail( "Invalid perf_log_flush_interval at line %d (must be >= 0)", m_lineNumber );
+            const float value = ReadFloat( *autoCycle, path, "playback.autoCycleInterval" );
+            if ( value <= 0.0f )
+            {
+                Fail( path, "playback.autoCycleInterval must be > 0" );
+            }
+            m_scene.m_sceneOptions.autoCycleInterval = value;
         }
     }
 
-    void ParseVsync( const char* args )
+    void ApplySimulation( const Json& simulation, const std::string& path )
     {
-        m_scene.m_runtimeOverrides.hasVsyncOverride = true;
-        ParseStrictOnOff( "vsync", RequireArgs( "vsync", args, "vsync on|off" ), m_scene.m_runtimeOverrides.isVsyncEnabled );
+        RequireObject( simulation, path, "simulation" );
+        if ( const Json* physics = FindMember( simulation, "physics" ) )
+        {
+            m_scene.m_sceneOptions.isPhysicsEnabled = ReadBool( *physics, path, "simulation.physics" );
+        }
+        if ( const Json* text = FindMember( simulation, "text" ) )
+        {
+            m_scene.m_sceneOptions.isTextEnabled = ReadBool( *text, path, "simulation.text" );
+        }
+        if ( const Json* textOnly = FindMember( simulation, "textOnly" ) )
+        {
+            m_scene.m_sceneOptions.isTextOnly = ReadBool( *textOnly, path, "simulation.textOnly" );
+        }
+        if ( const Json* seed = FindMember( simulation, "seed" ) )
+        {
+            m_scene.m_sceneOptions.seed = ReadUInt( *seed, path, "simulation.seed" );
+        }
+        if ( const Json* timeScale = FindMember( simulation, "timeScale" ) )
+        {
+            const float value = ReadFloat( *timeScale, path, "simulation.timeScale" );
+            if ( value <= 0.0f )
+            {
+                Fail( path, "simulation.timeScale must be > 0" );
+            }
+            m_scene.m_sceneOptions.timeScale = value;
+        }
+        if ( const Json* solverBalls = FindMember( simulation, "solverBalls" ) )
+        {
+            const int value = ReadInt( *solverBalls, path, "simulation.solverBalls" );
+            if ( value < 0 )
+            {
+                Fail( path, "simulation.solverBalls must be >= 0" );
+            }
+            m_scene.m_sceneOptions.solverBallCount = value;
+        }
+        if ( const Json* solverBoxes = FindMember( simulation, "solverBoxes" ) )
+        {
+            const int value = ReadInt( *solverBoxes, path, "simulation.solverBoxes" );
+            if ( value < 0 )
+            {
+                Fail( path, "simulation.solverBoxes must be >= 0" );
+            }
+            m_scene.m_sceneOptions.solverBoxCount = value;
+        }
+        if ( const Json* modelCapacity = FindMember( simulation, "modelCapacity" ) )
+        {
+            const int value = ReadInt( *modelCapacity, path, "simulation.modelCapacity" );
+            if ( value <= 0 || value > MAX_GAME_MODELS )
+            {
+                Fail( path, "simulation.modelCapacity is out of range" );
+            }
+            m_scene.m_sceneOptions.modelCapacity = value;
+        }
+        if ( const Json* workerThreads = FindMember( simulation, "workerThreads" ) )
+        {
+            const int value = ReadInt( *workerThreads, path, "simulation.workerThreads" );
+            if ( value < -1 || value > MaxConfigurableWorkerThreadCount() )
+            {
+                Fail( path, "simulation.workerThreads is out of range" );
+            }
+            m_scene.m_sceneOptions.workerThreads = value;
+        }
+        if ( const Json* world = FindMember( simulation, "world" ) )
+        {
+            RequireObject( *world, path, "simulation.world" );
+            m_scene.m_worldOverride.hasWorldOverride = true;
+            m_scene.m_worldOverride.worldGravity = ReadFloat( RequireMember( *world, path, "simulation.world", "gravity" ), path, "simulation.world.gravity" );
+            m_scene.m_worldOverride.worldFluidHeight = ReadFloat( RequireMember( *world, path, "simulation.world", "fluidHeight" ), path, "simulation.world.fluidHeight" );
+            m_scene.m_worldOverride.worldFluidDensity = ReadFloat( RequireMember( *world, path, "simulation.world", "fluidDensity" ), path, "simulation.world.fluidDensity" );
+        }
     }
 
-    void ParsePipelineSync( const char* args )
+    void ApplyRuntime( const Json& runtime, const std::string& path )
     {
-        m_scene.m_runtimeOverrides.hasPipelineSyncOverride = true;
-        ParseStrictOnOff( "pipeline_sync", RequireArgs( "pipeline_sync", args, "pipeline_sync on|off" ), m_scene.m_runtimeOverrides.isPipelineSyncEnabled );
+        RequireObject( runtime, path, "runtime" );
+        if ( const Json* vsync = FindMember( runtime, "vsync" ) )
+        {
+            m_scene.m_runtimeOverrides.hasVsyncOverride = true;
+            m_scene.m_runtimeOverrides.isVsyncEnabled = ReadBool( *vsync, path, "runtime.vsync" );
+        }
+        if ( const Json* pipelineSync = FindMember( runtime, "pipelineSync" ) )
+        {
+            m_scene.m_runtimeOverrides.hasPipelineSyncOverride = true;
+            m_scene.m_runtimeOverrides.isPipelineSyncEnabled = ReadBool( *pipelineSync, path, "runtime.pipelineSync" );
+        }
     }
 
-    void ParseScreenshotAndExit( const char* )
+    void ApplyCapture( const Json& capture, const std::string& path )
     {
-        m_scene.m_sceneOptions.screenshotAndExit = true;
+        RequireObject( capture, path, "capture" );
+        if ( const Json* screenshot = FindMember( capture, "screenshot" ) )
+        {
+            RequireObject( *screenshot, path, "capture.screenshot" );
+            CopyStringField( m_scene.m_captureOptions.screenshotPath,
+                             ReadString( RequireMember( *screenshot, path, "capture.screenshot", "path" ), path, "capture.screenshot.path" ) );
+            if ( const Json* frame = FindMember( *screenshot, "frame" ) )
+            {
+                m_scene.m_captureOptions.screenshotFrame = ReadInt( *frame, path, "capture.screenshot.frame" );
+                m_scene.m_captureOptions.screenshotMs = -1;
+            }
+            if ( const Json* ms = FindMember( *screenshot, "ms" ) )
+            {
+                m_scene.m_captureOptions.screenshotMs = ReadInt( *ms, path, "capture.screenshot.ms" );
+                m_scene.m_captureOptions.screenshotFrame = -1;
+            }
+        }
+        if ( const Json* screenshotAndExit = FindMember( capture, "screenshotAndExit" ) )
+        {
+            m_scene.m_sceneOptions.screenshotAndExit = ReadBool( *screenshotAndExit, path, "capture.screenshotAndExit" );
+        }
+        if ( const Json* interval = FindMember( capture, "interval" ) )
+        {
+            RequireObject( *interval, path, "capture.interval" );
+            CopyStringField( m_scene.m_captureOptions.screenshotDir,
+                             ReadString( RequireMember( *interval, path, "capture.interval", "dir" ), path, "capture.interval.dir" ) );
+            const int frames = ReadInt( RequireMember( *interval, path, "capture.interval", "frames" ), path, "capture.interval.frames" );
+            if ( frames <= 0 )
+            {
+                Fail( path, "capture.interval.frames must be > 0" );
+            }
+            m_scene.m_captureOptions.screenshotInterval = frames;
+        }
     }
 
-    void ParseExitOnComplete( const char* )
+    void ApplyLogging( const Json& logging, const std::string& path )
     {
-        m_scene.m_sceneOptions.exitOnComplete = true;
+        RequireObject( logging, path, "logging" );
+        if ( const Json* perfLog = FindMember( logging, "perfLog" ) )
+        {
+            CopyStringField( m_scene.m_loggingOptions.perfLogPath, ReadString( *perfLog, path, "logging.perfLog" ) );
+        }
+        if ( const Json* flush = FindMember( logging, "perfLogFlush" ) )
+        {
+            m_scene.m_loggingOptions.isPerfLogFlush = ReadBool( *flush, path, "logging.perfLogFlush" );
+        }
+        if ( const Json* interval = FindMember( logging, "perfLogFlushInterval" ) )
+        {
+            m_scene.m_loggingOptions.perfLogFlushInterval = ReadInt( *interval, path, "logging.perfLogFlushInterval" );
+        }
     }
 
-    void ParseCollisionVisualizer( const char* args )
+    void ApplyPhysicsDebug( const Json& debug, const std::string& path )
     {
-        ParseAliasOnOff( "collision_visualizer", RequireArgs( "collision_visualizer", args, "collision_visualizer on|off" ), m_scene.m_sceneOptions.collisionVisualizer );
-    }
+        RequireObject( debug, path, "debug.physics" );
+        if ( const Json* mode = FindMember( debug, "mode" ) )
+        {
+            m_scene.m_sceneOptions.physicsDebugFlags = ParsePhysicsDebugMode( *mode, path );
+        }
 
-    void ParseBroadphaseOverlay( const char* args )
-    {
-        ParseAliasOnOff( "broadphase_overlay", RequireArgs( "broadphase_overlay", args, "broadphase_overlay on|off" ), m_scene.m_sceneOptions.broadphaseOverlay );
-    }
-
-    void ParseWaterFreeze( const char* args )
-    {
-        ParseAliasOnOff( "water_freeze", RequireArgs( "water_freeze", args, "water_freeze on|off" ), m_scene.m_sceneOptions.waterFreezeDebug );
-    }
-
-    void ParseWaterFlat( const char* args )
-    {
-        ParseAliasOnOff( "water_flat", RequireArgs( "water_flat", args, "water_flat on|off" ), m_scene.m_sceneOptions.waterFlatDebug );
-    }
-
-    void ParseWaterReflection( const char* args )
-    {
-        const char* value = RequireArgs( "water_reflection", args, "water_reflection fbo|dxr|none" );
-        static const SceneIntOption kWaterReflectionModes[] = {
-            { "fbo", 0 },
-            { "on", 0 },
-            { "dxr", 1 },
-            { "rt", 1 },
-            { "none", 2 },
-            { "off", 2 },
+        const auto applyFlag = [&]( const char* key, uint32_t flag )
+        {
+            if ( const Json* value = FindMember( debug, key ) )
+            {
+                if ( ReadBool( *value, path, key ) )
+                {
+                    m_scene.m_sceneOptions.physicsDebugFlags |= flag;
+                }
+                else
+                {
+                    m_scene.m_sceneOptions.physicsDebugFlags &= ~flag;
+                }
+            }
         };
-        int mode = 0;
-        if ( !TryParseIntOption( value, kWaterReflectionModes, mode ) )
+        applyFlag( "axes", Physics::PHYSICS_DEBUG_AXES );
+        applyFlag( "contacts", Physics::PHYSICS_DEBUG_CONTACTS );
+        applyFlag( "sleep", Physics::PHYSICS_DEBUG_SLEEP );
+        applyFlag( "pipeline", Physics::PHYSICS_DEBUG_PIPELINE );
+        applyFlag( "terrainContact", Physics::PHYSICS_DEBUG_TERRAIN_CONTACT );
+
+        if ( const Json* transparent = FindMember( debug, "transparent" ) )
         {
-            Fail( "Invalid water_reflection value at line %d", m_lineNumber );
+            m_scene.m_sceneOptions.physicsDebugTransparent = ReadBool( *transparent, path, "debug.physics.transparent" );
         }
-        m_scene.m_sceneOptions.waterReflectionMode = mode;
-    }
-
-    void ParseScreenshotInterval( const char* args )
-    {
-        const char* expected = "screenshot_interval <dir> <N>";
-        const char* cursor = RequireArgs( "screenshot_interval", args, expected );
-        char outDir[256] = {};
-        ParseNextToken( "screenshot_interval", cursor, outDir, sizeof( outDir ), expected );
-        const int intervalFrames = ParseNextIntToken( "screenshot_interval", cursor, expected );
-
-        if ( intervalFrames <= 0 )
+        if ( const Json* alpha = FindMember( debug, "alpha" ) )
         {
-            Fail( "Invalid screenshot_interval at line %d (expected: %s)", m_lineNumber, expected );
-        }
-
-        strcpy_s( m_scene.m_captureOptions.screenshotDir, sizeof( m_scene.m_captureOptions.screenshotDir ), outDir );
-        m_scene.m_captureOptions.screenshotInterval = intervalFrames;
-    }
-
-    void ParseCamera( const char* args )
-    {
-        if ( static_cast<int>( m_scene.m_cameras.size() ) >= TOTAL_CAMERA_COUNT )
-        {
-            Fail( "Too many cameras at line %d (max %d)", m_lineNumber, TOTAL_CAMERA_COUNT );
-        }
-
-        const char* expected = "camera <name> <pos> <view> <up>";
-        const char* cursor = RequireArgs( "camera", args, expected );
-        SceneCamera cam;
-        memset( &cam, 0, sizeof( cam ) );
-
-        ParseNextToken( "camera", cursor, cam.name, sizeof( cam.name ), expected );
-        cam.m_position.x = ParseNextFloatToken( "camera", cursor, expected );
-        cam.m_position.y = ParseNextFloatToken( "camera", cursor, expected );
-        cam.m_position.z = ParseNextFloatToken( "camera", cursor, expected );
-        cam.view.x = ParseNextFloatToken( "camera", cursor, expected );
-        cam.view.y = ParseNextFloatToken( "camera", cursor, expected );
-        cam.view.z = ParseNextFloatToken( "camera", cursor, expected );
-        cam.up.x = ParseNextFloatToken( "camera", cursor, expected );
-        cam.up.y = ParseNextFloatToken( "camera", cursor, expected );
-        cam.up.z = ParseNextFloatToken( "camera", cursor, expected );
-
-        m_scene.m_cameras.push_back( cam );
-    }
-
-    void IncludeStyleFile( const char* token )
-    {
-        if ( m_styleIncludeDepth >= 8 )
-        {
-            Fail( "Style include depth exceeded at line %d", m_lineNumber );
-        }
-
-        char stylePath[300] = {};
-        if ( strchr( token, '/' ) || strchr( token, '\\' ) || strstr( token, ".style" ) )
-        {
-            strcpy_s( stylePath, sizeof( stylePath ), token );
-        }
-        else
-        {
-            sprintf_s( stylePath, sizeof( stylePath ), "SkullbonezData/styles/%s.style", token );
-        }
-
-        FILE* rawStyleFile = nullptr;
-        const errno_t err = fopen_s( &rawStyleFile, stylePath, "r" );
-        if ( err != 0 || !rawStyleFile )
-        {
-            Fail( "Failed to open style file at line %d: %s", m_lineNumber, stylePath );
-        }
-
-        SceneFileHandle styleFile( rawStyleFile );
-        const int parentLineNumber = m_lineNumber;
-        ++m_styleIncludeDepth;
-
-        char line[512];
-        int styleLineNumber = 0;
-        while ( fgets( line, sizeof( line ), styleFile.get() ) )
-        {
-            ++styleLineNumber;
-            m_lineNumber = styleLineNumber;
-
-            size_t len = strlen( line );
-            while ( len > 0 && ( line[len - 1] == '\n' || line[len - 1] == '\r' ) )
+            const float value = ReadFloat( *alpha, path, "debug.physics.alpha" );
+            if ( value < 0.05f || value > 1.0f )
             {
-                line[--len] = '\0';
+                Fail( path, "debug.physics.alpha must be 0.05..1.0" );
             }
-
-            if ( line[0] == '\0' || line[0] == '#' )
+            m_scene.m_sceneOptions.physicsDebugAlpha = value;
+        }
+        if ( const Json* linger = FindMember( debug, "contactLinger" ) )
+        {
+            const float value = ReadFloat( *linger, path, "debug.physics.contactLinger" );
+            if ( value < 0.0f || value > 5.0f )
             {
-                continue;
+                Fail( path, "debug.physics.contactLinger must be 0.0..5.0" );
             }
+            m_scene.m_sceneOptions.physicsDebugContactLinger = value;
+        }
+    }
 
-            if ( !DispatchStyleLine( line ) )
+    void ApplyDebug( const Json& debug, const std::string& path )
+    {
+        RequireObject( debug, path, "debug" );
+        if ( const Json* collisionVisualizer = FindMember( debug, "collisionVisualizer" ) )
+        {
+            m_scene.m_sceneOptions.collisionVisualizer = ReadBool( *collisionVisualizer, path, "debug.collisionVisualizer" );
+        }
+        if ( const Json* broadphaseOverlay = FindMember( debug, "broadphaseOverlay" ) )
+        {
+            m_scene.m_sceneOptions.broadphaseOverlay = ReadBool( *broadphaseOverlay, path, "debug.broadphaseOverlay" );
+        }
+        if ( const Json* waterFreeze = FindMember( debug, "waterFreeze" ) )
+        {
+            m_scene.m_sceneOptions.waterFreezeDebug = ReadBool( *waterFreeze, path, "debug.waterFreeze" );
+        }
+        if ( const Json* waterFlat = FindMember( debug, "waterFlat" ) )
+        {
+            m_scene.m_sceneOptions.waterFlatDebug = ReadBool( *waterFlat, path, "debug.waterFlat" );
+        }
+        if ( const Json* waterReflection = FindMember( debug, "waterReflection" ) )
+        {
+            m_scene.m_sceneOptions.waterReflectionMode = ParseWaterReflectionMode( *waterReflection, path );
+        }
+        if ( const Json* waterHidden = FindMember( debug, "waterHidden" ) )
+        {
+            m_scene.m_sceneOptions.waterHidden = ReadBool( *waterHidden, path, "debug.waterHidden" );
+        }
+        if ( const Json* terrainHidden = FindMember( debug, "terrainHidden" ) )
+        {
+            m_scene.m_sceneOptions.terrainHidden = ReadBool( *terrainHidden, path, "debug.terrainHidden" );
+        }
+        if ( const Json* physics = FindMember( debug, "physics" ) )
+        {
+            ApplyPhysicsDebug( *physics, path );
+        }
+    }
+
+    void ApplyTerrain( const Json& terrain, const std::string& path )
+    {
+        RequireObject( terrain, path, "terrain" );
+        if ( const Json* flatSlope = FindMember( terrain, "flatSlope" ) )
+        {
+            RequireObject( *flatSlope, path, "terrain.flatSlope" );
+            m_scene.m_terrainOverride.hasFlatSlope = true;
+            m_scene.m_terrainOverride.flatBaseY = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "baseY" ), path, "terrain.flatSlope.baseY" );
+            m_scene.m_terrainOverride.flatSlopeX = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeX" ), path, "terrain.flatSlope.slopeX" );
+            m_scene.m_terrainOverride.flatSlopeZ = ReadFloat( RequireMember( *flatSlope, path, "terrain.flatSlope", "slopeZ" ), path, "terrain.flatSlope.slopeZ" );
+        }
+    }
+
+    void ApplyEditor( const Json& editor, const std::string& path )
+    {
+        RequireObject( editor, path, "editor" );
+        if ( const Json* editable = FindMember( editor, "editableScene" ) )
+        {
+            m_scene.m_sceneOptions.editableScene = ReadBool( *editable, path, "editor.editableScene" );
+        }
+    }
+
+    void ApplyUI( const Json& ui, const std::string& path )
+    {
+        RequireObject( ui, path, "ui" );
+        SceneUIOptions& out = m_scene.m_UIOptions;
+        out.hasSettings = true;
+
+        if ( const Json* visible = FindMember( ui, "visible" ) )
+        {
+            out.hasVisible = true;
+            out.isVisible = ReadBool( *visible, path, "ui.visible" );
+        }
+        if ( const Json* minimized = FindMember( ui, "minimized" ) )
+        {
+            out.hasMinimized = true;
+            out.isMinimized = ReadBool( *minimized, path, "ui.minimized" );
+        }
+        if ( const Json* tab = FindMember( ui, "tab" ) )
+        {
+            out.hasActiveTab = true;
+            out.activeTab = ParseUITab( *tab, path );
+        }
+        if ( const Json* rect = FindMember( ui, "rect" ) )
+        {
+            RequireArray( *rect, path, "ui.rect" );
+            if ( rect->size() != 4 )
             {
-                Fail( "Unknown directive in style file %s at line %d: %.64s", stylePath, styleLineNumber, line );
+                Fail( path, "ui.rect must contain exactly 4 integers" );
             }
+            out.hasWindowRect = true;
+            out.windowX = ReadInt( ( *rect )[0], path, "ui.rect[0]" );
+            out.windowY = ReadInt( ( *rect )[1], path, "ui.rect[1]" );
+            out.windowW = ReadInt( ( *rect )[2], path, "ui.rect[2]" );
+            out.windowH = ReadInt( ( *rect )[3], path, "ui.rect[3]" );
         }
-
-        --m_styleIncludeDepth;
-        m_lineNumber = parentLineNumber;
-    }
-
-    void ParseStyleReference( const char* directive, const char* args, const char* expected )
-    {
-        const char* cursor = RequireArgs( directive, args, expected );
-        char token[260] = {};
-        ParseNextToken( directive, cursor, token, sizeof( token ), expected );
-        IncludeStyleFile( token );
-    }
-
-    void ParseStyle( const char* args )
-    {
-        ParseStyleReference( "style", args, "style <name|path>" );
-    }
-
-    void ParseLook( const char* args )
-    {
-        ParseStyleReference( "look", args, "look <name|path>" );
-    }
-
-    void ParseCinematicLook( const char* args )
-    {
-        ParseStyleReference( "cinematic_look", args, "cinematic_look <name|path>" );
-    }
-
-    void ParseBallCommon( const char* args, bool isFixed )
-    {
-        const char* directive = isFixed ? "floating_ball" : "ball";
-        const char* expected = isFixed ? "floating_ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]" : "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
-        char tokens[17][64] = {};
-        const int parsed = ParseTokenList( directive, args, expected, tokens, 17 );
-        if ( parsed != 8 && parsed != 11 && parsed != 14 && parsed != 17 )
+        if ( const Json* blur = FindMember( ui, "blur" ) )
         {
-            Fail( "Invalid %s at line %d (expected 8, 11, 14 or 17 fields, got %d)", directive, m_lineNumber, parsed );
+            out.hasBlur = true;
+            out.blurEnabled = ReadBool( *blur, path, "ui.blur" );
         }
-
-        SceneBall ball;
-        memset( &ball, 0, sizeof( ball ) );
-        ball.hasInitOrient = false;
-        ball.isFixed = isFixed;
-
-        strcpy_s( ball.name, sizeof( ball.name ), tokens[0] );
-        ball.posX = ParseFloatValue( directive, tokens[1] );
-        ball.posY = ParseFloatValue( directive, tokens[2] );
-        ball.posZ = ParseFloatValue( directive, tokens[3] );
-        ball.m_radius = ParseFloatValue( directive, tokens[4] );
-        ball.m_mass = ParseFloatValue( directive, tokens[5] );
-        ball.moment = ParseFloatValue( directive, tokens[6] );
-        ball.restitution = ParseFloatValue( directive, tokens[7] );
-
-        if ( parsed == 11 )
+        if ( const Json* rendererCombo = FindMember( ui, "rendererCombo" ) )
         {
-            ball.eulerX = ParseFloatValue( directive, tokens[8] );
-            ball.eulerY = ParseFloatValue( directive, tokens[9] );
-            ball.eulerZ = ParseFloatValue( directive, tokens[10] );
-            ball.hasInitOrient = true;
+            out.hasRendererComboOpen = true;
+            out.rendererComboOpen = ReadBool( *rendererCombo, path, "ui.rendererCombo" );
         }
-        else if ( parsed == 14 || parsed == 17 )
+        if ( const Json* waterCombo = FindMember( ui, "waterCombo" ) )
         {
-            ball.forceX = ParseFloatValue( directive, tokens[8] );
-            ball.forceY = ParseFloatValue( directive, tokens[9] );
-            ball.forceZ = ParseFloatValue( directive, tokens[10] );
-            ball.forcePosX = ParseFloatValue( directive, tokens[11] );
-            ball.forcePosY = ParseFloatValue( directive, tokens[12] );
-            ball.forcePosZ = ParseFloatValue( directive, tokens[13] );
-            if ( parsed == 17 )
+            out.hasWaterComboOpen = true;
+            out.waterComboOpen = ReadBool( *waterCombo, path, "ui.waterCombo" );
+        }
+        if ( const Json* sceneCombo = FindMember( ui, "sceneCombo" ) )
+        {
+            out.hasSceneComboOpen = true;
+            out.sceneComboOpen = ReadBool( *sceneCombo, path, "ui.sceneCombo" );
+        }
+        if ( const Json* sceneFilter = FindMember( ui, "sceneFilter" ) )
+        {
+            out.hasSceneFilter = true;
+            CopyStringField( out.sceneFilter, ReadString( *sceneFilter, path, "ui.sceneFilter" ) );
+        }
+        if ( const Json* profilerExpand = FindMember( ui, "profilerExpand" ) )
+        {
+            out.hasProfilerExpandAll = true;
+            out.profilerExpandAll = ReadBool( *profilerExpand, path, "ui.profilerExpand" );
+        }
+        if ( const Json* timeline = FindMember( ui, "timeline" ) )
+        {
+            out.hasProfilerTimeline = true;
+            out.profilerTimeline = ReadBool( *timeline, path, "ui.timeline" );
+        }
+        if ( const Json* histogram = FindMember( ui, "histogram" ) )
+        {
+            out.hasPerformanceHistogram = true;
+            out.performanceHistogram = ReadBool( *histogram, path, "ui.histogram" );
+        }
+        if ( const Json* hitboxes = FindMember( ui, "hitboxes" ) )
+        {
+            out.hasHitboxOverlay = true;
+            out.hitboxOverlay = ReadBool( *hitboxes, path, "ui.hitboxes" );
+        }
+        if ( const Json* scroll = FindMember( ui, "scroll" ) )
+        {
+            out.hasScrollY = true;
+            if ( scroll->is_string() && Lowercase( scroll->get<std::string>() ) == "bottom" )
             {
-                ball.eulerX = ParseFloatValue( directive, tokens[14] );
-                ball.eulerY = ParseFloatValue( directive, tokens[15] );
-                ball.eulerZ = ParseFloatValue( directive, tokens[16] );
-                ball.hasInitOrient = true;
+                out.scrollY = 1000000.0f;
             }
-        }
-
-        m_scene.m_balls.push_back( ball );
-    }
-
-    void ParseBall( const char* args )
-    {
-        ParseBallCommon( args, false );
-    }
-
-    void ParseFloatingBall( const char* args )
-    {
-        ParseBallCommon( args, true );
-    }
-
-    void ParseBoxCommon( const char* args, bool isFixed )
-    {
-        const char* directive = isFixed ? "floating_box" : "box";
-        const char* expected = isFixed ? "floating_box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]" : "box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]";
-        char tokens[15][64] = {};
-        const int parsed = ParseTokenList( directive, args, expected, tokens, 15 );
-        if ( parsed != 9 && parsed != 12 && parsed != 15 )
-        {
-            Fail( "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)", m_lineNumber, parsed );
-        }
-
-        SceneBox box;
-        memset( &box, 0, sizeof( box ) );
-        box.hasInitOrient = false;
-        box.hasInitVelocity = false;
-        box.isFixed = isFixed;
-
-        strcpy_s( box.name, sizeof( box.name ), tokens[0] );
-        box.posX = ParseFloatValue( directive, tokens[1] );
-        box.posY = ParseFloatValue( directive, tokens[2] );
-        box.posZ = ParseFloatValue( directive, tokens[3] );
-        box.halfX = ParseFloatValue( directive, tokens[4] );
-        box.halfY = ParseFloatValue( directive, tokens[5] );
-        box.halfZ = ParseFloatValue( directive, tokens[6] );
-        box.mass = ParseFloatValue( directive, tokens[7] );
-        box.restitution = ParseFloatValue( directive, tokens[8] );
-
-        if ( parsed == 12 || parsed == 15 )
-        {
-            box.eulerX = ParseFloatValue( directive, tokens[9] );
-            box.eulerY = ParseFloatValue( directive, tokens[10] );
-            box.eulerZ = ParseFloatValue( directive, tokens[11] );
-            box.hasInitOrient = true;
-        }
-        if ( parsed == 15 )
-        {
-            box.velX = ParseFloatValue( directive, tokens[12] );
-            box.velY = ParseFloatValue( directive, tokens[13] );
-            box.velZ = ParseFloatValue( directive, tokens[14] );
-            box.hasInitVelocity = true;
-        }
-
-        m_scene.m_boxes.push_back( box );
-    }
-
-    void ParseBox( const char* args )
-    {
-        ParseBoxCommon( args, false );
-    }
-
-    void ParseFloatingBox( const char* args )
-    {
-        ParseBoxCommon( args, true );
-    }
-
-    void ParseConvexHullCommon( const char* args, bool isFixed )
-    {
-        const char* directive = isFixed ? "floating_convex_hull" : "convex_hull";
-        const char* expected = isFixed ? "floating_convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]" : "convex_hull <name> <pos> <mass> <restitution> <hull|hull=path> [euler] [velocity]";
-        char tokens[13][64] = {};
-        const int parsed = ParseTokenList( directive, args, expected, tokens, 13 );
-        if ( parsed != 7 && parsed != 10 && parsed != 13 )
-        {
-            Fail( "Invalid convex_hull/floating_convex_hull at line %d (expected 7, 10, or 13 fields, got %d)", m_lineNumber, parsed );
-        }
-
-        SceneConvexHull hull;
-        memset( &hull, 0, sizeof( hull ) );
-        hull.hasInitOrient = false;
-        hull.hasInitVelocity = false;
-        hull.isFixed = isFixed;
-
-        strcpy_s( hull.name, sizeof( hull.name ), tokens[0] );
-        hull.posX = ParseFloatValue( directive, tokens[1] );
-        hull.posY = ParseFloatValue( directive, tokens[2] );
-        hull.posZ = ParseFloatValue( directive, tokens[3] );
-        hull.mass = ParseFloatValue( directive, tokens[4] );
-        hull.restitution = ParseFloatValue( directive, tokens[5] );
-
-        const char* hullPath = tokens[6];
-        if ( strncmp( hullPath, "hull=", 5 ) == 0 )
-        {
-            hullPath += 5;
-        }
-        if ( hullPath[0] == '\0' )
-        {
-            Fail( "Invalid %s hull path at line %d", directive, m_lineNumber );
-        }
-        strcpy_s( hull.hullPath, sizeof( hull.hullPath ), hullPath );
-
-        if ( parsed == 10 || parsed == 13 )
-        {
-            hull.eulerX = ParseFloatValue( directive, tokens[7] );
-            hull.eulerY = ParseFloatValue( directive, tokens[8] );
-            hull.eulerZ = ParseFloatValue( directive, tokens[9] );
-            hull.hasInitOrient = true;
-        }
-        if ( parsed == 13 )
-        {
-            hull.velX = ParseFloatValue( directive, tokens[10] );
-            hull.velY = ParseFloatValue( directive, tokens[11] );
-            hull.velZ = ParseFloatValue( directive, tokens[12] );
-            hull.hasInitVelocity = true;
-        }
-
-        m_scene.m_convexHulls.push_back( hull );
-    }
-
-    void ParseConvexHull( const char* args )
-    {
-        ParseConvexHullCommon( args, false );
-    }
-
-    void ParseFloatingConvexHull( const char* args )
-    {
-        ParseConvexHullCommon( args, true );
-    }
-
-    void ParseRequiredContact( const char* args )
-    {
-        char tokens[2][64] = {};
-        const int parsed = ParseTokenList( "required_contact", args, "required_contact <nameA> <nameB>", tokens, 2 );
-        if ( parsed != 2 )
-        {
-            Fail( "Invalid required_contact at line %d (expected 2 fields, got %d)", m_lineNumber, parsed );
-        }
-
-        SceneRequiredContact contact;
-        strcpy_s( contact.nameA, sizeof( contact.nameA ), tokens[0] );
-        strcpy_s( contact.nameB, sizeof( contact.nameB ), tokens[1] );
-        m_scene.m_requiredContacts.push_back( contact );
-    }
-
-    void ParseRequiredBroadphaseXCells( const char* args )
-    {
-        const char* expected = "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>";
-        const char* cursor = RequireArgs( "required_broadphase_x_cells", args, expected );
-
-        SceneRequiredBroadphaseXCells cells;
-        cells.minCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
-        cells.maxCellX = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
-        cells.cellY = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
-        cells.cellZ = ParseNextIntToken( "required_broadphase_x_cells", cursor, expected );
-        if ( cells.maxCellX < cells.minCellX )
-        {
-            Fail( "Invalid required_broadphase_x_cells at line %d (maxCellX must be >= minCellX)", m_lineNumber );
-        }
-
-        m_scene.m_requiredBroadphaseXCells.push_back( cells );
-    }
-
-    void ParseTimeScale( const char* args )
-    {
-        const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
-        if ( val <= 0.0f )
-        {
-            Fail( "Invalid time_scale at line %d (must be > 0)", m_lineNumber );
-        }
-        m_scene.m_sceneOptions.timeScale = val;
-    }
-
-    void ParseFixedStep( const char* )
-    {
-        m_scene.m_sceneOptions.isFixedStep = true;
-    }
-
-    void ParsePhysicsDebug( const char* args )
-    {
-        const char* value = RequireArgs( "physics_debug", args, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" );
-        if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
-        }
-        else if ( strcmp( value, "axes" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
-        }
-        else if ( strcmp( value, "contacts" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
-        }
-        else if ( strcmp( value, "sleep" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
-        }
-        else if ( strcmp( value, "pipeline" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_PIPELINE;
-        }
-        else if ( strcmp( value, "terrain" ) == 0 ||
-                  strcmp( value, "terrain_contact" ) == 0 ||
-                  strcmp( value, "terrain-probe" ) == 0 ||
-                  strcmp( value, "terrain_probe" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
-        }
-        else if ( strcmp( value, "all" ) == 0 || strcmp( value, "on" ) == 0 )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
-        }
-        else
-        {
-            Fail( "Invalid physics_debug value at line %d", m_lineNumber );
-        }
-    }
-
-    void ParsePhysicsDebugComponent( const char* args, uint32_t flag )
-    {
-        bool enabled = false;
-        ParseStrictOnOff( "physics_debug component", RequireArgs( "physics_debug component", args, "physics_debug_<component> on|off" ), enabled );
-        if ( enabled )
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags |= flag;
-        }
-        else
-        {
-            m_scene.m_sceneOptions.physicsDebugFlags &= ~flag;
-        }
-    }
-
-    void ParsePhysicsDebugAxes( const char* args )
-    {
-        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_AXES );
-    }
-
-    void ParsePhysicsDebugContacts( const char* args )
-    {
-        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_CONTACTS );
-    }
-
-    void ParsePhysicsDebugSleep( const char* args )
-    {
-        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_SLEEP );
-    }
-
-    void ParsePhysicsDebugPipeline( const char* args )
-    {
-        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_PIPELINE );
-    }
-
-    void ParsePhysicsDebugTerrainContact( const char* args )
-    {
-        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_TERRAIN_CONTACT );
-    }
-
-    void ParsePhysicsDebugTransparent( const char* args )
-    {
-        ParseStrictOnOff( "physics_debug_transparent", RequireArgs( "physics_debug_transparent", args, "physics_debug_transparent on|off" ), m_scene.m_sceneOptions.physicsDebugTransparent );
-    }
-
-    void ParsePhysicsDebugAlpha( const char* args )
-    {
-        const float val = ParseFloatArg( "physics_debug_alpha", args, "physics_debug_alpha <0.05..1.0>" );
-        if ( val < 0.05f || val > 1.0f )
-        {
-            Fail( "Invalid physics_debug_alpha at line %d (expected 0.05..1.0)", m_lineNumber );
-        }
-        m_scene.m_sceneOptions.physicsDebugAlpha = val;
-    }
-
-    void ParsePhysicsDebugContactLinger( const char* args )
-    {
-        const float val = ParseFloatArg( "physics_debug_contact_linger", args, "physics_debug_contact_linger <0.0..5.0>" );
-        if ( val < 0.0f || val > 5.0f )
-        {
-            Fail( "Invalid physics_debug_contact_linger at line %d (expected 0.0..5.0 seconds)", m_lineNumber );
-        }
-        m_scene.m_sceneOptions.physicsDebugContactLinger = val;
-    }
-
-    void ParseTrackHeight( const char* args )
-    {
-        const float val = ParseFloatArg( "track_height", args, "track_height <height>" );
-        if ( val <= 0.0f )
-        {
-            Fail( "Invalid track_height at line %d (must be > 0)", m_lineNumber );
-        }
-        m_scene.m_sceneOptions.trackHeight = val;
-    }
-
-    void ParseAutoCycleInterval( const char* args )
-    {
-        const float val = ParseFloatArg( "auto_cycle_interval", args, "auto_cycle_interval <seconds>" );
-        if ( val <= 0.0f )
-        {
-            Fail( "Invalid auto_cycle_interval at line %d (must be > 0)", m_lineNumber );
-        }
-        m_scene.m_sceneOptions.autoCycleInterval = val;
-    }
-
-    void ParseFlatSlope( const char* args )
-    {
-        const char* expected = "flat_slope <baseY> <slopeX> <slopeZ>";
-        const char* cursor = RequireArgs( "flat_slope", args, expected );
-        const float baseY = ParseNextFloatToken( "flat_slope", cursor, expected );
-        const float slopeX = ParseNextFloatToken( "flat_slope", cursor, expected );
-        const float slopeZ = ParseNextFloatToken( "flat_slope", cursor, expected );
-        m_scene.m_terrainOverride.hasFlatSlope = true;
-        m_scene.m_terrainOverride.flatBaseY = baseY;
-        m_scene.m_terrainOverride.flatSlopeX = slopeX;
-        m_scene.m_terrainOverride.flatSlopeZ = slopeZ;
-    }
-
-    void ParseBallState( const char* args )
-    {
-        const char* expected = "ball_state <name> <position> <velocity> <angular_velocity> <orientation> <radius> <mass> <restitution> <inertia> [fixed]";
-        const char* cursor = RequireArgs( "ball_state", args, expected );
-        SceneBallState bs;
-        memset( &bs, 0, sizeof( bs ) );
-
-        ParseNextToken( "ball_state", cursor, bs.name, sizeof( bs.name ), expected );
-        bs.posX = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.posY = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.posZ = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.velX = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.velY = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.velZ = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.angVelX = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.angVelY = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.angVelZ = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.orientX = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.orientY = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.orientZ = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.orientW = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.radius = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.mass = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.restitution = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.inertiaX = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.inertiaY = ParseNextFloatToken( "ball_state", cursor, expected );
-        bs.inertiaZ = ParseNextFloatToken( "ball_state", cursor, expected );
-        char fixedToken[64] = {};
-        if ( ReadToken( cursor, fixedToken, sizeof( fixedToken ) ) )
-        {
-            bs.isFixed = ParseIntValue( "ball_state", fixedToken ) != 0;
-        }
-
-        m_scene.m_ballStates.push_back( bs );
-    }
-
-    void ParseBoxState( const char* args )
-    {
-        const char* expected = "box_state <name> <position> <velocity> <angular_velocity> <orientation> <halfExtents> <mass> <restitution> <inertia> <fixed>";
-        const char* cursor = RequireArgs( "box_state", args, expected );
-        SceneBoxState bs;
-        memset( &bs, 0, sizeof( bs ) );
-
-        ParseNextToken( "box_state", cursor, bs.name, sizeof( bs.name ), expected );
-        bs.posX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.posY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.posZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.velX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.velY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.velZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.angVelX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.angVelY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.angVelZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.orientX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.orientY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.orientZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.orientW = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.halfX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.halfY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.halfZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.mass = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.restitution = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.inertiaX = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.inertiaY = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.inertiaZ = ParseNextFloatToken( "box_state", cursor, expected );
-        bs.isFixed = ParseNextIntToken( "box_state", cursor, expected ) != 0;
-
-        m_scene.m_boxStates.push_back( bs );
-    }
-
-    void ParseConvexHullState( const char* args )
-    {
-        const char* expected = "convex_hull_state <name> <hull|hull=path> <position> <velocity> <angular_velocity> <orientation> <mass> <restitution> <inertia> <fixed>";
-        const char* cursor = RequireArgs( "convex_hull_state", args, expected );
-        SceneConvexHullState hs;
-        memset( &hs, 0, sizeof( hs ) );
-
-        ParseNextToken( "convex_hull_state", cursor, hs.name, sizeof( hs.name ), expected );
-        ParseNextToken( "convex_hull_state", cursor, hs.hullPath, sizeof( hs.hullPath ), expected );
-        if ( strncmp( hs.hullPath, "hull=", 5 ) == 0 )
-        {
-            memmove( hs.hullPath, hs.hullPath + 5, strlen( hs.hullPath + 5 ) + 1 );
-        }
-        hs.posX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.posY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.posZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.velX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.velY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.velZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.angVelX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.angVelY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.angVelZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.orientX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.orientY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.orientZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.orientW = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.mass = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.restitution = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.inertiaX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.inertiaY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.inertiaZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
-        hs.isFixed = ParseNextIntToken( "convex_hull_state", cursor, expected ) != 0;
-
-        m_scene.m_convexHullStates.push_back( hs );
-    }
-
-    void ParseWorld( const char* args )
-    {
-        const char* expected = "world <gravity> <fluidHeight> <fluidDensity>";
-        const char* cursor = RequireArgs( "world", args, expected );
-        const float gravity = ParseNextFloatToken( "world", cursor, expected );
-        const float fluidHeight = ParseNextFloatToken( "world", cursor, expected );
-        const float fluidDensity = ParseNextFloatToken( "world", cursor, expected );
-        m_scene.m_worldOverride.hasWorldOverride = true;
-        m_scene.m_worldOverride.worldGravity = gravity;
-        m_scene.m_worldOverride.worldFluidHeight = fluidHeight;
-        m_scene.m_worldOverride.worldFluidDensity = fluidDensity;
-    }
-
-    void ParseWaterHidden( const char* args )
-    {
-        ParseStrictOnOff( "water_hidden", RequireArgs( "water_hidden", args, "water_hidden on|off" ), m_scene.m_sceneOptions.waterHidden );
-    }
-
-    void ParseTerrainHidden( const char* args )
-    {
-        ParseStrictOnOff( "terrain_hidden", RequireArgs( "terrain_hidden", args, "terrain_hidden on|off" ), m_scene.m_sceneOptions.terrainHidden );
-    }
-
-    void ParseEditableScene( const char* args )
-    {
-        ParseStrictOnOff( "editable_scene", RequireArgs( "editable_scene", args, "editable_scene on|off" ), m_scene.m_sceneOptions.editableScene );
-    }
-
-    void ParseObjectMaterial( const char* args )
-    {
-        const char* expected = "object_material <target> <r> <g> <b> <mode> [key=value...] or object_material <target> <mode> tint=<r,g,b> [key=value...]";
-        const char* cursor = RequireArgs( "object_material", args, expected );
-
-        SceneObjectMaterialOverride material;
-        memset( &material, 0, sizeof( material ) );
-        material.tintR = 1.0f;
-        material.tintG = 1.0f;
-        material.tintB = 1.0f;
-        material.materialMode = 1.0f;
-
-        ParseNextToken( "object_material", cursor, material.target, sizeof( material.target ), expected );
-        char firstValue[64] = {};
-        ParseNextToken( "object_material", cursor, firstValue, sizeof( firstValue ), expected );
-
-        float firstTint = 0.0f;
-        if ( TryParseFloat( firstValue, firstTint ) )
-        {
-            material.tintR = firstTint;
-            material.tintG = ParseNextFloatToken( "object_material", cursor, expected );
-            material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
-
-            char mode[64] = {};
-            ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
-            material.materialMode = ParseMaterialModeValue( "object_material", mode );
-        }
-        else
-        {
-            material.materialMode = ParseMaterialModeValue( "object_material", firstValue );
-        }
-
-        material.material = Rendering::MakeRenderMaterialFromLegacyTint( material.tintR, material.tintG, material.tintB, material.materialMode );
-        strcpy_s( material.material.name, sizeof( material.material.name ), Rendering::RenderMaterialKindName( material.material.kind ) );
-
-        char option[128] = {};
-        while ( ReadToken( cursor, option, sizeof( option ) ) )
-        {
-            ApplyObjectMaterialOption( material, option );
-        }
-
-        m_scene.m_objectMaterials.push_back( material );
-    }
-
-    void ParseSolverBalls( const char* args )
-    {
-        m_scene.m_sceneOptions.solverBallCount = ParseIntArg( "solver_balls", args, "solver_balls <count>" );
-        if ( m_scene.m_sceneOptions.solverBallCount < 0 )
-        {
-            Fail( "Invalid solver_balls count at line %d (must be >= 0)", m_lineNumber );
-        }
-    }
-
-    void ParseSolverBoxes( const char* args )
-    {
-        m_scene.m_sceneOptions.solverBoxCount = ParseIntArg( "solver_boxes", args, "solver_boxes <count>" );
-        if ( m_scene.m_sceneOptions.solverBoxCount < 0 )
-        {
-            Fail( "Invalid solver_boxes count at line %d (must be >= 0)", m_lineNumber );
-        }
-    }
-
-    void ParseModelCapacity( const char* args )
-    {
-        m_scene.m_sceneOptions.modelCapacity = ParseIntArg( "model_capacity", args, "model_capacity <count>" );
-        if ( m_scene.m_sceneOptions.modelCapacity < 1 || m_scene.m_sceneOptions.modelCapacity > MAX_GAME_MODELS )
-        {
-            Fail( "Invalid model_capacity at line %d (expected 1..%d)", m_lineNumber, MAX_GAME_MODELS );
-        }
-    }
-
-    void ParseWorkerThreads( const char* args )
-    {
-        m_scene.m_sceneOptions.workerThreads = ParseIntArg( "worker_threads", args, "worker_threads <-1|0|count>" );
-        const int maxWorkerThreads = MaxConfigurableWorkerThreadCount();
-        if ( m_scene.m_sceneOptions.workerThreads < -1 || m_scene.m_sceneOptions.workerThreads > maxWorkerThreads )
-        {
-            Fail( "Invalid worker_threads at line %d (expected -1, 0, or 1..%d)", m_lineNumber, maxWorkerThreads );
-        }
-    }
-
-    bool TryParseCinematicDirective( const char* line )
-    {
-        // Cinematic scene directives normally share the cinematic_ prefix.
-        // "shadows" is a user-facing scene alias that maps to the same config.
-        const char* lookArgs = nullptr;
-        if ( MatchDirective( line, "cinematic_look", lookArgs ) )
-        {
-            ParseCinematicLook( lookArgs );
-            return true;
-        }
-
-        const char* shadowAliasArgs = nullptr;
-        if ( strncmp( line, "cinematic_", 10 ) != 0 &&
-             !MatchDirective( line, "shadows", shadowAliasArgs ) )
-        {
-            return false;
-        }
-
-        const char* multiArgs = nullptr;
-        if ( MatchDirective( line, "cinematic_style_modes", multiArgs ) )
-        {
-            const char* expected = "cinematic_style_modes <sky> <terrain> <object> <water>";
-            const char* cursor = RequireArgs( "cinematic_style_modes", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.skyMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.objectStyle = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_style_grade", multiArgs ) )
-        {
-            const char* expected = "cinematic_style_grade <saturation> <contrast> <vignette>";
-            const char* cursor = RequireArgs( "cinematic_style_grade", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.styleSaturation = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.styleContrast = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.styleVignette = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_terrain_tint", multiArgs ) )
-        {
-            const char* expected = "cinematic_terrain_tint <r> <g> <b>";
-            const char* cursor = RequireArgs( "cinematic_terrain_tint", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainTintR = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainTintG = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainTintB = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_terrain_accent", multiArgs ) )
-        {
-            const char* expected = "cinematic_terrain_accent <r> <g> <b>";
-            const char* cursor = RequireArgs( "cinematic_terrain_accent", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainAccentR = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainAccentG = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainAccentB = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_terrain_grid", multiArgs ) )
-        {
-            const char* expected = "cinematic_terrain_grid <scale> <strength>";
-            const char* cursor = RequireArgs( "cinematic_terrain_grid", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainGridScale = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.terrainGridStrength = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_water_tint", multiArgs ) )
-        {
-            const char* expected = "cinematic_water_tint <r> <g> <b>";
-            const char* cursor = RequireArgs( "cinematic_water_tint", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterTintR = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterTintG = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterTintB = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_water_profile", multiArgs ) )
-        {
-            const char* expected = "cinematic_water_profile <alpha> <reflection> <glint>";
-            const char* cursor = RequireArgs( "cinematic_water_profile", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterAlpha = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterReflectionStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.waterGlintStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
-            return true;
-        }
-        if ( MatchDirective( line, "cinematic_basin_mask", multiArgs ) )
-        {
-            const char* expected = "cinematic_basin_mask <centerX> <centerZ> <radiusX> <radiusZ> <feather>";
-            const char* cursor = RequireArgs( "cinematic_basin_mask", multiArgs, expected );
-            m_scene.m_sceneOptions.cinematicRender.basinCenterX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.basinCenterZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.basinRadiusX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.basinRadiusZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
-            m_scene.m_sceneOptions.cinematicRender.basinFeather = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
-            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
-            return true;
-        }
-
-        const char* cursor = line;
-        char key[96] = {};
-        char value[96] = {};
-        if ( !ReadToken( cursor, key, sizeof( key ) ) || !ReadToken( cursor, value, sizeof( value ) ) )
-        {
-            Fail( "Invalid cinematic directive at line %d", m_lineNumber );
-        }
-        if ( strcmp( key, "cinematic_legacy_shadow_discs" ) == 0 )
-        {
-            bool ignoredValue = false;
-            if ( !ParseOnOff( value, ignoredValue ) )
+            else
             {
-                Fail( "Invalid %s value at line %d: %s", key, m_lineNumber, value );
+                out.scrollY = ReadFloat( *scroll, path, "ui.scroll" );
             }
-            return true;
         }
-
-        struct BoolDirective
+        if ( const Json* mouse = FindMember( ui, "mouse" ) )
         {
-            // Boolean directives toggle whole passes/features such as bloom,
-            // fog, clouds, or the master cinematic renderer. Shadows deliberately
-            // do not force the cinematic renderer: the shadow-map pass is a depth
-            // resource that can feed normal backbuffer rendering as well as the
-            // cinematic HDR/post path.
-            const char* name;
+            RequireArray( *mouse, path, "ui.mouse" );
+            if ( mouse->size() != 2 )
+            {
+                Fail( path, "ui.mouse must contain exactly 2 integers" );
+            }
+            out.hasMouseOverride = true;
+            out.mouseX = ReadInt( ( *mouse )[0], path, "ui.mouse[0]" );
+            out.mouseY = ReadInt( ( *mouse )[1], path, "ui.mouse[1]" );
+        }
+        if ( const Json* stress = FindMember( ui, "stress" ) )
+        {
+            out.hasStress = true;
+            out.stressEnabled = ReadBool( *stress, path, "ui.stress" );
+        }
+        if ( const Json* stressSeed = FindMember( ui, "stressSeed" ) )
+        {
+            out.hasStressSeed = true;
+            out.stressSeed = ReadUInt( *stressSeed, path, "ui.stressSeed" );
+        }
+        if ( const Json* stressActions = FindMember( ui, "stressActions" ) )
+        {
+            const int actions = ReadInt( *stressActions, path, "ui.stressActions" );
+            if ( actions < 0 )
+            {
+                Fail( path, "ui.stressActions must be >= 0" );
+            }
+            out.hasStressActions = true;
+            out.stressActionsPerFrame = actions;
+        }
+        if ( const Json* testPattern = FindMember( ui, "testPattern" ) )
+        {
+            out.hasTestPattern = true;
+            out.testPatternEnabled = ReadBool( *testPattern, path, "ui.testPattern" );
+        }
+    }
+
+    void ApplyCinematicBool( const Json& cinematic, const std::string& path )
+    {
+        struct BoolField
+        {
+            const char* key;
             bool CinematicRenderConfig::* field;
             uint64_t bit;
         };
-        static constexpr BoolDirective kBoolDirectives[] = {
-            { "cinematic_rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
-            { "cinematic_sky_atmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
-            { "cinematic_clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
-            { "cinematic_god_rays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
-            { "cinematic_volumetric_lighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
-            { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
-            { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
-            { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
-            { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
+        static constexpr BoolField kFields[] = {
+            { "rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
+            { "skyAtmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
+            { "clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
+            { "godRays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
+            { "volumetricLighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
+            { "bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
+            { "fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
+            { "terrainReliefEnabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
             { "shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
         };
-        for ( const BoolDirective& directive : kBoolDirectives )
+
+        for ( const BoolField& field : kFields )
         {
-            if ( strcmp( key, directive.name ) == 0 )
+            if ( const Json* value = FindMember( cinematic, field.key ) )
             {
-                bool parsedValue = false;
-                if ( !ParseOnOff( value, parsedValue ) )
-                {
-                    Fail( "Invalid %s value at line %d: %s", key, m_lineNumber, value );
-                }
-                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
-                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
-                if ( directive.bit == SCENE_CINE_RENDERING )
+                const bool parsed = ReadBool( *value, path, field.key );
+                m_scene.m_sceneOptions.cinematicRender.*( field.field ) = parsed;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
+                if ( field.bit == SCENE_CINE_RENDERING )
                 {
                     m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
-                    m_scene.m_sceneOptions.cinematicRendering = parsedValue;
+                    m_scene.m_sceneOptions.cinematicRendering = parsed;
                 }
-                return true;
             }
         }
+    }
 
-        struct IntDirective
+    void ApplyCinematicInt( const Json& cinematic, const std::string& path )
+    {
+        struct IntField
         {
-            const char* name;
+            const char* key;
             int CinematicRenderConfig::* field;
             uint64_t bit;
             int minValue;
             int maxValue;
         };
-        static constexpr IntDirective kIntDirectives[] = {
-            { "cinematic_shadow_map_size", &CinematicRenderConfig::shadowMapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
-            { "cinematic_shadow_pcf_radius", &CinematicRenderConfig::shadowPcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
+        static constexpr IntField kFields[] = {
+            { "shadowMapSize", &CinematicRenderConfig::shadowMapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
+            { "shadowPcfRadius", &CinematicRenderConfig::shadowPcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
         };
-        for ( const IntDirective& directive : kIntDirectives )
+
+        for ( const IntField& field : kFields )
         {
-            if ( strcmp( key, directive.name ) == 0 )
+            if ( const Json* value = FindMember( cinematic, field.key ) )
             {
-                const int parsedValue = ParseIntValue( key, value );
-                if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
+                const int parsed = ReadInt( *value, path, field.key );
+                if ( parsed < field.minValue || parsed > field.maxValue )
                 {
-                    Fail( "Invalid %s at line %d (expected %d..%d)", key, m_lineNumber, directive.minValue, directive.maxValue );
+                    std::ostringstream message;
+                    message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
+                    Fail( path, message.str() );
                 }
-                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
-                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
-                return true;
+                m_scene.m_sceneOptions.cinematicRender.*( field.field ) = parsed;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
             }
         }
+    }
 
-        struct FloatDirective
+    void ApplyCinematicFloat( const Json& cinematic, const std::string& path )
+    {
+        struct FloatField
         {
-            // Float directives are the slider-like values. Each entry names the
-            // scene token, the config field it writes, the override bit to mark,
-            // and a safe authoring range.
-            const char* name;
+            const char* key;
             float CinematicRenderConfig::* field;
             uint64_t bit;
             float minValue;
             float maxValue;
         };
-        static constexpr FloatDirective kFloatDirectives[] = {
-            { "cinematic_exposure", &CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
-            { "cinematic_gamma", &CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
-            { "cinematic_sun_screen_x", &CinematicRenderConfig::sunScreenX, SCENE_CINE_SUN_SCREEN_X, 0.0f, 1.0f },
-            { "cinematic_sun_screen_y", &CinematicRenderConfig::sunScreenY, SCENE_CINE_SUN_SCREEN_Y, 0.0f, 1.0f },
-            { "cinematic_sun_color_r", &CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
-            { "cinematic_sun_color_g", &CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
-            { "cinematic_sun_color_b", &CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
-            { "cinematic_sun_intensity", &CinematicRenderConfig::sunIntensity, SCENE_CINE_SUN_INTENSITY, 0.0f, 80.0f },
-            { "cinematic_sky_horizon_r", &CinematicRenderConfig::skyHorizonR, SCENE_CINE_SKY_HORIZON_R, 0.0f, 4.0f },
-            { "cinematic_sky_horizon_g", &CinematicRenderConfig::skyHorizonG, SCENE_CINE_SKY_HORIZON_G, 0.0f, 4.0f },
-            { "cinematic_sky_horizon_b", &CinematicRenderConfig::skyHorizonB, SCENE_CINE_SKY_HORIZON_B, 0.0f, 4.0f },
-            { "cinematic_sky_zenith_r", &CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
-            { "cinematic_sky_zenith_g", &CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
-            { "cinematic_sky_zenith_b", &CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
-            { "cinematic_sky_glow_strength", &CinematicRenderConfig::skyGlowStrength, SCENE_CINE_SKY_GLOW_STRENGTH, 0.0f, 16.0f },
-            { "cinematic_cloud_coverage", &CinematicRenderConfig::cloudCoverage, SCENE_CINE_CLOUD_COVERAGE, 0.0f, 1.0f },
-            { "cinematic_cloud_softness", &CinematicRenderConfig::cloudSoftness, SCENE_CINE_CLOUD_SOFTNESS, 0.001f, 1.0f },
-            { "cinematic_cloud_scale", &CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
-            { "cinematic_cloud_intensity", &CinematicRenderConfig::cloudIntensity, SCENE_CINE_CLOUD_INTENSITY, 0.0f, 4.0f },
-            { "cinematic_sun_shaft_strength", &CinematicRenderConfig::sunShaftStrength, SCENE_CINE_SUN_SHAFT_STRENGTH, 0.0f, 8.0f },
-            { "cinematic_sun_shaft_falloff", &CinematicRenderConfig::sunShaftFalloff, SCENE_CINE_SUN_SHAFT_FALLOFF, 0.1f, 10.0f },
-            { "cinematic_volumetric_strength", &CinematicRenderConfig::volumetricStrength, SCENE_CINE_VOLUMETRIC_STRENGTH, 0.0f, 8.0f },
-            { "cinematic_volumetric_density", &CinematicRenderConfig::volumetricDensity, SCENE_CINE_VOLUMETRIC_DENSITY, 0.0f, 8.0f },
-            { "cinematic_volumetric_decay", &CinematicRenderConfig::volumetricDecay, SCENE_CINE_VOLUMETRIC_DECAY, 0.0f, 1.0f },
-            { "cinematic_bloom_threshold", &CinematicRenderConfig::bloomThreshold, SCENE_CINE_BLOOM_THRESHOLD, 0.0f, 16.0f },
-            { "cinematic_bloom_knee", &CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
-            { "cinematic_bloom_strength", &CinematicRenderConfig::bloomStrength, SCENE_CINE_BLOOM_STRENGTH, 0.0f, 8.0f },
-            { "cinematic_bloom_radius", &CinematicRenderConfig::bloomRadius, SCENE_CINE_BLOOM_RADIUS, 0.1f, 32.0f },
-            { "cinematic_terrain_relief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
-            { "cinematic_basin_depth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
-            { "cinematic_basin_rim_lift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
-            { "cinematic_shadow_strength", &CinematicRenderConfig::shadowStrength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
-            { "cinematic_shadow_softness", &CinematicRenderConfig::shadowSoftness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
-            { "cinematic_shadow_depth_bias", &CinematicRenderConfig::shadowDepthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
-            { "cinematic_shadow_slope_bias", &CinematicRenderConfig::shadowSlopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
-            { "cinematic_shadow_max_distance", &CinematicRenderConfig::shadowMaxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
-            { "cinematic_fog_color_r", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
-            { "cinematic_fog_color_g", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
-            { "cinematic_fog_color_b", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
-            { "cinematic_fog_start", &CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
-            { "cinematic_fog_end", &CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
-            { "cinematic_fog_density", &CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
-            { "cinematic_fog_max_opacity", &CinematicRenderConfig::fogMaxOpacity, SCENE_CINE_FOG_MAX_OPACITY, 0.0f, 1.0f },
+        static constexpr FloatField kFields[] = {
+            { "exposure", &CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
+            { "gamma", &CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
+            { "sunScreenX", &CinematicRenderConfig::sunScreenX, SCENE_CINE_SUN_SCREEN_X, 0.0f, 1.0f },
+            { "sunScreenY", &CinematicRenderConfig::sunScreenY, SCENE_CINE_SUN_SCREEN_Y, 0.0f, 1.0f },
+            { "sunColorR", &CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
+            { "sunColorG", &CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
+            { "sunColorB", &CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
+            { "sunIntensity", &CinematicRenderConfig::sunIntensity, SCENE_CINE_SUN_INTENSITY, 0.0f, 80.0f },
+            { "skyHorizonR", &CinematicRenderConfig::skyHorizonR, SCENE_CINE_SKY_HORIZON_R, 0.0f, 4.0f },
+            { "skyHorizonG", &CinematicRenderConfig::skyHorizonG, SCENE_CINE_SKY_HORIZON_G, 0.0f, 4.0f },
+            { "skyHorizonB", &CinematicRenderConfig::skyHorizonB, SCENE_CINE_SKY_HORIZON_B, 0.0f, 4.0f },
+            { "skyZenithR", &CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
+            { "skyZenithG", &CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
+            { "skyZenithB", &CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
+            { "skyGlowStrength", &CinematicRenderConfig::skyGlowStrength, SCENE_CINE_SKY_GLOW_STRENGTH, 0.0f, 16.0f },
+            { "cloudCoverage", &CinematicRenderConfig::cloudCoverage, SCENE_CINE_CLOUD_COVERAGE, 0.0f, 1.0f },
+            { "cloudSoftness", &CinematicRenderConfig::cloudSoftness, SCENE_CINE_CLOUD_SOFTNESS, 0.001f, 1.0f },
+            { "cloudScale", &CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
+            { "cloudIntensity", &CinematicRenderConfig::cloudIntensity, SCENE_CINE_CLOUD_INTENSITY, 0.0f, 4.0f },
+            { "sunShaftStrength", &CinematicRenderConfig::sunShaftStrength, SCENE_CINE_SUN_SHAFT_STRENGTH, 0.0f, 8.0f },
+            { "sunShaftFalloff", &CinematicRenderConfig::sunShaftFalloff, SCENE_CINE_SUN_SHAFT_FALLOFF, 0.1f, 10.0f },
+            { "volumetricStrength", &CinematicRenderConfig::volumetricStrength, SCENE_CINE_VOLUMETRIC_STRENGTH, 0.0f, 8.0f },
+            { "volumetricDensity", &CinematicRenderConfig::volumetricDensity, SCENE_CINE_VOLUMETRIC_DENSITY, 0.0f, 8.0f },
+            { "volumetricDecay", &CinematicRenderConfig::volumetricDecay, SCENE_CINE_VOLUMETRIC_DECAY, 0.0f, 1.0f },
+            { "bloomThreshold", &CinematicRenderConfig::bloomThreshold, SCENE_CINE_BLOOM_THRESHOLD, 0.0f, 16.0f },
+            { "bloomKnee", &CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
+            { "bloomStrength", &CinematicRenderConfig::bloomStrength, SCENE_CINE_BLOOM_STRENGTH, 0.0f, 8.0f },
+            { "bloomRadius", &CinematicRenderConfig::bloomRadius, SCENE_CINE_BLOOM_RADIUS, 0.1f, 32.0f },
+            { "terrainRelief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
+            { "basinDepth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
+            { "basinRimLift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
+            { "shadowStrength", &CinematicRenderConfig::shadowStrength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
+            { "shadowSoftness", &CinematicRenderConfig::shadowSoftness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
+            { "shadowDepthBias", &CinematicRenderConfig::shadowDepthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
+            { "shadowSlopeBias", &CinematicRenderConfig::shadowSlopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
+            { "shadowMaxDistance", &CinematicRenderConfig::shadowMaxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
+            { "fogColorR", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
+            { "fogColorG", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
+            { "fogColorB", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
+            { "fogStart", &CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
+            { "fogEnd", &CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
+            { "fogDensity", &CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
+            { "fogMaxOpacity", &CinematicRenderConfig::fogMaxOpacity, SCENE_CINE_FOG_MAX_OPACITY, 0.0f, 1.0f },
         };
-        for ( const FloatDirective& directive : kFloatDirectives )
+
+        for ( const FloatField& field : kFields )
         {
-            if ( strcmp( key, directive.name ) == 0 )
+            if ( const Json* value = FindMember( cinematic, field.key ) )
             {
-                const float parsedValue = ParseFloatValue( key, value );
-                if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
+                const float parsed = ReadFloat( *value, path, field.key );
+                if ( parsed < field.minValue || parsed > field.maxValue )
                 {
-                    Fail( "Invalid %s at line %d (expected %.3f..%.3f)", key, m_lineNumber, directive.minValue, directive.maxValue );
+                    std::ostringstream message;
+                    message << "cinematic." << field.key << " must be " << field.minValue << ".." << field.maxValue;
+                    Fail( path, message.str() );
                 }
-                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
-                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
-                if ( directive.bit == SCENE_CINE_EXPOSURE )
+                m_scene.m_sceneOptions.cinematicRender.*( field.field ) = parsed;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= field.bit;
+                if ( field.bit == SCENE_CINE_EXPOSURE )
                 {
                     m_scene.m_sceneOptions.hasCinematicExposure = true;
-                    m_scene.m_sceneOptions.cinematicExposure = parsedValue;
+                    m_scene.m_sceneOptions.cinematicExposure = parsed;
                 }
-                else if ( directive.bit == SCENE_CINE_GAMMA )
+                else if ( field.bit == SCENE_CINE_GAMMA )
                 {
                     m_scene.m_sceneOptions.hasCinematicGamma = true;
-                    m_scene.m_sceneOptions.cinematicGamma = parsedValue;
+                    m_scene.m_sceneOptions.cinematicGamma = parsed;
                 }
-                return true;
             }
         }
-
-        Fail( "Unknown cinematic directive at line %d: %s", m_lineNumber, key );
     }
 
-    bool DispatchStyleLine( const char* line )
+    void ApplyCinematicVector( const Json& cinematic, const std::string& path )
     {
-        if ( TryParseCinematicDirective( line ) )
-        {
-            return true;
-        }
+        CinematicRenderConfig& c = m_scene.m_sceneOptions.cinematicRender;
 
-        static const SceneDirective directives[] = {
-            { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
-            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
-        };
-
-        const char* args = nullptr;
-        for ( const SceneDirective& directive : directives )
+        if ( const Json* styleModes = FindMember( cinematic, "styleModes" ) )
         {
-            if ( MatchDirective( line, directive.name, args ) )
+            RequireArray( *styleModes, path, "cinematic.styleModes" );
+            if ( styleModes->size() != 4 )
             {
-                ( this->*directive.parse )( args );
-                return true;
+                Fail( path, "cinematic.styleModes must contain exactly 4 integers" );
             }
+            c.skyMode = ReadInt( ( *styleModes )[0], path, "cinematic.styleModes[0]" );
+            c.terrainMode = ReadInt( ( *styleModes )[1], path, "cinematic.styleModes[1]" );
+            c.objectStyle = ReadInt( ( *styleModes )[2], path, "cinematic.styleModes[2]" );
+            c.waterMode = ReadInt( ( *styleModes )[3], path, "cinematic.styleModes[3]" );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
         }
-        return false;
+        if ( const Json* styleGrade = FindMember( cinematic, "styleGrade" ) )
+        {
+            ReadVec3( *styleGrade, path, "cinematic.styleGrade", c.styleSaturation, c.styleContrast, c.styleVignette );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
+        }
+        if ( const Json* terrainTint = FindMember( cinematic, "terrainTint" ) )
+        {
+            ReadVec3( *terrainTint, path, "cinematic.terrainTint", c.terrainTintR, c.terrainTintG, c.terrainTintB );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+        }
+        if ( const Json* terrainAccent = FindMember( cinematic, "terrainAccent" ) )
+        {
+            ReadVec3( *terrainAccent, path, "cinematic.terrainAccent", c.terrainAccentR, c.terrainAccentG, c.terrainAccentB );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+        }
+        if ( const Json* terrainGrid = FindMember( cinematic, "terrainGrid" ) )
+        {
+            RequireArray( *terrainGrid, path, "cinematic.terrainGrid" );
+            if ( terrainGrid->size() != 2 )
+            {
+                Fail( path, "cinematic.terrainGrid must contain exactly 2 numbers" );
+            }
+            c.terrainGridScale = ReadFloat( ( *terrainGrid )[0], path, "cinematic.terrainGrid[0]" );
+            c.terrainGridStrength = ReadFloat( ( *terrainGrid )[1], path, "cinematic.terrainGrid[1]" );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
+        }
+        if ( const Json* waterTint = FindMember( cinematic, "waterTint" ) )
+        {
+            ReadVec3( *waterTint, path, "cinematic.waterTint", c.waterTintR, c.waterTintG, c.waterTintB );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+        }
+        if ( const Json* waterProfile = FindMember( cinematic, "waterProfile" ) )
+        {
+            ReadVec3( *waterProfile, path, "cinematic.waterProfile", c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+        }
+        if ( const Json* basinMask = FindMember( cinematic, "basinMask" ) )
+        {
+            RequireArray( *basinMask, path, "cinematic.basinMask" );
+            if ( basinMask->size() != 5 )
+            {
+                Fail( path, "cinematic.basinMask must contain exactly 5 numbers" );
+            }
+            c.basinCenterX = ReadFloat( ( *basinMask )[0], path, "cinematic.basinMask[0]" );
+            c.basinCenterZ = ReadFloat( ( *basinMask )[1], path, "cinematic.basinMask[1]" );
+            c.basinRadiusX = ReadFloat( ( *basinMask )[2], path, "cinematic.basinMask[2]" );
+            c.basinRadiusZ = ReadFloat( ( *basinMask )[3], path, "cinematic.basinMask[3]" );
+            c.basinFeather = ReadFloat( ( *basinMask )[4], path, "cinematic.basinMask[4]" );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        }
     }
 
-    bool DispatchLine( const char* line )
+    void ApplyCinematic( const Json& cinematic, const std::string& path )
     {
-        if ( TryParseCinematicDirective( line ) )
+        RequireObject( cinematic, path, "cinematic" );
+        ApplyCinematicBool( cinematic, path );
+        ApplyCinematicInt( cinematic, path );
+        ApplyCinematicFloat( cinematic, path );
+        ApplyCinematicVector( cinematic, path );
+    }
+
+    void ApplyCamera( const Json& camera, const std::string& path )
+    {
+        RequireObject( camera, path, "camera" );
+        if ( static_cast<int>( m_scene.m_cameras.size() ) >= TOTAL_CAMERA_COUNT )
         {
-            return true;
+            Fail( path, "Too many cameras in scene" );
         }
 
-        static const SceneDirective directives[] = {
-            { "physics", &TestSceneParser::ParsePhysics, "physics on|off" },
-            { "text", &TestSceneParser::ParseText, "text on|off" },
-            { "text_only", &TestSceneParser::ParseTextOnly, "text_only on|off" },
-            { "ui", &TestSceneParser::ParseUI, "ui <command> <value>" },
-            { "UI", &TestSceneParser::ParseUI, "UI <command> <value>" },
-            { "ui_test_pattern", &TestSceneParser::ParseUITestPattern, "ui_test_pattern on|off" },
-            { "UI_test_pattern", &TestSceneParser::ParseUITestPattern, "UI_test_pattern on|off" },
-            { "frames", &TestSceneParser::ParseFrames, "frames <N|unlimited>" },
-            { "screenshot", &TestSceneParser::ParseScreenshot, "screenshot <path> frame|ms <N>" },
-            { "seed", &TestSceneParser::ParseSeed, "seed <N>" },
-            { "perf_log", &TestSceneParser::ParsePerfLog, "perf_log <path>" },
-            { "perf_log_flush", &TestSceneParser::ParsePerfLogFlush, "perf_log_flush on|off" },
-            { "perf_log_flush_interval", &TestSceneParser::ParsePerfLogFlushInterval, "perf_log_flush_interval <N>" },
-            { "vsync", &TestSceneParser::ParseVsync, "vsync on|off" },
-            { "pipeline_sync", &TestSceneParser::ParsePipelineSync, "pipeline_sync on|off" },
-            { "screenshot_and_exit", &TestSceneParser::ParseScreenshotAndExit, "screenshot_and_exit" },
-            { "exit_on_complete", &TestSceneParser::ParseExitOnComplete, "exit_on_complete" },
-            { "collision_visualizer", &TestSceneParser::ParseCollisionVisualizer, "collision_visualizer on|off" },
-            { "broadphase_overlay", &TestSceneParser::ParseBroadphaseOverlay, "broadphase_overlay on|off" },
-            { "water_freeze", &TestSceneParser::ParseWaterFreeze, "water_freeze on|off" },
-            { "water_flat", &TestSceneParser::ParseWaterFlat, "water_flat on|off" },
-            { "water_reflection", &TestSceneParser::ParseWaterReflection, "water_reflection fbo|dxr|none" },
-            { "screenshot_interval", &TestSceneParser::ParseScreenshotInterval, "screenshot_interval <dir> <N>" },
-            { "camera", &TestSceneParser::ParseCamera, "camera <name> <pos> <view> <up>" },
-            { "ball", &TestSceneParser::ParseBall, "ball <name> ..." },
-            { "floating_ball", &TestSceneParser::ParseFloatingBall, "floating_ball <name> ..." },
-            { "box", &TestSceneParser::ParseBox, "box <name> ..." },
-            { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
-            { "convex_hull", &TestSceneParser::ParseConvexHull, "convex_hull <name> ..." },
-            { "floating_convex_hull", &TestSceneParser::ParseFloatingConvexHull, "floating_convex_hull <name> ..." },
-            { "required_contact", &TestSceneParser::ParseRequiredContact, "required_contact <nameA> <nameB>" },
-            { "required_broadphase_x_cells", &TestSceneParser::ParseRequiredBroadphaseXCells, "required_broadphase_x_cells <minCellX> <maxCellX> <cellY> <cellZ>" },
-            { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
-            { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
-            { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },
-            { "physics_debug_axes", &TestSceneParser::ParsePhysicsDebugAxes, "physics_debug_axes on|off" },
-            { "physics_debug_contacts", &TestSceneParser::ParsePhysicsDebugContacts, "physics_debug_contacts on|off" },
-            { "physics_debug_sleep", &TestSceneParser::ParsePhysicsDebugSleep, "physics_debug_sleep on|off" },
-            { "physics_debug_pipeline", &TestSceneParser::ParsePhysicsDebugPipeline, "physics_debug_pipeline on|off" },
-            { "physics_debug_terrain_contact", &TestSceneParser::ParsePhysicsDebugTerrainContact, "physics_debug_terrain_contact on|off" },
-            { "physics_debug_transparent", &TestSceneParser::ParsePhysicsDebugTransparent, "physics_debug_transparent on|off" },
-            { "physics_debug_alpha", &TestSceneParser::ParsePhysicsDebugAlpha, "physics_debug_alpha <0.05..1.0>" },
-            { "physics_debug_contact_linger", &TestSceneParser::ParsePhysicsDebugContactLinger, "physics_debug_contact_linger <0.0..5.0>" },
-            { "track_height", &TestSceneParser::ParseTrackHeight, "track_height <height>" },
-            { "auto_cycle_interval", &TestSceneParser::ParseAutoCycleInterval, "auto_cycle_interval <seconds>" },
-            { "flat_slope", &TestSceneParser::ParseFlatSlope, "flat_slope <baseY> <slopeX> <slopeZ>" },
-            { "ball_state", &TestSceneParser::ParseBallState, "ball_state <name> ..." },
-            { "box_state", &TestSceneParser::ParseBoxState, "box_state <name> ..." },
-            { "convex_hull_state", &TestSceneParser::ParseConvexHullState, "convex_hull_state <name> ..." },
-            { "world", &TestSceneParser::ParseWorld, "world <gravity> <fluidHeight> <fluidDensity>" },
-            { "water_hidden", &TestSceneParser::ParseWaterHidden, "water_hidden on|off" },
-            { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
-            { "editable_scene", &TestSceneParser::ParseEditableScene, "editable_scene on|off" },
-            { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
-            { "look", &TestSceneParser::ParseLook, "look <name|path>" },
-            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },
-            { "model_capacity", &TestSceneParser::ParseModelCapacity, "model_capacity <count>" },
-            { "worker_threads", &TestSceneParser::ParseWorkerThreads, "worker_threads <-1|0|count>" },
-            { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
-            { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
-        };
+        SceneCamera out = {};
+        ReadRequiredStringField( out.name, camera, path, "camera", "name" );
+        ReadVec3( RequireMember( camera, path, "camera", "position" ), path, "camera.position", out.m_position.x, out.m_position.y, out.m_position.z );
+        ReadVec3( RequireMember( camera, path, "camera", "view" ), path, "camera.view", out.view.x, out.view.y, out.view.z );
+        ReadVec3( RequireMember( camera, path, "camera", "up" ), path, "camera.up", out.up.x, out.up.y, out.up.z );
+        m_scene.m_cameras.push_back( out );
+    }
 
-        const char* args = nullptr;
-        for ( const SceneDirective& directive : directives )
+    void ApplyBall( const Json& object, const std::string& path, bool isFixed )
+    {
+        SceneBall ball = {};
+        ReadRequiredStringField( ball.name, object, path, "ball", "name" );
+        ReadVec3( RequireMember( object, path, "ball", "position" ), path, "ball.position", ball.posX, ball.posY, ball.posZ );
+        ball.m_radius = ReadFloat( RequireMember( object, path, "ball", "radius" ), path, "ball.radius" );
+        ball.m_mass = ReadFloat( RequireMember( object, path, "ball", "mass" ), path, "ball.mass" );
+        ball.moment = ReadFloat( RequireMember( object, path, "ball", "moment" ), path, "ball.moment" );
+        ball.restitution = ReadFloat( RequireMember( object, path, "ball", "restitution" ), path, "ball.restitution" );
+        ball.isFixed = isFixed;
+
+        if ( const Json* fixed = FindMember( object, "fixed" ) )
         {
-            if ( MatchDirective( line, directive.name, args ) )
+            ball.isFixed = ReadBool( *fixed, path, "ball.fixed" );
+        }
+        if ( const Json* force = FindMember( object, "force" ) )
+        {
+            ReadVec3( *force, path, "ball.force", ball.forceX, ball.forceY, ball.forceZ );
+        }
+        if ( const Json* forcePosition = FindMember( object, "forcePosition" ) )
+        {
+            ReadVec3( *forcePosition, path, "ball.forcePosition", ball.forcePosX, ball.forcePosY, ball.forcePosZ );
+        }
+        if ( const Json* euler = FindMember( object, "euler" ) )
+        {
+            ReadVec3( *euler, path, "ball.euler", ball.eulerX, ball.eulerY, ball.eulerZ );
+            ball.hasInitOrient = true;
+        }
+        m_scene.m_balls.push_back( ball );
+    }
+
+    void ApplyBox( const Json& object, const std::string& path, bool isFixed )
+    {
+        SceneBox box = {};
+        ReadRequiredStringField( box.name, object, path, "box", "name" );
+        ReadVec3( RequireMember( object, path, "box", "position" ), path, "box.position", box.posX, box.posY, box.posZ );
+        ReadVec3( RequireMember( object, path, "box", "halfExtents" ), path, "box.halfExtents", box.halfX, box.halfY, box.halfZ );
+        box.mass = ReadFloat( RequireMember( object, path, "box", "mass" ), path, "box.mass" );
+        box.restitution = ReadFloat( RequireMember( object, path, "box", "restitution" ), path, "box.restitution" );
+        box.isFixed = isFixed;
+        if ( const Json* fixed = FindMember( object, "fixed" ) )
+        {
+            box.isFixed = ReadBool( *fixed, path, "box.fixed" );
+        }
+        if ( const Json* euler = FindMember( object, "euler" ) )
+        {
+            ReadVec3( *euler, path, "box.euler", box.eulerX, box.eulerY, box.eulerZ );
+            box.hasInitOrient = true;
+        }
+        if ( const Json* velocity = FindMember( object, "velocity" ) )
+        {
+            ReadVec3( *velocity, path, "box.velocity", box.velX, box.velY, box.velZ );
+            box.hasInitVelocity = true;
+        }
+        m_scene.m_boxes.push_back( box );
+    }
+
+    void ApplyConvexHull( const Json& object, const std::string& path, bool isFixed )
+    {
+        SceneConvexHull hull = {};
+        ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
+        ReadRequiredStringField( hull.hullPath, object, path, "convexHull", "hull" );
+        ReadVec3( RequireMember( object, path, "convexHull", "position" ), path, "convexHull.position", hull.posX, hull.posY, hull.posZ );
+        hull.mass = ReadFloat( RequireMember( object, path, "convexHull", "mass" ), path, "convexHull.mass" );
+        hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
+        hull.isFixed = isFixed;
+        if ( const Json* fixed = FindMember( object, "fixed" ) )
+        {
+            hull.isFixed = ReadBool( *fixed, path, "convexHull.fixed" );
+        }
+        if ( const Json* euler = FindMember( object, "euler" ) )
+        {
+            ReadVec3( *euler, path, "convexHull.euler", hull.eulerX, hull.eulerY, hull.eulerZ );
+            hull.hasInitOrient = true;
+        }
+        if ( const Json* velocity = FindMember( object, "velocity" ) )
+        {
+            ReadVec3( *velocity, path, "convexHull.velocity", hull.velX, hull.velY, hull.velZ );
+            hull.hasInitVelocity = true;
+        }
+        m_scene.m_convexHulls.push_back( hull );
+    }
+
+    void ApplyBallState( const Json& object, const std::string& path )
+    {
+        SceneBallState state = {};
+        ReadRequiredStringField( state.name, object, path, "ballState", "name" );
+        ReadVec3( RequireMember( object, path, "ballState", "position" ), path, "ballState.position", state.posX, state.posY, state.posZ );
+        ReadVec3( RequireMember( object, path, "ballState", "velocity" ), path, "ballState.velocity", state.velX, state.velY, state.velZ );
+        ReadVec3( RequireMember( object, path, "ballState", "angularVelocity" ), path, "ballState.angularVelocity", state.angVelX, state.angVelY, state.angVelZ );
+        ReadVec4( RequireMember( object, path, "ballState", "orientation" ), path, "ballState.orientation", state.orientX, state.orientY, state.orientZ, state.orientW );
+        state.radius = ReadFloat( RequireMember( object, path, "ballState", "radius" ), path, "ballState.radius" );
+        state.mass = ReadFloat( RequireMember( object, path, "ballState", "mass" ), path, "ballState.mass" );
+        state.restitution = ReadFloat( RequireMember( object, path, "ballState", "restitution" ), path, "ballState.restitution" );
+        ReadVec3( RequireMember( object, path, "ballState", "inertia" ), path, "ballState.inertia", state.inertiaX, state.inertiaY, state.inertiaZ );
+        if ( const Json* fixed = FindMember( object, "fixed" ) )
+        {
+            state.isFixed = ReadBool( *fixed, path, "ballState.fixed" );
+        }
+        m_scene.m_ballStates.push_back( state );
+    }
+
+    void ApplyBoxState( const Json& object, const std::string& path )
+    {
+        SceneBoxState state = {};
+        ReadRequiredStringField( state.name, object, path, "boxState", "name" );
+        ReadVec3( RequireMember( object, path, "boxState", "position" ), path, "boxState.position", state.posX, state.posY, state.posZ );
+        ReadVec3( RequireMember( object, path, "boxState", "velocity" ), path, "boxState.velocity", state.velX, state.velY, state.velZ );
+        ReadVec3( RequireMember( object, path, "boxState", "angularVelocity" ), path, "boxState.angularVelocity", state.angVelX, state.angVelY, state.angVelZ );
+        ReadVec4( RequireMember( object, path, "boxState", "orientation" ), path, "boxState.orientation", state.orientX, state.orientY, state.orientZ, state.orientW );
+        ReadVec3( RequireMember( object, path, "boxState", "halfExtents" ), path, "boxState.halfExtents", state.halfX, state.halfY, state.halfZ );
+        state.mass = ReadFloat( RequireMember( object, path, "boxState", "mass" ), path, "boxState.mass" );
+        state.restitution = ReadFloat( RequireMember( object, path, "boxState", "restitution" ), path, "boxState.restitution" );
+        ReadVec3( RequireMember( object, path, "boxState", "inertia" ), path, "boxState.inertia", state.inertiaX, state.inertiaY, state.inertiaZ );
+        state.isFixed = ReadBool( RequireMember( object, path, "boxState", "fixed" ), path, "boxState.fixed" );
+        m_scene.m_boxStates.push_back( state );
+    }
+
+    void ApplyConvexHullState( const Json& object, const std::string& path )
+    {
+        SceneConvexHullState state = {};
+        ReadRequiredStringField( state.name, object, path, "convexHullState", "name" );
+        ReadRequiredStringField( state.hullPath, object, path, "convexHullState", "hull" );
+        ReadVec3( RequireMember( object, path, "convexHullState", "position" ), path, "convexHullState.position", state.posX, state.posY, state.posZ );
+        ReadVec3( RequireMember( object, path, "convexHullState", "velocity" ), path, "convexHullState.velocity", state.velX, state.velY, state.velZ );
+        ReadVec3( RequireMember( object, path, "convexHullState", "angularVelocity" ), path, "convexHullState.angularVelocity", state.angVelX, state.angVelY, state.angVelZ );
+        ReadVec4( RequireMember( object, path, "convexHullState", "orientation" ), path, "convexHullState.orientation", state.orientX, state.orientY, state.orientZ, state.orientW );
+        state.mass = ReadFloat( RequireMember( object, path, "convexHullState", "mass" ), path, "convexHullState.mass" );
+        state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ), path, "convexHullState.restitution" );
+        ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ), path, "convexHullState.inertia", state.inertiaX, state.inertiaY, state.inertiaZ );
+        state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
+        m_scene.m_convexHullStates.push_back( state );
+    }
+
+    void ApplyObject( const Json& object, const std::string& path )
+    {
+        RequireObject( object, path, "object" );
+        const std::string type = ReadString( RequireMember( object, path, "object", "type" ), path, "object.type" );
+        if ( type == "ball" )
+        {
+            ApplyBall( object, path, false );
+        }
+        else if ( type == "floatingBall" )
+        {
+            ApplyBall( object, path, true );
+        }
+        else if ( type == "box" )
+        {
+            ApplyBox( object, path, false );
+        }
+        else if ( type == "floatingBox" )
+        {
+            ApplyBox( object, path, true );
+        }
+        else if ( type == "convexHull" )
+        {
+            ApplyConvexHull( object, path, false );
+        }
+        else if ( type == "floatingConvexHull" )
+        {
+            ApplyConvexHull( object, path, true );
+        }
+        else if ( type == "ballState" )
+        {
+            ApplyBallState( object, path );
+        }
+        else if ( type == "boxState" )
+        {
+            ApplyBoxState( object, path );
+        }
+        else if ( type == "convexHullState" )
+        {
+            ApplyConvexHullState( object, path );
+        }
+        else
+        {
+            Fail( path, "Unknown object type: " + type );
+        }
+    }
+
+    void ApplyObjectMaterial( const Json& materialJson, const std::string& path )
+    {
+        RequireObject( materialJson, path, "objectMaterial" );
+        SceneObjectMaterialOverride material = {};
+        ReadRequiredStringField( material.target, materialJson, path, "objectMaterial", "target" );
+
+        const Json* modeValue = FindMember( materialJson, "mode" );
+        if ( !modeValue )
+        {
+            modeValue = FindMember( materialJson, "kind" );
+        }
+        if ( !modeValue )
+        {
+            Fail( path, "objectMaterial is missing required field 'mode'" );
+        }
+
+        float tintR = 1.0f;
+        float tintG = 1.0f;
+        float tintB = 1.0f;
+        if ( const Json* tint = FindMember( materialJson, "tint" ) )
+        {
+            ReadVec3( *tint, path, "objectMaterial.tint", tintR, tintG, tintB );
+        }
+
+        material.materialMode = ParseMaterialModeValue( *modeValue, path, "objectMaterial.mode" );
+        material.material = Rendering::MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, material.materialMode );
+        strncpy_s( material.material.name, sizeof( material.material.name ), Rendering::RenderMaterialKindName( material.material.kind ), _TRUNCATE );
+        SetObjectMaterialBaseColor( material, tintR, tintG, tintB );
+
+        if ( const Json* roughness = FindMember( materialJson, "roughness" ) )
+        {
+            material.material.roughness = ReadUnitFloat( *roughness, path, "objectMaterial.roughness" );
+        }
+        if ( const Json* metallic = FindMember( materialJson, "metallic" ) )
+        {
+            material.material.metallic = ReadUnitFloat( *metallic, path, "objectMaterial.metallic" );
+        }
+        if ( const Json* specular = FindMember( materialJson, "specular" ) )
+        {
+            material.material.specular = ReadUnitFloat( *specular, path, "objectMaterial.specular" );
+        }
+        if ( const Json* transmission = FindMember( materialJson, "transmission" ) )
+        {
+            material.material.transmission = ReadUnitFloat( *transmission, path, "objectMaterial.transmission" );
+        }
+        if ( const Json* stylization = FindMember( materialJson, "stylization" ) )
+        {
+            material.material.stylization = ReadUnitFloat( *stylization, path, "objectMaterial.stylization" );
+        }
+        if ( const Json* emissive = FindMember( materialJson, "emissive" ) )
+        {
+            ReadVec3( *emissive,
+                      path,
+                      "objectMaterial.emissive",
+                      material.material.emissiveColor[0],
+                      material.material.emissiveColor[1],
+                      material.material.emissiveColor[2] );
+        }
+        if ( const Json* strength = FindMember( materialJson, "strength" ) )
+        {
+            material.material.emissiveStrength = (std::max)( 0.0f, ReadFloat( *strength, path, "objectMaterial.strength" ) );
+        }
+        if ( const Json* flags = FindMember( materialJson, "flags" ) )
+        {
+            material.material.flags = static_cast<uint32_t>( ReadInt( *flags, path, "objectMaterial.flags" ) );
+        }
+        if ( const Json* name = FindMember( materialJson, "name" ) )
+        {
+            strncpy_s( material.material.name, sizeof( material.material.name ), ReadString( *name, path, "objectMaterial.name" ).c_str(), _TRUNCATE );
+        }
+
+        static constexpr const char* kAllowedKeys[] = {
+            "target",
+            "mode",
+            "kind",
+            "tint",
+            "roughness",
+            "metallic",
+            "specular",
+            "transmission",
+            "stylization",
+            "emissive",
+            "strength",
+            "flags",
+            "name",
+        };
+        for ( const auto& item : materialJson.items() )
+        {
+            const bool known = std::any_of( std::begin( kAllowedKeys ), std::end( kAllowedKeys ), [&]( const char* key )
+                                            { return item.key() == key; } );
+            if ( !known )
             {
-                ( this->*directive.parse )( args );
-                return true;
+                Fail( path, "Unknown objectMaterial field: " + item.key() );
             }
         }
-        return false;
+
+        m_scene.m_objectMaterials.push_back( material );
+    }
+
+    void ApplyRequirements( const Json& requirements, const std::string& path )
+    {
+        RequireObject( requirements, path, "requirements" );
+        if ( const Json* contacts = FindMember( requirements, "contacts" ) )
+        {
+            RequireArray( *contacts, path, "requirements.contacts" );
+            for ( const Json& contactJson : *contacts )
+            {
+                RequireObject( contactJson, path, "requirements.contacts[]" );
+                SceneRequiredContact contact = {};
+                ReadRequiredStringField( contact.nameA, contactJson, path, "requirements.contacts[]", "a" );
+                ReadRequiredStringField( contact.nameB, contactJson, path, "requirements.contacts[]", "b" );
+                m_scene.m_requiredContacts.push_back( contact );
+            }
+        }
+        if ( const Json* cells = FindMember( requirements, "broadphaseXCells" ) )
+        {
+            RequireArray( *cells, path, "requirements.broadphaseXCells" );
+            for ( const Json& cellJson : *cells )
+            {
+                RequireObject( cellJson, path, "requirements.broadphaseXCells[]" );
+                SceneRequiredBroadphaseXCells cell = {};
+                cell.minCellX = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "min" ), path, "requirements.broadphaseXCells[].min" );
+                cell.maxCellX = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "max" ), path, "requirements.broadphaseXCells[].max" );
+                cell.cellY = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "y" ), path, "requirements.broadphaseXCells[].y" );
+                cell.cellZ = ReadInt( RequireMember( cellJson, path, "requirements.broadphaseXCells[]", "z" ), path, "requirements.broadphaseXCells[].z" );
+                m_scene.m_requiredBroadphaseXCells.push_back( cell );
+            }
+        }
+    }
+
+    void ApplySceneBody( const Json& root, const std::string& path )
+    {
+        if ( const Json* playback = FindMember( root, "playback" ) )
+        {
+            ApplyPlayback( *playback, path );
+        }
+        if ( const Json* simulation = FindMember( root, "simulation" ) )
+        {
+            ApplySimulation( *simulation, path );
+        }
+        if ( const Json* runtime = FindMember( root, "runtime" ) )
+        {
+            ApplyRuntime( *runtime, path );
+        }
+        if ( const Json* capture = FindMember( root, "capture" ) )
+        {
+            ApplyCapture( *capture, path );
+        }
+        if ( const Json* logging = FindMember( root, "logging" ) )
+        {
+            ApplyLogging( *logging, path );
+        }
+        if ( const Json* debug = FindMember( root, "debug" ) )
+        {
+            ApplyDebug( *debug, path );
+        }
+        if ( const Json* terrain = FindMember( root, "terrain" ) )
+        {
+            ApplyTerrain( *terrain, path );
+        }
+        if ( const Json* editor = FindMember( root, "editor" ) )
+        {
+            ApplyEditor( *editor, path );
+        }
+        if ( const Json* ui = FindMember( root, "ui" ) )
+        {
+            ApplyUI( *ui, path );
+        }
+        if ( const Json* cinematic = FindMember( root, "cinematic" ) )
+        {
+            ApplyCinematic( *cinematic, path );
+        }
+        if ( const Json* cameras = FindMember( root, "cameras" ) )
+        {
+            RequireArray( *cameras, path, "cameras" );
+            for ( const Json& camera : *cameras )
+            {
+                ApplyCamera( camera, path );
+            }
+        }
+        if ( const Json* objects = FindMember( root, "objects" ) )
+        {
+            RequireArray( *objects, path, "objects" );
+            for ( const Json& object : *objects )
+            {
+                ApplyObject( object, path );
+            }
+        }
+        if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
+        {
+            RequireArray( *objectMaterials, path, "objectMaterials" );
+            for ( const Json& objectMaterial : *objectMaterials )
+            {
+                ApplyObjectMaterial( objectMaterial, path );
+            }
+        }
+        if ( const Json* requirements = FindMember( root, "requirements" ) )
+        {
+            ApplyRequirements( *requirements, path );
+        }
+    }
+
+    void LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
+    {
+        if ( depth > kMaxStyleIncludeDepth )
+        {
+            Fail( path, "Style include depth exceeded" );
+        }
+
+        const Json root = ReadJsonFile( path );
+        RequireObject( root, path, "document root" );
+        const std::string expectedFormat = styleOnly ? "skullbonez.style.json" : "skullbonez.scene.json";
+        const std::string actualFormat = ReadString( RequireMember( root, path, "document root", "format" ), path, "format" );
+        if ( actualFormat != expectedFormat )
+        {
+            std::ostringstream message;
+            message << "Expected format '" << expectedFormat << "', got '" << actualFormat << "'";
+            Fail( path, message.str() );
+        }
+
+        LoadStyleIncludes( root, path, "includes", depth );
+        if ( !styleOnly )
+        {
+            LoadStyleIncludes( root, path, "styles", depth );
+        }
+        ApplySceneBody( root, path );
     }
 
   public:
-    explicit TestSceneParser( const char* path )
-        : m_path( path )
+    TestScene LoadScene( const char* path )
     {
-    }
-
-    ~TestSceneParser() = default;
-
-    TestScene Load()
-    {
-        FILE* rawFile = nullptr;
-        const errno_t err = fopen_s( &rawFile, m_path, "r" );
-        if ( err != 0 || !rawFile )
-        {
-            char msg[256];
-            sprintf_s( msg, sizeof( msg ), "Failed to open scene file: %s  (TestScene::LoadFromFile)", m_path );
-            throw std::runtime_error( msg );
-        }
-        m_file.reset( rawFile );
-
-        char line[512];
-        while ( fgets( line, sizeof( line ), m_file.get() ) )
-        {
-            ++m_lineNumber;
-
-            size_t len = strlen( line );
-            while ( len > 0 && ( line[len - 1] == '\n' || line[len - 1] == '\r' ) )
-            {
-                line[--len] = '\0';
-            }
-
-            if ( line[0] == '\0' || line[0] == '#' )
-            {
-                continue;
-            }
-
-            if ( !DispatchLine( line ) )
-            {
-                Fail( "Unknown directive at line %d: %.64s", m_lineNumber, line );
-            }
-        }
-
-        m_file.reset();
-
+        LoadDocumentIntoScene( path ? path : "", false, 0 );
         if ( m_scene.m_cameras.empty() )
         {
-            throw std::runtime_error( "Scene file must define at least one camera.  (TestScene::LoadFromFile)" );
+            throw std::runtime_error( "Scene JSON must define at least one camera.  (TestScene::LoadFromFile)" );
         }
-
         return m_scene;
     }
 
-    TestScene LoadStyle()
+    TestScene LoadStyle( const char* path )
     {
-        IncludeStyleFile( m_path );
+        LoadDocumentIntoScene( path ? path : "", true, 0 );
         return m_scene;
     }
 };
 
-
 TestScene LoadTestSceneFromFileImpl( const char* path )
 {
-    return TestSceneParser( path ).Load();
+    return TestSceneParser().LoadScene( path );
 }
-
 
 TestScene LoadStyleSceneFromFileImpl( const char* path )
 {
-    return TestSceneParser( path ).LoadStyle();
+    return TestSceneParser().LoadStyle( path );
 }
 } // namespace Basics
 } // namespace SkullbonezCore

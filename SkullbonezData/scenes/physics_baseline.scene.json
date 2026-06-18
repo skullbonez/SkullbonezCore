@@ -1,0 +1,155 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false
+  },
+  "playback": {
+    "frames": 600,
+    "fixedStep": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        200,
+        500
+      ],
+      "view": [
+        500,
+        50,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "drop_flat",
+      "position": [
+        500,
+        120,
+        500
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.6,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_slope",
+      "position": [
+        700,
+        100,
+        500
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        -400,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_flat",
+      "position": [
+        500,
+        80,
+        700
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        -300
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "collide_a",
+      "position": [
+        400,
+        80,
+        400
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "force": [
+        300,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "collide_b",
+      "position": [
+        600,
+        80,
+        400
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "force": [
+        -300,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

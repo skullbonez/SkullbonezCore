@@ -30,7 +30,7 @@ If a query result is too large or gets truncated, do not reason from the truncat
 Target command:
 
 ```bat
-Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-diag Debug\at_rest.physicsdiag.ndjson
+Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest.physicsdiag.ndjson
 ```
 
 `--physics-diag` automatically forces deterministic fixed-step playback. The runtime should print a message when it does that.
@@ -38,7 +38,7 @@ Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-
 The deterministic CSV logger remains separate:
 
 ```bat
-Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-regression-log Debug\at_rest.csv
+Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene.json --physics-regression-log Debug\at_rest.csv
 ```
 
 Use the regression CSV for byte-exact validation and baseline diffs. Use the diagnostic trace for model-facing investigation.
@@ -61,7 +61,7 @@ Debug\at_rest.physicsdiag.sqlite
 
 Subsequent queries use SQLite and should be fast.
 
-Regression coverage lives in `tools\check_physics_query_regression.py`. It generates a deterministic trace from `SkullbonezData\scenes\physics_bench_varied.scene`, runs representative SkullScope queries, normalizes cache paths out of the JSON, and compares against `TestOutput\baselines\physics_query_varied.json`.
+Regression coverage lives in `tools\check_physics_query_regression.py`. It generates a deterministic trace from `SkullbonezData\scenes\physics_bench_varied.scene.json`, runs representative SkullScope queries, normalizes cache paths out of the JSON, and compares against `TestOutput\baselines\physics_query_varied.json`.
 
 ## Measuring Query Output
 

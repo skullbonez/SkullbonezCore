@@ -56,9 +56,9 @@ Minimal session shape:
 ```powershell
 $renderer = "dx12"
 $args = if ($renderer -eq "gl") {
-    "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json"
 } else {
-    "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json"
 }
 $proc = Start-Process "Profile\SKULLBONEZ_CORE.exe" -ArgumentList $args -WorkingDirectory . -PassThru
 $proc.WaitForExit(120000) | Out-Null

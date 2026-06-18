@@ -245,13 +245,13 @@ struct RunScreenshotState
 
 struct RunLiveStyleControlState
 {
-    bool enabled = false;                 // Polls a small control folder for live .style and screenshot requests
-    char directory[260] = {};             // Folder containing live.style, capture.txt, and status.txt
+    bool enabled = false;                 // Polls a small control folder for live style JSON and screenshot requests
+    char directory[260] = {};             // Folder containing live.style.json, capture.txt, and status.txt
     char stylePath[300] = {};             // Style descriptor applied without reloading the scene
     char capturePath[300] = {};           // Text command file used to request one screenshot
     char statusPath[300] = {};            // Latest harness status for scripts/humans
     char pendingScreenshotPath[512] = {}; // Screenshot path requested by capture.txt
-    uint64_t styleStamp = 0;              // Last applied live.style write stamp
+    uint64_t styleStamp = 0;              // Last applied live.style.json write stamp
     uint64_t captureStamp = 0;            // Last consumed capture.txt write stamp
     int styleApplyCount = 0;              // Successful live style applications
     int captureCount = 0;                 // Successful live screenshots
@@ -972,7 +972,7 @@ class SkullbonezRun
     void LoadDemoSceneFromUI();                                                                                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Live cine/concept style change; leaves scene objects intact.
     bool ApplyAdjacentCinematicMode( int direction );                                                                                      // Cycles live cine/concept looks without rebuilding the scene
-    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Style-only cinematic/material directives; no object rebuild.
+    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Style-only cinematic/material JSON; no object rebuild.
     void ApplyDemoHeroStyleOverride();                                                                                                     // Low-poly hero style override for generated demo mode.
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                    // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                       // Locks scene automation into non-quitting interactive mode
@@ -1008,7 +1008,7 @@ class SkullbonezRun
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();        // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();   // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControl();   // Poll live.style.json/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
     void TickAutoCycle();                                                                                                                                                                // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                                                                                                                                                  // Write per-frame perf CSV row and periodic memory checkpoint
@@ -1048,7 +1048,7 @@ class SkullbonezRun
     SkullbonezRun( std::vector<std::string> sceneQueue ); // sceneQueue empty string selects generated demo mode.
     ~SkullbonezRun();
     void Initialise();                                                  // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly();                                            // Scene-load smoke path; skips the frame loop.
+    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );     // Scene-load smoke path; skips the frame loop.
     void Run();                                                         // Main message loop; sceneQueue decides generated demo versus suite playback.
     void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
@@ -1061,7 +1061,7 @@ class SkullbonezRun
     void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
     void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
-    void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
+    void SetLiveStyleControlDirectory( const char* path );              // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );

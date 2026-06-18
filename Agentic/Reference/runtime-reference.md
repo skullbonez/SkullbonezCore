@@ -7,10 +7,11 @@ This file holds details that are useful during debugging or manual testing but t
 | Argument | Values | Description |
 |----------|--------|-------------|
 | `--renderer` | `dx12` | Compatibility alias for the only runtime renderer. Omit it for normal launches. GL and DX11 are retired runtime choices. |
-| `--scene` | path | Load one scene file. Quoted paths are supported. |
-| `--suite` | path | Load a `.suite` file with one scene path per line. |
+| `--scene` | path | Load one `.scene.json` file. Quoted paths are supported, and bare names resolve through `SkullbonezData\scenes\<name>.scene.json`. |
+| `--suite` | path | Load one `.suite.json` file with a JSON `scenes` array. |
 | `--demohero` | flag | Run generated demo mode with the low-poly hero rendering/style stack applied. Alias: `--demo-hero`. |
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
+| `--scene-snapshot-out` | path | With exactly one loaded scene, load it, serialize the runtime state to the given `.scene.json` path, and exit before the frame loop. Alias: `--scene_snapshot_out`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
 | `--switch-interval` | retired | Rejected because DX12 is the only runtime renderer. |
@@ -24,7 +25,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
 | `--shadows` | optional `on`, `off` | Force directional shadow maps on or off for every loaded scene. Bare flag means `on`; shadows work in normal and cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
-| `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
+| `--live-style-control` | directory | Watch `<directory>\live.style.json` and `<directory>\capture.txt` while the scene keeps running. Applies style-only JSON descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--platform-profiler-markers` | flag | Emit existing profiler markers to the platform profiler marker API when support is available. Enabled by default in Debug and Profile builds while PIX marker support is compiled in. Aliases: `--platform-profiler`, `--pix-markers`, `--pix`. Environment fallback/override: `SKULLBONEZ_PLATFORM_PROFILER_MARKERS=1`; set it to `0` to disable the default. `SKULLBONEZ_PIX_MARKERS=1` is still accepted as a Windows PIX compatibility alias. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
@@ -52,7 +53,7 @@ Physics debug command-line arguments also accept underscore spellings matching s
 Launch the authored cinematic look-dev scene with:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\cinematic_volumetric.scene.json --cinematic --hold
 ```
 
 The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggles are backed by `engine.cfg` keys:
@@ -68,13 +69,17 @@ The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggle
 | `cinematic_terrain_relief_enabled` | Enable render-only cinematic basin relief on terrain. Physics terrain is unchanged. |
 | `cinematic_shadows` | Enable directional shadow maps. Scene files can also use `shadows on|off`; shadows work in normal and cinematic rendering. |
 
-Scene files may override any `cinematic_*` key with the same spelling and a space-separated value, for example:
+Scene files may override cinematic settings in the JSON `cinematic` object, for example:
 
-```text
-shadows on
-cinematic_clouds off
-cinematic_bloom_strength 0.30
-cinematic_exposure 0.85
+```json
+{
+  "debug": { "shadows": true },
+  "cinematic": {
+    "clouds": false,
+    "bloomStrength": 0.30,
+    "exposure": 0.85
+  }
+}
 ```
 
 Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the HDR/post rendering stack. Shadow-map controls use the same config object but are independent of the cinematic master switch.
@@ -88,7 +93,7 @@ Profile\SKULLBONEZ_CORE.exe --hero
 Profile\SKULLBONEZ_CORE.exe --scene hero
 ```
 
-The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
+The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene.json`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene.json` when it exists.
 
 Use this to keep the generated demo scene and physics population, but render it with the same low-poly hero style:
 
@@ -96,11 +101,11 @@ Use this to keep the generated demo scene and physics population, but render it 
 Profile\SKULLBONEZ_CORE.exe --demohero
 ```
 
-`--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
+`--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style.json` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
 
 ## Live Style Harness
 
-The live style harness is for look-dev: keep the game window running, edit a `.style` descriptor, then request screenshots without restarting the scene or resetting physics.
+The live style harness is for look-dev: keep the game window running, edit a `.style.json` descriptor, then request screenshots without restarting the scene or resetting physics.
 
 ```bat
 tools\style_harness.bat init -Style low_poly_art_style
@@ -114,11 +119,11 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 | File | Purpose |
 |------|---------|
-| `live.style` | The active style descriptor. It may contain `style <name>`, `cinematic_*`, and `object_material` directives. |
+| `live.style.json` | The active style descriptor. It may contain `includes`, `cinematic`, and `objectMaterials` JSON fields. |
 | `capture.txt` | A one-line request such as `capture "C:\SkullbonezCore\Agentic\style-harness\shots\shot.bmp"`. Relative paths are resolved under the harness folder. |
 | `status.txt` | Last app-side status, including whether the style was applied or a screenshot was saved. |
 
-`--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene directives such as `world`, `flat_slope`, `solver_balls`, or `time_scale`.
+`--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style.json` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene fields such as `terrain`, `objects`, or `simulation.timeScale`.
 
 ## Runtime Facades And Streams
 
@@ -126,25 +131,25 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 `GameModelStreamProvider` lives in `SkullbonezGameModelStreams.h/.cpp` and builds `GameModelBodyStream` and `GameModelRenderStream` as borrowed views over `GameModelCollection`'s `GameModelSoACache`. The provider owns stream construction and cache-validation policy, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat this as a model-data boundary marker for future data separation, not as the final physics/render storage split.
 
-## Scene Directives
+## Scene JSON Fields
 
-Scene files are plain text. Blank lines and lines beginning with `#` are ignored.
+Scene files are JSON objects with `format: "skullbonez.scene.json"` and `version: 1`. Suites use `format: "skullbonez.suite.json"` plus a `scenes` array. Style files use `format: "skullbonez.style.json"` and can be included from scenes or other style files.
 
-| Area | Directives |
+| Area | JSON fields |
 |------|------------|
-| Playback | `frames`, `exit_on_complete`, `screenshot_and_exit`, `fixed_step` |
-| Capture | `screenshot`, `screenshot_interval` |
-| Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
-| Simulation | `physics`, `time_scale`, `seed`, `world` |
-| Objects | `ball`, `floating_ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
-| Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `style`, `look`, `object_material`, `text`, `text_only`, `shadows`, `cinematic_*`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_terrain_contact`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Playback | `playback.frames`, `playback.exitOnComplete`, `playback.screenshotAndExit`, `playback.fixedStep` |
+| Capture | `capture.screenshot`, `capture.screenshotInterval` |
+| Logging | `logging.perfLog`, `logging.perfLogFlush`, `logging.perfLogFlushInterval` |
+| Simulation | `simulation.physics`, `simulation.timeScale`, `simulation.seed`, `simulation.world` |
+| Objects | `objects[]` entries with `type` values such as `ball`, `floatingBall`, `box`, `floatingBox`, `convexHull`, or matching `*State` snapshot forms |
+| Camera | `cameras[]`, `editor.trackHeight`, `capture.autoCycleInterval` |
+| Rendering | `styles[]`, `objectMaterials[]`, `debug`, `cinematic`, `ui`, `terrain`, `runtime.vsync`, `runtime.pipelineSync`, `terrain.flatSlope` |
 
-For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
-`floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
-`style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files hold render-look directives such as `cinematic_*` and `object_material`, can include shared style files with `style <name>`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing. Legacy `look <name>` and `cinematic_look <name>` directives are compatibility aliases that load the matching `.style` file instead of using hard-coded presets.
-`object_material` keeps the legacy positional form `object_material <target> <r> <g> <b> <mode>` and also accepts `object_material <target> <mode> tint=<r,g,b>`. Both forms can append material response options: `roughness=`, `metallic=`, `specular=`, `emissive=<r,g,b>`, `strength=`, `transmission=`, `stylization=`, `flags=`, and `name=`. Targets are `all`, `balls`, `boxes`, `prefix:<name>`, or an exact model name.
-The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic_*` overrides, so `.style` files remain reusable base descriptors.
+For exact field names, inspect existing files in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestSceneParser.cpp`.
+`floatingBall` and `floatingBox` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
+Styles include `SkullbonezData/styles/<name>.style.json` through the `styles` or `includes` arrays. Style files hold reusable render-look JSON such as `cinematic` and `objectMaterials`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing.
+`objectMaterials[]` entries accept `target`, `mode`, `tint`, and material response options: `roughness`, `metallic`, `specular`, `emissive`, `strength`, `transmission`, `stylization`, `flags`, and `name`. Targets are `all`, `balls`, `boxes`, `prefix:<name>`, or an exact model name.
+The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic` JSON overrides, so `.style.json` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
 
@@ -180,18 +185,18 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 
 | Scene | Purpose |
 |-------|---------|
-| `SkullbonezData/scenes/water_ball_test.scene` | Visual regression for terrain, skybox, sphere, water, and shadow. |
-| `SkullbonezData/scenes/solver_smoke.scene` | Smoke test with 300 generated balls. |
-| `SkullbonezData/scenes/perf_test.scene` | DX12 performance regression scene. |
-| `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
-| `SkullbonezData/scenes/cause_effect_marble_run.scene` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
-| `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
-| `SkullbonezData/scenes/bullet_sweep_wall.scene` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |
-| `SkullbonezData/scenes/bullet_sweep_object.scene` | High-speed bullet into a fixed object corner; emits collision time via `--physics-collision-time-log`. |
-| `SkullbonezData/scenes/bullet_sweep_terrain.scene` | High-speed bullet into flat terrain; emits collision time via `--physics-collision-time-log`. |
-| `SkullbonezData/scenes/shooting_reaction_volley.scene` | Ten camera-style bullets fired into mixed dynamic targets; validation asserts every target reacts. |
-| `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
-| `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics regression log. |
+| `SkullbonezData/scenes/water_ball_test.scene.json` | Visual regression for terrain, skybox, sphere, water, and shadow. |
+| `SkullbonezData/scenes/solver_smoke.scene.json` | Smoke test with 300 generated balls. |
+| `SkullbonezData/scenes/perf_test.scene.json` | DX12 performance regression scene. |
+| `SkullbonezData/scenes/physics_roll.scene.json` | Physics rolling validation. |
+| `SkullbonezData/scenes/cause_effect_marble_run.scene.json` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
+| `SkullbonezData/scenes/physics_regression_solver.scene.json` | Byte-exact Debug physics CSV regression. |
+| `SkullbonezData/scenes/bullet_sweep_wall.scene.json` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/bullet_sweep_object.scene.json` | High-speed bullet into a fixed object corner; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/bullet_sweep_terrain.scene.json` | High-speed bullet into flat terrain; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/shooting_reaction_volley.scene.json` | Ten camera-style bullets fired into mixed dynamic targets; validation asserts every target reacts. |
+| `SkullbonezData/scenes/standing_box_repro.scene.json` | Deterministic solver-box edge-rest repro seed target. |
+| `SkullbonezData/scenes/box_crater_edge_repro.scene.json` | Terrain edge-rest regression scene with Debug physics regression log. |
 
 ## Debug Logging
 

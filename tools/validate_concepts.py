@@ -61,19 +61,19 @@ from typing import Any
 
 TIERS = {
     "smoke": [
-        "SkullbonezData/scenes/concept_01_golden_hour_realism.scene",
-        "SkullbonezData/scenes/concept_04_neon_cyberpunk.scene",
-        "SkullbonezData/scenes/concept_12_low_poly_art_style.scene",
+        "SkullbonezData/scenes/concept_01_golden_hour_realism.scene.json",
+        "SkullbonezData/scenes/concept_04_neon_cyberpunk.scene.json",
+        "SkullbonezData/scenes/concept_12_low_poly_art_style.scene.json",
     ],
     "core": [
-        "SkullbonezData/scenes/concept_01_golden_hour_realism.scene",
-        "SkullbonezData/scenes/concept_04_neon_cyberpunk.scene",
-        "SkullbonezData/scenes/concept_07_painterly.scene",
-        "SkullbonezData/scenes/concept_10_ocean_world.scene",
-        "SkullbonezData/scenes/concept_12_low_poly_art_style.scene",
-        "SkullbonezData/scenes/concept_14_storm_front.scene",
-        "SkullbonezData/scenes/concept_16_tron_grid.scene",
-        "SkullbonezData/scenes/concept_20_pixar_inspired.scene",
+        "SkullbonezData/scenes/concept_01_golden_hour_realism.scene.json",
+        "SkullbonezData/scenes/concept_04_neon_cyberpunk.scene.json",
+        "SkullbonezData/scenes/concept_07_painterly.scene.json",
+        "SkullbonezData/scenes/concept_10_ocean_world.scene.json",
+        "SkullbonezData/scenes/concept_12_low_poly_art_style.scene.json",
+        "SkullbonezData/scenes/concept_14_storm_front.scene.json",
+        "SkullbonezData/scenes/concept_16_tron_grid.scene.json",
+        "SkullbonezData/scenes/concept_20_pixar_inspired.scene.json",
     ],
 }
 
@@ -94,14 +94,14 @@ def run_id() -> str:
 
 
 def read_full_suite(repo: Path) -> list[str]:
-    suite = repo / "SkullbonezData" / "scenes" / "concepts.suite"
-    scenes: list[str] = []
-    for raw_line in suite.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        scenes.append(line.replace("\\", "/"))
-    return scenes
+    suite = repo / "SkullbonezData" / "scenes" / "concepts.suite.json"
+    payload = json.loads(suite.read_text(encoding="utf-8"))
+    if payload.get("format") != "skullbonez.suite.json":
+        raise RuntimeError(f"{suite} must declare format skullbonez.suite.json")
+    scenes = payload.get("scenes")
+    if not isinstance(scenes, list) or any(not isinstance(scene, str) for scene in scenes):
+        raise RuntimeError(f"{suite} must contain a scenes array of strings")
+    return [scene.replace("\\", "/") for scene in scenes]
 
 
 def scene_slug(scene: str) -> str:

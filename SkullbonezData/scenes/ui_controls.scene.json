@@ -1,0 +1,86 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 4242,
+    "physics": true,
+    "text": true,
+    "textOnly": false,
+    "timeScale": 1.75,
+    "solverBalls": 180,
+    "solverBoxes": 60,
+    "world": {
+      "gravity": -12.0,
+      "fluidHeight": 24.0,
+      "fluidDensity": 1.2
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "exitOnComplete": true,
+    "frames": 24,
+    "trackHeight": 280.0,
+    "autoCycleInterval": 10.0
+  },
+  "debug": {
+    "physics": {
+      "axes": true,
+      "contacts": true,
+      "sleep": false,
+      "transparent": true,
+      "alpha": 0.42,
+      "contactLinger": 1.25
+    },
+    "collisionVisualizer": true,
+    "broadphaseOverlay": true,
+    "waterFreeze": false,
+    "waterFlat": true,
+    "waterReflection": "none",
+    "waterHidden": false,
+    "terrainHidden": true
+  },
+  "ui": {
+    "tab": "controls",
+    "rect": [
+      24,
+      10,
+      820,
+      748
+    ],
+    "blur": true,
+    "rendererCombo": false,
+    "profilerExpand": false,
+    "testPattern": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/ui_controls.bmp",
+      "frame": 20
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        60,
+        650
+      ],
+      "view": [
+        600,
+        33,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

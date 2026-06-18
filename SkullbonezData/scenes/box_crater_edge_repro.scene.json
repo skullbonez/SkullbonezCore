@@ -1,0 +1,485 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "timeScale": 6.0,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": 0.0,
+      "fluidDensity": 998.0
+    }
+  },
+  "playback": {
+    "frames": 1500,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        620,
+        310,
+        1040
+      ],
+      "view": [
+        620,
+        55,
+        620
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "crater_rand_00",
+      "position": [
+        919.868,
+        71.203,
+        590.976
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -8.818,
+        -0.32,
+        40.454
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_01",
+      "position": [
+        897.615,
+        104.159,
+        722.649
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -16.979,
+        23.504,
+        38.949
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_02",
+      "position": [
+        792.592,
+        121.319,
+        764.646
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        7.975,
+        -18.987,
+        85.074
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_03",
+      "position": [
+        733.637,
+        92.051,
+        817.378
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        1.491,
+        30.74,
+        34.308
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_04",
+      "position": [
+        719.73,
+        79.847,
+        863.347
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -10.019,
+        -4.348,
+        44.623
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_05",
+      "position": [
+        637.298,
+        39.978,
+        865.169
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -1.454,
+        -14.715,
+        1.934
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_06",
+      "position": [
+        512.057,
+        32.936,
+        873.017
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -11.307,
+        34.478,
+        77.395
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_07",
+      "position": [
+        491.498,
+        37.849,
+        840.188
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        7.603,
+        30.551,
+        37.99
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_08",
+      "position": [
+        375.452,
+        206.743,
+        766.997
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        3.153,
+        26.774,
+        76.158
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_09",
+      "position": [
+        355.477,
+        223.183,
+        705.541
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -9.261,
+        20.818,
+        37.288
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_10",
+      "position": [
+        346.629,
+        228.296,
+        643.648
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        6.281,
+        -8.771,
+        39.507
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_11",
+      "position": [
+        339.585,
+        169.469,
+        528.198
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -3.843,
+        -0.721,
+        2.662
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_12",
+      "position": [
+        368.082,
+        177.437,
+        479.798
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        3.355,
+        -7.448,
+        15.331
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_13",
+      "position": [
+        435.946,
+        158.647,
+        366.356
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        1.426,
+        25.22,
+        20.896
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_14",
+      "position": [
+        525.056,
+        167.82,
+        324.139
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -1.471,
+        -16.15,
+        49.32
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_15",
+      "position": [
+        647.138,
+        114.243,
+        396.125
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        11.537,
+        27.033,
+        66.645
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_16",
+      "position": [
+        724.73,
+        141.403,
+        369.317
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -2.661,
+        -31.071,
+        78.301
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_17",
+      "position": [
+        766.43,
+        57.144,
+        426.092
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -0.543,
+        -10.025,
+        31.147
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_18",
+      "position": [
+        849.092,
+        147.688,
+        457.083
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -1.507,
+        -33.042,
+        20.664
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crater_rand_19",
+      "position": [
+        875.759,
+        49.808,
+        512.065
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        10.744,
+        20.797,
+        73.479
+      ]
+    }
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1016,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "none"
+  },
+  "styles": [
+    "tron_grid"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        135,
+        900
+      ],
+      "view": [
+        620,
+        35,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "ring_horizon",
+      "position": [
+        620,
+        35,
+        515
+      ],
+      "halfExtents": [
+        310,
+        2,
+        3
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "redline_left",
+      "position": [
+        450,
+        42,
+        650
+      ],
+      "halfExtents": [
+        130,
+        2,
+        3
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "redline_right",
+      "position": [
+        790,
+        42,
+        645
+      ],
+      "halfExtents": [
+        130,
+        2,
+        3
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        48,
+        650
+      ],
+      "radius": 27.0,
+      "mass": 108.0,
+      "moment": 25.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ring_01",
+      "position": [
+        470,
+        42,
+        700
+      ],
+      "radius": 14.0,
+      "mass": 58.0,
+      "moment": 13.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ring_02",
+      "position": [
+        760,
+        40,
+        690
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "redline_01",
+      "position": [
+        390,
+        50,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "redline_02",
+      "position": [
+        520,
+        46,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "redline_03",
+      "position": [
+        685,
+        46,
+        540
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "redline_04",
+      "position": [
+        825,
+        52,
+        570
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "sky_wire",
+      "position": [
+        860,
+        170,
+        505
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    }
+  ]
+}

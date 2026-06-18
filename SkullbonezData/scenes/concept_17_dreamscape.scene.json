@@ -1,0 +1,269 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1017,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "dreamscape"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        630,
+        205,
+        1030
+      ],
+      "view": [
+        615,
+        72,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "island_left",
+      "position": [
+        420,
+        130,
+        520
+      ],
+      "halfExtents": [
+        58,
+        16,
+        34
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        4,
+        12,
+        18
+      ]
+    },
+    {
+      "type": "box",
+      "name": "island_right",
+      "position": [
+        815,
+        148,
+        540
+      ],
+      "halfExtents": [
+        64,
+        18,
+        38
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        -6,
+        -12,
+        -16
+      ]
+    },
+    {
+      "type": "box",
+      "name": "glow_crystal",
+      "position": [
+        610,
+        115,
+        500
+      ],
+      "halfExtents": [
+        9,
+        42,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        615,
+        60,
+        650
+      ],
+      "radius": 27.0,
+      "mass": 108.0,
+      "moment": 25.0,
+      "restitution": 0.44,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dream_01",
+      "position": [
+        465,
+        72,
+        705
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "dream_02",
+      "position": [
+        760,
+        68,
+        690
+      ],
+      "radius": 16.0,
+      "mass": 66.0,
+      "moment": 15.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drift_01",
+      "position": [
+        390,
+        108,
+        570
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drift_02",
+      "position": [
+        520,
+        126,
+        520
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drift_03",
+      "position": [
+        700,
+        118,
+        530
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drift_04",
+      "position": [
+        845,
+        138,
+        575
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "moonlet",
+      "position": [
+        870,
+        210,
+        485
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    }
+  ]
+}

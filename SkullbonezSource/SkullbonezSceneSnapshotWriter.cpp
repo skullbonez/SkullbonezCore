@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezSceneSnapshotWriter.cpp
 Purpose:
-  Serializes the current scene state back into a scene file.
+  Serializes the current scene state back into a JSON scene file.
 
 Mental model:
   Runtime code connects authored scene data, input, simulation, render
@@ -31,7 +31,12 @@ Related:
 #include "SkullbonezWorldEnvironment.h"
 
 #include <cstdio>
+#include <fstream>
 #include <variant>
+
+#pragma warning( push, 0 )
+#include "../ThirdPtySource/nlohmann/json.hpp"
+#pragma warning( pop )
 
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
@@ -42,6 +47,31 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Vector::Vector3;
+
+namespace
+{
+using Json = nlohmann::ordered_json;
+
+Json Vec3Json( const Vector3& value )
+{
+    return Json::array( { value.x, value.y, value.z } );
+}
+
+Json Vec3Json( float x, float y, float z )
+{
+    return Json::array( { x, y, z } );
+}
+
+Json OrientationJson( GameModel& model )
+{
+    float qx = 0.0f;
+    float qy = 0.0f;
+    float qz = 0.0f;
+    float qw = 1.0f;
+    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+    return Json::array( { qx, qy, qz, qw } );
+}
+} // namespace
 
 
 bool SceneSnapshotWriter::Save( GameModelCollection& collection,
@@ -63,39 +93,55 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
 {
     auto& m_gameModels = collection.m_gameModels;
 
-    FILE* f = nullptr;
-    if ( fopen_s( &f, path, "w" ) != 0 || !f )
+    std::ofstream output( path, std::ios::trunc );
+    if ( !output )
     {
         return false;
     }
 
-    fprintf( f, "# Snapshot - %d models\n", static_cast<int>( m_gameModels.size() ) );
-    fprintf( f, "physics %s\n", physicsOn ? "on" : "off" );
-    fprintf( f, "text %s\n", textOn ? "on" : "off" );
+    Json scene;
+    scene["format"] = "skullbonez.scene.json";
+    scene["version"] = 1;
+    scene["simulation"] = Json::object();
+    scene["simulation"]["physics"] = physicsOn;
+    scene["simulation"]["text"] = textOn;
+    scene["simulation"]["world"] = {
+        { "gravity", worldEnv.GetGravity() },
+        { "fluidHeight", worldEnv.GetFluidSurfaceHeight() },
+        { "fluidDensity", worldEnv.GetFluidDensity() },
+    };
+    scene["playback"] = Json::object();
+    scene["playback"]["frames"] = "unlimited";
+    scene["playback"]["fixedStep"] = fixedStep;
     if ( editableScene )
     {
-        fprintf( f, "editable_scene on\n" );
+        scene["editor"] = {
+            { "editableScene", true },
+        };
     }
-    fprintf( f, "frames unlimited\n" );
-    if ( fixedStep )
-    {
-        fprintf( f, "fixed_step\n" );
-    }
-    fprintf( f, "world %f %f %f\n", worldEnv.GetGravity(), worldEnv.GetFluidSurfaceHeight(), worldEnv.GetFluidDensity() );
-    if ( waterHidden )
-    {
-        fprintf( f, "water_hidden on\n" );
-    }
-    if ( terrainHidden )
-    {
-        fprintf( f, "terrain_hidden on\n" );
-    }
+    scene["debug"] = Json::object();
+    scene["debug"]["waterHidden"] = waterHidden;
+    scene["debug"]["terrainHidden"] = terrainHidden;
     if ( hasFlatSlope )
     {
-        fprintf( f, "flat_slope %.6f %.6f %.6f\n", flatBaseY, flatSlopeX, flatSlopeZ );
+        scene["terrain"] = {
+            { "flatSlope",
+              {
+                  { "baseY", flatBaseY },
+                  { "slopeX", flatSlopeX },
+                  { "slopeZ", flatSlopeZ },
+              } },
+        };
     }
-    fprintf( f, "camera main  %.4f %.4f %.4f  %.4f %.4f %.4f  %.4f %.4f %.4f\n", camEye.x, camEye.y, camEye.z, camView.x, camView.y, camView.z, camUp.x, camUp.y, camUp.z );
-    fprintf( f, "\n" );
+
+    scene["cameras"] = Json::array();
+    scene["cameras"].push_back( {
+        { "name", "main" },
+        { "position", Vec3Json( camEye ) },
+        { "view", Vec3Json( camView ) },
+        { "up", Vec3Json( camUp ) },
+    } );
+    scene["objects"] = Json::array();
 
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
@@ -112,102 +158,65 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         const Vector3& avel = m_gameModels[i].GetAngularVelocity();
         const Vector3& ri = m_gameModels[i].GetRotationalInertia();
         const auto& shape = m_gameModels[i].GetCollisionShape();
-        float qx, qy, qz, qw;
-        m_gameModels[i].GetOrientation().GetComponents( qx, qy, qz, qw );
         float mass = m_gameModels[i].GetMass();
         float rest = m_gameModels[i].GetCoefficientRestitution();
 
         if ( std::holds_alternative<BoundingSphere>( shape ) )
         {
             const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-            fprintf( f,
-                     "ball_state %s  %.6f %.6f %.6f  %.6f %.6f %.6f  %.6f %.6f %.6f"
-                     "  %.8f %.8f %.8f %.8f  %.4f %.4f %.4f  %.4f %.4f %.4f  %d\n",
-                     name,
-                     pos.x,
-                     pos.y,
-                     pos.z,
-                     vel.x,
-                     vel.y,
-                     vel.z,
-                     avel.x,
-                     avel.y,
-                     avel.z,
-                     qx,
-                     qy,
-                     qz,
-                     qw,
-                     sphere.GetRadius(),
-                     mass,
-                     rest,
-                     ri.x,
-                     ri.y,
-                     ri.z,
-                     m_gameModels[i].IsFixed() ? 1 : 0 );
+            scene["objects"].push_back( {
+                { "type", "ballState" },
+                { "name", name },
+                { "position", Vec3Json( pos ) },
+                { "velocity", Vec3Json( vel ) },
+                { "angularVelocity", Vec3Json( avel ) },
+                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "radius", sphere.GetRadius() },
+                { "mass", mass },
+                { "restitution", rest },
+                { "inertia", Vec3Json( ri ) },
+                { "fixed", m_gameModels[i].IsFixed() },
+            } );
         }
         else if ( std::holds_alternative<BoundingBox>( shape ) )
         {
             const BoundingBox& box = std::get<BoundingBox>( shape );
             const Vector3& halfExtents = box.GetHalfExtents();
-            fprintf( f,
-                     "box_state %s  %.6f %.6f %.6f  %.6f %.6f %.6f  %.6f %.6f %.6f"
-                     "  %.8f %.8f %.8f %.8f  %.4f %.4f %.4f  %.4f %.4f  %.4f %.4f %.4f  %d\n",
-                     name,
-                     pos.x,
-                     pos.y,
-                     pos.z,
-                     vel.x,
-                     vel.y,
-                     vel.z,
-                     avel.x,
-                     avel.y,
-                     avel.z,
-                     qx,
-                     qy,
-                     qz,
-                     qw,
-                     halfExtents.x,
-                     halfExtents.y,
-                     halfExtents.z,
-                     mass,
-                     rest,
-                     ri.x,
-                     ri.y,
-                     ri.z,
-                     m_gameModels[i].IsFixed() ? 1 : 0 );
+            scene["objects"].push_back( {
+                { "type", "boxState" },
+                { "name", name },
+                { "position", Vec3Json( pos ) },
+                { "velocity", Vec3Json( vel ) },
+                { "angularVelocity", Vec3Json( avel ) },
+                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "halfExtents", Vec3Json( halfExtents ) },
+                { "mass", mass },
+                { "restitution", rest },
+                { "inertia", Vec3Json( ri ) },
+                { "fixed", m_gameModels[i].IsFixed() },
+            } );
         }
         else if ( std::holds_alternative<ConvexHullShape>( shape ) )
         {
             const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
             const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull.GetName() );
             const char* hullToken = hullAsset == EditorHullAsset::UNKNOWN ? hull.GetName() : EditorHullAssetToken( hullAsset );
-            fprintf( f,
-                     "convex_hull_state %s hull=%s  %.6f %.6f %.6f  %.6f %.6f %.6f  %.6f %.6f %.6f"
-                     "  %.8f %.8f %.8f %.8f  %.4f %.4f  %.4f %.4f %.4f  %d\n",
-                     name,
-                     hullToken,
-                     pos.x,
-                     pos.y,
-                     pos.z,
-                     vel.x,
-                     vel.y,
-                     vel.z,
-                     avel.x,
-                     avel.y,
-                     avel.z,
-                     qx,
-                     qy,
-                     qz,
-                     qw,
-                     mass,
-                     rest,
-                     ri.x,
-                     ri.y,
-                     ri.z,
-                     m_gameModels[i].IsFixed() ? 1 : 0 );
+            scene["objects"].push_back( {
+                { "type", "convexHullState" },
+                { "name", name },
+                { "hull", hullToken },
+                { "position", Vec3Json( pos ) },
+                { "velocity", Vec3Json( vel ) },
+                { "angularVelocity", Vec3Json( avel ) },
+                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "mass", mass },
+                { "restitution", rest },
+                { "inertia", Vec3Json( ri ) },
+                { "fixed", m_gameModels[i].IsFixed() },
+            } );
         }
     }
 
-    fclose( f );
-    return true;
+    output << scene.dump( 2 ) << '\n';
+    return output.good();
 }

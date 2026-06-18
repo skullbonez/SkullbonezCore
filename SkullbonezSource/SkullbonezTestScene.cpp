@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezTestScene.cpp
 Purpose:
-  Stores parsed test-scene directives and applies them to runtime scene state.
+  Stores parsed test-scene JSON and applies it to runtime scene state.
 
 Mental model:
   Runtime code connects authored scene data, input, simulation, render
@@ -13,7 +13,7 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - Command-line and scene-file spellings are user-facing compatibility
+  - Command-line and scene JSON spellings are user-facing compatibility
   surface.
 
 Related:

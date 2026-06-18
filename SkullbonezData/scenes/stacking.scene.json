@@ -1,0 +1,113 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "timeScale": 10.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 1500,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        360,
+        115,
+        500
+      ],
+      "view": [
+        500,
+        55,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "base",
+      "position": [
+        500,
+        76,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 40.0,
+      "restitution": 0.3,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "mid",
+      "position": [
+        500,
+        94,
+        500
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "top",
+      "position": [
+        501,
+        110,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 15.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    }
+  ]
+}

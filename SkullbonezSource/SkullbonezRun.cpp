@@ -537,7 +537,7 @@ void SkullbonezRun::Initialise()
 }
 
 
-void SkullbonezRun::RunSceneLoadOnly()
+void SkullbonezRun::RunSceneLoadOnly( const char* snapshotOutPath )
 {
     const int sceneCount = m_sceneRuntime.QueueSize();
     if ( sceneCount <= 0 )
@@ -545,7 +545,36 @@ void SkullbonezRun::RunSceneLoadOnly()
         return;
     }
 
+    const bool writeSnapshot = snapshotOutPath && snapshotOutPath[0] != '\0';
+    if ( writeSnapshot && sceneCount != 1 )
+    {
+        throw std::runtime_error( "--scene-snapshot-out requires exactly one loaded scene." );
+    }
+
     printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount, m_sceneRuntime.PathAt( 0 ).empty() ? "generated" : m_sceneRuntime.PathAt( 0 ).c_str() );
+    if ( writeSnapshot )
+    {
+        const bool saved = m_cGameModelCollection.SaveSceneSnapshot( snapshotOutPath,
+                                                                     SceneState().isScenePhysics,
+                                                                     SceneState().isSceneText,
+                                                                     m_cWorldEnvironment,
+                                                                     m_systems.cameras->GetCameraTranslation(),
+                                                                     m_systems.cameras->GetCameraView(),
+                                                                     m_systems.cameras->GetCameraUp(),
+                                                                     SceneState().isEditableScene,
+                                                                     SceneState().isFixedStep,
+                                                                     m_debug.isWaterHidden,
+                                                                     m_debug.isTerrainHidden,
+                                                                     SceneState().hasFlatSlope,
+                                                                     SceneState().flatBaseY,
+                                                                     SceneState().flatSlopeX,
+                                                                     SceneState().flatSlopeZ );
+        if ( !saved )
+        {
+            throw std::runtime_error( "Failed to write scene snapshot." );
+        }
+        printf( "[scene-load-only] Snapshot written: %s\n", snapshotOutPath );
+    }
     for ( int i = 1; i < sceneCount; ++i )
     {
         LoadScene( i );

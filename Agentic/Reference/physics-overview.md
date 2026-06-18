@@ -57,7 +57,7 @@ Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A sing
 The in-game physics overlay supports a pipeline stage mode:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --physics-debug pipeline --scene SkullbonezData\scenes\solver_smoke.scene
+Profile\SKULLBONEZ_CORE.exe --physics-debug pipeline --scene SkullbonezData\scenes\solver_smoke.scene.json
 ```
 
 `--physics-debug-pipeline on` and the scene directive

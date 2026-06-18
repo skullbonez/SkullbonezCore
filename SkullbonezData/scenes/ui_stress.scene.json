@@ -1,0 +1,63 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "shadows": false
+  },
+  "simulation": {
+    "seed": 9001,
+    "physics": false,
+    "text": false
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "playback": {
+    "frames": 240,
+    "exitOnComplete": true
+  },
+  "ui": {
+    "visible": true,
+    "minimized": false,
+    "tab": "profiler",
+    "rect": [
+      34,
+      56,
+      760,
+      540
+    ],
+    "blur": false,
+    "rendererCombo": false,
+    "waterCombo": false,
+    "sceneCombo": false,
+    "profilerExpand": false,
+    "testPattern": true,
+    "stress": true,
+    "stressSeed": 8675309,
+    "stressActions": 5
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        60,
+        650
+      ],
+      "view": [
+        600,
+        33,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

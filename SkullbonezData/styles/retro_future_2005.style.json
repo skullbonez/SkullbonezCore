@@ -1,0 +1,77 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      7,
+      9,
+      0,
+      2
+    ],
+    "exposure": 1.04,
+    "gamma": 1.88,
+    "sunScreenX": 0.72,
+    "sunScreenY": 0.82,
+    "sunIntensity": 31.0,
+    "styleGrade": [
+      1.48,
+      1.2,
+      0.72
+    ],
+    "bloomThreshold": 0.62,
+    "bloomStrength": 1.2,
+    "bloomRadius": 8.2,
+    "sunColorR": 1.0,
+    "sunColorG": 0.76,
+    "sunColorB": 0.42,
+    "skyHorizonR": 0.95,
+    "skyHorizonG": 0.44,
+    "skyHorizonB": 0.16,
+    "skyZenithR": 0.02,
+    "skyZenithG": 0.1,
+    "skyZenithB": 0.16,
+    "terrainTint": [
+      0.54,
+      0.58,
+      0.48
+    ],
+    "terrainAccent": [
+      0.92,
+      0.6,
+      0.22
+    ],
+    "waterTint": [
+      0.03,
+      0.18,
+      0.3
+    ],
+    "waterProfile": [
+      0.92,
+      0.44,
+      0.62
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:chrome",
+      "tint": [
+        0.85,
+        0.9,
+        1.0
+      ],
+      "mode": "chrome"
+    }
+  ]
+}

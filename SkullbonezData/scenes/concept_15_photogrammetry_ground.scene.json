@@ -1,0 +1,269 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1015,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "none"
+  },
+  "styles": [
+    "photogrammetry_ground"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        675,
+        155,
+        910
+      ],
+      "view": [
+        610,
+        42,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "stone_slab_01",
+      "position": [
+        430,
+        42,
+        660
+      ],
+      "halfExtents": [
+        52,
+        7,
+        34
+      ],
+      "mass": 2200.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "stone_slab_02",
+      "position": [
+        795,
+        38,
+        625
+      ],
+      "halfExtents": [
+        64,
+        6,
+        30
+      ],
+      "mass": 2200.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -14,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "stone_slab_03",
+      "position": [
+        610,
+        48,
+        520
+      ],
+      "halfExtents": [
+        72,
+        8,
+        22
+      ],
+      "mass": 2200.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        54,
+        650
+      ],
+      "radius": 27.0,
+      "mass": 108.0,
+      "moment": 25.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "photo_01",
+      "position": [
+        470,
+        60,
+        705
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "photo_02",
+      "position": [
+        760,
+        54,
+        690
+      ],
+      "radius": 16.0,
+      "mass": 66.0,
+      "moment": 15.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "detail_01",
+      "position": [
+        380,
+        68,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "detail_02",
+      "position": [
+        500,
+        62,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "detail_03",
+      "position": [
+        655,
+        58,
+        535
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "detail_04",
+      "position": [
+        815,
+        70,
+        570
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_01",
+      "position": [
+        910,
+        98,
+        480
+      ],
+      "radius": 5.0,
+      "mass": 20.0,
+      "moment": 5.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

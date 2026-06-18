@@ -1,0 +1,43 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": -500.0,
+      "fluidDensity": 1025.0
+    },
+    "solverBalls": 210,
+    "solverBoxes": 90
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        321,
+        110,
+        557
+      ],
+      "view": [
+        581,
+        40,
+        633
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

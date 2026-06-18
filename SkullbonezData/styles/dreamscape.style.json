@@ -1,0 +1,87 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      16,
+      4,
+      5,
+      1
+    ],
+    "exposure": 0.92,
+    "gamma": 1.96,
+    "sunScreenX": 0.42,
+    "sunScreenY": 0.8,
+    "sunIntensity": 22.0,
+    "styleGrade": [
+      1.34,
+      1.02,
+      0.72
+    ],
+    "bloomThreshold": 0.7,
+    "bloomStrength": 0.98,
+    "cloudCoverage": 0.62,
+    "cloudIntensity": 0.86,
+    "sunColorR": 1.0,
+    "sunColorG": 0.58,
+    "sunColorB": 1.18,
+    "skyHorizonR": 0.94,
+    "skyHorizonG": 0.58,
+    "skyHorizonB": 0.82,
+    "skyZenithR": 0.36,
+    "skyZenithG": 0.22,
+    "skyZenithB": 0.7,
+    "terrainTint": [
+      0.64,
+      0.34,
+      0.72
+    ],
+    "terrainAccent": [
+      0.32,
+      0.86,
+      1.0
+    ],
+    "waterTint": [
+      0.22,
+      0.14,
+      0.32
+    ],
+    "waterProfile": [
+      0.78,
+      0.26,
+      0.3
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:island",
+      "tint": [
+        0.46,
+        0.28,
+        0.58
+      ],
+      "mode": "toon"
+    },
+    {
+      "target": "prefix:glow",
+      "tint": [
+        1.0,
+        0.42,
+        0.92
+      ],
+      "mode": "neon"
+    }
+  ]
+}

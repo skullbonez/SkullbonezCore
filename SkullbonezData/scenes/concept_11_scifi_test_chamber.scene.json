@@ -1,0 +1,322 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1011,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "scifi_test_chamber"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        118,
+        790
+      ],
+      "view": [
+        620,
+        44,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "wall_floor",
+      "position": [
+        620,
+        22,
+        610
+      ],
+      "halfExtents": [
+        320,
+        4,
+        240
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "wall_back",
+      "position": [
+        620,
+        110,
+        430
+      ],
+      "halfExtents": [
+        300,
+        90,
+        8
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "wall_left",
+      "position": [
+        360,
+        96,
+        600
+      ],
+      "halfExtents": [
+        8,
+        72,
+        190
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "wall_right",
+      "position": [
+        880,
+        96,
+        600
+      ],
+      "halfExtents": [
+        8,
+        72,
+        190
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "light_ceiling",
+      "position": [
+        620,
+        175,
+        520
+      ],
+      "halfExtents": [
+        260,
+        3,
+        4
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "light_left",
+      "position": [
+        382,
+        128,
+        610
+      ],
+      "halfExtents": [
+        3,
+        4,
+        150
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "light_right",
+      "position": [
+        858,
+        128,
+        610
+      ],
+      "halfExtents": [
+        3,
+        4,
+        150
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        610,
+        52,
+        640
+      ],
+      "radius": 25.0,
+      "mass": 100.0,
+      "moment": 24.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_01",
+      "position": [
+        485,
+        46,
+        670
+      ],
+      "radius": 13.0,
+      "mass": 54.0,
+      "moment": 12.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_02",
+      "position": [
+        750,
+        46,
+        665
+      ],
+      "radius": 14.0,
+      "mass": 58.0,
+      "moment": 13.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        124,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_03",
+      "position": [
+        420,
+        54,
+        565
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_04",
+      "position": [
+        525,
+        50,
+        535
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        64,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_05",
+      "position": [
+        690,
+        50,
+        535
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        104,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chamber_06",
+      "position": [
+        820,
+        54,
+        565
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        144,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_01",
+      "position": [
+        840,
+        150,
+        520
+      ],
+      "radius": 10.0,
+      "mass": 32.0,
+      "moment": 9.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        80,
+        0
+      ]
+    }
+  ]
+}

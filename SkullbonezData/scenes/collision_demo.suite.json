@@ -1,0 +1,9 @@
+{
+  "format": "skullbonez.suite.json",
+  "version": 1,
+  "scenes": [
+    "SkullbonezData/scenes/collision_demo_ball_ball.scene.json",
+    "SkullbonezData/scenes/collision_demo_box_box.scene.json",
+    "SkullbonezData/scenes/collision_demo_box_ball.scene.json"
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -9.8,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "exitOnComplete": true,
+    "frames": 2
+  },
+  "debug": {
+    "waterHidden": false,
+    "waterFlat": true,
+    "waterReflection": "none",
+    "terrainHidden": false,
+    "collisionVisualizer": false,
+    "physics": {
+      "transparent": true,
+      "alpha": 0.35
+    }
+  },
+  "ui": {
+    "visible": false
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/transparent_ball_water_alpha.bmp",
+      "frame": 1
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        60,
+        650
+      ],
+      "view": [
+        600,
+        33,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "water_alpha_center",
+      "position": [
+        600,
+        33,
+        600
+      ],
+      "radius": 12.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.8,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "water_alpha_left",
+      "position": [
+        575,
+        45,
+        595
+      ],
+      "radius": 9.0,
+      "mass": 30.0,
+      "moment": 8.0,
+      "restitution": 0.8,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "water_alpha_right",
+      "position": [
+        625,
+        50,
+        605
+      ],
+      "radius": 9.0,
+      "mass": 30.0,
+      "moment": 8.0,
+      "restitution": 0.8,
+      "fixed": false
+    }
+  ]
+}

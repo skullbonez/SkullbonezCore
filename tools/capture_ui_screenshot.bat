@@ -67,7 +67,7 @@ set "STDERR=%REPO%\Profile\codex_ui_capture_stderr.txt"
 del /q "%BMP%" "%OUTPUT%" "%STDOUT%" "%STDERR%" 2>nul
 
 echo Capturing %RENDERER% UI scene...
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" %RENDER_ARGS% --vsync off --scene SkullbonezData/scenes/ui_profiler_timeline.scene >"%STDOUT%" 2>"%STDERR%"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" %RENDER_ARGS% --vsync off --scene SkullbonezData/scenes/ui_profiler_timeline.scene.json >"%STDOUT%" 2>"%STDERR%"
 if errorlevel 1 (
     echo ERROR: UI capture run failed. See:
     echo   %STDOUT%

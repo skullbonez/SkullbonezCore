@@ -1,0 +1,291 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1005,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "alien_planet"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        650,
+        190,
+        1040
+      ],
+      "view": [
+        615,
+        65,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "rock_island_01",
+      "position": [
+        420,
+        140,
+        500
+      ],
+      "halfExtents": [
+        42,
+        14,
+        24
+      ],
+      "mass": 3000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        8,
+        0,
+        18
+      ]
+    },
+    {
+      "type": "box",
+      "name": "rock_island_02",
+      "position": [
+        785,
+        132,
+        540
+      ],
+      "halfExtents": [
+        34,
+        12,
+        20
+      ],
+      "mass": 3000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        -6,
+        0,
+        -20
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crystal_spire_01",
+      "position": [
+        500,
+        65,
+        570
+      ],
+      "halfExtents": [
+        8,
+        34,
+        8
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crystal_spire_02",
+      "position": [
+        735,
+        60,
+        585
+      ],
+      "halfExtents": [
+        7,
+        30,
+        7
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        -16,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        625,
+        58,
+        640
+      ],
+      "radius": 28.0,
+      "mass": 112.0,
+      "moment": 26.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        26,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_01",
+      "position": [
+        470,
+        70,
+        705
+      ],
+      "radius": 15.0,
+      "mass": 66.0,
+      "moment": 14.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        76,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_02",
+      "position": [
+        785,
+        64,
+        690
+      ],
+      "radius": 16.0,
+      "mass": 70.0,
+      "moment": 15.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        126,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_01",
+      "position": [
+        410,
+        96,
+        560
+      ],
+      "radius": 9.0,
+      "mass": 38.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        26,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_02",
+      "position": [
+        535,
+        84,
+        520
+      ],
+      "radius": 8.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        66,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_03",
+      "position": [
+        690,
+        76,
+        525
+      ],
+      "radius": 8.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        106,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_01",
+      "position": [
+        520,
+        168,
+        455
+      ],
+      "radius": 9.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_02",
+      "position": [
+        880,
+        176,
+        560
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    }
+  ]
+}

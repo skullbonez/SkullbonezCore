@@ -79,7 +79,7 @@ del /q "%REPO%\Profile\dx12_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
 echo [4/7] Running DX12 render suite...
-call :run_renderer dx12 "--renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite"
+call :run_renderer dx12 "--renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"
 if errorlevel 1 (
     echo FAIL: DX12 suite exited with error.
     popd

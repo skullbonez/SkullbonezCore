@@ -80,9 +80,9 @@ tools\validate_select.bat format build-profile
 ## Common Launches
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite --vsync off
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\water_ball_test.scene --vsync off
-Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test.scene --vsync off
+Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite.json --vsync off
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\water_ball_test.scene.json --vsync off
+Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test.scene.json --vsync off
 ```
 
 ## Repository Map

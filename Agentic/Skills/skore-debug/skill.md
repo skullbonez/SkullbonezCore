@@ -26,5 +26,5 @@ Start-Process $devenv -ArgumentList "`"$REPO\SKULLBONEZ_CORE.sln`"" -WorkingDire
 Use F5 in Visual Studio, or configure command arguments such as:
 
 ```text
---renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene
+--renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene.json
 ```

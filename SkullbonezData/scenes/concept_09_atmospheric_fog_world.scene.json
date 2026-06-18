@@ -1,0 +1,260 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1009,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "atmospheric_fog_world"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        126,
+        820
+      ],
+      "view": [
+        610,
+        44,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        52,
+        640
+      ],
+      "radius": 26.0,
+      "mass": 104.0,
+      "moment": 24.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ghost_near",
+      "position": [
+        485,
+        58,
+        690
+      ],
+      "radius": 14.0,
+      "mass": 56.0,
+      "moment": 13.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ghost_right",
+      "position": [
+        750,
+        56,
+        675
+      ],
+      "radius": 14.0,
+      "mass": 56.0,
+      "moment": 13.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mist_01",
+      "position": [
+        410,
+        74,
+        590
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mist_02",
+      "position": [
+        520,
+        68,
+        550
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mist_03",
+      "position": [
+        640,
+        64,
+        535
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mist_04",
+      "position": [
+        780,
+        76,
+        565
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_01",
+      "position": [
+        360,
+        96,
+        480
+      ],
+      "radius": 5.0,
+      "mass": 20.0,
+      "moment": 5.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_02",
+      "position": [
+        520,
+        102,
+        435
+      ],
+      "radius": 4.0,
+      "mass": 18.0,
+      "moment": 4.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_03",
+      "position": [
+        720,
+        102,
+        450
+      ],
+      "radius": 4.0,
+      "mass": 18.0,
+      "moment": 4.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_04",
+      "position": [
+        890,
+        98,
+        495
+      ],
+      "radius": 5.0,
+      "mass": 20.0,
+      "moment": 5.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

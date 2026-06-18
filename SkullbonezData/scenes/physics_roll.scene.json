@@ -1,0 +1,75 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true
+  },
+  "playback": {
+    "frames": 300
+  },
+  "cameras": [
+    {
+      "name": "hilltop",
+      "position": [
+        500,
+        120,
+        500
+      ],
+      "view": [
+        550,
+        60,
+        550
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "side",
+      "position": [
+        560,
+        70,
+        520
+      ],
+      "view": [
+        550,
+        60,
+        550
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "roller",
+      "position": [
+        550,
+        100,
+        550
+      ],
+      "radius": 2.0,
+      "mass": 30.0,
+      "moment": 10.0,
+      "restitution": 0.6,
+      "fixed": false,
+      "force": [
+        500,
+        0,
+        300
+      ],
+      "forcePosition": [
+        1,
+        1,
+        1
+      ]
+    }
+  ]
+}
