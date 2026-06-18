@@ -30,6 +30,8 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
+inline constexpr uint32_t RENDER_GRAPH_ALL_SUBRESOURCES = 0xFFFFFFFFu;
+
 /* -- RenderGraph: first DX12 render-architecture contract -----------------------------------------------------------------------------------------------
 
     What problem does a render graph solve?
@@ -180,6 +182,7 @@ struct RenderGraphResourceUse
 {
     RenderGraphResourceHandle resource;
     RenderGraphResourceAccess access = RenderGraphResourceAccess::Unknown;
+    uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
 // A pass is one named phase of the frame.
@@ -218,6 +221,7 @@ struct RenderGraphTransitionDesc
     const void* nativeResource = nullptr;
     RenderGraphResourceAccess before = RenderGraphResourceAccess::Unknown;
     RenderGraphResourceAccess after = RenderGraphResourceAccess::Unknown;
+    uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
 // Result of the first simple graph compile step.
@@ -240,8 +244,8 @@ class RenderGraph
     RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess, const void* nativeResource = nullptr );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics, RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly );
 
-    void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );
-    void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );
+    void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
+    void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
 
     const std::vector<RenderGraphResourceDesc>& Resources() const
     {

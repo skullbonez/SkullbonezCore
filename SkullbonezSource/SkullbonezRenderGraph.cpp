@@ -88,6 +88,12 @@ const char* ToString( RenderGraphResourceAccess access )
 }
 
 
+const char* RenderGraphSubresourceToString( uint32_t subresource )
+{
+    return subresource == RENDER_GRAPH_ALL_SUBRESOURCES ? "all" : nullptr;
+}
+
+
 void RenderGraph::Clear()
 {
     // Clear starts a fresh frame graph. It forgets declarations only; it does
@@ -136,7 +142,7 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, Ren
 }
 
 
-void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access )
+void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource )
 {
     // A read means this pass expects the previous contents of the resource to
     // already exist and be visible to the shader or fixed-function GPU stage.
@@ -145,11 +151,11 @@ void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resourc
     CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
-    pass.reads.push_back( { resource, access } );
+    pass.reads.push_back( { resource, access, subresource } );
 }
 
 
-void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access )
+void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access, uint32_t subresource )
 {
     // A write means this pass produces or overwrites contents in the resource.
     // Graph compilation remembers this as the latest known resource state, then
@@ -158,7 +164,7 @@ void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resour
     CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
-    pass.writes.push_back( { resource, access } );
+    pass.writes.push_back( { resource, access, subresource } );
 }
 
 
@@ -190,12 +196,28 @@ std::string RenderGraph::DumpText() const
         {
             const RenderGraphResourceDesc& resource = CheckedResource( read.resource );
             out << "    read  " << resource.name << " as " << ToString( read.access ) << "\n";
+            if ( const char* subresourceText = RenderGraphSubresourceToString( read.subresource ) )
+            {
+                out << "      subresource=" << subresourceText << "\n";
+            }
+            else
+            {
+                out << "      subresource=" << read.subresource << "\n";
+            }
         }
 
         for ( const RenderGraphResourceUse& write : pass.writes )
         {
             const RenderGraphResourceDesc& resource = CheckedResource( write.resource );
             out << "    write " << resource.name << " as " << ToString( write.access ) << "\n";
+            if ( const char* subresourceText = RenderGraphSubresourceToString( write.subresource ) )
+            {
+                out << "      subresource=" << subresourceText << "\n";
+            }
+            else
+            {
+                out << "      subresource=" << write.subresource << "\n";
+            }
         }
     }
 
@@ -206,7 +228,16 @@ std::string RenderGraph::DumpText() const
         const RenderGraphResourceDesc& resource = CheckedResource( transition.resource );
         const RenderGraphPassDesc& pass = m_passes[transition.passIndex];
         out << "  before pass [" << transition.passIndex << "] " << pass.name << ": " << resource.name << " "
-            << ToString( transition.before ) << " -> " << ToString( transition.after ) << "\n";
+            << ToString( transition.before ) << " -> " << ToString( transition.after );
+        if ( const char* subresourceText = RenderGraphSubresourceToString( transition.subresource ) )
+        {
+            out << " subresource=" << subresourceText;
+        }
+        else
+        {
+            out << " subresource=" << transition.subresource;
+        }
+        out << "\n";
     }
     return out.str();
 }
@@ -233,42 +264,113 @@ RenderGraphCompileResult RenderGraph::Compile() const
     // live transitions use the same graph access vocabulary through the
     // graph-owned helper path.
     RenderGraphCompileResult result;
-    std::vector<RenderGraphResourceAccess> currentAccess;
-    currentAccess.reserve( m_resources.size() );
+    std::vector<RenderGraphResourceAccess> allSubresourceAccess;
+    allSubresourceAccess.reserve( m_resources.size() );
     for ( const RenderGraphResourceDesc& resource : m_resources )
     {
-        currentAccess.push_back( resource.initialAccess );
+        allSubresourceAccess.push_back( resource.initialAccess );
     }
+
+    struct SubresourceAccessState
+    {
+        uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
+        RenderGraphResourceAccess access = RenderGraphResourceAccess::Unknown;
+    };
+
+    std::vector<std::vector<SubresourceAccessState>> subresourceAccess;
+    subresourceAccess.resize( m_resources.size() );
 
     for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
 
+        const auto emitTransition = [&]( const RenderGraphResourceUse& use, RenderGraphResourceAccess before, uint32_t subresource )
+        {
+            if ( before == RenderGraphResourceAccess::Unknown )
+            {
+                return;
+            }
+            if ( before == use.access )
+            {
+                return;
+            }
+
+            RenderGraphTransitionDesc transition;
+            transition.passIndex = static_cast<uint32_t>( passIndex );
+            transition.resource = use.resource;
+            transition.nativeResource = m_resources[use.resource.index].nativeResource;
+            transition.before = before;
+            transition.after = use.access;
+            transition.subresource = subresource;
+            result.transitions.push_back( transition );
+        };
+
+        const auto findSubresource = []( std::vector<SubresourceAccessState>& states, uint32_t subresource ) -> SubresourceAccessState*
+        {
+            for ( SubresourceAccessState& state : states )
+            {
+                if ( state.subresource == subresource )
+                {
+                    return &state;
+                }
+            }
+            return nullptr;
+        };
+
         const auto recordUse = [&]( const RenderGraphResourceUse& use )
         {
             CheckedConcreteAccess( use.access );
             CheckedResource( use.resource );
-            RenderGraphResourceAccess& current = currentAccess[use.resource.index];
-            if ( current == RenderGraphResourceAccess::Unknown )
+            const uint32_t resourceIndex = use.resource.index;
+            RenderGraphResourceAccess& allAccess = allSubresourceAccess[resourceIndex];
+            std::vector<SubresourceAccessState>& specificAccess = subresourceAccess[resourceIndex];
+
+            if ( use.subresource == RENDER_GRAPH_ALL_SUBRESOURCES )
             {
-                // Unknown means "legacy code still owns the real initial DX12
-                // state." It is useful as a diagnostic marker, but it is not a
-                // real barrier source state. Do not emit Unknown -> X
-                // transitions because the DX12 dump would otherwise be tempted
-                // to translate Unknown into COMMON and count a fake match.
-                current = use.access;
+                for ( const SubresourceAccessState& state : specificAccess )
+                {
+                    emitTransition( use, state.access, state.subresource );
+                }
+                const bool hadSpecificAccess = !specificAccess.empty();
+                specificAccess.clear();
+                if ( allAccess == RenderGraphResourceAccess::Unknown )
+                {
+                    // Unknown means "legacy code still owns the real initial
+                    // DX12 state." It is useful as a diagnostic marker, but it
+                    // is not a real barrier source state.
+                    allAccess = use.access;
+                    return;
+                }
+                if ( hadSpecificAccess && allAccess != use.access )
+                {
+                    throw std::runtime_error( "RenderGraph cannot compile an all-subresources transition after mixed subresource states" );
+                }
+                emitTransition( use, allAccess, RENDER_GRAPH_ALL_SUBRESOURCES );
+                allAccess = use.access;
                 return;
             }
-            if ( current != use.access )
+
+            SubresourceAccessState* state = findSubresource( specificAccess, use.subresource );
+            const RenderGraphResourceAccess before = state ? state->access : allAccess;
+            emitTransition( use, before, use.subresource );
+            if ( state )
             {
-                RenderGraphTransitionDesc transition;
-                transition.passIndex = static_cast<uint32_t>( passIndex );
-                transition.resource = use.resource;
-                transition.nativeResource = m_resources[use.resource.index].nativeResource;
-                transition.before = current;
-                transition.after = use.access;
-                result.transitions.push_back( transition );
-                current = use.access;
+                state->access = use.access;
+                if ( state->access == allAccess )
+                {
+                    for ( auto it = specificAccess.begin(); it != specificAccess.end(); ++it )
+                    {
+                        if ( &*it == state )
+                        {
+                            specificAccess.erase( it );
+                            break;
+                        }
+                    }
+                }
+            }
+            else if ( before == RenderGraphResourceAccess::Unknown || before != use.access )
+            {
+                specificAccess.push_back( { use.subresource, use.access } );
             }
         };
 
