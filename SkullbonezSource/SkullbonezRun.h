@@ -328,6 +328,9 @@ struct RunEditorPlacementState
     bool placementPreviewVisible = false;
     bool gizmoDragActive = false;
     bool gizmoDragIsRotation = false;
+    bool gizmoDragIsScale = false;
+    bool altShortcutWasDown = false;
+    bool tabShortcutWasDown = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     int selectedModelIndex = -1;
@@ -342,6 +345,7 @@ struct RunEditorPlacementState
     Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::CollisionDetection::CollisionShape gizmoDragStartShape;
 };
 
 class RunEditorTracer
@@ -362,7 +366,7 @@ class RunEditorTracer
     void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddSelectionOutline( const GameObjects::GameModel& model );
-    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation );
+    void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
     void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
@@ -1021,6 +1025,7 @@ class SkullbonezRun
     bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;       // Projects mouse ray onto a rotation ring plane
     void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                // Applies active gizmo drag
     void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                             // Applies active rotation-ring drag
+    void ScaleSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                               // Applies active scale-axis drag
     void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                            // Draws placement ghost and object gizmo lines
     void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                          // Place a UI-selected object on the terrain under the mouse
     void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                        // Places an object at an already-resolved terrain hit

@@ -156,6 +156,7 @@ struct InGameUIFrameData
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
     bool editorViewportLookActive = false;
+    int editorObjectType = 0;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;
     Basics::OrdinaryRenderConfig ordinaryRender;

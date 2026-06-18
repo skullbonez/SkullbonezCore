@@ -79,7 +79,7 @@ void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject )
     }
     else
     {
-        model.SetRenderTint( 0.25f, 0.14f, 0.05f, -1.0f );
+        model.SetRenderTint( 0.42f, 0.50f, 1.0f, -1.0f );
     }
 }
 
@@ -151,6 +151,49 @@ Vector3 EditorAxisVector( int axis )
 float EditorModelRadius( const GameModel& model )
 {
     return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
+{
+    if ( axis < 0 || axis > 2 )
+    {
+        return 1.0f;
+    }
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        return (std::max)( sphere->GetRadius(), 0.25f );
+    }
+
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& halfExtents = box->GetHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3& halfExtents = hull->GetInertiaHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    return 1.0f;
 }
 
 
@@ -1118,7 +1161,7 @@ void RunEditorTracer::AddSelectionOutline( const GameModel& model )
 }
 
 
-void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation )
+void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale )
 {
     const float length = EditorGizmoAxisLength( radius );
     for ( int axis = 0; axis < 3; ++axis )
@@ -1126,7 +1169,7 @@ void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTran
         float r = axis == 0 ? 1.0f : 0.08f;
         float g = axis == 1 ? 0.95f : 0.10f;
         float b = axis == 2 ? 1.0f : 0.08f;
-        if ( !activeRotation && activeAxis == axis )
+        if ( ( activeScale || ( !scaleMode && !activeRotation ) ) && activeAxis == axis )
         {
             r = 1.0f;
             g = 1.0f;
@@ -1140,7 +1183,28 @@ void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTran
         }
 
         const Vector3 axisVector = EditorAxisVector( axis );
-        EmitArrow( origin, origin + axisVector * length, r, g, b );
+        const Vector3 endpoint = origin + axisVector * length;
+        if ( scaleMode || activeScale )
+        {
+            const float handle = (std::max)( 0.75f, length * 0.045f );
+            EmitLine( origin, endpoint, r, g, b );
+            EmitBox( endpoint,
+                     Vector3( handle, 0.0f, 0.0f ),
+                     Vector3( 0.0f, handle, 0.0f ),
+                     Vector3( 0.0f, 0.0f, handle ),
+                     r,
+                     g,
+                     b );
+        }
+        else
+        {
+            EmitArrow( origin, endpoint, r, g, b );
+        }
+    }
+
+    if ( scaleMode || activeScale )
+    {
+        return;
     }
 
     const float ringRadius = EditorGizmoRotationRadius( radius );
@@ -1200,6 +1264,8 @@ void SkullbonezRun::TakeInput()
     {
         Input::SetSystemCursorVisible( true );
         m_editor.viewportLookActive = false;
+        m_editor.altShortcutWasDown = false;
+        m_editor.tabShortcutWasDown = false;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
@@ -1302,6 +1368,27 @@ void SkullbonezRun::TakeInput()
         {
             m_camera.isFlyMode = true;
             m_camera.isNudgeMode = false;
+            if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.placementModeEnabled = !m_editor.placementModeEnabled;
+                m_editor.placementPreviewVisible = false;
+                m_editor.gizmoDragActive = false;
+                m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
+                m_editor.activeGizmoAxis = -1;
+            }
+            if ( InputController::CaptureKeyPress( m_editor.tabShortcutWasDown, VK_TAB ) )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
+                m_editor.placementPreviewVisible = false;
+            }
+        }
+        else
+        {
+            m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+            m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         }
 
         if ( m_camera.isFlyMode != prevFlyMode )
@@ -1509,6 +1596,8 @@ void SkullbonezRun::TakeInput()
     {
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
+        m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+        m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
     }
 
     bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
@@ -1591,6 +1680,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.placementModeEnabled = false;
                 m_editor.gizmoDragActive = false;
                 m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = -1;
                 m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
                 m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
@@ -1613,6 +1703,7 @@ void SkullbonezRun::TakeInput()
             m_editor.placementPreviewVisible = false;
             m_editor.gizmoDragActive = false;
             m_editor.gizmoDragIsRotation = false;
+            m_editor.gizmoDragIsScale = false;
             m_editor.activeGizmoAxis = -1;
         }
         if ( uiCommands.editor.togglePlaceStatic )
@@ -1908,7 +1999,11 @@ void SkullbonezRun::TakeInput()
                 Vector3 rayDirection;
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
                 {
-                    if ( m_editor.gizmoDragIsRotation )
+                    if ( m_editor.gizmoDragIsScale )
+                    {
+                        ScaleSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                    }
+                    else if ( m_editor.gizmoDragIsRotation )
                     {
                         RotateSelectedEditorObjectAroundAxis( rayOrigin, rayDirection );
                     }
@@ -1922,14 +2017,42 @@ void SkullbonezRun::TakeInput()
             {
                 m_editor.gizmoDragActive = false;
                 m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = -1;
             }
         }
 
         if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
         {
+            const bool editorScaleMode = m_editor.editorModeEnabled &&
+                                         !m_editor.placementModeEnabled &&
+                                         Input::IsKeyDown( VK_CONTROL );
+            if ( editorScaleMode &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() &&
+                 m_editor.hotGizmoAxis >= 0 )
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                float axisT = 0.0f;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+                {
+                    EnterInteractiveSceneRun();
+                    GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
+                    m_editor.gizmoDragActive = true;
+                    m_editor.gizmoDragIsRotation = false;
+                    m_editor.gizmoDragIsScale = true;
+                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                    m_editor.gizmoDragStartAxisT = axisT;
+                    m_editor.gizmoDragStartShape = model.GetCollisionShape();
+                    consumedWorldClick = true;
+                }
+            }
+
             if ( m_editor.editorModeEnabled &&
                  !m_editor.placementModeEnabled &&
+                 !editorScaleMode &&
                  m_editor.selectedModelIndex >= 0 &&
                  m_editor.hotRotationAxis >= 0 )
             {
@@ -1942,6 +2065,7 @@ void SkullbonezRun::TakeInput()
                     EnterInteractiveSceneRun();
                     m_editor.gizmoDragActive = true;
                     m_editor.gizmoDragIsRotation = true;
+                    m_editor.gizmoDragIsScale = false;
                     m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
                     m_editor.gizmoDragStartRotationAngle = startAngle;
                     m_editor.gizmoDragStartOrientation = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
@@ -1952,6 +2076,7 @@ void SkullbonezRun::TakeInput()
             if ( !consumedWorldClick &&
                  m_editor.editorModeEnabled &&
                  !m_editor.placementModeEnabled &&
+                 !editorScaleMode &&
                  m_editor.selectedModelIndex >= 0 &&
                  m_editor.hotGizmoAxis >= 0 )
             {
@@ -1964,6 +2089,7 @@ void SkullbonezRun::TakeInput()
                     EnterInteractiveSceneRun();
                     m_editor.gizmoDragActive = true;
                     m_editor.gizmoDragIsRotation = false;
+                    m_editor.gizmoDragIsScale = false;
                     m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
                     m_editor.gizmoDragStartAxisT = axisT;
                     m_editor.gizmoDragStartPosition = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
@@ -2713,6 +2839,45 @@ void SkullbonezRun::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin,
 }
 
 
+void SkullbonezRun::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsScale || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    const float startExtent = EditorShapeAxisExtent( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis );
+    const float targetExtent = (std::max)( 0.25f, startExtent + axisT - m_editor.gizmoDragStartAxisT );
+    const float factor = targetExtent / startExtent;
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    if ( model.ScaleCollisionShapeAxisFromBase( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis, factor ) )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        if ( !model.IsFixed() )
+        {
+            m_cGameModelCollection.WakeModel( index );
+        }
+    }
+}
+
+
 void SkullbonezRun::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsRotation || m_editor.activeGizmoAxis < 0 )
@@ -2775,6 +2940,7 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
         m_editor.selectedModelIndex = -1;
         m_editor.gizmoDragActive = false;
         m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
         m_editor.activeGizmoAxis = -1;
     }
 
@@ -2784,8 +2950,15 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
         Vector3 rayDirection;
         if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
         {
-            m_editor.hotRotationAxis = HitEditorRotationGizmoAxis( rayOrigin, rayDirection );
-            m_editor.hotGizmoAxis = m_editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( rayOrigin, rayDirection ) : -1;
+            if ( Input::IsKeyDown( VK_CONTROL ) )
+            {
+                m_editor.hotGizmoAxis = HitEditorGizmoAxis( rayOrigin, rayDirection );
+            }
+            else
+            {
+                m_editor.hotRotationAxis = HitEditorRotationGizmoAxis( rayOrigin, rayDirection );
+                m_editor.hotGizmoAxis = m_editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( rayOrigin, rayDirection ) : -1;
+            }
         }
     }
 }
@@ -2821,8 +2994,9 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
     {
         const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
         const float radius = EditorModelRadius( selected );
+        const bool scaleMode = m_editor.gizmoDragIsScale || Input::IsKeyDown( VK_CONTROL );
         m_editorTracer.AddSelectionOutline( selected );
-        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation );
+        m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
     m_editorTracer.Render( viewProjection );
 }

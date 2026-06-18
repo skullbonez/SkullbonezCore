@@ -170,7 +170,7 @@ void Draw( UIEditorTabState& state,
                        data.editorPlaceStatic );
 
     state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
-    state.selectedObjectType = std::clamp( state.selectedObjectType, 0, OBJECT_TYPE_COUNT - 1 );
+    state.selectedObjectType = std::clamp( data.editorObjectType, 0, OBJECT_TYPE_COUNT - 1 );
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
         state.objectCombo.Draw( draw,

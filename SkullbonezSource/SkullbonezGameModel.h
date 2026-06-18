@@ -188,6 +188,7 @@ class GameModel
     void AddBoundingSphere( float fRadius );                                                                                          // Add a bounding sphere to the game model
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );                                                                  // Add a bounding box to the game model
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );                                                      // Add an authored convex hull to the game model
+    bool ScaleCollisionShapeAxisFromBase( const Math::CollisionDetection::CollisionShape& baseShape, int axis, float factor );        // Rebuilds this model shape from a base copy scaled along one axis
     bool IsSphere() const;                                                                                                            // True if bounding volume is a BoundingSphere
     bool IsBox() const;                                                                                                               // True if bounding volume is a BoundingBox
     bool IsConvexHull() const;                                                                                                        // True if bounding volume is a ConvexHullShape

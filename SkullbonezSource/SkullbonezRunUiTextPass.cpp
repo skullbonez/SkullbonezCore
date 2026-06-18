@@ -244,6 +244,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.editorPlacementMode = m_run.m_editor.placementModeEnabled;
         UIData.editorPlaceStatic = m_run.m_editor.placeStaticObject;
         UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
+        UIData.editorObjectType = m_run.m_editor.objectType;
         UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode &&
                                       m_run.m_sceneRuntime.HasCurrentEntry() &&
                                       !m_run.m_sceneRuntime.CurrentPath()->empty();

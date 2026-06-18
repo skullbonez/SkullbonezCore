@@ -26,6 +26,8 @@ Related:
 #include "SkullbonezTerrainSupportClassifier.h"
 #include "SkullbonezContactSolverCommon.h"
 #include "SkullbonezProfiler.h"
+#include <algorithm>
+#include <cmath>
 #include <type_traits>
 
 
@@ -434,6 +436,106 @@ void GameModel::AddConvexHull( const ConvexHullShape& hull )
     m_physicsInfo.SetRotationalInertia( inertia );
     m_boundingVolume = hull;
     UpdateModelInfo();
+}
+
+
+bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor )
+{
+    if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
+    {
+        return false;
+    }
+
+    factor = std::clamp( factor, 0.05f, 20.0f );
+    const float mass = m_physicsInfo.GetMass();
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &baseShape ) )
+    {
+        const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
+        const float moment = 0.4f * mass * radius * radius;
+        const Vector3 inertia( moment, moment, moment );
+        m_boundingVolume = BoundingSphere( radius, sphere->GetPosition() );
+        BuildSpherePhysicsCache( radius );
+        m_ballPhysics.mass = mass;
+        m_ballPhysics.invMass = 1.0f / mass;
+        m_ballPhysics.rotationalInertia = inertia;
+        m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+        m_physicsInfo.SetRotationalInertia( inertia );
+        UpdateModelInfo();
+        return true;
+    }
+
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &baseShape ) )
+    {
+        Vector3 halfExtents = box->GetHalfExtents();
+        if ( axis == 0 )
+        {
+            halfExtents.x = (std::max)( 0.25f, halfExtents.x * factor );
+        }
+        else if ( axis == 1 )
+        {
+            halfExtents.y = (std::max)( 0.25f, halfExtents.y * factor );
+        }
+        else
+        {
+            halfExtents.z = (std::max)( 0.25f, halfExtents.z * factor );
+        }
+
+        const float hx2 = halfExtents.x * halfExtents.x;
+        const float hy2 = halfExtents.y * halfExtents.y;
+        const float hz2 = halfExtents.z * halfExtents.z;
+        const float mOver3 = mass / 3.0f;
+        const Vector3 inertia( mOver3 * ( hy2 + hz2 ),
+                               mOver3 * ( hx2 + hz2 ),
+                               mOver3 * ( hx2 + hy2 ) );
+        const float boundRadius = sqrtf( hx2 + hy2 + hz2 );
+        m_ballPhysics.radius = boundRadius;
+        m_ballPhysics.radiusSq = boundRadius * boundRadius;
+        m_ballPhysics.volume = 8.0f * halfExtents.x * halfExtents.y * halfExtents.z;
+        m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
+        m_ballPhysics.projectedSurfaceArea = ( 4.0f * halfExtents.x * halfExtents.y +
+                                               4.0f * halfExtents.x * halfExtents.z +
+                                               4.0f * halfExtents.y * halfExtents.z ) /
+                                             3.0f;
+        m_ballPhysics.dragCoefficient = 1.05f;
+        m_ballPhysics.mass = mass;
+        m_ballPhysics.invMass = 1.0f / mass;
+        m_ballPhysics.rotationalInertia = inertia;
+        m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+        m_physicsInfo.SetRotationalInertia( inertia );
+        m_boundingVolume = BoundingBox( halfExtents, box->GetPosition() );
+        UpdateModelInfo();
+        return true;
+    }
+
+    if ( const ConvexHullShape* hullBase = std::get_if<ConvexHullShape>( &baseShape ) )
+    {
+        ConvexHullShape hull = *hullBase;
+        hull.ScaleAxis( axis, factor );
+        const float radius = hull.GetBoundingRadius();
+        if ( radius <= TOLERANCE )
+        {
+            return false;
+        }
+
+        const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
+        m_ballPhysics.radius = radius;
+        m_ballPhysics.radiusSq = radius * radius;
+        m_ballPhysics.volume = hull.GetVolume();
+        m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
+        m_ballPhysics.projectedSurfaceArea = hull.GetProjectedSurfaceArea();
+        m_ballPhysics.dragCoefficient = hull.GetDragCoefficient();
+        m_ballPhysics.mass = mass;
+        m_ballPhysics.invMass = 1.0f / mass;
+        m_ballPhysics.rotationalInertia = inertia;
+        m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+        m_physicsInfo.SetRotationalInertia( inertia );
+        m_boundingVolume = hull;
+        UpdateModelInfo();
+        return true;
+    }
+
+    return false;
 }
 
 

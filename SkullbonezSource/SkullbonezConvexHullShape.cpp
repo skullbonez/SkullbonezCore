@@ -42,6 +42,24 @@ float ClampPositive( float value, float fallback )
     return value > TOLERANCE ? value : fallback;
 }
 
+void ScaleAxisComponent( Vector3& v, int axis, float factor )
+{
+    switch ( axis )
+    {
+    case 0:
+        v.x *= factor;
+        break;
+    case 1:
+        v.y *= factor;
+        break;
+    case 2:
+        v.z *= factor;
+        break;
+    default:
+        break;
+    }
+}
+
 Vector3 NormalizedOrThrow( const Vector3& v, const char* context )
 {
     const float magSq = VectorMagSquared( v );
@@ -490,6 +508,71 @@ Vector3 ConvexHullShape::ComputeBoxApproxInertia( float mass ) const
     const float hz2 = m_inertiaHalfExtents.z * m_inertiaHalfExtents.z;
     const float m3 = mass / 3.0f;
     return Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+}
+
+void ConvexHullShape::ScaleAxis( int axis, float factor )
+{
+    if ( axis < 0 || axis > 2 || m_vertexCount == 0 || !std::isfinite( factor ) || factor <= TOLERANCE )
+    {
+        return;
+    }
+
+    for ( uint16_t i = 0; i < m_vertexCount; ++i )
+    {
+        ScaleAxisComponent( m_vertices[i], axis, factor );
+    }
+    ScaleAxisComponent( m_position, axis, factor );
+
+    Vector3 centroid = ZERO_VECTOR;
+    Vector3 minV( FLT_MAX, FLT_MAX, FLT_MAX );
+    Vector3 maxV( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    m_boundingRadius = 0.0f;
+    for ( uint16_t i = 0; i < m_vertexCount; ++i )
+    {
+        const Vector3& v = m_vertices[i];
+        centroid += v;
+        minV.x = (std::min)( minV.x, v.x );
+        minV.y = (std::min)( minV.y, v.y );
+        minV.z = (std::min)( minV.z, v.z );
+        maxV.x = (std::max)( maxV.x, v.x );
+        maxV.y = (std::max)( maxV.y, v.y );
+        maxV.z = (std::max)( maxV.z, v.z );
+        m_boundingRadius = (std::max)( m_boundingRadius, sqrtf( VectorMagSquared( v ) ) );
+    }
+    if ( m_vertexCount > 0 )
+    {
+        centroid /= static_cast<float>( m_vertexCount );
+    }
+
+    for ( uint16_t f = 0; f < m_faceCount; ++f )
+    {
+        ConvexHullFace& face = m_faces[f];
+        if ( face.indexCount < 3 )
+        {
+            continue;
+        }
+
+        const Vector3& a = m_vertices[m_faceIndices[face.firstIndex + 0]];
+        const Vector3& b = m_vertices[m_faceIndices[face.firstIndex + 1]];
+        const Vector3& c = m_vertices[m_faceIndices[face.firstIndex + 2]];
+        Vector3 normal = NormalizedOrThrow( CrossProduct( b - a, c - a ), "Degenerate scaled convex hull face.  (ConvexHullShape::ScaleAxis)" );
+        if ( ( normal * ( centroid - a ) ) > 0.0f )
+        {
+            normal = -normal;
+        }
+        face.normalLocal = normal;
+        face.planeOffsetLocal = normal * a;
+    }
+
+    m_inertiaHalfExtents = ( maxV - minV ) * 0.5f;
+    m_inertiaHalfExtents.x = ClampPositive( m_inertiaHalfExtents.x, m_boundingRadius );
+    m_inertiaHalfExtents.y = ClampPositive( m_inertiaHalfExtents.y, m_boundingRadius );
+    m_inertiaHalfExtents.z = ClampPositive( m_inertiaHalfExtents.z, m_boundingRadius );
+    m_volume = (std::max)( 1.0e-4f, 8.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.y * m_inertiaHalfExtents.z * 0.55f );
+    m_projectedSurfaceArea = ( 4.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.y +
+                               4.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.z +
+                               4.0f * m_inertiaHalfExtents.y * m_inertiaHalfExtents.z ) /
+                             3.0f;
 }
 
 uint16_t ConvexHullShape::GetVertexCount() const

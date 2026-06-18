@@ -94,6 +94,7 @@ class ConvexHullShape
     const Vector::Vector3& GetPosition() const;
     const Vector::Vector3& GetInertiaHalfExtents() const;
     Vector::Vector3 ComputeBoxApproxInertia( float mass ) const;
+    void ScaleAxis( int axis, float factor ); // Editor/runtime copy scale; authored asset files remain unchanged.
 
     uint16_t GetVertexCount() const;
     uint16_t GetFaceCount() const;
