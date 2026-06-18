@@ -19,6 +19,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezInputController.h"
 #include "SkullbonezWorkerPool.h"
 #include "UI/UILayout.h"
@@ -32,6 +33,9 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Assets::EditorHullAsset;
+using SkullbonezCore::Assets::EditorHullAssetPath;
+using SkullbonezCore::Assets::EditorHullAssetToken;
 
 namespace
 {
@@ -100,25 +104,31 @@ constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
 
 
-const char* EditorHullPathForType( int objectType )
+EditorHullAsset EditorHullAssetForType( int objectType )
 {
     switch ( objectType )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_WEDGE:
-        return "SkullbonezData/hulls/wedge.hull";
+        return EditorHullAsset::WEDGE;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TRI_PRISM:
-        return "SkullbonezData/hulls/tri_prism.hull";
+        return EditorHullAsset::TRI_PRISM;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
-        return "SkullbonezData/hulls/tapered_block.hull";
+        return EditorHullAsset::TAPERED_BLOCK;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_PYRAMID:
-        return "SkullbonezData/hulls/pyramid.hull";
+        return EditorHullAsset::PYRAMID;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_HEX_PRISM:
-        return "SkullbonezData/hulls/hex_prism.hull";
+        return EditorHullAsset::HEX_PRISM;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_DIAMOND:
-        return "SkullbonezData/hulls/diamond.hull";
+        return EditorHullAsset::DIAMOND;
     default:
-        return nullptr;
+        return EditorHullAsset::UNKNOWN;
     }
+}
+
+
+const char* EditorHullPathForType( int objectType )
+{
+    return EditorHullAssetPath( EditorHullAssetForType( objectType ) );
 }
 
 
@@ -2019,6 +2029,10 @@ void SkullbonezRun::TakeInput()
         {
             SaveCurrentSceneDefaults();
         }
+        if ( uiCommands.scene.createScene )
+        {
+            CreateSceneFromUI( uiCommands.scene.requestedSceneName );
+        }
         if ( uiCommands.scene.requestedSceneIndex >= 0 )
         {
             LoadSceneFromBrowserIndex( uiCommands.scene.requestedSceneIndex );
@@ -3179,8 +3193,14 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addModel( std::move( model ) );
     };
 
-    auto addHull = [&]( const char* label, const char* path )
+    auto addHull = [&]( EditorHullAsset asset )
     {
+        const char* label = EditorHullAssetToken( asset );
+        const char* path = EditorHullAssetPath( asset );
+        if ( !path )
+        {
+            return;
+        }
         constexpr float mass = 24.0f;
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
         const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
@@ -3210,22 +3230,22 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addSphere( "sphere", 8.0f, 24.0f, 0.35f );
         break;
     case UI::EditorTab::OBJECT_HULL_WEDGE:
-        addHull( "wedge", "SkullbonezData/hulls/wedge.hull" );
+        addHull( EditorHullAsset::WEDGE );
         break;
     case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
-        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull" );
+        addHull( EditorHullAsset::TRI_PRISM );
         break;
     case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
-        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull" );
+        addHull( EditorHullAsset::TAPERED_BLOCK );
         break;
     case UI::EditorTab::OBJECT_HULL_PYRAMID:
-        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull" );
+        addHull( EditorHullAsset::PYRAMID );
         break;
     case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
-        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull" );
+        addHull( EditorHullAsset::HEX_PRISM );
         break;
     case UI::EditorTab::OBJECT_HULL_DIAMOND:
-        addHull( "diamond", "SkullbonezData/hulls/diamond.hull" );
+        addHull( EditorHullAsset::DIAMOND );
         break;
     default:
         break;

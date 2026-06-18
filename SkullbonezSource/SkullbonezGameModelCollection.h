@@ -82,7 +82,7 @@ class GameModelCollection
     void PrepareRenderStreams();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus, float maxDistance, Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );
     void ResetRenderResources();
-    bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp );
+    bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp, bool editableScene = false, bool fixedStep = false, bool waterHidden = false, bool terrainHidden = false, bool hasFlatSlope = false, float flatBaseY = 0.0f, float flatSlopeX = 0.0f, float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
     const std::vector<GameModel>& Models() const;

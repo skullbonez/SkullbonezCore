@@ -79,6 +79,33 @@ struct SceneBallState
     float orientX, orientY, orientZ, orientW;
     float radius, mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
+    bool isFixed;
+};
+
+struct SceneBoxState
+{
+    char name[64];
+    float posX, posY, posZ;
+    float velX, velY, velZ;
+    float angVelX, angVelY, angVelZ;
+    float orientX, orientY, orientZ, orientW;
+    float halfX, halfY, halfZ;
+    float mass, restitution;
+    float inertiaX, inertiaY, inertiaZ;
+    bool isFixed;
+};
+
+struct SceneConvexHullState
+{
+    char name[64];
+    char hullPath[260];
+    float posX, posY, posZ;
+    float velX, velY, velZ;
+    float angVelX, angVelY, angVelZ;
+    float orientX, orientY, orientZ, orientW;
+    float mass, restitution;
+    float inertiaX, inertiaY, inertiaZ;
+    bool isFixed;
 };
 
 struct SceneBox
@@ -231,6 +258,7 @@ struct SceneOptions
     int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
     bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
     bool terrainHidden = false;                               // Suppress terrain rendering
+    bool editableScene = false;                               // Scene-tab starter scene; Save Defaults persists live object state
     bool hasCinematicRenderingOverride = false;               // Scene explicitly toggles cinematic HDR/post rendering
     bool cinematicRendering = false;                          // Cinematic HDR/post rendering scene override
     bool hasCinematicExposure = false;                        // Scene explicitly sets tonemap exposure
@@ -345,8 +373,10 @@ class TestScene
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
+    std::vector<SceneBoxState> m_boxStates;
     std::vector<SceneBox> m_boxes;
     std::vector<SceneConvexHull> m_convexHulls;
+    std::vector<SceneConvexHullState> m_convexHullStates;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
@@ -404,6 +434,7 @@ class TestScene
     int GetWaterReflectionMode() const;
     bool IsWaterHidden() const;
     bool IsTerrainHidden() const;
+    bool IsEditableScene() const;
     bool HasCinematicRenderingOverride() const;
     bool IsCinematicRenderingEnabled() const;
     bool HasCinematicExposure() const;
@@ -422,10 +453,14 @@ class TestScene
     const SceneBall& GetBall( int index ) const;
     int GetBallStateCount() const;
     const SceneBallState& GetBallState( int index ) const;
+    int GetBoxStateCount() const;
+    const SceneBoxState& GetBoxState( int index ) const;
     int GetBoxCount() const;
     const SceneBox& GetBox( int index ) const;
     int GetConvexHullCount() const;
     const SceneConvexHull& GetConvexHull( int index ) const;
+    int GetConvexHullStateCount() const;
+    const SceneConvexHullState& GetConvexHullState( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;

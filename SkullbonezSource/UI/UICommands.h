@@ -173,6 +173,8 @@ struct UISceneCommands
     bool resetSceneDefaults = false;
     bool requestDemoScene = false;
     bool saveSceneDefaults = false;
+    bool createScene = false;
+    char requestedSceneName[64] = {};
     int requestedSceneIndex = -1; // index into sceneOptions, -1=no request
 };
 

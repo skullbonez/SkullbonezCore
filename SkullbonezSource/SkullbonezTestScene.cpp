@@ -73,6 +73,13 @@ bool TestScene::IsTerrainHidden() const
     return m_sceneOptions.terrainHidden;
 }
 
+
+bool TestScene::IsEditableScene() const
+{
+    return m_sceneOptions.editableScene;
+}
+
+
 bool TestScene::HasCinematicRenderingOverride() const
 {
     return m_sceneOptions.hasCinematicRenderingOverride;
@@ -405,6 +412,23 @@ const SceneBallState& TestScene::GetBallState( int index ) const
 }
 
 
+int TestScene::GetBoxStateCount() const
+{
+    return static_cast<int>( m_boxStates.size() );
+}
+
+
+const SceneBoxState& TestScene::GetBoxState( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_boxStates.size() ) )
+    {
+        throw std::runtime_error( "BoxState index out of range.  (TestScene::GetBoxState)" );
+    }
+
+    return m_boxStates[index];
+}
+
+
 int TestScene::GetBoxCount() const
 {
     return static_cast<int>( m_boxes.size() );
@@ -436,6 +460,23 @@ const SceneConvexHull& TestScene::GetConvexHull( int index ) const
     }
 
     return m_convexHulls[index];
+}
+
+
+int TestScene::GetConvexHullStateCount() const
+{
+    return static_cast<int>( m_convexHullStates.size() );
+}
+
+
+const SceneConvexHullState& TestScene::GetConvexHullState( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_convexHullStates.size() ) )
+    {
+        throw std::runtime_error( "ConvexHullState index out of range.  (TestScene::GetConvexHullState)" );
+    }
+
+    return m_convexHullStates[index];
 }
 
 

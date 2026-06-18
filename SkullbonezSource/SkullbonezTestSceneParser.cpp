@@ -1497,7 +1497,7 @@ class TestSceneParser
 
     void ParseBallState( const char* args )
     {
-        const char* expected = "ball_state <name> <position> <velocity> <angular_velocity> <orientation> <radius> <mass> <restitution> <inertia>";
+        const char* expected = "ball_state <name> <position> <velocity> <angular_velocity> <orientation> <radius> <mass> <restitution> <inertia> [fixed]";
         const char* cursor = RequireArgs( "ball_state", args, expected );
         SceneBallState bs;
         memset( &bs, 0, sizeof( bs ) );
@@ -1522,8 +1522,83 @@ class TestSceneParser
         bs.inertiaX = ParseNextFloatToken( "ball_state", cursor, expected );
         bs.inertiaY = ParseNextFloatToken( "ball_state", cursor, expected );
         bs.inertiaZ = ParseNextFloatToken( "ball_state", cursor, expected );
+        char fixedToken[64] = {};
+        if ( ReadToken( cursor, fixedToken, sizeof( fixedToken ) ) )
+        {
+            bs.isFixed = ParseIntValue( "ball_state", fixedToken ) != 0;
+        }
 
         m_scene.m_ballStates.push_back( bs );
+    }
+
+    void ParseBoxState( const char* args )
+    {
+        const char* expected = "box_state <name> <position> <velocity> <angular_velocity> <orientation> <halfExtents> <mass> <restitution> <inertia> <fixed>";
+        const char* cursor = RequireArgs( "box_state", args, expected );
+        SceneBoxState bs;
+        memset( &bs, 0, sizeof( bs ) );
+
+        ParseNextToken( "box_state", cursor, bs.name, sizeof( bs.name ), expected );
+        bs.posX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.posY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.posZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.velX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.velY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.velZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.angVelX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.angVelY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.angVelZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.orientX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.orientY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.orientZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.orientW = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.halfX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.halfY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.halfZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.mass = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.restitution = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.inertiaX = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.inertiaY = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.inertiaZ = ParseNextFloatToken( "box_state", cursor, expected );
+        bs.isFixed = ParseNextIntToken( "box_state", cursor, expected ) != 0;
+
+        m_scene.m_boxStates.push_back( bs );
+    }
+
+    void ParseConvexHullState( const char* args )
+    {
+        const char* expected = "convex_hull_state <name> <hull|hull=path> <position> <velocity> <angular_velocity> <orientation> <mass> <restitution> <inertia> <fixed>";
+        const char* cursor = RequireArgs( "convex_hull_state", args, expected );
+        SceneConvexHullState hs;
+        memset( &hs, 0, sizeof( hs ) );
+
+        ParseNextToken( "convex_hull_state", cursor, hs.name, sizeof( hs.name ), expected );
+        ParseNextToken( "convex_hull_state", cursor, hs.hullPath, sizeof( hs.hullPath ), expected );
+        if ( strncmp( hs.hullPath, "hull=", 5 ) == 0 )
+        {
+            memmove( hs.hullPath, hs.hullPath + 5, strlen( hs.hullPath + 5 ) + 1 );
+        }
+        hs.posX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.posY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.posZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.velX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.velY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.velZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.angVelX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.angVelY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.angVelZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.orientX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.orientY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.orientZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.orientW = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.mass = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.restitution = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.inertiaX = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.inertiaY = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.inertiaZ = ParseNextFloatToken( "convex_hull_state", cursor, expected );
+        hs.isFixed = ParseNextIntToken( "convex_hull_state", cursor, expected ) != 0;
+
+        m_scene.m_convexHullStates.push_back( hs );
     }
 
     void ParseWorld( const char* args )
@@ -1547,6 +1622,11 @@ class TestSceneParser
     void ParseTerrainHidden( const char* args )
     {
         ParseStrictOnOff( "terrain_hidden", RequireArgs( "terrain_hidden", args, "terrain_hidden on|off" ), m_scene.m_sceneOptions.terrainHidden );
+    }
+
+    void ParseEditableScene( const char* args )
+    {
+        ParseStrictOnOff( "editable_scene", RequireArgs( "editable_scene", args, "editable_scene on|off" ), m_scene.m_sceneOptions.editableScene );
     }
 
     void ParseObjectMaterial( const char* args )
@@ -1982,9 +2062,12 @@ class TestSceneParser
             { "auto_cycle_interval", &TestSceneParser::ParseAutoCycleInterval, "auto_cycle_interval <seconds>" },
             { "flat_slope", &TestSceneParser::ParseFlatSlope, "flat_slope <baseY> <slopeX> <slopeZ>" },
             { "ball_state", &TestSceneParser::ParseBallState, "ball_state <name> ..." },
+            { "box_state", &TestSceneParser::ParseBoxState, "box_state <name> ..." },
+            { "convex_hull_state", &TestSceneParser::ParseConvexHullState, "convex_hull_state <name> ..." },
             { "world", &TestSceneParser::ParseWorld, "world <gravity> <fluidHeight> <fluidDensity>" },
             { "water_hidden", &TestSceneParser::ParseWaterHidden, "water_hidden on|off" },
             { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
+            { "editable_scene", &TestSceneParser::ParseEditableScene, "editable_scene on|off" },
             { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
             { "look", &TestSceneParser::ParseLook, "look <name|path>" },
             { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode> [key=value...]" },

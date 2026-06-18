@@ -960,9 +960,11 @@ class SkullbonezRun
     void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Backbuffer capture path; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                                                                                       // UI-controlled scene defaults persisted to the active scene file.
+    bool SaveCurrentEditableSceneSnapshot();                                                                                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                                                                             // Ordinary Render-tab values persisted to engine.cfg.
     void RefreshSceneBrowserList();                                                                                                        // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                                                                  // Current scene index within the discovered scene dropdown list.
+    bool CreateSceneFromUI( const char* requestedName );                                                                                   // Creates and loads a flat starter scene from the Scene tab.
     void LoadSceneFromBrowserIndex( int index );                                                                                           // In-game scene dropdown selection loader.
     void LoadDemoSceneFromUI();                                                                                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Live cine/concept style change; leaves scene objects intact.

@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezWorkerPool.h"
 
@@ -33,6 +34,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
@@ -89,6 +91,88 @@ bool IsCineScenePath( const std::string& path )
            strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr ||
            strstr( name, "cine_" ) == name;
+}
+
+bool IsSceneNameChar( char value )
+{
+    return ( value >= 'a' && value <= 'z' ) ||
+           ( value >= 'A' && value <= 'Z' ) ||
+           ( value >= '0' && value <= '9' ) ||
+           value == '-' ||
+           value == '_';
+}
+
+std::string SanitizeSceneFileName( const char* requestedName )
+{
+    std::string clean;
+    if ( requestedName )
+    {
+        for ( const char* cursor = requestedName; *cursor != '\0' && clean.size() < 48; ++cursor )
+        {
+            const char value = *cursor;
+            if ( IsSceneNameChar( value ) )
+            {
+                clean.push_back( value );
+            }
+            else if ( value == ' ' || value == '.' )
+            {
+                clean.push_back( '_' );
+            }
+        }
+    }
+
+    while ( !clean.empty() && clean.front() == '_' )
+    {
+        clean.erase( clean.begin() );
+    }
+    while ( !clean.empty() && clean.back() == '_' )
+    {
+        clean.pop_back();
+    }
+    return clean;
+}
+
+std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName )
+{
+    std::filesystem::path candidate = sceneDir / ( baseName + ".scene" );
+    if ( !std::filesystem::exists( candidate ) )
+    {
+        return candidate;
+    }
+
+    for ( int suffix = 2; suffix < 1000; ++suffix )
+    {
+        char numberedName[80] = {};
+        snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene", baseName.c_str(), suffix );
+        candidate = sceneDir / numberedName;
+        if ( !std::filesystem::exists( candidate ) )
+        {
+            return candidate;
+        }
+    }
+    return std::filesystem::path();
+}
+
+bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName )
+{
+    std::ofstream output( path, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
+
+    output << "# " << displayName << ".scene\n";
+    output << "# Created from the Scene tab.\n\n";
+    output << "physics on\n";
+    output << "text on\n";
+    output << "editable_scene on\n";
+    output << "frames unlimited\n";
+    output << "fixed_step\n";
+    output << "world -9.81 0.0 0.0\n";
+    output << "water_hidden on\n";
+    output << "flat_slope 30.0 0.0 0.0\n\n";
+    output << "camera main 500 120 760  500 45 500  0 1 0\n";
+    return output.good();
 }
 
 void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64_t touchedMask, const CinematicRenderConfig& c )
@@ -526,7 +610,12 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() + scene.GetConvexHullCount();
+    SceneState().modelCount = scene.GetBallCount() +
+                              scene.GetBallStateCount() +
+                              scene.GetBoxCount() +
+                              scene.GetBoxStateCount() +
+                              scene.GetConvexHullCount() +
+                              scene.GetConvexHullStateCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -576,6 +665,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
         gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
         gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
+        gameModel.SetFixed( bs.isFixed );
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
@@ -617,11 +707,33 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 
+    // box_state entries: full dynamic state from an editable scene snapshot
+    for ( int i = 0; i < scene.GetBoxStateCount(); ++i )
+    {
+        const SceneBoxState& box = scene.GetBoxState( i );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( box.posX, box.posY, box.posZ ),
+                             Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
+                             box.mass );
+
+        gameModel.SetCoefficientRestitution( box.restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.SetName( box.name );
+        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
+        gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
+        gameModel.SetAngularVelocity( Vector3( box.angVelX, box.angVelY, box.angVelZ ) );
+        gameModel.SetOrientation( Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ) );
+        gameModel.SetFixed( box.isFixed );
+
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
     // convex_hull entries: authored immutable hull assets
     for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( hullScene.hullPath );
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
 
         GameModel gameModel( &m_cWorldEnvironment,
@@ -644,6 +756,28 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
         }
 
+        gameModel.SetFixed( hullScene.isFixed );
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    // convex_hull_state entries: full dynamic state from an editable scene snapshot
+    for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
+    {
+        const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                             Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
+                             hullScene.mass );
+
+        gameModel.SetCoefficientRestitution( hullScene.restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.SetName( hullScene.name );
+        gameModel.AddConvexHull( hull );
+        gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
+        gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
+        gameModel.SetOrientation( Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
         gameModel.SetFixed( hullScene.isFixed );
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
@@ -1061,6 +1195,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     SceneState().cinematicRender = Cfg().cinematicRender;
     SceneState().isTestComplete = false;
     SceneState().isFinishLogged = false;
+    SceneState().isEditableScene = false;
+    SceneState().hasFlatSlope = false;
+    SceneState().flatBaseY = 0.0f;
+    SceneState().flatSlopeX = 0.0f;
+    SceneState().flatSlopeZ = 0.0f;
     m_simulation.Reset();
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
@@ -1198,6 +1337,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             m_runtimeSettings.isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
         }
         m_debug.isTextOnly = scene.IsTextOnly();
+        SceneState().isEditableScene = scene.IsEditableScene();
         m_debug.isWaterHidden = scene.IsWaterHidden();
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
         m_debug.isCollisionVisualizer = scene.IsCollisionVisualizerEnabled();
@@ -1391,10 +1531,15 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         // its analytic terrain into the next height-map scene.
         if ( scene.HasFlatSlope() )
         {
+            SceneState().hasFlatSlope = true;
+            SceneState().flatBaseY = scene.GetFlatBaseY();
+            SceneState().flatSlopeX = scene.GetFlatSlopeX();
+            SceneState().flatSlopeZ = scene.GetFlatSlopeZ();
             UseFlatSlopeTerrain( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
         }
         else
         {
+            SceneState().hasFlatSlope = false;
             UseDefaultTerrain();
         }
 
@@ -1448,7 +1593,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
         // Snapshot scenes (ball_state) start paused in free camera mode ?
         // user presses F to resume simulation and attach to scene camera
-        if ( scene.GetBallStateCount() > 0 )
+        if ( scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0 )
         {
             m_camera.isFlyMode = true;
             m_camera.cameraTime = 0.0f;
@@ -1596,12 +1741,42 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 }
 
 
+bool SkullbonezRun::SaveCurrentEditableSceneSnapshot()
+{
+    const std::string* scenePath = CurrentSceneQueuePath();
+    if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
+    {
+        return false;
+    }
+
+    return m_cGameModelCollection.SaveSceneSnapshot( scenePath->c_str(),
+                                                     SceneState().isScenePhysics,
+                                                     SceneState().isSceneText,
+                                                     m_cWorldEnvironment,
+                                                     m_systems.cameras->GetCameraTranslation(),
+                                                     m_systems.cameras->GetCameraView(),
+                                                     m_systems.cameras->GetCameraUp(),
+                                                     true,
+                                                     SceneState().isFixedStep,
+                                                     m_debug.isWaterHidden,
+                                                     m_debug.isTerrainHidden,
+                                                     SceneState().hasFlatSlope,
+                                                     SceneState().flatBaseY,
+                                                     SceneState().flatSlopeX,
+                                                     SceneState().flatSlopeZ );
+}
+
+
 bool SkullbonezRun::SaveCurrentSceneDefaults()
 {
     const std::string* scenePath = CurrentSceneQueuePath();
     if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
+    }
+    if ( SceneState().isEditableScene )
+    {
+        return SaveCurrentEditableSceneSnapshot();
     }
 
     std::ifstream input( *scenePath );
@@ -1873,6 +2048,47 @@ int SkullbonezRun::CurrentSceneBrowserIndex() const
         }
     }
     return -1;
+}
+
+
+bool SkullbonezRun::CreateSceneFromUI( const char* requestedName )
+{
+    const std::string cleanName = SanitizeSceneFileName( requestedName );
+    if ( cleanName.empty() )
+    {
+        return false;
+    }
+
+    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
+    std::error_code ec;
+    std::filesystem::create_directories( sceneDir, ec );
+    if ( ec )
+    {
+        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"", cleanName.c_str(), ec.message().c_str() );
+        return false;
+    }
+
+    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName );
+    if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
+    {
+        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
+        return false;
+    }
+
+    RefreshSceneBrowserList();
+    const std::string normalizedPath = NormalizeScenePath( scenePath.generic_string() );
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    {
+        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == normalizedPath )
+        {
+            LoadSceneFromBrowserIndex( i );
+            return true;
+        }
+    }
+
+    EnterInteractiveSceneRun();
+    LoadScene( m_sceneRuntime.Append( normalizedPath ), true, true );
+    return true;
 }
 
 
