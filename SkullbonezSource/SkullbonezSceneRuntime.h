@@ -33,6 +33,8 @@ namespace Basics
 {
 struct RunSceneState
 {
+    void ResetForLoad( const CinematicRenderConfig& cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
+
     int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
     int loadCount = 0;             // Number of scene/generated loads since startup
     int manualResetCount = 0;      // Number of user-triggered resets since startup

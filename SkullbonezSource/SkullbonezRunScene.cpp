@@ -1174,32 +1174,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     }
 
     // Reset scene-local state; operator HUD preferences are restored below.
-    SceneState().isScenePhysics = true;
-    SceneState().isSceneText = true;
+    SceneState().ResetForLoad( Cfg().cinematicRender );
     m_perfLogState.isPerfTest = false;
     m_perfLogState.perfHeaderWritten = false;
     m_screenshot.isScreenshotSaved = false;
     m_screenshot.isScreenshotAndExit = false;
-    SceneState().targetFrameCount = -1;
-    SceneState().currentFrame = 0;
-    SceneState().solverBallCount = 0;
-    SceneState().solverBoxCount = 0;
-    SceneState().hasCinematicRenderingOverride = false;
-    SceneState().isCinematicRenderingEnabled = false;
-    SceneState().hasCinematicExposure = false;
-    SceneState().cinematicExposure = Cfg().cinematicRender.exposure;
-    SceneState().hasCinematicGamma = false;
-    SceneState().cinematicGamma = Cfg().cinematicRender.gamma;
-    SceneState().cinematicOverrideMask = 0;
-    SceneState().uiCinematicOverrideMask = 0;
-    SceneState().cinematicRender = Cfg().cinematicRender;
-    SceneState().isTestComplete = false;
-    SceneState().isFinishLogged = false;
-    SceneState().isEditableScene = false;
-    SceneState().hasFlatSlope = false;
-    SceneState().flatBaseY = 0.0f;
-    SceneState().flatSlopeX = 0.0f;
-    SceneState().flatSlopeZ = 0.0f;
     m_simulation.Reset();
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
@@ -1240,9 +1219,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_debug.reproSnapshotMessage[0] = '\0';
     m_debug.reproSnapshotMessageUntil = 0.0;
 #endif
-    SceneState().timeScale = 1.0f;
-    SceneState().isFixedStep = false;
-    SceneState().isExitOnComplete = false;
     m_debug.frozenWaterTime = 0.0f;
     m_camera.trackBallIndex = -1;
     m_camera.trackHeight = 300.0f;
