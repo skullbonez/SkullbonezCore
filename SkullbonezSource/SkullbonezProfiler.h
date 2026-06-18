@@ -107,14 +107,19 @@ class Profiler
         int ringFilled;          // number of valid samples (saturates at RING_SIZE)
         int ringHead;            // next write index
         float lastFrameMs;       // most recent finished-frame total
+        float lastSelfMs;        // most recent finished-frame direct time after direct child totals
         float lastFrameStartMs;  // first Begin point within the most recent frame
         float lastFrameEndMs;    // final End point within the most recent frame
         float avgMs;             // moving average refreshed every 500 ms
+        float selfAvgMs;         // moving average of direct time after direct child totals
         float p50Ms;             // recomputed every frame
         float p99Ms;             // recomputed every frame
         float p99_9Ms;           // recomputed every frame (for perf CSV)
         float minMs;             // session-wide minimum
         float maxMs;             // session-wide maximum
+        float selfRingMs[RING_SIZE];
+        int selfRingFilled;
+        int selfRingHead;
 
         // GPU timestamp query state
         bool hasGpu;                // true if this marker uses GPU timing

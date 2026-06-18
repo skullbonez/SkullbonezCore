@@ -74,6 +74,11 @@ float ProfilerMarkerDisplayCpuMs( const SkullbonezCore::Basics::Profiler::Marker
     return marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
 }
 
+float ProfilerMarkerDisplaySelfMs( const SkullbonezCore::Basics::Profiler::Marker& marker )
+{
+    return marker.selfAvgMs > 0.0f ? marker.selfAvgMs : marker.lastSelfMs;
+}
+
 bool IsMarkerExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
     for ( int i = 0; i < state.expandedHashCount; ++i )
@@ -814,9 +819,10 @@ void Draw( UIProfilerTabState& state,
     const float rowH = 30.0f;
     const float headerH = 32.0f;
     const float colMarker = tableX + 18.0f;
-    const float colCpu = tableX + tableW * 0.36f;
-    const float colGpu = tableX + tableW * 0.46f;
-    const float colP50 = tableX + tableW * 0.56f;
+    const float colCpu = tableX + tableW * 0.32f;
+    const float colSelf = tableX + tableW * 0.41f;
+    const float colGpu = tableX + tableW * 0.50f;
+    const float colP50 = tableX + tableW * 0.58f;
     const float colP99 = tableX + tableW * 0.66f;
     const float barX = tableX + tableW * 0.76f;
     const float barW = (std::max)( 95.0f, tableW * 0.20f );
@@ -837,6 +843,7 @@ void Draw( UIProfilerTabState& state,
     draw.Rect( tableX, tableY + headerH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
     draw.Text( colMarker, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Marker" );
     draw.Text( colCpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "CPU" );
+    draw.Text( colSelf, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Self" );
     draw.Text( colGpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "GPU" );
     draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
     draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
@@ -862,6 +869,7 @@ void Draw( UIProfilerTabState& state,
         const float indent = static_cast<float>( (std::min)( marker.depth, 8 ) ) * 18.0f;
         const float nameX = colMarker + indent;
         const float cpuMs = ProfilerMarkerDisplayCpuMs( marker );
+        const float selfMs = ProfilerMarkerDisplaySelfMs( marker );
         const float gpuMs = marker.hasGpu ? ( marker.gpuAvgMs > 0.0f ? marker.gpuAvgMs : marker.gpuLastFrameMs ) : -1.0f;
         const float p50Ms = marker.p50Ms > 0.0f ? marker.p50Ms : cpuMs;
         const float p99Ms = marker.p99Ms > 0.0f ? marker.p99Ms : cpuMs;
@@ -879,6 +887,8 @@ void Draw( UIProfilerTabState& state,
         draw.Text( nameX + 22.0f, rowY + 8.0f, 12.0f, 0.92f, 0.96f, 0.97f, marker.leafName );
         snprintf( buf, sizeof( buf ), "%.2f", cpuMs );
         draw.Text( colCpu, rowY + 8.0f, 11.5f, r, g, b, buf );
+        snprintf( buf, sizeof( buf ), "%.2f", selfMs );
+        draw.Text( colSelf, rowY + 8.0f, 11.5f, r, g, b, buf );
         if ( gpuMs >= 0.0f )
         {
             snprintf( buf, sizeof( buf ), "%.2f", gpuMs );
