@@ -7,6 +7,14 @@ Mental model:
   This is a diagnostic UI shader. The CPU supplies an already shader-readable
   texture handle plus a mode flag for color, HDR color, or depth display.
 
+Glossary:
+  UI (User Interface): In-engine diagnostic and control overlay drawn after the
+  world render pass.
+  HDR (High Dynamic Range): Floating-point scene color that can hold values
+  brighter than display white until tonemapping resolves it.
+  SRV (Shader Resource View): Descriptor row used when shaders read a texture or
+  buffer.
+
 Invariants:
   - CPU-side dynamic vertex attributes are float2 position followed by float2 UV.
   - Texture slot t0 is the selected render target or buffer SRV.

@@ -216,18 +216,18 @@ struct SceneOptions
     int workerThreads = -2;                                   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep/pipeline markers
-    bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
+    bool physicsDebugTransparent = false;                     // Translucent collision volumes while physics debug is visible.
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible
     float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
     float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
     bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
     bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;                         // Render solid collision/sleep debug colours
-    bool broadphaseOverlay = false;                           // Render spatial broadphase debug overlay
+    bool collisionVisualizer = false;                         // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                           // Spatial broadphase debug overlay.
     bool waterFreezeDebug = false;                            // Freeze water animation at load time
-    bool waterFlatDebug = false;                              // Render water as a flat mesh
+    bool waterFlatDebug = false;                              // Flat water mesh for debug captures.
     int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
     bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
     bool terrainHidden = false;                               // Suppress terrain rendering

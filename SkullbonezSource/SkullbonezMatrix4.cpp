@@ -519,7 +519,7 @@ const float* Matrix4::Data() const
 
 Matrix4 Matrix4::Inverse() const
 {
-    // Compute inverse of a 4x4 column-major matrix using cofactor expansion
+    // This cofactor expansion assumes the engine's column-major storage order.
     float inv[16];
     float det;
 
@@ -543,7 +543,7 @@ Matrix4 Matrix4::Inverse() const
     det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
     if ( fabsf( det ) < 1e-10f )
     {
-        return Matrix4(); // Return identity if singular
+        return Matrix4(); // Identity fallback keeps singular transforms finite.
     }
 
     float invDet = 1.0f / det;

@@ -177,7 +177,7 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
 void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz, float r, float g, float b )
 {
-    // Compute world-space corners of the cell
+    // Grid indices become world-space cube corners for the debug wireframe.
     float x0 = (float)ix * m_cellSize;
     float y0 = (float)iy * m_cellSize;
     float z0 = (float)iz * m_cellSize;
@@ -278,7 +278,7 @@ void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* acti
         cell.collisionHeat = ( cell.collisionHeat < MAX_COLLISION_HEAT ) ? cell.collisionHeat + 1 : MAX_COLLISION_HEAT;
     }
 
-    // Update timers and state transitions
+    // Timers age out cells after their hit/visited highlight fades.
     for ( int i = 0; i < m_cellCount; )
     {
         TrackedCell& cell = m_cells[i];

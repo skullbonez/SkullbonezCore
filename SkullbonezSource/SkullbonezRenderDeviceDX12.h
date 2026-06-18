@@ -29,6 +29,8 @@ Glossary:
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  through reference-counted objects.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

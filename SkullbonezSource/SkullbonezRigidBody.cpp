@@ -86,7 +86,6 @@ using namespace SkullbonezCore::Math::Transformation;
 
 RigidBody::RigidBody()
 {
-    // set all members to default values
     m_frictionCoefficient = 0.5f;
     m_invertedMass = 0.1f;
     m_coefficientRestitution = 0.9f;
@@ -250,10 +249,8 @@ void RigidBody::ApplyChangeInLinearVelocity()
 
 void RigidBody::ApplyForces()
 {
-    // apply the world force
     ApplyWorldForce();
 
-    // apply the impulse force
     ApplyImpulseForce();
 }
 
@@ -270,10 +267,8 @@ void RigidBody::ApplyImpulseForce()
         m_isForceApplied = true;
     }
 
-    // apply linear impulse
     ApplyLinearForce();
 
-    // apply angular impulse
     ApplyAngularForce();
 }
 
@@ -309,7 +304,6 @@ Vector3 RigidBody::GetRollVelocity()
     // z == -x
     rollVelocity.z = -m_angularVelocity.x;
 
-    // return the result
     return rollVelocity;
 }
 

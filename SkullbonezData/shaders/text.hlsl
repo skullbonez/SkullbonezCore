@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
+  DX12 (DirectX 12): Production renderer API that owns this shader's root
+  signature, input layout, and descriptor bindings.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
   SDF (Signed Distance Field): Texture representation used for crisp scalable

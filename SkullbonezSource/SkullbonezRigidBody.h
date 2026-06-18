@@ -89,41 +89,41 @@ class RigidBody
     Math::Vector::Vector3 GetRollVelocity(); // Gets the linear velocity derived from rolling angular velocity (ω × ground normal)
 
   public:
-    RigidBody();                                                                                                        // Default constructor
-    ~RigidBody();                                                                                                       // Default destructor
-    void ApplyForces();                                                                                                 // Update the rigid body's velocity based on its current state
-    void UpdatePosition( float changeInTime );                                                                          // Update the rigid body's position based on its current state
-    void ApplyImpulseForce();                                                                                           // Apply the impulse force to the body
-    void ZeroForce();                                                                                                   // Zero the force vectors
-    const Math::Orientation::Quaternion& GetOrientation() const;                                                        // Returns the orientation quaternion
-    void SetMass( float fMass );                                                                                        // Set the mass of the rigid body
-    void SetFrictionCoefficient( float fFriction );                                                                     // Set the friction coefficient of the body
-    void SetVolume( float fVolume );                                                                                    // Sets the volume member
-    void SetCoefficientRestitution( float fCoefficientRestitution );                                                    // Set the coefficient of restitution (bounciness)
-    void SetPosition( const Math::Vector::Vector3& vPosition );                                                         // Set the position of the rigid body
-    void SetRotationalInertia( const Math::Vector::Vector3& vRotationalInertia );                                       // Sets the rotational inertia for the obect
-    void SetChangeInAngularVelocity( const Math::Vector::Vector3& vAngularVelocity );                                   // Sets the change in angular velocity
-    void SetChangeInLinearVelocity( const Math::Vector::Vector3& vLinearVelocity );                                     // Sets the change in linear velocity
-    void ApplyChangeInAngularVelocity();                                                                                // Applies the change in angular velocity
-    void ThrottleAngularVelocity();                                                                                     // Slows angular velocity to ensure it does not reach astronomical speeds
-    void ApplyChangeInLinearVelocity();                                                                                 // Applies the change in linear velocity
-    float GetCoefficientRestitution();                                                                                  // Get the coefficient of restitution (bounciness)
-    float GetFrictionCoefficient();                                                                                     // Get the friction coefficient of the body
-    float GetMass();                                                                                                    // Returns the mass of the rigid body
-    float GetInvertedMass();                                                                                            // Returns the inverted mass of the rigid body
-    float GetVolume();                                                                                                  // Returns the volume of the rigid body
-    const Math::Vector::Vector3& GetVelocity();                                                                         // Returns a const reference to the velocity of the rigid body
-    const Math::Vector::Vector3& GetPosition();                                                                         // Returns a const reference to the position of the rigid body
-    const Math::Vector::Vector3& GetPosition() const;                                                                   // Const center read for Catto-style contact-arm setup
-    const Math::Vector::Vector3& GetAngularVelocity();                                                                  // Returns a const reference to the angular velocity of the rigid body
-    const Math::Vector::Vector3& GetRotationalInertia();                                                                // Returns a const reference to the rotational inertia of the rigid body
-    float GetDensity();                                                                                                 // Calculates and returns the density of the body
-    void SetLinearVelocity( const Math::Vector::Vector3& vLinear );                                                     // Set the linear velocity of the rigid body
-    void SetAngularVelocity( const Math::Vector::Vector3& vAngular );                                                   // Set the angular velocity of the rigid body
-    void SetOrientation( const Math::Orientation::Quaternion& q );                                                      // Set the initial orientation quaternion directly
-    void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint ); // Set an impulse force to the rigid body
-    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );          // Sets the forces being acted upon the object by the world environment
-    Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );                                    // Gets the rotation matrix representing the bodies orientation at the specified time (0.0f returns CURRENT orientation matrix)
+    RigidBody();                               // Default constructor
+    ~RigidBody();                              // Default destructor
+    void ApplyForces();                        // Update the rigid body's velocity based on its current state
+    void UpdatePosition( float changeInTime ); // Update the rigid body's position based on its current state
+    void ApplyImpulseForce();
+    void ZeroForce();                                            // Zero the force vectors
+    const Math::Orientation::Quaternion& GetOrientation() const; // Returns the orientation quaternion
+    void SetMass( float fMass );
+    void SetFrictionCoefficient( float fFriction );
+    void SetVolume( float fVolume );                                 // Sets the volume member
+    void SetCoefficientRestitution( float fCoefficientRestitution ); // Set the coefficient of restitution (bounciness)
+    void SetPosition( const Math::Vector::Vector3& vPosition );
+    void SetRotationalInertia( const Math::Vector::Vector3& vRotationalInertia );     // Sets the rotational inertia for the obect
+    void SetChangeInAngularVelocity( const Math::Vector::Vector3& vAngularVelocity ); // Sets the change in angular velocity
+    void SetChangeInLinearVelocity( const Math::Vector::Vector3& vLinearVelocity );   // Sets the change in linear velocity
+    void ApplyChangeInAngularVelocity();                                              // Applies the change in angular velocity
+    void ThrottleAngularVelocity();                                                   // Slows angular velocity to ensure it does not reach astronomical speeds
+    void ApplyChangeInLinearVelocity();                                               // Applies the change in linear velocity
+    float GetCoefficientRestitution();                                                // Get the coefficient of restitution (bounciness)
+    float GetFrictionCoefficient();
+    float GetMass();                                     // Returns the mass of the rigid body
+    float GetInvertedMass();                             // Returns the inverted mass of the rigid body
+    float GetVolume();                                   // Returns the volume of the rigid body
+    const Math::Vector::Vector3& GetVelocity();          // Returns a const reference to the velocity of the rigid body
+    const Math::Vector::Vector3& GetPosition();          // Returns a const reference to the position of the rigid body
+    const Math::Vector::Vector3& GetPosition() const;    // Const center read for Catto-style contact-arm setup
+    const Math::Vector::Vector3& GetAngularVelocity();   // Returns a const reference to the angular velocity of the rigid body
+    const Math::Vector::Vector3& GetRotationalInertia(); // Returns a const reference to the rotational inertia of the rigid body
+    float GetDensity();                                  // Calculates and returns the density of the body
+    void SetLinearVelocity( const Math::Vector::Vector3& vLinear );
+    void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
+    void SetOrientation( const Math::Orientation::Quaternion& q );
+    void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint );
+    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque ); // Sets the forces being acted upon the object by the world environment
+    Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );                           // Gets the rotation matrix representing the bodies orientation at the specified time (0.0f returns CURRENT orientation matrix)
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -1,8 +1,29 @@
 #!/usr/bin/env python3
-"""
-Check that all .cpp/.h files (except SkullbonezCommon.h) start with no ASCII art header
-(headers were removed in cleanup). SkullbonezCommon.h is exempt and has its own format.
-"""
+#
+# File: .githooks/check-headers.py
+# Purpose:
+#   Blocks restored legacy ASCII-art headers in C++ source files.
+#
+# Mental model:
+#   This hook preserves the post-cleanup file shape. It is not a learning-header
+#   validator; it only prevents large decorative banners from coming back.
+#
+# Glossary:
+#   ASCII-art header: Decorative block comment banner that used to dominate the
+#   top of source files without teaching file purpose or invariants.
+#   Hook: Local Git script that runs before a commit and can block style or
+#   validation failures.
+#
+# Invariants:
+#   - SkullbonezCommon.h is exempt because it keeps a different historical
+#   layout.
+#   - Unexpected starts warn instead of failing; the hard failure is only the
+#   retired banner format.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
 import sys
 import os
 

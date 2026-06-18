@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
@@ -530,7 +532,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_texBindingsDirty = false;
     }
 
-    // Set viewport/scissor/render targets only when changed
+    // Avoid redundant OM/RS binds; target changes are tracked explicitly.
     if ( m_targetsDirty )
     {
         m_commandList->RSSetViewports( 1, &m_viewport );

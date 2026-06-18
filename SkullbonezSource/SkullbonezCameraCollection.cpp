@@ -135,7 +135,6 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
         // use the tween camera instead of the toIndex
         m_tweenPath = m_cameraArray[toIndex] - m_tweenCamera;
 
-        // set the camera where the tween is beginning from
         m_tweenStart = m_tweenCamera;
     }
     else
@@ -144,7 +143,6 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
         // use fromIndex and toIndex to determine this
         m_tweenPath = m_cameraArray[toIndex] - m_cameraArray[fromIndex];
 
-        // set the camera where the tween is beginning from
         m_tweenStart = m_cameraArray[fromIndex];
     }
 }
@@ -152,7 +150,6 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
 
 void CameraCollection::UpdateTweenPath()
 {
-    // update the destination (use vector difference)
     m_tweenPath = m_cameraArray[m_selectedCamera] - m_tweenStart;
 }
 
@@ -163,7 +160,6 @@ void CameraCollection::SelectCamera( uint32_t hash,
     // local to store requested camera index
     int selectionRequest = FindIndex( hash );
 
-    // check to ensure we are not selecting the current camera
     if ( selectionRequest == m_selectedCamera )
     {
         return;
@@ -190,7 +186,6 @@ void CameraCollection::SelectCamera( uint32_t hash,
     // turn off view magnitude preservation for the current camera
     m_cameraArray[m_selectedCamera].m_doPreserveViewMagnitude = false;
 
-    // set the requested primary as the primary
     m_selectedCamera = selectionRequest;
 
     // turn on view magnitude preservation for the current camera
@@ -199,10 +194,8 @@ void CameraCollection::SelectCamera( uint32_t hash,
     // specify if tweening
     m_isTweening = fTween;
 
-    // reset the tweening counter whether tweening or not
     m_tweenProgress = 0;
 
-    // store the initial primary m_position
     ResetRelativity();
 }
 
@@ -307,7 +300,6 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
 {
     int cameraIndex = FindIndex( hash );
 
-    // return if an attempt to relative update the current camera is being made
     if ( m_selectedCamera == cameraIndex )
     {
         return;
@@ -330,15 +322,14 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
 
 Camera CameraCollection::GetCameraDelta()
 {
-    // get the camera representing the updates the non primaries have been missing out on
-    // (vector difference will tell us this)
+    // Non-primary cameras receive the selected camera's accumulated delta when
+    // they next become relative followers.
     return ( m_cameraArray[m_selectedCamera] - m_primaryStore );
 }
 
 
 void CameraCollection::ApplyPrimaryMovementBuffer()
 {
-    // apply the translation
     m_cameraArray[m_selectedCamera].ApplyMovementBuffer();
 }
 
@@ -359,7 +350,6 @@ void CameraCollection::AmmendPrimaryY( float yCoordinate )
 
 void CameraCollection::ResetRelativity()
 {
-    // set the primary store to the current camera
     m_primaryStore = m_cameraArray[m_selectedCamera];
 }
 
@@ -375,12 +365,10 @@ void CameraCollection::SetCamera()
     // if we are not in tween mode
     if ( !m_isTweening )
     {
-        // compute view matrix from selected camera
         SetViewMatrix( m_cameraArray[m_selectedCamera] );
     }
     else
     {
-        // update the tweening counter
         m_tweenProgress += ( ( 1 - m_tweenProgress ) * m_tweenSpeed );
 
         // turn off tweening if the current tween is complete
@@ -389,14 +377,11 @@ void CameraCollection::SetCamera()
             m_isTweening = false;
         }
 
-        // update the tween path
-        // (basically account for movement of the camera we are tweening to)
+        // Keep the destination live; the target camera may move during a tween.
         UpdateTweenPath();
 
-        // get the current tweening start m_position
         m_tweenCamera = m_tweenStart;
 
-        // add the desired proportion of the tween vector to the starting camera
         m_tweenCamera += m_tweenPath * m_tweenProgress;
 
         // normalise the up vector now it has been played around with
@@ -405,12 +390,10 @@ void CameraCollection::SetCamera()
         // avoid going through the m_terrain during tweens
         if ( m_terrain )
         {
-            // check the m_height of the m_terrain
             float terrainHeight =
                 m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x,
                                                m_tweenCamera.m_position.z );
 
-            // update the tween camera if necessary
             if ( m_tweenCamera.m_position.y < terrainHeight )
             {
                 m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
@@ -421,7 +404,6 @@ void CameraCollection::SetCamera()
             throw std::runtime_error( "No m_terrain mesh set!  (CameraCollection::SetCamera)" );
         }
 
-        // compute view matrix from tween camera
         SetViewMatrix( m_tweenCamera );
     }
 }

@@ -13,6 +13,8 @@ Glossary:
   descriptor, and command-list control.
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
+  CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
+  a packed block of constants.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,

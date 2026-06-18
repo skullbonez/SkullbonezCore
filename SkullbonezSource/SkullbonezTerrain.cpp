@@ -222,7 +222,7 @@ void Terrain::BuildTerrain()
 
     TranslatePostings();
 
-    // Compute global terrain height range.
+    // Track the authored height range for diagnostics and normalization.
     m_maxTerrainHeight = -FLT_MAX;
     m_minTerrainHeight = FLT_MAX;
     for ( const auto& post : m_postData )
@@ -696,7 +696,6 @@ XZBounds Terrain::GetXZBounds()
 
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
-    // check to ensure specified co-ordinates are inside the m_terrain map bounds
     if ( !IsInBounds( xPosition, zPosition ) )
     {
         throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetTerrainHeightAt)" );
@@ -704,7 +703,8 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 
     if ( m_isFlatSlope )
     {
-        // Return three points on the analytic plane y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
+        // Analytic flat-slope terrain returns three points on the plane
+        // y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z.
         // Winding order: CCW from above so ComputePlane produces an upward-facing normal (n.y > 0)
         Triangle tri;
         float y0 = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
@@ -722,8 +722,8 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Cfg().terrainScale ) ) );
     int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Cfg().terrainScale ) ) );
 
-    // calculate the BOTTOM RIGHT post of the quadric hit - we will call this the
-    // 'target quadric'
+    // Use the bottom-right post as the target quad so the A/B split below can
+    // work in one local coordinate frame.
     int targetQuadric = zPosting * m_postsPerSide +
                         xPosting +
                         m_postsPerSide;
@@ -751,7 +751,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // avoid a division by zero
     if ( !isGradientInfinite )
     {
-        // calculate the gradient of the vector relative from the target quadric
         gradient = xRelativePosition / zRelativePosition;
     }
 
@@ -784,7 +783,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
         targetPolygon.v3 = m_postData[targetQuadric + 1].vPosition;
     }
 
-    // return the target poly
     return targetPolygon;
 }
 
@@ -817,13 +815,11 @@ void Terrain::GenerateNormals()
 
     for ( int row = 0; row < m_postsPerSide; ++row )
     {
-        // set flag to indicate we are past the first row
         if ( row > 0 )
         {
             isFirstRow = false;
         }
 
-        // set flag to indicate we are on the final row
         if ( row == m_postsPerSide - 1 )
         {
             isFinalRow = true;
@@ -831,13 +827,10 @@ void Terrain::GenerateNormals()
 
         for ( int col = 0; col < m_postsPerSide; ++col )
         {
-            // calculate the index we are talking about
             int postingIndex = row * m_postsPerSide + col;
 
-            // initialise the target m_normal
             m_postData[postingIndex].vNormal.Zero();
 
-            // set flag to indicate if we are on the first col
             if ( col == 0 )
             {
                 isFirstCol = true;
@@ -847,7 +840,6 @@ void Terrain::GenerateNormals()
                 isFirstCol = false;
             }
 
-            // set flag to indicate if we are on the last col
             if ( col == m_postsPerSide - 1 )
             {
                 isFinalCol = true;
@@ -871,7 +863,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
                     Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
 
@@ -889,7 +880,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // x 0 0 0
 
-                    // get neighbouring posts
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
                     Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
                     Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
@@ -912,7 +902,6 @@ void Terrain::GenerateNormals()
                     // x 0 0 0
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
                     Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
                     Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
@@ -948,7 +937,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
                     Vector3 downLeftPost = m_postData[postingIndex + m_postsPerSide - 1].vPosition;
@@ -971,7 +959,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 x
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
 
@@ -989,7 +976,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 x
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
                     Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
@@ -1025,7 +1011,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
                     Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
@@ -1053,7 +1038,6 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 x x 0
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
                     Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
@@ -1081,7 +1065,6 @@ void Terrain::GenerateNormals()
                     // 0 x x 0
                     // 0 0 0 0
 
-                    // get neighbouring posts
                     Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
                     Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
                     Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;

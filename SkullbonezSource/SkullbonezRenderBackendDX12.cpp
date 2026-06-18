@@ -11,6 +11,12 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
@@ -23,6 +29,8 @@ Glossary:
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  through reference-counted objects.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -941,7 +949,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_allowTearing = m_renderDevice.AllowTearing();
     m_liveBarrierRecords.clear();
 
-    // Check DXR capability
+    // DXR is optional hardware support; fall back to raster water if the device
+    // cannot expose raytracing interfaces.
     CheckDXRSupport();
 
     // Descriptor heap mental model:
@@ -1114,11 +1123,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         }
     }
 
-    // Set initial viewport / scissor
     m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
 
-    // Set default render targets
     m_currentRTV = m_backBufferRTVs[m_frameIndex];
     m_currentDSV = m_mainDSV;
 
@@ -1295,7 +1302,6 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
         // texture is recreated.
         m_mainDSV = m_dsvDescriptors.Allocate().cpuHandle;
     }
-    // Create a Depth Stencil View for the main depth buffer so it can be bound as the depth target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
     m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
 }
@@ -1325,7 +1331,7 @@ void RenderBackendDX12::Shutdown()
     // Scene-driven screenshots can leave the swap-chain back buffer restored to
     // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
     // below to drain the flip queue, and DX12 requires that resource to be in
-    // PRESENT state first.
+    // PRESENT state first so the final DXGI Present() has a legal resource.
     if ( !m_renderingToFBO && m_backBufferIsRT && m_swapChain && m_renderTargets[m_frameIndex] )
     {
         EnsureCommandListOpen();
@@ -1557,7 +1563,7 @@ void RenderBackendDX12::Present()
             m_commandList->ResolveQueryData( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_gpuTimers.readback.Resource(), byteOffset );
             resolvedTimerSlotsThisFrame = true;
         }
-        std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) ); // reset for next frame
+        std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
     }
 
     ExecuteGraphTransition( "PresentBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
@@ -1866,7 +1872,7 @@ void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 
 // =============================================================================
 // InitGenMipsPipeline — compile generate_mips.hlsl, create root signature and
-// compute PSO for GPU-side mipmap generation via compute shader.
+// GPU-side mip generation uses a compute PSO separate from raster draw PSOs.
 //
 // Root signature layout:
 //   Param 0: 4 root constants at b0 (NumMipLevels, SrcDimension, TexelSizeX, TexelSizeY)

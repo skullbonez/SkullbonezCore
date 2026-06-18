@@ -99,8 +99,8 @@ float BoundingBox::GetVolume() const
 }
 
 
-// Simplified submersion: treat as a vertical slab with height 2*halfExtent.y.
-// Compute fraction of that height below fluidSurfaceHeight.
+// Simplified submersion: treat the box as a vertical slab with height
+// 2*halfExtent.y.
 float BoundingBox::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
 {
     // This is a deliberately rough buoyancy approximation: it treats the box as

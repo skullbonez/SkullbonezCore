@@ -13,6 +13,8 @@ Glossary:
   the generated demo scene.
   Cinematic deck: A queue of concept/cinematic scenes cycled as one authored
   visual look set.
+  UI (User Interface): In-engine diagnostic and control overlay that can mutate
+  scene-facing cinematic values at runtime.
 
 Related:
   - SkullbonezSource/SkullbonezSceneRuntime.cpp

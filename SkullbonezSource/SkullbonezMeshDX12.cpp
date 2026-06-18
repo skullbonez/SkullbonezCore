@@ -61,7 +61,6 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     UINT64 dataSize = (UINT64)vertexCount * m_stride;
 
-    // Create committed vertex buffer on default heap
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
     D3D12_RESOURCE_DESC bufDesc = {};
@@ -86,10 +85,8 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     }
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
-    // Copy vertex data to upload buffer
     memcpy( uploadPtr, data, (size_t)dataSize );
 
-    // Record copy from upload buffer to vertex buffer
     auto* backend = RenderBackendDX12::Get();
     UINT64 uploadOffset = uploadAddr - backend->GetUploadBuffer()->GetGPUVirtualAddress();
     // Record a GPU-side copy command: transfer vertex data from the upload buffer (CPU-visible staging
@@ -147,9 +144,8 @@ void MeshDX12::DrawInstanced( int instanceCount ) const
         return;
     }
     backend->PrepareDraw( m_format );
-    // Bind vertex buffer and draw multiple instances of this mesh in one call.
-    // Instanced drawing is how we efficiently render many copies of the same geometry (e.g. 300 balls)
-    // with different per-instance data (position, color, etc.) — all in a single GPU draw call.
+    // Instanced drawing renders many copies of one mesh with different
+    // per-instance data in a single GPU draw call.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     backend->GetCommandList()->IASetVertexBuffers( 0, 1, &m_vbView );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced

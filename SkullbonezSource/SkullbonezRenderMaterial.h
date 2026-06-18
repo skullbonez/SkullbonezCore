@@ -18,6 +18,8 @@ Glossary:
   values into material0.rgb and material0.w.
   Backend-neutral: Data that belongs to engine rendering intent, not to a DX12
   descriptor, root parameter, shader register, or GPU buffer layout.
+  CPU (Central Processing Unit): Host processor running engine code before the
+  renderer packs material data for GPU consumption.
 
 Invariants:
   - Render materials are separate from physics/contact material ids.

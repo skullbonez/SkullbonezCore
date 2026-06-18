@@ -9,6 +9,8 @@ Mental model:
   reading anchors.
 
 Glossary:
+  CPU (Central Processing Unit): Host processor running engine code and
+  preparing debug draw data before the renderer consumes it.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,

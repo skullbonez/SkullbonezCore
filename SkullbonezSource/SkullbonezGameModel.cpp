@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
+  CCD (Continuous Collision Detection): Swept collision test that asks whether
+  objects hit during a tick, not only where they end the tick.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -57,13 +59,11 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
                       const Vector3& vRotationalInertia,
                       float fMass )
 {
-    // check for valid world environment pointer
     if ( !pWorldEnv )
     {
         throw std::runtime_error( "Invalid world environment pointer supplied.  (GameModel::GameModel)" );
     }
 
-    // set the important members
     m_worldEnvironment = pWorldEnv;
     m_physicsInfo.SetPosition( vPosition );
     m_physicsInfo.SetRotationalInertia( vRotationalInertia );
@@ -86,10 +86,8 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_ballPhysics.projectedSurfaceArea = 0.0f;
     m_ballPhysics.dragCoefficient = 0.0f;
 
-    // initialise pointers
     m_terrain = 0;
 
-    // initialise other members
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_fixedContactHighlightSeconds = 0.0f;
@@ -616,17 +614,14 @@ void GameModel::ApplyForces( float changeInTime )
     // throttle the angular velocity
     m_physicsInfo.ThrottleAngularVelocity();
 
-    // apply the world forces
     ApplyWorldForces( changeInTime );
 
-    // apply the forces to the model
     m_physicsInfo.ApplyForces();
 }
 
 
 void GameModel::ApplyWorldForces( float changeInTime )
 {
-    // apply the world forces now we know the pointer is valid
     m_worldEnvironment->AddWorldForces( *this, changeInTime );
 }
 
@@ -663,7 +658,6 @@ void GameModel::UpdatePosition( float changeInTime )
         return;
     }
 
-    // Update m_position based on airborne model.
     m_physicsInfo.UpdatePosition( changeInTime );
 
     ClampToTerrainSurface();
@@ -1039,10 +1033,8 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
     // offset the ray origin for swept test
     m_responseInformation.testingRay.origin.y -= bottomOffset;
 
-    // save the collision time
     m_responseInformation.collisionTime = GeometricMath::CalculateIntersectionTime( m_responseInformation.testingPlane, m_responseInformation.testingRay );
 
-    // return the point in time where the collision has occured
     return m_responseInformation.collisionTime;
 }
 
@@ -1052,13 +1044,11 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
     // This answers "how many seconds can this body move before it hits terrain?"
     // If a hit occurs, it records a response-required flag and stores the
     // plane/ray details. It does not push the body or change velocity.
-    // ensure m_terrain pointer is valid
     if ( !m_terrain )
     {
         throw std::runtime_error( "Terrain pointer not valid!  (GameModel::CollisionDetectTerrain)" );
     }
 
-    // check to ensure pending responses have been responded to
     if ( m_isResponseRequired )
     {
         throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectTerrain)" );
@@ -1077,15 +1067,12 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
         // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
         collisionTime *= changeInTime;
 
-        // set response required flag to true
         m_isResponseRequired = true;
 
-        // store the response information
         m_responseInformation.collidedPlane = m_responseInformation.testingPlane;
         m_responseInformation.collidedRay = m_responseInformation.testingRay;
     }
 
-    // return when the collision will occur
     return collisionTime;
 }
 
@@ -1284,7 +1271,6 @@ GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarg
     ObjectSweepResult result;
     result.collisionTime = changeInTime;
 
-    // get the time of collision
     float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
 
     // if no collision in this time frame
@@ -1300,7 +1286,6 @@ GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarg
         result.collisionTime = collisionTime * changeInTime;
     }
 
-    // return when the collision will occur
     return result;
 }
 
@@ -1371,7 +1356,6 @@ void GameModel::ClampToTerrainSurface()
 
     float bottomOffset = m_ballPhysics.radius;
 
-    // get the height of the terrain at the current XZ position
     float terrainH = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
 
     // if we are lower than the terrain, push up

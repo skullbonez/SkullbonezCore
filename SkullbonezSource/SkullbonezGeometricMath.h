@@ -84,7 +84,7 @@ class GeometricMath
     // plane.distance = dot( normal, v1 )  (satisfies the plane equation for any point on it).
     static Geometry::Plane ComputePlane( const Geometry::Triangle& triangle );
 
-    // Compute the 3D intersection point of a ray with a plane or triangle.
+    // Throws when the supplied ray does not reach the plane/triangle segment.
     // Throws if the ray does not intersect the plane within [0,1] (overloaded).
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Plane& plane, const Geometry::Ray& ray );
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Ray& ray, float fCollisionTime );

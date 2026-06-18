@@ -7,6 +7,12 @@ Mental model:
   Hardware::Input reads device state. InputController turns that state into
   stable per-frame runtime input events and camera deltas.
 
+Glossary:
+  Input edge: Transition from not pressed to pressed, used for one-shot
+  commands.
+  Camera delta: Per-frame mouse movement accumulated before camera update.
+  Runtime input event: Frame-local input state consumed by SkullbonezRun.
+
 Related:
   - SkullbonezSource/SkullbonezInputController.cpp
   - SkullbonezSource/SkullbonezRunInput.cpp

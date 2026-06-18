@@ -27,6 +27,8 @@ Glossary:
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  through reference-counted objects.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
 

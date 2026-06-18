@@ -79,9 +79,9 @@ class CameraCollection
     bool IsPrimaryLocked();                                             // Returns whether the primary camera is in locked mode or not
     void SetLockedMode( bool fIsLocked );                               // Sets the camera to or from locked mode
     void AmmendPrimaryY( float yCoordinate );                           // Translates the primary cameras Y position to the specified world coordinate
-    void SetCameraXZBounds( const Geometry::XZBounds bounds );          // Set a camera boundary for all cameras
-    void ResetRelativity();                                             // Resets the difference camera to the current camera (call this after all camera updates have been made)
-    bool IsCameraTweening();                                            // Returns a flag indicating if the camera is currently tweening or not
+    void SetCameraXZBounds( const Geometry::XZBounds bounds );
+    void ResetRelativity();  // Resets the difference camera to the current camera (call this after all camera updates have been made)
+    bool IsCameraTweening(); // Returns a flag indicating if the camera is currently tweening or not
     const Math::Transformation::Matrix4& GetViewMatrix() const
     {
         return m_currentViewMatrix;
@@ -93,14 +93,14 @@ class CameraCollection
     void SetTerrain( Geometry::Terrain* cTerrain );          // Sets the terrain pointer
     void RotatePrimary( float xMove, float yMove );          // Rotates the primary camera
 
-    void SetCameraXZBounds( uint32_t hash, const Geometry::XZBounds bounds ); // Set a camera boundary for a specific camera
-    void RelativeUpdate( uint32_t hash, float yMin, float yMax );             // Updates specified camera relative to primary, limit to specified y coordinate (minimum)
-    void MovePrimary( Camera::TravelDirection enumDir, float fQuantity );     // Moves the primary camera in the specified direction
-    void SelectCamera( uint32_t hash, bool fTween );                          // Selects a camera as primary
-    void CancelTween();                                                       // Immediately stops any in-progress camera tween
+    void SetCameraXZBounds( uint32_t hash, const Geometry::XZBounds bounds );
+    void RelativeUpdate( uint32_t hash, float yMin, float yMax );         // Updates specified camera relative to primary, limit to specified y coordinate (minimum)
+    void MovePrimary( Camera::TravelDirection enumDir, float fQuantity ); // Moves the primary camera in the specified direction
+    void SelectCamera( uint32_t hash, bool fTween );                      // Selects a camera as primary
+    void CancelTween();                                                   // Immediately stops any in-progress camera tween
 
-    void AddCamera( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView, const Math::Vector::Vector3& vUp, uint32_t hash ); // Add a camera to the camera collection
-    void Reset();                                                                                                                                  // Resets camera state for scene reload (retains singleton)
+    void AddCamera( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView, const Math::Vector::Vector3& vUp, uint32_t hash );
+    void Reset(); // Resets camera state for scene reload (retains singleton)
 };
 } // namespace Environment
 } // namespace SkullbonezCore

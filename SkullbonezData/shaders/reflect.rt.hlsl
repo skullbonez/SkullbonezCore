@@ -306,7 +306,6 @@ void RayGen()
             // reflect(I, N) = I - 2*dot(I,N)*N — mirrors the ray off the surface.
             float3 reflected = reflect( direction, float3( 0.0f, 1.0f, 0.0f ) );
 
-            // Build a ray descriptor for the reflected ray.
             RayDesc ray;
             ray.Origin = hitPoint + float3( 0, 0.01f, 0 ); // Offset slightly above surface to avoid self-intersection
             ray.Direction = reflected;

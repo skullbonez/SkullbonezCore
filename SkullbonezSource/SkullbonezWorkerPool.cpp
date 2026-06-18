@@ -7,6 +7,13 @@ Mental model:
   The main thread queues bounded work chunks, wakes persistent workers, then
   waits on a fence. Worker-disabled mode runs the same work inline.
 
+Glossary:
+  Worker pool: Persistent thread group that runs bounded jobs outside the main
+  thread.
+  Fork-join: Pattern where the main thread splits work, workers run chunks, and
+  the main thread waits before merging results.
+  Fence: Synchronization primitive used to wait for all queued chunks.
+
 Related:
   - SkullbonezSource/SkullbonezWorkerPool.h
   - SkullbonezSource/SkullbonezAmortizedTask.h

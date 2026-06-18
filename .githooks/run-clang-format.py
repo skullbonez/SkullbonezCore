@@ -1,8 +1,30 @@
 #!/usr/bin/env python3
-"""
-Wrapper around clang-format to format C++ files in-place.
-Finds clang-format in common locations (VS2022 LLVM, PATH).
-"""
+#
+# File: .githooks/run-clang-format.py
+# Purpose:
+#   Finds clang-format and applies the repository C++ style to requested files.
+#
+# Mental model:
+#   The hook is a thin launcher. It resolves the formatter from PATH or common
+#   Visual Studio LLVM locations, then delegates formatting to clang-format.
+#
+# Glossary:
+#   clang-format: LLVM formatter that rewrites C++ whitespace according to the
+#   checked-in style rules.
+#   LLVM: Compiler toolchain bundled with Visual Studio and commonly installed
+#   separately for C++ formatting tools.
+#   Hook: Local Git script that runs before a commit and can block style or
+#   validation failures.
+#
+# Invariants:
+#   - The script formats only paths supplied by the caller.
+#   - Missing clang-format is a hard error so commits do not silently skip
+#   style normalization.
+#
+# Related:
+#   - .clang-format
+#   - AGENTS.md
+#
 import sys
 import subprocess
 import os

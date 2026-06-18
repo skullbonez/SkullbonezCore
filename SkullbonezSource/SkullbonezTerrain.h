@@ -113,7 +113,7 @@ class Terrain
     int m_mapSize;                // Size of map (pixels length)
     int m_stepSize;               // Steps size between posts
     int m_renderStepSize;         // Render-only raw-pixel step size; physics keeps m_stepSize
-    int m_renderPostsPerSide;     // Render-only posts per side
+    int m_renderPostsPerSide;     // Mesh density used for rendering, independent of physics posts.
     int m_textureWrap;            // Number of times to wrap texture over m_terrain
     int m_postsPerSide;           // Terrain postings per side of m_terrain
     int m_terrainSizeWorldCoords; // size per side of m_terrain in world coordinates

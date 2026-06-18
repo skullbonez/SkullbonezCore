@@ -15,6 +15,8 @@ Glossary:
   explain why old command lines are rejected.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
+  COM (Component Object Model): Windows interface lifetime model used by DX12
+  and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   Validation gate: Repository script that proves a class of changes before

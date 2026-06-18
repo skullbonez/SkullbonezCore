@@ -7,6 +7,14 @@ Mental model:
   Hull assets are authoring data. This file freezes them into deterministic
   topology once, before the fixed-step physics loop reads the shape.
 
+Glossary:
+  Convex hull: Collision shape whose vertices form one outward-facing closed
+  solid with no inward dents.
+  Deterministic topology: Vertex, face, and edge ordering that stays stable so
+  physics validation can compare byte-exact output.
+  Support mapping: Query that returns the hull point farthest along a direction,
+  used by convex collision tests.
+
 Related:
   - SkullbonezSource/SkullbonezConvexHullShape.h
   - SkullbonezSource/SkullbonezObjectContactManifold.cpp

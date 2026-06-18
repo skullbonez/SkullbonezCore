@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
+  DX12 (DirectX 12): Production renderer API that owns this shader's root
+  signature, input layout, and descriptor bindings.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -164,9 +166,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
     if (uCinematicMode > 0.5f)
     {
-        // Add a fake sunset glint where the reflected sun column would land.
-        // This is deliberately screen/reflection-space, so it is stable and easy
-        // to tune without building a full physical water lighting model.
+        // Why: the glint stays in screen/reflection space so cinematic water can
+        // be tuned without a full physical water lighting model.
         float sunColumn = pow(max(0.0f, 1.0f - abs(reflUV.x - 0.28f) * 4.6f), 3.0f);
         float horizonLine = pow(max(0.0f, 1.0f - abs(reflUV.y - 0.54f) * 9.0f), 2.0f);
         float glint = sunColumn * horizonLine * uSunGlintStrength;

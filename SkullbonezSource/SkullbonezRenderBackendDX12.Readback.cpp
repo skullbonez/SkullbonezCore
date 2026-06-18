@@ -87,7 +87,6 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // Transition backbuffer to COPY_SOURCE for readback.
     ExecuteGraphTransition( "BackbufferReadbackBegin", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], backBufferAccessBeforeCopy, RenderGraphResourceAccess::CopySource );
 
-    // Get copyable footprint
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
     UINT numRows = 0;
@@ -109,7 +108,6 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
         throw std::runtime_error( "CreateCommittedResource (screenshot readback) failed" );
     }
 
-    // Copy texture to readback buffer
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
     dstLoc.pResource = readbackBuffer.Resource();
     dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;

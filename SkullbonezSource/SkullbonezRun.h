@@ -32,6 +32,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
+  SDF (Signed Distance Field): Texture representation used for crisp scalable
+  text rendering.
 
 Invariants:
   - RunRenderPassResources owns backend/device resources and must be reset
@@ -928,20 +930,20 @@ class SkullbonezRun
     UiTextPass m_uiTextPass;                 // HUD/UI/text pass
 
     inline static int sPerfPass = 0;
-    void Render();                                                                                                                         // Main render method
-    RunSceneState& SceneState();                                                                                                           // Mutable scene-run state owned by SceneRuntime
-    const RunSceneState& SceneState() const;                                                                                               // Read-only scene-run state owned by SceneRuntime
-    void RelativeUpdateCamera( uint32_t hash );                                                                                            // Relative update specified camera
-    void UpdateLogic( float simulationDt, float cameraDt );                                                                                // Per-frame logic; cameraDt is unscaled wall time
-    void TakeInput();                                                                                                                      // Take user input
-    void StepPhysicsPipelineStage( int direction );                                                                                        // Move the debug pipeline visualization cursor left/right
-    void SetUpCameras();                                                                                                                   // Camera init for generated demo mode
-    void SetUpCamerasFromScene( const TestScene& scene );                                                                                  // Camera init from scene file
-    void SetUpGameModels( int count );                                                                                                     // Game model init for generated mixed-object mode
-    void SetUpSolverObjects( int balls, int boxes );                                                                                       // Game model init: exact N solver balls + M solver boxes
-    void SetUpGameModelsFromScene( const TestScene& scene );                                                                               // Game model init from scene file
-    void SetUpRequiredContactsFromScene( const TestScene& scene );                                                                         // Resolve scene-authored contact gates to model indices
-    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );                                                                 // Copy scene-authored broadphase X-cell gates
+    void Render();                                           // Main render method
+    RunSceneState& SceneState();                             // Mutable scene-run state owned by SceneRuntime
+    const RunSceneState& SceneState() const;                 // Read-only scene-run state owned by SceneRuntime
+    void RelativeUpdateCamera( uint32_t hash );              // Relative update specified camera
+    void UpdateLogic( float simulationDt, float cameraDt );  // Per-frame logic; cameraDt is unscaled wall time
+    void TakeInput();                                        // Take user input
+    void StepPhysicsPipelineStage( int direction );          // Move the debug pipeline visualization cursor left/right
+    void SetUpCameras();                                     // Camera init for generated demo mode
+    void SetUpCamerasFromScene( const TestScene& scene );    // Camera init from scene file
+    void SetUpGameModels( int count );                       // Game model init for generated mixed-object mode
+    void SetUpSolverObjects( int balls, int boxes );         // Game model init: exact N solver balls + M solver boxes
+    void SetUpGameModelsFromScene( const TestScene& scene ); // Game model init from scene file
+    void SetUpRequiredContactsFromScene( const TestScene& scene );
+    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );
     void UpdateRequiredSceneContacts();                                                                                                    // Mark required scene contact gates touched by current physics contacts
     void UpdateRequiredSceneBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount ); // Mark required broadphase X-cell gates touched by current grid frame
     bool RequiredSceneContactsComplete() const;                                                                                            // True when there are no gates or all gates have been touched
@@ -1005,10 +1007,10 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickPhysics( double dt );                                                                                                                              // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                                                                                                                                     // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                                                                                                                                // Poll live.style/capture.txt and apply look changes without scene reload
-    void TickLiveStyleControlCapture();                                                                                                                         // Save pending harness screenshot after render/UI are drawn
+    void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();        // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();   // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();
     void TickAutoCycle();                                                                                                                                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                                                                                                                         // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                                                                                                                                    // Frame count, exit/hold on completion, restarts; returns true to continue

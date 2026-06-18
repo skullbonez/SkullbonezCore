@@ -9,6 +9,12 @@ Mental model:
   when that state changes.
 
 Glossary:
+  CLI (Command-Line Interface): Text arguments or scripts used to launch
+  validation and tooling paths.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -511,10 +517,8 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
         m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
     }
 
-    // set the camera m_boundaries
     m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
 
-    // set the m_terrain
     m_systems.cameras->SetTerrain( m_systems.terrain.get() );
 
     // lock the m_cameras
@@ -547,7 +551,6 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
         }
 
-        // apply force if any is specified
         if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
         {
             gameModel.SetImpulseForce(
@@ -1038,7 +1041,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    // Reset scene config to defaults
+    // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().isScenePhysics = true;
     SceneState().isSceneText = true;
     m_perfLogState.isPerfTest = false;
@@ -1076,11 +1079,9 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_uiStress = RunUIStressState{};
     m_requiredSceneContacts.clear();
 
-    // Reset cameras and game models
     m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
 
-    // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
     ClearRayCastTestLines();
@@ -1115,7 +1116,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
     m_camera.selectedCamera = 0;
 
-    // Reset timing
     m_timers.timeSinceLastRender = 0.0f;
     m_timers.renderTime = 0.0f;
     m_camera.cameraTime = 0.0f;
@@ -2357,7 +2357,6 @@ bool SkullbonezRun::AdvanceScene()
         return true;
     }
 
-    // Reset perf pass counter for next scene
     sPerfPass = 0;
 
     const int nextIndex = runtime.NextIndex();

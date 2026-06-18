@@ -7,6 +7,13 @@ Mental model:
   The tab emits editor commands only. Runtime owns selection, placement, and
   physics mutation so UI widgets never touch scene objects directly.
 
+Glossary:
+  UI (User Interface): In-engine diagnostic and control overlay drawn after the
+  world render pass.
+  Editor command: Intent emitted by a widget and applied later by runtime code.
+  Widget state: Per-control hover, press, selection, and text state retained
+  across frames.
+
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
   - SkullbonezSource/SkullbonezRunInput.cpp

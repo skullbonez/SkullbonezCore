@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  SoA (Structure of Arrays): Data layout that stores each field in a separate
+  contiguous array for cache-friendly iteration.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 

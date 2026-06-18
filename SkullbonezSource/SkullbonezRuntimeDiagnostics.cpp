@@ -7,6 +7,14 @@ Mental model:
   Diagnostics borrow current runtime context, emit bounded side-channel logs,
   and avoid changing simulation or rendering behavior.
 
+Glossary:
+  CSV (Comma-Separated Values): Text table format used for perf and physics
+  regression output.
+  SkullScope: Queryable physics diagnostics trace workflow used instead of
+  loading raw traces into model context.
+  Side-channel log: Artifact written for diagnostics without changing runtime
+  behavior.
+
 Related:
   - SkullbonezSource/SkullbonezRuntimeDiagnostics.h
   - Agentic/Reference/comment-style-guide.md

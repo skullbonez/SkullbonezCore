@@ -122,7 +122,8 @@ void main_cs(
     OutMip1[DispatchThreadID.xy] = Src1;
     if (NumMipLevels == 1) return;
 
-    // Store mip 1 result in group shared memory for subsequent reductions.
+    // Why: mip 2+ reductions can reuse the mip 1 color from group memory
+    // instead of sampling the source texture again.
     StoreColor(GroupIndex, Src1);
     GroupMemoryBarrierWithGroupSync();
 

@@ -7,6 +7,15 @@ Mental model:
   Runtime diagnostics are side-channel artifacts. The run loop supplies scene
   and frame context, while this subsystem owns how that context is written.
 
+Glossary:
+  CLI (Command-Line Interface): Flags passed to SKULLBONEZ_CORE.exe at launch.
+  CSV (Comma-Separated Values): Text table format used for perf and physics
+  regression output.
+  NDJSON (Newline-Delimited JSON): One JSON object per line, used by SkullScope
+  traces so tools can stream bounded queries.
+  SkullScope: Queryable physics diagnostics trace workflow used instead of
+  loading raw traces into model context.
+
 Related:
   - SkullbonezSource/SkullbonezRuntimeDiagnostics.cpp
   - Agentic/Reference/comment-style-guide.md

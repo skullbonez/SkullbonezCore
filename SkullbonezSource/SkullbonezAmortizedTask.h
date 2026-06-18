@@ -7,6 +7,13 @@ Mental model:
   AmortizedTask is for latency-tolerant work. Each SubmitTick queues one bounded
   chunk on the worker pool and returns immediately; the caller polls progress.
 
+Glossary:
+  Amortized work: Large job split across multiple ticks so one frame does not
+  pay the full cost.
+  Worker pool: Persistent thread group that runs bounded jobs outside the main
+  thread.
+  In-flight chunk: Submitted worker slice that has not yet marked completion.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/SkullbonezWorkerPool.h

@@ -11,6 +11,10 @@ Mental model:
 Glossary:
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
+  SoA (Structure of Arrays): Data layout that stores each field in a separate
+  contiguous array for cache-friendly iteration.
+  CCD (Continuous Collision Detection): Swept collision test that asks whether
+  objects hit during a tick, not only where they end the tick.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -687,7 +691,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         }
     }
 
-    // Apply forces to awake models only
+    // Sleeping bodies keep cached state until a contact or scene change wakes
+    // them, so force integration only runs for awake rows.
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     auto applyForcesAt = [&]( int x )
     {

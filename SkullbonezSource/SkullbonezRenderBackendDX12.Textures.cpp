@@ -19,6 +19,8 @@ Glossary:
   shaders write textures or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -316,9 +318,6 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
                                     srcMip + 1 + i );
         }
 
-        // ------------------------------------------------------------------
-        // Dispatch the compute shader
-        // ------------------------------------------------------------------
         struct GenMipsCB
         {
             UINT NumMipLevels;
@@ -386,7 +385,6 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 {
     EnsureCommandListOpen();
 
-    // Resolve format and bytes-per-pixel
     DXGI_FORMAT fmt;
     int bytesPerPixel;
     if ( channels == 1 )
@@ -431,7 +429,6 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
         }
     }
 
-    // Create the texture resource on the Default Heap.
     // ALLOW_UNORDERED_ACCESS is required when generating mips via compute shader.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     D3D12_HEAP_PROPERTIES defaultHeap = {};
@@ -513,7 +510,8 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
                                 RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    // Create a Shader Resource View exposing the full mip chain.
+    // The SRV exposes every generated mip so samplers can choose the right
+    // level for minified textures.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     UINT srvIdx = AllocateStaticSRV();
     NameDx12ObjectIndexed( texResource, L"Skullbonez DX12 Texture2D", srvIdx );

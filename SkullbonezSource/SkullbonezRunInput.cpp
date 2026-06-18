@@ -9,6 +9,12 @@ Mental model:
   when that state changes.
 
 Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  UI (User Interface): In-engine diagnostic and control overlay that emits
+  commands consumed here.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 

@@ -501,16 +501,13 @@ void SkullbonezRun::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepF
 
 void SkullbonezRun::Initialise()
 {
-    // Init window
     m_systems.window = SkullbonezWindow::Instance();
 
-    // Set loading text
     const char* rendererName = Gfx().GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
 
-    // Init m_textures
     m_systems.textures = TextureCollection::Instance();
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
@@ -519,8 +516,6 @@ void SkullbonezRun::Initialise()
     // Build renderer-owned resources from source asset records.
     RebuildRegisteredRenderResources();
 
-    // Init m_terrain
-    // path to m_height map | map size pixels | step size | times to wrap texture
     const std::string terrainRawPath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
     m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
     m_systems.isFlatSlopeTerrain = false;
@@ -529,7 +524,6 @@ void SkullbonezRun::Initialise()
     m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
     m_systems.skyBox->ResetRenderResources();
 
-    // Init world environment
     {
         const SkullbonezConfig& cfg = Cfg();
         m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
@@ -543,7 +537,6 @@ void SkullbonezRun::Initialise()
     // Init cameras singleton (shared across scenes, Reset() between loads)
     m_systems.cameras = CameraCollection::Instance();
 
-    // Load the first scene
     LoadScene( 0 );
 }
 

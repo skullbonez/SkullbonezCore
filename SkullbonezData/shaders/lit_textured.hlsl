@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
+  DX12 (DirectX 12): Production renderer API that owns this shader's root
+  signature, input layout, and descriptor bindings.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -321,7 +323,6 @@ VS_OUT main_vs(VS_IN input)
     float4 worldPos    = mul(uModel, float4(input.position, 1.0));
     worldPos.y += CinematicTerrainOffset(worldPos.xz);
     float4 viewPos     = mul(uView, worldPos);
-    // Apply perspective projection to get final screen position.
     output.position    = mul(uProjection, viewPos);
 
     // Clip distance: dot product with clip plane in WORLD space.

@@ -374,7 +374,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 {
     outPairs.clear();
 
-    // Clear pair dedup bits
+    // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
     if ( objectCount < 0 || objectCount > MAX_GAME_MODELS )
     {

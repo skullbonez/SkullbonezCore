@@ -1,3 +1,29 @@
+<#
+File: tools/style_harness.ps1
+Purpose:
+  Creates and controls a live style-authoring harness for renderer look tests.
+
+Mental model:
+  The harness writes small control files under Agentic/style-harness, launches
+  the DX12 runtime against them, and captures requested screenshots/status.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  Live style control: Runtime mode that watches a style descriptor and applies
+  visual look changes without editing committed scene files.
+  Harness root: Scratch directory that holds control files, status text, and
+  screenshots for one authoring session.
+
+Invariants:
+  - Harness paths resolve inside the repository unless the caller gives an
+  explicit absolute path.
+  - Generated files are scratch artifacts, not source baselines.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+#>
 param(
     [ValidateSet("init", "launch", "set", "shot", "setshot", "status", "show")]
     [string]$Command = "status",

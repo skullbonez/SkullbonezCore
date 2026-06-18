@@ -290,7 +290,6 @@ void SkyBox::BuildMeshes()
         m_faceMeshes[i] = Gfx().CreateMesh( faceData[i], 6, false, true );
     }
 
-    // Load m_shader
     m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
