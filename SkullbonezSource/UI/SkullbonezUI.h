@@ -121,11 +121,13 @@ struct InGameUIFrameData
     bool broadphaseOverlay = false;
     bool tornadoEnabled = false;
     bool tornadoFieldVectors = false;
+    bool rayCastVisualization = false;
     float tornadoRadius = 0.0f;
     float tornadoHeight = 0.0f;
     float tornadoInwardAcceleration = 0.0f;
     float tornadoSwirlAcceleration = 0.0f;
     float tornadoLiftAcceleration = 0.0f;
+    float rayCastImpulseStrength = 0.0f;
     bool waterFreezeDebug = false;
     bool waterFlatDebug = false;
     bool terrainHidden = false;
@@ -134,7 +136,8 @@ struct InGameUIFrameData
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
-    bool editorFixedPlacementEnabled = false;
+    bool editorModeEnabled = false;
+    bool editorPlaceStatic = true;
     bool editorViewportLookActive = false;
     bool canSaveSceneDefaults = false;
     bool cinematicRendering = false;

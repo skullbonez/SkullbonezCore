@@ -155,11 +155,13 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.broadphaseOverlay );
     hash = HashBool( hash, data.tornadoEnabled );
     hash = HashBool( hash, data.tornadoFieldVectors );
+    hash = HashBool( hash, data.rayCastVisualization );
     hash = HashFloat( hash, data.tornadoRadius, 100.0f );
     hash = HashFloat( hash, data.tornadoHeight, 100.0f );
     hash = HashFloat( hash, data.tornadoInwardAcceleration, 100.0f );
     hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
     hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
+    hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
     hash = HashBool( hash, data.waterFreezeDebug );
     hash = HashBool( hash, data.waterFlatDebug );
     hash = HashBool( hash, data.terrainHidden );
@@ -168,7 +170,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.waterRTReflect );
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
-    hash = HashBool( hash, data.editorFixedPlacementEnabled );
+    hash = HashBool( hash, data.editorModeEnabled );
+    hash = HashBool( hash, data.editorPlaceStatic );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashBool( hash, data.canSaveSceneDefaults );
     hash = HashBool( hash, data.cinematicRendering );
@@ -1021,7 +1024,6 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_editorTab.objectCombo.Close();
-    m_physicsTab.spawnCombo.Close();
     m_cineSceneCombo.Close();
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
@@ -1051,7 +1053,6 @@ void InGameUI::CancelInputCapture()
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
     m_editorTab.objectCombo.Close();
-    m_physicsTab.spawnCombo.Close();
 }
 
 
@@ -1264,11 +1265,12 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Editor:
-        DrawHitboxRect( draw, m_editorTab.placementToggle.Bounds(), contentR, contentG, contentB );
-        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::FIXED_TYPE_COUNT, contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
         break;
     case InGameUITab::Physics:
-        for ( int i = 0; i < 11; ++i )
+        for ( int i = 0; i < 12; ++i )
         {
             DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
@@ -1276,14 +1278,13 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
         DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
-        DrawComboHitboxes( draw, m_physicsTab.spawnCombo, PhysicsTab::SPAWN_TYPE_COUNT, contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.spawnButton.Bounds(), buttonR, buttonG, buttonB );
         break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
@@ -1309,21 +1310,21 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
+    {
+        const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
+        DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
+        for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
         {
-            const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
-            int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
-            const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
-            DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
-            for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
-            {
-                DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
-            }
-            for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
-            {
-                DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
-            }
+            DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
         }
-        break;
+        for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+        {
+            DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
+        }
+    }
+    break;
     case InGameUITab::Profiler:
         DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
@@ -1719,7 +1720,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_reflectionCombo.Close();
             CloseSceneCombo();
             m_cineSceneCombo.Close();
-            m_physicsTab.spawnCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
@@ -1899,7 +1899,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
                 m_editorTab.objectCombo.Close();
-                m_physicsTab.spawnCombo.Close();
             }
             else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -1908,7 +1907,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 CloseSceneCombo();
                 m_cineSceneCombo.Close();
                 m_editorTab.objectCombo.Close();
-                m_physicsTab.spawnCombo.Close();
             }
             else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1938,7 +1936,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_reflectionCombo.Close();
             m_cineSceneCombo.Close();
             m_editorTab.objectCombo.Close();
-            m_physicsTab.spawnCombo.Close();
         }
     }
 

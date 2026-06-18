@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/UI/UITabEditor.cpp
 Purpose:
-  Implements fixed-object placement controls for the in-engine editor tab.
+  Implements object placement and selection controls for the in-engine editor tab.
 
 Mental model:
-  This UI chooses the object and arms/disarms placement. The run loop owns
-  actual world placement so mouse raycasts and physics mutation stay out of UI.
+  This UI chooses the object and editor toggles. The run loop owns actual
+  selection, placement, and physics mutation so mouse raycasts stay out of UI.
 
 Related:
   - SkullbonezSource/UI/UITabEditor.h
@@ -26,11 +26,12 @@ using namespace SkullbonezCore::UI::Widgets;
 namespace
 {
 
-constexpr float EDITOR_PLACE_TOGGLE_Y = 42.0f;
-constexpr float EDITOR_OBJECT_COMBO_Y = 86.0f;
-constexpr float EDITOR_STATUS_Y = 126.0f;
+constexpr float EDITOR_MODE_TOGGLE_Y = 42.0f;
+constexpr float EDITOR_STATIC_TOGGLE_Y = 76.0f;
+constexpr float EDITOR_OBJECT_COMBO_Y = 120.0f;
+constexpr float EDITOR_STATUS_Y = 160.0f;
 
-const char* const kFixedObjectOptions[] = {
+const char* const kEditorObjectOptions[] = {
     "Box",
     "Ball",
     "Sphere",
@@ -47,8 +48,10 @@ void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
                        float rowBase,
                        float contentW )
 {
-    const float contentBaseY = rowBase - EDITOR_PLACE_TOGGLE_Y;
-    state.placementToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, (std::max)( 148.0f, contentW * 0.46f ), 24.0f );
+    const float contentBaseY = rowBase - EDITOR_MODE_TOGGLE_Y;
+    const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
+    state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
     state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
 }
 
@@ -63,7 +66,7 @@ namespace EditorTab
 
 int ContentHeight()
 {
-    return 170;
+    return 204;
 }
 
 
@@ -79,11 +82,11 @@ bool HandleContentClick( UIEditorTabState& state,
 
     if ( state.objectCombo.IsOpen() )
     {
-        const int option = state.objectCombo.HitOption( mouseX, mouseY, FIXED_TYPE_COUNT );
-        if ( option >= 0 && option < FIXED_TYPE_COUNT )
+        const int option = state.objectCombo.HitOption( mouseX, mouseY, OBJECT_TYPE_COUNT );
+        if ( option >= 0 && option < OBJECT_TYPE_COUNT )
         {
-            state.selectedFixedObjectType = option;
-            result.commands.editor.requestedFixedObjectType = option;
+            state.selectedObjectType = option;
+            result.commands.editor.requestedObjectType = option;
             state.objectCombo.Close();
             return true;
         }
@@ -96,9 +99,14 @@ bool HandleContentClick( UIEditorTabState& state,
         return true;
     }
 
-    if ( state.placementToggle.HitTest( mouseX, mouseY ) )
+    if ( state.editorModeToggle.HitTest( mouseX, mouseY ) )
     {
-        result.commands.editor.toggleFixedPlacement = true;
+        result.commands.editor.toggleEditorMode = true;
+        return true;
+    }
+    if ( state.staticObjectToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.togglePlaceStatic = true;
         return true;
     }
     if ( state.objectCombo.HitBox( mouseX, mouseY ) )
@@ -129,24 +137,43 @@ void Draw( UIEditorTabState& state,
     DrawContentToggle( draw,
                        contentY,
                        contentH,
-                       state.placementToggle,
+                       state.editorModeToggle,
                        contentX,
-                       scrolledY + EDITOR_PLACE_TOGGLE_Y,
+                       scrolledY + EDITOR_MODE_TOGGLE_Y,
                        colW,
-                       "Fixed placement",
-                       data.editorFixedPlacementEnabled );
+                       "Editor mode",
+                       data.editorModeEnabled );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.staticObjectToggle,
+                       contentX,
+                       scrolledY + EDITOR_STATIC_TOGGLE_Y,
+                       colW,
+                       "Static object",
+                       data.editorPlaceStatic );
 
     state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
-    state.selectedFixedObjectType = std::clamp( state.selectedFixedObjectType, 0, FIXED_TYPE_COUNT - 1 );
+    state.selectedObjectType = std::clamp( state.selectedObjectType, 0, OBJECT_TYPE_COUNT - 1 );
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
         state.objectCombo.Draw( draw,
                                 "Object",
-                                kFixedObjectOptions,
-                                FIXED_TYPE_COUNT,
-                                state.selectedFixedObjectType,
+                                kEditorObjectOptions,
+                                OBJECT_TYPE_COUNT,
+                                state.selectedObjectType,
                                 mouseX,
                                 mouseY );
+    }
+
+    const char* viewportState = "Cursor";
+    if ( data.editorViewportLookActive )
+    {
+        viewportState = "Look";
+    }
+    else if ( data.editorModeEnabled )
+    {
+        viewportState = data.editorPlaceStatic ? "Edit static" : "Edit dynamic";
     }
 
     DrawLabelValueAt( draw,
@@ -155,7 +182,7 @@ void Draw( UIEditorTabState& state,
                       contentX,
                       scrolledY + EDITOR_STATUS_Y,
                       "Viewport",
-                      data.editorViewportLookActive ? "Look" : ( data.editorFixedPlacementEnabled ? "Place" : "Cursor" ),
+                      viewportState,
                       palette.accentStrong.r,
                       palette.accentStrong.g,
                       palette.accentStrong.b );

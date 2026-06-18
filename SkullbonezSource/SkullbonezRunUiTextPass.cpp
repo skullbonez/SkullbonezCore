@@ -115,7 +115,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
 
-    // Crosshair - always visible when nudge mode is active, regardless of overlay state.
+    // Crosshair - always visible when ray-test mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
     if ( m_run.m_camera.isNudgeMode )
     {
@@ -230,6 +230,8 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.tornadoInwardAcceleration = m_run.m_runtimeSettings.tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = m_run.m_runtimeSettings.tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = m_run.m_runtimeSettings.tornadoField.liftAcceleration;
+        UIData.rayCastVisualization = m_run.m_rayCastTest.visualizeRays;
+        UIData.rayCastImpulseStrength = m_run.m_rayCastTest.impulseStrength;
         UIData.waterFreezeDebug = m_run.m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_run.m_debug.isWaterFlatDebug;
         UIData.terrainHidden = m_run.m_debug.isTerrainHidden;
@@ -238,7 +240,8 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.waterRTReflect = m_run.m_debug.isWaterRTReflect;
         UIData.cameraMouseActive = ( m_run.m_camera.isFlyMode || m_run.m_editor.viewportLookActive ) && !m_run.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.editorFixedPlacementEnabled = m_run.m_editor.fixedPlacementEnabled;
+        UIData.editorModeEnabled = m_run.m_editor.editorModeEnabled;
+        UIData.editorPlaceStatic = m_run.m_editor.placeStaticObject;
         UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
         UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode &&
                                       m_run.m_sceneRuntime.HasCurrentEntry() &&
@@ -367,14 +370,14 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
             const char* desc;
         };
         static const KeyEntry kLeft[nRows] = {
-            { "N", "Nudge mode" },
+            { "N", "Ray test mode" },
             { "Enter", "Dump repro" },
             { "F", "Fly mode" },
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "LMB", "Fire silver bullet" },
-            { "Shift+LMB", "Fast bullet" },
+            { "LMB", "Cast impulse ray" },
+            { "Shift+LMB", "Sprint while aiming" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },

@@ -187,11 +187,13 @@ struct UIPhysicsCommands
     bool toggleTerrainContactProbe = false;
     bool toggleTornado = false;
     bool toggleTornadoFieldVectors = false;
+    bool toggleRayCastVisualization = false;
     bool requestTornadoRadius = false;
     bool requestTornadoHeight = false;
     bool requestTornadoInward = false;
     bool requestTornadoSwirl = false;
     bool requestTornadoLift = false;
+    bool requestRayCastImpulseStrength = false;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
     float requestedTornadoRadius = 0.0f;
@@ -199,16 +201,17 @@ struct UIPhysicsCommands
     float requestedTornadoInward = 0.0f;
     float requestedTornadoSwirl = 0.0f;
     float requestedTornadoLift = 0.0f;
+    float requestedRayCastImpulseStrength = 0.0f;
     uint32_t togglePhysicsDebugFlags = 0;
     bool stepPhysicsPipelinePrevious = false;
     bool stepPhysicsPipelineNext = false;
-    int requestedSpawnObjectType = -1;
 };
 
 struct UIEditorCommands
 {
-    bool toggleFixedPlacement = false;
-    int requestedFixedObjectType = -1;
+    bool toggleEditorMode = false;
+    bool togglePlaceStatic = false;
+    int requestedObjectType = -1;
 };
 
 struct UISceneOptionCommands

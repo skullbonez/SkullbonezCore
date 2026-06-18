@@ -1,11 +1,11 @@
 /*
 File: SkullbonezSource/UI/UITabEditor.h
 Purpose:
-  Implements fixed-object placement controls for the in-engine editor tab.
+  Implements object placement and selection controls for the in-engine editor tab.
 
 Mental model:
-  The tab emits placement commands only. Runtime owns the active placement mode
-  and converts mouse clicks into fixed physics objects.
+  The tab emits editor commands only. Runtime owns selection, placement, and
+  physics mutation so UI widgets never touch scene objects directly.
 
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
@@ -28,22 +28,23 @@ struct InGameUIFrameData;
 namespace EditorTab
 {
 
-constexpr int FIXED_BOX = 0;
-constexpr int FIXED_BALL = 1;
-constexpr int FIXED_SPHERE = 2;
-constexpr int FIXED_HULL_WEDGE = 3;
-constexpr int FIXED_HULL_TRI_PRISM = 4;
-constexpr int FIXED_HULL_TAPERED_BLOCK = 5;
-constexpr int FIXED_HULL_PYRAMID = 6;
-constexpr int FIXED_HULL_HEX_PRISM = 7;
-constexpr int FIXED_HULL_DIAMOND = 8;
-constexpr int FIXED_TYPE_COUNT = 9;
+constexpr int OBJECT_BOX = 0;
+constexpr int OBJECT_BALL = 1;
+constexpr int OBJECT_SPHERE = 2;
+constexpr int OBJECT_HULL_WEDGE = 3;
+constexpr int OBJECT_HULL_TRI_PRISM = 4;
+constexpr int OBJECT_HULL_TAPERED_BLOCK = 5;
+constexpr int OBJECT_HULL_PYRAMID = 6;
+constexpr int OBJECT_HULL_HEX_PRISM = 7;
+constexpr int OBJECT_HULL_DIAMOND = 8;
+constexpr int OBJECT_TYPE_COUNT = 9;
 
 struct UIEditorTabState
 {
-    UICheckBox placementToggle;
+    UICheckBox editorModeToggle;
+    UICheckBox staticObjectToggle;
     UIComboBox objectCombo;
-    int selectedFixedObjectType = FIXED_BOX;
+    int selectedObjectType = OBJECT_BOX;
 };
 
 int ContentHeight();

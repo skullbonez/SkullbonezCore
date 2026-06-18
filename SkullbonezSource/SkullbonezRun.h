@@ -51,6 +51,7 @@ Related:
 
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -222,7 +223,7 @@ struct RunCameraState
 
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
-    bool isNudgeMode = false;        // Nudge mode: free camera + live simulation (toggle with N)
+    bool isNudgeMode = false;        // Ray-test camera mode (toggle with N): free camera plus left-click ray impulse testing
     bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -297,29 +298,34 @@ struct RunDebugState
 #endif
 };
 
-static constexpr int RUNTIME_PROJECTILE_POOL_SIZE = 10;
-
-struct RunFireState
+struct RunRayCastTestLine
 {
-    // Runtime-created bullet model indices, recycled in a simple ring.
-    RunFireState()
-    {
-        bulletIndices.fill( -1 );
-    }
+    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
+    float ageSeconds = 0.0f;
+    bool active = false;
+    bool hit = false;
+};
 
-    std::array<int, RUNTIME_PROJECTILE_POOL_SIZE> bulletIndices = {};
-    int bulletNext = 0;
-    bool bulletPoolReady = false;
+struct RunRayCastTestState
+{
+    static constexpr std::size_t MAX_LINES = 64;
+
+    std::array<RunRayCastTestLine, MAX_LINES> lines = {};
+    int nextLine = 0;
+    bool visualizeRays = false;
+    float impulseStrength = 180.0f;
 };
 
 struct RunEditorPlacementState
 {
-    bool fixedPlacementEnabled = false;
+    bool editorModeEnabled = false;
+    bool placeStaticObject = true;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
     bool gizmoDragActive = false;
     bool gizmoDragIsRotation = false;
-    int fixedObjectType = UI::EditorTab::FIXED_BOX;
+    int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     int selectedModelIndex = -1;
     int hotGizmoAxis = -1;
@@ -350,7 +356,8 @@ class RunEditorTracer
     RunEditorTracer();
     void Clear();
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
-    void AddPlacementGhost( int fixedObjectType, const Math::Vector::Vector3& center );
+    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center );
+    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation );
     void Render( const Math::Transformation::Matrix4& viewProjection );
@@ -882,9 +889,9 @@ class SkullbonezRun
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                // Runtime debug/overlay toggles
-    RunFireState m_fire;                  // Runtime silver bullet pool state
-    RunEditorPlacementState m_editor;     // Fixed-object placement editor state
-    RunEditorTracer m_editorTracer;       // Render-only ghost previews and editor gizmo lines
+    RunRayCastTestState m_rayCastTest;    // Runtime ray impulse test state and fading debug lines
+    RunEditorPlacementState m_editor;     // Object placement and selection editor state
+    RunEditorTracer m_editorTracer;       // Render-only ray tests, ghost previews, and editor gizmo lines
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     RunUIStressState m_uiStress;                              // Deterministic UI stress run state
@@ -985,34 +992,35 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickPhysics( double dt );                                                                                                                             // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                                                                                                                                    // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();                                                                                                                               // Poll live.style/capture.txt and apply look changes without scene reload
-    void TickLiveStyleControlCapture();                                                                                                                        // Save pending harness screenshot after render/UI are drawn
-    void TickAutoCycle();                                                                                                                                      // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                                                                                                                        // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                                                                                                                                   // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );                                                                                                                // Slide water surface up/down while held
-    void ResetProjectilePool();                                                                                                                                // Clears cached projectile indices after scene/model rebuilds
-    bool EnsureProjectilePool();                                                                                                                               // Lazily creates the ten runtime silver bullets
-    void FireProjectile();                                                                                                                                     // Recycle and launch a high-speed silver bullet from the camera
-    void SpawnPhysicsObjectFromCamera( int spawnType );                                                                                                        // Spawn a UI-selected dynamic body just in front of the camera
-    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                 // Builds a world ray from the current mouse position
-    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                              // Raycast current mouse position to terrain for editor placement
-    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const; // Raycast with optional ray output
-    bool TryComputeEditorObjectCenter( int fixedObjectType, const Math::Vector::Vector3& terrainPoint, Math::Vector::Vector3& outCenter ) const;               // Converts terrain hit to object center
-    bool TryComputeEditorPlacementPreview( int fixedObjectType );                                                                                              // Updates snapped ghost placement data from the mouse ray
-    void UpdateEditorInteractionPreview();                                                                                                                     // Refreshes ghost and gizmo hover state before world-click handling
-    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                         // Ray-picks editable objects
-    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                         // Returns hovered gizmo axis or -1
-    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                 // Returns hovered rotation ring axis or -1
-    bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;      // Projects mouse ray onto a gizmo axis
-    bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;      // Projects mouse ray onto a rotation ring plane
-    void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                               // Applies active gizmo drag
-    void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                            // Applies active rotation-ring drag
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                           // Draws placement ghost and object gizmo lines
-    void PlaceFixedObjectAtMouse( int fixedObjectType );                                                                                                       // Place a UI-selected fixed object on the terrain under the mouse
-    void PlaceFixedObjectAtTerrainPoint( int fixedObjectType, const Math::Vector::Vector3& terrainPoint );                                                     // Places a fixed object at an already-resolved terrain hit
+    void TickPhysics( double dt );                                                                                                                              // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                                                                                                                                     // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                                                                                                                                // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();                                                                                                                         // Save pending harness screenshot after render/UI are drawn
+    void TickAutoCycle();                                                                                                                                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                                                                                                                         // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                                                                                                                                    // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );                                                                                                                 // Slide water surface up/down while held
+    void ClearRayCastTestLines();                                                                                                                               // Clears fading ray-test visuals after scene/model rebuilds
+    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                  // Stores one fading ray visual when enabled
+    void TickRayCastTestLines( float dt );                                                                                                                      // Ages fading ray-test visuals
+    bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT ); // Finds closest model hit along a ray
+    void FireRayCastTest();                                                                                                                                     // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
+    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                  // Builds a world ray from the current mouse position
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                               // Raycast current mouse position to terrain for editor placement
+    bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;  // Raycast with optional ray output
+    bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, Math::Vector::Vector3& outCenter ) const;                     // Converts terrain hit to object center
+    bool TryComputeEditorPlacementPreview( int objectType );                                                                                                    // Updates snapped ghost placement data from the mouse ray
+    void UpdateEditorInteractionPreview();                                                                                                                      // Refreshes ghost and gizmo hover state before world-click handling
+    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                          // Ray-picks editable objects
+    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                          // Returns hovered gizmo axis or -1
+    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;                                  // Returns hovered rotation ring axis or -1
+    bool TryEditorAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;       // Projects mouse ray onto a gizmo axis
+    bool TryEditorRotationRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;       // Projects mouse ray onto a rotation ring plane
+    void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                // Applies active gizmo drag
+    void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                             // Applies active rotation-ring drag
+    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                            // Draws placement ghost and object gizmo lines
+    void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                          // Place a UI-selected object on the terrain under the mouse
+    void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                        // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );

@@ -1083,7 +1083,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -2194,7 +2194,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
@@ -2239,7 +2239,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ResetProjectilePool();
+    ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
