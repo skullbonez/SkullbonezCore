@@ -30,8 +30,8 @@ struct RuntimeKeyEdge
 class InputController
 {
   public:
-    static RuntimeKeyEdge CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, char virtualKey );
-    static bool CaptureKeyPress( bool& wasDown, char virtualKey );
+    static RuntimeKeyEdge CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, int virtualKey );
+    static bool CaptureKeyPress( bool& wasDown, int virtualKey );
     static void ResetUnfocusedInput( RunCameraState& camera, bool& leftSceneCycleWasDown, bool& rightSceneCycleWasDown );
     static void ResetMouseLook( RunCameraState& camera );
     static void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY );

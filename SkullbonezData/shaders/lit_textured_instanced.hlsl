@@ -527,9 +527,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 materialColor = input.material0.rgb;
     if (materialMode == 0)
     {
-        materialColor = (uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
-                                              : ProceduralBeachBallColorFromUv(input.texCoord)) *
-                        input.material0.rgb;
+        float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
+                                                      : ProceduralBeachBallColorFromUv(input.texCoord);
+        if (input.material0.a < -1.5f)
+        {
+            proceduralColor = 1.0f - proceduralColor;
+        }
+        materialColor = proceduralColor * input.material0.rgb;
     }
     float3 emissive = input.material2.rgb * max(input.material1.w, 0.0f);
 

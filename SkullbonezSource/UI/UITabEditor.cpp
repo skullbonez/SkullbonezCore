@@ -72,6 +72,13 @@ int ContentHeight()
 }
 
 
+const char* ObjectLabel( int objectType )
+{
+    const int type = std::clamp( objectType, 0, OBJECT_TYPE_COUNT - 1 );
+    return kEditorObjectOptions[type];
+}
+
+
 bool HandleContentClick( UIEditorTabState& state,
                          InGameUIInputResult& result,
                          int mouseX,

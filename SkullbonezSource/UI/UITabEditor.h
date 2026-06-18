@@ -49,6 +49,7 @@ struct UIEditorTabState
 };
 
 int ContentHeight();
+const char* ObjectLabel( int objectType );
 bool HandleContentClick( UIEditorTabState& state,
                          InGameUIInputResult& result,
                          int mouseX,

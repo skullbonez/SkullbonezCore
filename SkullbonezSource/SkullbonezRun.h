@@ -331,6 +331,8 @@ struct RunEditorPlacementState
     bool gizmoDragIsScale = false;
     bool altShortcutWasDown = false;
     bool tabShortcutWasDown = false;
+    bool tildeShortcutWasDown = false;
+    bool placementLiftActive = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
     int selectedModelIndex = -1;
@@ -339,6 +341,7 @@ struct RunEditorPlacementState
     int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
     float gizmoDragStartRotationAngle = 0.0f;
+    float placementHeightOffset = 0.0f;
     Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;

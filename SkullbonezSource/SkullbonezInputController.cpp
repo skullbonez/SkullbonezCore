@@ -23,7 +23,7 @@ namespace Basics
 {
 RuntimeKeyEdge InputController::CaptureKeyEdge( Hardware::InputState& state,
                                                 Hardware::InputState::Key memoryKey,
-                                                char virtualKey )
+                                                int virtualKey )
 {
     const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
     const bool wasPressed = isDown && !state.Get( memoryKey );
@@ -31,7 +31,7 @@ RuntimeKeyEdge InputController::CaptureKeyEdge( Hardware::InputState& state,
     return { isDown, wasPressed };
 }
 
-bool InputController::CaptureKeyPress( bool& wasDown, char virtualKey )
+bool InputController::CaptureKeyPress( bool& wasDown, int virtualKey )
 {
     const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
     const bool wasPressed = isDown && !wasDown;

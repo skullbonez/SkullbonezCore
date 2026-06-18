@@ -71,11 +71,18 @@ float HullBottomOffset( const ConvexHullShape& hull )
 }
 
 
-void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject )
+constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
+
+
+void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObject )
 {
     if ( fixedObject )
     {
-        model.SetRenderTint( 1.0f, 1.0f, 1.0f, -1.0f );
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
+    }
+    else if ( boxObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
     }
     else
     {
@@ -1266,6 +1273,8 @@ void SkullbonezRun::TakeInput()
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
+        m_editor.tildeShortcutWasDown = false;
+        m_editor.placementLiftActive = false;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_UI.CancelInputCapture();
         RunUIStressActions();
@@ -1332,8 +1341,11 @@ void SkullbonezRun::TakeInput()
     ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    bool keyboardToggleEditorMode = false;
     if ( !UIBlocksKeyboardBeforeInput )
     {
+        keyboardToggleEditorMode = InputController::CaptureKeyPress( m_editor.tildeShortcutWasDown, VK_OEM_3 );
+
         // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
         bool prevFlyMode = m_camera.isFlyMode;
         const RuntimeKeyEdge fEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::FWasDown, 'F' );
@@ -1598,6 +1610,7 @@ void SkullbonezRun::TakeInput()
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
         m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
         m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+        m_editor.tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
     }
 
     bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
@@ -1652,13 +1665,22 @@ void SkullbonezRun::TakeInput()
         {
             m_editor.objectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
         }
-        if ( uiCommands.editor.toggleEditorMode )
+        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
             EnterInteractiveSceneRun();
             m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
             if ( m_editor.editorModeEnabled )
             {
                 const bool wasFlyMode = m_camera.isFlyMode;
+                if ( keyboardToggleEditorMode )
+                {
+                    m_editor.placementModeEnabled = false;
+                    m_editor.placementPreviewVisible = false;
+                    m_editor.gizmoDragActive = false;
+                    m_editor.gizmoDragIsRotation = false;
+                    m_editor.gizmoDragIsScale = false;
+                    m_editor.activeGizmoAxis = -1;
+                }
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
                 m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
                 m_camera.isFlyMode = true;
@@ -1682,6 +1704,8 @@ void SkullbonezRun::TakeInput()
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = -1;
+                m_editor.placementLiftActive = false;
+                m_editor.placementHeightOffset = 0.0f;
                 m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
                 m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
                 m_editor.restoreFlyModeAfterEditor = false;
@@ -1976,6 +2000,7 @@ void SkullbonezRun::TakeInput()
             InputController::ResetMouseLook( m_camera );
         }
         m_editor.viewportLookActive = editorViewportLookNow;
+        m_editor.placementLiftActive = m_editor.editorModeEnabled && Input::IsMiddleMouseDown() && !m_UI.BlocksCameraMouse();
         ApplyCursorOwnership();
     }
 
@@ -2319,6 +2344,14 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         }
 
         m_systems.cameras->ApplyPrimaryMovementBuffer();
+
+        if ( m_editor.placementLiftActive )
+        {
+            const float liftAmount = keyMovementQty * speedMult;
+            const Vector3 cameraPosition = m_systems.cameras->GetCameraTranslation();
+            m_systems.cameras->AmmendPrimaryY( cameraPosition.y + liftAmount );
+            m_editor.placementHeightOffset = (std::max)( 0.0f, m_editor.placementHeightOffset + liftAmount );
+        }
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
@@ -2627,6 +2660,8 @@ bool SkullbonezRun::TryComputeEditorPlacementPreview( int objectType )
             terrainPoint.y = m_systems.terrain->GetTerrainHeightAt( snappedX, snappedZ );
         }
     }
+
+    terrainPoint.y += m_editor.placementHeightOffset;
 
     Vector3 center;
     if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, center ) )
@@ -3050,7 +3085,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( restitution );
         model.AddBoundingSphere( radius );
-        ApplyEditorSpawnMaterial( model, fixedObject );
+        ApplyEditorSpawnMaterial( model, fixedObject, false );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
@@ -3069,7 +3104,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
-        ApplyEditorSpawnMaterial( model, fixedObject );
+        ApplyEditorSpawnMaterial( model, fixedObject, true );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
         model.SetName( name );
@@ -3088,7 +3123,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( hull );
-        ApplyEditorSpawnMaterial( model, fixedObject );
+        ApplyEditorSpawnMaterial( model, fixedObject, false );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );

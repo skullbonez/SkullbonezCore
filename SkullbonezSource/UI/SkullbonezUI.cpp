@@ -1170,6 +1170,111 @@ bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, UICinemati
 }
 
 
+float EditorMiniChipWidth( const char* label )
+{
+    return Text2d::MeasureText( 10.5f, label ? label : "" ) + 18.0f;
+}
+
+
+float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
+{
+    constexpr float margin = 14.0f;
+    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
+    const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
+    const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const float desiredW = 96.0f +
+                           Text2d::MeasureText( 12.0f, shapeLabel ) +
+                           EditorMiniChipWidth( modeLabel ) +
+                           EditorMiniChipWidth( bodyLabel );
+    return std::clamp( desiredW, 284.0f, maxW );
+}
+
+
+void DrawEditorMiniChip( const UIDrawContext& draw,
+                         float x,
+                         float y,
+                         const char* label,
+                         const Style::UIColor& fill,
+                         const Style::UIColor& text )
+{
+    const float w = EditorMiniChipWidth( label );
+    draw.RoundedRect( x, y, w, 20.0f, Style::Radii().smallButton, fill.r, fill.g, fill.b, fill.a );
+    draw.Text( x + 9.0f, y + 5.0f, 10.5f, text.r, text.g, text.b, label );
+}
+
+
+void DrawEditorMiniGlyph( const UIDrawContext& draw, const UIRect& bounds, int objectType )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, 6.0f, palette.control.r, palette.control.g, palette.control.b, 0.92f );
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.border.r, palette.border.g, palette.border.b, 0.75f );
+
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.31f;
+    const int type = std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( type == EditorTab::OBJECT_BALL || type == EditorTab::OBJECT_SPHERE )
+    {
+        draw.RoundedRect( cx - r, cy - r, r * 2.0f, r * 2.0f, 999.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_BOX )
+    {
+        draw.Rect( cx - r, cy - r, r * 2.0f, r * 2.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.94f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_HULL_DIAMOND )
+    {
+        draw.Triangle( cx, cy - r, cx + r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        draw.Triangle( cx, cy - r, cx - r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+        return;
+    }
+
+    draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+}
+
+
+void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
+    draw.RoundedRect( minimized.x + 4.0f, minimized.y + 5.0f, minimized.w, minimized.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( minimized, Style::Radii().window, palette.window, palette.border );
+
+    const UIRect glyph = { minimized.x + 11.0f, minimized.y + 7.0f, 24.0f, 24.0f };
+    DrawEditorMiniGlyph( draw, glyph, data.editorObjectType );
+
+    const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
+    const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const float bodyW = EditorMiniChipWidth( bodyLabel );
+    const float modeW = EditorMiniChipWidth( modeLabel );
+    const float chipY = minimized.y + 9.0f;
+    const float bodyX = restoreButton.x - 10.0f - bodyW;
+    const float modeX = bodyX - 8.0f - modeW;
+
+    char shapeLabel[64] = {};
+    snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
+    const float labelX = glyph.x + glyph.w + 10.0f;
+    const float labelMaxW = (std::max)( 42.0f, modeX - labelX - 10.0f );
+    Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, labelMaxW );
+    draw.Text( labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, shapeLabel );
+
+    Style::UIColor modeFill = palette.accent;
+    modeFill.a = 0.92f;
+    Style::UIColor bodyFill = data.editorPlaceStatic ? palette.control : palette.warningAccent;
+    bodyFill.a = 0.92f;
+    DrawEditorMiniChip( draw, modeX, chipY, modeLabel, modeFill, palette.textPrimary );
+    DrawEditorMiniChip( draw, bodyX, chipY, bodyLabel, bodyFill, palette.textPrimary );
+
+    draw.RoundedPanel( restoreButton, Style::Radii().smallButton, palette.control, palette.border );
+    const float plusX = restoreButton.x + restoreButton.w * 0.5f;
+    const float plusY = restoreButton.y + restoreButton.h * 0.5f;
+    draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+    draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+}
+
+
 } // namespace
 
 bool InGameUI::IsVisible() const
@@ -2432,10 +2537,17 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
         char titleText[192] = {};
         Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
-        m_window.minimizedWidth = MinimizedWidthForTitle( titleText, screenW );
+        m_window.minimizedWidth = data.editorModeEnabled ? EditorMinimizedWidth( data, screenW ) : MinimizedWidthForTitle( titleText, screenW );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
-        Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
-        Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+        if ( data.editorModeEnabled )
+        {
+            DrawEditorMinimizedWindow( draw, minimized, data );
+        }
+        else
+        {
+            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
+            Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+        }
         if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
         {
             ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
