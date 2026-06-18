@@ -134,7 +134,7 @@ class Terrain
     void LoadTerrainData( const char* sFileName ); // RAW byte load retained for render mesh rebuilds.
     void InitialiseTerrainShader();                // Lit terrain shader setup for the active backend.
     void ConfigureRenderStepSize();                // Chooses a safe render-only terrain step size
-    void BuildTerrain();                           // Converts raw height data into physics-authoritative terrain posts.
+    void BuildTerrain();                           // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
     void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Math::Vector::Vector3* outNormal, Plane* outPlane );

@@ -1150,7 +1150,7 @@ bool ParseRendererArg( const CommandLineView& commandLine )
     return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
 }
 
-// Applies --vsync on|off to the already-loaded Cfg() singleton.
+// --vsync on|off patches the already-loaded Cfg() singleton.
 bool ApplyVsyncOverride( const CommandLineView& commandLine )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
@@ -1545,7 +1545,7 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 }
 #endif
 
-// Parses all command-line options into a ParsedArgs struct.
+// ParsedArgs owns all command-line option state after this pass.
 // Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
 // False means startup should abort, such as --physics-regression-log in Release.
 bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )

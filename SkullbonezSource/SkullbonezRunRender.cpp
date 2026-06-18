@@ -389,7 +389,7 @@ void SkullbonezRun::Render()
     // rendering asks for view matrices.
     SetViewingOrientation();
 
-    // Apply the selected camera to the camera collection so render code below
+    // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 

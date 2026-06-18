@@ -51,7 +51,7 @@ struct RunSceneState
     float timeScale = 1.0f;        // Physics time multiplier
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
-    bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isTestComplete = false;   // True after targetFrameCount without --exit; appends "- TEST COMPLETE" to HUD.
     bool isFinishLogged = false;   // Debug event log guard for scene completion
     bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
 

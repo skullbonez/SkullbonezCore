@@ -174,12 +174,12 @@ class GameModel
     void UpdatePosition( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                                                                                   // Borrowed scene terrain; caller keeps it alive for this model.
     float CollisionDetectTerrain( float changeInTime );                                                                               // Swept terrain query that fills the response mailbox but applies no impulse.
-    bool BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out ); // Converts the terrain mailbox into shared solver-row geometry.
+    bool BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out ); // Shared solver-row geometry from the terrain mailbox; false when no contact is ready.
     void SetImpulseForce( const Math::Vector::Vector3& vForce, const Math::Vector::Vector3& vApplicationPoint );                      // Stages a one-shot impulse at a world-space application point.
     void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque ); // Continuous environment force/torque consumed during integration.
     void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg );                        // Input angles are degrees in the engine's Euler order.
-    void SetName( const char* name );                                                                          // Copies up to 63 bytes for diagnostics and deterministic logs.
+    void SetName( const char* name );                                                                          // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );           // Render-only color override; physics state is unaffected.
     void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const; // Mirrors the shader-facing tint payload.

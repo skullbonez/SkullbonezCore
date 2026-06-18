@@ -460,7 +460,7 @@ void WorldEnvironment::SetFluidDensity( float density )
 }
 
 
-// Computes and accumulates all world-space forces acting on the target body for this frame.
+// World-space forces acting on the target body accumulate here for this frame.
 // Forces are scaled by changeInTime before being set on the rigid body, converting
 // force (N) to impulse (N·s = kg·m/s) — matching the semi-implicit Euler integrator
 // which adds impulse directly to velocity.

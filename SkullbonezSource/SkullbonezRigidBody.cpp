@@ -113,7 +113,7 @@ RigidBody::~RigidBody()
 }
 
 
-// Apply persistent world-space forces (e.g., gravity) to the body.
+// Persistent world-space forces, such as gravity, affect the body every tick.
 // These forces act continuously every frame (unlike impulse forces which are one-shot).
 //
 // Newton's 2nd Law: F = m·a  →  a = F/m
@@ -133,7 +133,7 @@ void RigidBody::ApplyWorldForce()
 }
 
 
-// Apply a one-shot linear impulse force to the body.
+// One-shot linear impulse forces are consumed on the first integration pass.
 // Used for collision responses — the force is applied once and then consumed.
 //
 // --- Newton's 2nd Law ---
@@ -152,7 +152,7 @@ void RigidBody::ApplyLinearForce()
 }
 
 
-// Apply a one-shot angular impulse (torque) to the body.
+// One-shot angular impulse torque is consumed on the first integration pass.
 //
 // --- How Torque Works ---
 //

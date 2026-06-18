@@ -119,9 +119,10 @@ inline const char* RenderMaterialKindName( RenderMaterialKind kind )
     }
 }
 
-// Converts the old tint.a material mode into the new CPU material kind. The
-// negative textured sentinel and positive solid-material values are preserved
-// so existing scenes keep rendering the same while the bridge is in place.
+// Bridge note: the old tint.a material mode still maps into the new CPU
+// material kind. The negative textured sentinel and positive solid-material
+// values are preserved so existing scenes keep rendering the same while the
+// bridge is in place.
 inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
 {
     if ( legacyMode < -0.5f )
@@ -143,8 +144,8 @@ inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
     return RenderMaterialKind::Textured;
 }
 
-// Converts a material kind back to the packed tint.a value consumed by the
-// current object instance stream.
+// Legacy payload contract: the current object instance stream still consumes a
+// packed tint.a material value.
 inline float RenderMaterialKindLegacyMode( RenderMaterialKind kind )
 {
     if ( kind == RenderMaterialKind::Textured )

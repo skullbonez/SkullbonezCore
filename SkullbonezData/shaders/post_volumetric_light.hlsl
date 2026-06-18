@@ -96,7 +96,7 @@ float ValueNoise(float2 p)
 
 float CloudBreakup(float2 screenUV)
 {
-    // Adds smaller holes and unevenness to the ray mask so beams do not look like
+    // Small holes and unevenness keep the ray mask from looking like
     // perfectly smooth computer cones.
     float2 p = screenUV * float2(5.2f, 2.2f) + float2(0.17f, 1.31f);
     float v = ValueNoise(p) * 0.55f;
@@ -156,7 +156,7 @@ float CloudLayerMask(float2 screenUV)
 
 float CloudRayOpen(float2 screenUV)
 {
-    // Converts the cloud mask into "how open is this part of the sky?" 1 means
+    // Cloud mask remap answers "how open is this part of the sky?" 1 means
     // open sky, 0 means cloud is blocking most of the light.
     float cloud = CloudLayerMask(screenUV);
     float breakup = CloudBreakup(screenUV + uSunShaftParams.xy * 0.17f);

@@ -85,7 +85,7 @@ class RigidBody
        (instantaneous velocity changes) rather than continuous forces. The impulse is
        consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */
     void ApplyLinearForce();                 // Consumes the one-shot linear impulse as an immediate velocity delta.
-    void ApplyAngularForce();                // Converts the one-shot force at its application point into angular velocity.
+    void ApplyAngularForce();                // One-shot off-center impulse changes angular velocity through its torque arm.
     Math::Vector::Vector3 GetRollVelocity(); // Rolling contribution derived from angular velocity around the contact normal.
 
   public:
@@ -94,7 +94,7 @@ class RigidBody
     void ApplyForces();                        // Integrates accumulated world forces and one-shot impulses for one physics tick.
     void UpdatePosition( float changeInTime ); // changeInTime is seconds; advances pose from the current velocities.
     void ApplyImpulseForce();
-    void ZeroForce(); // Clears accumulated force/torque after the tick consumes them.
+    void ZeroForce(); // End-of-tick cleanup after world forces and solver impulses are consumed.
     const Math::Orientation::Quaternion& GetOrientation() const;
     void SetMass( float fMass );
     void SetFrictionCoefficient( float fFriction );

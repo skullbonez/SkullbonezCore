@@ -260,7 +260,7 @@ Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axi
 
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
-    // Converts a unit quaternion q = (qx, qy, qz, qw) to a 4×4 column-major rotation matrix.
+    // Unit quaternion q = (qx, qy, qz, qw) becomes a 4x4 column-major rotation matrix.
     //
     // Derivation:
     //   Applying rotation q to a vector v uses the sandwich product: v' = q * (0,v) * q'

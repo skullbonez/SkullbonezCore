@@ -478,7 +478,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 }
 
 
-// Copies active cell info into the caller-provided array.
+// Active cell info is written into the caller-provided array.
 // Each entry contains the grid coordinate (ix, iy, iz) and object count.
 void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
 {

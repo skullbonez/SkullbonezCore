@@ -51,7 +51,7 @@ class CameraCollection
     float m_tweenSpeed;                                // Camera tweening speed
     bool m_isTweening;                                 // Render camera follows m_tweenCamera while this is true.
     float m_tweenProgress;                             // Normalized tween progress through m_tweenPath.
-    Geometry::Terrain* m_terrain;                      // Stores a pointer to the m_terrain for tweening collision purposes
+    Geometry::Terrain* m_terrain;                      // Borrowed scene terrain used to keep tweened cameras collision-aware.
     Math::Transformation::Matrix4 m_currentViewMatrix; // Current view matrix (updated each frame by SetCamera)
 
     CameraCollection();

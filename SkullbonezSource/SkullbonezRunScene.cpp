@@ -1556,7 +1556,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     BeginPhysicsDiagnosticsRun( scenePath.c_str() );
 #endif
 
-    // Apply runtime swap policy after config/scene overrides are resolved.
+    // Runtime swap policy is chosen after config/scene overrides are resolved.
     Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
 
     // Restart timers

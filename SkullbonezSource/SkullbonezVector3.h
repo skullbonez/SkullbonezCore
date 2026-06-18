@@ -42,9 +42,9 @@ class Vector3
     Vector3( float fX, float fY, float fZ );
     void Zero();
     void Normalise();           // Normalise the vector
-    void Absolute();            // Converts vector to its absolute value
+    void Absolute();            // Component-wise absolute value; mutates this vector.
     bool IsCloseToZero() const; // Tolerance check for float noise near zero.
-    void Simplify();            // Converts tiny float components to zero
+    void Simplify();            // Components within the engine epsilon snap to 0.0f.
     void SetAll( float nx, float ny, float nz );
     Vector3& operator=( const Vector3& v );      // Vector assignment
     Vector3& operator+=( const Vector3& v );     // += Overload

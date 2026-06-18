@@ -1904,7 +1904,7 @@ void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 // --- Dynamic VB ---
 
 
-// Draws per-vertex colored lines. data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
+// Per-vertex colored line data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
 // Uses the shared upload buffer to stream vertex data and draws with LINE_LIST topology.
 // Lazy-creates a LINE_LIST PSO on first call.
 

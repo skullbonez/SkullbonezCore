@@ -64,7 +64,7 @@ class GeometricMath
     // Delegates to ComputeBarycentricCoordinates; all weights ≥ 0 → inside.
     static bool IsPointInsideTriangle( const Geometry::Triangle& triangle, const Vector::Vector3& point );
 
-    // Computes barycentric coordinates (u, v, w) of 'point' relative to 'triangle'.
+    // Barycentric output is (u, v, w) for 'point' relative to 'triangle'.
     // All weights sum to 1.  Any weight < 0 means the point is outside that edge.
     // Projects to the most numerically stable 2D axis (largest normal component) to
     // avoid near-degenerate area computations on steep or sliver triangles.
