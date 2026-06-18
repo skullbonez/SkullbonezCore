@@ -30,6 +30,7 @@ Related:
 #include "SkullbonezPrimitiveMeshBuilder.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -82,7 +83,6 @@ struct ConvexHullMeshResource
 };
 
 static std::vector<ConvexHullMeshResource> sConvexHullMeshes;
-static std::vector<float> sConvexHullInstanceData;
 
 // Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
 // SetConstantBufferBytes rejects this block if the reflected shader size drifts,
@@ -189,6 +189,18 @@ static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix
     out.insert( out.end(), payload.material2, payload.material2 + 4 );
 }
 
+static std::array<float, INSTANCE_FLOATS> BuildSingleMaterialInstancePayload( const Matrix4& model, const RenderMaterial& material )
+{
+    std::array<float, INSTANCE_FLOATS> out = {};
+    const float* md = model.Data();
+    std::copy( md, md + INSTANCE_MATRIX_FLOATS, out.begin() );
+    const RenderMaterialInstancePayload payload = PackRenderMaterialInstancePayload( material );
+    std::copy( payload.material0, payload.material0 + 4, out.begin() + INSTANCE_MATRIX_FLOATS );
+    std::copy( payload.material1, payload.material1 + 4, out.begin() + INSTANCE_MATRIX_FLOATS + 4 );
+    std::copy( payload.material2, payload.material2 + 4, out.begin() + INSTANCE_MATRIX_FLOATS + 8 );
+    return out;
+}
+
 static void HashUint32( uint64_t& hash, uint32_t value )
 {
     constexpr uint64_t FNV_PRIME = 1099511628211ull;
@@ -282,7 +294,6 @@ static uint32_t GetConvexHullInstancedMesh( const ConvexHullShape& hull, int& ou
     resource.vertexCount = outVertexCount;
     resource.mesh = Gfx().CreateInstancedMesh( verts.data(), outVertexCount, 8, 1, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
     sConvexHullMeshes.push_back( resource );
-    sConvexHullInstanceData.reserve( INSTANCE_FLOATS );
     return resource.mesh;
 }
 
@@ -852,9 +863,8 @@ void SkullbonezHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                                    materialAlpha } );
     if ( ready )
     {
-        sConvexHullInstanceData.clear();
-        AppendMaterialInstancePayload( sConvexHullInstanceData, model, material );
-        Gfx().UploadInstanceData( mesh, sConvexHullInstanceData.data(), static_cast<int>( sConvexHullInstanceData.size() ) );
+        const std::array<float, INSTANCE_FLOATS> instanceData = BuildSingleMaterialInstancePayload( model, material );
+        Gfx().UploadInstanceData( mesh, instanceData.data(), static_cast<int>( instanceData.size() ) );
         Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
     }
     EndPrimitiveBatchTransparency( isTransparent );
@@ -880,9 +890,8 @@ void SkullbonezHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hu
     constants.clipPlane[3] = sClipPlane[3];
     if ( shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" ) )
     {
-        sConvexHullInstanceData.clear();
-        AppendMaterialInstancePayload( sConvexHullInstanceData, model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
-        Gfx().UploadInstanceData( mesh, sConvexHullInstanceData.data(), static_cast<int>( sConvexHullInstanceData.size() ) );
+        const std::array<float, INSTANCE_FLOATS> instanceData = BuildSingleMaterialInstancePayload( model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
+        Gfx().UploadInstanceData( mesh, instanceData.data(), static_cast<int>( instanceData.size() ) );
         Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
     }
 }
