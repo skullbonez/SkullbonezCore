@@ -305,8 +305,8 @@
     },
     {
       "id": "comment-style-audit-findings-2026-06-18",
-      "plan": "Agentic/Plans/comment-style-audit-findings-2026-06-18.md",
-      "state": "ready",
+      "plan": "Agentic/Plans/Done/comment-style-audit-findings-2026-06-18.md",
+      "state": "done",
       "priority": 5,
       "branch": "codex/comment-style-audit-findings-2026-06-18",
       "parent_branch": "codex/convex-hull-collision-implementation-plan",
