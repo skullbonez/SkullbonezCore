@@ -71,6 +71,19 @@ float HullBottomOffset( const ConvexHullShape& hull )
 }
 
 
+void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject )
+{
+    if ( fixedObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, -1.0f );
+    }
+    else
+    {
+        model.SetRenderTint( 0.25f, 0.14f, 0.05f, -1.0f );
+    }
+}
+
+
 constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
 constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
@@ -1575,6 +1588,7 @@ void SkullbonezRun::TakeInput()
                 const bool wasFlyMode = m_camera.isFlyMode;
                 m_editor.viewportLookActive = false;
                 m_editor.placementPreviewVisible = false;
+                m_editor.placementModeEnabled = false;
                 m_editor.gizmoDragActive = false;
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.activeGizmoAxis = -1;
@@ -1591,6 +1605,15 @@ void SkullbonezRun::TakeInput()
                     InputController::ResetMouseLook( m_camera );
                 }
             }
+        }
+        if ( uiCommands.editor.togglePlacementMode )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+            m_editor.placementPreviewVisible = false;
+            m_editor.gizmoDragActive = false;
+            m_editor.gizmoDragIsRotation = false;
+            m_editor.activeGizmoAxis = -1;
         }
         if ( uiCommands.editor.togglePlaceStatic )
         {
@@ -1906,6 +1929,7 @@ void SkullbonezRun::TakeInput()
         if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
         {
             if ( m_editor.editorModeEnabled &&
+                 !m_editor.placementModeEnabled &&
                  m_editor.selectedModelIndex >= 0 &&
                  m_editor.hotRotationAxis >= 0 )
             {
@@ -1927,6 +1951,7 @@ void SkullbonezRun::TakeInput()
 
             if ( !consumedWorldClick &&
                  m_editor.editorModeEnabled &&
+                 !m_editor.placementModeEnabled &&
                  m_editor.selectedModelIndex >= 0 &&
                  m_editor.hotGizmoAxis >= 0 )
             {
@@ -1948,26 +1973,32 @@ void SkullbonezRun::TakeInput()
 
             if ( !consumedWorldClick && m_editor.editorModeEnabled )
             {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                int pickedIndex = -1;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                if ( m_editor.placementModeEnabled )
                 {
-                    m_editor.selectedModelIndex = pickedIndex;
-                }
-                else if ( m_editor.placementPreviewVisible )
-                {
-                    const int previousModelCount = m_cGameModelCollection.GetModelCount();
-                    PlaceEditorObjectAtTerrainPoint( m_editor.objectType, m_editor.placeStaticObject, m_editor.placementTerrainPoint );
-                    if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                    if ( m_editor.placementPreviewVisible )
                     {
-                        m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                        const int previousModelCount = m_cGameModelCollection.GetModelCount();
+                        PlaceEditorObjectAtTerrainPoint( m_editor.objectType, m_editor.placeStaticObject, m_editor.placementTerrainPoint );
+                        if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                        {
+                            m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                        }
                     }
                 }
                 else
                 {
-                    m_editor.selectedModelIndex = -1;
+                    Vector3 rayOrigin;
+                    Vector3 rayDirection;
+                    int pickedIndex = -1;
+                    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                         TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                    {
+                        m_editor.selectedModelIndex = pickedIndex;
+                    }
+                    else
+                    {
+                        m_editor.selectedModelIndex = -1;
+                    }
                 }
                 consumedWorldClick = true;
             }
@@ -1976,7 +2007,8 @@ void SkullbonezRun::TakeInput()
         if ( !consumedWorldClick &&
              m_camera.isNudgeMode &&
              leftPressed &&
-             !suppressWorldActionThisFrame )
+             !suppressWorldActionThisFrame &&
+             !m_UI.WantsNativeMouseCursor() )
         {
             FireRayCastTest();
         }
@@ -2728,13 +2760,14 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
         return;
     }
 
-    if ( m_editor.editorModeEnabled )
-    {
-        m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
-    }
-    else
+    if ( !m_editor.editorModeEnabled )
     {
         return;
+    }
+
+    if ( m_editor.placementModeEnabled )
+    {
+        m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
     }
 
     if ( m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
@@ -2745,7 +2778,7 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
         m_editor.activeGizmoAxis = -1;
     }
 
-    if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive )
+    if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive && !m_editor.placementModeEnabled )
     {
         Vector3 rayOrigin;
         Vector3 rayDirection;
@@ -2773,13 +2806,16 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
         }
     }
 
-    if ( m_editor.placementPreviewVisible )
+    if ( m_editor.editorModeEnabled &&
+         m_editor.placementModeEnabled &&
+         m_editor.placementPreviewVisible )
     {
         m_editorTracer.AddPlacementRay( m_editor.placementRayOrigin, m_editor.placementRayHit );
         m_editorTracer.AddPlacementGhost( m_editor.objectType, m_editor.placementCenter );
     }
 
     if ( m_editor.editorModeEnabled &&
+         !m_editor.placementModeEnabled &&
          m_editor.selectedModelIndex >= 0 &&
          m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
     {
@@ -2829,7 +2865,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
     };
 
-    auto addSphere = [&]( const char* label, float radius, float mass, float restitution, float tintR, float tintG, float tintB )
+    auto addSphere = [&]( const char* label, float radius, float mass, float restitution )
     {
         const float moment = 0.4f * mass * radius * radius;
         const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
@@ -2840,7 +2876,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( restitution );
         model.AddBoundingSphere( radius );
-        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        ApplyEditorSpawnMaterial( model, fixedObject );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
@@ -2859,14 +2895,14 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
-        model.SetRenderTint( 0.75f, 0.86f, 0.95f, 1.0f );
+        ApplyEditorSpawnMaterial( model, fixedObject );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
         model.SetName( name );
         addModel( std::move( model ) );
     };
 
-    auto addHull = [&]( const char* label, const char* path, float tintR, float tintG, float tintB )
+    auto addHull = [&]( const char* label, const char* path )
     {
         constexpr float mass = 24.0f;
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
@@ -2878,7 +2914,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( hull );
-        model.SetRenderTint( tintR, tintG, tintB, 1.0f );
+        ApplyEditorSpawnMaterial( model, fixedObject );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
@@ -2891,28 +2927,28 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addBox();
         break;
     case UI::EditorTab::OBJECT_BALL:
-        addSphere( "ball", 4.0f, 6.0f, 0.45f, 0.35f, 0.75f, 1.0f );
+        addSphere( "ball", 4.0f, 6.0f, 0.45f );
         break;
     case UI::EditorTab::OBJECT_SPHERE:
-        addSphere( "sphere", 8.0f, 24.0f, 0.35f, 0.95f, 0.92f, 0.82f );
+        addSphere( "sphere", 8.0f, 24.0f, 0.35f );
         break;
     case UI::EditorTab::OBJECT_HULL_WEDGE:
-        addHull( "wedge", "SkullbonezData/hulls/wedge.hull", 0.92f, 0.65f, 0.30f );
+        addHull( "wedge", "SkullbonezData/hulls/wedge.hull" );
         break;
     case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
-        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull", 0.45f, 0.95f, 0.62f );
+        addHull( "tri_prism", "SkullbonezData/hulls/tri_prism.hull" );
         break;
     case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
-        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull", 0.95f, 0.52f, 0.76f );
+        addHull( "tapered", "SkullbonezData/hulls/tapered_block.hull" );
         break;
     case UI::EditorTab::OBJECT_HULL_PYRAMID:
-        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull", 0.78f, 0.62f, 1.0f );
+        addHull( "pyramid", "SkullbonezData/hulls/pyramid.hull" );
         break;
     case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
-        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull", 0.35f, 0.95f, 0.90f );
+        addHull( "hex_prism", "SkullbonezData/hulls/hex_prism.hull" );
         break;
     case UI::EditorTab::OBJECT_HULL_DIAMOND:
-        addHull( "diamond", "SkullbonezData/hulls/diamond.hull", 1.0f, 0.86f, 0.40f );
+        addHull( "diamond", "SkullbonezData/hulls/diamond.hull" );
         break;
     default:
         break;

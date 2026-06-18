@@ -210,6 +210,7 @@ struct UIPhysicsCommands
 struct UIEditorCommands
 {
     bool toggleEditorMode = false;
+    bool togglePlacementMode = false;
     bool togglePlaceStatic = false;
     int requestedObjectType = -1;
 };

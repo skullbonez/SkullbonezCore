@@ -42,6 +42,7 @@ constexpr int OBJECT_TYPE_COUNT = 9;
 struct UIEditorTabState
 {
     UICheckBox editorModeToggle;
+    UICheckBox placementModeToggle;
     UICheckBox staticObjectToggle;
     UIComboBox objectCombo;
     int selectedObjectType = OBJECT_BOX;

@@ -241,6 +241,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.cameraMouseActive = ( m_run.m_camera.isFlyMode || m_run.m_editor.viewportLookActive ) && !m_run.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
         UIData.editorModeEnabled = m_run.m_editor.editorModeEnabled;
+        UIData.editorPlacementMode = m_run.m_editor.placementModeEnabled;
         UIData.editorPlaceStatic = m_run.m_editor.placeStaticObject;
         UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
         UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode &&

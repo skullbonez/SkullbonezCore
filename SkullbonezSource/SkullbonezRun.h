@@ -314,12 +314,13 @@ struct RunRayCastTestState
     std::array<RunRayCastTestLine, MAX_LINES> lines = {};
     int nextLine = 0;
     bool visualizeRays = false;
-    float impulseStrength = 180.0f;
+    float impulseStrength = 1800.0f;
 };
 
 struct RunEditorPlacementState
 {
     bool editorModeEnabled = false;
+    bool placementModeEnabled = false;
     bool placeStaticObject = true;
     bool restoreFlyModeAfterEditor = false;
     bool restoreRayTestModeAfterEditor = false;

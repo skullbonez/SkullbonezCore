@@ -171,6 +171,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
     hash = HashBool( hash, data.editorModeEnabled );
+    hash = HashBool( hash, data.editorPlacementMode );
     hash = HashBool( hash, data.editorPlaceStatic );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashBool( hash, data.canSaveSceneDefaults );
@@ -1266,6 +1267,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         break;
     case InGameUITab::Editor:
         DrawHitboxRect( draw, m_editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
         DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
         break;

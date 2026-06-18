@@ -27,9 +27,10 @@ namespace
 {
 
 constexpr float EDITOR_MODE_TOGGLE_Y = 42.0f;
-constexpr float EDITOR_STATIC_TOGGLE_Y = 76.0f;
-constexpr float EDITOR_OBJECT_COMBO_Y = 120.0f;
-constexpr float EDITOR_STATUS_Y = 160.0f;
+constexpr float EDITOR_PLACE_TOGGLE_Y = 76.0f;
+constexpr float EDITOR_STATIC_TOGGLE_Y = 110.0f;
+constexpr float EDITOR_OBJECT_COMBO_Y = 154.0f;
+constexpr float EDITOR_STATUS_Y = 194.0f;
 
 const char* const kEditorObjectOptions[] = {
     "Box",
@@ -51,6 +52,7 @@ void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
     const float contentBaseY = rowBase - EDITOR_MODE_TOGGLE_Y;
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
+    state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
     state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
 }
@@ -66,7 +68,7 @@ namespace EditorTab
 
 int ContentHeight()
 {
-    return 204;
+    return 238;
 }
 
 
@@ -102,6 +104,11 @@ bool HandleContentClick( UIEditorTabState& state,
     if ( state.editorModeToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.editor.toggleEditorMode = true;
+        return true;
+    }
+    if ( state.placementModeToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.editor.togglePlacementMode = true;
         return true;
     }
     if ( state.staticObjectToggle.HitTest( mouseX, mouseY ) )
@@ -146,6 +153,15 @@ void Draw( UIEditorTabState& state,
     DrawContentToggle( draw,
                        contentY,
                        contentH,
+                       state.placementModeToggle,
+                       contentX,
+                       scrolledY + EDITOR_PLACE_TOGGLE_Y,
+                       colW,
+                       "Place mode",
+                       data.editorPlacementMode );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
                        state.staticObjectToggle,
                        contentX,
                        scrolledY + EDITOR_STATIC_TOGGLE_Y,
@@ -173,7 +189,7 @@ void Draw( UIEditorTabState& state,
     }
     else if ( data.editorModeEnabled )
     {
-        viewportState = data.editorPlaceStatic ? "Edit static" : "Edit dynamic";
+        viewportState = data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
     }
 
     DrawLabelValueAt( draw,

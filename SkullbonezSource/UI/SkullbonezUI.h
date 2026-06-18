@@ -137,6 +137,7 @@ struct InGameUIFrameData
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
     bool editorModeEnabled = false;
+    bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
     bool editorViewportLookActive = false;
     bool canSaveSceneDefaults = false;
