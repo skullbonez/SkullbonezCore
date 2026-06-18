@@ -21,7 +21,7 @@ the process for humans, but only JSON files drive tool decisions.
 | `schemas/*.json` | JSON schemas for structured worker, verifier, and run-state artifacts. |
 | `runbook.md` | Manual orchestrator procedure before scripting. |
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
-| `templates/verifier-prompt.md` | Prompt template for the independent completion verifier. |
+| `templates/verifier-prompt.md` | Prompt template for the independent completion verifier, using the local rubber-duck skill as its critique reference. |
 | `templates/report.md` | Required report shape for every completed, failed, or blocked item. |
 
 To kick off the loop without pasting a one-off prompt, use
@@ -54,6 +54,11 @@ destination:
   claims the task is done. Blocking verifier findings go back to the worker,
   and the worker/verifier loop repeats until a verifier accepts the work or the
   item becomes blocked or failed.
+- Verifier agents are rubber-duck reviewers. They must use the repo-local
+  `rubber-duck` skill reference when available at
+  `Agentic/Skills/rubber-duck/SKILL.md`, stay read-only, and
+  report blocking findings, non-blocking findings, missing evidence, and the
+  smallest useful next step.
 - Chained roadmap items use stacked child branches. If the user asks for tasks
   1-3 as one chain, task 1 branches from `main`, task 2 branches from task 1,
   and task 3 branches from task 2. Review each child PR against its parent until

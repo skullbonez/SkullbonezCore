@@ -62,9 +62,10 @@ the user how to proceed before creating or running any entry.
 - Run one roadmap item at a time through the repository orchestrator command
   path.
 - After the implementation worker claims completion, hand the work to a
-  separate verifier agent. Feed blocking verifier findings back to the worker
-  and repeat until the verifier accepts the result or the item becomes blocked
-  or failed.
+  separate verifier agent that uses the repo-local `rubber-duck` skill reference
+  when available at `Agentic/Skills/rubber-duck/SKILL.md`. Feed
+  blocking verifier findings back to the worker and repeat until the verifier
+  accepts the result or the item becomes blocked or failed.
 - Do not rebase, force-push, rewrite git history, or push directly to `main`.
 - Respect the current `AGENTS.md` and `policy.json` even if an old kickoff
   prompt claimed broader authority.
@@ -136,7 +137,8 @@ For each item:
    `Agentic/Orchestrator/templates/verifier-prompt.md` and save it under
    `verification-rounds/round-XX-verifier-prompt.md`.
 11. Spawn a separate verifier agent to inspect the plan, diff, worker result,
-   validation evidence, and artifacts without editing files. If no separate
+   validation evidence, and artifacts without editing files, using the repo-local
+   `rubber-duck` skill as the critique reference when available. If no separate
    agent is available, stop and ask whether a same-agent verification fallback
    is acceptable.
 12. Save verifier output under
