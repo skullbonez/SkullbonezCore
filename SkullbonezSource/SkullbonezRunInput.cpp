@@ -1307,6 +1307,7 @@ void SkullbonezRun::TakeInput()
 
         return m_editor.editorModeEnabled &&
                m_editor.placementModeEnabled &&
+               m_editor.placementPreviewVisible &&
                !m_UI.WantsNativeMouseCursor() &&
                !m_UI.BlocksCameraMouse();
     };
@@ -1321,6 +1322,20 @@ void SkullbonezRun::TakeInput()
             ReleaseCapture();
             InputController::ResetMouseLook( m_camera );
         }
+    };
+    const auto ClearEditorManipulationState = [&]() -> void
+    {
+        m_editor.placementPreviewVisible = false;
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+    };
+    const auto ToggleEditorPlacementMode = [&]() -> void
+    {
+        EnterInteractiveSceneRun();
+        m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+        ClearEditorManipulationState();
     };
     const auto EnterFlyModeCamera = [&]() -> void
     {
@@ -1406,19 +1421,20 @@ void SkullbonezRun::TakeInput()
             m_camera.isNudgeMode = false;
             if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
             {
-                EnterInteractiveSceneRun();
-                m_editor.placementModeEnabled = !m_editor.placementModeEnabled;
-                m_editor.placementPreviewVisible = false;
-                m_editor.gizmoDragActive = false;
-                m_editor.gizmoDragIsRotation = false;
-                m_editor.gizmoDragIsScale = false;
-                m_editor.activeGizmoAxis = -1;
+                ToggleEditorPlacementMode();
             }
             if ( InputController::CaptureKeyPress( m_editor.tabShortcutWasDown, VK_TAB ) )
             {
-                EnterInteractiveSceneRun();
-                m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-                m_editor.placementPreviewVisible = false;
+                if ( Input::IsKeyDown( VK_CONTROL ) )
+                {
+                    EnterInteractiveSceneRun();
+                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
+                    m_editor.placementPreviewVisible = false;
+                }
+                else
+                {
+                    ToggleEditorPlacementMode();
+                }
             }
         }
         else
@@ -1699,11 +1715,7 @@ void SkullbonezRun::TakeInput()
                 if ( keyboardToggleEditorMode )
                 {
                     m_editor.placementModeEnabled = false;
-                    m_editor.placementPreviewVisible = false;
-                    m_editor.gizmoDragActive = false;
-                    m_editor.gizmoDragIsRotation = false;
-                    m_editor.gizmoDragIsScale = false;
-                    m_editor.activeGizmoAxis = -1;
+                    ClearEditorManipulationState();
                 }
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
                 m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
@@ -1746,13 +1758,7 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.editor.togglePlacementMode )
         {
-            EnterInteractiveSceneRun();
-            m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
-            m_editor.placementPreviewVisible = false;
-            m_editor.gizmoDragActive = false;
-            m_editor.gizmoDragIsRotation = false;
-            m_editor.gizmoDragIsScale = false;
-            m_editor.activeGizmoAxis = -1;
+            ToggleEditorPlacementMode();
         }
         if ( uiCommands.editor.togglePlaceStatic )
         {
