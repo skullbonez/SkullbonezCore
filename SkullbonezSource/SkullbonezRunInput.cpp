@@ -1210,6 +1210,45 @@ void SkullbonezRun::TakeInput()
             InputController::ResetMouseLook( m_camera );
         }
     };
+    const auto EnterFlyModeCamera = [&]() -> void
+    {
+        // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
+        // on the current camera so fly controls work without requiring CAMERA_FREE
+        if ( !SceneState().isSceneMode )
+        {
+            m_systems.cameras->SelectCamera( CAMERA_FREE, false );
+        }
+        m_camera.cameraTime = 0.0f;
+        XZBounds unbounded;
+        unbounded.m_xMin = -99999.9f;
+        unbounded.m_xMax = 99999.9f;
+        unbounded.m_zMin = -99999.9f;
+        unbounded.m_zMax = 99999.9f;
+        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+        m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+        if ( CameraMouseOwnsCursor() )
+        {
+            Input::SetSystemCursorVisible( false );
+        }
+        else
+        {
+            ReleaseMouseToUI();
+            Input::SetSystemCursorVisible( true );
+        }
+        InputController::ResetMouseLook( m_camera );
+    };
+    const auto ExitFlyModeCamera = [&]() -> void
+    {
+        // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
+        // the stock Windows cursor.
+        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+        m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+        Input::SetSystemCursorVisible( true );
+        m_camera.cameraTime = 0.0f;
+        // Exiting fly mode also exits ray-test mode
+        m_camera.isNudgeMode = false;
+        InputController::ResetMouseLook( m_camera );
+    };
 
     ApplyCursorOwnership();
 
@@ -1256,42 +1295,11 @@ void SkullbonezRun::TakeInput()
         {
             if ( m_camera.isFlyMode )
             {
-                // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
-                // on the current camera so fly controls work without requiring CAMERA_FREE
-                if ( !SceneState().isSceneMode )
-                {
-                    m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-                }
-                m_camera.cameraTime = 0.0f;
-                XZBounds unbounded;
-                unbounded.m_xMin = -99999.9f;
-                unbounded.m_xMax = 99999.9f;
-                unbounded.m_zMin = -99999.9f;
-                unbounded.m_zMax = 99999.9f;
-                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                if ( CameraMouseOwnsCursor() )
-                {
-                    Input::SetSystemCursorVisible( false );
-                }
-                else
-                {
-                    ReleaseMouseToUI();
-                    Input::SetSystemCursorVisible( true );
-                }
-                InputController::ResetMouseLook( m_camera );
+                EnterFlyModeCamera();
             }
             else
             {
-                // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
-                // the stock Windows cursor.
-                uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-                Input::SetSystemCursorVisible( true );
-                m_camera.cameraTime = 0.0f;
-                // Exiting fly mode also exits ray-test mode
-                m_camera.isNudgeMode = false;
-                InputController::ResetMouseLook( m_camera );
+                ExitFlyModeCamera();
             }
         }
 
@@ -1548,18 +1556,40 @@ void SkullbonezRun::TakeInput()
             m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
             if ( m_editor.editorModeEnabled )
             {
+                const bool wasFlyMode = m_camera.isFlyMode;
+                m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
+                m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
                 m_camera.isFlyMode = true;
                 m_camera.isNudgeMode = false;
-                InputController::ResetMouseLook( m_camera );
+                if ( !wasFlyMode )
+                {
+                    EnterFlyModeCamera();
+                }
+                else
+                {
+                    InputController::ResetMouseLook( m_camera );
+                }
             }
             else
             {
+                const bool wasFlyMode = m_camera.isFlyMode;
                 m_editor.viewportLookActive = false;
                 m_editor.placementPreviewVisible = false;
                 m_editor.gizmoDragActive = false;
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.activeGizmoAxis = -1;
-                InputController::ResetMouseLook( m_camera );
+                m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
+                m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
+                m_editor.restoreFlyModeAfterEditor = false;
+                m_editor.restoreRayTestModeAfterEditor = false;
+                if ( wasFlyMode && !m_camera.isFlyMode )
+                {
+                    ExitFlyModeCamera();
+                }
+                else
+                {
+                    InputController::ResetMouseLook( m_camera );
+                }
             }
         }
         if ( uiCommands.editor.togglePlaceStatic )

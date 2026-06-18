@@ -321,6 +321,8 @@ struct RunEditorPlacementState
 {
     bool editorModeEnabled = false;
     bool placeStaticObject = true;
+    bool restoreFlyModeAfterEditor = false;
+    bool restoreRayTestModeAfterEditor = false;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
     bool gizmoDragActive = false;
