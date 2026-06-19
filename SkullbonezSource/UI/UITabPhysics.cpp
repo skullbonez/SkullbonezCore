@@ -45,7 +45,7 @@ constexpr float PHYSICS_ALPHA_SLIDER_Y = 302.0f;
 constexpr float PHYSICS_CONTACT_LINGER_SLIDER_Y = 350.0f;
 constexpr float PHYSICS_RAY_SECTION_Y = 390.0f;
 constexpr float PHYSICS_RAY_IMPULSE_SLIDER_Y = 414.0f;
-constexpr float PHYSICS_NUDGE_PROJECTILE_SPEED_SLIDER_Y = 454.0f;
+constexpr float PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y = 454.0f;
 constexpr float PHYSICS_WORLD_SECTION_Y = 500.0f;
 constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 526.0f;
 constexpr float PHYSICS_TORNADO_SECTION_Y = 586.0f;
@@ -93,7 +93,7 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     state.alphaSlider.SetBounds( contentX, contentBaseY + PHYSICS_ALPHA_SLIDER_Y, contentW, 34.0f );
     state.contactLingerSlider.SetBounds( contentX, contentBaseY + PHYSICS_CONTACT_LINGER_SLIDER_Y, contentW, 34.0f );
     state.rayImpulseSlider.SetBounds( contentX, contentBaseY + PHYSICS_RAY_IMPULSE_SLIDER_Y, contentW, 34.0f );
-    state.nudgeProjectileSpeedSlider.SetBounds( contentX, contentBaseY + PHYSICS_NUDGE_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
+    state.launcherProjectileSpeedSlider.SetBounds( contentX, contentBaseY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
     state.worldGravitySlider.SetBounds( contentX, contentBaseY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, contentW, 34.0f );
     state.tornadoRadiusSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
     state.tornadoHeightSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
@@ -122,7 +122,7 @@ void ResetPreviewState( UIPhysicsTabState& state )
     state.previewAlpha = -1.0f;
     state.previewContactLinger = -1.0f;
     state.previewRayImpulse = -1.0f;
-    state.previewNudgeProjectileSpeed = -1.0f;
+    state.previewLauncherProjectileSpeed = -1.0f;
     state.previewTornadoRadius = -1.0f;
     state.previewTornadoHeight = -1.0f;
     state.previewTornadoInward = -1.0f;
@@ -220,12 +220,12 @@ bool HandleContentClick( UIPhysicsTabState& state,
         result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
     }
-    else if ( state.nudgeProjectileSpeedSlider.HitTest( mouseX, mouseY ) )
+    else if ( state.launcherProjectileSpeedSlider.HitTest( mouseX, mouseY ) )
     {
-        activeSlider = SLIDER_NUDGE_PROJECTILE_SPEED;
-        state.previewNudgeProjectileSpeed = state.nudgeProjectileSpeedSlider.ValueFromMouse( mouseX, UI_NUDGE_PROJECTILE_SPEED_MIN, UI_NUDGE_PROJECTILE_SPEED_MAX, UI_NUDGE_PROJECTILE_SPEED_STEP );
-        result.commands.physics.requestNudgeProjectileSpeed = true;
-        result.commands.physics.requestedNudgeProjectileSpeed = state.previewNudgeProjectileSpeed;
+        activeSlider = SLIDER_LAUNCHER_PROJECTILE_SPEED;
+        state.previewLauncherProjectileSpeed = state.launcherProjectileSpeedSlider.ValueFromMouse( mouseX, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX, UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+        result.commands.physics.requestLauncherProjectileSpeed = true;
+        result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
     }
     else if ( state.worldGravitySlider.HitTest( mouseX, mouseY ) )
@@ -303,11 +303,11 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
         result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
     }
-    if ( activeSlider == SLIDER_NUDGE_PROJECTILE_SPEED )
+    if ( activeSlider == SLIDER_LAUNCHER_PROJECTILE_SPEED )
     {
-        state.previewNudgeProjectileSpeed = state.nudgeProjectileSpeedSlider.ValueFromMouse( mouseX, UI_NUDGE_PROJECTILE_SPEED_MIN, UI_NUDGE_PROJECTILE_SPEED_MAX, UI_NUDGE_PROJECTILE_SPEED_STEP );
-        result.commands.physics.requestNudgeProjectileSpeed = true;
-        result.commands.physics.requestedNudgeProjectileSpeed = state.previewNudgeProjectileSpeed;
+        state.previewLauncherProjectileSpeed = state.launcherProjectileSpeedSlider.ValueFromMouse( mouseX, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX, UI_LAUNCHER_PROJECTILE_SPEED_STEP );
+        result.commands.physics.requestLauncherProjectileSpeed = true;
+        result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
     }
     if ( activeSlider == SLIDER_WORLD_GRAVITY )
@@ -376,10 +376,10 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
         result.commands.physics.requestedRayCastImpulseStrength = state.previewRayImpulse;
         return true;
     }
-    if ( activeSlider == SLIDER_NUDGE_PROJECTILE_SPEED && state.previewNudgeProjectileSpeed >= 0.0f )
+    if ( activeSlider == SLIDER_LAUNCHER_PROJECTILE_SPEED && state.previewLauncherProjectileSpeed >= 0.0f )
     {
-        result.commands.physics.requestNudgeProjectileSpeed = true;
-        result.commands.physics.requestedNudgeProjectileSpeed = state.previewNudgeProjectileSpeed;
+        result.commands.physics.requestLauncherProjectileSpeed = true;
+        result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
     }
     if ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f )
@@ -435,7 +435,7 @@ void Draw( UIPhysicsTabState& state,
     const float displayAlpha = ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f ) ? state.previewAlpha : data.physicsDebugAlpha;
     const float displayLinger = ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f ) ? state.previewContactLinger : data.physicsDebugContactLinger;
     const float displayRayImpulse = ( activeSlider == SLIDER_RAY_IMPULSE && state.previewRayImpulse >= 0.0f ) ? state.previewRayImpulse : data.rayCastImpulseStrength;
-    const float displayNudgeProjectileSpeed = ( activeSlider == SLIDER_NUDGE_PROJECTILE_SPEED && state.previewNudgeProjectileSpeed >= 0.0f ) ? state.previewNudgeProjectileSpeed : data.nudgeProjectileSpeed;
+    const float displayLauncherProjectileSpeed = ( activeSlider == SLIDER_LAUNCHER_PROJECTILE_SPEED && state.previewLauncherProjectileSpeed >= 0.0f ) ? state.previewLauncherProjectileSpeed : data.launcherProjectileSpeed;
     const float displayTornadoRadius = ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f ) ? state.previewTornadoRadius : data.tornadoRadius;
     const float displayTornadoHeight = ( activeSlider == SLIDER_TORNADO_HEIGHT && state.previewTornadoHeight >= 0.0f ) ? state.previewTornadoHeight : data.tornadoHeight;
     const float displayTornadoInward = ( activeSlider == SLIDER_TORNADO_INWARD && state.previewTornadoInward >= 0.0f ) ? state.previewTornadoInward : data.tornadoInwardAcceleration;
@@ -491,11 +491,11 @@ void Draw( UIPhysicsTabState& state,
     {
         state.rayImpulseSlider.Draw( draw, "Ray impulse", buf, displayRayImpulse, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
     }
-    snprintf( buf, sizeof( buf ), "%.0f", displayNudgeProjectileSpeed );
-    state.nudgeProjectileSpeedSlider.SetBounds( contentX, scrolledY + PHYSICS_NUDGE_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
-    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_NUDGE_PROJECTILE_SPEED_SLIDER_Y, 34.0f ) )
+    snprintf( buf, sizeof( buf ), "%.0f", displayLauncherProjectileSpeed );
+    state.launcherProjectileSpeedSlider.SetBounds( contentX, scrolledY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y, 34.0f ) )
     {
-        state.nudgeProjectileSpeedSlider.Draw( draw, "Projectile speed", buf, displayNudgeProjectileSpeed, UI_NUDGE_PROJECTILE_SPEED_MIN, UI_NUDGE_PROJECTILE_SPEED_MAX );
+        state.launcherProjectileSpeedSlider.Draw( draw, "Projectile speed", buf, displayLauncherProjectileSpeed, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_WORLD_SECTION_Y, 18.0f ) )
     {

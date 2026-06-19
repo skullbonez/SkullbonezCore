@@ -22,7 +22,7 @@ Current code already includes several of the big architectural steps:
 - Terrain support policy that withholds gravity warm-start, static-friction floor, rolling damping,
   and sleep support from unstable box edge or point contacts.
 - A deterministic edge-rest repro scene at `SkullbonezData/scenes/standing_box_repro.scene`.
-- Debug nudge snapshots with terrain support probes and replay hints.
+- Debug launcher snapshots with terrain support probes and replay hints.
 
 The main optimisation risk has changed: do not plan to add systems that are already present.
 The next useful work is to measure the remaining terrain/support cost, remove duplicated support
@@ -34,10 +34,10 @@ row pipeline.
 | Area | Current state | Optimisation concern |
 |------|---------------|----------------------|
 | Terrain solver | Terrain contacts now feed the shared row solver through explicit terrain manifolds. | Remaining optimisation work should measure terrain row build/solve cost rather than duplicate response math. |
-| Terrain box support policy | Face-axis checks and OBB vertex terrain-height probes gate rest-only privileges. | The same terrain-supported-vertex idea also exists in debug nudge snapshot logging. |
+| Terrain box support policy | Face-axis checks and OBB vertex terrain-height probes gate rest-only privileges. | The same terrain-supported-vertex idea also exists in debug launcher snapshot logging. |
 | Object persistent solver | Uses manifolds, feature IDs, sorted warm-start cache lookup, solver body cache, and vector friction clamp. | The next gains are profiling/submarker cleanup and avoiding redundant work, not adding these systems from scratch. |
 | Sleep support propagation | Terrain seeds support; object contacts pass it through directed stack edges. | The relaxation loop is simple and correct, but should be measured in stack-heavy scenes. |
-| Repro tooling | Current reproducible path is a seeded scene plus nudge snapshots. | There is not currently a wired `--standing-test` or equivalent detector command in runtime parsing. |
+| Repro tooling | Current reproducible path is a seeded scene plus launcher snapshots. | There is not currently a wired `--standing-test` or equivalent detector command in runtime parsing. |
 
 ## Priority 0 - Profile The Updated Branch First
 
@@ -58,7 +58,7 @@ Suggested new or refined markers:
 - `Frame/Physics/Narrowphase/SolveRows`
 - `Frame/Physics/Narrowphase/PositionCorrection`
 - `Frame/Physics/SleepSupport/Propagate`
-- `Frame/Debug/NudgeRepro/TerrainSupportProbe`
+- `Frame/Debug/LauncherRepro/TerrainSupportProbe`
 
 Capture data for:
 
@@ -87,7 +87,7 @@ Recommended changes:
    - supported terrain vertex count,
    - min/max terrain gap when requested by diagnostics,
    - `supportsRestingPolicy`.
-3. Use the helper from terrain response and Debug nudge snapshot logging.
+3. Use the helper from terrain response and Debug launcher snapshot logging.
 4. Keep the current fast rejection order:
    - non-box shapes skip all box work,
    - obvious unstable low-row manifolds avoid unnecessary terrain sampling,
@@ -197,17 +197,17 @@ repro path is:
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\standing_box_repro.scene --seed 4096348761 --no-water
 ```
 
-Debug builds can also write nudge snapshots from the object under the crosshair. The low-repro
+Debug builds can also write launcher snapshots from the object under the crosshair. The low-repro
 skill documents a useful future pattern, but the roadmap should not refer to placeholder commands
 as if they are implemented.
 
 Recommended changes:
 
 1. Keep `standing_box_repro.scene` as the canonical deterministic edge-rest repro.
-2. Add a real detector command only if seeded scenes and nudge snapshots are not enough.
+2. Add a real detector command only if seeded scenes and launcher snapshots are not enough.
 3. If a detector is added, wire it through command-line parsing, runtime reference docs, and a
    single log contract in one change.
-4. Reuse the nudge snapshot payload for any detector hit so manual and unattended captures are
+4. Reuse the launcher snapshot payload for any detector hit so manual and unattended captures are
    comparable.
 5. Keep detector scans ordered cheap-to-expensive and disabled by default.
 
@@ -277,7 +277,7 @@ multiple systems.
 
 1. Add the profiler submarkers listed above.
 2. Capture fresh physics/perf numbers for edge repro, stacking, at-rest, and generated all-box runs.
-3. Extract a shared box-terrain support classifier for terrain response and Debug nudge snapshots.
+3. Extract a shared box-terrain support classifier for terrain response and Debug launcher snapshots.
 4. Remove redundant object-contact cache sorting only if the sorted invariant is proven.
 5. Instrument position correction and contact cache hit rates.
 6. Decide whether terrain and object contact row helpers can be shared without losing the terrain

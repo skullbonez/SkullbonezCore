@@ -121,11 +121,11 @@ constexpr float EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT = 160.0f;
 constexpr float EDITOR_PLACEMENT_HULL_SCALE_WHEEL_UNIT = 0.05f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
-constexpr float NUDGE_PROJECTILE_RADIUS = 0.85f;
-constexpr float NUDGE_PROJECTILE_MASS = 6.0f;
-constexpr float NUDGE_PROJECTILE_RESTITUTION = 0.42f;
-constexpr float NUDGE_PROJECTILE_SPAWN_LEAD = 3.2f;
-constexpr float NUDGE_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
+constexpr float LAUNCHER_PROJECTILE_RADIUS = 0.85f;
+constexpr float LAUNCHER_PROJECTILE_MASS = 6.0f;
+constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
 
 struct EditorTreePartDefinition
@@ -1763,8 +1763,8 @@ void SkullbonezRun::TakeInput()
         m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
         Input::SetSystemCursorVisible( true );
         m_camera.cameraTime = 0.0f;
-        // Exiting fly mode also exits ray-test mode
-        m_camera.isNudgeMode = false;
+        // Exiting fly mode also exits launcher mode.
+        m_camera.isLauncherMode = false;
         InputController::ResetMouseLook( m_camera );
     };
 
@@ -1782,34 +1782,34 @@ void SkullbonezRun::TakeInput()
         if ( fEdge.wasPressed )
         {
             m_camera.isFlyMode = !m_camera.isFlyMode;
-            m_camera.isNudgeMode = false; // F-key fly never implies ray-test mode
+            m_camera.isLauncherMode = false; // F-key fly never implies launcher mode.
         }
 
-        // N key: toggle ray-test mode with live simulation (edge-detected).
+        // N key: toggle launcher mode with live simulation (edge-detected).
         // Entering also enters fly mode; exiting also exits fly mode.
         {
             const RuntimeKeyEdge nEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::NWasDown, 'N' );
             if ( nEdge.wasPressed )
             {
-                m_camera.isNudgeMode = !m_camera.isNudgeMode;
-                m_camera.isFlyMode = m_camera.isNudgeMode;
+                m_camera.isLauncherMode = !m_camera.isLauncherMode;
+                m_camera.isFlyMode = m_camera.isLauncherMode;
             }
         }
 
         {
             const RuntimeKeyEdge mEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::MKeyWasDown, 'M' );
-            if ( mEdge.wasPressed && m_camera.isNudgeMode )
+            if ( mEdge.wasPressed && m_camera.isLauncherMode )
             {
-                m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunNudgeFireMode::Laser ? RunNudgeFireMode::Projectile : RunNudgeFireMode::Laser;
+                m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Laser ? RunLauncherFireMode::Projectile : RunLauncherFireMode::Laser;
             }
         }
 
 #ifdef _DEBUG
         {
             const RuntimeKeyEdge enterEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EnterWasDown, VK_RETURN );
-            if ( enterEdge.wasPressed && m_camera.isNudgeMode )
+            if ( enterEdge.wasPressed && m_camera.isLauncherMode )
             {
-                WriteNudgeReproSnapshot();
+                WriteLauncherReproSnapshot();
             }
         }
 #endif
@@ -1817,7 +1817,7 @@ void SkullbonezRun::TakeInput()
         if ( m_editor.editorModeEnabled )
         {
             m_camera.isFlyMode = true;
-            m_camera.isNudgeMode = false;
+            m_camera.isLauncherMode = false;
             if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
             {
                 ToggleEditorPlacementMode();
@@ -2129,9 +2129,9 @@ void SkullbonezRun::TakeInput()
                     ClearEditorManipulationState();
                 }
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
-                m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
+                m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
                 m_camera.isFlyMode = true;
-                m_camera.isNudgeMode = false;
+                m_camera.isLauncherMode = false;
                 if ( !wasFlyMode )
                 {
                     EnterFlyModeCamera();
@@ -2157,7 +2157,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.placementScaleStart = m_editor.placementScale;
                 m_editor.placementAltitudeSteps = 0;
                 m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
-                m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
+                m_camera.isLauncherMode = m_editor.restoreRayTestModeAfterEditor;
                 m_editor.restoreFlyModeAfterEditor = false;
                 m_editor.restoreRayTestModeAfterEditor = false;
                 if ( wasFlyMode && !m_camera.isFlyMode )
@@ -2350,9 +2350,9 @@ void SkullbonezRun::TakeInput()
         {
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
         }
-        if ( uiCommands.physics.requestNudgeProjectileSpeed )
+        if ( uiCommands.physics.requestLauncherProjectileSpeed )
         {
-            m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedNudgeProjectileSpeed, UI_NUDGE_PROJECTILE_SPEED_MIN, UI_NUDGE_PROJECTILE_SPEED_MAX );
+            m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX );
         }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
@@ -2493,7 +2493,7 @@ void SkullbonezRun::TakeInput()
 
     UpdateEditorInteractionPreview();
 
-    // Editor and ray-test actions share world clicks. UI hover/capture
+    // Editor and launcher actions share world clicks. UI hover/capture
     // suppresses both so panel interaction never mutates the scene.
     {
         const bool leftMouseNow = Input::IsLeftMouseDown();
@@ -2663,7 +2663,7 @@ void SkullbonezRun::TakeInput()
         }
 
         if ( !consumedWorldClick &&
-             m_camera.isNudgeMode &&
+             m_camera.isLauncherMode &&
              leftPressed &&
              !suppressWorldActionThisFrame &&
              !m_UI.WantsNativeMouseCursor() )
@@ -2946,6 +2946,73 @@ bool SkullbonezRun::TryRayCastTestHit( const Vector3& rayOrigin, const Vector3& 
 }
 
 
+bool SkullbonezRun::TryLauncherTerrainHit( const Vector3& rayOrigin, const Vector3& rayDirection, float maxDistance, float& outT ) const
+{
+    outT = maxDistance;
+    if ( !m_systems.terrain )
+    {
+        return false;
+    }
+
+    constexpr int RAY_STEPS = 192;
+    bool hasPrevious = false;
+    float previousT = 0.0f;
+    float previousDiff = 0.0f;
+
+    for ( int step = 0; step <= RAY_STEPS; ++step )
+    {
+        const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
+        const Vector3 sample = rayOrigin + rayDirection * t;
+        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        {
+            continue;
+        }
+
+        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float diff = sample.y - terrainY;
+        if ( fabsf( diff ) <= 0.01f )
+        {
+            outT = t;
+            return true;
+        }
+
+        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
+        {
+            float lowT = previousT;
+            float highT = t;
+            for ( int refine = 0; refine < 12; ++refine )
+            {
+                const float midT = ( lowT + highT ) * 0.5f;
+                const Vector3 mid = rayOrigin + rayDirection * midT;
+                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                {
+                    lowT = midT;
+                    continue;
+                }
+                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midDiff = mid.y - midTerrainY;
+                if ( midDiff > 0.0f )
+                {
+                    lowT = midT;
+                }
+                else
+                {
+                    highT = midT;
+                }
+            }
+            outT = highT;
+            return true;
+        }
+
+        hasPrevious = true;
+        previousT = t;
+        previousDiff = diff;
+    }
+
+    return false;
+}
+
+
 void SkullbonezRun::FireRayCastTest()
 {
     if ( !m_systems.cameras )
@@ -2962,35 +3029,42 @@ void SkullbonezRun::FireRayCastTest()
     }
     rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
 
-    if ( m_rayCastTest.fireMode == RunNudgeFireMode::Projectile )
+    if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
-        FireNudgeProjectile( rayOrigin, rayDirection );
+        FireLauncherProjectile( rayOrigin, rayDirection );
         return;
     }
 
-    FireNudgeLaser( rayOrigin, rayDirection );
+    FireLauncherLaser( rayOrigin, rayDirection );
 }
 
 
-void SkullbonezRun::FireNudgeLaser( const Vector3& rayOrigin, const Vector3& rayDirection )
+void SkullbonezRun::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    int hitIndex = -1;
-    float hitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
-    const Vector3 visualEnd = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
-    m_nudgeLaser.Fire( rayOrigin,
-                       rayDirection,
-                       m_systems.cameras->GetCameraUp(),
-                       hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE,
-                       hit );
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
+    const bool hit = modelHit || terrainHit;
+    const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
+    m_launcherLaser.Fire( rayOrigin,
+                          rayDirection,
+                          m_systems.cameras->GetCameraUp(),
+                          hitT,
+                          hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
-    if ( !hit || hitIndex < 0 || hitIndex >= m_cGameModelCollection.GetModelCount() )
+    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return;
     }
 
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( hitIndex );
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
     if ( model.IsFixed() )
     {
         return;
@@ -2998,26 +3072,31 @@ void SkullbonezRun::FireNudgeLaser( const Vector3& rayOrigin, const Vector3& ray
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
-    m_cGameModelCollection.WakeModel( hitIndex );
+    m_cGameModelCollection.WakeModel( modelHitIndex );
 }
 
 
-void SkullbonezRun::FireNudgeProjectile( const Vector3& rayOrigin, const Vector3& rayDirection )
+void SkullbonezRun::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDirection )
 {
     if ( !m_systems.terrain || m_cGameModelCollection.GetModelCount() >= ActiveGameModelCapacity() )
     {
         return;
     }
 
-    int hitIndex = -1;
-    float hitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
-    const Vector3 aimPoint = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT ) ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Vector3 aimPoint = rayOrigin + rayDirection * hitT;
     const Vector3 cameraUp = m_systems.cameras ? m_systems.cameras->GetCameraUp() : Vector3( 0.0f, 1.0f, 0.0f );
     Vector3 up = cameraUp;
     const float upLenSq = VectorMagSquared( up );
     up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Vector3( 0.0f, 1.0f, 0.0f );
-    const Vector3 spawn = rayOrigin + rayDirection * NUDGE_PROJECTILE_SPAWN_LEAD - up * NUDGE_PROJECTILE_SPAWN_DOWN_OFFSET;
+    const Vector3 spawn = rayOrigin + rayDirection * LAUNCHER_PROJECTILE_SPAWN_LEAD - up * LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET;
     Vector3 velocityDir = aimPoint - spawn;
     const float velocityDirLenSq = VectorMagSquared( velocityDir );
     if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
@@ -3029,14 +3108,14 @@ void SkullbonezRun::FireNudgeProjectile( const Vector3& rayOrigin, const Vector3
         velocityDir = velocityDir * ( 1.0f / sqrtf( velocityDirLenSq ) );
     }
 
-    const float moment = 0.4f * NUDGE_PROJECTILE_MASS * NUDGE_PROJECTILE_RADIUS * NUDGE_PROJECTILE_RADIUS;
-    GameModel projectile( &m_cWorldEnvironment, spawn, Vector3( moment, moment, moment ), NUDGE_PROJECTILE_MASS );
+    const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
+    GameModel projectile( &m_cWorldEnvironment, spawn, Vector3( moment, moment, moment ), LAUNCHER_PROJECTILE_MASS );
     projectile.SetTerrain( m_systems.terrain.get() );
-    projectile.SetCoefficientRestitution( NUDGE_PROJECTILE_RESTITUTION );
-    projectile.AddBoundingSphere( NUDGE_PROJECTILE_RADIUS );
+    projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
+    projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
     projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
-    projectile.SetName( "nudge_projectile" );
+    projectile.SetName( "launcher_projectile" );
 
     const int projectileIndex = m_cGameModelCollection.GetModelCount();
     m_cGameModelCollection.AddGameModel( std::move( projectile ) );
@@ -3630,7 +3709,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Ve
         m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
     m_editorTracer.Render( viewProjection );
-    m_nudgeLaser.Render( viewProjection, cameraEye, cameraUp );
+    m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
 }
 
 

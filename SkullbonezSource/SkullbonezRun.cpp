@@ -115,7 +115,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         TextureCollection,
         CameraCollection,
         SkyBox,
-        NudgeLaser
+        LauncherLaser
     };
 
     struct BackendResourcePhase
@@ -136,7 +136,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "texture_collection", BackendResourceStep::TextureCollection, false },
         { "camera_collection", BackendResourceStep::CameraCollection, false },
         { "skybox_singleton", BackendResourceStep::SkyBox, false },
-        { "nudge_laser", BackendResourceStep::NudgeLaser, false },
+        { "launcher_laser", BackendResourceStep::LauncherLaser, false },
     };
 
     for ( const BackendResourcePhase& phase : releaseSteps )
@@ -195,8 +195,8 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
                 m_systems.skyBox->Destroy();
             }
             break;
-        case BackendResourceStep::NudgeLaser:
-            m_nudgeLaser.ResetResources();
+        case BackendResourceStep::LauncherLaser:
+            m_launcherLaser.ResetResources();
             break;
         }
 
@@ -249,7 +249,7 @@ void SkullbonezRun::RegisterBuiltInAssets()
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", Assets::ShaderProgramKind::Collision, contract( false, true, true, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.nudge_laser", "shaders/nudge_laser", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
+    m_systems.assets.RegisterShaderSourceAsset( "shader.launcher_laser", "shaders/launcher_laser", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", Assets::ShaderProgramKind::UI, contract( true, false, false, false, true ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", Assets::ShaderProgramKind::RayTracing, contract( true, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.generate_mips", "shaders/generate_mips", Assets::ShaderProgramKind::Compute, contract( true, false, false, false, false ) );
@@ -592,7 +592,7 @@ void SkullbonezRun::RunSceneLoadOnly( const char* snapshotOutPath )
 
 
 #ifdef _DEBUG
-bool SkullbonezRun::PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance )
+bool SkullbonezRun::PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance )
 {
     outIndex = -1;
     outRayT = 0.0f;
@@ -662,28 +662,28 @@ bool SkullbonezRun::PickNudgeReproTarget( int& outIndex, float& outRayT, float& 
 }
 
 
-void SkullbonezRun::WriteNudgeReproSnapshot()
+void SkullbonezRun::WriteLauncherReproSnapshot()
 {
     int targetIndex = -1;
     float rayT = 0.0f;
     float crosshairDistance = 0.0f;
-    if ( !PickNudgeReproTarget( targetIndex, rayT, crosshairDistance ) )
+    if ( !PickLauncherReproTarget( targetIndex, rayT, crosshairDistance ) )
     {
         sprintf_s( m_debug.reproSnapshotMessage,
                    sizeof( m_debug.reproSnapshotMessage ),
                    "No repro target under crosshair" );
-        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
         return;
     }
 
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
-    if ( fopen_s( &rawFile, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
+    if ( fopen_s( &rawFile, LAUNCHER_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
     {
         sprintf_s( m_debug.reproSnapshotMessage,
                    sizeof( m_debug.reproSnapshotMessage ),
                    "Failed to write repro snapshot" );
-        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
         return;
     }
     std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
@@ -800,9 +800,9 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     time_t now = time( nullptr );
-    fprintf( f, "\n=== NUDGE REPRO SNAPSHOT ===\n" );
+    fprintf( f, "\n=== LAUNCHER REPRO SNAPSHOT ===\n" );
     fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
-    fprintf( f, "snapshot_file,%s\n", NUDGE_REPRO_SNAPSHOT_PATH );
+    fprintf( f, "snapshot_file,%s\n", LAUNCHER_REPRO_SNAPSHOT_PATH );
     fprintf( f, "scene,%s\n", scenePath );
     fprintf( f, "scene_mode,%d\n", SceneState().isSceneMode ? 1 : 0 );
     fprintf( f, "scene_index,%d\n", SceneState().currentSceneIndex );
@@ -950,13 +950,13 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
                  model.GetCoefficientRestitution() );
     }
     fprintf( f, "\n" );
-    fprintf( f, "=== END NUDGE REPRO SNAPSHOT ===\n" );
+    fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );
 
     sprintf_s( m_debug.reproSnapshotMessage,
                sizeof( m_debug.reproSnapshotMessage ),
                "Repro snapshot: %s",
-               NUDGE_REPRO_SNAPSHOT_PATH );
-    m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+               LAUNCHER_REPRO_SNAPSHOT_PATH );
+    m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
 }
 #endif
 

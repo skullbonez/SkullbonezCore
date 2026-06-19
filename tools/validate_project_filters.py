@@ -141,7 +141,7 @@ CORE_PREFIXES = (
     "SkullbonezInputController",
     "SkullbonezLockOrderValidator",
     "SkullbonezLog",
-    "SkullbonezNudgeLaser",
+    "SkullbonezLauncherLaser",
     "SkullbonezPlatformProfiler",
     "SkullbonezProfiler",
     "SkullbonezRun",

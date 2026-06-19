@@ -87,8 +87,8 @@ inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 #ifdef _DEBUG
-inline constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
-inline constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
+inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
+inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
 
 inline void DrawUITestPattern( int screenW, int screenH )

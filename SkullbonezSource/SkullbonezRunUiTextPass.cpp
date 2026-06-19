@@ -115,9 +115,9 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
 
-    // Crosshair - always visible when ray-test mode is active, regardless of overlay state.
+    // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( m_run.m_camera.isNudgeMode )
+    if ( m_run.m_camera.isLauncherMode )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;
@@ -131,7 +131,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
-        const char* fireModeLabel = m_run.m_rayCastTest.fireMode == RunNudgeFireMode::Projectile ? "PROJECTILE" : "LASER";
+        const char* fireModeLabel = m_run.m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
@@ -236,7 +236,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         UIData.tornadoLiftAcceleration = m_run.m_runtimeSettings.tornadoField.liftAcceleration;
         UIData.rayCastVisualization = m_run.m_rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = m_run.m_rayCastTest.impulseStrength;
-        UIData.nudgeProjectileSpeed = m_run.m_rayCastTest.projectileSpeed;
+        UIData.launcherProjectileSpeed = m_run.m_rayCastTest.projectileSpeed;
         UIData.waterFreezeDebug = m_run.m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_run.m_debug.isWaterFlatDebug;
         UIData.terrainHidden = m_run.m_debug.isTerrainHidden;
@@ -426,14 +426,14 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
             const char* desc;
         };
         static const KeyEntry kLeft[nRows] = {
-            { "N", "Nudge mode" },
-            { "M", "Nudge fire mode" },
+            { "N", "Launcher mode" },
+            { "M", "Launcher fire mode" },
             { "Enter", "Dump repro" },
             { "F", "Fly mode" },
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "LMB", "Fire nudge" },
+            { "LMB", "Fire launcher" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },

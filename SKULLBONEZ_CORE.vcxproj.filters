@@ -325,7 +325,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezNudgeLaser.cpp">
+    <ClCompile Include="SkullbonezSource\SkullbonezLauncherLaser.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezAmortizedTask.cpp">
@@ -641,7 +641,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezNudgeLaser.h">
+    <ClInclude Include="SkullbonezSource\SkullbonezLauncherLaser.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezAmortizedTask.h">
@@ -745,7 +745,7 @@
     <None Include="SkullbonezData\shaders\grid_line.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\nudge_laser.hlsl">
+    <None Include="SkullbonezData\shaders\launcher_laser.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\lit_textured.hlsl">

@@ -148,7 +148,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezNudgeLaser.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezLauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezAmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp" />
@@ -258,7 +258,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezNudgeLaser.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezLauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezAmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
@@ -357,7 +357,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
-    <None Include="SkullbonezData\shaders\nudge_laser.hlsl" />
+    <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />
     <None Include="SkullbonezData\hulls\pyramid.hull" />

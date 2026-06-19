@@ -1254,7 +1254,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_cGameModelCollection.Clear();
 
     m_camera.isFlyMode = false;
-    m_camera.isNudgeMode = false;
+    m_camera.isLauncherMode = false;
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1545,7 +1545,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_cGameModelCollection.SetPhysicsCollisionTimeLogPath( m_perfLogState.physicsCollisionTimeLogOverride );
 #endif
 
-        // Override RNG seed for deterministic scenes. CLI --seed wins so a nudge snapshot can
+        // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
         if ( scene.GetSeed() > 0 )
         {

@@ -48,7 +48,7 @@ Relevant current code paths:
 - `SkullbonezSource/SkullbonezWindow.cpp`
   - `WndProc` handles resize, paint, escape key, and destroy.
   - It does not currently handle `WM_MOUSEMOVE`, button down/up, wheel, capture, cursor visibility, or UI input dispatch.
-  - Fly/nudge mode hides or changes the cursor and recenters it, so UI input must coordinate with camera input.
+  - Fly/launcher mode hides or changes the cursor and recenters it, so UI input must coordinate with camera input.
 
 - `SkullbonezSource/SkullbonezIRenderBackend.h`
   - Existing backend API supports viewport, blend, depth state, framebuffers, textures, and dynamic VBs.
@@ -171,9 +171,9 @@ Capture rules:
 
 - If UI is visible and the mouse is over the window, UI gets hover.
 - If the user presses on a draggable/resizable/scrollable UI region, UI captures until button up.
-- While UI captures, camera fly-look and nudge mouse movement should not consume mouse deltas.
+- While UI captures, camera fly-look and launcher mouse movement should not consume mouse deltas.
 - When UI is visible, show the arrow cursor.
-- When UI is hidden and fly/nudge mode owns the mouse, preserve the current cursor behavior.
+- When UI is hidden and fly/launcher mode owns the mouse, preserve the current cursor behavior.
 
 This prevents the classic failure where dragging a UI window also rotates the camera.
 
@@ -336,7 +336,7 @@ Target:
 - Add `UiManager` lifetime to `SkullbonezRun`.
 - Change `0` key to toggle UI visibility.
 - Show cursor when UI is open.
-- Prevent fly/nudge mouse-look while UI has capture.
+- Prevent fly/launcher mouse-look while UI has capture.
 
 Validation when code starts:
 
@@ -427,7 +427,7 @@ Concrete first milestone scope:
 - Window shows `Overview`, `Profiler`, `Scene`, and `Keys`.
 - UI is semi-transparent and polished.
 - Existing hotkeys still work when the UI is hidden.
-- UI input does not fight fly/nudge camera input.
+- UI input does not fight fly/launcher camera input.
 - No per-frame allocations in the UI path.
 
 Once that feels good, move to cached compositing and then frosted blur.

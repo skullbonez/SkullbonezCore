@@ -142,9 +142,9 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
 
     // ENGINE-SPECIFIC:
     //   Catto uses the bias term for penetration correction. This partial
-    //   post-solve nudge is local visual cleanup for the current approximate
+    //   post-solve correction is local visual cleanup for the current approximate
     //   object manifolds; it is intentionally partial so stacks do not pop.
-    // A final direct positional nudge catches the remaining overlap after the
+    // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     const float positionCorrectionPercent = (std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );
 

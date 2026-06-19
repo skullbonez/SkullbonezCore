@@ -17,7 +17,7 @@ The goal is to convert "I saw an impossible physics state once" into:
 4. minimal manual input while the loop runs.
 
 The current edge-rest work is a deterministic seeded scene plus debug snapshot workflow. Treat a
-dedicated unattended detector as the next step only when the scene and nudge snapshots are not
+dedicated unattended detector as the next step only when the scene and launcher snapshots are not
 enough.
 
 ## Generic Capture Pattern
@@ -54,7 +54,7 @@ Every low-repro capture log should include:
 - detector-specific fields,
 - a replay command hint.
 
-Prefer reusing the same snapshot payload used by nudge-mode repro logging so manual and unattended captures produce comparable artifacts.
+Prefer reusing the same snapshot payload used by launcher-mode repro logging so manual and unattended captures produce comparable artifacts.
 
 ## Detector Design
 
@@ -76,7 +76,7 @@ Examples:
 ## Runbook
 
 1. Build the target configuration. Use Profile for fast visual repro runs, or Debug when you need
-   nudge snapshot output:
+   launcher snapshot output:
 
 ```bat
 tools\validate_build.bat Profile
@@ -89,8 +89,8 @@ tools\validate_build.bat Debug
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene.json --seed 4096348761 --no-water
 ```
 
-3. When a snapshot is needed, rerun the same command with `Debug\SKULLBONEZ_CORE.exe`, enter nudge
-   mode, and press Enter on the suspicious object to append to `Debug\nudge_repro_snapshots.txt`.
+3. When a snapshot is needed, rerun the same command with `Debug\SKULLBONEZ_CORE.exe`, enter launcher
+   mode, and press Enter on the suspicious object to append to `Debug\launcher_repro_snapshots.txt`.
 4. Use the logged replay command and snapshot fields to debug in `Debug` or under CDB.
 
 If a future detector writes a log, preserve hit artifacts before rerunning the same path.

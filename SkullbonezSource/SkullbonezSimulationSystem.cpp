@@ -50,7 +50,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     result.shouldUpdateLogic = true;
     result.cameraDt = static_cast<float>( input.secondsPerFrame );
 
-    const bool shouldStepPhysics = !input.isFlyMode || input.isNudgeMode || input.isStepRequested;
+    const bool shouldStepPhysics = !input.isFlyMode || input.isLauncherMode || input.isStepRequested;
     if ( input.isFixedStep )
     {
         // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.

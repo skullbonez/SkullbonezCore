@@ -145,7 +145,7 @@ struct InGameUIFrameData
     float tornadoSwirlAcceleration = 0.0f;
     float tornadoLiftAcceleration = 0.0f;
     float rayCastImpulseStrength = 0.0f;
-    float nudgeProjectileSpeed = 0.0f;
+    float launcherProjectileSpeed = 0.0f;
     bool waterFreezeDebug = false;
     bool waterFlatDebug = false;
     bool terrainHidden = false;

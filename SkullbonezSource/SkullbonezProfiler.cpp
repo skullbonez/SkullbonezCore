@@ -1256,7 +1256,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     Text2d::Render2dTextColor( barX1 - totalsW, ty + titleH * 0.35f, fSz * 0.9f, 0.85f, 0.85f, 0.85f, "%s", totalsBuf );
 
     // --- CPU bar ---
-    float cpuBarY = ty - barGap - barHeight * 0.4f; // nudge down so title doesn't overlap
+    float cpuBarY = ty - barGap - barHeight * 0.4f; // shift down so title doesn't overlap
     Text2d::Render2dTextColor( barX0, cpuBarY + barHeight * 0.3f, fSz, 0.85f, 0.85f, 0.85f, "CPU" );
     float cpuLabelW = Text2d::MeasureText( fSz, "CPU " ) + pad * 0.5f;
     float cpuBarX0 = barX0 + cpuLabelW;

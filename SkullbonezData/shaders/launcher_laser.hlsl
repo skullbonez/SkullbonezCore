@@ -1,14 +1,14 @@
 /*
-File: SkullbonezData/shaders/nudge_laser.hlsl
+File: SkullbonezData/shaders/launcher_laser.hlsl
 Purpose:
-  Draws nudge-mode laser ribbon triangles.
+  Draws launcher-mode laser ribbon triangles.
 
 Mental model:
   CPU code builds short-lived world-space ribbon quads. The shader only
   transforms them and forwards per-vertex color/alpha.
 
 Related:
-  - SkullbonezSource/SkullbonezNudgeLaser.cpp
+  - SkullbonezSource/SkullbonezLauncherLaser.cpp
 */
 #pragma pack_matrix(column_major)
 

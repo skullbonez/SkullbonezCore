@@ -1,14 +1,14 @@
 /*
-File: SkullbonezSource/SkullbonezNudgeLaser.h
+File: SkullbonezSource/SkullbonezLauncherLaser.h
 Purpose:
-  Owns nudge-mode laser ribbon shots and their transient render resources.
+  Owns launcher-mode laser ribbon shots and their transient render resources.
 
 Mental model:
-  The laser is display-only feedback for camera ray nudges. It never changes
+  The laser is display-only feedback for launcher-mode ray shots. It never changes
   physics state; callers provide the already-computed hit/miss segment.
 
 Related:
-  - SkullbonezSource/SkullbonezNudgeLaser.cpp
+  - SkullbonezSource/SkullbonezLauncherLaser.cpp
   - SkullbonezSource/SkullbonezRunInput.cpp
 */
 #pragma once
@@ -30,13 +30,15 @@ class IShader;
 
 namespace Basics
 {
-class NudgeLaser
+class LauncherLaser
 {
   private:
     struct Shot
     {
         Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
         Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
+        Math::Vector::Vector3 cameraRight = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
+        Math::Vector::Vector3 cameraUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
         float ageSeconds = 0.0f;
         float lifetimeSeconds = 0.18f;
         bool active = false;
@@ -44,7 +46,7 @@ class NudgeLaser
     };
 
     static constexpr std::size_t MAX_SHOTS = 32;
-    static constexpr int MAX_VERTICES = static_cast<int>( MAX_SHOTS * 36 );
+    static constexpr int MAX_VERTICES = static_cast<int>( MAX_SHOTS * 96 );
 
     std::array<Shot, MAX_SHOTS> m_shots = {};
     int m_nextShot = 0;
@@ -70,13 +72,20 @@ class NudgeLaser
                      float g,
                      float bl,
                      float alpha );
-    void EmitShot( const Shot& shot,
-                   const Math::Vector::Vector3& cameraEye,
-                   const Math::Vector::Vector3& cameraUp );
+    void EmitBillboardQuad( const Math::Vector::Vector3& center,
+                            const Math::Vector::Vector3& right,
+                            const Math::Vector::Vector3& up,
+                            float halfWidth,
+                            float halfHeight,
+                            float r,
+                            float g,
+                            float bl,
+                            float alpha );
+    void EmitShot( const Shot& shot );
 
   public:
-    NudgeLaser();
-    ~NudgeLaser();
+    LauncherLaser();
+    ~LauncherLaser();
 
     void ResetResources();
     void Clear();

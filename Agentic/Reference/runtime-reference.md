@@ -17,7 +17,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--switch-interval` | retired | Rejected because DX12 is the only runtime renderer. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
-| `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with nudge repro snapshots. |
+| `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with launcher repro snapshots. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--tornado` | optional `on`, `off` | Start with the generated-demo tornado force field enabled or disabled. Bare flag means `on`; the Physics tab can still toggle it live. |
@@ -161,10 +161,10 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 |-----|--------|
 | Esc | Quit |
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
-| N | Toggle nudge mode. Free camera with live simulation. |
-| M | In nudge mode, cycle between laser ray impulse and small projectile modes. |
-| Left Click | In nudge mode, fire the selected nudge action from the camera. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
-| Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
+| N | Toggle launcher mode. Free camera with live simulation. |
+| M | In launcher mode, cycle between laser ray impulse and small projectile modes. |
+| Left Click | In launcher mode, fire the selected launcher action from the camera. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
+| Enter | In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
@@ -188,7 +188,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 
-Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly mode is paused.
+Fly and launcher mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly mode is paused.
 
 ## Test Scenes
 
@@ -221,5 +221,5 @@ The log singleton lazily opens files and compiles out in Release/Profile where t
 Runtime lifecycle events go to `Debug/runtime_events.log` in Debug builds. The engine records process start, scene start, scene finish, ignored retired renderer switches, fatal exceptions, and unhandled crash stack traces in that file.
 Use `Debug\SKULLBONEZ_CORE.exe --debug-crash-test` to intentionally exercise the crash stack logger.
 
-Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, DX12 renderer name, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
+Debug builds also support launcher-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, DX12 renderer name, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/launcher_repro_snapshots.txt`.
 Snapshots also include scene load/reset counts and a `--seed` replay hint so an object can be reproduced from a fresh process.

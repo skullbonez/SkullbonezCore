@@ -56,7 +56,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.water_ocean", "shaders/water_ocean" },
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
-        { "shader.nudge_laser", "shaders/nudge_laser" },
+        { "shader.launcher_laser", "shaders/launcher_laser" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
         { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
         { "shader.reflect_rt", "shaders/reflect.rt" },

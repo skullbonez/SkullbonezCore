@@ -20,7 +20,7 @@ the existing persistent solver:
 - Persistent contact cache keys preserve the wider feature IDs needed by hull
   contacts.
 - Scene files can author `convex_hull` and `floating_convex_hull` bodies.
-- SkullScope, nudge repro snapshots, and collision/physics visualizers report or
+- SkullScope, launcher repro snapshots, and collision/physics visualizers report or
   display hull-specific shape information.
 - Added a wedge hull asset plus a focused `convex_hull_collision.scene` fixture
   that exercises sphere/hull, box/hull, and hull/hull contacts.
@@ -136,7 +136,7 @@ feature IDs are not truncated to 16 bits. Hull bodies use world-space inertia
 where needed and rolling-friction radius scaling is hull-aware.
 
 `SkullbonezSkullScope.cpp` records `shape:"convex_hull"` and hull names/counts.
-`SkullbonezRun.cpp` writes hull details into nudge repro snapshots.
+`SkullbonezRun.cpp` writes hull details into launcher repro snapshots.
 `SkullbonezPhysicsDebugVisualizer.cpp` can draw authored hull wireframes through
 the existing debug-line path. `SkullbonezCollisionVisualizer.cpp` renders hulls
 as solid validated AABB/inertia box proxies rather than sphere proxies; the
