@@ -150,6 +150,7 @@ For exact field names, inspect existing files in `SkullbonezData/scenes/` and th
 Styles include `SkullbonezData/styles/<name>.style.json` through the `styles` or `includes` arrays. Style files hold reusable render-look JSON such as `cinematic` and `objectMaterials`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing.
 Asset libraries use `format: "skullbonez.asset_library.json"` and live under `SkullbonezData/assets/` when referenced by bare name. `assetInstances[]` entries expand `convexHull` assets or `compound` stacked-hull assets into ordinary scene objects; instance `fixed`, `position`, `euler`, and `velocity` values override or offset the asset defaults.
 `objectMaterials[]` entries accept `target`, `mode`, `tint`/`color`/`colour`, and material response options: `roughness`, `metallic`, `specular`, `emissive`, `strength`, `transmission`, `stylization`, `flags`, and `name`. Targets are `all`, `balls`, `boxes`, `hulls`, `convex_hulls`, `prefix:<name>`, or an exact model name.
+`SkullbonezData/assets/low_poly_nature.assets.json` contains reusable rock hulls plus stacked tree compounds, including `tree.pine_stack`, `tree.cedar_stack`, and `tree.small_stack`.
 The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic` JSON overrides, so `.style.json` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
@@ -170,6 +171,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Alt | In edit mode, toggle Place/Gizmo mode. |
 | Tab | In edit mode, cycle the placement object type. |
 | Ctrl+Tab | In edit mode, toggle new placements between static/fixed and dynamic/physics. |
+| Tree Small / Tree Big placement | Tab-selectable tree objects place the full stacked tree at once. With Static object enabled, all tree hulls are fixed; with dynamic placement, the trunk and foliage tiers are separate physics hulls that can be knocked over. |
 | 0 | Toggle profiler overlay. |
 | 1 | Freeze or unfreeze water animation. |
 | 2 | Toggle water reflection pass. |

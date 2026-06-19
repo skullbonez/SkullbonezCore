@@ -175,6 +175,21 @@
       ]
     },
     {
+      "asset": "tree.small_stack",
+      "name": "display_tree_small_static",
+      "position": [
+        418,
+        0,
+        610
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
       "asset": "tree.pine_stack",
       "name": "display_tree_static_left",
       "position": [
@@ -216,6 +231,21 @@
       "euler": [
         0,
         8,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "display_tree_small_physical",
+      "position": [
+        675,
+        0,
+        586
+      ],
+      "fixed": false,
+      "euler": [
+        0,
+        -22,
         0
       ]
     },

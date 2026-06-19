@@ -33,6 +33,8 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
@@ -121,6 +123,68 @@ constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
 
 
+struct EditorTreePartDefinition
+{
+    EditorHullAsset hullAsset;
+    const char* suffix;
+    float offsetX;
+    float offsetY;
+    float offsetZ;
+    float mass;
+    float restitution;
+    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
+    const char* materialName;
+    float colorR;
+    float colorG;
+    float colorB;
+    float roughness;
+    float specular;
+    float stylization;
+};
+
+
+struct EditorTreeDefinition
+{
+    const char* label;
+    const EditorTreePartDefinition* parts;
+    int partCount;
+};
+
+
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
+    { EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f },
+    { EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 14.5f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 22.5f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 29.5f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f },
+};
+constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
+    { EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f },
+    { EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 22.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 31.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 39.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f },
+};
+constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_big", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
+
+
+const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL:
+        return &EDITOR_TREE_SMALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG:
+        return &EDITOR_TREE_BIG;
+    default:
+        return nullptr;
+    }
+}
+
+
 EditorHullAsset EditorHullAssetForType( int objectType )
 {
     switch ( objectType )
@@ -143,29 +207,85 @@ EditorHullAsset EditorHullAssetForType( int objectType )
 }
 
 
-const char* EditorHullPathForType( int objectType )
+const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
-    return EditorHullAssetPath( EditorHullAssetForType( objectType ) );
+    const char* path = EditorHullAssetPath( asset );
+    if ( !path )
+    {
+        return nullptr;
+    }
+
+    static std::array<ConvexHullShape, EDITOR_HULL_ASSET_COUNT> hulls = {};
+    static std::array<bool, EDITOR_HULL_ASSET_COUNT> loaded = {};
+    for ( std::size_t i = 0; i < EDITOR_HULL_ASSET_COUNT; ++i )
+    {
+        if ( EDITOR_HULL_ASSETS[i].asset != asset )
+        {
+            continue;
+        }
+        if ( !loaded[i] )
+        {
+            hulls[i] = ConvexHullShape::LoadFromFile( path );
+            loaded[i] = true;
+        }
+        return &hulls[i];
+    }
+    return nullptr;
 }
 
 
 const ConvexHullShape* CachedEditorHullForType( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    const char* path = EditorHullPathForType( type );
-    if ( !path )
-    {
-        return nullptr;
-    }
+    return CachedEditorHullForAsset( EditorHullAssetForType( type ) );
+}
 
-    static std::array<ConvexHullShape, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> hulls = {};
-    static std::array<bool, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> loaded = {};
-    if ( !loaded[type] )
+
+bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
+{
+    outMinY = FLT_MAX;
+    outMaxY = -FLT_MAX;
+    for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
-        hulls[type] = ConvexHullShape::LoadFromFile( path );
-        loaded[type] = true;
+        const EditorTreePartDefinition& part = tree.parts[partIndex];
+        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        if ( !hull )
+        {
+            return false;
+        }
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+        {
+            const float y = part.offsetY + hull->GetPosition().y + hull->GetVertex( vertexIndex ).y;
+            outMinY = (std::min)( outMinY, y );
+            outMaxY = (std::max)( outMaxY, y );
+        }
     }
-    return &hulls[type];
+    return outMinY != FLT_MAX && outMaxY != -FLT_MAX;
+}
+
+
+float EditorTreeVerticalSize( int objectType )
+{
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
+    if ( !tree )
+    {
+        return 1.0f;
+    }
+    float minY = 0.0f;
+    float maxY = 1.0f;
+    return TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
+}
+
+
+SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
+{
+    SkullbonezCore::Rendering::RenderMaterial material =
+        SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB, static_cast<float>( part.materialKind ) );
+    strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
+    material.roughness = part.roughness;
+    material.specular = part.specular;
+    material.stylization = part.stylization;
+    return material;
 }
 
 
@@ -190,7 +310,7 @@ bool EditorPlacementUsesUniformScale( int objectType )
 bool EditorPlacementUsesHullScaleFactors( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    return type >= SkullbonezCore::UI::EditorTab::OBJECT_HULL_WEDGE;
+    return EditorHullAssetForType( type ) != EditorHullAsset::UNKNOWN;
 }
 
 
@@ -214,6 +334,11 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( EditorTreeDefinitionForType( type ) )
+    {
+        return Vector3( 1.0f, 1.0f, 1.0f );
+    }
+
     if ( EditorPlacementUsesUniformScale( type ) )
     {
         const float radius = std::clamp( scale.x, 0.25f, 200.0f );
@@ -291,6 +416,10 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         return scale.x * 2.0f;
     default:
     {
+        if ( EditorTreeDefinitionForType( type ) )
+        {
+            return EditorTreeVerticalSize( type );
+        }
         ConvexHullShape hull;
         return TryBuildScaledEditorHullForType( type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
     }
@@ -1244,6 +1373,33 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
     constexpr float ghostG = 1.0f;
     constexpr float ghostB = 0.85f;
 
+    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
+    {
+        float minY = 0.0f;
+        float maxY = 1.0f;
+        if ( !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
+        {
+            return;
+        }
+        const Vector3 base( center.x, center.y - ( minY + maxY ) * 0.5f, center.z );
+        for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = tree->parts[partIndex];
+            const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !hull )
+            {
+                continue;
+            }
+            const Vector3 hullCenter = base + Vector3( part.offsetX, part.offsetY, part.offsetZ ) + hull->GetPosition();
+            for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+            {
+                const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+                EmitLine( hullCenter + hull->GetVertex( edge.vertexA ), hullCenter + hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+            }
+        }
+        return;
+    }
+
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
@@ -1597,7 +1753,7 @@ void SkullbonezRun::TakeInput()
                 {
                     EnterInteractiveSceneRun();
                     m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-                    m_editor.placementPreviewVisible = false;
+                    ClearEditorManipulationState();
                 }
             }
         }
@@ -2893,6 +3049,19 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
     case UI::EditorTab::OBJECT_SPHERE:
         outCenter = Vector3( terrainPoint.x, terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         return true;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+    case UI::EditorTab::OBJECT_TREE_BIG:
+    {
+        const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+        float minY = 0.0f;
+        float maxY = 1.0f;
+        if ( !tree || !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
+        {
+            return false;
+        }
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + ( minY + maxY ) * 0.5f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    }
     default:
     {
         ConvexHullShape hull;
@@ -3334,14 +3503,16 @@ void SkullbonezRun::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
 void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
 {
     const int modelCount = m_cGameModelCollection.GetModelCount();
-    if ( modelCount >= ActiveGameModelCapacity() )
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+    const int requiredModelCount = tree ? tree->partCount : 1;
+    if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
         return;
     }
 
     EnterInteractiveSceneRun();
-    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 placementScale = EditorClampPlacementScale( type, m_editor.placementScale );
     const int serial = m_editor.placedObjectSerial++;
     const char* modePrefix = fixedObject ? "static" : "dynamic";
@@ -3423,6 +3594,45 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addModel( std::move( model ) );
     };
 
+    auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+    {
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            if ( !CachedEditorHullForAsset( part.hullAsset ) )
+            {
+                fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n", EditorHullAssetToken( part.hullAsset ) );
+                return;
+            }
+        }
+
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !sourceHull )
+            {
+                continue;
+            }
+            ConvexHullShape hull = *sourceHull;
+            const Vector3 center( terrainPoint.x + part.offsetX,
+                                  terrainPoint.y + part.offsetY + EDITOR_PLACEMENT_SURFACE_EPSILON,
+                                  terrainPoint.z + part.offsetZ );
+            GameModel model( &m_cWorldEnvironment,
+                             center,
+                             hull.ComputeBoxApproxInertia( part.mass ),
+                             part.mass );
+            model.SetTerrain( m_systems.terrain.get() );
+            model.SetCoefficientRestitution( part.restitution );
+            model.AddConvexHull( hull );
+            model.SetRenderMaterial( EditorTreePartMaterial( part ) );
+            char name[64];
+            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
+            model.SetName( name );
+            addModel( std::move( model ) );
+        }
+    };
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
@@ -3451,6 +3661,18 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         break;
     case UI::EditorTab::OBJECT_HULL_DIAMOND:
         addHull( EditorHullAsset::DIAMOND );
+        break;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
+        break;
+    case UI::EditorTab::OBJECT_TREE_BIG:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
         break;
     default:
         break;

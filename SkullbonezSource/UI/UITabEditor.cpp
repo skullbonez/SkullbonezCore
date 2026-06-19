@@ -47,6 +47,8 @@ const char* const kEditorObjectOptions[] = {
     "Hull pyramid",
     "Hull hex prism",
     "Hull diamond",
+    "Tree small",
+    "Tree big",
 };
 
 void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,

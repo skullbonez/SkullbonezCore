@@ -1,0 +1,22 @@
+hull_version 1
+name tree_trunk_small_faceted
+vertex 2.0 -6.5 0
+vertex 1.0 -6.5 1.73
+vertex -1.0 -6.5 1.73
+vertex -2.0 -6.5 0
+vertex -1.0 -6.5 -1.73
+vertex 1.0 -6.5 -1.73
+vertex 2.0 6.5 0
+vertex 1.0 6.5 1.73
+vertex -1.0 6.5 1.73
+vertex -2.0 6.5 0
+vertex -1.0 6.5 -1.73
+vertex 1.0 6.5 -1.73
+face 0 1 2 3 4 5
+face 6 7 8 9 10 11
+face 0 6 7 1
+face 1 7 8 2
+face 2 8 9 3
+face 3 9 10 4
+face 4 10 11 5
+face 5 11 6 0

@@ -83,6 +83,108 @@
       }
     },
     {
+      "name": "tree.small_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "hull": "SkullbonezData/hulls/tree_trunk_small_faceted.hull",
+          "offset": [
+            0,
+            6.5,
+            0
+          ],
+          "mass": 42.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_bark",
+            "mode": "bark",
+            "color": [
+              0.3,
+              0.14,
+              0.055
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.5
+          }
+        },
+        {
+          "name": "low",
+          "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+          "offset": [
+            0,
+            14.5,
+            0
+          ],
+          "mass": 26.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_low",
+            "mode": "foliage",
+            "color": [
+              0.055,
+              0.24,
+              0.12
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "mid",
+          "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+          "offset": [
+            0,
+            22.5,
+            0
+          ],
+          "mass": 18.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.075,
+              0.3,
+              0.15
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "top",
+          "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+          "offset": [
+            0,
+            29.5,
+            0
+          ],
+          "mass": 12.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "small_tree_needles_top",
+            "mode": "foliage",
+            "color": [
+              0.1,
+              0.36,
+              0.18
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        }
+      ]
+    },
+    {
       "name": "tree.pine_stack",
       "type": "compound",
       "parts": [
