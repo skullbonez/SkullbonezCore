@@ -171,6 +171,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Alt | In edit mode, toggle Place/Gizmo mode. |
 | Tab | In edit mode, cycle the placement object type. |
 | Ctrl+Tab | In edit mode, toggle new placements between static/fixed and dynamic/physics. |
+| Rock placement | Tab-selectable rock slab, lump, shard, and chipped-block entries place the authored convex hull rock assets with their stone material colors. |
 | Tree Small / Tree Big placement | Tab-selectable tree objects place the full stacked tree at once. With Static object enabled, all tree hulls are fixed; with dynamic placement, the trunk and foliage tiers are separate physics hulls that can be knocked over. |
 | 0 | Toggle profiler overlay. |
 | 1 | Freeze or unfreeze water animation. |

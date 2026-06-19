@@ -201,6 +201,14 @@ EditorHullAsset EditorHullAssetForType( int objectType )
         return EditorHullAsset::HEX_PRISM;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_DIAMOND:
         return EditorHullAsset::DIAMOND;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SLAB:
+        return EditorHullAsset::ROCK_SLAB_FLAT;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_LUMP:
+        return EditorHullAsset::ROCK_LUMP_LARGE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SHARD:
+        return EditorHullAsset::ROCK_SHARD_TALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_CHIPPED:
+        return EditorHullAsset::ROCK_CHIPPED_BLOCK;
     default:
         return EditorHullAsset::UNKNOWN;
     }
@@ -286,6 +294,62 @@ SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTr
     material.specular = part.specular;
     material.stylization = part.stylization;
     return material;
+}
+
+
+bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::RenderMaterial& outMaterial )
+{
+    const char* name = nullptr;
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+    float roughness = 0.96f;
+    float specular = 0.08f;
+    float stylization = 0.66f;
+
+    switch ( asset )
+    {
+    case EditorHullAsset::ROCK_SLAB_FLAT:
+        name = "editor_cool_blue_stone";
+        r = 0.34f;
+        g = 0.42f;
+        b = 0.58f;
+        stylization = 0.72f;
+        break;
+    case EditorHullAsset::ROCK_LUMP_LARGE:
+        name = "editor_moss_grey_stone";
+        r = 0.31f;
+        g = 0.39f;
+        b = 0.35f;
+        roughness = 0.98f;
+        specular = 0.07f;
+        break;
+    case EditorHullAsset::ROCK_SHARD_TALL:
+        name = "editor_violet_granite";
+        r = 0.44f;
+        g = 0.38f;
+        b = 0.55f;
+        specular = 0.11f;
+        stylization = 0.70f;
+        break;
+    case EditorHullAsset::ROCK_CHIPPED_BLOCK:
+        name = "editor_warm_chipped_stone";
+        r = 0.52f;
+        g = 0.45f;
+        b = 0.40f;
+        roughness = 0.97f;
+        stylization = 0.62f;
+        break;
+    default:
+        return false;
+    }
+
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( r, g, b, static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
+    strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
+    outMaterial.roughness = roughness;
+    outMaterial.specular = specular;
+    outMaterial.stylization = stylization;
+    return true;
 }
 
 
@@ -3587,7 +3651,15 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( scaledHull );
-        ApplyEditorSpawnMaterial( model, fixedObject, false );
+        SkullbonezCore::Rendering::RenderMaterial rockMaterial;
+        if ( TryEditorRockMaterial( asset, rockMaterial ) )
+        {
+            model.SetRenderMaterial( rockMaterial );
+        }
+        else
+        {
+            ApplyEditorSpawnMaterial( model, fixedObject, false );
+        }
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
@@ -3661,6 +3733,18 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         break;
     case UI::EditorTab::OBJECT_HULL_DIAMOND:
         addHull( EditorHullAsset::DIAMOND );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SLAB:
+        addHull( EditorHullAsset::ROCK_SLAB_FLAT );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_LUMP:
+        addHull( EditorHullAsset::ROCK_LUMP_LARGE );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SHARD:
+        addHull( EditorHullAsset::ROCK_SHARD_TALL );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_CHIPPED:
+        addHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
         break;
     case UI::EditorTab::OBJECT_TREE_SMALL:
         if ( tree )

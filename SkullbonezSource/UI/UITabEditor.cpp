@@ -47,6 +47,10 @@ const char* const kEditorObjectOptions[] = {
     "Hull pyramid",
     "Hull hex prism",
     "Hull diamond",
+    "Rock slab",
+    "Rock lump",
+    "Rock shard",
+    "Rock chipped",
     "Tree small",
     "Tree big",
 };
