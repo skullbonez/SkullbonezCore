@@ -46,6 +46,7 @@ enum class AssetKind
     MaterialPreset,
     StyleFile,
     SceneFile,
+    AssetLibrary,
     Terrain,
     Font,
     Texture = Texture2D,
@@ -111,6 +112,14 @@ struct ShaderSourceAsset
     ShaderProgramContract contract;
 };
 
+struct AssetLibrarySourceAsset
+{
+    AssetId id = 0;
+    std::string logicalName;
+    std::string relativePath;
+    std::string resolvedPath;
+};
+
 class AssetSystem
 {
   public:
@@ -134,16 +143,23 @@ class AssetSystem
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
     std::unique_ptr<Rendering::IShader> CreateShader( const char* logicalNameOrBaseName ) const;
 
+    const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
+    const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;
+    const AssetLibrarySourceAsset* FindAssetLibrarySourceAssetById( AssetId id ) const;
+    const std::vector<AssetLibrarySourceAsset>& GetAssetLibrarySourceAssets() const;
+
     void Clear();
     size_t GetSourceAssetCount() const;
     size_t GetTextureSourceAssetCount() const;
     size_t GetShaderSourceAssetCount() const;
+    size_t GetAssetLibrarySourceAssetCount() const;
 
   private:
     std::string m_dataRoot;
     std::vector<SourceAssetRecord> m_sourceAssets;
     std::vector<TextureSourceAsset> m_textureAssets;
     std::vector<ShaderSourceAsset> m_shaderAssets;
+    std::vector<AssetLibrarySourceAsset> m_assetLibraryAssets;
     AssetId m_nextAssetId = 1;
     uint32_t m_nextGeneration = 1;
 };

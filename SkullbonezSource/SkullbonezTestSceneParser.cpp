@@ -21,6 +21,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTestScene.h"
+#include "SkullbonezAssetSystem.h"
 
 #include <algorithm>
 #include <cctype>
@@ -526,6 +527,22 @@ class TestSceneParser
         {
             return token;
         }
+
+        const Assets::AssetSystem* assets = Assets::ActiveAssetSystem();
+        if ( assets )
+        {
+            if ( const Assets::AssetLibrarySourceAsset* library = assets->FindAssetLibrarySourceAsset( token.c_str() ) )
+            {
+                return library->resolvedPath;
+            }
+
+            const std::string prefixedToken = std::string( "assetlib." ) + token;
+            if ( const Assets::AssetLibrarySourceAsset* library = assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
+            {
+                return library->resolvedPath;
+            }
+        }
+
         return std::string( "SkullbonezData/assets/" ) + token + ".assets.json";
     }
 

@@ -221,6 +221,8 @@ void SkullbonezRun::RegisterBuiltInAssets()
     m_systems.assets.RegisterTextureSourceAsset( "texture.sky.up", cfg.skyUp.c_str(), TEXTURE_SKY_UP, true, true, 3 );
     m_systems.assets.RegisterTextureSourceAsset( "texture.sky.down", cfg.skyDown.c_str(), TEXTURE_SKY_DOWN, true, true, 3 );
 
+    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature", "assets/low_poly_nature.assets.json" );
+
     auto contract = []( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
     {
         Assets::ShaderProgramContract result;

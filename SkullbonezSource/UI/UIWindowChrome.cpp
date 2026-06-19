@@ -69,7 +69,7 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
         }
         else
         {
-            snprintf( out, outSize, "%s  frame %d", data.sceneName, displayedFrame );
+            snprintf( out, outSize, "%s", data.sceneName );
         }
     }
     else
