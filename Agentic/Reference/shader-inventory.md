@@ -40,6 +40,7 @@ return without failing the draw.
 |--------|------|
 | `collision_visualizer.hlsl` | Per-instance colored collision/sleep-state overlay. |
 | `grid_line.hlsl` | Broadphase/grid line overlay. |
+| `nudge_laser.hlsl` | Nudge-mode transient laser ribbon overlay. |
 | `lit_textured.hlsl` | Non-instanced lit terrain/object rendering. |
 | `lit_textured_instanced.hlsl` | Instanced lit dynamic-object rendering. |
 | `post_tonemap.hlsl` | HDR scene tonemap and final composite. |

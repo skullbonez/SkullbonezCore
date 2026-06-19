@@ -114,7 +114,8 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         ProfilerQueries,
         TextureCollection,
         CameraCollection,
-        SkyBox
+        SkyBox,
+        NudgeLaser
     };
 
     struct BackendResourcePhase
@@ -135,6 +136,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "texture_collection", BackendResourceStep::TextureCollection, false },
         { "camera_collection", BackendResourceStep::CameraCollection, false },
         { "skybox_singleton", BackendResourceStep::SkyBox, false },
+        { "nudge_laser", BackendResourceStep::NudgeLaser, false },
     };
 
     for ( const BackendResourcePhase& phase : releaseSteps )
@@ -193,6 +195,9 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
                 m_systems.skyBox->Destroy();
             }
             break;
+        case BackendResourceStep::NudgeLaser:
+            m_nudgeLaser.ResetResources();
+            break;
         }
 
         if ( phase.flushAfter && IsGfxReady() )
@@ -242,6 +247,7 @@ void SkullbonezRun::RegisterBuiltInAssets()
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", Assets::ShaderProgramKind::Collision, contract( false, true, true, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
+    m_systems.assets.RegisterShaderSourceAsset( "shader.nudge_laser", "shaders/nudge_laser", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", Assets::ShaderProgramKind::UI, contract( true, false, false, false, true ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", Assets::ShaderProgramKind::RayTracing, contract( true, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.generate_mips", "shaders/generate_mips", Assets::ShaderProgramKind::Compute, contract( true, false, false, false, false ) );

@@ -121,6 +121,11 @@ constexpr float EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT = 160.0f;
 constexpr float EDITOR_PLACEMENT_HULL_SCALE_WHEEL_UNIT = 0.05f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
+constexpr float NUDGE_PROJECTILE_RADIUS = 0.85f;
+constexpr float NUDGE_PROJECTILE_MASS = 6.0f;
+constexpr float NUDGE_PROJECTILE_RESTITUTION = 0.42f;
+constexpr float NUDGE_PROJECTILE_SPAWN_LEAD = 3.2f;
+constexpr float NUDGE_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
 
 struct EditorTreePartDefinition
@@ -1791,6 +1796,14 @@ void SkullbonezRun::TakeInput()
             }
         }
 
+        {
+            const RuntimeKeyEdge mEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::MKeyWasDown, 'M' );
+            if ( mEdge.wasPressed && m_camera.isNudgeMode )
+            {
+                m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunNudgeFireMode::Laser ? RunNudgeFireMode::Projectile : RunNudgeFireMode::Laser;
+            }
+        }
+
 #ifdef _DEBUG
         {
             const RuntimeKeyEdge enterEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EnterWasDown, VK_RETURN );
@@ -2337,6 +2350,10 @@ void SkullbonezRun::TakeInput()
         {
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
         }
+        if ( uiCommands.physics.requestNudgeProjectileSpeed )
+        {
+            m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedNudgeProjectileSpeed, UI_NUDGE_PROJECTILE_SPEED_MIN, UI_NUDGE_PROJECTILE_SPEED_MAX );
+        }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
             ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
@@ -2651,6 +2668,7 @@ void SkullbonezRun::TakeInput()
              !suppressWorldActionThisFrame &&
              !m_UI.WantsNativeMouseCursor() )
         {
+            EnterInteractiveSceneRun();
             FireRayCastTest();
         }
         m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
@@ -2944,10 +2962,27 @@ void SkullbonezRun::FireRayCastTest()
     }
     rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
 
+    if ( m_rayCastTest.fireMode == RunNudgeFireMode::Projectile )
+    {
+        FireNudgeProjectile( rayOrigin, rayDirection );
+        return;
+    }
+
+    FireNudgeLaser( rayOrigin, rayDirection );
+}
+
+
+void SkullbonezRun::FireNudgeLaser( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
     int hitIndex = -1;
     float hitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
     const Vector3 visualEnd = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    m_nudgeLaser.Fire( rayOrigin,
+                       rayDirection,
+                       m_systems.cameras->GetCameraUp(),
+                       hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE,
+                       hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
     if ( !hit || hitIndex < 0 || hitIndex >= m_cGameModelCollection.GetModelCount() )
@@ -2964,6 +2999,49 @@ void SkullbonezRun::FireRayCastTest()
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
     m_cGameModelCollection.WakeModel( hitIndex );
+}
+
+
+void SkullbonezRun::FireNudgeProjectile( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_systems.terrain || m_cGameModelCollection.GetModelCount() >= ActiveGameModelCapacity() )
+    {
+        return;
+    }
+
+    int hitIndex = -1;
+    float hitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
+    const Vector3 aimPoint = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Vector3 cameraUp = m_systems.cameras ? m_systems.cameras->GetCameraUp() : Vector3( 0.0f, 1.0f, 0.0f );
+    Vector3 up = cameraUp;
+    const float upLenSq = VectorMagSquared( up );
+    up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Vector3( 0.0f, 1.0f, 0.0f );
+    const Vector3 spawn = rayOrigin + rayDirection * NUDGE_PROJECTILE_SPAWN_LEAD - up * NUDGE_PROJECTILE_SPAWN_DOWN_OFFSET;
+    Vector3 velocityDir = aimPoint - spawn;
+    const float velocityDirLenSq = VectorMagSquared( velocityDir );
+    if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        velocityDir = rayDirection;
+    }
+    else
+    {
+        velocityDir = velocityDir * ( 1.0f / sqrtf( velocityDirLenSq ) );
+    }
+
+    const float moment = 0.4f * NUDGE_PROJECTILE_MASS * NUDGE_PROJECTILE_RADIUS * NUDGE_PROJECTILE_RADIUS;
+    GameModel projectile( &m_cWorldEnvironment, spawn, Vector3( moment, moment, moment ), NUDGE_PROJECTILE_MASS );
+    projectile.SetTerrain( m_systems.terrain.get() );
+    projectile.SetCoefficientRestitution( NUDGE_PROJECTILE_RESTITUTION );
+    projectile.AddBoundingSphere( NUDGE_PROJECTILE_RADIUS );
+    projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
+    projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
+    projectile.SetName( "nudge_projectile" );
+
+    const int projectileIndex = m_cGameModelCollection.GetModelCount();
+    m_cGameModelCollection.AddGameModel( std::move( projectile ) );
+    m_cGameModelCollection.WakeModel( projectileIndex );
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }
 
 
@@ -3517,7 +3595,7 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
 }
 
 
-void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
+void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
 {
     m_editorTracer.Clear();
     const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
@@ -3552,6 +3630,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
         m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
     m_editorTracer.Render( viewProjection );
+    m_nudgeLaser.Render( viewProjection, cameraEye, cameraUp );
 }
 
 

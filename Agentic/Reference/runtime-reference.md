@@ -162,7 +162,8 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Esc | Quit |
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
 | N | Toggle nudge mode. Free camera with live simulation. |
-| Left Click | In nudge mode, fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
+| M | In nudge mode, cycle between laser ray impulse and small projectile modes. |
+| Left Click | In nudge mode, fire the selected nudge action from the camera. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |

@@ -48,6 +48,7 @@ constexpr int SLIDER_TORNADO_INWARD = SLIDER_PHYSICS_BASE + 5;
 constexpr int SLIDER_TORNADO_SWIRL = SLIDER_PHYSICS_BASE + 6;
 constexpr int SLIDER_TORNADO_LIFT = SLIDER_PHYSICS_BASE + 7;
 constexpr int SLIDER_RAY_IMPULSE = SLIDER_PHYSICS_BASE + 8;
+constexpr int SLIDER_NUDGE_PROJECTILE_SPEED = SLIDER_PHYSICS_BASE + 9;
 
 struct UIPhysicsTabState
 {
@@ -57,6 +58,7 @@ struct UIPhysicsTabState
     UISlider alphaSlider;
     UISlider contactLingerSlider;
     UISlider rayImpulseSlider;
+    UISlider nudgeProjectileSpeedSlider;
     UISlider worldGravitySlider;
     UISlider tornadoRadiusSlider;
     UISlider tornadoHeightSlider;
@@ -66,6 +68,7 @@ struct UIPhysicsTabState
     float previewAlpha = -1.0f;
     float previewContactLinger = -1.0f;
     float previewRayImpulse = -1.0f;
+    float previewNudgeProjectileSpeed = -1.0f;
     float previewTornadoRadius = -1.0f;
     float previewTornadoHeight = -1.0f;
     float previewTornadoInward = -1.0f;

@@ -74,6 +74,7 @@ Related:
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezNudgeLaser.h"
 #include "UI/SkullbonezUI.h"
 
 
@@ -303,14 +304,22 @@ struct RunRayCastTestLine
     bool hit = false;
 };
 
+enum class RunNudgeFireMode
+{
+    Laser,
+    Projectile
+};
+
 struct RunRayCastTestState
 {
     static constexpr std::size_t MAX_LINES = 64;
 
     std::array<RunRayCastTestLine, MAX_LINES> lines = {};
     int nextLine = 0;
+    RunNudgeFireMode fireMode = RunNudgeFireMode::Laser;
     bool visualizeRays = false;
     float impulseStrength = 1800.0f;
+    float projectileSpeed = 160.0f;
 };
 
 struct RunEditorPlacementState
@@ -910,6 +919,7 @@ class SkullbonezRun
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
+    NudgeLaser m_nudgeLaser;                                  // Visible nudge-mode laser shots; render-only feedback.
     Environment::WorldEnvironment m_cWorldEnvironment;        // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;  // Scene bodies plus solver-visible object state.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
@@ -1018,7 +1028,9 @@ class SkullbonezRun
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                                           // One fading ray visual, gated by runtime test-line visibility.
     void TickRayCastTestLines( float dt );                                                                                                                                               // Ages fading ray-test visuals
     bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT );                          // Finds closest model hit along a ray
-    void FireRayCastTest();                                                                                                                                                              // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
+    void FireRayCastTest();                                                                                                                                                              // Dispatches the selected nudge-mode fire action.
+    void FireNudgeLaser( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                            // Casts a runtime test ray, draws the laser, and applies impulse to the first dynamic hit.
+    void FireNudgeProjectile( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                       // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                                           // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                                                        // Raycast current mouse position to terrain for editor placement
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;                           // Raycast with optional ray output
@@ -1033,7 +1045,7 @@ class SkullbonezRun
     void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                         // Active gizmo drag along a selected axis.
     void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                      // Active rotation-ring drag around a selected axis.
     void ScaleSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                        // Active scale-axis drag along a selected axis.
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                                                     // Placement ghost and object gizmo line overlay.
+    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection, const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );                      // Placement ghost, nudge laser, and object gizmo overlays.
     void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                                                   // Place a UI-selected object on the terrain under the mouse
     void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                                                 // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG

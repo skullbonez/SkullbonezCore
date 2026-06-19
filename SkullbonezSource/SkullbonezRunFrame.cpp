@@ -201,6 +201,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         Input::IsKeyDown( VK_SPACE ),
         &m_cGameModelCollection } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
+    m_nudgeLaser.Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
