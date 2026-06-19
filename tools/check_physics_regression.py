@@ -26,8 +26,10 @@
 """
 Compare physics CSV output against committed baselines.
 
-Physics scenes use fixed_step + deterministic authored state, so output is exactly deterministic.
-Any single differing byte is a real regression.
+By default this checks the core solver baseline used by the cheap physics gate.
+Pass --deep to include the opt-in bullet sweep and shooting CSV baselines.
+Physics scenes use fixed_step + deterministic authored state, so output is
+exactly deterministic. Any single differing byte is a real regression.
 
 Exit 0 = all match, Exit 1 = regression detected or files missing.
 """
@@ -38,8 +40,12 @@ import sys
 REPO = os.environ.get("SKORE_REPO", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASELINE_DIR = os.path.join(REPO, "TestOutput", "baselines")
 
-TESTS = [
+CORE_TESTS = [
     (os.path.join(REPO, "Debug", "physics_regression_solver.csv"), "physics_regression_solver.csv"),
+]
+
+DEEP_TESTS = [
+    *CORE_TESTS,
     (os.path.join(REPO, "Debug", "bullet_sweep_wall.csv"), "bullet_sweep_wall.csv"),
     (os.path.join(REPO, "Debug", "bullet_sweep_object.csv"), "bullet_sweep_object.csv"),
     (os.path.join(REPO, "Debug", "bullet_sweep_terrain.csv"), "bullet_sweep_terrain.csv"),
@@ -48,14 +54,34 @@ TESTS = [
 
 
 def main():
-    update = len(sys.argv) == 2 and sys.argv[1] == "--update"
-    if len(sys.argv) > 1 and not update:
-        print("usage: check_physics_regression.py [--update]")
+    update = False
+    deep = False
+    for arg in sys.argv[1:]:
+        if arg == "--update":
+            update = True
+        elif arg == "--deep":
+            deep = True
+        else:
+            print("usage: check_physics_regression.py [--update] [--deep]")
+            return 2
+
+    tests = DEEP_TESTS if deep else CORE_TESTS
+
+    if deep:
+        print("  Checking deep physics regression baselines...")
+    else:
+        print("  Checking core physics regression baseline...")
+
+    if update and not deep:
+        print("  NOTE: updating only the core physics baseline. Use --deep to update the opt-in deep set.")
+
+    if len(sys.argv) > 3:
+        print("usage: check_physics_regression.py [--update] [--deep]")
         return 2
 
     all_pass = True
 
-    for output_path, baseline_name in TESTS:
+    for output_path, baseline_name in tests:
         baseline_path = os.path.join(BASELINE_DIR, baseline_name)
 
         if not os.path.exists(output_path):

@@ -31,7 +31,7 @@ if "%~1"=="" (
 )
 
 set "FAILED=0"
-set "FULL_TARGET_RAN=0"
+set "READY_BUILDS_HANDLED=0"
 set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
@@ -87,6 +87,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="physics" (
         call "%ROOT%validate_physics.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="physics-deep" (
+        call "%ROOT%validate_physics_deep.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="physics-query" (
         call "%ROOT%validate_physics_query.bat"
         if errorlevel 1 set "FAILED=1"
@@ -96,7 +99,11 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="full" (
         call "%ROOT%validate_full.bat"
         if errorlevel 1 set "FAILED=1"
-        if not errorlevel 1 set "FULL_TARGET_RAN=1"
+        if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
+    ) else if /I "!ARG!"=="deep" (
+        call "%ROOT%validate_deep.bat"
+        if errorlevel 1 set "FAILED=1"
+        if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
     ) else if /I "!ARG!"=="agent" (
         call "%ROOT%agent_validate.bat"
         if errorlevel 1 set "FAILED=1"
@@ -128,8 +135,8 @@ if "!FAILED!"=="1" (
 )
 
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
-if "!FULL_TARGET_RAN!"=="1" (
-    echo [ready] Full validation already built Profile and Debug.
+if "!READY_BUILDS_HANDLED!"=="1" (
+    echo [ready] Requested validation already built Profile and Debug.
 ) else (
     call "%ROOT%validate_ready_builds.bat"
     if errorlevel 1 exit /b 2
@@ -156,9 +163,11 @@ echo   tools\validate_select.bat ui
 echo   tools\validate_select.bat ui-stress
 echo   tools\validate_select.bat demo-stress
 echo   tools\validate_select.bat physics
+echo   tools\validate_select.bat physics-deep
 echo   tools\validate_select.bat physics-query
 echo   tools\validate_select.bat perf
 echo   tools\validate_select.bat full
+echo   tools\validate_select.bat deep
 echo.
 echo   tools\validate_select.bat format
 echo   tools\validate_select.bat build-debug

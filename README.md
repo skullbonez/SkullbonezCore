@@ -57,15 +57,22 @@ or pushed, use the repository scripts instead of retyping long commands:
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` |
 | Renderer, shader, texture, screenshot behavior | `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
+| Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure at the PR gate | `tools\agent_validate.bat` |
 
+The default broad gate is kept deliberately small: after builds, it launches the
+engine once for DX12 render validation and once for core physics determinism.
+Use `tools\validate_deep.bat` only for intentional broad sweeps.
+
 Physics baseline changes are behavior changes. If a physics CSV or SkullScope
 baseline is intentionally refreshed, update it from the final Debug executable
-and committed scene/config state, then rerun `tools\validate_physics.bat` so the
-new baseline is proven byte-exact. `tools\update_baselines.bat` is for visual
-and perf artifacts, not physics baselines.
+and committed scene/config state, then rerun the matching gate:
+`tools\validate_physics.bat` for the core solver baseline, or
+`tools\validate_physics_deep.bat` for the broader physics/SkullScope baseline
+set. `tools\update_baselines.bat` is for visual and perf artifacts, not physics
+baselines.
 
 You can also run any targeted subset with one line:
 
@@ -73,6 +80,7 @@ You can also run any targeted subset with one line:
 tools\validate_select.bat fast
 tools\validate_select.bat dx12-renderer
 tools\validate_select.bat physics dx12-renderer
+tools\validate_select.bat physics-deep
 tools\validate_select.bat project-filters
 tools\validate_select.bat format build-profile
 ```
