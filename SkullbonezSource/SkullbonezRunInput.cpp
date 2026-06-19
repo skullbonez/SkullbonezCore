@@ -1591,12 +1591,13 @@ void SkullbonezRun::TakeInput()
                 if ( Input::IsKeyDown( VK_CONTROL ) )
                 {
                     EnterInteractiveSceneRun();
-                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-                    m_editor.placementPreviewVisible = false;
+                    m_editor.placeStaticObject = !m_editor.placeStaticObject;
                 }
                 else
                 {
-                    ToggleEditorPlacementMode();
+                    EnterInteractiveSceneRun();
+                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
+                    m_editor.placementPreviewVisible = false;
                 }
             }
         }
