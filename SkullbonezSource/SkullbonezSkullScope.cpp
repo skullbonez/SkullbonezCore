@@ -648,7 +648,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
         const Vector3 diagnosticNormal = c.isTerrain ? c.terrainNormal : c.normal;
 
         Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":1,\"normal\":[%.6f,%.6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%.6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
+                      "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%.6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%.6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
                       m_physicsDiagnosticsRunId,
                       frame,
                       c.bodyA,
@@ -658,6 +658,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                       c.bodyB,
                       contactType,
                       c.featureId,
+                      static_cast<unsigned>( c.manifoldPointCount ),
                       diagnosticNormal.x,
                       diagnosticNormal.y,
                       diagnosticNormal.z,

@@ -45,6 +45,13 @@ struct ParsedFace
     uint8_t count = 0;
 };
 
+struct HullMassProperties
+{
+    Vector3 centerOfMass = ZERO_VECTOR;
+    float volume = 0.0f;
+    bool valid = false;
+};
+
 float ClampPositive( float value, float fallback )
 {
     return value > TOLERANCE ? value : fallback;
@@ -137,6 +144,48 @@ void CopyHullName( char ( &out )[64], const char* path, const char* authoredName
     const char* base = slash && slash2 ? ( slash > slash2 ? slash + 1 : slash2 + 1 )
                                        : ( slash ? slash + 1 : ( slash2 ? slash2 + 1 : path ) );
     strncpy_s( out, base ? base : "convex_hull", _TRUNCATE );
+}
+
+HullMassProperties ComputeHullMassProperties( const std::array<Vector3, ConvexHullShape::MAX_VERTICES>& vertices, const ConvexHullShape& hull )
+{
+    double signedVolume = 0.0;
+    double cx = 0.0;
+    double cy = 0.0;
+    double cz = 0.0;
+
+    for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
+    {
+        const ConvexHullFace& face = hull.GetFace( f );
+        if ( face.indexCount < 3 )
+        {
+            continue;
+        }
+
+        const Vector3& a = vertices[hull.GetFaceIndex( face.firstIndex )];
+        for ( uint8_t i = 1; i + 1 < face.indexCount; ++i )
+        {
+            const Vector3& b = vertices[hull.GetFaceIndex( face.firstIndex + i )];
+            const Vector3& c = vertices[hull.GetFaceIndex( face.firstIndex + i + 1 )];
+            const double tetraVolume = static_cast<double>( a * CrossProduct( b, c ) ) / 6.0;
+            signedVolume += tetraVolume;
+            cx += tetraVolume * static_cast<double>( a.x + b.x + c.x ) * 0.25;
+            cy += tetraVolume * static_cast<double>( a.y + b.y + c.y ) * 0.25;
+            cz += tetraVolume * static_cast<double>( a.z + b.z + c.z ) * 0.25;
+        }
+    }
+
+    HullMassProperties props;
+    if ( fabs( signedVolume ) <= 1.0e-8 )
+    {
+        return props;
+    }
+
+    props.centerOfMass = Vector3( static_cast<float>( cx / signedVolume ),
+                                  static_cast<float>( cy / signedVolume ),
+                                  static_cast<float>( cz / signedVolume ) );
+    props.volume = static_cast<float>( fabs( signedVolume ) );
+    props.valid = props.volume > 1.0e-5f;
+    return props;
 }
 } // namespace
 
@@ -447,11 +496,41 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         }
     }
 
+    const HullMassProperties massProps = ComputeHullMassProperties( vertices, hull );
+    if ( massProps.valid )
+    {
+        hull.m_authoredCenterOfMass = massProps.centerOfMass;
+        for ( uint16_t i = 0; i < hull.m_vertexCount; ++i )
+        {
+            hull.m_vertices[i] = vertices[i] - massProps.centerOfMass;
+        }
+        for ( uint16_t f = 0; f < hull.m_faceCount; ++f )
+        {
+            ConvexHullFace& face = hull.m_faces[f];
+            face.planeOffsetLocal = face.normalLocal * hull.m_vertices[hull.m_faceIndices[face.firstIndex]];
+        }
+    }
+
+    hull.m_boundingRadius = 0.0f;
+    minV = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
+    maxV = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    for ( uint16_t i = 0; i < hull.m_vertexCount; ++i )
+    {
+        const Vector3& v = hull.m_vertices[i];
+        minV.x = (std::min)( minV.x, v.x );
+        minV.y = (std::min)( minV.y, v.y );
+        minV.z = (std::min)( minV.z, v.z );
+        maxV.x = (std::max)( maxV.x, v.x );
+        maxV.y = (std::max)( maxV.y, v.y );
+        maxV.z = (std::max)( maxV.z, v.z );
+        hull.m_boundingRadius = (std::max)( hull.m_boundingRadius, sqrtf( VectorMagSquared( v ) ) );
+    }
+
     hull.m_inertiaHalfExtents = ( maxV - minV ) * 0.5f;
     hull.m_inertiaHalfExtents.x = ClampPositive( hull.m_inertiaHalfExtents.x, hull.m_boundingRadius );
     hull.m_inertiaHalfExtents.y = ClampPositive( hull.m_inertiaHalfExtents.y, hull.m_boundingRadius );
     hull.m_inertiaHalfExtents.z = ClampPositive( hull.m_inertiaHalfExtents.z, hull.m_boundingRadius );
-    hull.m_volume = (std::max)( 1.0e-4f, 8.0f * hull.m_inertiaHalfExtents.x * hull.m_inertiaHalfExtents.y * hull.m_inertiaHalfExtents.z * 0.55f );
+    hull.m_volume = massProps.valid ? massProps.volume : (std::max)( 1.0e-4f, 8.0f * hull.m_inertiaHalfExtents.x * hull.m_inertiaHalfExtents.y * hull.m_inertiaHalfExtents.z * 0.55f );
     hull.m_projectedSurfaceArea = ( 4.0f * hull.m_inertiaHalfExtents.x * hull.m_inertiaHalfExtents.y +
                                     4.0f * hull.m_inertiaHalfExtents.x * hull.m_inertiaHalfExtents.z +
                                     4.0f * hull.m_inertiaHalfExtents.y * hull.m_inertiaHalfExtents.z ) /
@@ -504,6 +583,11 @@ const Vector3& ConvexHullShape::GetPosition() const
     return m_position;
 }
 
+const Vector3& ConvexHullShape::GetAuthoredCenterOfMass() const
+{
+    return m_authoredCenterOfMass;
+}
+
 const Vector3& ConvexHullShape::GetInertiaHalfExtents() const
 {
     return m_inertiaHalfExtents;
@@ -530,6 +614,7 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         ScaleAxisComponent( m_vertices[i], axis, factor );
     }
     ScaleAxisComponent( m_position, axis, factor );
+    ScaleAxisComponent( m_authoredCenterOfMass, axis, factor );
 
     Vector3 centroid = ZERO_VECTOR;
     Vector3 minV( FLT_MAX, FLT_MAX, FLT_MAX );

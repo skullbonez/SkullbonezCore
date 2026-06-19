@@ -1257,6 +1257,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, 
     // point contacts still generate rows and solve penetration, but they cannot
     // seed sleep, receive rest-only gravity warm start, or keep cached impulses.
     out.supportsRestingPolicy = !( terrainSupport.isBox || terrainSupport.isConvexHull ) || terrainSupport.supportsRestingPolicy;
+    out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
     out.inhibitsSleep = !out.supportsRestingPolicy;
     return true;
 }

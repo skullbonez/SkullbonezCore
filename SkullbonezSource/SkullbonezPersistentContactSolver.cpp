@@ -147,6 +147,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     const float positionCorrectionPercent = (std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );
+    const float maxBaumgarteBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -312,9 +313,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
         return radius;
     };
 
-    auto appendSleepSupportEdge = [&]( int aIndex, int bIndex, const Vector3& normal )
+    auto appendSleepSupportEdge = [&]( int aIndex, int bIndex, const Vector3& normal, bool canSeedSupport )
     {
         constexpr float supportNormalY = 0.25f;
+        if ( !canSeedSupport )
+        {
+            return;
+        }
+
         // This records only a possible vertical support relationship. It does
         // not grant sleep support by itself; support must propagate later from
         // terrain or a body that already passed the full sleep gate. That keeps
@@ -388,6 +394,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
 
             Vector3 contactNormal = ZERO_VECTOR;
             bool hasContact = false;
+            bool hasRestingFootprint = true;
             ObjectContactManifold manifold;
             bool manifoldBuilt = false;
             {
@@ -398,6 +405,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
                 contactNormal = manifold.normal;
+                const CollisionShape& shapeA = a.GetCollisionShape();
+                const CollisionShape& shapeB = b.GetCollisionShape();
+                const bool hasConvexHull = std::get_if<ConvexHullShape>( &shapeA ) || std::get_if<ConvexHullShape>( &shapeB );
+                const bool hasSphere = std::get_if<BoundingSphere>( &shapeA ) || std::get_if<BoundingSphere>( &shapeB );
+                hasRestingFootprint = !hasConvexHull || hasSphere || manifold.pointCount >= 2;
                 for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
                 {
                     const ObjectContactPoint& point = manifold.points[pointIndex];
@@ -414,6 +426,9 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                     c.rA = point.rA;
                     c.rB = point.rB;
                     c.penetration = point.penetration;
+                    c.supportsRestingPolicy = hasRestingFootprint;
+                    c.normalCoupledFriction = !hasRestingFootprint;
+                    c.manifoldPointCount = manifold.pointCount;
                     m_persistentContacts.push_back( c );
                     ++m_persistentContactCounts[aIndex];
                     ++m_persistentContactCounts[bIndex];
@@ -440,7 +455,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
 
             MarkCollisionVisualContact( aIndex );
             MarkCollisionVisualContact( bIndex );
-            appendSleepSupportEdge( aIndex, bIndex, contactNormal );
+            appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );
         }
     }
 
@@ -516,6 +531,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 c.penetration = point.penetration;
                 c.isTerrain = true;
                 c.supportsRestingPolicy = manifold.supportsRestingPolicy;
+                c.allowsTangentFriction = manifold.allowsTangentFriction;
                 c.inhibitsSleep = manifold.inhibitsSleep;
                 c.manifoldPointCount = manifold.pointCount;
                 c.terrainNormal = manifold.normal;
@@ -610,6 +626,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 c.rB,
                 applyInvInertiaA,
                 applyInvInertiaB );
+            if ( !c.allowsTangentFriction )
+            {
+                c.tangentMass1 = 0.0f;
+                c.tangentMass2 = 0.0f;
+            }
 
             Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
             Vector3 velB = c.isTerrain ? ZERO_VECTOR : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
@@ -666,6 +687,10 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 if ( penetrationError > 0.0f )
                 {
                     c.bias = baumgarteBeta * penetrationError * invDt;
+                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                    {
+                        c.bias = maxBaumgarteBias;
+                    }
                 }
             }
 
@@ -686,8 +711,8 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
             //   solved normal force while keeping static friction usable in games.
             c.frictionLimit = c.isTerrain
-                                  ? Cfg().frictionCoeff * c.terrainWarmStart
-                                  : Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt;
+                                  ? ( c.allowsTangentFriction ? Cfg().frictionCoeff * c.terrainWarmStart : 0.0f )
+                                  : ( c.normalCoupledFriction ? 0.0f : Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -696,7 +721,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             // Warm starting: if this same pair+feature was touching last frame,
             // start from the cached solution instead of zero.  The cache is sorted so
             // lookup does not linearly scan every previous-frame contact.
-            const bool canUseCachedWarmStart = !c.isTerrain || c.supportsRestingPolicy;
+            const bool canUseCachedWarmStart = c.supportsRestingPolicy;
             auto cachedIt = canUseCachedWarmStart
                                 ? std::lower_bound(
                                       m_persistentContactCache.begin(),
@@ -713,9 +738,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
                 c.accT1 = cachedIt->accT1;
                 c.accT2 = cachedIt->accT2;
-                const float cachedFrictionLimit = c.isTerrain
-                                                      ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                                      : c.frictionLimit;
+                const float cachedFrictionLimit = !c.allowsTangentFriction
+                                                      ? 0.0f
+                                                      : ( c.isTerrain
+                                                              ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
+                                                              : ( c.normalCoupledFriction ? Cfg().frictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
                 c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
             }
@@ -817,9 +844,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 // old per-axis clamp allowed diagonal friction to exceed the budget.
                 c.accT1 = oldAccT1 + lambdaT1;
                 c.accT2 = oldAccT2 + lambdaT2;
-                const float frictionLimit = c.isTerrain
-                                                ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                                : c.frictionLimit;
+                const float frictionLimit = !c.allowsTangentFriction
+                                                ? 0.0f
+                                                : ( c.isTerrain
+                                                        ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
+                                                        : ( c.normalCoupledFriction ? Cfg().frictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
                 float deltaT1 = c.accT1 - oldAccT1;
                 float deltaT2 = c.accT2 - oldAccT2;
@@ -1067,7 +1096,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
         m_persistentContactCache.clear();
         for ( const PersistentContact& c : m_persistentContacts )
         {
-            if ( c.isTerrain && !c.supportsRestingPolicy )
+            if ( !c.supportsRestingPolicy )
             {
                 continue;
             }

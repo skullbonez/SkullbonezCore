@@ -68,12 +68,19 @@ Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
 }
 
 
-float HullBottomOffset( const ConvexHullShape& hull )
+Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
+{
+    return hull.GetPosition() + hull.GetAuthoredCenterOfMass();
+}
+
+
+float HullAuthoredBottomOffset( const ConvexHullShape& hull )
 {
     float minY = FLT_MAX;
+    const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
     for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
     {
-        minY = (std::min)( minY, hull.GetVertex( i ).y );
+        minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
     }
     return minY == FLT_MAX ? 0.0f : -minY;
 }
@@ -268,7 +275,8 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
         }
         for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
         {
-            const float y = part.offsetY + hull->GetPosition().y + hull->GetVertex( vertexIndex ).y;
+            const Vector3 authoredOffset = HullAuthoredLocalOffset( *hull );
+            const float y = part.offsetY + authoredOffset.y + hull->GetVertex( vertexIndex ).y;
             outMinY = (std::min)( outMinY, y );
             outMaxY = (std::max)( outMaxY, y );
         }
@@ -1459,7 +1467,7 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
             {
                 continue;
             }
-            const Vector3 hullCenter = base + Vector3( part.offsetX, part.offsetY, part.offsetZ ) + hull->GetPosition();
+            const Vector3 hullCenter = base + Vector3( part.offsetX, part.offsetY, part.offsetZ ) + HullAuthoredLocalOffset( *hull );
             for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
             {
                 const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
@@ -3293,7 +3301,8 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
         {
             return false;
         }
-        outCenter = Vector3( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 authoredOrigin( terrainPoint.x, terrainPoint.y + HullAuthoredBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        outCenter = authoredOrigin + hull.GetAuthoredCenterOfMass();
         return true;
     }
     }
@@ -3804,7 +3813,8 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
-        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 authoredOrigin( terrainPoint.x, terrainPoint.y + HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 center = authoredOrigin + scaledHull.GetAuthoredCenterOfMass();
         GameModel model( &m_cWorldEnvironment,
                          center,
                          scaledHull.ComputeBoxApproxInertia( mass ),
@@ -3848,9 +3858,10 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
                 continue;
             }
             ConvexHullShape hull = *sourceHull;
-            const Vector3 center( terrainPoint.x + part.offsetX,
-                                  terrainPoint.y + part.offsetY + EDITOR_PLACEMENT_SURFACE_EPSILON,
-                                  terrainPoint.z + part.offsetZ );
+            const Vector3 authoredOrigin( terrainPoint.x + part.offsetX,
+                                          terrainPoint.y + part.offsetY + EDITOR_PLACEMENT_SURFACE_EPSILON,
+                                          terrainPoint.z + part.offsetZ );
+            const Vector3 center = authoredOrigin + hull.GetAuthoredCenterOfMass();
             GameModel model( &m_cWorldEnvironment,
                              center,
                              hull.ComputeBoxApproxInertia( part.mass ),

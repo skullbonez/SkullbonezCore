@@ -790,9 +790,10 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
+        const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
         GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                             authoredPosition,
                              inertia,
                              hullScene.mass );
 
@@ -806,6 +807,10 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
         }
 
+        Quaternion hullQuaternion = gameModel.GetOrientation();
+        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
+        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
+
         if ( hullScene.hasInitVelocity )
         {
             gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
@@ -815,7 +820,9 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 
-    // convex_hull_state entries: full dynamic state from an editable scene snapshot
+    // convex_hull_state entries: full dynamic state from an editable scene
+    // snapshot. The snapshot writer stores GameModel::GetPosition(), which is
+    // the simulated body/COM position, so do not add the authored hull COM here.
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );

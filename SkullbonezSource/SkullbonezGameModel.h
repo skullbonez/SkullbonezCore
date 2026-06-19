@@ -67,6 +67,7 @@ struct TerrainContactManifold
     float timeOfImpact = 0.0f;
     bool sweptHit = false;
     bool supportsRestingPolicy = true;
+    bool allowsTangentFriction = true;
     bool inhibitsSleep = false;
     uint32_t terrainCellId = 0;
     uint32_t materialId = 0;

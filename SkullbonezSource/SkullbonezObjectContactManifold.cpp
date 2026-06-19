@@ -96,6 +96,12 @@ struct SatResult
     int axisType = 0; // 0 = A face, 1 = B face, 2 = edge-edge
     int axisA = -1;
     int axisB = -1;
+    Vector3 faceNormal = ZERO_VECTOR;
+    float faceOverlap = FLT_MAX;
+    int faceAxisType = 0;
+    int faceAxisA = -1;
+    int faceAxisB = -1;
+    bool hasFaceAxis = false;
 };
 
 // ENGINE-SPECIFIC:
@@ -106,7 +112,7 @@ struct SatResult
 struct ClipVertex
 {
     Vector3 point = ZERO_VECTOR;
-    uint8_t id = 0;
+    uint16_t id = 0;
 };
 
 struct PolyFaceWorld
@@ -122,6 +128,8 @@ struct PolyEdgeWorld
 {
     uint16_t vertexA = 0;
     uint16_t vertexB = 0;
+    uint16_t faceA = 0xffffu;
+    uint16_t faceB = 0xffffu;
     uint16_t sourceId = 0;
 };
 
@@ -935,7 +943,7 @@ uint32_t EncodeHullEdgeFeature( uint32_t edgeA, uint32_t edgeB )
            ( edgeB & 0xffu );
 }
 
-void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId )
+void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId, uint16_t faceA, uint16_t faceB )
 {
     if ( poly.edgeCount >= ConvexHullShape::MAX_EDGES )
     {
@@ -943,6 +951,8 @@ void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId
     }
     poly.edges[poly.edgeCount].vertexA = a;
     poly.edges[poly.edgeCount].vertexB = b;
+    poly.edges[poly.edgeCount].faceA = faceA;
+    poly.edges[poly.edgeCount].faceB = faceB;
     poly.edges[poly.edgeCount].sourceId = sourceId;
     ++poly.edgeCount;
 }
@@ -1031,7 +1041,12 @@ PolytopeWorld MakeBoxPolytope( const GameModel& model, const BoundingBox& box )
                         }
                     }
                 }
-                AddPolyEdge( out, a, b, static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ) );
+                AddPolyEdge( out,
+                             a,
+                             b,
+                             static_cast<uint16_t>( EdgeId( axis, sign0, sign1 ) ),
+                             static_cast<uint16_t>( FaceId( side0, static_cast<float>( sign0 ) ) ),
+                             static_cast<uint16_t>( FaceId( side1, static_cast<float>( sign1 ) ) ) );
             }
         }
     }
@@ -1074,6 +1089,8 @@ PolytopeWorld MakeHullPolytope( const GameModel& model, const ConvexHullShape& h
         const ConvexHullEdge& src = hull.GetEdge( e );
         out.edges[e].vertexA = src.vertexA;
         out.edges[e].vertexB = src.vertexB;
+        out.edges[e].faceA = src.faceA;
+        out.edges[e].faceB = src.faceB;
         out.edges[e].sourceId = e;
     }
     return out;
@@ -1089,6 +1106,35 @@ void ProjectPolytope( const PolytopeWorld& poly, const Vector3& axis, float& out
         outMin = (std::min)( outMin, p );
         outMax = (std::max)( outMax, p );
     }
+}
+
+bool EdgeSupportsAxis( const PolytopeWorld& poly, const PolyEdgeWorld& edge, const Vector3& axis )
+{
+    if ( edge.faceA >= poly.faceCount || edge.faceB >= poly.faceCount )
+    {
+        return false;
+    }
+
+    constexpr float normalConeSlop = 1.0e-4f;
+    return poly.faces[edge.faceA].normal * axis >= -normalConeSlop &&
+           poly.faces[edge.faceB].normal * axis >= -normalConeSlop;
+}
+
+bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a,
+                           const PolytopeWorld& b,
+                           const PolyEdgeWorld& edgeA,
+                           const PolyEdgeWorld& edgeB,
+                           const Vector3& axisRaw )
+{
+    const float magSq = VectorMagSquared( axisRaw );
+    if ( magSq <= 1.0e-8f )
+    {
+        return false;
+    }
+
+    const Vector3 axis = axisRaw / sqrtf( magSq );
+    return ( EdgeSupportsAxis( a, edgeA, axis ) && EdgeSupportsAxis( b, edgeB, -axis ) ) ||
+           ( EdgeSupportsAxis( a, edgeA, -axis ) && EdgeSupportsAxis( b, edgeB, axis ) );
 }
 
 bool AcceptPolyAxis( const PolytopeWorld& a,
@@ -1144,12 +1190,14 @@ bool AcceptPolyAxis( const PolytopeWorld& a,
 
 bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactSkin, SatResult& out )
 {
+    SatResult faceBest;
     for ( uint16_t i = 0; i < a.faceCount; ++i )
     {
         if ( !AcceptPolyAxis( a, b, a.faces[i].normal, 0, i, -1, contactSkin, out ) )
         {
             return false;
         }
+        AcceptPolyAxis( a, b, a.faces[i].normal, 0, i, -1, contactSkin, faceBest );
     }
 
     for ( uint16_t i = 0; i < b.faceCount; ++i )
@@ -1158,6 +1206,7 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
         {
             return false;
         }
+        AcceptPolyAxis( a, b, b.faces[i].normal, 1, -1, i, contactSkin, faceBest );
     }
 
     for ( uint16_t i = 0; i < a.edgeCount; ++i )
@@ -1166,13 +1215,32 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
         for ( uint16_t j = 0; j < b.edgeCount; ++j )
         {
             const Vector3 edgeB = b.vertices[b.edges[j].vertexB] - b.vertices[b.edges[j].vertexA];
-            if ( !AcceptPolyAxis( a, b, CrossProduct( edgeA, edgeB ), 2, i, j, contactSkin, out ) )
+            const Vector3 edgeAxis = CrossProduct( edgeA, edgeB );
+            if ( !IsUsefulPolyEdgeAxis( a, b, a.edges[i], b.edges[j], edgeAxis ) )
+            {
+                continue;
+            }
+            if ( !AcceptPolyAxis( a, b, edgeAxis, 2, i, j, contactSkin, out ) )
             {
                 return false;
             }
         }
     }
+    if ( faceBest.overlap < FLT_MAX )
+    {
+        out.hasFaceAxis = true;
+        out.faceNormal = faceBest.normal;
+        out.faceOverlap = faceBest.overlap;
+        out.faceAxisType = faceBest.axisType;
+        out.faceAxisA = faceBest.axisA;
+        out.faceAxisB = faceBest.axisB;
+    }
     return out.overlap < FLT_MAX;
+}
+
+uint16_t EncodeClippedPolyVertexId( uint16_t prevId, uint16_t curId )
+{
+    return static_cast<uint16_t>( 0x100u | ( ( prevId & 0x0fu ) << 4 ) | ( curId & 0x0fu ) );
 }
 
 int ClipPolyAgainstPlaneLimited( const ClipVertex* input,
@@ -1207,7 +1275,7 @@ int ClipPolyAgainstPlaneLimited( const ClipVertex* input,
             if ( outputCount < maxOutput )
             {
                 output[outputCount].point = prev.point + ( cur.point - prev.point ) * t;
-                output[outputCount].id = cur.id;
+                output[outputCount].id = EncodeClippedPolyVertexId( prev.id, cur.id );
                 ++outputCount;
             }
         }
@@ -1232,6 +1300,22 @@ int ChooseIncidentPolyFace( const PolytopeWorld& incident, const Vector3& refNor
     {
         const float dot = incident.faces[f].normal * refNormal;
         if ( dot < bestDot - 1.0e-5f )
+        {
+            bestDot = dot;
+            bestFace = f;
+        }
+    }
+    return bestFace;
+}
+
+int ChooseReferencePolyFace( const PolytopeWorld& reference, const Vector3& refNormal )
+{
+    int bestFace = 0;
+    float bestDot = -FLT_MAX;
+    for ( uint16_t f = 0; f < reference.faceCount; ++f )
+    {
+        const float dot = reference.faces[f].normal * refNormal;
+        if ( dot > bestDot + 1.0e-5f )
         {
             bestDot = dot;
             bestFace = f;
@@ -1444,20 +1528,111 @@ bool BuildPolyFaceContact( const GameModel& aModel,
         }
     }
 
-    std::sort( candidates,
-               candidates + candidateCount,
-               []( const CandidatePoint& lhs, const CandidatePoint& rhs )
-               {
-                   if ( fabsf( lhs.penetration - rhs.penetration ) > 1.0e-5f )
-                   {
-                       return lhs.penetration > rhs.penetration;
-                   }
-                   return lhs.featureId < rhs.featureId;
-               } );
+    bool selected[MAX_POLY_CLIP_VERTS] = {};
+    int selectedIndices[4] = {};
+    int selectedCount = 0;
 
-    for ( int i = 0; i < candidateCount && out.pointCount < 4; ++i )
+    auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
     {
-        AddContactPoint( aModel, bModel, out, candidates[i].point, candidates[i].penetration, candidates[i].featureId );
+        if ( rhs < 0 )
+        {
+            return true;
+        }
+        if ( fabsf( candidates[lhs].penetration - candidates[rhs].penetration ) > 1.0e-5f )
+        {
+            return candidates[lhs].penetration > candidates[rhs].penetration;
+        }
+        return candidates[lhs].featureId < candidates[rhs].featureId;
+    };
+
+    int deepest = -1;
+    for ( int i = 0; i < candidateCount; ++i )
+    {
+        if ( betterPenetrationTie( i, deepest ) )
+        {
+            deepest = i;
+        }
+    }
+
+    if ( deepest >= 0 )
+    {
+        selected[deepest] = true;
+        selectedIndices[selectedCount++] = deepest;
+    }
+
+    const Vector3 tangentSeed = fabsf( refNormal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
+    Vector3 tangent0 = CrossProduct( tangentSeed, refNormal );
+    const float tangent0MagSq = VectorMagSquared( tangent0 );
+    if ( tangent0MagSq > 1.0e-8f )
+    {
+        tangent0 /= sqrtf( tangent0MagSq );
+    }
+    else
+    {
+        tangent0 = Vector3( 1.0f, 0.0f, 0.0f );
+    }
+    const Vector3 tangent1 = CrossProduct( refNormal, tangent0 );
+
+    auto tangentDistanceSq = [&]( const Vector3& a, const Vector3& b ) -> float
+    {
+        const Vector3 d = a - b;
+        const float x = d * tangent0;
+        const float y = d * tangent1;
+        return x * x + y * y;
+    };
+
+    while ( selectedCount < 4 && selectedCount < candidateCount )
+    {
+        int bestIndex = -1;
+        float bestSpread = -1.0f;
+        for ( int i = 0; i < candidateCount; ++i )
+        {
+            if ( selected[i] )
+            {
+                continue;
+            }
+
+            float minDistSq = FLT_MAX;
+            for ( int s = 0; s < selectedCount; ++s )
+            {
+                const float distSq = tangentDistanceSq( candidates[i].point, candidates[selectedIndices[s]].point );
+                if ( distSq < minDistSq )
+                {
+                    minDistSq = distSq;
+                }
+            }
+
+            constexpr float duplicatePointDistSq = 1.0e-6f;
+            if ( minDistSq <= duplicatePointDistSq )
+            {
+                continue;
+            }
+
+            bool replace = minDistSq > bestSpread + 1.0e-5f;
+            if ( !replace && fabsf( minDistSq - bestSpread ) <= 1.0e-5f )
+            {
+                replace = betterPenetrationTie( i, bestIndex );
+            }
+            if ( replace )
+            {
+                bestSpread = minDistSq;
+                bestIndex = i;
+            }
+        }
+
+        if ( bestIndex < 0 )
+        {
+            break;
+        }
+
+        selected[bestIndex] = true;
+        selectedIndices[selectedCount++] = bestIndex;
+    }
+
+    for ( int i = 0; i < selectedCount && out.pointCount < 4; ++i )
+    {
+        const CandidatePoint& candidate = candidates[selectedIndices[i]];
+        AddContactPoint( aModel, bModel, out, candidate.point, candidate.penetration, candidate.featureId );
     }
     return out.pointCount > 0;
 }
@@ -1502,13 +1677,33 @@ bool BuildPolyPoly( const GameModel& aModel,
     }
 
     out.normal = sat.normal;
+    if ( sat.axisType == 2 && sat.hasFaceAxis )
+    {
+        const float faceAxisTolerance = (std::max)( contactSkin * 2.0f, sat.overlap * 0.10f );
+        if ( sat.faceOverlap <= sat.overlap + faceAxisTolerance )
+        {
+            ObjectContactManifold faceOut;
+            faceOut.bodyA = out.bodyA;
+            faceOut.bodyB = out.bodyB;
+            faceOut.normal = sat.faceNormal;
+            const bool builtFace = sat.faceAxisType == 0
+                                       ? BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, ChooseReferencePolyFace( polyA, sat.faceNormal ), sat.faceNormal, contactSkin, faceOut )
+                                       : BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, ChooseReferencePolyFace( polyB, -sat.faceNormal ), sat.faceNormal, contactSkin, faceOut );
+            if ( builtFace && faceOut.pointCount >= 2 )
+            {
+                out = faceOut;
+                return true;
+            }
+        }
+    }
+
     if ( sat.axisType == 0 )
     {
-        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, sat.axisA, sat.normal, contactSkin, out );
+        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, ChooseReferencePolyFace( polyA, sat.normal ), sat.normal, contactSkin, out );
     }
     if ( sat.axisType == 1 )
     {
-        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, sat.axisB, sat.normal, contactSkin, out );
+        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, ChooseReferencePolyFace( polyB, -sat.normal ), sat.normal, contactSkin, out );
     }
     return BuildPolyEdgeContact( aModel, bModel, polyA, polyB, sat, out );
 }

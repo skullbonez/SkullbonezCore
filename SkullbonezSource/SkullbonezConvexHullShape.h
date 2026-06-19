@@ -70,6 +70,7 @@ class ConvexHullShape
     std::array<ConvexHullEdge, MAX_EDGES> m_edges = {};
     std::array<uint16_t, MAX_FACE_INDICES> m_faceIndices = {};
     Vector::Vector3 m_position = Vector::ZERO_VECTOR;
+    Vector::Vector3 m_authoredCenterOfMass = Vector::ZERO_VECTOR;
     Vector::Vector3 m_inertiaHalfExtents = Vector::Vector3( 1.0f, 1.0f, 1.0f );
     uint16_t m_vertexCount = 0;
     uint16_t m_faceCount = 0;
@@ -92,6 +93,7 @@ class ConvexHullShape
     float GetProjectedSurfaceArea() const;
     float GetBoundingRadius() const;
     const Vector::Vector3& GetPosition() const;
+    const Vector::Vector3& GetAuthoredCenterOfMass() const;
     const Vector::Vector3& GetInertiaHalfExtents() const;
     Vector::Vector3 ComputeBoxApproxInertia( float mass ) const;
     void ScaleAxis( int axis, float factor ); // Editor/runtime copy scale; authored asset files remain unchanged.

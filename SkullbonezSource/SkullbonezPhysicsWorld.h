@@ -137,6 +137,8 @@ class PhysicsWorld
         bool warmStarted = false;
         bool isTerrain = false;
         bool supportsRestingPolicy = true;
+        bool allowsTangentFriction = true;
+        bool normalCoupledFriction = false;
         bool inhibitsSleep = false;
         uint8_t manifoldPointCount = 1;
         Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;

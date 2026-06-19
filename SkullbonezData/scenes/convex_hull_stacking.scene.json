@@ -1,0 +1,423 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "cinematic": {
+    "shadows": true,
+    "shadowMapSize": 2048,
+    "shadowStrength": 0.58,
+    "terrainTint": [
+      0.2,
+      0.34,
+      0.18
+    ],
+    "terrainAccent": [
+      0.44,
+      0.48,
+      0.26
+    ]
+  },
+  "simulation": {
+    "seed": 20260619,
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 3600,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "collisionVisualizer": false,
+    "physics": {
+      "axes": false,
+      "contacts": false,
+      "sleep": false,
+      "transparent": false,
+      "alpha": 0.28
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        340,
+        210,
+        790
+      ],
+      "view": [
+        525,
+        44,
+        555
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "same_hex_base",
+      "position": [410, 4, 455],
+      "mass": 80.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": true,
+      "euler": [0, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "same_hex_mid",
+      "position": [410, 12.15, 455],
+      "mass": 34.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": false,
+      "euler": [0, 18, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "same_hex_top_offset",
+      "position": [413, 20.3, 457],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": false,
+      "euler": [0, -12, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tapered_base",
+      "position": [470, 4, 455],
+      "mass": 92.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [0, 10, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tapered_mid_offset",
+      "position": [472, 12.1, 457],
+      "mass": 36.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": false,
+      "euler": [0, -7, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tapered_top_mixed",
+      "position": [468, 20.3, 455],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": false,
+      "euler": [0, 21, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "wedge_lower",
+      "position": [530, 3, 455],
+      "mass": 58.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [180, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "wedge_upper_flat_rest",
+      "position": [530, 9.2, 455],
+      "mass": 28.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": false,
+      "euler": [0, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tri_prism_lower",
+      "position": [590, 3, 455],
+      "mass": 58.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": true,
+      "euler": [0, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tri_prism_upper_inverted",
+      "position": [590, 11.0, 456],
+      "mass": 28.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": false,
+      "euler": [180, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "pyramid_stack_lower",
+      "position": [650, 4, 455],
+      "mass": 68.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/pyramid.hull",
+      "fixed": true,
+      "euler": [180, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "pyramid_stack_upper",
+      "position": [650, 14.2, 455],
+      "mass": 26.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/pyramid.hull",
+      "fixed": false,
+      "euler": [0, 22, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "diamond_face_rest_a",
+      "position": [410, 20, 520],
+      "mass": 24.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": false,
+      "euler": [32, 0, 45]
+    },
+    {
+      "type": "convexHull",
+      "name": "diamond_face_rest_b",
+      "position": [414, 33, 520],
+      "mass": 24.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": false,
+      "euler": [-28, 18, -42]
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_slab_platform",
+      "position": [485, 3, 520],
+      "mass": 180.0,
+      "restitution": 0.06,
+      "hull": "SkullbonezData/hulls/rock_slab_flat.hull",
+      "fixed": true,
+      "euler": [0, 12, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_chipped_on_slab",
+      "position": [485, 11.2, 520],
+      "mass": 52.0,
+      "restitution": 0.06,
+      "hull": "SkullbonezData/hulls/rock_chipped_block.hull",
+      "fixed": false,
+      "euler": [0, -18, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_lump_on_chipped",
+      "position": [488, 22.0, 518],
+      "mass": 58.0,
+      "restitution": 0.06,
+      "hull": "SkullbonezData/hulls/rock_lump_large.hull",
+      "fixed": false,
+      "euler": [0, 26, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "rock_shard_offset_top",
+      "position": [493, 34.5, 521],
+      "mass": 32.0,
+      "restitution": 0.06,
+      "hull": "SkullbonezData/hulls/rock_shard_tall.hull",
+      "fixed": false,
+      "euler": [4, -20, 7]
+    },
+    {
+      "type": "convexHull",
+      "name": "mixed_wedge_taper_base",
+      "position": [575, 4, 520],
+      "mass": 88.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [0, 35, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "mixed_wedge_center",
+      "position": [578, 12, 522],
+      "mass": 26.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": false,
+      "euler": [0, -35, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "mixed_tri_prism_top",
+      "position": [575, 20.5, 519],
+      "mass": 26.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": false,
+      "euler": [180, 35, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "single_vertex_diamond_probe",
+      "position": [655, 31, 520],
+      "mass": 24.0,
+      "restitution": 0.08,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": false,
+      "euler": [3, 0, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_small_stack_trunk",
+      "position": [420, 6.5, 610],
+      "mass": 42.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/tree_trunk_small_faceted.hull",
+      "fixed": false,
+      "euler": [0, 8, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_small_stack_low",
+      "position": [420, 20, 610],
+      "mass": 26.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+      "fixed": false,
+      "euler": [0, 8, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_small_stack_mid",
+      "position": [420, 35, 610],
+      "mass": 18.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+      "fixed": false,
+      "euler": [0, 8, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_small_stack_top",
+      "position": [420, 49, 610],
+      "mass": 12.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+      "fixed": false,
+      "euler": [0, 8, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_pine_stack_trunk",
+      "position": [515, 9, 610],
+      "mass": 90.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [0, 16, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_pine_stack_low",
+      "position": [515, 24, 610],
+      "mass": 52.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/pine_tier_large.hull",
+      "fixed": false,
+      "euler": [0, 16, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_pine_stack_mid",
+      "position": [515, 36, 610],
+      "mass": 38.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
+      "fixed": false,
+      "euler": [0, 16, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_pine_stack_top",
+      "position": [515, 47, 610],
+      "mass": 24.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/pine_tier_top.hull",
+      "fixed": false,
+      "euler": [0, 16, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_cedar_stack_trunk",
+      "position": [625, 9, 610],
+      "mass": 95.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [0, -15, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_cedar_stack_low",
+      "position": [625, 25, 610],
+      "mass": 44.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+      "fixed": false,
+      "euler": [0, -15, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_cedar_stack_mid",
+      "position": [625, 40, 610],
+      "mass": 32.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+      "fixed": false,
+      "euler": [0, -15, 0]
+    },
+    {
+      "type": "convexHull",
+      "name": "tree_cedar_stack_top",
+      "position": [625, 54, 610],
+      "mass": 20.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+      "fixed": false,
+      "euler": [0, -15, 0]
+    }
+  ]
+}
