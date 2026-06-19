@@ -1,0 +1,13 @@
+hull_version 1
+name rock_shard_tall
+vertex -5 -7 -4
+vertex 6 -7 -3
+vertex -1 -7 7
+vertex -2.05 7 -2.3
+vertex 2.9 7 -1.85
+vertex -0.25 7 2.65
+face 0 1 2
+face 3 4 5
+face 0 3 4 1
+face 1 4 5 2
+face 2 5 3 0

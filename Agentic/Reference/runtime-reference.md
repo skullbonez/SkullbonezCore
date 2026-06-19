@@ -141,14 +141,15 @@ Scene files are JSON objects with `format: "skullbonez.scene.json"` and `version
 | Capture | `capture.screenshot`, `capture.screenshotInterval` |
 | Logging | `logging.perfLog`, `logging.perfLogFlush`, `logging.perfLogFlushInterval` |
 | Simulation | `simulation.physics`, `simulation.timeScale`, `simulation.seed`, `simulation.world` |
-| Objects | `objects[]` entries with `type` values such as `ball`, `floatingBall`, `box`, `floatingBox`, `convexHull`, or matching `*State` snapshot forms |
+| Objects | `objects[]` entries with `type` values such as `ball`, `floatingBall`, `box`, `floatingBox`, `convexHull`, or matching `*State` snapshot forms; reusable convex hull assets can also be expanded through `assetLibraries[]` and `assetInstances[]` |
 | Camera | `cameras[]`, `editor.trackHeight`, `capture.autoCycleInterval` |
 | Rendering | `styles[]`, `objectMaterials[]`, `debug`, `cinematic`, `ui`, `terrain`, `runtime.vsync`, `runtime.pipelineSync`, `terrain.flatSlope` |
 
 For exact field names, inspect existing files in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestSceneParser.cpp`.
 `floatingBall` and `floatingBox` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
 Styles include `SkullbonezData/styles/<name>.style.json` through the `styles` or `includes` arrays. Style files hold reusable render-look JSON such as `cinematic` and `objectMaterials`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing.
-`objectMaterials[]` entries accept `target`, `mode`, `tint`, and material response options: `roughness`, `metallic`, `specular`, `emissive`, `strength`, `transmission`, `stylization`, `flags`, and `name`. Targets are `all`, `balls`, `boxes`, `prefix:<name>`, or an exact model name.
+Asset libraries use `format: "skullbonez.asset_library.json"` and live under `SkullbonezData/assets/` when referenced by bare name. `assetInstances[]` entries expand `convexHull` assets or `compound` stacked-hull assets into ordinary scene objects; instance `fixed`, `position`, `euler`, and `velocity` values override or offset the asset defaults.
+`objectMaterials[]` entries accept `target`, `mode`, `tint`/`color`/`colour`, and material response options: `roughness`, `metallic`, `specular`, `emissive`, `strength`, `transmission`, `stylization`, `flags`, and `name`. Targets are `all`, `balls`, `boxes`, `hulls`, `convex_hulls`, `prefix:<name>`, or an exact model name.
 The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic` JSON overrides, so `.style.json` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.

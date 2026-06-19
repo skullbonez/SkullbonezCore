@@ -1,0 +1,28 @@
+hull_version 1
+name rock_lump_large
+vertex -10 -5 -4
+vertex -4 -5 -10
+vertex 5 -5 -11
+vertex 12 -5 -3
+vertex 10 -5 7
+vertex 2 -5 12
+vertex -8 -5 8
+vertex -13 -5 1
+vertex -6.5 5 -3.5
+vertex -2 5 -8
+vertex 4.75 5 -8.75
+vertex 10 5 -2.75
+vertex 8.5 5 4.75
+vertex 2.5 5 8.5
+vertex -5 5 5.5
+vertex -8.75 5 0.25
+face 0 1 2 3 4 5 6 7
+face 8 9 10 11 12 13 14 15
+face 0 8 9 1
+face 1 9 10 2
+face 2 10 11 3
+face 3 11 12 4
+face 4 12 13 5
+face 5 13 14 6
+face 6 14 15 7
+face 7 15 8 0

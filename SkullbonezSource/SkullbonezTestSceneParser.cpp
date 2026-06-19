@@ -32,6 +32,7 @@ Related:
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 #pragma warning( push, 0 )
 #include "../ThirdPtySource/nlohmann/json.hpp"
@@ -508,6 +509,7 @@ class TestSceneParser
 {
   private:
     TestScene m_scene;
+    std::vector<Json> m_assetDefinitions;
 
     std::string ResolveStylePath( const std::string& token ) const
     {
@@ -516,6 +518,370 @@ class TestSceneParser
             return token;
         }
         return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
+    }
+
+    std::string ResolveAssetLibraryPath( const std::string& token ) const
+    {
+        if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos || EndsWith( token, ".assets.json" ) )
+        {
+            return token;
+        }
+        return std::string( "SkullbonezData/assets/" ) + token + ".assets.json";
+    }
+
+    const Json* FindAssetDefinition( const std::string& name ) const
+    {
+        for ( const Json& asset : m_assetDefinitions )
+        {
+            const Json* assetName = FindMember( asset, "name" );
+            if ( assetName && assetName->is_string() && assetName->get<std::string>() == name )
+            {
+                return &asset;
+            }
+        }
+        return nullptr;
+    }
+
+    void ValidateAssetMaterial( const Json& owner, const std::string& path, const char* context ) const
+    {
+        const Json& material = RequireMember( owner, path, context, "material" );
+        RequireObject( material, path, "asset.material" );
+        if ( !FindMember( material, "mode" ) && !FindMember( material, "kind" ) )
+        {
+            Fail( path, "asset.material is missing required field 'mode'" );
+        }
+        if ( const Json* color = FindMember( material, "color" ) )
+        {
+            float r = 0.0f, g = 0.0f, b = 0.0f;
+            ReadVec3( *color, path, "asset.material.color", r, g, b );
+        }
+        if ( const Json* colour = FindMember( material, "colour" ) )
+        {
+            float r = 0.0f, g = 0.0f, b = 0.0f;
+            ReadVec3( *colour, path, "asset.material.colour", r, g, b );
+        }
+        if ( const Json* tint = FindMember( material, "tint" ) )
+        {
+            float r = 0.0f, g = 0.0f, b = 0.0f;
+            ReadVec3( *tint, path, "asset.material.tint", r, g, b );
+        }
+    }
+
+    void ValidateConvexHullAssetFields( const Json& asset, const std::string& path, const char* context ) const
+    {
+        ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
+        ReadFloat( RequireMember( asset, path, context, "mass" ), path, "asset.mass" );
+        ReadFloat( RequireMember( asset, path, context, "restitution" ), path, "asset.restitution" );
+        ValidateAssetMaterial( asset, path, context );
+        if ( const Json* fixed = FindMember( asset, "fixed" ) )
+        {
+            ReadBool( *fixed, path, "asset.fixed" );
+        }
+        if ( const Json* offset = FindMember( asset, "offset" ) )
+        {
+            float x = 0.0f, y = 0.0f, z = 0.0f;
+            ReadVec3( *offset, path, "asset.offset", x, y, z );
+        }
+        if ( const Json* euler = FindMember( asset, "euler" ) )
+        {
+            float x = 0.0f, y = 0.0f, z = 0.0f;
+            ReadVec3( *euler, path, "asset.euler", x, y, z );
+        }
+        if ( const Json* velocity = FindMember( asset, "velocity" ) )
+        {
+            float x = 0.0f, y = 0.0f, z = 0.0f;
+            ReadVec3( *velocity, path, "asset.velocity", x, y, z );
+        }
+    }
+
+    void LoadAssetLibrary( const std::string& assetPath )
+    {
+        const Json root = ReadJsonFile( assetPath );
+        RequireObject( root, assetPath, "asset library root" );
+        const std::string actualFormat = ReadString( RequireMember( root, assetPath, "asset library root", "format" ), assetPath, "format" );
+        if ( actualFormat != "skullbonez.asset_library.json" )
+        {
+            std::ostringstream message;
+            message << "Expected format 'skullbonez.asset_library.json', got '" << actualFormat << "'";
+            Fail( assetPath, message.str() );
+        }
+
+        const Json& assets = RequireMember( root, assetPath, "asset library root", "assets" );
+        RequireArray( assets, assetPath, "assets" );
+        for ( const Json& asset : assets )
+        {
+            RequireObject( asset, assetPath, "asset" );
+            const std::string name = ReadString( RequireMember( asset, assetPath, "asset", "name" ), assetPath, "asset.name" );
+            if ( name.empty() )
+            {
+                Fail( assetPath, "asset.name must not be empty" );
+            }
+            if ( FindAssetDefinition( name ) )
+            {
+                Fail( assetPath, "Duplicate asset name: " + name );
+            }
+
+            const std::string type = ReadString( RequireMember( asset, assetPath, "asset", "type" ), assetPath, "asset.type" );
+            if ( type == "convexHull" )
+            {
+                ValidateConvexHullAssetFields( asset, assetPath, "asset" );
+            }
+            else if ( type == "compound" )
+            {
+                const Json& parts = RequireMember( asset, assetPath, "asset", "parts" );
+                RequireArray( parts, assetPath, "asset.parts" );
+                if ( parts.empty() )
+                {
+                    Fail( assetPath, "asset.parts must not be empty" );
+                }
+                for ( const Json& part : parts )
+                {
+                    RequireObject( part, assetPath, "asset.parts[]" );
+                    const std::string partName = ReadString( RequireMember( part, assetPath, "asset.parts[]", "name" ), assetPath, "asset.parts[].name" );
+                    if ( partName.empty() )
+                    {
+                        Fail( assetPath, "asset.parts[].name must not be empty" );
+                    }
+                    ValidateConvexHullAssetFields( part, assetPath, "asset.parts[]" );
+                }
+            }
+            else
+            {
+                Fail( assetPath, "Unknown asset type: " + type );
+            }
+
+            m_assetDefinitions.push_back( asset );
+        }
+    }
+
+    void LoadAssetLibraries( const Json& root, const std::string& path )
+    {
+        const Json* libraries = FindMember( root, "assetLibraries" );
+        if ( !libraries )
+        {
+            return;
+        }
+        RequireArray( *libraries, path, "assetLibraries" );
+        for ( const Json& library : *libraries )
+        {
+            const std::string token = ReadString( library, path, "assetLibraries" );
+            LoadAssetLibrary( ResolveAssetLibraryPath( token ) );
+        }
+    }
+
+    void CheckGeneratedSceneName( const std::string& name, const std::string& path, const char* context ) const
+    {
+        if ( name.empty() )
+        {
+            Fail( path, std::string( context ) + " must not be empty" );
+        }
+        if ( name.size() >= 64 )
+        {
+            Fail( path, std::string( context ) + " must be shorter than 64 characters" );
+        }
+    }
+
+    std::string BuildAssetPartName( const std::string& instanceName, const std::string& partName, const std::string& path ) const
+    {
+        std::string name = instanceName;
+        name += "_";
+        name += partName;
+        CheckGeneratedSceneName( name, path, "asset part generated name" );
+        return name;
+    }
+
+    void ApplyAssetMaterialForTarget( const Json& asset, const std::string& path, const std::string& target )
+    {
+        const Json& source = RequireMember( asset, path, "asset", "material" );
+        Json material = source;
+        RequireObject( material, path, "asset.material" );
+        material["target"] = target;
+        ApplyObjectMaterial( material, path );
+    }
+
+    void ApplyAssetConvexHullPart( const Json& asset,
+                                   const std::string& path,
+                                   const std::string& objectName,
+                                   float baseX,
+                                   float baseY,
+                                   float baseZ,
+                                   float instanceEulerX,
+                                   float instanceEulerY,
+                                   float instanceEulerZ,
+                                   bool hasInstanceEuler,
+                                   bool hasFixedOverride,
+                                   bool fixedOverride,
+                                   bool hasInstanceVelocity,
+                                   float instanceVelX,
+                                   float instanceVelY,
+                                   float instanceVelZ )
+    {
+        CheckGeneratedSceneName( objectName, path, "asset instance name" );
+
+        float offsetX = 0.0f, offsetY = 0.0f, offsetZ = 0.0f;
+        if ( const Json* offset = FindMember( asset, "offset" ) )
+        {
+            ReadVec3( *offset, path, "asset.offset", offsetX, offsetY, offsetZ );
+        }
+
+        float eulerX = instanceEulerX, eulerY = instanceEulerY, eulerZ = instanceEulerZ;
+        bool hasEuler = hasInstanceEuler;
+        if ( const Json* euler = FindMember( asset, "euler" ) )
+        {
+            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
+            ReadVec3( *euler, path, "asset.euler", partX, partY, partZ );
+            eulerX += partX;
+            eulerY += partY;
+            eulerZ += partZ;
+            hasEuler = true;
+        }
+
+        float velX = instanceVelX, velY = instanceVelY, velZ = instanceVelZ;
+        bool hasVelocity = hasInstanceVelocity;
+        if ( const Json* velocity = FindMember( asset, "velocity" ) )
+        {
+            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
+            ReadVec3( *velocity, path, "asset.velocity", partX, partY, partZ );
+            velX += partX;
+            velY += partY;
+            velZ += partZ;
+            hasVelocity = true;
+        }
+
+        bool fixed = false;
+        if ( const Json* fixedValue = FindMember( asset, "fixed" ) )
+        {
+            fixed = ReadBool( *fixedValue, path, "asset.fixed" );
+        }
+        if ( hasFixedOverride )
+        {
+            fixed = fixedOverride;
+        }
+
+        Json object = Json::object();
+        object["name"] = objectName;
+        object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
+        object["position"] = Json::array( { baseX + offsetX, baseY + offsetY, baseZ + offsetZ } );
+        object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
+        object["restitution"] = ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
+        object["fixed"] = fixed;
+        if ( hasEuler )
+        {
+            object["euler"] = Json::array( { eulerX, eulerY, eulerZ } );
+        }
+        if ( hasVelocity )
+        {
+            object["velocity"] = Json::array( { velX, velY, velZ } );
+        }
+
+        ApplyConvexHull( object, path, false );
+        ApplyAssetMaterialForTarget( asset, path, objectName );
+    }
+
+    void ApplyAssetInstance( const Json& instance, const std::string& path )
+    {
+        RequireObject( instance, path, "assetInstance" );
+        const std::string assetName = ReadString( RequireMember( instance, path, "assetInstance", "asset" ), path, "assetInstance.asset" );
+        const Json* asset = FindAssetDefinition( assetName );
+        if ( !asset )
+        {
+            Fail( path, "Unknown asset instance reference: " + assetName );
+        }
+
+        const std::string instanceName = ReadString( RequireMember( instance, path, "assetInstance", "name" ), path, "assetInstance.name" );
+        CheckGeneratedSceneName( instanceName, path, "assetInstance.name" );
+
+        float baseX = 0.0f, baseY = 0.0f, baseZ = 0.0f;
+        ReadVec3( RequireMember( instance, path, "assetInstance", "position" ), path, "assetInstance.position", baseX, baseY, baseZ );
+
+        bool hasFixedOverride = false;
+        bool fixedOverride = false;
+        if ( const Json* fixed = FindMember( instance, "fixed" ) )
+        {
+            hasFixedOverride = true;
+            fixedOverride = ReadBool( *fixed, path, "assetInstance.fixed" );
+        }
+
+        bool hasInstanceEuler = false;
+        float instanceEulerX = 0.0f, instanceEulerY = 0.0f, instanceEulerZ = 0.0f;
+        if ( const Json* euler = FindMember( instance, "euler" ) )
+        {
+            ReadVec3( *euler, path, "assetInstance.euler", instanceEulerX, instanceEulerY, instanceEulerZ );
+            hasInstanceEuler = true;
+        }
+
+        bool hasInstanceVelocity = false;
+        float instanceVelX = 0.0f, instanceVelY = 0.0f, instanceVelZ = 0.0f;
+        if ( const Json* velocity = FindMember( instance, "velocity" ) )
+        {
+            ReadVec3( *velocity, path, "assetInstance.velocity", instanceVelX, instanceVelY, instanceVelZ );
+            hasInstanceVelocity = true;
+        }
+
+        const std::string type = ReadString( RequireMember( *asset, path, "asset", "type" ), path, "asset.type" );
+        if ( type == "convexHull" )
+        {
+            ApplyAssetConvexHullPart( *asset,
+                                      path,
+                                      instanceName,
+                                      baseX,
+                                      baseY,
+                                      baseZ,
+                                      instanceEulerX,
+                                      instanceEulerY,
+                                      instanceEulerZ,
+                                      hasInstanceEuler,
+                                      hasFixedOverride,
+                                      fixedOverride,
+                                      hasInstanceVelocity,
+                                      instanceVelX,
+                                      instanceVelY,
+                                      instanceVelZ );
+            return;
+        }
+
+        if ( type == "compound" )
+        {
+            const Json& parts = RequireMember( *asset, path, "asset", "parts" );
+            RequireArray( parts, path, "asset.parts" );
+            for ( const Json& part : parts )
+            {
+                const std::string partName = ReadString( RequireMember( part, path, "asset.parts[]", "name" ), path, "asset.parts[].name" );
+                ApplyAssetConvexHullPart( part,
+                                          path,
+                                          BuildAssetPartName( instanceName, partName, path ),
+                                          baseX,
+                                          baseY,
+                                          baseZ,
+                                          instanceEulerX,
+                                          instanceEulerY,
+                                          instanceEulerZ,
+                                          hasInstanceEuler,
+                                          hasFixedOverride,
+                                          fixedOverride,
+                                          hasInstanceVelocity,
+                                          instanceVelX,
+                                          instanceVelY,
+                                          instanceVelZ );
+            }
+            return;
+        }
+
+        Fail( path, "Unknown asset type: " + type );
+    }
+
+    void ApplyAssetInstances( const Json& root, const std::string& path )
+    {
+        const Json* instances = FindMember( root, "assetInstances" );
+        if ( !instances )
+        {
+            return;
+        }
+        RequireArray( *instances, path, "assetInstances" );
+        for ( const Json& instance : *instances )
+        {
+            ApplyAssetInstance( instance, path );
+        }
     }
 
     void LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth )
@@ -1408,9 +1774,18 @@ class TestSceneParser
         float tintR = 1.0f;
         float tintG = 1.0f;
         float tintB = 1.0f;
-        if ( const Json* tint = FindMember( materialJson, "tint" ) )
+        const Json* tint = FindMember( materialJson, "tint" );
+        if ( !tint )
         {
-            ReadVec3( *tint, path, "objectMaterial.tint", tintR, tintG, tintB );
+            tint = FindMember( materialJson, "color" );
+        }
+        if ( !tint )
+        {
+            tint = FindMember( materialJson, "colour" );
+        }
+        if ( tint )
+        {
+            ReadVec3( *tint, path, "objectMaterial.color", tintR, tintG, tintB );
         }
 
         material.materialMode = ParseMaterialModeValue( *modeValue, path, "objectMaterial.mode" );
@@ -1465,6 +1840,8 @@ class TestSceneParser
             "mode",
             "kind",
             "tint",
+            "color",
+            "colour",
             "roughness",
             "metallic",
             "specular",
@@ -1521,6 +1898,7 @@ class TestSceneParser
 
     void ApplySceneBody( const Json& root, const std::string& path )
     {
+        LoadAssetLibraries( root, path );
         if ( const Json* playback = FindMember( root, "playback" ) )
         {
             ApplyPlayback( *playback, path );
@@ -1577,6 +1955,7 @@ class TestSceneParser
                 ApplyObject( object, path );
             }
         }
+        ApplyAssetInstances( root, path );
         if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
         {
             RequireArray( *objectMaterials, path, "objectMaterials" );

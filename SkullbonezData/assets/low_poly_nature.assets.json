@@ -1,0 +1,290 @@
+{
+  "format": "skullbonez.asset_library.json",
+  "version": 1,
+  "assets": [
+    {
+      "name": "rock.slab_blue",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_slab_flat.hull",
+      "mass": 180.0,
+      "restitution": 0.12,
+      "fixed": true,
+      "material": {
+        "name": "cool_blue_stone",
+        "mode": "stone",
+        "color": [
+          0.34,
+          0.42,
+          0.58
+        ],
+        "roughness": 0.96,
+        "specular": 0.08,
+        "stylization": 0.72
+      }
+    },
+    {
+      "name": "rock.lump_moss",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_lump_large.hull",
+      "mass": 260.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "material": {
+        "name": "moss_grey_stone",
+        "mode": "stone",
+        "color": [
+          0.31,
+          0.39,
+          0.35
+        ],
+        "roughness": 0.98,
+        "specular": 0.07,
+        "stylization": 0.66
+      }
+    },
+    {
+      "name": "rock.shard_violet",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_shard_tall.hull",
+      "mass": 140.0,
+      "restitution": 0.13,
+      "fixed": true,
+      "material": {
+        "name": "violet_granite",
+        "mode": "stone",
+        "color": [
+          0.44,
+          0.38,
+          0.55
+        ],
+        "roughness": 0.95,
+        "specular": 0.11,
+        "stylization": 0.7
+      }
+    },
+    {
+      "name": "rock.chipped_warm",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/rock_chipped_block.hull",
+      "mass": 210.0,
+      "restitution": 0.12,
+      "fixed": true,
+      "material": {
+        "name": "warm_chipped_stone",
+        "mode": "stone",
+        "color": [
+          0.52,
+          0.45,
+          0.4
+        ],
+        "roughness": 0.97,
+        "specular": 0.08,
+        "stylization": 0.62
+      }
+    },
+    {
+      "name": "tree.pine_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+          "offset": [
+            0,
+            9,
+            0
+          ],
+          "mass": 90.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "pine_bark",
+            "mode": "bark",
+            "color": [
+              0.31,
+              0.16,
+              0.07
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.48
+          }
+        },
+        {
+          "name": "low",
+          "hull": "SkullbonezData/hulls/pine_tier_large.hull",
+          "offset": [
+            0,
+            22,
+            0
+          ],
+          "mass": 52.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_deep",
+            "mode": "foliage",
+            "color": [
+              0.045,
+              0.2,
+              0.055
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "mid",
+          "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
+          "offset": [
+            0,
+            31,
+            0
+          ],
+          "mass": 38.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.06,
+              0.25,
+              0.075
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        },
+        {
+          "name": "top",
+          "hull": "SkullbonezData/hulls/pine_tier_top.hull",
+          "offset": [
+            0,
+            39,
+            0
+          ],
+          "mass": 24.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "pine_needles_light",
+            "mode": "foliage",
+            "color": [
+              0.09,
+              0.31,
+              0.1
+            ],
+            "roughness": 0.88,
+            "specular": 0.08,
+            "stylization": 0.88
+          }
+        }
+      ]
+    },
+    {
+      "name": "tree.cedar_stack",
+      "type": "compound",
+      "parts": [
+        {
+          "name": "trunk",
+          "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+          "offset": [
+            0,
+            9,
+            0
+          ],
+          "mass": 95.0,
+          "restitution": 0.06,
+          "fixed": false,
+          "material": {
+            "name": "cedar_bark",
+            "mode": "bark",
+            "color": [
+              0.28,
+              0.13,
+              0.055
+            ],
+            "roughness": 0.94,
+            "specular": 0.06,
+            "stylization": 0.5
+          }
+        },
+        {
+          "name": "low",
+          "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+          "offset": [
+            0,
+            23,
+            0
+          ],
+          "mass": 44.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_low",
+            "mode": "foliage",
+            "color": [
+              0.055,
+              0.24,
+              0.12
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "mid",
+          "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+          "offset": [
+            0,
+            34,
+            0
+          ],
+          "mass": 32.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_mid",
+            "mode": "foliage",
+            "color": [
+              0.075,
+              0.3,
+              0.15
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        },
+        {
+          "name": "top",
+          "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
+          "offset": [
+            0,
+            43,
+            0
+          ],
+          "mass": 20.0,
+          "restitution": 0.05,
+          "fixed": false,
+          "material": {
+            "name": "cedar_needles_top",
+            "mode": "foliage",
+            "color": [
+              0.1,
+              0.36,
+              0.18
+            ],
+            "roughness": 0.89,
+            "specular": 0.08,
+            "stylization": 0.9
+          }
+        }
+      ]
+    }
+  ]
+}
