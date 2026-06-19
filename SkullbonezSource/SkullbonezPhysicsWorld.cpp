@@ -112,6 +112,7 @@ PhysicsWorld::PhysicsWorld()
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
+    m_persistentRestingContactCounts.reserve( MAX_GAME_MODELS );
     m_solverBodies.reserve( MAX_GAME_MODELS );
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
@@ -152,6 +153,7 @@ void PhysicsWorld::Clear()
     m_persistentContactCache.clear();
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactCounts.clear();
+    m_persistentRestingContactCounts.clear();
     m_solverBodies.clear();
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
@@ -1712,7 +1714,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         bool quiet = speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ;
         bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
-        bool hasObjectContact = x < static_cast<int>( m_persistentContactCounts.size() ) && m_persistentContactCounts[x] > 0;
+        bool hasRestingObjectContact = x < static_cast<int>( m_persistentRestingContactCounts.size() ) && m_persistentRestingContactCounts[x] > 0;
         bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
 
         // A quiet body in a grounded object-contact island is supported even if
@@ -1720,13 +1722,13 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // This is deliberately narrower than "any contact means support":
         //
         //   * quiet keeps active impacts and real toppling awake;
-        //   * hasObjectContact requires the body to be constrained by the island;
+        //   * hasRestingObjectContact requires a real object-contact footprint;
         //   * islandHasSupportAnchor keeps floating piles from becoming sleepers.
         //
         // Marking the body supported here also keeps SkullScope diagnostics honest:
         // the body is not terrain-supported, but it is supported for deactivation
         // by a contact island rooted in credible support.
-        if ( !supported && quiet && hasObjectContact && islandHasSupportAnchor )
+        if ( !supported && quiet && hasRestingObjectContact && islandHasSupportAnchor )
         {
             m_sleepSupportedThisFrame[x] = 1;
             supported = true;
@@ -1739,7 +1741,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // fall into a more stable footprint. The island anchor and object-contact
         // checks above are the escape hatch for that exact low-energy state.
         bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
-                                         !( quiet && hasObjectContact && islandHasSupportAnchor );
+                                         !( quiet && hasRestingObjectContact && islandHasSupportAnchor );
 
         // Modern sleep is still velocity based, but Skullbonez also requires
         // credible island support so unsupported gravity bodies cannot become

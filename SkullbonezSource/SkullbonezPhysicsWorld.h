@@ -230,6 +230,7 @@ class PhysicsWorld
     std::vector<PersistentContactCacheEntry> m_persistentContactCache;
     PersistentContactSolverStats m_persistentContactSolverStats;
     std::vector<uint16_t> m_persistentContactCounts;
+    std::vector<uint16_t> m_persistentRestingContactCounts;
     std::vector<SolverBodyState> m_solverBodies;
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;

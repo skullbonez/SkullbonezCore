@@ -919,7 +919,7 @@ class SkullbonezRun
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
-    LauncherLaser m_launcherLaser;                                  // Visible launcher-mode laser shots; render-only feedback.
+    LauncherLaser m_launcherLaser;                            // Visible launcher-mode laser shots; render-only feedback.
     Environment::WorldEnvironment m_cWorldEnvironment;        // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;  // Scene bodies plus solver-visible object state.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
@@ -1028,10 +1028,10 @@ class SkullbonezRun
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                                           // One fading ray visual, gated by runtime test-line visibility.
     void TickRayCastTestLines( float dt );                                                                                                                                               // Ages fading launcher visuals
     bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT );                          // Finds closest model hit along a ray
-    bool TryLauncherTerrainHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const;                                // Finds the nearest terrain crossing along a launcher ray.
+    bool TryLauncherTerrainHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const;                               // Finds the nearest terrain crossing along a launcher ray.
     void FireRayCastTest();                                                                                                                                                              // Dispatches the selected launcher-mode fire action.
-    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                            // Casts a runtime test ray, draws the laser, and applies impulse to the first dynamic hit.
-    void FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                       // Shoots a small dynamic sphere from the camera.
+    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                         // Casts a runtime test ray, draws the laser, and applies impulse to the first dynamic hit.
+    void FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                    // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                                           // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                                                        // Raycast current mouse position to terrain for editor placement
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;                           // Raycast with optional ray output

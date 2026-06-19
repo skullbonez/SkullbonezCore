@@ -1629,9 +1629,16 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes (ball_state) start paused in free camera mode ?
-        // user presses F to resume simulation and attach to scene camera
-        if ( scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0 )
+        // Snapshot scenes start paused in free camera mode; user presses F to
+        // resume simulation. Physics diagnostics need deterministic frame rows
+        // immediately, so leave diagnostic launches in normal scene playback.
+        const bool hasSnapshotState = scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
+#ifdef _DEBUG
+        const bool shouldPauseSnapshotState = hasSnapshotState && !m_physicsDiagnostics.isEnabled;
+#else
+        const bool shouldPauseSnapshotState = hasSnapshotState;
+#endif
+        if ( shouldPauseSnapshotState )
         {
             m_camera.isFlyMode = true;
             m_camera.cameraTime = 0.0f;

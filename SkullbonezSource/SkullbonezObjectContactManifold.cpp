@@ -1637,6 +1637,64 @@ bool BuildPolyFaceContact( const GameModel& aModel,
     return out.pointCount > 0;
 }
 
+bool BuildBestPolyFaceContact( const GameModel& aModel,
+                               const GameModel& bModel,
+                               const PolytopeWorld& polyA,
+                               const PolytopeWorld& polyB,
+                               const Vector3& finalNormal,
+                               int preferredReference,
+                               float contactSkin,
+                               ObjectContactManifold& out )
+{
+    const int faceA = ChooseReferencePolyFace( polyA, finalNormal );
+    const int faceB = ChooseReferencePolyFace( polyB, -finalNormal );
+    const float alignA = polyA.faces[faceA].normal * finalNormal;
+    const float alignB = polyB.faces[faceB].normal * -finalNormal;
+
+    constexpr float tieEpsilon = 1.0e-4f;
+    const bool tryAFirst = alignA > alignB + tieEpsilon ||
+                           ( fabsf( alignA - alignB ) <= tieEpsilon && preferredReference == 0 );
+
+    auto tryBuild = [&]( bool referenceIsA, ObjectContactManifold& candidate ) -> bool
+    {
+        candidate.bodyA = out.bodyA;
+        candidate.bodyB = out.bodyB;
+        candidate.normal = finalNormal;
+        return referenceIsA
+                   ? BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, faceA, finalNormal, contactSkin, candidate )
+                   : BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, faceB, finalNormal, contactSkin, candidate );
+    };
+
+    ObjectContactManifold candidateA;
+    ObjectContactManifold candidateB;
+    const bool builtA = tryBuild( true, candidateA );
+    const bool builtB = tryBuild( false, candidateB );
+    if ( !builtA && !builtB )
+    {
+        return false;
+    }
+    if ( builtA && !builtB )
+    {
+        out = candidateA;
+        return true;
+    }
+    if ( !builtA && builtB )
+    {
+        out = candidateB;
+        return true;
+    }
+
+    if ( candidateA.pointCount > candidateB.pointCount ||
+         ( candidateA.pointCount == candidateB.pointCount && tryAFirst ) )
+    {
+        out = candidateA;
+        return true;
+    }
+
+    out = candidateB;
+    return true;
+}
+
 bool BuildPolyEdgeContact( const GameModel& aModel,
                            const GameModel& bModel,
                            const PolytopeWorld& polyA,
@@ -1685,10 +1743,14 @@ bool BuildPolyPoly( const GameModel& aModel,
             ObjectContactManifold faceOut;
             faceOut.bodyA = out.bodyA;
             faceOut.bodyB = out.bodyB;
-            faceOut.normal = sat.faceNormal;
-            const bool builtFace = sat.faceAxisType == 0
-                                       ? BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, ChooseReferencePolyFace( polyA, sat.faceNormal ), sat.faceNormal, contactSkin, faceOut )
-                                       : BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, ChooseReferencePolyFace( polyB, -sat.faceNormal ), sat.faceNormal, contactSkin, faceOut );
+            const bool builtFace = BuildBestPolyFaceContact( aModel,
+                                                             bModel,
+                                                             polyA,
+                                                             polyB,
+                                                             sat.faceNormal,
+                                                             sat.faceAxisType,
+                                                             contactSkin,
+                                                             faceOut );
             if ( builtFace && faceOut.pointCount >= 2 )
             {
                 out = faceOut;
@@ -1699,11 +1761,11 @@ bool BuildPolyPoly( const GameModel& aModel,
 
     if ( sat.axisType == 0 )
     {
-        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, true, ChooseReferencePolyFace( polyA, sat.normal ), sat.normal, contactSkin, out );
+        return BuildBestPolyFaceContact( aModel, bModel, polyA, polyB, sat.normal, 0, contactSkin, out );
     }
     if ( sat.axisType == 1 )
     {
-        return BuildPolyFaceContact( aModel, bModel, polyA, polyB, false, ChooseReferencePolyFace( polyB, -sat.normal ), sat.normal, contactSkin, out );
+        return BuildBestPolyFaceContact( aModel, bModel, polyA, polyB, sat.normal, 1, contactSkin, out );
     }
     return BuildPolyEdgeContact( aModel, bModel, polyA, polyB, sat, out );
 }

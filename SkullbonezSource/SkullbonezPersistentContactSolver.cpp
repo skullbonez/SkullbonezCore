@@ -73,10 +73,12 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     auto& m_persistentContactCache = world.m_persistentContactCache;
     auto& m_persistentContactSolverStats = world.m_persistentContactSolverStats;
     auto& m_persistentContactCounts = world.m_persistentContactCounts;
+    auto& m_persistentRestingContactCounts = world.m_persistentRestingContactCounts;
     auto& m_solverBodies = world.m_solverBodies;
     auto& m_physicsDebugContacts = world.m_physicsDebugContacts;
     auto& m_terrainContactManifolds = world.m_terrainContactManifolds;
     auto& m_terrainRestApplied = world.m_terrainRestApplied;
+    auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     { world.RecordPhysicsPipelineStage( record ); };
     auto MarkCollisionVisualContact = [&]( int index )
@@ -111,6 +113,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
+    m_persistentRestingContactCounts.assign( modelCount, 0 );
     if ( modelCount <= 0 ||
          ( m_candidatePairs.empty() && m_terrainContactManifolds.empty() ) )
     {
@@ -351,6 +354,134 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
         }
     };
 
+    auto deterministicTangentAxis = []( const Vector3& supportNormal, uint32_t seed ) -> Vector3
+    {
+        Vector3 basis = fabsf( supportNormal.x ) < 0.9f ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
+        Vector3 axis = Vector::CrossProduct( supportNormal, basis );
+        float axisMag = Vector::VectorMag( axis );
+        if ( axisMag <= TOLERANCE )
+        {
+            basis = Vector3( 0.0f, 0.0f, 1.0f );
+            axis = Vector::CrossProduct( supportNormal, basis );
+            axisMag = Vector::VectorMag( axis );
+        }
+        if ( axisMag > TOLERANCE )
+        {
+            axis /= axisMag;
+        }
+        if ( ( seed & 0x2u ) != 0u )
+        {
+            axis = Vector::CrossProduct( supportNormal, axis );
+            axisMag = Vector::VectorMag( axis );
+            if ( axisMag > TOLERANCE )
+            {
+                axis /= axisMag;
+            }
+        }
+        if ( ( seed & 0x1u ) != 0u )
+        {
+            axis = -axis;
+        }
+        return axis;
+    };
+
+    auto applyPointSupportInstability = [&]( const PersistentContact& c )
+    {
+        constexpr float supportNormalY = 0.25f;
+        if ( c.isTerrain ||
+             c.supportsRestingPolicy ||
+             c.manifoldPointCount != 1 ||
+             c.accN <= TOLERANCE ||
+             fabsf( c.normal.y ) <= supportNormalY )
+        {
+            return;
+        }
+
+        const int supportedIndex = ( c.normal.y > 0.0f ) ? c.bodyB : c.bodyA;
+        if ( supportedIndex < 0 ||
+             supportedIndex >= modelCount ||
+             supportedIndex >= static_cast<int>( m_solverBodies.size() ) ||
+             m_soaIsFixed[supportedIndex] ||
+             m_sleepState[supportedIndex] )
+        {
+            return;
+        }
+        if ( !std::get_if<ConvexHullShape>( &m_gameModels[supportedIndex].GetCollisionShape() ) )
+        {
+            return;
+        }
+        if ( supportedIndex < static_cast<int>( m_persistentRestingContactCounts.size() ) &&
+             m_persistentRestingContactCounts[supportedIndex] > 0 )
+        {
+            return;
+        }
+        if ( supportedIndex < static_cast<int>( m_sleepSupportedThisFrame.size() ) &&
+             m_sleepSupportedThisFrame[supportedIndex] != 0 )
+        {
+            return;
+        }
+
+        SolverBodyState& body = m_solverBodies[supportedIndex];
+        if ( body.invMass <= 0.0f )
+        {
+            return;
+        }
+
+        const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );
+        const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );
+        const float speedSq = body.linearVelocity * body.linearVelocity;
+        const float omegaSq = body.angularVelocity * body.angularVelocity;
+        if ( speedSq > sleepLinear * sleepLinear ||
+             omegaSq > sleepAngular * sleepAngular )
+        {
+            return;
+        }
+
+        const Vector3 supportNormal = ( c.normal.y > 0.0f ) ? c.normal : -c.normal;
+        const Vector3 supportArm = ( c.normal.y > 0.0f ) ? c.rB : c.rA;
+        const Vector3 lever = supportArm - supportNormal * ( supportArm * supportNormal );
+        const float radius = conservativeContactRadius( m_gameModels[supportedIndex] );
+        const float leverTolerance = (std::max)( 0.001f, radius * 0.0002f );
+        if ( Vector::VectorMagSquared( lever ) > leverTolerance * leverTolerance )
+        {
+            return;
+        }
+
+        const float loadFloor = (std::max)( 1.0e-4f, m_gameModels[supportedIndex].GetMass() * fabsf( Cfg().gravity ) * dt * 0.01f );
+        if ( c.accN < loadFloor )
+        {
+            return;
+        }
+
+        // A single convex-hull point contact directly below the COM is an
+        // unstable equilibrium, not a credible resting footprint. Exact authored
+        // alignments can otherwise preserve it forever, so seed a tiny,
+        // deterministic tilt tied to the sleep angular threshold. Once the body
+        // is off the point support, ordinary contact geometry and gravity take
+        // over.
+        const float nudgeSpeed = sleepAngular > 0.0f
+                                     ? (std::max)( TOLERANCE, (std::min)( sleepAngular * 0.25f, 0.08f ) )
+                                     : 0.02f;
+        if ( omegaSq > nudgeSpeed * nudgeSpeed )
+        {
+            return;
+        }
+
+        const uint32_t seed = c.featureId ^
+                              ( static_cast<uint32_t>( c.bodyA + 1 ) * 0x9e3779b9u ) ^
+                              ( static_cast<uint32_t>( c.bodyB + 17 ) * 0x85ebca6bu );
+        const Vector3 axis = deterministicTangentAxis( supportNormal, seed );
+        const float axisMagSq = axis * axis;
+        if ( axisMagSq <= TOLERANCE * TOLERANCE )
+        {
+            return;
+        }
+
+        const float alongAxis = body.angularVelocity * axis;
+        const float target = ( alongAxis < 0.0f ) ? -nudgeSpeed : nudgeSpeed;
+        body.angularVelocity += axis * ( target - alongAxis );
+    };
+
     // CATTO REF:
     //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
     //   a contact point, a normal, and separation/penetration for each row.
@@ -432,6 +563,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                     m_persistentContacts.push_back( c );
                     ++m_persistentContactCounts[aIndex];
                     ++m_persistentContactCounts[bIndex];
+                    if ( c.supportsRestingPolicy )
+                    {
+                        ++m_persistentRestingContactCounts[aIndex];
+                        ++m_persistentRestingContactCounts[bIndex];
+                    }
 
                     Physics::PhysicsPipelineRecord record;
                     record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
@@ -879,6 +1015,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             {
                 break;
             }
+        }
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
+        for ( const PersistentContact& c : m_persistentContacts )
+        {
+            applyPointSupportInstability( c );
         }
     }
 
