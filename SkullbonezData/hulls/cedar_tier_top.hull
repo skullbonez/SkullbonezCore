@@ -4,7 +4,7 @@ vertex -5 -5 -5
 vertex 5 -5 -5
 vertex 5 -5 5
 vertex -5 -5 5
-vertex 0 8 0
+vertex 0 3.5 0
 face 0 1 2 3
 face 0 4 1
 face 1 4 2

@@ -115,7 +115,7 @@
           "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
           "offset": [
             0,
-            14.5,
+            20,
             0
           ],
           "mass": 26.0,
@@ -139,7 +139,7 @@
           "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
           "offset": [
             0,
-            22.5,
+            28,
             0
           ],
           "mass": 18.0,
@@ -163,7 +163,7 @@
           "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
           "offset": [
             0,
-            29.5,
+            35,
             0
           ],
           "mass": 12.0,
@@ -217,7 +217,7 @@
           "hull": "SkullbonezData/hulls/pine_tier_large.hull",
           "offset": [
             0,
-            22,
+            24,
             0
           ],
           "mass": 52.0,
@@ -241,7 +241,7 @@
           "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
           "offset": [
             0,
-            31,
+            34,
             0
           ],
           "mass": 38.0,
@@ -265,7 +265,7 @@
           "hull": "SkullbonezData/hulls/pine_tier_top.hull",
           "offset": [
             0,
-            39,
+            43,
             0
           ],
           "mass": 24.0,
@@ -316,10 +316,10 @@
         },
         {
           "name": "low",
-          "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+          "hull": "SkullbonezData/hulls/cedar_tier_tall_low.hull",
           "offset": [
             0,
-            23,
+            25,
             0
           ],
           "mass": 44.0,
@@ -340,10 +340,10 @@
         },
         {
           "name": "mid",
-          "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+          "hull": "SkullbonezData/hulls/cedar_tier_tall_mid.hull",
           "offset": [
             0,
-            34,
+            38,
             0
           ],
           "mass": 32.0,
@@ -367,7 +367,7 @@
           "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
           "offset": [
             0,
-            43,
+            48,
             0
           ],
           "mass": 20.0,

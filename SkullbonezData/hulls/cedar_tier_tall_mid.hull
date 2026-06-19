@@ -1,13 +1,13 @@
 hull_version 1
-name cedar_tier_mid
+name cedar_tier_tall_mid
 vertex -8 -6 -8
 vertex 8 -6 -8
 vertex 8 -6 8
 vertex -8 -6 8
-vertex -5 2 -5
-vertex 5 2 -5
-vertex 5 2 5
-vertex -5 2 5
+vertex -5 5 -5
+vertex 5 5 -5
+vertex 5 5 5
+vertex -5 5 5
 face 0 1 2 3
 face 4 5 6 7
 face 0 4 5 1

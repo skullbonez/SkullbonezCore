@@ -322,7 +322,7 @@
     {
       "type": "convexHull",
       "name": "tree_small_stack_mid",
-      "position": [420, 35, 610],
+      "position": [420, 28, 610],
       "mass": 18.0,
       "restitution": 0.05,
       "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
@@ -332,7 +332,7 @@
     {
       "type": "convexHull",
       "name": "tree_small_stack_top",
-      "position": [420, 49, 610],
+      "position": [420, 35, 610],
       "mass": 12.0,
       "restitution": 0.05,
       "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
@@ -362,7 +362,7 @@
     {
       "type": "convexHull",
       "name": "tree_pine_stack_mid",
-      "position": [515, 36, 610],
+      "position": [515, 34, 610],
       "mass": 38.0,
       "restitution": 0.05,
       "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
@@ -372,7 +372,7 @@
     {
       "type": "convexHull",
       "name": "tree_pine_stack_top",
-      "position": [515, 47, 610],
+      "position": [515, 43, 610],
       "mass": 24.0,
       "restitution": 0.05,
       "hull": "SkullbonezData/hulls/pine_tier_top.hull",
@@ -395,24 +395,24 @@
       "position": [625, 25, 610],
       "mass": 44.0,
       "restitution": 0.05,
-      "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
+      "hull": "SkullbonezData/hulls/cedar_tier_tall_low.hull",
       "fixed": false,
       "euler": [0, -15, 0]
     },
     {
       "type": "convexHull",
       "name": "tree_cedar_stack_mid",
-      "position": [625, 40, 610],
+      "position": [625, 38, 610],
       "mass": 32.0,
       "restitution": 0.05,
-      "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
+      "hull": "SkullbonezData/hulls/cedar_tier_tall_mid.hull",
       "fixed": false,
       "euler": [0, -15, 0]
     },
     {
       "type": "convexHull",
       "name": "tree_cedar_stack_top",
-      "position": [625, 54, 610],
+      "position": [625, 48, 610],
       "mass": 20.0,
       "restitution": 0.05,
       "hull": "SkullbonezData/hulls/cedar_tier_top.hull",

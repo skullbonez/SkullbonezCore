@@ -1,0 +1,106 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "simulation": {
+    "seed": 42620,
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        520.0,
+        120.0,
+        760.0
+      ],
+      "view": [
+        520.0,
+        32.0,
+        545.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "tree.small_stack",
+      "name": "stability_tree_small",
+      "position": [
+        430.0,
+        0.0,
+        545.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        10.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "stability_tree_pine",
+      "position": [
+        525.0,
+        0.0,
+        545.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        -14.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "stability_tree_cedar",
+      "position": [
+        635.0,
+        0.0,
+        545.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        18.0,
+        0.0
+      ]
+    }
+  ]
+}

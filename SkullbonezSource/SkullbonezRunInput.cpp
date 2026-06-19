@@ -165,18 +165,18 @@ struct EditorTreeDefinition
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
     { EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f },
-    { EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 14.5f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f },
-    { EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 22.5f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f },
-    { EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 29.5f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f },
 };
 constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
     { EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f },
-    { EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 22.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f },
-    { EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 31.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f },
-    { EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 39.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f },
 };
 constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_big", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };

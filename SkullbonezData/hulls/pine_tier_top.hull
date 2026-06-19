@@ -4,7 +4,7 @@ vertex -8 -5 -8
 vertex 8 -5 -8
 vertex 8 -5 8
 vertex -8 -5 8
-vertex 0 7 0
+vertex 0 3 0
 face 0 1 2 3
 face 0 4 1
 face 1 4 2
