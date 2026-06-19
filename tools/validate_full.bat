@@ -24,14 +24,14 @@
 @echo off
 setlocal
 REM ===============================================================
-REM  validate_full.bat - Complete validation pipeline.
-REM  Use for: broad changes, uncertain scope, pre-merge verification.
-REM  Runtime: about 3 minutes.
+REM  validate_full.bat - Default PR validation pipeline.
+REM  Use for: broad changes, uncertain scope, normal pre-merge verification.
+REM  Runtime: two executable launches after builds: one render, one physics.
 REM ===============================================================
 
 echo.
 echo ============================================================
-echo   VALIDATE_FULL - Complete Validation Pipeline
+echo   VALIDATE_FULL - Default PR Validation
 echo ============================================================
 echo.
 
@@ -82,14 +82,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo === Phase 4: Performance Validation ===
-call "%~dp0validate_perf.bat"
-if errorlevel 1 (
-    echo.
-    echo VALIDATE_FULL: FAILED at performance validation.
-    exit /b 3
-)
-
 set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_ASSUME_PROFILE_BUILT=%PREVIOUS_ASSUME_PROFILE_BUILT%"
 set "SKULLBONEZ_ASSUME_DEBUG_BUILT=%PREVIOUS_ASSUME_DEBUG_BUILT%"
@@ -97,6 +89,6 @@ echo [ready] Profile and Debug were built before validation.
 
 echo.
 echo ============================================================
-echo   VALIDATE_FULL: ALL PHASES PASSED
+echo   VALIDATE_FULL: DEFAULT GATE PASSED
 echo ============================================================
 exit /b 0

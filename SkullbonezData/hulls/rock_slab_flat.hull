@@ -1,0 +1,28 @@
+hull_version 1
+name rock_slab_flat
+vertex -14 -3 -6
+vertex -5 -3 -10
+vertex 7 -3 -9
+vertex 14 -3 -3
+vertex 12 -3 6
+vertex 3 -3 10
+vertex -9 -3 8
+vertex -16 -3 1
+vertex -9.3 3 -4
+vertex -3 3 -6.8
+vertex 5.4 3 -6.1
+vertex 10.3 3 -1.9
+vertex 8.9 3 4.4
+vertex 2.6 3 7.2
+vertex -5.8 3 5.8
+vertex -10.7 3 0.9
+face 0 1 2 3 4 5 6 7
+face 8 9 10 11 12 13 14 15
+face 0 8 9 1
+face 1 9 10 2
+face 2 10 11 3
+face 3 11 12 4
+face 4 12 13 5
+face 5 13 14 6
+face 6 14 15 7
+face 7 15 8 0

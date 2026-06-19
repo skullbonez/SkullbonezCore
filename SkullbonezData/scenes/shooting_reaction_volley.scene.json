@@ -1,0 +1,471 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 4242,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 32,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        440,
+        150,
+        500
+      ],
+      "view": [
+        540,
+        110,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "target_ball_00",
+      "position": [
+        520,
+        100,
+        434
+      ],
+      "radius": 3.0,
+      "mass": 1.0,
+      "moment": 1.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_01",
+      "position": [
+        520,
+        100,
+        448
+      ],
+      "radius": 3.0,
+      "mass": 1.0,
+      "moment": 1.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_02",
+      "position": [
+        520,
+        100,
+        462
+      ],
+      "radius": 3.0,
+      "mass": 1.0,
+      "moment": 1.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_03",
+      "position": [
+        520,
+        100,
+        476
+      ],
+      "radius": 3.0,
+      "mass": 1.0,
+      "moment": 1.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_04",
+      "position": [
+        520,
+        100,
+        490
+      ],
+      "radius": 3.0,
+      "mass": 1.0,
+      "moment": 1.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "shot_00",
+      "position": [
+        450,
+        100,
+        434
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_01",
+      "position": [
+        450,
+        100,
+        448
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_02",
+      "position": [
+        450,
+        100,
+        462
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_03",
+      "position": [
+        450,
+        100,
+        476
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_04",
+      "position": [
+        450,
+        100,
+        490
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_05",
+      "position": [
+        450,
+        100,
+        506
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_06",
+      "position": [
+        450,
+        100,
+        520
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_07",
+      "position": [
+        450,
+        100,
+        534
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_08",
+      "position": [
+        450,
+        100,
+        548
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shot_09",
+      "position": [
+        450,
+        100,
+        562
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.025,
+      "restitution": 0.2,
+      "fixed": false,
+      "force": [
+        3000,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "target_box_05",
+      "position": [
+        520,
+        100,
+        506
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 1.5,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "target_box_06",
+      "position": [
+        520,
+        100,
+        520
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 1.5,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        15,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "target_box_07",
+      "position": [
+        520,
+        100,
+        534
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 1.5,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        15
+      ]
+    },
+    {
+      "type": "box",
+      "name": "target_box_08",
+      "position": [
+        520,
+        100,
+        548
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 1.5,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        25,
+        10
+      ]
+    },
+    {
+      "type": "box",
+      "name": "target_box_09",
+      "position": [
+        520,
+        100,
+        562
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 1.5,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        10,
+        0,
+        25
+      ]
+    }
+  ]
+}

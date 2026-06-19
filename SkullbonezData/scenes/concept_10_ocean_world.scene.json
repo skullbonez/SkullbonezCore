@@ -1,0 +1,260 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1010,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "ocean_world"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        92,
+        850
+      ],
+      "view": [
+        615,
+        31,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        610,
+        44,
+        650
+      ],
+      "radius": 28.0,
+      "mass": 112.0,
+      "moment": 26.0,
+      "restitution": 0.48,
+      "fixed": false,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "swell_01",
+      "position": [
+        455,
+        38,
+        690
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        62,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "swell_02",
+      "position": [
+        760,
+        38,
+        685
+      ],
+      "radius": 16.0,
+      "mass": 66.0,
+      "moment": 15.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        122,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "foam_01",
+      "position": [
+        370,
+        38,
+        600
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "foam_02",
+      "position": [
+        500,
+        36,
+        555
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "foam_03",
+      "position": [
+        635,
+        36,
+        540
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "foam_04",
+      "position": [
+        800,
+        38,
+        565
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "horizon_01",
+      "position": [
+        350,
+        54,
+        460
+      ],
+      "radius": 5.0,
+      "mass": 20.0,
+      "moment": 5.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "horizon_02",
+      "position": [
+        515,
+        58,
+        430
+      ],
+      "radius": 4.0,
+      "mass": 18.0,
+      "moment": 4.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "horizon_03",
+      "position": [
+        720,
+        58,
+        440
+      ],
+      "radius": 4.0,
+      "mass": 18.0,
+      "moment": 4.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "sky_ball",
+      "position": [
+        870,
+        162,
+        495
+      ],
+      "radius": 10.0,
+      "mass": 35.0,
+      "moment": 9.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        90,
+        0
+      ]
+    }
+  ]
+}

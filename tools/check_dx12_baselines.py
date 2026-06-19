@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -61,19 +60,19 @@ DEFAULT_THRESHOLD = 1.0
 SCENES = [
     {
         "name": "water_ball_test",
-        "scene": "SkullbonezData/scenes/water_ball_test.scene",
+        "scene": "SkullbonezData/scenes/water_ball_test.scene.json",
         "current": "dx12_screenshot.bmp",
         "baseline": "baseline_dx12_water_ball_test.png",
     },
     {
         "name": "solver_smoke",
-        "scene": "SkullbonezData/scenes/solver_smoke.scene",
+        "scene": "SkullbonezData/scenes/solver_smoke.scene.json",
         "current": "dx12_solver_smoke.bmp",
         "baseline": "baseline_dx12_solver_smoke.png",
     },
 ]
 
-DX12_COMMAND = r"Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite"
+DX12_COMMAND = r"Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite.json"
 
 
 def run_id() -> str:
@@ -98,29 +97,45 @@ def read_scene_metadata(repo: Path, scene_path: Path) -> dict[str, Any]:
         metadata["missing"] = True
         return metadata
 
-    screenshot_pattern = re.compile(r"^\s*screenshot\s+(\S+)\s+(frame|ms)\s+(\d+)", re.IGNORECASE)
-    frames_pattern = re.compile(r"^\s*frames\s+(\d+)", re.IGNORECASE)
-    camera_pattern = re.compile(r"^\s*camera\s+(.+)", re.IGNORECASE)
+    try:
+        scene = json.loads(scene_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        metadata["invalid"] = str(exc)
+        return metadata
 
-    for raw_line in scene_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        screenshot_match = screenshot_pattern.match(line)
-        if screenshot_match:
+    if not isinstance(scene, dict):
+        metadata["invalid"] = "root is not an object"
+        return metadata
+
+    playback = scene.get("playback")
+    if isinstance(playback, dict) and isinstance(playback.get("frames"), int):
+        metadata["frames"] = playback["frames"]
+
+    capture = scene.get("capture")
+    if isinstance(capture, dict):
+        screenshot = capture.get("screenshot")
+        if isinstance(screenshot, dict) and isinstance(screenshot.get("path"), str):
+            trigger = "frame" if "frame" in screenshot else "ms" if "ms" in screenshot else None
+            value = screenshot.get(trigger) if trigger else None
+            if isinstance(value, int):
+                metadata["screenshot"] = {
+                    "path": screenshot["path"],
+                    "trigger": trigger,
+                    "value": value,
+                }
+        screenshot_and_exit = capture.get("screenshotAndExit")
+        if metadata["screenshot"] is None and isinstance(screenshot_and_exit, str):
             metadata["screenshot"] = {
-                "path": screenshot_match.group(1),
-                "trigger": screenshot_match.group(2).lower(),
-                "value": int(screenshot_match.group(3)),
+                "path": screenshot_and_exit,
+                "trigger": "frame",
+                "value": metadata["frames"] or 0,
             }
-            continue
-        frames_match = frames_pattern.match(line)
-        if frames_match:
-            metadata["frames"] = int(frames_match.group(1))
-            continue
-        camera_match = camera_pattern.match(line)
-        if camera_match:
-            metadata["cameras"].append(camera_match.group(1))
+
+    cameras = scene.get("cameras")
+    if isinstance(cameras, list):
+        for camera in cameras:
+            if isinstance(camera, dict) and isinstance(camera.get("name"), str):
+                metadata["cameras"].append(camera["name"])
     return metadata
 
 
@@ -292,7 +307,7 @@ def main() -> int:
         "runId": args.run_id,
         "generatedAtUtc": generated_at,
         "renderer": "dx12",
-        "suite": "SkullbonezData/scenes/render_tests.suite",
+        "suite": "SkullbonezData/scenes/render_tests.suite.json",
         "command": DX12_COMMAND,
         "threshold": args.threshold,
         "status": overall_status,

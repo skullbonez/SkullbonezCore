@@ -56,6 +56,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.water_ocean", "shaders/water_ocean" },
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
+        { "shader.launcher_laser", "shaders/launcher_laser" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
         { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
         { "shader.reflect_rt", "shaders/reflect.rt" },
@@ -343,11 +344,76 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logic
     return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
 }
 
+const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath )
+{
+    const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::AssetLibrary, logicalName, relativePath );
+
+    for ( AssetLibrarySourceAsset& library : m_assetLibraryAssets )
+    {
+        if ( library.id == source.id || library.logicalName == logicalName )
+        {
+            library.id = source.id;
+            library.logicalName = logicalName;
+            library.relativePath = relativePath;
+            library.resolvedPath = source.resolvedPath;
+            return library;
+        }
+    }
+
+    AssetLibrarySourceAsset library;
+    library.id = source.id;
+    library.logicalName = logicalName;
+    library.relativePath = relativePath;
+    library.resolvedPath = source.resolvedPath;
+    m_assetLibraryAssets.push_back( std::move( library ) );
+    return m_assetLibraryAssets.back();
+}
+
+const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAsset( const char* logicalName ) const
+{
+    if ( !logicalName || logicalName[0] == '\0' )
+    {
+        return nullptr;
+    }
+
+    for ( const AssetLibrarySourceAsset& library : m_assetLibraryAssets )
+    {
+        if ( library.logicalName == logicalName )
+        {
+            return &library;
+        }
+    }
+    return nullptr;
+}
+
+const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAssetById( AssetId id ) const
+{
+    if ( id == 0 )
+    {
+        return nullptr;
+    }
+
+    for ( const AssetLibrarySourceAsset& library : m_assetLibraryAssets )
+    {
+        if ( library.id == id )
+        {
+            return &library;
+        }
+    }
+    return nullptr;
+}
+
+const std::vector<AssetLibrarySourceAsset>& AssetSystem::GetAssetLibrarySourceAssets() const
+{
+    return m_assetLibraryAssets;
+}
+
 void AssetSystem::Clear()
 {
     m_sourceAssets.clear();
     m_textureAssets.clear();
     m_shaderAssets.clear();
+    m_assetLibraryAssets.clear();
     m_nextAssetId = 1;
     m_nextGeneration = 1;
 }
@@ -365,6 +431,11 @@ size_t AssetSystem::GetTextureSourceAssetCount() const
 size_t AssetSystem::GetShaderSourceAssetCount() const
 {
     return m_shaderAssets.size();
+}
+
+size_t AssetSystem::GetAssetLibrarySourceAssetCount() const
+{
+    return m_assetLibraryAssets.size();
 }
 
 void BindActiveAssetSystem( AssetSystem* assets )

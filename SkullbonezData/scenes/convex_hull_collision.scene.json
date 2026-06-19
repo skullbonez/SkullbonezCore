@@ -1,0 +1,270 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 42,
+    "physics": true,
+    "text": true,
+    "timeScale": 5.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 1800,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "collisionVisualizer": false,
+    "physics": {
+      "axes": false,
+      "transparent": false,
+      "alpha": 0.35
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        340,
+        200,
+        430
+      ],
+      "view": [
+        520,
+        35,
+        540
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "hull_ball_a",
+      "position": [
+        500,
+        135,
+        500
+      ],
+      "radius": 7.0,
+      "mass": 24.0,
+      "moment": 12.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "hull_ball_b",
+      "position": [
+        540,
+        150,
+        525
+      ],
+      "radius": 6.0,
+      "mass": 20.0,
+      "moment": 10.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "hull_box_a",
+      "position": [
+        515,
+        120,
+        490
+      ],
+      "halfExtents": [
+        4.0,
+        3.0,
+        3.0
+      ],
+      "mass": 28.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "hull_box_b",
+      "position": [
+        480,
+        145,
+        535
+      ],
+      "halfExtents": [
+        3.0,
+        5.0,
+        3.0
+      ],
+      "mass": 32.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        15,
+        0,
+        30
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_hex_a",
+      "position": [
+        500,
+        175,
+        520
+      ],
+      "mass": 28.0,
+      "restitution": 0.3,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        15,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_diamond_a",
+      "position": [
+        530,
+        185,
+        505
+      ],
+      "mass": 24.0,
+      "restitution": 0.35,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": false,
+      "euler": [
+        20,
+        0,
+        15
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_pyramid_a",
+      "position": [
+        490,
+        195,
+        515
+      ],
+      "mass": 22.0,
+      "restitution": 0.3,
+      "hull": "SkullbonezData/hulls/pyramid.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        35,
+        10
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_wedge_a",
+      "position": [
+        520,
+        165,
+        545
+      ],
+      "mass": 26.0,
+      "restitution": 0.25,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": false,
+      "euler": [
+        10,
+        0,
+        25
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_tapered_a",
+      "position": [
+        470,
+        175,
+        505
+      ],
+      "mass": 30.0,
+      "restitution": 0.25,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        -25,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_tri_prism_a",
+      "position": [
+        550,
+        190,
+        545
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": false,
+      "euler": [
+        25,
+        15,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_hex_b",
+      "position": [
+        505,
+        215,
+        480
+      ],
+      "mass": 28.0,
+      "restitution": 0.3,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": false,
+      "euler": [
+        35,
+        0,
+        45
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "hull_diamond_b",
+      "position": [
+        535,
+        225,
+        535
+      ],
+      "mass": 24.0,
+      "restitution": 0.35,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        45,
+        25
+      ]
+    }
+  ]
+}

@@ -184,6 +184,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
     hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
     hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
+    hash = HashFloat( hash, data.launcherProjectileSpeed, 100.0f );
     hash = HashBool( hash, data.waterFreezeDebug );
     hash = HashBool( hash, data.waterFlatDebug );
     hash = HashBool( hash, data.terrainHidden );
@@ -1267,6 +1268,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );

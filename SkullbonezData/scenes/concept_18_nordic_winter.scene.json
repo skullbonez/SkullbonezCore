@@ -1,0 +1,269 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1018,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "none"
+  },
+  "styles": [
+    "nordic_winter"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        650,
+        155,
+        920
+      ],
+      "view": [
+        610,
+        48,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "snow_drift_l",
+      "position": [
+        430,
+        42,
+        670
+      ],
+      "halfExtents": [
+        85,
+        8,
+        24
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "snow_drift_r",
+      "position": [
+        785,
+        40,
+        640
+      ],
+      "halfExtents": [
+        100,
+        8,
+        24
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "ice_ridge",
+      "position": [
+        615,
+        55,
+        515
+      ],
+      "halfExtents": [
+        125,
+        14,
+        16
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        54,
+        650
+      ],
+      "radius": 27.0,
+      "mass": 108.0,
+      "moment": 25.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "snow_01",
+      "position": [
+        470,
+        60,
+        705
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "snow_02",
+      "position": [
+        760,
+        56,
+        690
+      ],
+      "radius": 16.0,
+      "mass": 66.0,
+      "moment": 15.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ice_01",
+      "position": [
+        390,
+        74,
+        585
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ice_02",
+      "position": [
+        520,
+        68,
+        545
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ice_03",
+      "position": [
+        675,
+        66,
+        540
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ice_04",
+      "position": [
+        825,
+        78,
+        570
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cold_sky",
+      "position": [
+        860,
+        170,
+        505
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.32,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    }
+  ]
+}

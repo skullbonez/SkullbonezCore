@@ -141,6 +141,7 @@ CORE_PREFIXES = (
     "SkullbonezInputController",
     "SkullbonezLockOrderValidator",
     "SkullbonezLog",
+    "SkullbonezLauncherLaser",
     "SkullbonezPlatformProfiler",
     "SkullbonezProfiler",
     "SkullbonezRun",
@@ -297,13 +298,13 @@ def expected_filter_for(item: ProjectItem) -> str | None:
             return PROJECT_FILTER
         if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil"}:
             return SHADER_FILTER
-        if lower.startswith("skullbonezdata\\scenes\\") and suffix in {".scene", ".suite"}:
+        if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):
             return SCENE_FILTER
         if lower.startswith("skullbonezdata\\hulls\\") and suffix == ".hull":
             return SCENE_FILTER
         if lower == "skullbonezdata\\engine.cfg":
             return SCENE_FILTER
-        if lower.startswith("skullbonezdata\\styles\\") and suffix == ".style":
+        if lower.startswith("skullbonezdata\\styles\\") and lower.endswith(".style.json"):
             return STYLE_FILTER
 
     return None

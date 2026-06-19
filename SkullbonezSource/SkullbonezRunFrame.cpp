@@ -197,10 +197,11 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         SceneState().isScenePhysics,
         SceneState().isFixedStep,
         m_camera.isFlyMode,
-        m_camera.isNudgeMode,
+        m_camera.isLauncherMode,
         Input::IsKeyDown( VK_SPACE ),
         &m_cGameModelCollection } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
+    m_launcherLaser.Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );

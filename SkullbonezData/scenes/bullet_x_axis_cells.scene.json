@@ -1,0 +1,91 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 424242,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 1,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true,
+    "broadphaseOverlay": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        256,
+        160,
+        760
+      ],
+      "view": [
+        512,
+        108,
+        492
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "x_axis_bullet",
+      "position": [
+        12,
+        108,
+        492
+      ],
+      "radius": 0.25,
+      "mass": 0.25,
+      "moment": 0.00625,
+      "restitution": 0.0,
+      "fixed": false,
+      "force": [
+        1474560,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "requirements": {
+    "broadphaseXCells": [
+      {
+        "min": 0,
+        "max": 2048,
+        "y": 4,
+        "z": 20
+      }
+    ]
+  }
+}

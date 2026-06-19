@@ -1,0 +1,148 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "timeScale": 10.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 1800,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        340,
+        200,
+        430
+      ],
+      "view": [
+        520,
+        30,
+        540
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "ball_a",
+      "position": [
+        490,
+        110,
+        490
+      ],
+      "radius": 8.0,
+      "mass": 30.0,
+      "moment": 15.0,
+      "restitution": 0.4,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "ball_b",
+      "position": [
+        550,
+        120,
+        515
+      ],
+      "radius": 7.0,
+      "mass": 24.0,
+      "moment": 12.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "ball_c",
+      "position": [
+        505,
+        100,
+        555
+      ],
+      "radius": 9.0,
+      "mass": 36.0,
+      "moment": 18.0,
+      "restitution": 0.3,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "box_a",
+      "position": [
+        525,
+        90,
+        490
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 22.0,
+      "restitution": 0.3,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "box_b",
+      "position": [
+        475,
+        105,
+        540
+      ],
+      "halfExtents": [
+        4.0,
+        2.5,
+        3.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_c",
+      "position": [
+        545,
+        100,
+        545
+      ],
+      "halfExtents": [
+        2.5,
+        3.5,
+        2.5
+      ],
+      "mass": 18.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        15,
+        0,
+        25
+      ]
+    }
+  ]
+}

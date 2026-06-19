@@ -1,0 +1,247 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": false,
+    "godRays": false,
+    "volumetricLighting": false,
+    "bloom": false,
+    "fog": false,
+    "styleModes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "exposure": 0.8,
+    "gamma": 2.05,
+    "sunColorR": 1.0,
+    "sunColorG": 0.74,
+    "sunColorB": 0.45,
+    "sunIntensity": 18.0,
+    "shadows": true,
+    "shadowMapSize": 4096,
+    "shadowPcfRadius": 2,
+    "shadowStrength": 0.82,
+    "shadowSoftness": 1.0,
+    "shadowDepthBias": 3e-05,
+    "shadowSlopeBias": 5e-05,
+    "shadowMaxDistance": 900.0
+  },
+  "simulation": {
+    "seed": 6211,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        150,
+        940
+      ],
+      "view": [
+        620,
+        72,
+        650
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "grid_ball_00",
+      "position": [
+        532,
+        72,
+        562
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_01",
+      "position": [
+        620,
+        72,
+        562
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_02",
+      "position": [
+        708,
+        72,
+        562
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_10",
+      "position": [
+        532,
+        72,
+        650
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_11",
+      "position": [
+        620,
+        72,
+        650
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_12",
+      "position": [
+        708,
+        72,
+        650
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_20",
+      "position": [
+        532,
+        72,
+        738
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_21",
+      "position": [
+        620,
+        72,
+        738
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grid_ball_22",
+      "position": [
+        708,
+        72,
+        738
+      ],
+      "radius": 22.0,
+      "mass": 80.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

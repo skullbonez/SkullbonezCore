@@ -74,6 +74,7 @@ not routine iteration steps.
 | Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
 | DX12 renderer gate or validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
+| Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
 | Performance-sensitive hot path | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 

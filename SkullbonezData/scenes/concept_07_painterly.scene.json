@@ -1,0 +1,262 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1007,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "painterly"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        650,
+        175,
+        985
+      ],
+      "view": [
+        610,
+        64,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "hill_left",
+      "position": [
+        420,
+        58,
+        630
+      ],
+      "halfExtents": [
+        72,
+        18,
+        36
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "hill_right",
+      "position": [
+        790,
+        55,
+        595
+      ],
+      "halfExtents": [
+        90,
+        16,
+        34
+      ],
+      "mass": 3000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "tree_01",
+      "position": [
+        470,
+        92,
+        570
+      ],
+      "halfExtents": [
+        14,
+        38,
+        14
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "tree_02",
+      "position": [
+        740,
+        84,
+        555
+      ],
+      "halfExtents": [
+        12,
+        34,
+        12
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        615,
+        58,
+        650
+      ],
+      "radius": 26.0,
+      "mass": 106.0,
+      "moment": 25.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        28,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "brush_01",
+      "position": [
+        475,
+        68,
+        700
+      ],
+      "radius": 14.0,
+      "mass": 58.0,
+      "moment": 13.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "brush_02",
+      "position": [
+        755,
+        62,
+        690
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "brush_03",
+      "position": [
+        390,
+        86,
+        545
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "brush_04",
+      "position": [
+        550,
+        78,
+        525
+      ],
+      "radius": 7.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "brush_05",
+      "position": [
+        690,
+        72,
+        535
+      ],
+      "radius": 7.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "sky_01",
+      "position": [
+        870,
+        182,
+        520
+      ],
+      "radius": 10.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.38,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    }
+  ]
+}

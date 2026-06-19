@@ -1,0 +1,933 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 20260602,
+    "physics": true,
+    "text": false,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 1200,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "logging": {
+    "perfLog": "Profile/varied_physics_perf_log.csv",
+    "perfLogFlush": false
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        365,
+        135,
+        620
+      ],
+      "view": [
+        505,
+        42,
+        515
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.012,
+      "slopeZ": -0.008
+    }
+  },
+  "objects": [
+    {
+      "type": "box",
+      "name": "base_a",
+      "position": [
+        486,
+        35.2,
+        500
+      ],
+      "halfExtents": [
+        5.0,
+        2.5,
+        4.0
+      ],
+      "mass": 60.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "base_b",
+      "position": [
+        497,
+        35.4,
+        501
+      ],
+      "halfExtents": [
+        4.0,
+        2.5,
+        4.0
+      ],
+      "mass": 55.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "base_c",
+      "position": [
+        508,
+        35.1,
+        499
+      ],
+      "halfExtents": [
+        5.0,
+        2.5,
+        3.5
+      ],
+      "mass": 58.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        17,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "mid_a",
+      "position": [
+        491,
+        43.5,
+        500
+      ],
+      "halfExtents": [
+        3.5,
+        3.0,
+        3.5
+      ],
+      "mass": 36.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        2,
+        23,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "mid_b",
+      "position": [
+        503,
+        44.0,
+        501
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        4.0
+      ],
+      "mass": 34.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        -3,
+        -19,
+        4
+      ]
+    },
+    {
+      "type": "box",
+      "name": "top_a",
+      "position": [
+        497,
+        52.0,
+        500
+      ],
+      "halfExtents": [
+        2.5,
+        2.5,
+        2.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        6,
+        33,
+        -5
+      ]
+    },
+    {
+      "type": "box",
+      "name": "top_b",
+      "position": [
+        508,
+        57.0,
+        503
+      ],
+      "halfExtents": [
+        2.0,
+        3.0,
+        2.5
+      ],
+      "mass": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        -8,
+        -27,
+        7
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_a",
+      "position": [
+        464,
+        39.0,
+        485
+      ],
+      "halfExtents": [
+        2.0,
+        5.0,
+        2.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        44
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_b",
+      "position": [
+        536,
+        39.0,
+        525
+      ],
+      "halfExtents": [
+        2.0,
+        5.0,
+        2.0
+      ],
+      "mass": 25.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        -42
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_c",
+      "position": [
+        478,
+        40.0,
+        542
+      ],
+      "halfExtents": [
+        1.8,
+        4.5,
+        2.2
+      ],
+      "mass": 22.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        18,
+        0,
+        39
+      ]
+    },
+    {
+      "type": "box",
+      "name": "edge_d",
+      "position": [
+        526,
+        40.0,
+        462
+      ],
+      "halfExtents": [
+        2.2,
+        4.2,
+        1.8
+      ],
+      "mass": 22.0,
+      "restitution": 0.2,
+      "fixed": false,
+      "euler": [
+        -16,
+        0,
+        -37
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_a",
+      "position": [
+        450,
+        43,
+        505
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        34,
+        0,
+        12
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_b",
+      "position": [
+        552,
+        44,
+        492
+      ],
+      "radius": 5.0,
+      "mass": 28.0,
+      "moment": 12.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        -38,
+        0,
+        -4
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_c",
+      "position": [
+        500,
+        62,
+        450
+      ],
+      "radius": 4.5,
+      "mass": 24.0,
+      "moment": 10.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        42
+      ],
+      "forcePosition": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_d",
+      "position": [
+        512,
+        66,
+        558
+      ],
+      "radius": 4.5,
+      "mass": 24.0,
+      "moment": 10.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        -10,
+        0,
+        -44
+      ],
+      "forcePosition": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_e",
+      "position": [
+        470,
+        51,
+        530
+      ],
+      "radius": 3.5,
+      "mass": 18.0,
+      "moment": 7.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "force": [
+        18,
+        0,
+        -22
+      ],
+      "forcePosition": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "roll_f",
+      "position": [
+        535,
+        50,
+        472
+      ],
+      "radius": 3.5,
+      "mass": 18.0,
+      "moment": 7.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "force": [
+        -16,
+        0,
+        20
+      ],
+      "forcePosition": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_a",
+      "position": [
+        482,
+        82,
+        478
+      ],
+      "halfExtents": [
+        2.8,
+        2.8,
+        2.8
+      ],
+      "mass": 26.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        13,
+        22,
+        8
+      ],
+      "velocity": [
+        12,
+        -4,
+        10
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_b",
+      "position": [
+        518,
+        86,
+        530
+      ],
+      "halfExtents": [
+        3.2,
+        2.2,
+        3.0
+      ],
+      "mass": 28.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        -10,
+        -18,
+        17
+      ],
+      "velocity": [
+        -14,
+        -5,
+        -8
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_c",
+      "position": [
+        545,
+        94,
+        502
+      ],
+      "halfExtents": [
+        2.0,
+        4.0,
+        2.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        30,
+        4,
+        -14
+      ],
+      "velocity": [
+        -20,
+        -6,
+        2
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_d",
+      "position": [
+        456,
+        98,
+        520
+      ],
+      "halfExtents": [
+        4.0,
+        2.0,
+        2.5
+      ],
+      "mass": 30.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        -24,
+        12,
+        11
+      ],
+      "velocity": [
+        18,
+        -6,
+        -5
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_e",
+      "position": [
+        500,
+        112,
+        575
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        2.0
+      ],
+      "mass": 26.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        8,
+        -35,
+        22
+      ],
+      "velocity": [
+        0,
+        -8,
+        -24
+      ]
+    },
+    {
+      "type": "box",
+      "name": "drop_f",
+      "position": [
+        575,
+        110,
+        500
+      ],
+      "halfExtents": [
+        2.5,
+        2.5,
+        4.0
+      ],
+      "mass": 28.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        -18,
+        28,
+        -9
+      ],
+      "velocity": [
+        -26,
+        -8,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drop_a",
+      "position": [
+        475,
+        104,
+        555
+      ],
+      "radius": 5.0,
+      "mass": 30.0,
+      "moment": 12.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "force": [
+        16,
+        -3,
+        -20
+      ],
+      "forcePosition": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drop_b",
+      "position": [
+        535,
+        108,
+        445
+      ],
+      "radius": 4.0,
+      "mass": 22.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "force": [
+        -12,
+        -2,
+        24
+      ],
+      "forcePosition": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drop_c",
+      "position": [
+        445,
+        118,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 34.0,
+      "moment": 16.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "force": [
+        28,
+        -5,
+        4
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "drop_d",
+      "position": [
+        565,
+        122,
+        535
+      ],
+      "radius": 5.5,
+      "mass": 32.0,
+      "moment": 14.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "force": [
+        -26,
+        -5,
+        -18
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_a",
+      "position": [
+        430,
+        37,
+        430
+      ],
+      "halfExtents": [
+        3.0,
+        3.0,
+        3.0
+      ],
+      "mass": 28.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        5,
+        45,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_b",
+      "position": [
+        440,
+        44,
+        432
+      ],
+      "halfExtents": [
+        2.5,
+        2.5,
+        3.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        -7,
+        12,
+        19
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_c",
+      "position": [
+        420,
+        54,
+        440
+      ],
+      "halfExtents": [
+        2.0,
+        4.0,
+        2.0
+      ],
+      "mass": 22.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        21,
+        -9,
+        27
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "side_a",
+      "position": [
+        416,
+        44,
+        424
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        15,
+        0,
+        12
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "side_b",
+      "position": [
+        448,
+        58,
+        452
+      ],
+      "radius": 4.5,
+      "mass": 24.0,
+      "moment": 10.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        -18,
+        0,
+        -10
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_d",
+      "position": [
+        570,
+        37,
+        580
+      ],
+      "halfExtents": [
+        3.5,
+        2.5,
+        3.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        -4,
+        -35,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_e",
+      "position": [
+        558,
+        45,
+        570
+      ],
+      "halfExtents": [
+        2.5,
+        3.0,
+        2.5
+      ],
+      "mass": 24.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "euler": [
+        12,
+        18,
+        -13
+      ]
+    },
+    {
+      "type": "box",
+      "name": "side_f",
+      "position": [
+        586,
+        55,
+        566
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        4.0
+      ],
+      "mass": 22.0,
+      "restitution": 0.25,
+      "fixed": false,
+      "euler": [
+        -18,
+        7,
+        31
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "side_c",
+      "position": [
+        592,
+        48,
+        592
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        -14,
+        0,
+        -15
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "side_d",
+      "position": [
+        552,
+        60,
+        548
+      ],
+      "radius": 4.5,
+      "mass": 24.0,
+      "moment": 10.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        20,
+        0,
+        8
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

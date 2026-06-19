@@ -212,7 +212,7 @@ The `.scene` and `.suite` system gives agents and humans a reliable way to repro
 
 ### Physics Debuggability
 
-Physics CSV baselines, nudge snapshots, collision visualization, broadphase visualization, sleep state colors, and profiler markers make the solver inspectable. That is a major advantage over black-box physics middleware.
+Physics CSV baselines, launcher snapshots, collision visualization, broadphase visualization, sleep state colors, and profiler markers make the solver inspectable. That is a major advantage over black-box physics middleware.
 
 ### Zero-Allocation Hot Path Mindset
 
@@ -229,7 +229,7 @@ Recommended split:
 | New subsystem | Owns |
 |---------------|------|
 | `SceneRuntime` | Active scene index, load/reset/advance, scene overrides, RNG seed resolution |
-| `SimulationSystem` | Timestep policy, fixed-step accumulator, pause/fly/nudge stepping rules |
+| `SimulationSystem` | Timestep policy, fixed-step accumulator, pause/fly/launcher stepping rules |
 | `RenderPipeline` | Pass order: skybox, reflection, models, terrain, shadows, water, debug overlays |
 | `CaptureSystem` | Screenshots, screenshot intervals, screenshot-and-exit, auto-cycle |
 | `RuntimeDiagnostics` | Perf CSV, profiler overlay selection, validation/repro messages |
@@ -556,7 +556,7 @@ capture boundaries are stable enough to consume.
 
 Expanded standalone plan: `Agentic/Plans/replay-system-plan.md`.
 
-The engine already has the ingredients: scene files, seed overrides, fixed-step mode, screenshots, profiler CSVs, and nudge snapshots. Make that a formal replay artifact so bugs are easier to preserve, scrub, branch, and compare across renderers and hardware.
+The engine already has the ingredients: scene files, seed overrides, fixed-step mode, screenshots, profiler CSVs, and launcher snapshots. Make that a formal replay artifact so bugs are easier to preserve, scrub, branch, and compare across renderers and hardware.
 
 Priority: Medium. Effort: Medium. Risk: Low.
 
@@ -581,7 +581,7 @@ asset records, and future root-signature choices.
 1. Extract `SceneRuntime` as a facade for active scene index, scene queue,
    generated-scene selection, load/reset policy, and scene override application.
 2. Extract `SimulationSystem` for timestep policy, fixed-step accumulator,
-   pause/fly/nudge stepping, and simulation-to-render handoff.
+   pause/fly/launcher stepping, and simulation-to-render handoff.
 3. Extract `RuntimeDiagnostics` and `InputController` only after scene and
    simulation ownership are stable.
 

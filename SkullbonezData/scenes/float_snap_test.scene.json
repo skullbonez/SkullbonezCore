@@ -1,0 +1,146 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false
+  },
+  "playback": {
+    "frames": 1800
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        60,
+        650
+      ],
+      "view": [
+        600,
+        33,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "a",
+      "position": [
+        595,
+        60,
+        595
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "b",
+      "position": [
+        605,
+        65,
+        595
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "c",
+      "position": [
+        595,
+        60,
+        605
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "d",
+      "position": [
+        605,
+        65,
+        605
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "e",
+      "position": [
+        600,
+        70,
+        600
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "f",
+      "position": [
+        600,
+        55,
+        600
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "g",
+      "position": [
+        598,
+        75,
+        598
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "h",
+      "position": [
+        602,
+        55,
+        602
+      ],
+      "radius": 5.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.7,
+      "fixed": false
+    }
+  ]
+}

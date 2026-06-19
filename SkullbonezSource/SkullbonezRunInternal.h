@@ -87,8 +87,8 @@ inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 #ifdef _DEBUG
-inline constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
-inline constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
+inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
+inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
 
 inline void DrawUITestPattern( int screenW, int screenH )
@@ -122,87 +122,6 @@ inline void DrawUITestPattern( int screenW, int screenH )
     draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
     Text::Text2d::FlushQuads();
-}
-
-inline bool SceneDirectiveMatches( const std::string& line, const char* key )
-{
-    // Scene-default writes work on line-oriented directives, not a full parsed
-    // syntax tree.  Match only a complete directive key so editing "text" never
-    // accidentally catches "text_only", and so tabs remain valid separators for
-    // hand-authored scene files.
-    const size_t keyLen = strlen( key );
-    if ( line.compare( 0, keyLen, key ) != 0 )
-    {
-        return false;
-    }
-    return line.size() == keyLen || line[keyLen] == ' ' || line[keyLen] == '\t';
-}
-
-inline bool IsSceneBodyDirective( const std::string& line )
-{
-    return SceneDirectiveMatches( line, "camera" ) ||
-           SceneDirectiveMatches( line, "ball" ) ||
-           SceneDirectiveMatches( line, "box" ) ||
-           SceneDirectiveMatches( line, "floating_box" ) ||
-           SceneDirectiveMatches( line, "ball_state" );
-}
-
-inline size_t SceneDefaultInsertIndex( const std::vector<std::string>& lines )
-{
-    for ( size_t i = 0; i < lines.size(); ++i )
-    {
-        if ( IsSceneBodyDirective( lines[i] ) )
-        {
-            return i;
-        }
-    }
-    return lines.size();
-}
-
-inline void SetSceneDirective( std::vector<std::string>& lines, const char* key, const std::string& value, bool includeDirective )
-{
-    // Save Defaults is deliberately surgical: preserve body/camera ordering and
-    // comments, replace the first matching singleton directive, and delete any
-    // duplicate stale copies.  When includeDirective is false this same helper is
-    // used as a migration broom for directives that no longer exist.
-    bool replaced = false;
-    for ( size_t i = 0; i < lines.size(); )
-    {
-        if ( SceneDirectiveMatches( lines[i], key ) )
-        {
-            if ( includeDirective && !replaced )
-            {
-                lines[i] = value;
-                replaced = true;
-                ++i;
-            }
-            else
-            {
-                lines.erase( lines.begin() + static_cast<std::ptrdiff_t>( i ) );
-            }
-            continue;
-        }
-        ++i;
-    }
-
-    if ( includeDirective && !replaced )
-    {
-        lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( SceneDefaultInsertIndex( lines ) ), value );
-    }
-}
-
-inline const char* OnOff( bool value )
-{
-    return value ? "on" : "off";
-}
-
-inline const char* WaterReflectionDirectiveValue( bool noReflect, bool rtReflect )
-{
-    if ( noReflect )
-    {
-        return "none";
-    }
-    return rtReflect ? "dxr" : "fbo";
 }
 
 inline void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source )

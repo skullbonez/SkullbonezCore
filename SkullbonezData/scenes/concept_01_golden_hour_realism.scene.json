@@ -1,0 +1,317 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1001,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "golden_hour_realism"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        210,
+        1035
+      ],
+      "view": [
+        610,
+        72,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        620,
+        56,
+        630
+      ],
+      "radius": 28.0,
+      "mass": 115.0,
+      "moment": 26.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_left",
+      "position": [
+        460,
+        72,
+        690
+      ],
+      "radius": 18.0,
+      "mass": 82.0,
+      "moment": 18.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        8
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_right",
+      "position": [
+        795,
+        62,
+        680
+      ],
+      "radius": 20.0,
+      "mass": 86.0,
+      "moment": 20.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        4,
+        132,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "foreground",
+      "position": [
+        330,
+        96,
+        650
+      ],
+      "radius": 16.0,
+      "mass": 74.0,
+      "moment": 16.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        210,
+        6
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_01",
+      "position": [
+        500,
+        73,
+        570
+      ],
+      "radius": 11.0,
+      "mass": 48.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        40,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_02",
+      "position": [
+        560,
+        58,
+        555
+      ],
+      "radius": 10.0,
+      "mass": 44.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        80,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_03",
+      "position": [
+        675,
+        48,
+        575
+      ],
+      "radius": 12.0,
+      "mass": 50.0,
+      "moment": 11.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        130,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_04",
+      "position": [
+        720,
+        44,
+        625
+      ],
+      "radius": 9.0,
+      "mass": 40.0,
+      "moment": 9.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        170,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "depth_01",
+      "position": [
+        390,
+        92,
+        500
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "depth_02",
+      "position": [
+        470,
+        86,
+        455
+      ],
+      "radius": 6.0,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        65,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "depth_03",
+      "position": [
+        565,
+        76,
+        445
+      ],
+      "radius": 6.0,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        105,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "depth_04",
+      "position": [
+        665,
+        62,
+        480
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        145,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_01",
+      "position": [
+        510,
+        124,
+        505
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_02",
+      "position": [
+        710,
+        142,
+        545
+      ],
+      "radius": 6.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    }
+  ]
+}

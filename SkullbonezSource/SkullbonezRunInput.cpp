@@ -33,6 +33,8 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
@@ -119,6 +121,73 @@ constexpr float EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT = 160.0f;
 constexpr float EDITOR_PLACEMENT_HULL_SCALE_WHEEL_UNIT = 0.05f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
+constexpr float LAUNCHER_PROJECTILE_RADIUS = 0.85f;
+constexpr float LAUNCHER_PROJECTILE_MASS = 6.0f;
+constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
+
+
+struct EditorTreePartDefinition
+{
+    EditorHullAsset hullAsset;
+    const char* suffix;
+    float offsetX;
+    float offsetY;
+    float offsetZ;
+    float mass;
+    float restitution;
+    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
+    const char* materialName;
+    float colorR;
+    float colorG;
+    float colorB;
+    float roughness;
+    float specular;
+    float stylization;
+};
+
+
+struct EditorTreeDefinition
+{
+    const char* label;
+    const EditorTreePartDefinition* parts;
+    int partCount;
+};
+
+
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
+    { EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f },
+    { EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 14.5f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 22.5f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f },
+    { EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 29.5f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f },
+};
+constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
+    { EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f },
+    { EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 22.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 31.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f },
+    { EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 39.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f },
+};
+constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_big", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
+
+
+const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL:
+        return &EDITOR_TREE_SMALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG:
+        return &EDITOR_TREE_BIG;
+    default:
+        return nullptr;
+    }
+}
 
 
 EditorHullAsset EditorHullAssetForType( int objectType )
@@ -137,35 +206,155 @@ EditorHullAsset EditorHullAssetForType( int objectType )
         return EditorHullAsset::HEX_PRISM;
     case SkullbonezCore::UI::EditorTab::OBJECT_HULL_DIAMOND:
         return EditorHullAsset::DIAMOND;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SLAB:
+        return EditorHullAsset::ROCK_SLAB_FLAT;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_LUMP:
+        return EditorHullAsset::ROCK_LUMP_LARGE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SHARD:
+        return EditorHullAsset::ROCK_SHARD_TALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_CHIPPED:
+        return EditorHullAsset::ROCK_CHIPPED_BLOCK;
     default:
         return EditorHullAsset::UNKNOWN;
     }
 }
 
 
-const char* EditorHullPathForType( int objectType )
+const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
-    return EditorHullAssetPath( EditorHullAssetForType( objectType ) );
+    const char* path = EditorHullAssetPath( asset );
+    if ( !path )
+    {
+        return nullptr;
+    }
+
+    static std::array<ConvexHullShape, EDITOR_HULL_ASSET_COUNT> hulls = {};
+    static std::array<bool, EDITOR_HULL_ASSET_COUNT> loaded = {};
+    for ( std::size_t i = 0; i < EDITOR_HULL_ASSET_COUNT; ++i )
+    {
+        if ( EDITOR_HULL_ASSETS[i].asset != asset )
+        {
+            continue;
+        }
+        if ( !loaded[i] )
+        {
+            hulls[i] = ConvexHullShape::LoadFromFile( path );
+            loaded[i] = true;
+        }
+        return &hulls[i];
+    }
+    return nullptr;
 }
 
 
 const ConvexHullShape* CachedEditorHullForType( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    const char* path = EditorHullPathForType( type );
-    if ( !path )
+    return CachedEditorHullForAsset( EditorHullAssetForType( type ) );
+}
+
+
+bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
+{
+    outMinY = FLT_MAX;
+    outMaxY = -FLT_MAX;
+    for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
-        return nullptr;
+        const EditorTreePartDefinition& part = tree.parts[partIndex];
+        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        if ( !hull )
+        {
+            return false;
+        }
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+        {
+            const float y = part.offsetY + hull->GetPosition().y + hull->GetVertex( vertexIndex ).y;
+            outMinY = (std::min)( outMinY, y );
+            outMaxY = (std::max)( outMaxY, y );
+        }
+    }
+    return outMinY != FLT_MAX && outMaxY != -FLT_MAX;
+}
+
+
+float EditorTreeVerticalSize( int objectType )
+{
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
+    if ( !tree )
+    {
+        return 1.0f;
+    }
+    float minY = 0.0f;
+    float maxY = 1.0f;
+    return TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
+}
+
+
+SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
+{
+    SkullbonezCore::Rendering::RenderMaterial material =
+        SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB, static_cast<float>( part.materialKind ) );
+    strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
+    material.roughness = part.roughness;
+    material.specular = part.specular;
+    material.stylization = part.stylization;
+    return material;
+}
+
+
+bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::RenderMaterial& outMaterial )
+{
+    const char* name = nullptr;
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+    float roughness = 0.96f;
+    float specular = 0.08f;
+    float stylization = 0.66f;
+
+    switch ( asset )
+    {
+    case EditorHullAsset::ROCK_SLAB_FLAT:
+        name = "editor_cool_blue_stone";
+        r = 0.34f;
+        g = 0.42f;
+        b = 0.58f;
+        stylization = 0.72f;
+        break;
+    case EditorHullAsset::ROCK_LUMP_LARGE:
+        name = "editor_moss_grey_stone";
+        r = 0.31f;
+        g = 0.39f;
+        b = 0.35f;
+        roughness = 0.98f;
+        specular = 0.07f;
+        break;
+    case EditorHullAsset::ROCK_SHARD_TALL:
+        name = "editor_violet_granite";
+        r = 0.44f;
+        g = 0.38f;
+        b = 0.55f;
+        specular = 0.11f;
+        stylization = 0.70f;
+        break;
+    case EditorHullAsset::ROCK_CHIPPED_BLOCK:
+        name = "editor_warm_chipped_stone";
+        r = 0.52f;
+        g = 0.45f;
+        b = 0.40f;
+        roughness = 0.97f;
+        stylization = 0.62f;
+        break;
+    default:
+        return false;
     }
 
-    static std::array<ConvexHullShape, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> hulls = {};
-    static std::array<bool, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT> loaded = {};
-    if ( !loaded[type] )
-    {
-        hulls[type] = ConvexHullShape::LoadFromFile( path );
-        loaded[type] = true;
-    }
-    return &hulls[type];
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( r, g, b, static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
+    strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
+    outMaterial.roughness = roughness;
+    outMaterial.specular = specular;
+    outMaterial.stylization = stylization;
+    return true;
 }
 
 
@@ -190,7 +379,7 @@ bool EditorPlacementUsesUniformScale( int objectType )
 bool EditorPlacementUsesHullScaleFactors( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    return type >= SkullbonezCore::UI::EditorTab::OBJECT_HULL_WEDGE;
+    return EditorHullAssetForType( type ) != EditorHullAsset::UNKNOWN;
 }
 
 
@@ -214,6 +403,11 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( EditorTreeDefinitionForType( type ) )
+    {
+        return Vector3( 1.0f, 1.0f, 1.0f );
+    }
+
     if ( EditorPlacementUsesUniformScale( type ) )
     {
         const float radius = std::clamp( scale.x, 0.25f, 200.0f );
@@ -291,6 +485,10 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         return scale.x * 2.0f;
     default:
     {
+        if ( EditorTreeDefinitionForType( type ) )
+        {
+            return EditorTreeVerticalSize( type );
+        }
         ConvexHullShape hull;
         return TryBuildScaledEditorHullForType( type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
     }
@@ -1244,6 +1442,33 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
     constexpr float ghostG = 1.0f;
     constexpr float ghostB = 0.85f;
 
+    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
+    {
+        float minY = 0.0f;
+        float maxY = 1.0f;
+        if ( !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
+        {
+            return;
+        }
+        const Vector3 base( center.x, center.y - ( minY + maxY ) * 0.5f, center.z );
+        for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = tree->parts[partIndex];
+            const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !hull )
+            {
+                continue;
+            }
+            const Vector3 hullCenter = base + Vector3( part.offsetX, part.offsetY, part.offsetZ ) + hull->GetPosition();
+            for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+            {
+                const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+                EmitLine( hullCenter + hull->GetVertex( edge.vertexA ), hullCenter + hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+            }
+        }
+        return;
+    }
+
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
@@ -1498,7 +1723,10 @@ void SkullbonezRun::TakeInput()
     {
         EnterInteractiveSceneRun();
         m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+        m_editor.viewportLookActive = false;
         ClearEditorManipulationState();
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
     };
     const auto EnterFlyModeCamera = [&]() -> void
     {
@@ -1535,8 +1763,8 @@ void SkullbonezRun::TakeInput()
         m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
         Input::SetSystemCursorVisible( true );
         m_camera.cameraTime = 0.0f;
-        // Exiting fly mode also exits ray-test mode
-        m_camera.isNudgeMode = false;
+        // Exiting fly mode also exits launcher mode.
+        m_camera.isLauncherMode = false;
         InputController::ResetMouseLook( m_camera );
     };
 
@@ -1554,26 +1782,34 @@ void SkullbonezRun::TakeInput()
         if ( fEdge.wasPressed )
         {
             m_camera.isFlyMode = !m_camera.isFlyMode;
-            m_camera.isNudgeMode = false; // F-key fly never implies ray-test mode
+            m_camera.isLauncherMode = false; // F-key fly never implies launcher mode.
         }
 
-        // N key: toggle ray-test mode with live simulation (edge-detected).
+        // N key: toggle launcher mode with live simulation (edge-detected).
         // Entering also enters fly mode; exiting also exits fly mode.
         {
             const RuntimeKeyEdge nEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::NWasDown, 'N' );
             if ( nEdge.wasPressed )
             {
-                m_camera.isNudgeMode = !m_camera.isNudgeMode;
-                m_camera.isFlyMode = m_camera.isNudgeMode;
+                m_camera.isLauncherMode = !m_camera.isLauncherMode;
+                m_camera.isFlyMode = m_camera.isLauncherMode;
+            }
+        }
+
+        {
+            const RuntimeKeyEdge mEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::MKeyWasDown, 'M' );
+            if ( mEdge.wasPressed && m_camera.isLauncherMode )
+            {
+                m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Laser ? RunLauncherFireMode::Projectile : RunLauncherFireMode::Laser;
             }
         }
 
 #ifdef _DEBUG
         {
             const RuntimeKeyEdge enterEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EnterWasDown, VK_RETURN );
-            if ( enterEdge.wasPressed && m_camera.isNudgeMode )
+            if ( enterEdge.wasPressed && m_camera.isLauncherMode )
             {
-                WriteNudgeReproSnapshot();
+                WriteLauncherReproSnapshot();
             }
         }
 #endif
@@ -1581,7 +1817,7 @@ void SkullbonezRun::TakeInput()
         if ( m_editor.editorModeEnabled )
         {
             m_camera.isFlyMode = true;
-            m_camera.isNudgeMode = false;
+            m_camera.isLauncherMode = false;
             if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
             {
                 ToggleEditorPlacementMode();
@@ -1591,12 +1827,13 @@ void SkullbonezRun::TakeInput()
                 if ( Input::IsKeyDown( VK_CONTROL ) )
                 {
                     EnterInteractiveSceneRun();
-                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-                    m_editor.placementPreviewVisible = false;
+                    m_editor.placeStaticObject = !m_editor.placeStaticObject;
                 }
                 else
                 {
-                    ToggleEditorPlacementMode();
+                    EnterInteractiveSceneRun();
+                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
+                    ClearEditorManipulationState();
                 }
             }
         }
@@ -1892,9 +2129,9 @@ void SkullbonezRun::TakeInput()
                     ClearEditorManipulationState();
                 }
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
-                m_editor.restoreRayTestModeAfterEditor = m_camera.isNudgeMode;
+                m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
                 m_camera.isFlyMode = true;
-                m_camera.isNudgeMode = false;
+                m_camera.isLauncherMode = false;
                 if ( !wasFlyMode )
                 {
                     EnterFlyModeCamera();
@@ -1920,7 +2157,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.placementScaleStart = m_editor.placementScale;
                 m_editor.placementAltitudeSteps = 0;
                 m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
-                m_camera.isNudgeMode = m_editor.restoreRayTestModeAfterEditor;
+                m_camera.isLauncherMode = m_editor.restoreRayTestModeAfterEditor;
                 m_editor.restoreFlyModeAfterEditor = false;
                 m_editor.restoreRayTestModeAfterEditor = false;
                 if ( wasFlyMode && !m_camera.isFlyMode )
@@ -2113,6 +2350,10 @@ void SkullbonezRun::TakeInput()
         {
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
         }
+        if ( uiCommands.physics.requestLauncherProjectileSpeed )
+        {
+            m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+        }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
             ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
@@ -2252,7 +2493,7 @@ void SkullbonezRun::TakeInput()
 
     UpdateEditorInteractionPreview();
 
-    // Editor and ray-test actions share world clicks. UI hover/capture
+    // Editor and launcher actions share world clicks. UI hover/capture
     // suppresses both so panel interaction never mutates the scene.
     {
         const bool leftMouseNow = Input::IsLeftMouseDown();
@@ -2422,11 +2663,12 @@ void SkullbonezRun::TakeInput()
         }
 
         if ( !consumedWorldClick &&
-             m_camera.isNudgeMode &&
+             m_camera.isLauncherMode &&
              leftPressed &&
              !suppressWorldActionThisFrame &&
              !m_UI.WantsNativeMouseCursor() )
         {
+            EnterInteractiveSceneRun();
             FireRayCastTest();
         }
         m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
@@ -2454,7 +2696,7 @@ void SkullbonezRun::TakeInput()
             for ( int tries = 0; tries < 100 && !saved; ++tries )
             {
                 char path[256];
-                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
+                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene.json", sSnapshotSeq++ );
                 saved = m_cGameModelCollection.SaveSceneSnapshot(
                     path,
                     SceneState().isScenePhysics,
@@ -2704,6 +2946,73 @@ bool SkullbonezRun::TryRayCastTestHit( const Vector3& rayOrigin, const Vector3& 
 }
 
 
+bool SkullbonezRun::TryLauncherTerrainHit( const Vector3& rayOrigin, const Vector3& rayDirection, float maxDistance, float& outT ) const
+{
+    outT = maxDistance;
+    if ( !m_systems.terrain )
+    {
+        return false;
+    }
+
+    constexpr int RAY_STEPS = 192;
+    bool hasPrevious = false;
+    float previousT = 0.0f;
+    float previousDiff = 0.0f;
+
+    for ( int step = 0; step <= RAY_STEPS; ++step )
+    {
+        const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
+        const Vector3 sample = rayOrigin + rayDirection * t;
+        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        {
+            continue;
+        }
+
+        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float diff = sample.y - terrainY;
+        if ( fabsf( diff ) <= 0.01f )
+        {
+            outT = t;
+            return true;
+        }
+
+        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
+        {
+            float lowT = previousT;
+            float highT = t;
+            for ( int refine = 0; refine < 12; ++refine )
+            {
+                const float midT = ( lowT + highT ) * 0.5f;
+                const Vector3 mid = rayOrigin + rayDirection * midT;
+                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                {
+                    lowT = midT;
+                    continue;
+                }
+                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midDiff = mid.y - midTerrainY;
+                if ( midDiff > 0.0f )
+                {
+                    lowT = midT;
+                }
+                else
+                {
+                    highT = midT;
+                }
+            }
+            outT = highT;
+            return true;
+        }
+
+        hasPrevious = true;
+        previousT = t;
+        previousDiff = diff;
+    }
+
+    return false;
+}
+
+
 void SkullbonezRun::FireRayCastTest()
 {
     if ( !m_systems.cameras )
@@ -2720,18 +3029,42 @@ void SkullbonezRun::FireRayCastTest()
     }
     rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
 
-    int hitIndex = -1;
-    float hitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool hit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, hitIndex, hitT );
-    const Vector3 visualEnd = rayOrigin + rayDirection * ( hit ? hitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+    {
+        FireLauncherProjectile( rayOrigin, rayDirection );
+        return;
+    }
+
+    FireLauncherLaser( rayOrigin, rayDirection );
+}
+
+
+void SkullbonezRun::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
+    const bool hit = modelHit || terrainHit;
+    const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
+    m_launcherLaser.Fire( rayOrigin,
+                          rayDirection,
+                          m_systems.cameras->GetCameraUp(),
+                          hitT,
+                          hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
-    if ( !hit || hitIndex < 0 || hitIndex >= m_cGameModelCollection.GetModelCount() )
+    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return;
     }
 
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( hitIndex );
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
     if ( model.IsFixed() )
     {
         return;
@@ -2739,7 +3072,55 @@ void SkullbonezRun::FireRayCastTest()
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
-    m_cGameModelCollection.WakeModel( hitIndex );
+    m_cGameModelCollection.WakeModel( modelHitIndex );
+}
+
+
+void SkullbonezRun::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_systems.terrain || m_cGameModelCollection.GetModelCount() >= ActiveGameModelCapacity() )
+    {
+        return;
+    }
+
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT ) ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Vector3 aimPoint = rayOrigin + rayDirection * hitT;
+    const Vector3 cameraUp = m_systems.cameras ? m_systems.cameras->GetCameraUp() : Vector3( 0.0f, 1.0f, 0.0f );
+    Vector3 up = cameraUp;
+    const float upLenSq = VectorMagSquared( up );
+    up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Vector3( 0.0f, 1.0f, 0.0f );
+    const Vector3 spawn = rayOrigin + rayDirection * LAUNCHER_PROJECTILE_SPAWN_LEAD - up * LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET;
+    Vector3 velocityDir = aimPoint - spawn;
+    const float velocityDirLenSq = VectorMagSquared( velocityDir );
+    if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        velocityDir = rayDirection;
+    }
+    else
+    {
+        velocityDir = velocityDir * ( 1.0f / sqrtf( velocityDirLenSq ) );
+    }
+
+    const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
+    GameModel projectile( &m_cWorldEnvironment, spawn, Vector3( moment, moment, moment ), LAUNCHER_PROJECTILE_MASS );
+    projectile.SetTerrain( m_systems.terrain.get() );
+    projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
+    projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
+    projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
+    projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
+    projectile.SetName( "launcher_projectile" );
+
+    const int projectileIndex = m_cGameModelCollection.GetModelCount();
+    m_cGameModelCollection.AddGameModel( std::move( projectile ) );
+    m_cGameModelCollection.WakeModel( projectileIndex );
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }
 
 
@@ -2892,6 +3273,19 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
     case UI::EditorTab::OBJECT_SPHERE:
         outCenter = Vector3( terrainPoint.x, terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         return true;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+    case UI::EditorTab::OBJECT_TREE_BIG:
+    {
+        const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+        float minY = 0.0f;
+        float maxY = 1.0f;
+        if ( !tree || !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
+        {
+            return false;
+        }
+        outCenter = Vector3( terrainPoint.x, terrainPoint.y + ( minY + maxY ) * 0.5f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    }
     default:
     {
         ConvexHullShape hull;
@@ -3280,7 +3674,7 @@ void SkullbonezRun::UpdateEditorInteractionPreview()
 }
 
 
-void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
+void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
 {
     m_editorTracer.Clear();
     const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
@@ -3315,6 +3709,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection )
         m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
     m_editorTracer.Render( viewProjection );
+    m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
 }
 
 
@@ -3333,14 +3728,16 @@ void SkullbonezRun::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
 void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
 {
     const int modelCount = m_cGameModelCollection.GetModelCount();
-    if ( modelCount >= ActiveGameModelCapacity() )
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+    const int requiredModelCount = tree ? tree->partCount : 1;
+    if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
         return;
     }
 
     EnterInteractiveSceneRun();
-    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 placementScale = EditorClampPlacementScale( type, m_editor.placementScale );
     const int serial = m_editor.placedObjectSerial++;
     const char* modePrefix = fixedObject ? "static" : "dynamic";
@@ -3415,11 +3812,58 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( scaledHull );
-        ApplyEditorSpawnMaterial( model, fixedObject, false );
+        SkullbonezCore::Rendering::RenderMaterial rockMaterial;
+        if ( TryEditorRockMaterial( asset, rockMaterial ) )
+        {
+            model.SetRenderMaterial( rockMaterial );
+        }
+        else
+        {
+            ApplyEditorSpawnMaterial( model, fixedObject, false );
+        }
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
         addModel( std::move( model ) );
+    };
+
+    auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+    {
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            if ( !CachedEditorHullForAsset( part.hullAsset ) )
+            {
+                fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n", EditorHullAssetToken( part.hullAsset ) );
+                return;
+            }
+        }
+
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !sourceHull )
+            {
+                continue;
+            }
+            ConvexHullShape hull = *sourceHull;
+            const Vector3 center( terrainPoint.x + part.offsetX,
+                                  terrainPoint.y + part.offsetY + EDITOR_PLACEMENT_SURFACE_EPSILON,
+                                  terrainPoint.z + part.offsetZ );
+            GameModel model( &m_cWorldEnvironment,
+                             center,
+                             hull.ComputeBoxApproxInertia( part.mass ),
+                             part.mass );
+            model.SetTerrain( m_systems.terrain.get() );
+            model.SetCoefficientRestitution( part.restitution );
+            model.AddConvexHull( hull );
+            model.SetRenderMaterial( EditorTreePartMaterial( part ) );
+            char name[64];
+            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
+            model.SetName( name );
+            addModel( std::move( model ) );
+        }
     };
 
     switch ( type )
@@ -3450,6 +3894,30 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         break;
     case UI::EditorTab::OBJECT_HULL_DIAMOND:
         addHull( EditorHullAsset::DIAMOND );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SLAB:
+        addHull( EditorHullAsset::ROCK_SLAB_FLAT );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_LUMP:
+        addHull( EditorHullAsset::ROCK_LUMP_LARGE );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SHARD:
+        addHull( EditorHullAsset::ROCK_SHARD_TALL );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_CHIPPED:
+        addHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
+        break;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
+        break;
+    case UI::EditorTab::OBJECT_TREE_BIG:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
         break;
     default:
         break;

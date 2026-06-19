@@ -220,45 +220,12 @@ void WorkerPool::Submit( Task task )
 }
 
 
-void WorkerPool::ParallelFor( int begin, int end, const IndexFunction& fn, int minParallelItems )
-{
-    const int itemCount = end - begin;
-    if ( itemCount <= 0 )
-    {
-        return;
-    }
-
-    if ( !fn )
-    {
-        return;
-    }
-
-    if ( ShouldRunInline( itemCount, minParallelItems ) )
-    {
-        for ( int index = begin; index < end; ++index )
-        {
-            fn( index );
-        }
-        return;
-    }
-
-    const IndexFunction fnCopy = fn;
-    const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
-    ParallelForChunks( chunks, [fnCopy]( int, int chunkBegin, int chunkEnd )
-                       {
-                           for ( int index = chunkBegin; index < chunkEnd; ++index )
-                           {
-                               fnCopy( index );
-                           } } );
-}
-
-
-void WorkerPool::ParallelForProfiled( int begin,
-                                      int end,
-                                      const IndexFunction& fn,
-                                      int minParallelItems,
-                                      const char* workerMarkerPath,
-                                      uint32_t workerMarkerHash )
+void WorkerPool::ParallelFor( int begin,
+                              int end,
+                              const IndexFunction& fn,
+                              int minParallelItems,
+                              const char* workerMarkerPath,
+                              uint32_t workerMarkerHash )
 {
     const int itemCount = end - begin;
     if ( itemCount <= 0 || !fn )
@@ -266,31 +233,31 @@ void WorkerPool::ParallelForProfiled( int begin,
         return;
     }
 
+    const IndexFunction fnCopy = fn;
+    const char* markerPath = workerMarkerPath ? workerMarkerPath : "Frame/Workers/ParallelFor";
+    const uint32_t markerHash = workerMarkerPath ? workerMarkerHash : HashStr( "Frame/Workers/ParallelFor" );
+    const auto runChunk = [fnCopy, markerPath, markerHash]( int, int chunkBegin, int chunkEnd )
+    {
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
+#else
+        static_cast<void>( markerPath );
+        static_cast<void>( markerHash );
+#endif
+        for ( int index = chunkBegin; index < chunkEnd; ++index )
+        {
+            fnCopy( index );
+        }
+    };
+
     if ( ShouldRunInline( itemCount, minParallelItems ) )
     {
-        for ( int index = begin; index < end; ++index )
-        {
-            fn( index );
-        }
+        runChunk( 0, begin, end );
         return;
     }
 
-    const IndexFunction fnCopy = fn;
-    const char* markerPath = workerMarkerPath;
-    const uint32_t markerHash = workerMarkerHash;
     const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
-    ParallelForChunks( chunks, [fnCopy, markerPath, markerHash]( int, int chunkBegin, int chunkEnd )
-                       {
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-                           ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
-#else
-                           static_cast<void>( markerPath );
-                           static_cast<void>( markerHash );
-#endif
-                           for ( int index = chunkBegin; index < chunkEnd; ++index )
-                           {
-                               fnCopy( index );
-                           } } );
+    ParallelForChunks( chunks, runChunk );
 }
 
 
@@ -450,7 +417,9 @@ bool RunWorkerSystemSelfTest( FILE* out )
     std::vector<int> squares( 257, 0 );
     pool.ParallelFor( 0, static_cast<int>( squares.size() ), [&]( int index )
                       { squares[static_cast<size_t>( index )] = index * index; },
-                      1 );
+                      1,
+                      "Frame/Workers/SelfTest/ParallelFor",
+                      HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
 
     for ( int index = 0; index < static_cast<int>( squares.size() ); ++index )
     {

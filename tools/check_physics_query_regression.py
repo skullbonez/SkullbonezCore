@@ -28,7 +28,7 @@
 """
 Regression check for SkullScope queryable physics diagnostics.
 
-Generates a deterministic physics diagnostics trace from physics_bench_varied.scene,
+Generates a deterministic physics diagnostics trace from physics_bench_varied.scene.json,
 runs a fixed set of representative queries through tools/physics_query.py, removes
 machine-local cache paths from the results, and compares the compact JSON packet
 against a committed baseline.
@@ -46,7 +46,7 @@ import sys
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 BASELINE = REPO / "TestOutput" / "baselines" / "physics_query_varied.json"
 TRACE = REPO / "Debug" / "physics_query_varied.physicsdiag.ndjson"
-SCENE_ARG = "SkullbonezData/scenes/physics_bench_varied.scene"
+SCENE_ARG = "SkullbonezData/scenes/physics_bench_varied.scene.json"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 QUERY_TOOL = REPO / "tools" / "physics_query.py"
 
@@ -161,7 +161,7 @@ def run_query_set(trace, queries):
 def run_queries():
     packet = {
         "name": "SkullScope physics query regression",
-        "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+        "scene": "SkullbonezData/scenes/physics_bench_varied.scene.json",
         "traceKind": "physicsdiag.ndjson",
         "queries": run_query_set(TRACE, QUERIES),
     }
@@ -207,7 +207,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        print("  Generating SkullScope trace from physics_bench_varied.scene...")
+        print("  Generating SkullScope trace from physics_bench_varied.scene.json...")
         generate_trace(TRACE, [])
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())

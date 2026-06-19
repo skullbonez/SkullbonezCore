@@ -9,11 +9,12 @@ validation.
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat` | PR gate when truly unsure, runs everything | ~3 min |
+| `agent_validate.bat` | PR gate when truly unsure; delegates to the two-launch default gate | 2 exe launches |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
+| `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
 | `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
@@ -21,10 +22,11 @@ validation.
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
-| `validate_physics.bat` | Physics, collision, solver, rigid body, bullet sweep collision-time baselines | ~45s |
+| `validate_physics.bat` | Core physics, collision, solver, and rigid body baseline | 1 exe launch |
+| `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | DX12 performance-sensitive, hot-path changes | ~1 min |
-| `validate_full.bat` | Broad PR-bound changes, pre-merge, uncertain scope; starts with DX12 renderer validation | ~3 min |
+| `validate_full.bat` | Default broad PR gate: DX12 renderer plus core physics | 2 exe launches |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
@@ -36,6 +38,8 @@ Run only the targeted gate you need:
 tools\validate_select.bat format
 tools\validate_select.bat dx12-renderer
 tools\validate_select.bat dx12-renderer physics
+tools\validate_select.bat physics-deep
+tools\validate_select.bat deep
 tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat project-filters
@@ -58,6 +62,9 @@ tools\validate_select.bat build-profile
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
+| `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
+| `validate_physics.bat` | Build or reuse Debug, run one core physics scene, and compare `physics_regression_solver.csv` |
+| `validate_physics_deep.bat` | Run the old broad physics sweep, known-issue checks, shooting reaction check, and SkullScope query baseline |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
 | `capture_ui_screenshot.bat [dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
@@ -69,10 +76,10 @@ tools\validate_select.bat build-profile
 | `find_python.bat` | Locate Python, called by Python-backed validation scripts |
 | `physics_query.bat` | Windows launcher for SkullScope; invokes `physics_query.py` through `find_python.bat` |
 | `physics_query.py` | SkullScope: import queryable physics NDJSON traces into SQLite and return bounded JSON summaries/events/frame/body/contact/island queries |
-| `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
+| `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics_deep.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_dx12_baselines.py` | Compare DX12 captures with committed DX12 baselines and write manifest/summary artifacts |
-| `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
+| `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 
@@ -81,15 +88,16 @@ tools\validate_select.bat build-profile
 Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
 When a physics baseline update is intentional, copy it only from the final Debug
 artifact produced by the same scene/config state that will be committed, then
-rerun:
+rerun the matching gate:
 
 ```bat
 tools\validate_physics.bat
+tools\validate_physics_deep.bat
 ```
 
 The commit should include both the baseline file and the validation output. A
-copied physics artifact is not considered verified until `validate_physics`
-passes against the committed baseline.
+copied physics artifact is not considered verified until the matching physics
+gate passes against the committed baseline.
 
 ## Exit Codes
 

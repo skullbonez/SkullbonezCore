@@ -1,0 +1,16 @@
+hull_version 1
+name rock_chipped_block
+vertex -8 -4 -7
+vertex 8 -4 -7
+vertex 9 -4 6
+vertex -7 -4 8
+vertex -5.56 4 -5.34
+vertex 5.96 4 -5.34
+vertex 6.68 4 4.02
+vertex -4.84 4 5.46
+face 0 1 2 3
+face 4 5 6 7
+face 0 4 5 1
+face 1 5 6 2
+face 2 6 7 3
+face 3 7 4 0

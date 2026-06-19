@@ -67,13 +67,12 @@ class WorkerPool
     void Shutdown();
 
     void Submit( Task task );
-    void ParallelFor( int begin, int end, const IndexFunction& fn, int minParallelItems = 0 );
-    void ParallelForProfiled( int begin,
-                              int end,
-                              const IndexFunction& fn,
-                              int minParallelItems,
-                              const char* workerMarkerPath,
-                              uint32_t workerMarkerHash );
+    void ParallelFor( int begin,
+                      int end,
+                      const IndexFunction& fn,
+                      int minParallelItems,
+                      const char* workerMarkerPath,
+                      uint32_t workerMarkerHash );
     void ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn );
     std::vector<WorkerChunkRange> MakeChunks( int begin, int end, int minParallelItems = 0 ) const;
 

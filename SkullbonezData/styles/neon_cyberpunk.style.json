@@ -1,0 +1,99 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      3,
+      3,
+      3,
+      1
+    ],
+    "exposure": 0.82,
+    "gamma": 1.92,
+    "sunScreenX": 0.58,
+    "sunScreenY": 0.7,
+    "sunIntensity": 12.0,
+    "styleGrade": [
+      1.55,
+      1.24,
+      0.6
+    ],
+    "bloomThreshold": 0.45,
+    "bloomStrength": 1.45,
+    "bloomRadius": 6.4,
+    "terrainGrid": [
+      28.0,
+      1.25
+    ],
+    "sunColorR": 0.3,
+    "sunColorG": 0.95,
+    "sunColorB": 1.8,
+    "skyHorizonR": 0.05,
+    "skyHorizonG": 0.02,
+    "skyHorizonB": 0.16,
+    "skyZenithR": 0.0,
+    "skyZenithG": 0.01,
+    "skyZenithB": 0.05,
+    "terrainTint": [
+      0.02,
+      0.05,
+      0.12
+    ],
+    "terrainAccent": [
+      0.1,
+      0.95,
+      1.0
+    ],
+    "waterTint": [
+      0.035,
+      0.05,
+      0.11
+    ],
+    "waterProfile": [
+      0.92,
+      0.62,
+      0.68
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:neon_cyan",
+      "tint": [
+        0.02,
+        0.95,
+        1.0
+      ],
+      "mode": "neon"
+    },
+    {
+      "target": "prefix:neon_magenta",
+      "tint": [
+        1.0,
+        0.04,
+        0.82
+      ],
+      "mode": "neon"
+    },
+    {
+      "target": "prefix:black",
+      "tint": [
+        0.015,
+        0.018,
+        0.026
+      ],
+      "mode": "shadow"
+    }
+  ]
+}

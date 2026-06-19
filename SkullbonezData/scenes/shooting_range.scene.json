@@ -1,0 +1,191 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 4242,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "range",
+      "position": [
+        330,
+        105,
+        500
+      ],
+      "view": [
+        620,
+        70,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "range_table",
+      "position": [
+        520,
+        55,
+        500
+      ],
+      "halfExtents": [
+        140.0,
+        4.0,
+        35.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.2,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "range_backstop",
+      "position": [
+        670,
+        90,
+        500
+      ],
+      "halfExtents": [
+        8.0,
+        50.0,
+        60.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.2,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_left",
+      "position": [
+        455,
+        63,
+        486
+      ],
+      "radius": 4.0,
+      "mass": 12.0,
+      "moment": 5.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_mid",
+      "position": [
+        515,
+        63,
+        508
+      ],
+      "radius": 4.0,
+      "mass": 12.0,
+      "moment": 5.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "target_ball_right",
+      "position": [
+        585,
+        63,
+        492
+      ],
+      "radius": 4.0,
+      "mass": 12.0,
+      "moment": 5.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "target_box_left",
+      "position": [
+        485,
+        63,
+        515
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.35,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "target_box_mid",
+      "position": [
+        545,
+        63,
+        480
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        15,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "target_box_right",
+      "position": [
+        615,
+        63,
+        518
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 20.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        10
+      ]
+    }
+  ]
+}

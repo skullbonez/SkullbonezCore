@@ -1,0 +1,77 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      0,
+      12,
+      0,
+      0
+    ],
+    "exposure": 0.78,
+    "gamma": 2.1,
+    "sunScreenX": 0.62,
+    "sunScreenY": 0.76,
+    "sunIntensity": 19.0,
+    "styleGrade": [
+      0.98,
+      1.1,
+      0.78
+    ],
+    "cloudCoverage": 0.42,
+    "fogDensity": 0.0008,
+    "fogMaxOpacity": 0.22,
+    "sunColorR": 0.95,
+    "sunColorG": 0.9,
+    "sunColorB": 0.78,
+    "skyHorizonR": 0.7,
+    "skyHorizonG": 0.72,
+    "skyHorizonB": 0.68,
+    "skyZenithR": 0.22,
+    "skyZenithG": 0.3,
+    "skyZenithB": 0.34,
+    "terrainTint": [
+      0.62,
+      0.58,
+      0.48
+    ],
+    "terrainAccent": [
+      0.18,
+      0.24,
+      0.16
+    ],
+    "waterTint": [
+      0.1,
+      0.12,
+      0.1
+    ],
+    "waterProfile": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:stone",
+      "tint": [
+        0.46,
+        0.44,
+        0.36
+      ],
+      "mode": "matte"
+    }
+  ]
+}

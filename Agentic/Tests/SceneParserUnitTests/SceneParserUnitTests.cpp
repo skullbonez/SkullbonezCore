@@ -4,7 +4,7 @@ Purpose:
   Checks scene/style parser contracts that do not need a renderer launch.
 
 Mental model:
-  These tests protect user-facing scene authoring syntax. They load checked-in
+  These tests protect user-facing scene authoring JSON. They load checked-in
   fixtures through the same TestScene entry points used by runtime code and then
   inspect the parsed data model.
 
@@ -12,12 +12,12 @@ Glossary:
   Fixture: Checked-in scene/style input file used as stable test data.
   Contract test: Focused test that protects user-visible syntax and parsed
   output rather than renderer screenshots.
-  Scene authoring syntax: Text commands accepted by .scene and .style files.
+  Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
 
 Related:
   - SkullbonezSource/SkullbonezTestScene.h
   - SkullbonezSource/SkullbonezTestSceneParser.cpp
-  - SkullbonezData/styles/material_authoring_contract.style
+  - SkullbonezData/styles/material_authoring_contract.style.json
 */
 #include "SkullbonezTestScene.h"
 
@@ -160,7 +160,7 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 
 void TestStyleMaterialAuthoringContract()
 {
-    const TestScene scene = TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style" );
+    const TestScene scene = TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
     EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
     const SceneObjectMaterialOverride& metal = scene.GetObjectMaterialOverride( 0 );
@@ -212,7 +212,7 @@ void TestStyleMaterialAuthoringContract()
 
 void TestSceneCanLoadMaterialAuthoringSample()
 {
-    const TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene" );
+    const TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
     EXPECT_INT_EQ( scene.GetCameraCount(), 1 );
     EXPECT_INT_EQ( scene.GetBallCount(), 1 );
     EXPECT_TRUE( !scene.IsPhysicsEnabled() );
@@ -232,21 +232,21 @@ void TestSceneCanLoadMaterialAuthoringSample()
 
 void TestMaterialAuthoringRejectsMalformedOptions()
 {
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_missing_equals.style",
-                          "object_material bad metal tint=0.1,0.2,0.3 roughness\n",
-                          "Invalid object_material option" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_unknown_option.style",
-                          "object_material bad metal tint=0.1,0.2,0.3 shininess=0.7\n",
-                          "Unknown object_material option" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style",
-                          "object_material bad metal tint=0.1,0.2\n",
-                          "expected r,g,b" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style",
-                          "object_material bad metal tint=0.1,0.2,0.3,0.4\n",
-                          "expected r,g,b" );
-    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_trailing.style",
-                          "object_material bad metal tint=0.1,0.2,0.3,\n",
-                          "expected r,g,b" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_missing_mode.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","tint":[0.1,0.2,0.3]}]})",
+                          "objectMaterial is missing required field 'mode'" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_unknown_field.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3],"shininess":0.7}]})",
+                          "Unknown objectMaterial field: shininess" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
+                          "objectMaterial.tint must contain exactly 3 numbers" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
+                          "objectMaterial.tint must contain exactly 3 numbers" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_type.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
+                          "objectMaterial.tint must be an array" );
 }
 
 const TestCase kTests[] = {

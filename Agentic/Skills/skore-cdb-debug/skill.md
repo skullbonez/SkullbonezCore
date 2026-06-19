@@ -28,7 +28,7 @@ tools\validate_build.bat Debug
 ```powershell
 $REPO = (Resolve-Path .).Path
 & "G:\cdb\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" `
-    "$REPO\Debug\SKULLBONEZ_CORE.exe" "--vsync" "off" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
+    "$REPO\Debug\SKULLBONEZ_CORE.exe" "--vsync" "off" "--scene" "SkullbonezData/scenes/water_ball_test.scene.json"
 ```
 
 ## Useful Commands

@@ -48,7 +48,7 @@ echo [3/4] Running deterministic UI stress scene...
 del /q "%REPO%\Profile\ui_stress_stdout.txt" 2>nul
 del /q "%REPO%\Profile\ui_stress_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --scene SkullbonezData/scenes/ui_stress.scene >"%REPO%\Profile\ui_stress_stdout.txt" 2>"%REPO%\Profile\ui_stress_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --scene SkullbonezData/scenes/ui_stress.scene.json >"%REPO%\Profile\ui_stress_stdout.txt" 2>"%REPO%\Profile\ui_stress_stderr.txt"
 if errorlevel 1 (
     echo FAIL: UI stress scene exited with error.
     type "%REPO%\Profile\ui_stress_stdout.txt"

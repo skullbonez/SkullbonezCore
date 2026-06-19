@@ -37,20 +37,20 @@ BASELINE = REPO / "TestOutput" / "baselines" / "physics_known_issue_signatures.j
 KNOWN_ISSUES = [
     {
         "name": "stacking_stability_watch",
-        "risk": "Stacking drift or topple in stacking.scene.",
-        "scene": "SkullbonezData/scenes/stacking.scene",
+        "risk": "Stacking drift or topple in stacking.scene.json.",
+        "scene": "SkullbonezData/scenes/stacking.scene.json",
         "artifact": "Debug/physics_known_stacking.csv",
     },
     {
         "name": "at_rest_settling_watch",
-        "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.",
-        "scene": "SkullbonezData/scenes/at_rest.scene",
+        "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.json.",
+        "scene": "SkullbonezData/scenes/at_rest.scene.json",
         "artifact": "Debug/physics_known_at_rest.csv",
     },
     {
         "name": "terrain_contact_watch",
         "risk": "Terrain contact micro-bounce or support classification drift.",
-        "scene": "SkullbonezData/scenes/terrain_contact_probe_debug.scene",
+        "scene": "SkullbonezData/scenes/terrain_contact_probe_debug.scene.json",
         "artifact": "Debug/physics_known_terrain_contact.csv",
     },
 ]

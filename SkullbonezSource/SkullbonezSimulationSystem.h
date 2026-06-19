@@ -37,7 +37,7 @@ struct SimulationTickInput
     bool isScenePhysicsEnabled = true;
     bool isFixedStep = false;
     bool isFlyMode = false;
-    bool isNudgeMode = false;
+    bool isLauncherMode = false;
     bool isStepRequested = false;
     GameObjects::GameModelCollection* models = nullptr;
 };

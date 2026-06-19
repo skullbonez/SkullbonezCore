@@ -281,7 +281,7 @@ inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const Re
 
 // Render intent reconstructed from the current shader-facing object payload. Callers
 // should prefer explicit RenderMaterial data when they have it, but this helper
-// keeps legacy scene directives and generated objects on the same path.
+// keeps scene-authored material data and generated objects on the same path.
 inline RenderMaterial MakeRenderMaterialFromLegacyTint( float tintR, float tintG, float tintB, float legacyMode )
 {
     RenderMaterial material;

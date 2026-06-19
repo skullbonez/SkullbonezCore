@@ -14,6 +14,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstring>
 
 namespace SkullbonezCore
@@ -30,6 +31,18 @@ enum class EditorHullAsset
     PYRAMID,
     HEX_PRISM,
     DIAMOND,
+    ROCK_SLAB_FLAT,
+    ROCK_LUMP_LARGE,
+    ROCK_SHARD_TALL,
+    ROCK_CHIPPED_BLOCK,
+    TREE_TRUNK_SMALL_FACETED,
+    TREE_TRUNK_FACETED,
+    PINE_TIER_LARGE,
+    PINE_TIER_MID,
+    PINE_TIER_TOP,
+    CEDAR_TIER_LOW,
+    CEDAR_TIER_MID,
+    CEDAR_TIER_TOP,
 };
 
 struct EditorHullAssetInfo
@@ -47,7 +60,21 @@ inline constexpr EditorHullAssetInfo EDITOR_HULL_ASSETS[] = {
     { EditorHullAsset::PYRAMID, "pyramid", "pyramid.hull", "SkullbonezData/hulls/pyramid.hull" },
     { EditorHullAsset::HEX_PRISM, "hex_prism", "hex_prism.hull", "SkullbonezData/hulls/hex_prism.hull" },
     { EditorHullAsset::DIAMOND, "diamond", "diamond.hull", "SkullbonezData/hulls/diamond.hull" },
+    { EditorHullAsset::ROCK_SLAB_FLAT, "rock_slab_flat", "rock_slab_flat.hull", "SkullbonezData/hulls/rock_slab_flat.hull" },
+    { EditorHullAsset::ROCK_LUMP_LARGE, "rock_lump_large", "rock_lump_large.hull", "SkullbonezData/hulls/rock_lump_large.hull" },
+    { EditorHullAsset::ROCK_SHARD_TALL, "rock_shard_tall", "rock_shard_tall.hull", "SkullbonezData/hulls/rock_shard_tall.hull" },
+    { EditorHullAsset::ROCK_CHIPPED_BLOCK, "rock_chipped_block", "rock_chipped_block.hull", "SkullbonezData/hulls/rock_chipped_block.hull" },
+    { EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "tree_trunk_small_faceted", "tree_trunk_small_faceted.hull", "SkullbonezData/hulls/tree_trunk_small_faceted.hull" },
+    { EditorHullAsset::TREE_TRUNK_FACETED, "tree_trunk_faceted", "tree_trunk_faceted.hull", "SkullbonezData/hulls/tree_trunk_faceted.hull" },
+    { EditorHullAsset::PINE_TIER_LARGE, "pine_tier_large", "pine_tier_large.hull", "SkullbonezData/hulls/pine_tier_large.hull" },
+    { EditorHullAsset::PINE_TIER_MID, "pine_tier_mid", "pine_tier_mid.hull", "SkullbonezData/hulls/pine_tier_mid.hull" },
+    { EditorHullAsset::PINE_TIER_TOP, "pine_tier_top", "pine_tier_top.hull", "SkullbonezData/hulls/pine_tier_top.hull" },
+    { EditorHullAsset::CEDAR_TIER_LOW, "cedar_tier_low", "cedar_tier_low.hull", "SkullbonezData/hulls/cedar_tier_low.hull" },
+    { EditorHullAsset::CEDAR_TIER_MID, "cedar_tier_mid", "cedar_tier_mid.hull", "SkullbonezData/hulls/cedar_tier_mid.hull" },
+    { EditorHullAsset::CEDAR_TIER_TOP, "cedar_tier_top", "cedar_tier_top.hull", "SkullbonezData/hulls/cedar_tier_top.hull" },
 };
+
+inline constexpr std::size_t EDITOR_HULL_ASSET_COUNT = sizeof( EDITOR_HULL_ASSETS ) / sizeof( EDITOR_HULL_ASSETS[0] );
 
 inline const char* HullAssetBaseName( const char* token )
 {

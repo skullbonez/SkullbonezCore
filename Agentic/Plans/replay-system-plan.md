@@ -43,7 +43,7 @@ Initial use cases:
 |----------|-------|
 | Scrub a stack collapse or high-speed collision | Inspect exact frame-to-frame behavior without rerunning manually. |
 | Step through contact solver stages | Make impulses, manifolds, and sleep decisions visible. |
-| Branch from a suspicious frame | Try a different nudge, water height, force, or renderer state. |
+| Branch from a suspicious frame | Try a different launcher action, water height, force, or renderer state. |
 | Export a bug moment | Turn a visual or physics surprise into a regression case. |
 | Compare DX12 captures from the same recorded frame | Anchor visual regressions to one recorded timeline. |
 
@@ -67,7 +67,7 @@ The engine already has most of the foundations:
 | Scene `fixed_step` mode | Maps exact fixed physics ticks to rendered frames. |
 | Scene and CLI `seed` | Makes generated scenes and repros repeatable. |
 | F2 scene snapshots | Saves a live moment as `ball_state` scene data. |
-| Nudge repro snapshots | Captures focused body state and replay hints in Debug builds. |
+| Launcher repro snapshots | Captures focused body state and replay hints in Debug builds. |
 | SkullScope physics diagnostics | Emits queryable frame/contact/island/solver data. |
 | Pipeline debug overlay | Already has a stage cursor stepped with F7/F8. |
 | Profiler timeline | Provides a UI precedent for per-frame/timeline visualization. |
@@ -96,7 +96,7 @@ SkullbonezRun
 | `ReplayRecorder` | Samples runtime state after each committed fixed tick and records high-level events. |
 | `ReplayPlayback` | Restores checkpoints, replays events forward, and presents historical frames. |
 | `CheckpointRing` | Keeps bounded authoritative snapshots so rewind never starts from frame zero. |
-| `ReplayEventStream` | Stores frame-ordered runtime commands, input-derived actions, camera changes, resets, nudges, and render-setting changes. |
+| `ReplayEventStream` | Stores frame-ordered runtime commands, input-derived actions, camera changes, resets, launcher actions, and render-setting changes. |
 | `PhysicsTimelineStore` | Stores compact per-frame body/contact/island/sleep/solver records for UI and SkullScope-style queries. |
 | `RenderCheckpointStore` | Stores screenshot references, viewport size, renderer name, and optional pass capture IDs. |
 | `ReplayExporter` | Writes selected frames or branches as `.scene`, `.suite`, `.skreplay`, or validation cases. |
@@ -223,7 +223,7 @@ Event examples:
 ```text
 frame 12 command reset_scene
 frame 18 camera_pose eye=0.0,4.0,-9.5 view=0.0,-0.3,1.0 up=0.0,1.0,0.0
-frame 24 nudge body=box_03 impulse=0.0,4.0,0.0
+frame 24 launcher impulse body=box_03 impulse=0.0,4.0,0.0
 frame 33 projectile_fire origin=1.0,3.0,-5.0 dir=0.0,0.0,1.0 speed=80.0
 frame 40 world fluid_height=2.5
 frame 72 ui time_scale=0.25
@@ -236,7 +236,7 @@ Minimum event types:
 | Scene load/reset/rerun | Reproduce repeated `R` and scene queue behavior. |
 | RNG seed/state changes | Reproduce generated object populations. |
 | Camera pose and tracking changes | Replay screenshots and branch context. |
-| Nudge/projectile fire | Reproduce manual interactions. |
+| Launcher/projectile fire | Reproduce manual interactions. |
 | Water/gravity/time-scale changes | Reproduce runtime simulation edits. |
 | Render settings | Reproduce visual debug sessions. |
 | Physics debug mode changes | Reproduce contact/pipeline inspector state. |
@@ -268,7 +268,7 @@ Checkpoint fields:
 | Runtime | Scene path, scene mode flags, frame counters, time scale, fixed-step accumulator, scene load/reset counts, active renderer, UI overrides. |
 | RNG | Explicit RNG state. If the runtime still uses CRT `rand`, migrate replay paths to an owned deterministic RNG before claiming exact replay. |
 | World | Gravity, fluid surface height, fluid density, water/terrain visibility and animation state. |
-| Camera | Camera collection state, fly/nudge/tracking state, tween/autocycle state. |
+| Camera | Camera collection state, fly/launcher/tracking state, tween/autocycle state. |
 | Physics bodies | Stable id, shape, mass/inertia, position, orientation, velocities, force accumulators if any, fixed/dynamic state, sleep state, support metadata. |
 | Solver | Persistent contact cache, warm-start impulses, terrain support classification, sleep timers/inhibition state. |
 | Projectile pool | Active projectiles and pooled bullet state. |
@@ -317,7 +317,7 @@ Requirements:
 |-------------|--------|
 | Body ids persist across reset/replay within a branch | Timeline rows need stable references. |
 | Exported scenes preserve names when available | Debugging should stay human-readable. |
-| Projectile pool entries have ids | Bullet/nudge interactions must replay exactly. |
+| Projectile pool entries have ids | Bullet/launcher interactions must replay exactly. |
 | Contact ids are deterministic | Contact inspector should track the same pair/features over time. |
 
 ## File Layout
@@ -396,7 +396,7 @@ Expected controls:
 | Overlay toggles | Contacts, islands, sleep, profiler, render checkpoints. |
 
 Keyboard bindings should be chosen after checking current runtime bindings. Avoid
-colliding with F2/F3 snapshots, F7/F8 pipeline cursor, and existing fly/nudge
+colliding with F2/F3 snapshots, F7/F8 pipeline cursor, and existing fly/launcher
 controls.
 
 ## Implementation Phases
@@ -462,7 +462,7 @@ Acceptance:
 | Check | Expected result |
 |-------|-----------------|
 | Run a scene with `--replay-record` | `replay.txt` and event stream are written. |
-| Press reset, switch renderer, fire nudge projectile | Event stream records high-level events at deterministic frames. |
+| Press reset, switch renderer, fire launcher projectile | Event stream records high-level events at deterministic frames. |
 | Replay artifact inspected by hand | Manifest has enough context to relaunch the run. |
 
 Validation:
@@ -520,7 +520,7 @@ Acceptance:
 |-------|-----------------|
 | Restore to checkpoint frame | Hash matches recorded frame. |
 | Restore to non-checkpoint frame | Restore plus forward replay reaches matching hash. |
-| Branch and nudge differently | New branch diverges while old branch remains inspectable. |
+| Branch and launch differently | New branch diverges while old branch remains inspectable. |
 | Export branch frame | Exported scene loads with the selected state. |
 
 Validation:

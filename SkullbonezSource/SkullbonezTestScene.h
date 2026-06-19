@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezTestScene.h
 Purpose:
-  Stores parsed test-scene directives and applies them to runtime scene state.
+  Stores parsed test-scene JSON and applies it to runtime scene state.
 
 Mental model:
   Runtime code connects authored scene data, input, simulation, render
@@ -19,7 +19,7 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - Command-line and scene-file spellings are user-facing compatibility
+  - Command-line and scene JSON fields are user-facing compatibility
   surface.
 
 Related:
@@ -138,7 +138,7 @@ struct SceneConvexHull
 
 enum SceneCinematicOverrideBits : uint64_t
 {
-    // Scene files may specify any subset of cinematic_* directives. Each bit says
+    // Scene files may specify any subset of cinematic JSON fields. Each bit says
     // "this exact field was authored in the scene." That lets the loader merge
     // scene-specific values over engine.cfg without wiping unspecified defaults.
     SCENE_CINE_RENDERING = 1ull << 0,
@@ -265,7 +265,7 @@ struct SceneOptions
     float cinematicExposure = 1.0f;                           // Scene tonemap exposure
     bool hasCinematicGamma = false;                           // Scene explicitly sets output gamma
     float cinematicGamma = 2.2f;                              // Scene output gamma
-    uint64_t cinematicOverrideMask = 0;                       // Per-field overrides from cinematic_* directives
+    uint64_t cinematicOverrideMask = 0;                       // Per-field overrides from cinematic JSON fields
     CinematicRenderConfig cinematicRender;                    // Scene-authored cinematic values for overridden fields
 };
 
@@ -311,7 +311,7 @@ struct SceneWorldOverride
 
 struct SceneUIOptions
 {
-    bool hasDirective = false;
+    bool hasSettings = false;
     bool hasVisible = false;
     bool isVisible = false;
     bool hasMinimized = false;
@@ -358,7 +358,7 @@ struct SceneUIOptions
 
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Loads and holds a deterministic scene description from a .scene file.
+    Loads and holds a deterministic scene description from a .scene.json file.
     Used for render regression testing — provides fixed cameras, fixed ball placements,
     and control over physics and frame count.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

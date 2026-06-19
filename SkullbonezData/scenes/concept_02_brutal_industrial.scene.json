@@ -1,0 +1,332 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1002,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "brutal_industrial"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        590,
+        170,
+        990
+      ],
+      "view": [
+        610,
+        54,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "slab_left",
+      "position": [
+        410,
+        42,
+        620
+      ],
+      "halfExtents": [
+        82,
+        8,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "slab_right",
+      "position": [
+        790,
+        42,
+        610
+      ],
+      "halfExtents": [
+        96,
+        8,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        -10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "bunker_back",
+      "position": [
+        610,
+        70,
+        470
+      ],
+      "halfExtents": [
+        210,
+        26,
+        12
+      ],
+      "mass": 3000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pillar_01",
+      "position": [
+        485,
+        84,
+        540
+      ],
+      "halfExtents": [
+        10,
+        42,
+        10
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pillar_02",
+      "position": [
+        720,
+        82,
+        535
+      ],
+      "halfExtents": [
+        10,
+        40,
+        10
+      ],
+      "mass": 2000.0,
+      "restitution": 0.05,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero",
+      "position": [
+        610,
+        58,
+        655
+      ],
+      "radius": 26.0,
+      "mass": 110.0,
+      "moment": 25.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        26,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "wet_01",
+      "position": [
+        465,
+        66,
+        690
+      ],
+      "radius": 15.0,
+      "mass": 68.0,
+      "moment": 14.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        66,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "wet_02",
+      "position": [
+        720,
+        56,
+        700
+      ],
+      "radius": 16.0,
+      "mass": 70.0,
+      "moment": 15.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        116,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grit_01",
+      "position": [
+        395,
+        86,
+        560
+      ],
+      "radius": 9.0,
+      "mass": 42.0,
+      "moment": 9.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grit_02",
+      "position": [
+        515,
+        78,
+        525
+      ],
+      "radius": 8.0,
+      "mass": 38.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        70,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grit_03",
+      "position": [
+        650,
+        70,
+        520
+      ],
+      "radius": 8.0,
+      "mass": 38.0,
+      "moment": 8.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        110,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "grit_04",
+      "position": [
+        815,
+        86,
+        560
+      ],
+      "radius": 9.0,
+      "mass": 42.0,
+      "moment": 9.0,
+      "restitution": 0.42,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_01",
+      "position": [
+        350,
+        80,
+        455
+      ],
+      "radius": 5.0,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_02",
+      "position": [
+        870,
+        92,
+        470
+      ],
+      "radius": 5.0,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

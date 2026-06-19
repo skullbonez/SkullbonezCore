@@ -1,0 +1,2120 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1012,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        640,
+        100,
+        850
+      ],
+      "view": [
+        610,
+        54,
+        650
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "shore_left_01",
+      "position": [
+        492,
+        45,
+        778
+      ],
+      "radius": 6.0,
+      "mass": 24.0,
+      "moment": 5.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        32,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_left_02",
+      "position": [
+        516,
+        45,
+        766
+      ],
+      "radius": 4.8,
+      "mass": 19.0,
+      "moment": 4.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        76,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_right_01",
+      "position": [
+        824,
+        45,
+        750
+      ],
+      "radius": 6.0,
+      "mass": 24.0,
+      "moment": 5.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -28,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_right_02",
+      "position": [
+        850,
+        45,
+        738
+      ],
+      "radius": 4.8,
+      "mass": 19.0,
+      "moment": 4.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -66,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_front_left",
+      "position": [
+        520,
+        43,
+        810
+      ],
+      "radius": 5.0,
+      "mass": 20.0,
+      "moment": 4.5,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_front_mid",
+      "position": [
+        626,
+        42,
+        822
+      ],
+      "radius": 4.2,
+      "mass": 17.0,
+      "moment": 3.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -10,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_front_right",
+      "position": [
+        760,
+        42,
+        800
+      ],
+      "radius": 4.2,
+      "mass": 17.0,
+      "moment": 3.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_left_01",
+      "position": [
+        505,
+        46,
+        614
+      ],
+      "radius": 7.5,
+      "mass": 30.0,
+      "moment": 6.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_left_02",
+      "position": [
+        532,
+        45,
+        606
+      ],
+      "radius": 5.2,
+      "mass": 21.0,
+      "moment": 4.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_mid_01",
+      "position": [
+        612,
+        45,
+        608
+      ],
+      "radius": 6.8,
+      "mass": 27.0,
+      "moment": 6.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        4,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_mid_02",
+      "position": [
+        642,
+        45,
+        602
+      ],
+      "radius": 4.8,
+      "mass": 19.0,
+      "moment": 4.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -36,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_right_01",
+      "position": [
+        722,
+        46,
+        606
+      ],
+      "radius": 7.5,
+      "mass": 30.0,
+      "moment": 6.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_back_right_02",
+      "position": [
+        752,
+        45,
+        598
+      ],
+      "radius": 5.2,
+      "mass": 21.0,
+      "moment": 4.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        58,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_01",
+      "position": [
+        570,
+        43,
+        804
+      ],
+      "radius": 3.8,
+      "mass": 15.0,
+      "moment": 3.4,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -34,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_02",
+      "position": [
+        690,
+        43,
+        815
+      ],
+      "radius": 4.2,
+      "mass": 17.0,
+      "moment": 3.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        26,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_03",
+      "position": [
+        810,
+        43,
+        754
+      ],
+      "radius": 3.6,
+      "mass": 14.0,
+      "moment": 3.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        42,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_04",
+      "position": [
+        483,
+        44,
+        661
+      ],
+      "radius": 4.0,
+      "mass": 16.0,
+      "moment": 3.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -48,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_05",
+      "position": [
+        742,
+        44,
+        646
+      ],
+      "radius": 4.2,
+      "mass": 17.0,
+      "moment": 3.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        36,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "shore_chipped_06",
+      "position": [
+        602,
+        43,
+        584
+      ],
+      "radius": 3.4,
+      "mass": 14.0,
+      "moment": 3.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_left",
+      "position": [
+        455,
+        65,
+        575
+      ],
+      "halfExtents": [
+        4.5,
+        22,
+        4.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_low",
+      "position": [
+        455,
+        91,
+        575
+      ],
+      "halfExtents": [
+        28,
+        13,
+        28
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_mid",
+      "position": [
+        455,
+        107,
+        575
+      ],
+      "halfExtents": [
+        21,
+        12,
+        21
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_top",
+      "position": [
+        455,
+        122,
+        575
+      ],
+      "halfExtents": [
+        14,
+        12,
+        14
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_right",
+      "position": [
+        760,
+        64,
+        560
+      ],
+      "halfExtents": [
+        4.5,
+        21,
+        4.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_low",
+      "position": [
+        760,
+        89,
+        560
+      ],
+      "halfExtents": [
+        27,
+        13,
+        27
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_mid",
+      "position": [
+        760,
+        105,
+        560
+      ],
+      "halfExtents": [
+        20,
+        12,
+        20
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_top",
+      "position": [
+        760,
+        120,
+        560
+      ],
+      "halfExtents": [
+        13,
+        12,
+        13
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_far",
+      "position": [
+        875,
+        61,
+        506
+      ],
+      "halfExtents": [
+        3.5,
+        16,
+        3.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_far_low",
+      "position": [
+        875,
+        81,
+        506
+      ],
+      "halfExtents": [
+        22,
+        11,
+        22
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_far_mid",
+      "position": [
+        875,
+        95,
+        506
+      ],
+      "halfExtents": [
+        16,
+        10,
+        16
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_far_top",
+      "position": [
+        875,
+        108,
+        506
+      ],
+      "halfExtents": [
+        11,
+        10,
+        11
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_fore",
+      "position": [
+        350,
+        64,
+        760
+      ],
+      "halfExtents": [
+        4.5,
+        19,
+        4.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_fore_low",
+      "position": [
+        350,
+        87,
+        760
+      ],
+      "halfExtents": [
+        25,
+        12,
+        25
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_fore_mid",
+      "position": [
+        350,
+        102,
+        760
+      ],
+      "halfExtents": [
+        18,
+        11,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_fore_top",
+      "position": [
+        350,
+        115,
+        760
+      ],
+      "halfExtents": [
+        12,
+        11,
+        12
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_mid",
+      "position": [
+        835,
+        62,
+        748
+      ],
+      "halfExtents": [
+        3.5,
+        15,
+        3.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        16,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_mid_low",
+      "position": [
+        835,
+        81,
+        748
+      ],
+      "halfExtents": [
+        20,
+        10,
+        20
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        16,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_mid_mid",
+      "position": [
+        835,
+        94,
+        748
+      ],
+      "halfExtents": [
+        14,
+        9,
+        14
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        16,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_mid_top",
+      "position": [
+        835,
+        106,
+        748
+      ],
+      "halfExtents": [
+        10,
+        9,
+        10
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        16,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_back_left",
+      "position": [
+        292,
+        60,
+        635
+      ],
+      "halfExtents": [
+        3.5,
+        15,
+        3.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_left_low",
+      "position": [
+        292,
+        78,
+        635
+      ],
+      "halfExtents": [
+        19,
+        9,
+        19
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_left_mid",
+      "position": [
+        292,
+        90,
+        635
+      ],
+      "halfExtents": [
+        14,
+        9,
+        14
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_left_top",
+      "position": [
+        292,
+        102,
+        635
+      ],
+      "halfExtents": [
+        9,
+        9,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_back_mid",
+      "position": [
+        604,
+        60,
+        545
+      ],
+      "halfExtents": [
+        3.2,
+        14,
+        3.2
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_mid_low",
+      "position": [
+        604,
+        77,
+        545
+      ],
+      "halfExtents": [
+        18,
+        9,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_mid_mid",
+      "position": [
+        604,
+        89,
+        545
+      ],
+      "halfExtents": [
+        13,
+        8,
+        13
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_mid_top",
+      "position": [
+        604,
+        100,
+        545
+      ],
+      "halfExtents": [
+        9,
+        8,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_back_right",
+      "position": [
+        1018,
+        61,
+        626
+      ],
+      "halfExtents": [
+        3.5,
+        15,
+        3.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_right_low",
+      "position": [
+        1018,
+        79,
+        626
+      ],
+      "halfExtents": [
+        19,
+        9,
+        19
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_right_mid",
+      "position": [
+        1018,
+        91,
+        626
+      ],
+      "halfExtents": [
+        14,
+        9,
+        14
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_back_right_top",
+      "position": [
+        1018,
+        103,
+        626
+      ],
+      "halfExtents": [
+        9,
+        9,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_left_slope",
+      "position": [
+        250,
+        62,
+        770
+      ],
+      "halfExtents": [
+        3.2,
+        15,
+        3.2
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_slope_low",
+      "position": [
+        250,
+        80,
+        770
+      ],
+      "halfExtents": [
+        18,
+        9,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_slope_mid",
+      "position": [
+        250,
+        92,
+        770
+      ],
+      "halfExtents": [
+        13,
+        8,
+        13
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_left_slope_top",
+      "position": [
+        250,
+        103,
+        770
+      ],
+      "halfExtents": [
+        9,
+        8,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_right_slope",
+      "position": [
+        970,
+        63,
+        790
+      ],
+      "halfExtents": [
+        3.2,
+        15,
+        3.2
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -32,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_slope_low",
+      "position": [
+        970,
+        81,
+        790
+      ],
+      "halfExtents": [
+        18,
+        9,
+        18
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -32,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_slope_mid",
+      "position": [
+        970,
+        93,
+        790
+      ],
+      "halfExtents": [
+        13,
+        8,
+        13
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -32,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_right_slope_top",
+      "position": [
+        970,
+        104,
+        790
+      ],
+      "halfExtents": [
+        9,
+        8,
+        9
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -32,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "trunk_rear_cedar",
+      "position": [
+        680,
+        60,
+        528
+      ],
+      "halfExtents": [
+        3.0,
+        13,
+        3.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_rear_cedar_low",
+      "position": [
+        680,
+        76,
+        528
+      ],
+      "halfExtents": [
+        17,
+        8,
+        17
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_rear_cedar_mid",
+      "position": [
+        680,
+        87,
+        528
+      ],
+      "halfExtents": [
+        12,
+        8,
+        12
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -8,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pineleaf_rear_cedar_top",
+      "position": [
+        680,
+        98,
+        528
+      ],
+      "halfExtents": [
+        8,
+        8,
+        8
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        -8,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_01",
+      "position": [
+        400,
+        43,
+        680
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_02",
+      "position": [
+        815,
+        43,
+        650
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -16,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_03",
+      "position": [
+        555,
+        42,
+        760
+      ],
+      "radius": 6.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        34,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_04",
+      "position": [
+        920,
+        42,
+        720
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -34,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_05",
+      "position": [
+        610,
+        41,
+        804
+      ],
+      "radius": 4.8,
+      "mass": 19.0,
+      "moment": 4.2,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_06",
+      "position": [
+        735,
+        42,
+        790
+      ],
+      "radius": 5.5,
+      "mass": 22.0,
+      "moment": 4.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -28,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_fore_left",
+      "position": [
+        386,
+        42,
+        846
+      ],
+      "radius": 6.5,
+      "mass": 26.0,
+      "moment": 5.5,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_fore_right",
+      "position": [
+        880,
+        42,
+        838
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -31,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_fore_mid_left",
+      "position": [
+        520,
+        42,
+        872
+      ],
+      "radius": 5.5,
+      "mass": 22.0,
+      "moment": 4.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_fore_mid_right",
+      "position": [
+        745,
+        42,
+        866
+      ],
+      "radius": 6.5,
+      "mass": 26.0,
+      "moment": 5.5,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_left_01",
+      "position": [
+        300,
+        41,
+        810
+      ],
+      "radius": 3.4,
+      "mass": 14.0,
+      "moment": 3.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_left_02",
+      "position": [
+        458,
+        41,
+        835
+      ],
+      "radius": 2.8,
+      "mass": 11.0,
+      "moment": 2.5,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_mid_01",
+      "position": [
+        590,
+        41,
+        835
+      ],
+      "radius": 3.2,
+      "mass": 13.0,
+      "moment": 2.8,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_mid_02",
+      "position": [
+        704,
+        41,
+        842
+      ],
+      "radius": 2.8,
+      "mass": 11.0,
+      "moment": 2.5,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -26,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_right_01",
+      "position": [
+        852,
+        42,
+        824
+      ],
+      "radius": 3.4,
+      "mass": 14.0,
+      "moment": 3.0,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "rock_pebble_right_02",
+      "position": [
+        1012,
+        42,
+        802
+      ],
+      "radius": 3.0,
+      "mass": 12.0,
+      "moment": 2.6,
+      "restitution": 0.18,
+      "fixed": true,
+      "euler": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crate_right_bank",
+      "position": [
+        780,
+        53,
+        762
+      ],
+      "halfExtents": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        22,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crate_front_right",
+      "position": [
+        812,
+        53,
+        836
+      ],
+      "halfExtents": [
+        4.5,
+        4.5,
+        4.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        -26,
+        -8
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crate_back_mid",
+      "position": [
+        650,
+        52,
+        608
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crate_right_stack_low",
+      "position": [
+        890,
+        53,
+        760
+      ],
+      "halfExtents": [
+        4.5,
+        4.5,
+        4.5
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "crate_right_stack_top",
+      "position": [
+        888,
+        61,
+        760
+      ],
+      "halfExtents": [
+        3.8,
+        3.8,
+        3.8
+      ],
+      "mass": 2000.0,
+      "restitution": 0.1,
+      "fixed": true,
+      "euler": [
+        0,
+        -20,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "ramp_right",
+      "position": [
+        900,
+        49,
+        800
+      ],
+      "halfExtents": [
+        22.0,
+        2.4,
+        9.0
+      ],
+      "mass": 2000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        9
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_center",
+      "position": [
+        620,
+        85,
+        650
+      ],
+      "radius": 8.5,
+      "mass": 14.0,
+      "moment": 5.8,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_left_bank",
+      "position": [
+        480,
+        84,
+        716
+      ],
+      "radius": 5.8,
+      "mass": 8.0,
+      "moment": 3.8,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        42,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_right_bank",
+      "position": [
+        764,
+        84,
+        724
+      ],
+      "radius": 6.2,
+      "mass": 8.5,
+      "moment": 4.2,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        84,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_front_left",
+      "position": [
+        372,
+        88,
+        830
+      ],
+      "radius": 4.8,
+      "mass": 6.0,
+      "moment": 3.0,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        128,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_front_mid",
+      "position": [
+        570,
+        90,
+        836
+      ],
+      "radius": 4.6,
+      "mass": 5.5,
+      "moment": 2.8,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        176,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_front_right",
+      "position": [
+        900,
+        88,
+        828
+      ],
+      "radius": 4.8,
+      "mass": 6.0,
+      "moment": 3.0,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        218,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_back_left",
+      "position": [
+        528,
+        82,
+        612
+      ],
+      "radius": 4.6,
+      "mass": 5.5,
+      "moment": 2.8,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        258,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_back_right",
+      "position": [
+        824,
+        82,
+        612
+      ],
+      "radius": 4.6,
+      "mass": 5.5,
+      "moment": 2.8,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        306,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_far_left",
+      "position": [
+        384,
+        82,
+        640
+      ],
+      "radius": 4.0,
+      "mass": 5.0,
+      "moment": 2.4,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_far_right",
+      "position": [
+        946,
+        82,
+        668
+      ],
+      "radius": 4.0,
+      "mass": 5.0,
+      "moment": 2.4,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        62,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_near_splash",
+      "position": [
+        692,
+        92,
+        782
+      ],
+      "radius": 5.0,
+      "mass": 6.5,
+      "moment": 3.2,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        112,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_mid_left",
+      "position": [
+        392,
+        84,
+        700
+      ],
+      "radius": 4.4,
+      "mass": 5.5,
+      "moment": 2.6,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        152,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_mid_right",
+      "position": [
+        858,
+        84,
+        690
+      ],
+      "radius": 4.4,
+      "mass": 5.5,
+      "moment": 2.6,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        236,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_ramp_left",
+      "position": [
+        460,
+        84,
+        780
+      ],
+      "radius": 4.8,
+      "mass": 6.0,
+      "moment": 3.0,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        82,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_ramp_right",
+      "position": [
+        820,
+        84,
+        782
+      ],
+      "radius": 4.8,
+      "mass": 6.0,
+      "moment": 3.0,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        278,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "beach_dock_roll",
+      "position": [
+        655,
+        88,
+        720
+      ],
+      "radius": 4.2,
+      "mass": 5.0,
+      "moment": 2.4,
+      "restitution": 0.58,
+      "fixed": false,
+      "euler": [
+        0,
+        322,
+        0
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/SkullbonezSceneSnapshotWriter.h
 Purpose:
-  Serializes the current scene state back into a scene file.
+  Serializes the current scene state back into a scene JSON file.
 
 Mental model:
   Runtime code connects authored scene data, input, simulation, render

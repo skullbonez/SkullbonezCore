@@ -102,7 +102,7 @@ def main() -> int:
         print(f"ERROR: Profile executable not found: {EXE}", file=sys.stderr)
         return 2
 
-    scenes = sorted(SCENE_DIR.glob("*.scene"), key=lambda p: p.name.lower())
+    scenes = sorted(SCENE_DIR.glob("*.scene.json"), key=lambda p: p.name.lower())
     if not scenes:
         print(f"ERROR: No scenes found in {SCENE_DIR}", file=sys.stderr)
         return 2

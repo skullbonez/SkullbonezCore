@@ -3058,7 +3058,7 @@
             "model_count": 37,
             "renderer": "DirectX 12",
             "run_id": "run_0001",
-            "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+            "scene": "SkullbonezData/scenes/physics_bench_varied.scene.json",
             "scene_index": 0,
             "seed": 20260602,
             "solver": "solver",
@@ -3198,7 +3198,7 @@
             "model_count": 37,
             "renderer": "DirectX 12",
             "run_id": "run_0002",
-            "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+            "scene": "SkullbonezData/scenes/physics_bench_varied.scene.json",
             "scene_index": 0,
             "seed": 20260602,
             "solver": "solver",
@@ -3276,6 +3276,6 @@
       ]
     }
   },
-  "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+  "scene": "SkullbonezData/scenes/physics_bench_varied.scene.json",
   "traceKind": "physicsdiag.ndjson"
 }

@@ -45,6 +45,10 @@ Related:
 #include <io.h>
 #include <objbase.h>
 
+#pragma warning( push, 0 )
+#include "../ThirdPtySource/nlohmann/json.hpp"
+#pragma warning( pop )
+
 #ifdef _DEBUG
 #include <dbghelp.h>
 #pragma comment( lib, "dbghelp.lib" )
@@ -61,6 +65,8 @@ using namespace SkullbonezCore::Threading;
 
 namespace
 {
+using Json = nlohmann::ordered_json;
+
 char g_commandLineError[512] = {};
 
 #ifdef _DEBUG
@@ -579,6 +585,7 @@ struct ParsedArgs
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
     char liveStyleControlDir[260] = {};
+    char sceneSnapshotOutPath[260] = {};
     bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
@@ -828,7 +835,7 @@ bool FileExistsForLaunch( const std::string& path )
 
 std::string HeroSceneLaunchPath()
 {
-    return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene";
+    return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene.json";
 }
 
 
@@ -850,7 +857,7 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
     if ( !SceneArgHasExtension( sceneArg ) )
     {
-        const std::string sceneCandidate = sceneDir + sceneArg + ".scene";
+        const std::string sceneCandidate = sceneDir + sceneArg + ".scene.json";
         if ( FileExistsForLaunch( sceneCandidate ) )
         {
             return sceneCandidate;
@@ -864,6 +871,34 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     }
 
     return sceneArg;
+}
+
+
+std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
+{
+    std::string suiteArg( rawSuiteArg );
+    if ( suiteArg.empty() || SceneArgHasPathSyntax( suiteArg ) )
+    {
+        return suiteArg;
+    }
+
+    const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
+    if ( !SceneArgHasExtension( suiteArg ) )
+    {
+        const std::string suiteCandidate = sceneDir + suiteArg + ".suite.json";
+        if ( FileExistsForLaunch( suiteCandidate ) )
+        {
+            return suiteCandidate;
+        }
+    }
+
+    const std::string directCandidate = sceneDir + suiteArg;
+    if ( FileExistsForLaunch( directCandidate ) )
+    {
+        return directCandidate;
+    }
+
+    return suiteArg;
 }
 
 
@@ -1067,29 +1102,46 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             return FailCommandLineParse( "--suite requires a path." );
         }
 
-        // Extract just the filename token — support both quoted and unquoted paths.
-        std::string suitePath( suiteArg );
+        // Resolve a suite JSON path from either a file token or a repository-relative path.
+        const std::string suitePath = ResolveSuiteLaunchPath( suiteArg );
 
-        // Read suite file: one scene path per line, # comments ignored
         std::ifstream suiteFile( suitePath );
-        if ( suiteFile )
-        {
-            std::string line;
-            while ( std::getline( suiteFile, line ) )
-            {
-                while ( !line.empty() && ( line.back() == '\r' || line.back() == ' ' ) )
-                {
-                    line.pop_back();
-                }
-                if ( !line.empty() && line[0] != '#' )
-                {
-                    sceneList.push_back( line );
-                }
-            }
-        }
-        else
+        if ( !suiteFile )
         {
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
+        }
+
+        Json suite;
+        try
+        {
+            suiteFile >> suite;
+        }
+        catch ( const std::exception& e )
+        {
+            return FailCommandLineParse( "--suite invalid JSON in '%s': %s", suitePath.c_str(), e.what() );
+        }
+
+        if ( !suite.is_object() )
+        {
+            return FailCommandLineParse( "--suite '%s' root must be an object.", suitePath.c_str() );
+        }
+        const auto formatIt = suite.find( "format" );
+        if ( formatIt == suite.end() || !formatIt->is_string() || formatIt->get<std::string>() != "skullbonez.suite.json" )
+        {
+            return FailCommandLineParse( "--suite '%s' must declare format skullbonez.suite.json.", suitePath.c_str() );
+        }
+        const auto scenesIt = suite.find( "scenes" );
+        if ( scenesIt == suite.end() || !scenesIt->is_array() )
+        {
+            return FailCommandLineParse( "--suite '%s' must contain a scenes array.", suitePath.c_str() );
+        }
+        for ( const Json& scene : *scenesIt )
+        {
+            if ( !scene.is_string() )
+            {
+                return FailCommandLineParse( "--suite '%s' scenes entries must be strings.", suitePath.c_str() );
+            }
+            sceneList.push_back( ResolveSceneLaunchPath( scene.get<std::string>().c_str() ) );
         }
         isSuiteOrSceneMode = true;
     }
@@ -1337,6 +1389,25 @@ bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 }
 
 
+bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--scene-snapshot-out expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.sceneSnapshotOutPath ) )
+    {
+        return FailCommandLineParse( "--scene-snapshot-out path is too long." );
+    }
+
+    strcpy_s( args.sceneSnapshotOutPath, sizeof( args.sceneSnapshotOutPath ), value );
+    args.sceneLoadOnly = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[scene-load-only] Snapshot output: %s\n", args.sceneSnapshotOutPath );
+    return true;
+}
+
+
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1365,6 +1436,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           } },
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
+        { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
         { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1811,7 +1883,7 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
             }
             if ( args.sceneLoadOnly )
             {
-                cRun->RunSceneLoadOnly();
+                cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
             }
             else
             {

@@ -42,7 +42,13 @@ constexpr int OBJECT_HULL_TAPERED_BLOCK = 5;
 constexpr int OBJECT_HULL_PYRAMID = 6;
 constexpr int OBJECT_HULL_HEX_PRISM = 7;
 constexpr int OBJECT_HULL_DIAMOND = 8;
-constexpr int OBJECT_TYPE_COUNT = 9;
+constexpr int OBJECT_ROCK_SLAB = 9;
+constexpr int OBJECT_ROCK_LUMP = 10;
+constexpr int OBJECT_ROCK_SHARD = 11;
+constexpr int OBJECT_ROCK_CHIPPED = 12;
+constexpr int OBJECT_TREE_SMALL = 13;
+constexpr int OBJECT_TREE_BIG = 14;
+constexpr int OBJECT_TYPE_COUNT = 15;
 
 struct UIEditorTabState
 {

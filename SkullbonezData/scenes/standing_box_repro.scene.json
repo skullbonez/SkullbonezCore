@@ -1,0 +1,42 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "seed": 4096348761,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    },
+    "solverBoxes": 300
+  },
+  "playback": {
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        321,
+        110,
+        557
+      ],
+      "view": [
+        581,
+        40,
+        633
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

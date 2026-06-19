@@ -1,0 +1,135 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 998.0
+    }
+  },
+  "playback": {
+    "frames": 1800,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 40.0,
+      "slopeX": 0.176,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        200,
+        500
+      ],
+      "view": [
+        500,
+        130,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "box_slope_flat",
+      "position": [
+        500,
+        145,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_slope_tilt",
+      "position": [
+        520,
+        145,
+        500
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        30,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_slope_wide",
+      "position": [
+        540,
+        145,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        1.0,
+        2.0
+      ],
+      "mass": 15.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "box_slope_heavy",
+      "position": [
+        500,
+        145,
+        520
+      ],
+      "halfExtents": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "mass": 50.0,
+      "restitution": 0.1,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

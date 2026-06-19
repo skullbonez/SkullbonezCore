@@ -122,8 +122,8 @@
       "validation_gate": "tools\\validate_dx12_renderer.bat",
       "validation_notes": "Terrain render density, shadow caster geometry, shaders, or DXR terrain BLAS changes require tools\\validate_dx12_renderer.bat. If the default density, terrain BLAS cost, shadow cost, or hot-path terrain cost changes materially, also run tools\\validate_perf.bat. Only run tools\\validate_physics.bat if the physics-visible terrain surface or baselines intentionally change.",
       "screenshot_scenes": [
-        "SkullbonezData\\scenes\\render_tests.suite",
-        "SkullbonezData\\scenes\\water_ball_test.scene"
+        "SkullbonezData\\scenes\\render_tests.suite.json",
+        "SkullbonezData\\scenes\\water_ball_test.scene.json"
       ],
       "artifact_commands": [],
       "parallel_group": "terrain-rendering",
@@ -215,7 +215,7 @@
       "validation_gate": "tools\\validate_full.bat",
       "validation_notes": "This plan spans deterministic physics, shadow rendering, renderer-facing prep, and hot-path scheduling. Use focused builds or launches while iterating, then run the narrow gates required by the final touched files; use tools\\validate_full.bat for mixed physics plus renderer completion.",
       "screenshot_scenes": [
-        "SkullbonezData\\scenes\\render_tests.suite"
+        "SkullbonezData\\scenes\\render_tests.suite.json"
       ],
       "artifact_commands": [],
       "parallel_group": "physics-shadow-workers",

@@ -16,7 +16,7 @@ submit one skybox draw instead of six.
 
 ## TODO Command line args
 
-I never want to type this again: --scene SkullbonezData/scenes/stacking.scene
+I never want to type this again: --scene SkullbonezData/scenes/stacking.scene.json
 Should simply be --scene stacking or --suite myTests
 
 

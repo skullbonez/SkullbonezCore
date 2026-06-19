@@ -27,7 +27,7 @@ a forward-time recall ability.
 The target workflow is:
 
 1. Load a breakable-object test scene.
-2. Enter nudge/ray-test mode or use a deterministic projectile scene.
+2. Enter launcher/ray-test mode or use a deterministic projectile scene.
 3. Shoot the breakable object.
 4. The original object hides and many shards fly outward, keeping in mind the shards 
    are a puzzle that can create the object when pieced together (so frame 0 shards
@@ -46,7 +46,7 @@ determinism, and contact-solver cost problems.
 
 Useful existing pieces:
 
-- Nudge mode already lets the user left-click a dynamic object from the camera.
+- Launcher mode already lets the user left-click a dynamic object from the camera.
 - Bullet/projectile scenes already exercise deterministic high-speed impacts.
 - `Replay System Plan` already defines the correct model: scrub presentation
   samples instead of integrating physics backward.
@@ -189,7 +189,7 @@ enough.
 
 Work:
 
-1. Extend nudge/ray-test hit handling so a ray impulse above threshold can emit
+1. Extend launcher/ray-test hit handling so a ray impulse above threshold can emit
    a `FractureEvent`.
 2. Extend projectile/contact-driven scenes so deterministic bullet impacts can
    also emit the same event.
@@ -389,7 +389,7 @@ or deterministic scene behavior changes.
 The first practical slice should be:
 
 1. Add a breakable test scene and fracture directives.
-2. Emit a fracture event from nudge/ray-test shooting.
+2. Emit a fracture event from launcher/ray-test shooting.
 3. Replace the source object visually with GPU-rendered shards in rest pose.
 4. Add GPU shard simulation with terrain bounce.
 5. Add minimal replay recording/scrubbing for shard presentation samples.

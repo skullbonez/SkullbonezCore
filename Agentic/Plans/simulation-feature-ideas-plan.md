@@ -34,7 +34,7 @@ Core shape:
 Why it fits:
 
 - The engine already has fixed 120 Hz physics, scene seeds, fixed-step scenes,
-  nudge snapshots, F2 scene snapshots, SkullScope, and pipeline debug stages.
+  launcher snapshots, F2 scene snapshots, SkullScope, and pipeline debug stages.
 - This turns determinism into an interactive debugging feature.
 - `Agentic/Plans/replay-system-plan.md` already contains a deeper draft that
   can be resumed or refined.

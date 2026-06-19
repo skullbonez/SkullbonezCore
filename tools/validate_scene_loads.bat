@@ -24,8 +24,8 @@
 @echo off
 setlocal enabledelayedexpansion
 REM ===============================================================
-REM  validate_scene_loads.bat - Boot-only sweep for every .scene.
-REM  Builds Profile, enumerates all SkullbonezData\scenes\*.scene
+REM  validate_scene_loads.bat - Boot-only sweep for every .scene.json.
+REM  Builds Profile, enumerates all SkullbonezData\scenes\*.scene.json
 REM  files, then loads each scene with a timeout so setup failures
 REM  are caught without waiting for scenarios to complete.
 REM ===============================================================

@@ -17,7 +17,7 @@ Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
 ```powershell
 $REPO = (Resolve-Path .).Path
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene" `
+    -ArgumentList "--renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene.json" `
     -WorkingDirectory $REPO -PassThru
 ```
 

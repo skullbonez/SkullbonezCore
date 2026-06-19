@@ -24,7 +24,7 @@
 #
 #
 """
-Semantic regression check for shooting_reaction_volley.scene.
+Semantic regression check for shooting_reaction_volley.scene.json.
 
 The byte-exact physics CSV catches deterministic drift. This checker catches the
 behavioral contract for the runtime projectile work: every named target in the

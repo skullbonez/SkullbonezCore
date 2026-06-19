@@ -1,0 +1,282 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "cinematic": {
+    "shadows": true,
+    "shadowMapSize": 2048,
+    "shadowPcfRadius": 1,
+    "shadowStrength": 0.64,
+    "shadowSoftness": 1.1,
+    "shadowMaxDistance": 1200.0,
+    "terrainTint": [
+      0.19,
+      0.42,
+      0.12
+    ],
+    "terrainAccent": [
+      0.43,
+      0.52,
+      0.16
+    ],
+    "waterTint": [
+      0.08,
+      0.4,
+      0.62
+    ]
+  },
+  "simulation": {
+    "seed": 8137,
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "collisionVisualizer": false,
+    "physics": {
+      "axes": false,
+      "contacts": false,
+      "sleep": false,
+      "transparent": false,
+      "alpha": 0.28
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        430,
+        165,
+        735
+      ],
+      "view": [
+        525,
+        34,
+        535
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "display_knocker",
+      "position": [
+        430,
+        13,
+        535
+      ],
+      "radius": 12.0,
+      "mass": 65.0,
+      "moment": 20.0,
+      "restitution": 0.35,
+      "fixed": false,
+      "force": [
+        4200,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "rock.slab_blue",
+      "name": "display_rock_slab_blue",
+      "position": [
+        458,
+        3,
+        504
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        24,
+        -2
+      ]
+    },
+    {
+      "asset": "rock.lump_moss",
+      "name": "display_rock_lump_moss",
+      "position": [
+        505,
+        5,
+        486
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -18,
+        0
+      ]
+    },
+    {
+      "asset": "rock.shard_violet",
+      "name": "display_rock_shard_violet",
+      "position": [
+        558,
+        7,
+        516
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        36,
+        -5
+      ]
+    },
+    {
+      "asset": "rock.chipped_warm",
+      "name": "display_rock_chipped_warm",
+      "position": [
+        606,
+        4,
+        492
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -32,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "display_tree_small_static",
+      "position": [
+        418,
+        0,
+        610
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "display_tree_static_left",
+      "position": [
+        462,
+        0,
+        584
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -16,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "display_tree_static_back",
+      "position": [
+        590,
+        0,
+        614
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "display_tree_physical_mid",
+      "position": [
+        518,
+        0,
+        546
+      ],
+      "fixed": false,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "display_tree_small_physical",
+      "position": [
+        675,
+        0,
+        586
+      ],
+      "fixed": false,
+      "euler": [
+        0,
+        -22,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "display_tree_physical_right",
+      "position": [
+        642,
+        0,
+        548
+      ],
+      "fixed": false,
+      "euler": [
+        0,
+        -11,
+        0
+      ]
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "display_knocker",
+      "mode": "beachball",
+      "color": [
+        1.0,
+        0.82,
+        0.14
+      ],
+      "roughness": 0.48,
+      "specular": 0.3,
+      "name": "display_ball"
+    }
+  ]
+}

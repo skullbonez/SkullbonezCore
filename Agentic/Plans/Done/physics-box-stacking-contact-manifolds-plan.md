@@ -20,7 +20,7 @@ Already implemented in this branch:
 - Box inverse inertia is applied in world space in terrain, immediate object response, and persistent object contacts.
 - The object response migration previously unified sphere-sphere, sphere-box, and box-box fallback contacts before the persistent solver became the single dynamic response owner.
 - Terrain response returns whether its contact is safe for sleep. Under-constrained terrain box contacts inhibit sleep until a local box face normal is sufficiently aligned to the actual terrain contact plane normal.
-- The previous bespoke box toppling assists were removed. There is no forced angular "fall to face" nudge and no gravitational toppling torque block. The solver now relies on contact resolution plus sleep eligibility.
+- The previous bespoke box toppling assists were removed. There is no forced angular "fall to face" launcher and no gravitational toppling torque block. The solver now relies on contact resolution plus sleep eligibility.
 - The physics logger includes orientation (`qX,qY,qZ,qW`), `sleeping`, and `sleepInhibited`; the deterministic physics regression baseline has been updated for that schema and the accepted solver behavior.
 - `SkullbonezGameModelCollection.cpp` now includes detailed Catto references to `Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf`, with engine-specific/novel behavior explicitly marked.
 
@@ -93,7 +93,7 @@ The recent at-rest cube bug was not solved by adding a toppling special case. Th
 - inhibit sleep when the contact is an under-constrained edge/vertex support that is not face-stable;
 - allow the existing contact solve to keep running until the box reaches a plausible rest face.
 
-Future object-object manifold work should follow that same philosophy: improve contact geometry first, and avoid nudges or damping that hide bad manifolds.
+Future object-object manifold work should follow that same philosophy: improve contact geometry first, and avoid manual impulses or damping that hide bad manifolds.
 
 ## Goal
 
@@ -117,7 +117,7 @@ Target behavior:
 - Do not tune stacking by adding damping, sleeping hacks, or larger correction constants before the manifold is correct.
 - Do not update physics baselines until the new behavior is reviewed and intentionally accepted.
 - Do not remove terrain sleep-plane handling while working on object-object contacts. It fixes a separate, accepted terrain rest-state issue.
-- Do not reintroduce explicit toppling nudges or gravity torque assists for boxes.
+- Do not reintroduce explicit toppling manual impulses or gravity torque assists for boxes.
 
 ## Target Design
 

@@ -1,0 +1,57 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": false,
+    "text": false
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 1
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/screenshot.bmp",
+      "frame": 1
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        60,
+        650
+      ],
+      "view": [
+        600,
+        33,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "water_test",
+      "position": [
+        600,
+        33,
+        600
+      ],
+      "radius": 12.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.8,
+      "fixed": false
+    }
+  ]
+}

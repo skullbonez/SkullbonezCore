@@ -1,0 +1,38 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": false,
+    "text": false
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "TestOutput/terrain_cap.bmp",
+      "frame": 5
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        200,
+        500,
+        1800
+      ],
+      "view": [
+        1400,
+        0,
+        200
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,796 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 31415,
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 4200,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "collisionVisualizer": true,
+    "physics": {
+      "axes": false,
+      "transparent": false,
+      "alpha": 0.35
+    }
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        275,
+        145,
+        625
+      ],
+      "view": [
+        575,
+        54,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ballState",
+      "name": "marble_1",
+      "position": [
+        330,
+        151,
+        500
+      ],
+      "velocity": [
+        12,
+        -1,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 5.0,
+      "mass": 12.0,
+      "restitution": 0.55,
+      "inertia": [
+        12.0,
+        12.0,
+        12.0
+      ],
+      "fixed": false
+    },
+    {
+      "type": "ballState",
+      "name": "marble_2",
+      "position": [
+        420,
+        151,
+        500
+      ],
+      "velocity": [
+        8,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 5.0,
+      "mass": 12.0,
+      "restitution": 0.5,
+      "inertia": [
+        12.0,
+        12.0,
+        12.0
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_left_01",
+      "position": [
+        330,
+        144,
+        491
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        18
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_floor_01",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        12
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_right_01",
+      "position": [
+        330,
+        144,
+        509
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        180,
+        -18
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_left_02",
+      "position": [
+        330,
+        144,
+        491
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        14
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_floor_02",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        10
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_right_02",
+      "position": [
+        330,
+        144,
+        509
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        180,
+        -14
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_left_03",
+      "position": [
+        330,
+        144,
+        491
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        10
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_floor_03",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        8
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "runner_u_right_03",
+      "position": [
+        330,
+        144,
+        509
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/wedge.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        180,
+        -10
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_01",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        18
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_02",
+      "position": [
+        362,
+        142,
+        482
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        35,
+        12
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_03",
+      "position": [
+        370,
+        142,
+        490
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        70,
+        8
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_04",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_05",
+      "position": [
+        370,
+        142,
+        510
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/hex_prism.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        145,
+        -8
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_06",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/tri_prism.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        205,
+        -12
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "funnel_07",
+      "position": [
+        354,
+        142,
+        508
+      ],
+      "mass": 3000.0,
+      "restitution": 0.55,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        250,
+        -12
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "jump_takeoff",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.65,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "jump_marker",
+      "position": [
+        386,
+        142,
+        492
+      ],
+      "mass": 3000.0,
+      "restitution": 0.3,
+      "hull": "SkullbonezData/hulls/diamond.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "jump_landing",
+      "position": [
+        330,
+        142,
+        500
+      ],
+      "mass": 3000.0,
+      "restitution": 0.45,
+      "hull": "SkullbonezData/hulls/tapered_block.hull",
+      "fixed": true,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_01",
+      "position": [
+        334.0,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_02",
+      "position": [
+        336.4,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_03",
+      "position": [
+        338.8,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_04",
+      "position": [
+        341.2,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_05",
+      "position": [
+        343.6,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "domino_06",
+      "position": [
+        414.0,
+        151,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        13.0,
+        5.0
+      ],
+      "mass": 10.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "tower_00",
+      "position": [
+        429,
+        151,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_01",
+      "position": [
+        429,
+        159,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_02",
+      "position": [
+        429,
+        167,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_03",
+      "position": [
+        421,
+        151,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_04",
+      "position": [
+        421,
+        159,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_05",
+      "position": [
+        437,
+        151,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_06",
+      "position": [
+        437,
+        159,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "tower_07",
+      "position": [
+        429,
+        175,
+        500
+      ],
+      "halfExtents": [
+        4.0,
+        4.0,
+        4.0
+      ],
+      "mass": 5.0,
+      "restitution": 0.18,
+      "fixed": false
+    }
+  ],
+  "requirements": {
+    "contacts": [
+      {
+        "a": "marble_1",
+        "b": "runner_u_floor_01"
+      },
+      {
+        "a": "marble_1",
+        "b": "runner_u_floor_02"
+      },
+      {
+        "a": "marble_1",
+        "b": "runner_u_floor_03"
+      },
+      {
+        "a": "marble_1",
+        "b": "funnel_01"
+      },
+      {
+        "a": "marble_1",
+        "b": "funnel_04"
+      },
+      {
+        "a": "marble_1",
+        "b": "funnel_06"
+      },
+      {
+        "a": "marble_1",
+        "b": "jump_takeoff"
+      },
+      {
+        "a": "marble_1",
+        "b": "jump_landing"
+      },
+      {
+        "a": "marble_1",
+        "b": "domino_01"
+      },
+      {
+        "a": "domino_01",
+        "b": "domino_02"
+      },
+      {
+        "a": "domino_03",
+        "b": "domino_04"
+      },
+      {
+        "a": "domino_06",
+        "b": "marble_2"
+      },
+      {
+        "a": "marble_2",
+        "b": "tower_00"
+      }
+    ]
+  }
+}

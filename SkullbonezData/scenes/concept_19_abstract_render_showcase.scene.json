@@ -1,0 +1,258 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 1019,
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": true
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "styles": [
+    "abstract_render_showcase"
+  ],
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        132,
+        805
+      ],
+      "view": [
+        620,
+        40,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "showcase_floor",
+      "position": [
+        620,
+        22,
+        610
+      ],
+      "halfExtents": [
+        330,
+        4,
+        240
+      ],
+      "mass": 3000.0,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "ball",
+      "name": "chrome_hero",
+      "position": [
+        620,
+        50,
+        650
+      ],
+      "radius": 26.0,
+      "mass": 104.0,
+      "moment": 24.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "gold_01",
+      "position": [
+        485,
+        44,
+        675
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glass_01",
+      "position": [
+        755,
+        44,
+        670
+      ],
+      "radius": 15.0,
+      "mass": 62.0,
+      "moment": 14.0,
+      "restitution": 0.4,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "matte_01",
+      "position": [
+        420,
+        43,
+        585
+      ],
+      "radius": 10.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "neon_01",
+      "position": [
+        520,
+        40,
+        545
+      ],
+      "radius": 8.0,
+      "mass": 32.0,
+      "moment": 8.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "black_01",
+      "position": [
+        680,
+        40,
+        535
+      ],
+      "radius": 9.0,
+      "mass": 34.0,
+      "moment": 9.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "toon_01",
+      "position": [
+        810,
+        44,
+        575
+      ],
+      "radius": 10.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.36,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "chrome_02",
+      "position": [
+        365,
+        42,
+        690
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "gold_02",
+      "position": [
+        875,
+        45,
+        690
+      ],
+      "radius": 7.0,
+      "mass": 28.0,
+      "moment": 7.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glass_float",
+      "position": [
+        870,
+        152,
+        500
+      ],
+      "radius": 11.0,
+      "mass": 34.0,
+      "moment": 10.0,
+      "restitution": 0.34,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1056,7 +1056,7 @@ void SkullbonezRun::DebugOverlayPass::Render( const DebugOverlayPassInputs& inpu
         m_run.m_cGameModelCollection.RenderTornadoFieldVectors( inputs.frame.viewProjection );
     }
 
-    m_run.RenderEditorOverlay( inputs.frame.viewProjection );
+    m_run.RenderEditorOverlay( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up );
 
     if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {

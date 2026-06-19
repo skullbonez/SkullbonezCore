@@ -1,0 +1,133 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "timeScale": 0.2
+  },
+  "playback": {
+    "frames": "unlimited",
+    "trackHeight": 150.0,
+    "autoCycleInterval": 5.0
+  },
+  "cameras": [
+    {
+      "name": "cardinal",
+      "position": [
+        500,
+        800,
+        500
+      ],
+      "view": [
+        500,
+        0,
+        500
+      ],
+      "up": [
+        0,
+        0,
+        -1
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "north",
+      "position": [
+        400,
+        90,
+        380
+      ],
+      "radius": 10.0,
+      "mass": 50.0,
+      "moment": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        -500
+      ],
+      "forcePosition": [
+        10,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "south",
+      "position": [
+        600,
+        90,
+        620
+      ],
+      "radius": 10.0,
+      "mass": 50.0,
+      "moment": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        500
+      ],
+      "forcePosition": [
+        10,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "east",
+      "position": [
+        620,
+        90,
+        400
+      ],
+      "radius": 10.0,
+      "mass": 50.0,
+      "moment": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        500,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        10
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "west",
+      "position": [
+        380,
+        90,
+        600
+      ],
+      "radius": 10.0,
+      "mass": 50.0,
+      "moment": 20.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        -500,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        10
+      ]
+    }
+  ]
+}

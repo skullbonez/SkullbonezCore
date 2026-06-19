@@ -1,0 +1,89 @@
+{
+  "format": "skullbonez.style.json",
+  "version": 1,
+  "cinematic": {
+    "styleModes": [
+      13,
+      1,
+      2,
+      1
+    ],
+    "exposure": 0.56,
+    "gamma": 2.22,
+    "sunScreenX": 0.48,
+    "sunScreenY": 0.82,
+    "sunIntensity": 19.0,
+    "styleGrade": [
+      0.58,
+      1.36,
+      0.56
+    ],
+    "cloudCoverage": 0.96,
+    "cloudIntensity": 1.4,
+    "bloomThreshold": 0.72,
+    "bloomStrength": 1.1,
+    "fogDensity": 0.003,
+    "fogMaxOpacity": 0.72,
+    "sunColorR": 0.9,
+    "sunColorG": 0.96,
+    "sunColorB": 1.65,
+    "skyHorizonR": 0.22,
+    "skyHorizonG": 0.25,
+    "skyHorizonB": 0.28,
+    "skyZenithR": 0.03,
+    "skyZenithG": 0.04,
+    "skyZenithB": 0.05,
+    "terrainTint": [
+      0.3,
+      0.32,
+      0.32
+    ],
+    "terrainAccent": [
+      0.68,
+      0.82,
+      1.0
+    ],
+    "waterTint": [
+      0.035,
+      0.05,
+      0.06
+    ],
+    "waterProfile": [
+      0.92,
+      0.58,
+      0.2
+    ]
+  },
+  "includes": [
+    "_concept_base"
+  ],
+  "objectMaterials": [
+    {
+      "target": "balls",
+      "tint": [
+        0.78,
+        0.66,
+        0.66
+      ],
+      "mode": "beachball"
+    },
+    {
+      "target": "prefix:lightning",
+      "tint": [
+        0.74,
+        0.88,
+        1.0
+      ],
+      "mode": "neon"
+    },
+    {
+      "target": "prefix:debris",
+      "tint": [
+        0.12,
+        0.12,
+        0.13
+      ],
+      "mode": "matte"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 998.0
+    }
+  },
+  "playback": {
+    "frames": 1200,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 40.0,
+      "slopeX": 0.176,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        200,
+        500
+      ],
+      "view": [
+        500,
+        130,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "slope_roll",
+      "position": [
+        500,
+        135,
+        500
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "cross_roll",
+      "position": [
+        500,
+        135,
+        520
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        0,
+        0,
+        -200
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "diag_roll",
+      "position": [
+        500,
+        135,
+        540
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 8.0,
+      "restitution": 0.3,
+      "fixed": false,
+      "force": [
+        -150,
+        0,
+        -150
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

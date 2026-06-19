@@ -1,0 +1,81 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 42,
+    "physics": true,
+    "text": false,
+    "solverBalls": 300
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": 1000,
+    "exitOnComplete": true
+  },
+  "cameras": [
+    {
+      "name": "cam1",
+      "position": [
+        321,
+        110,
+        557
+      ],
+      "view": [
+        581,
+        40,
+        633
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "cam2",
+      "position": [
+        730,
+        100,
+        380
+      ],
+      "view": [
+        709,
+        92,
+        482
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "cam3",
+      "position": [
+        900,
+        110,
+        900
+      ],
+      "view": [
+        313,
+        31,
+        282
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "logging": {
+    "perfLog": "Profile/perf_log.csv",
+    "perfLogFlush": false,
+    "perfLogFlushInterval": 0
+  }
+}

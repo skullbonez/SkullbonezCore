@@ -576,12 +576,12 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
     if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
-                                                                               modelCount,
-                                                                               applyTornadoAt,
-                                                                               PHYSICS_PARALLEL_MIN_BODIES,
-                                                                               "Frame/Physics/TornadoField/WorkerBodies",
-                                                                               PHYSICS_TORNADO_WORKER_HASH );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                       modelCount,
+                                                                       applyTornadoAt,
+                                                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                                                       "Frame/Physics/TornadoField/WorkerBodies",
+                                                                       PHYSICS_TORNADO_WORKER_HASH );
     }
     else
     {
@@ -709,12 +709,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
-                                                                               modelCount,
-                                                                               applyForcesAt,
-                                                                               PHYSICS_PARALLEL_MIN_BODIES,
-                                                                               "Frame/Physics/ApplyForces/WorkerBodies",
-                                                                               PHYSICS_APPLY_FORCES_WORKER_HASH );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                       modelCount,
+                                                                       applyForcesAt,
+                                                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                                                       "Frame/Physics/ApplyForces/WorkerBodies",
+                                                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
@@ -1427,12 +1427,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-                SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
-                                                                                       islandCount,
-                                                                                       processObjectNarrowphaseIsland,
-                                                                                       PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
-                                                                                       "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
-                                                                                       PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
+                SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                               islandCount,
+                                                                               processObjectNarrowphaseIsland,
+                                                                               PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+                                                                               "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+                                                                               PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
             }
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
@@ -1528,12 +1528,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
     if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
-                                                                               modelCount,
-                                                                               detectTerrainAt,
-                                                                               PHYSICS_PARALLEL_MIN_BODIES,
-                                                                               "Frame/Physics/Terrain/Detect/WorkerBodies",
-                                                                               PHYSICS_TERRAIN_DETECT_WORKER_HASH );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                       modelCount,
+                                                                       detectTerrainAt,
+                                                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                                                       "Frame/Physics/Terrain/Detect/WorkerBodies",
+                                                                       PHYSICS_TERRAIN_DETECT_WORKER_HASH );
     }
     else
     {
@@ -1580,12 +1580,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelForProfiled( 0,
-                                                                               modelCount,
-                                                                               integrateRemainingAt,
-                                                                               PHYSICS_PARALLEL_MIN_BODIES,
-                                                                               "Frame/Physics/Integrate/WorkerBodies",
-                                                                               PHYSICS_INTEGRATE_WORKER_HASH );
+        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
+                                                                       modelCount,
+                                                                       integrateRemainingAt,
+                                                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                                                       "Frame/Physics/Integrate/WorkerBodies",
+                                                                       PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {

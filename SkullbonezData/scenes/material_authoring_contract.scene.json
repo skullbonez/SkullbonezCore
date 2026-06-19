@@ -1,0 +1,69 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": false,
+    "text": false
+  },
+  "playback": {
+    "frames": 1
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500,
+        70,
+        650
+      ],
+      "view": [
+        600,
+        35,
+        600
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "contract_probe",
+      "position": [
+        600,
+        33,
+        600
+      ],
+      "radius": 12.0,
+      "mass": 50.0,
+      "moment": 10.0,
+      "restitution": 0.8,
+      "fixed": false
+    }
+  ],
+  "styles": [
+    "material_authoring_contract"
+  ],
+  "objectMaterials": [
+    {
+      "target": "contract_probe",
+      "mode": "glass",
+      "tint": [
+        0.58,
+        0.78,
+        0.95
+      ],
+      "transmission": 0.81,
+      "roughness": 0.09,
+      "name": "contract_glass"
+    }
+  ]
+}

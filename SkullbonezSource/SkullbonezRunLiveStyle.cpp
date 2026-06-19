@@ -219,7 +219,7 @@ void SkullbonezRun::SetLiveStyleControlDirectory( const char* path )
     }
 
     strcpy_s( m_liveStyle.directory, sizeof( m_liveStyle.directory ), path );
-    JoinControlPath( m_liveStyle.directory, "live.style", m_liveStyle.stylePath, sizeof( m_liveStyle.stylePath ) );
+    JoinControlPath( m_liveStyle.directory, "live.style.json", m_liveStyle.stylePath, sizeof( m_liveStyle.stylePath ) );
     JoinControlPath( m_liveStyle.directory, "capture.txt", m_liveStyle.capturePath, sizeof( m_liveStyle.capturePath ) );
     JoinControlPath( m_liveStyle.directory, "status.txt", m_liveStyle.statusPath, sizeof( m_liveStyle.statusPath ) );
     m_liveStyle.styleStamp = 0;
@@ -232,7 +232,7 @@ void SkullbonezRun::SetLiveStyleControlDirectory( const char* path )
 
     m_cmdInteractiveSceneRun = true;
     EnterInteractiveSceneRun();
-    WriteStatus( m_liveStyle, "ready", "watching live.style" );
+    WriteStatus( m_liveStyle, "ready", "watching live.style.json" );
     printf( "[style-harness] Watching %s\n", m_liveStyle.directory );
 }
 

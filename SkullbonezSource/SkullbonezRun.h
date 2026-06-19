@@ -74,6 +74,7 @@ Related:
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezLauncherLaser.h"
 #include "UI/SkullbonezUI.h"
 
 
@@ -219,7 +220,7 @@ struct RunCameraState
 
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
-    bool isNudgeMode = false;        // Ray-test camera mode (toggle with N): free camera plus left-click ray impulse testing
+    bool isLauncherMode = false;     // Launcher camera mode (toggle with N): free camera plus left-click firing
     bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -245,13 +246,13 @@ struct RunScreenshotState
 
 struct RunLiveStyleControlState
 {
-    bool enabled = false;                 // Polls a small control folder for live .style and screenshot requests
-    char directory[260] = {};             // Folder containing live.style, capture.txt, and status.txt
+    bool enabled = false;                 // Polls a small control folder for live style JSON and screenshot requests
+    char directory[260] = {};             // Folder containing live.style.json, capture.txt, and status.txt
     char stylePath[300] = {};             // Style descriptor applied without reloading the scene
     char capturePath[300] = {};           // Text command file used to request one screenshot
     char statusPath[300] = {};            // Latest harness status for scripts/humans
     char pendingScreenshotPath[512] = {}; // Screenshot path requested by capture.txt
-    uint64_t styleStamp = 0;              // Last applied live.style write stamp
+    uint64_t styleStamp = 0;              // Last applied live.style.json write stamp
     uint64_t captureStamp = 0;            // Last consumed capture.txt write stamp
     int styleApplyCount = 0;              // Successful live style applications
     int captureCount = 0;                 // Successful live screenshots
@@ -289,7 +290,7 @@ struct RunDebugState
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
-    char reproSnapshotMessage[128] = {};    // Short HUD confirmation after nudge-mode repro dump
+    char reproSnapshotMessage[128] = {};    // Short HUD confirmation after launcher-mode repro dump
     double reproSnapshotMessageUntil = 0.0; // Simulation timer value after which the HUD message expires
 #endif
 };
@@ -303,14 +304,22 @@ struct RunRayCastTestLine
     bool hit = false;
 };
 
+enum class RunLauncherFireMode
+{
+    Laser,
+    Projectile
+};
+
 struct RunRayCastTestState
 {
     static constexpr std::size_t MAX_LINES = 64;
 
     std::array<RunRayCastTestLine, MAX_LINES> lines = {};
     int nextLine = 0;
+    RunLauncherFireMode fireMode = RunLauncherFireMode::Laser;
     bool visualizeRays = false;
     float impulseStrength = 1800.0f;
+    float projectileSpeed = 160.0f;
 };
 
 struct RunEditorPlacementState
@@ -901,7 +910,7 @@ class SkullbonezRun
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                // Runtime debug/overlay toggles
-    RunRayCastTestState m_rayCastTest;    // Runtime ray impulse test state and fading debug lines
+    RunRayCastTestState m_rayCastTest;    // Launcher-mode firing state and fading debug lines
     RunEditorPlacementState m_editor;     // Object placement and selection editor state
     RunEditorTracer m_editorTracer;       // Render-only ray tests, ghost previews, and editor gizmo lines
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
@@ -910,6 +919,7 @@ class SkullbonezRun
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
+    LauncherLaser m_launcherLaser;                                  // Visible launcher-mode laser shots; render-only feedback.
     Environment::WorldEnvironment m_cWorldEnvironment;        // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;  // Scene bodies plus solver-visible object state.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
@@ -972,7 +982,7 @@ class SkullbonezRun
     void LoadDemoSceneFromUI();                                                                                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                                  // Live cine/concept style change; leaves scene objects intact.
     bool ApplyAdjacentCinematicMode( int direction );                                                                                      // Cycles live cine/concept looks without rebuilding the scene
-    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Style-only cinematic/material directives; no object rebuild.
+    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                               // Style-only cinematic/material JSON; no object rebuild.
     void ApplyDemoHeroStyleOverride();                                                                                                     // Low-poly hero style override for generated demo mode.
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                    // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                       // Locks scene automation into non-quitting interactive mode
@@ -1008,17 +1018,20 @@ class SkullbonezRun
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();        // Screenshot triggers; returns true when frame should restart (continue)
-    void TickLiveStyleControl();   // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControl();   // Poll live.style.json/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
     void TickAutoCycle();                                                                                                                                                                // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                                                                                                                                                  // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                                                                                                                                                             // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                                                                                                                                          // Slide water surface up/down while held
-    void ClearRayCastTestLines();                                                                                                                                                        // Scene/model rebuilds invalidate fading ray-test visuals.
+    void ClearRayCastTestLines();                                                                                                                                                        // Scene/model rebuilds invalidate fading launcher visuals.
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );                                                                           // One fading ray visual, gated by runtime test-line visibility.
-    void TickRayCastTestLines( float dt );                                                                                                                                               // Ages fading ray-test visuals
+    void TickRayCastTestLines( float dt );                                                                                                                                               // Ages fading launcher visuals
     bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, int& outIndex, float& outT );                          // Finds closest model hit along a ray
-    void FireRayCastTest();                                                                                                                                                              // Casts a runtime test ray and applies the configured impulse to the first dynamic hit
+    bool TryLauncherTerrainHit( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float maxDistance, float& outT ) const;                                // Finds the nearest terrain crossing along a launcher ray.
+    void FireRayCastTest();                                                                                                                                                              // Dispatches the selected launcher-mode fire action.
+    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                            // Casts a runtime test ray, draws the laser, and applies impulse to the first dynamic hit.
+    void FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                                       // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                                           // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                                                        // Raycast current mouse position to terrain for editor placement
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;                           // Raycast with optional ray output
@@ -1033,13 +1046,13 @@ class SkullbonezRun
     void MoveSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                         // Active gizmo drag along a selected axis.
     void RotateSelectedEditorObjectAroundAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                      // Active rotation-ring drag around a selected axis.
     void ScaleSelectedEditorObjectAlongAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );                                                        // Active scale-axis drag along a selected axis.
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection );                                                                                                     // Placement ghost and object gizmo line overlay.
+    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection, const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp );                      // Placement ghost, launcher laser, and object gizmo overlays.
     void PlaceEditorObjectAtMouse( int objectType, bool fixedObject );                                                                                                                   // Place a UI-selected object on the terrain under the mouse
     void PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Math::Vector::Vector3& terrainPoint );                                                                 // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
-    bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
-    void WriteNudgeReproSnapshot();
+    bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
+    void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
@@ -1048,7 +1061,7 @@ class SkullbonezRun
     SkullbonezRun( std::vector<std::string> sceneQueue ); // sceneQueue empty string selects generated demo mode.
     ~SkullbonezRun();
     void Initialise();                                                  // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly();                                            // Scene-load smoke path; skips the frame loop.
+    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );     // Scene-load smoke path; skips the frame loop.
     void Run();                                                         // Main message loop; sceneQueue decides generated demo versus suite playback.
     void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
@@ -1061,7 +1074,7 @@ class SkullbonezRun
     void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
     void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
-    void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
+    void SetLiveStyleControlDirectory( const char* path );              // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );

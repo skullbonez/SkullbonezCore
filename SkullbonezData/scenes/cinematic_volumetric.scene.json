@@ -1,0 +1,2208 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {
+    "rendering": true,
+    "skyAtmosphere": true,
+    "clouds": true,
+    "godRays": true,
+    "volumetricLighting": true,
+    "bloom": true,
+    "fog": true,
+    "terrainReliefEnabled": true,
+    "exposure": 0.68,
+    "gamma": 2.05,
+    "sunScreenX": 0.28,
+    "sunScreenY": 0.76,
+    "sunColorR": 1.0,
+    "sunColorG": 0.68,
+    "sunColorB": 0.32,
+    "sunIntensity": 22.0,
+    "skyHorizonR": 0.88,
+    "skyHorizonG": 0.34,
+    "skyHorizonB": 0.08,
+    "skyZenithR": 0.26,
+    "skyZenithG": 0.13,
+    "skyZenithB": 0.12,
+    "skyGlowStrength": 2.85,
+    "cloudCoverage": 0.66,
+    "cloudSoftness": 0.19,
+    "cloudScale": 5.4,
+    "cloudIntensity": 0.62,
+    "sunShaftStrength": 2.28,
+    "sunShaftFalloff": 1.92,
+    "volumetricStrength": 1.28,
+    "volumetricDensity": 1.25,
+    "volumetricDecay": 0.955,
+    "bloomThreshold": 1.05,
+    "bloomKnee": 0.55,
+    "bloomStrength": 0.62,
+    "bloomRadius": 4.2,
+    "terrainRelief": 0.0,
+    "basinDepth": 48.0,
+    "basinRimLift": 32.0,
+    "fogColorR": 0.86,
+    "fogColorG": 0.34,
+    "fogColorB": 0.12,
+    "fogStart": 70.0,
+    "fogEnd": 1550.0,
+    "fogDensity": 0.00145,
+    "fogMaxOpacity": 0.54
+  },
+  "simulation": {
+    "physics": false,
+    "text": true,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 2,
+    "exitOnComplete": true
+  },
+  "capture": {
+    "screenshot": {
+      "path": "Profile/cinematic_volumetric.bmp",
+      "frame": 2
+    }
+  },
+  "debug": {
+    "waterReflection": "fbo"
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        620,
+        210,
+        1035
+      ],
+      "view": [
+        610,
+        72,
+        610
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "hero_center",
+      "position": [
+        620,
+        56.0,
+        630
+      ],
+      "radius": 28.0,
+      "mass": 115.0,
+      "moment": 26.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        0,
+        24,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero_left",
+      "position": [
+        520,
+        58.9,
+        660
+      ],
+      "radius": 18.0,
+      "mass": 82.0,
+      "moment": 18.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        0,
+        80,
+        15
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "hero_right",
+      "position": [
+        760,
+        52.8,
+        650
+      ],
+      "radius": 22.0,
+      "mass": 88.0,
+      "moment": 20.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        10,
+        140,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_left_big",
+      "position": [
+        340,
+        99.4,
+        650
+      ],
+      "radius": 16.0,
+      "mass": 85.0,
+      "moment": 18.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        0,
+        220,
+        8
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "near_right_big",
+      "position": [
+        900,
+        93.8,
+        640
+      ],
+      "radius": 18.0,
+      "mass": 92.0,
+      "moment": 20.0,
+      "restitution": 0.55,
+      "fixed": false,
+      "euler": [
+        12,
+        310,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_00",
+      "position": [
+        430,
+        89.0,
+        610
+      ],
+      "radius": 18.0,
+      "mass": 55.0,
+      "moment": 14.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_01",
+      "position": [
+        465,
+        74.6,
+        645
+      ],
+      "radius": 16.0,
+      "mass": 52.0,
+      "moment": 13.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        35,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_02",
+      "position": [
+        495,
+        74.3,
+        590
+      ],
+      "radius": 21.0,
+      "mass": 60.0,
+      "moment": 15.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        12
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_03",
+      "position": [
+        555,
+        51.1,
+        595
+      ],
+      "radius": 18.0,
+      "mass": 54.0,
+      "moment": 14.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        85,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_04",
+      "position": [
+        585,
+        47.0,
+        645
+      ],
+      "radius": 20.0,
+      "mass": 58.0,
+      "moment": 14.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        5,
+        110,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_05",
+      "position": [
+        620,
+        49.0,
+        610
+      ],
+      "radius": 22.0,
+      "mass": 62.0,
+      "moment": 16.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        135,
+        8
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_06",
+      "position": [
+        390,
+        96.6,
+        665
+      ],
+      "radius": 17.0,
+      "mass": 54.0,
+      "moment": 13.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_07",
+      "position": [
+        665,
+        45.0,
+        660
+      ],
+      "radius": 18.0,
+      "mass": 55.0,
+      "moment": 14.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        185,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_08",
+      "position": [
+        450,
+        86.0,
+        725
+      ],
+      "radius": 19.0,
+      "mass": 58.0,
+      "moment": 15.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        210,
+        5
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_09",
+      "position": [
+        590,
+        45.1,
+        730
+      ],
+      "radius": 18.0,
+      "mass": 55.0,
+      "moment": 14.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        235,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_10",
+      "position": [
+        705,
+        43.0,
+        605
+      ],
+      "radius": 16.0,
+      "mass": 52.0,
+      "moment": 13.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        260,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_11",
+      "position": [
+        350,
+        99.7,
+        605
+      ],
+      "radius": 16.0,
+      "mass": 52.0,
+      "moment": 13.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        285,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_12",
+      "position": [
+        520,
+        63.5,
+        540
+      ],
+      "radius": 9.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        310,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_13",
+      "position": [
+        560,
+        58.0,
+        520
+      ],
+      "radius": 8.0,
+      "mass": 38.0,
+      "moment": 9.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        335,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_14",
+      "position": [
+        615,
+        46.1,
+        535
+      ],
+      "radius": 9.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "mid_15",
+      "position": [
+        475,
+        77.9,
+        520
+      ],
+      "radius": 8.0,
+      "mass": 38.0,
+      "moment": 9.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        45,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_00",
+      "position": [
+        390,
+        89.9,
+        470
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_01",
+      "position": [
+        430,
+        91.7,
+        455
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        25,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_02",
+      "position": [
+        470,
+        88.6,
+        445
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        50,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_03",
+      "position": [
+        520,
+        83.8,
+        440
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        75,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_04",
+      "position": [
+        565,
+        76.4,
+        450
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        100,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_05",
+      "position": [
+        610,
+        68.2,
+        465
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        125,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_06",
+      "position": [
+        660,
+        61.1,
+        480
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_07",
+      "position": [
+        705,
+        55.1,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        175,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_08",
+      "position": [
+        350,
+        84.3,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        200,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_09",
+      "position": [
+        300,
+        78.4,
+        520
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        225,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_10",
+      "position": [
+        750,
+        55.3,
+        525
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        250,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "far_11",
+      "position": [
+        790,
+        59.0,
+        545
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        275,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_00",
+      "position": [
+        505,
+        116.0,
+        500
+      ],
+      "radius": 10.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_01",
+      "position": [
+        555,
+        128.0,
+        485
+      ],
+      "radius": 8.0,
+      "mass": 36.0,
+      "moment": 9.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        40,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_02",
+      "position": [
+        610,
+        112.0,
+        505
+      ],
+      "radius": 7.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        80,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_03",
+      "position": [
+        450,
+        106.0,
+        505
+      ],
+      "radius": 7.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_04",
+      "position": [
+        685,
+        98.0,
+        530
+      ],
+      "radius": 6.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        160,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_05",
+      "position": [
+        365,
+        104.6,
+        530
+      ],
+      "radius": 6.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        200,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_06",
+      "position": [
+        730,
+        132.0,
+        560
+      ],
+      "radius": 5.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        240,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_07",
+      "position": [
+        325,
+        126.0,
+        560
+      ],
+      "radius": 5.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        280,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_08",
+      "position": [
+        585,
+        160.0,
+        455
+      ],
+      "radius": 4.5,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        320,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "float_09",
+      "position": [
+        470,
+        152.0,
+        460
+      ],
+      "radius": 4.5,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_00",
+      "position": [
+        260,
+        77.4,
+        625
+      ],
+      "radius": 9.0,
+      "mass": 36.0,
+      "moment": 9.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        15,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_01",
+      "position": [
+        295,
+        81.2,
+        595
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        45,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_02",
+      "position": [
+        325,
+        84.6,
+        565
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        75,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_03",
+      "position": [
+        240,
+        71.3,
+        705
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        105,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_04",
+      "position": [
+        300,
+        83.4,
+        735
+      ],
+      "radius": 11.0,
+      "mass": 42.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        135,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_05",
+      "position": [
+        375,
+        92.1,
+        720
+      ],
+      "radius": 10.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        165,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_06",
+      "position": [
+        415,
+        85.9,
+        745
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        195,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_07",
+      "position": [
+        210,
+        63.6,
+        570
+      ],
+      "radius": 5.5,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        225,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_08",
+      "position": [
+        185,
+        57.1,
+        525
+      ],
+      "radius": 4.5,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        255,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_l_09",
+      "position": [
+        155,
+        49.8,
+        500
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        285,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_00",
+      "position": [
+        785,
+        49.6,
+        610
+      ],
+      "radius": 9.0,
+      "mass": 36.0,
+      "moment": 9.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_01",
+      "position": [
+        750,
+        41.1,
+        585
+      ],
+      "radius": 7.0,
+      "mass": 34.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_02",
+      "position": [
+        720,
+        38.8,
+        560
+      ],
+      "radius": 6.0,
+      "mass": 32.0,
+      "moment": 7.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_03",
+      "position": [
+        835,
+        65.4,
+        700
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_04",
+      "position": [
+        765,
+        51.0,
+        735
+      ],
+      "radius": 11.0,
+      "mass": 42.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_05",
+      "position": [
+        690,
+        37.0,
+        720
+      ],
+      "radius": 10.0,
+      "mass": 40.0,
+      "moment": 10.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_06",
+      "position": [
+        645,
+        35.0,
+        745
+      ],
+      "radius": 8.0,
+      "mass": 35.0,
+      "moment": 8.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        210,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_07",
+      "position": [
+        855,
+        73.5,
+        565
+      ],
+      "radius": 5.5,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        240,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_08",
+      "position": [
+        885,
+        83.8,
+        525
+      ],
+      "radius": 4.5,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        270,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "layer_r_09",
+      "position": [
+        915,
+        84.8,
+        505
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "euler": [
+        0,
+        300,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_00",
+      "position": [
+        410,
+        85.6,
+        545
+      ],
+      "radius": 4.5,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_01",
+      "position": [
+        445,
+        75.2,
+        560
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_02",
+      "position": [
+        485,
+        68.5,
+        535
+      ],
+      "radius": 3.5,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_03",
+      "position": [
+        535,
+        55.8,
+        535
+      ],
+      "radius": 3.5,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_04",
+      "position": [
+        575,
+        41.7,
+        555
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_05",
+      "position": [
+        625,
+        35.6,
+        550
+      ],
+      "radius": 4.5,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_06",
+      "position": [
+        455,
+        66.9,
+        650
+      ],
+      "radius": 5.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_07",
+      "position": [
+        505,
+        49.0,
+        665
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        210,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_08",
+      "position": [
+        555,
+        32.1,
+        660
+      ],
+      "radius": 4.0,
+      "mass": 26.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        240,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_09",
+      "position": [
+        610,
+        32.0,
+        655
+      ],
+      "radius": 5.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        270,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_10",
+      "position": [
+        470,
+        80.2,
+        485
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        300,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "tiny_11",
+      "position": [
+        540,
+        69.3,
+        475
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        330,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_00",
+      "position": [
+        285,
+        97.2,
+        590
+      ],
+      "radius": 5.0,
+      "mass": 30.0,
+      "moment": 7.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_01",
+      "position": [
+        335,
+        103.0,
+        515
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        37,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_02",
+      "position": [
+        365,
+        106.8,
+        455
+      ],
+      "radius": 4.0,
+      "mass": 27.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        74,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_03",
+      "position": [
+        405,
+        109.9,
+        420
+      ],
+      "radius": 3.5,
+      "mass": 26.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        111,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_04",
+      "position": [
+        455,
+        115.6,
+        410
+      ],
+      "radius": 3.5,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        148,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_05",
+      "position": [
+        505,
+        119.0,
+        405
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        185,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_06",
+      "position": [
+        555,
+        115.7,
+        415
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        222,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_07",
+      "position": [
+        610,
+        111.7,
+        425
+      ],
+      "radius": 3.5,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        259,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_08",
+      "position": [
+        665,
+        107.4,
+        445
+      ],
+      "radius": 4.0,
+      "mass": 27.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        296,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_09",
+      "position": [
+        720,
+        103.9,
+        470
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        333,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_10",
+      "position": [
+        780,
+        106.8,
+        505
+      ],
+      "radius": 4.5,
+      "mass": 29.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        10,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_11",
+      "position": [
+        825,
+        111.2,
+        545
+      ],
+      "radius": 4.5,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        47,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_12",
+      "position": [
+        265,
+        88.0,
+        760
+      ],
+      "radius": 4.5,
+      "mass": 29.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        84,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_13",
+      "position": [
+        325,
+        97.6,
+        785
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        121,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_14",
+      "position": [
+        390,
+        107.8,
+        795
+      ],
+      "radius": 3.5,
+      "mass": 26.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        158,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_15",
+      "position": [
+        455,
+        102.9,
+        800
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        195,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_16",
+      "position": [
+        520,
+        91.5,
+        805
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        232,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_17",
+      "position": [
+        585,
+        82.3,
+        805
+      ],
+      "radius": 3.5,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        269,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_18",
+      "position": [
+        650,
+        75.6,
+        795
+      ],
+      "radius": 4.0,
+      "mass": 27.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        306,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_19",
+      "position": [
+        715,
+        76.8,
+        780
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        343,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_20",
+      "position": [
+        780,
+        87.1,
+        755
+      ],
+      "radius": 4.5,
+      "mass": 29.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_21",
+      "position": [
+        845,
+        103.1,
+        725
+      ],
+      "radius": 4.5,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        57,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_22",
+      "position": [
+        940,
+        124.3,
+        610
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        94,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_23",
+      "position": [
+        970,
+        116.9,
+        555
+      ],
+      "radius": 3.5,
+      "mass": 26.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        131,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_24",
+      "position": [
+        1000,
+        109.4,
+        500
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        168,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_25",
+      "position": [
+        1050,
+        107.8,
+        655
+      ],
+      "radius": 4.5,
+      "mass": 30.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        205,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_26",
+      "position": [
+        1090,
+        101.6,
+        590
+      ],
+      "radius": 4.0,
+      "mass": 28.0,
+      "moment": 6.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        242,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_27",
+      "position": [
+        1120,
+        96.4,
+        530
+      ],
+      "radius": 3.5,
+      "mass": 26.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        279,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_28",
+      "position": [
+        225,
+        75.1,
+        470
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        316,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_29",
+      "position": [
+        260,
+        79.6,
+        430
+      ],
+      "radius": 2.8,
+      "mass": 23.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        353,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_30",
+      "position": [
+        305,
+        85.6,
+        405
+      ],
+      "radius": 2.8,
+      "mass": 23.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_31",
+      "position": [
+        760,
+        105.2,
+        410
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        67,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_32",
+      "position": [
+        820,
+        108.1,
+        430
+      ],
+      "radius": 2.8,
+      "mass": 23.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        104,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_33",
+      "position": [
+        880,
+        111.4,
+        460
+      ],
+      "radius": 2.8,
+      "mass": 23.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        141,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_34",
+      "position": [
+        940,
+        109.7,
+        720
+      ],
+      "radius": 3.2,
+      "mass": 25.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        178,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "glint_35",
+      "position": [
+        995,
+        96.7,
+        760
+      ],
+      "radius": 3.0,
+      "mass": 24.0,
+      "moment": 5.0,
+      "restitution": 0.45,
+      "fixed": false,
+      "euler": [
+        0,
+        215,
+        0
+      ]
+    }
+  ]
+}

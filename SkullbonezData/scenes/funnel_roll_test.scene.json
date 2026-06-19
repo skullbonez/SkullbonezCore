@@ -1,0 +1,60 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0
+  },
+  "playback": {
+    "frames": 900,
+    "trackHeight": 540.0
+  },
+  "cameras": [
+    {
+      "name": "top",
+      "position": [
+        900,
+        740,
+        600
+      ],
+      "view": [
+        900,
+        110,
+        600
+      ],
+      "up": [
+        0,
+        0,
+        -1
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "marble",
+      "position": [
+        900,
+        90,
+        600
+      ],
+      "radius": 12.0,
+      "mass": 50.0,
+      "moment": 28.8,
+      "restitution": 0.25,
+      "fixed": false,
+      "force": [
+        -650,
+        0,
+        1500
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

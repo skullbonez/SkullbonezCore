@@ -10,8 +10,8 @@
 @rem Glossary:
 @rem   CPU-only test: Test that exercises parser and data contracts without a
 @rem   renderer launch.
-@rem   Scene/style syntax: User-facing text directives accepted by authored
-@rem   .scene and .style files.
+@rem   Scene/style syntax: User-facing JSON fields accepted by authored
+@rem   .scene.json and .style.json files.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem

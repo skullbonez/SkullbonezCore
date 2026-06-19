@@ -379,7 +379,7 @@ Add enough visibility before tuning:
 - Physics debug overlay draws hull contact points and normals.
 - SkullScope records `shape:"convex_hull"`, hull name, hull counts, and contact
   feature IDs.
-- Nudge repro snapshots include hull name, vertex/face counts, and bounding
+- Launcher repro snapshots include hull name, vertex/face counts, and bounding
   radius.
 - Optional pipeline stage counters split sphere/box/hull manifold counts.
 
@@ -407,7 +407,7 @@ Use bounded `tools\physics_query.bat` queries when diagnostics are needed.
 - Add conservative volume, drag, projected area, submerged fraction fallback,
   model matrix, and bounding radius support.
 - Add scene directives for dynamic and floating hulls.
-- Add diagnostics strings and nudge snapshot output.
+- Add diagnostics strings and launcher snapshot output.
 - Freeze validated hull topology and derived feature ordering at load time.
 
 Development checks:

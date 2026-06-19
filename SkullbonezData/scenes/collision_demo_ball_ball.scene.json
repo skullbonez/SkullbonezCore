@@ -1,0 +1,89 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -9.81,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": 900,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        380,
+        165,
+        580
+      ],
+      "view": [
+        500,
+        140,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "ball_a",
+      "position": [
+        435,
+        147,
+        500
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 15.0,
+      "restitution": 0.7,
+      "fixed": false,
+      "force": [
+        20,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "ball_b",
+      "position": [
+        565,
+        142,
+        500
+      ],
+      "radius": 4.0,
+      "mass": 20.0,
+      "moment": 15.0,
+      "restitution": 0.7,
+      "fixed": false,
+      "force": [
+        -20,
+        0,
+        0
+      ],
+      "forcePosition": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
