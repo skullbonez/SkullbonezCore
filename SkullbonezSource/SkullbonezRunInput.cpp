@@ -1718,7 +1718,10 @@ void SkullbonezRun::TakeInput()
     {
         EnterInteractiveSceneRun();
         m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+        m_editor.viewportLookActive = false;
         ClearEditorManipulationState();
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
     };
     const auto EnterFlyModeCamera = [&]() -> void
     {

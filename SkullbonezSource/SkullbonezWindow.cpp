@@ -172,6 +172,24 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             Input::AccumulateRawMouseDelta( reinterpret_cast<HRAWINPUT>( lParam ) );
             break;
 
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+            if ( wParam == VK_MENU )
+            {
+                return 0;
+            }
+            break;
+
+        case WM_SYSCHAR:
+            return 0;
+
+        case WM_SYSCOMMAND:
+            if ( ( wParam & 0xfff0u ) == SC_KEYMENU )
+            {
+                return 0;
+            }
+            break;
+
         case WM_SETFOCUS:
             Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
             break;
