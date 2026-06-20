@@ -1,0 +1,316 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "simulation": {
+    "seed": 62027,
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "collisionVisualizer": false,
+    "physics": {
+      "contacts": false,
+      "sleep": false,
+      "transparent": false,
+      "alpha": 0.28
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        540.0,
+        185.0,
+        915.0
+      ],
+      "view": [
+        540.0,
+        34.0,
+        555.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [],
+  "assetInstances": [
+    {
+      "asset": "tree.root_small",
+      "name": "type_root_small",
+      "position": [
+        390.0,
+        0.55,
+        440.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.root_large",
+      "name": "type_root_large",
+      "position": [
+        455.0,
+        0.75,
+        440.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "type_normal_small",
+      "position": [
+        355.0,
+        0.0,
+        515.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        8.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "type_normal_pine",
+      "position": [
+        470.0,
+        0.0,
+        515.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        -10.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "type_normal_cedar",
+      "position": [
+        600.0,
+        0.0,
+        515.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        14.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "type_slope_small",
+      "position": [
+        355.0,
+        0.0,
+        600.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        8.0,
+        -8.0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "type_slope_pine",
+      "position": [
+        470.0,
+        0.0,
+        600.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        -10.0,
+        -8.0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "type_slope_cedar",
+      "position": [
+        600.0,
+        0.0,
+        600.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        14.0,
+        -8.0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "type_sleep_small",
+      "position": [
+        355.0,
+        0.0,
+        685.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        8.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "type_sleep_pine",
+      "position": [
+        470.0,
+        0.0,
+        685.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        -10.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "type_sleep_cedar",
+      "position": [
+        600.0,
+        0.0,
+        685.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        14.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.root_small",
+      "name": "type_rooted_small_root",
+      "position": [
+        355.0,
+        0.55,
+        770.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "type_rooted_small",
+      "position": [
+        355.0,
+        0.0,
+        770.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        8.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.root_large",
+      "name": "type_rooted_pine_root",
+      "position": [
+        470.0,
+        0.75,
+        770.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "type_rooted_pine",
+      "position": [
+        470.0,
+        0.0,
+        770.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        -10.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.root_large",
+      "name": "type_rooted_cedar_root",
+      "position": [
+        600.0,
+        0.75,
+        770.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "type_rooted_cedar",
+      "position": [
+        600.0,
+        0.0,
+        770.0
+      ],
+      "fixed": true,
+      "euler": [
+        0.0,
+        14.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "type_pine_shedding_rooted",
+      "position": [
+        725.0,
+        0.0,
+        645.0
+      ],
+      "euler": [
+        0.0,
+        -18.0,
+        0.0
+      ]
+    }
+  ]
+}
