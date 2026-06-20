@@ -270,8 +270,9 @@ tools\validate_physics.bat
 ### Phase 3: Offline Hull Refresh Tool
 
 Done on 2026-06-21: `tools\bake_hulls.py` writes `default_density 0.9` and
-`default_mass <volume * density>` across `SkullbonezData/hulls/*.hull`, and
-`tools\bake_hulls.bat --check` verifies the serialized output remains current.
+`default_mass <volume * density>` across `SkullbonezData/hulls/*.hull`.
+Use `tools\refresh_hulls.bat` to refresh every committed hull from source
+geometry and immediately verify the serialized output remains current.
 
 Validation at PR gate:
 
