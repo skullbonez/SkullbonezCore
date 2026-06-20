@@ -51,9 +51,23 @@ const char* const kEditorObjectOptions[] = {
     "Rock lump",
     "Rock shard",
     "Rock chipped",
+    "Root small",
+    "Root large",
     "Tree small",
-    "Tree big",
+    "Tree pine",
+    "Tree cedar",
+    "Tree small slope",
+    "Tree pine slope",
+    "Tree cedar slope",
+    "Tree small sleep",
+    "Tree pine sleep",
+    "Tree cedar sleep",
+    "Tree small rooted",
+    "Tree pine rooted",
+    "Tree cedar rooted",
+    "Pine shedding",
 };
+static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) == SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );
 
 void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
                        float contentX,
@@ -107,6 +121,7 @@ bool HandleContentClick( UIEditorTabState& state,
         {
             state.selectedObjectType = option;
             result.commands.editor.requestedObjectType = option;
+            result.commands.editor.enterPlacementMode = true;
             state.objectCombo.Close();
             return true;
         }

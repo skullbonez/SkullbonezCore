@@ -137,6 +137,8 @@ class PhysicsWorld
         bool warmStarted = false;
         bool isTerrain = false;
         bool supportsRestingPolicy = true;
+        bool allowsTangentFriction = true;
+        bool normalCoupledFriction = false;
         bool inhibitsSleep = false;
         uint8_t manifoldPointCount = 1;
         Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
@@ -228,6 +230,7 @@ class PhysicsWorld
     std::vector<PersistentContactCacheEntry> m_persistentContactCache;
     PersistentContactSolverStats m_persistentContactSolverStats;
     std::vector<uint16_t> m_persistentContactCounts;
+    std::vector<uint16_t> m_persistentRestingContactCounts;
     std::vector<SolverBodyState> m_solverBodies;
     std::vector<PhysicsDebugContact> m_physicsDebugContacts;
     std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
@@ -269,6 +272,7 @@ class PhysicsWorld
     void Clear();
     void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
     void WakeModel( GameObjects::GameModelCollection& collection, int index );
+    void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

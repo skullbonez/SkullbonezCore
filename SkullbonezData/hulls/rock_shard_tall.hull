@@ -1,13 +1,52 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name rock_shard_tall
-vertex -5 -7 -4
-vertex 6 -7 -3
-vertex -1 -7 7
-vertex -2.05 7 -2.3
-vertex 2.9 7 -1.85
-vertex -0.25 7 2.65
-face 0 1 2
-face 3 4 5
-face 0 3 4 1
-face 1 4 5 2
-face 2 5 3 0
+source_hash 0xbc3f837ea77b3c8c
+
+# Editable source geometry.
+source_vertex -5 -7 -4
+source_vertex 6 -7 -3
+source_vertex -1 -7 7
+source_vertex -2.05 7 -2.3
+source_vertex 2.9 7 -1.85
+source_vertex -0.25 7 2.65
+source_face 0 1 2
+source_face 3 4 5
+source_face 0 3 4 1
+source_face 1 4 5 2
+source_face 2 5 3 0
+
+# Baked runtime metadata.
+center_of_mass 0.0758698941 -1.68910741 -0.189674735
+volume 451.1325
+bounding_radius 9.28617136
+inertia_half_extents 5.5 7 5.5
+unit_inertia 26.4166667 20.1666667 26.4166667
+projected_surface_area 143
+
+# Baked centered vertices.
+vertex -5.07586989 -5.31089259 -3.81032526
+vertex 5.92413011 -5.31089259 -2.81032526
+vertex -1.07586989 -5.31089259 7.18967474
+vertex -2.12586989 8.68910741 -2.11032526
+vertex 2.82413011 8.68910741 -1.66032526
+vertex -0.325869894 8.68910741 2.83967474
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 5.31089259 0 1 2
+face 0 1 0 8.68910741 5 4 3
+face 0.0900697607 0.101328481 -0.990767368 2.77981887 0 3 4 1
+face 0.811942828 0.133100628 0.56835998 2.5058954 1 4 5 2
+face -0.928487449 0.154647422 0.3376318 2.60507866 2 5 3 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 0 2 0 4
+edge 4 5 1 3
+edge 3 4 1 2
+edge 3 5 1 4
+edge 0 3 2 4
+edge 1 4 2 3
+edge 2 5 3 4

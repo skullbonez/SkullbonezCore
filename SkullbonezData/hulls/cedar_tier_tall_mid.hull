@@ -1,0 +1,61 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
+name cedar_tier_tall_mid
+source_hash 0x056b2b0c6063b74d
+
+# Editable source geometry.
+source_vertex -8 -6 -8
+source_vertex 8 -6 -8
+source_vertex 8 -6 8
+source_vertex -8 -6 8
+source_vertex -5 5 -5
+source_vertex 5 5 -5
+source_vertex 5 5 5
+source_vertex -5 5 5
+source_face 0 1 2 3
+source_face 4 5 6 7
+source_face 0 4 5 1
+source_face 1 5 6 2
+source_face 2 6 7 3
+source_face 3 7 4 0
+
+# Baked runtime metadata.
+center_of_mass 0 -1.33139535 1.50220452e-17
+volume 1892
+bounding_radius 12.2391123
+inertia_half_extents 8 5.5 8
+unit_inertia 31.4166667 42.6666667 31.4166667
+projected_surface_area 202.666667
+
+# Baked centered vertices.
+vertex -8 -4.66860465 -8
+vertex 8 -4.66860465 -8
+vertex 8 -4.66860465 8
+vertex -8 -4.66860465 8
+vertex -5 6.33139535 -5
+vertex 5 6.33139535 -5
+vertex 5 6.33139535 5
+vertex -5 6.33139535 5
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 4.66860465 0 1 2 3
+face 0 1 0 6.33139535 7 6 5 4
+face 0 0.263117406 -0.964763821 6.48971943 0 4 5 1
+face 0.964763821 0.263117406 0 6.48971943 1 5 6 2
+face 0 0.263117406 0.964763821 6.48971943 2 6 7 3
+face -0.964763821 0.263117406 0 6.48971943 3 7 4 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 0 3 0 5
+edge 6 7 1 4
+edge 5 6 1 3
+edge 4 5 1 2
+edge 4 7 1 5
+edge 0 4 2 5
+edge 1 5 2 3
+edge 2 6 3 4
+edge 3 7 4 5

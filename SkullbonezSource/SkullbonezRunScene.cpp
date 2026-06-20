@@ -790,21 +790,27 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
+        const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
         GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                             authoredPosition,
                              inertia,
                              hullScene.mass );
 
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact, hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
 
         if ( hullScene.hasInitOrient )
         {
             gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
         }
+
+        Quaternion hullQuaternion = gameModel.GetOrientation();
+        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
+        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
 
         if ( hullScene.hasInitVelocity )
         {
@@ -815,7 +821,9 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 
-    // convex_hull_state entries: full dynamic state from an editable scene snapshot
+    // convex_hull_state entries: full dynamic state from an editable scene
+    // snapshot. The snapshot writer stores GameModel::GetPosition(), which is
+    // the simulated body/COM position, so do not add the authored hull COM here.
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
@@ -829,12 +837,18 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact, hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
         gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
         gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
         gameModel.SetOrientation( Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
         gameModel.SetFixed( hullScene.isFixed );
+        const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( hullScene.isSleeping && !hullScene.isFixed )
+        {
+            m_cGameModelCollection.SeedModelAsleep( modelIndex );
+        }
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
@@ -1622,9 +1636,16 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes (ball_state) start paused in free camera mode ?
-        // user presses F to resume simulation and attach to scene camera
-        if ( scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0 )
+        // Snapshot scenes start paused in free camera mode; user presses F to
+        // resume simulation. Physics diagnostics need deterministic frame rows
+        // immediately, so leave diagnostic launches in normal scene playback.
+        const bool hasSnapshotState = scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
+#ifdef _DEBUG
+        const bool shouldPauseSnapshotState = hasSnapshotState && !m_physicsDiagnostics.isEnabled;
+#else
+        const bool shouldPauseSnapshotState = hasSnapshotState;
+#endif
+        if ( shouldPauseSnapshotState )
         {
             m_camera.isFlyMode = true;
             m_camera.cameraTime = 0.0f;

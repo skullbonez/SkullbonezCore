@@ -196,6 +196,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editorModeEnabled );
     hash = HashBool( hash, data.editorPlacementMode );
     hash = HashBool( hash, data.editorPlaceStatic );
+    hash = HashBool( hash, data.editorTerrainAlign );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashInt( hash, data.editorObjectType );
     hash = HashBool( hash, data.canSaveSceneDefaults );
@@ -607,6 +608,246 @@ constexpr RenderSliderSpec kRenderSliderSpecs[] = {
 static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) == static_cast<int>( UIRenderParam::Count ),
                "Render slider specs must match UIRenderParam." );
 
+constexpr int EDITOR_MINI_TREE_FAMILY_NONE = -1;
+constexpr int EDITOR_MINI_TREE_FAMILY_SMALL = 0;
+constexpr int EDITOR_MINI_TREE_FAMILY_PINE = 1;
+constexpr int EDITOR_MINI_TREE_FAMILY_CEDAR = 2;
+constexpr int EDITOR_MINI_TREE_VARIANT_PHYSICS = 0;
+constexpr int EDITOR_MINI_TREE_VARIANT_SLEEPING = 1;
+constexpr int EDITOR_MINI_TREE_VARIANT_ROOTED = 2;
+constexpr int EDITOR_MINI_TREE_VARIANT_COUNT = 3;
+constexpr double EDITOR_MINI_HOLD_SECONDS = 0.32;
+constexpr int EDITOR_MINI_HOLD_MODE_NONE = 0;
+constexpr int EDITOR_MINI_HOLD_MODE_TREE_VARIANTS = 1;
+constexpr int EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY = 2;
+
+struct EditorMiniPaletteEntry
+{
+    int objectType;
+    int treeFamily;
+    int holdMode;
+};
+
+constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
+    { EditorTab::OBJECT_BOX, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_BALL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_SPHERE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_WEDGE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_TRI_PRISM, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_TAPERED_BLOCK, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_PYRAMID, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_HEX_PRISM, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_DIAMOND, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_SLAB, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_LUMP, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROOT_SMALL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY },
+    { EditorTab::OBJECT_ROOT_LARGE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY },
+    { EditorTab::OBJECT_TREE_SMALL, EDITOR_MINI_TREE_FAMILY_SMALL, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
+    { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_FAMILY_PINE, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
+    { EditorTab::OBJECT_TREE_CEDAR, EDITOR_MINI_TREE_FAMILY_CEDAR, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
+    { EditorTab::OBJECT_TREE_SMALL_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TREE_BIG_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TREE_CEDAR_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TREE_PINE_SHEDDING, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+};
+constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT = static_cast<int>( sizeof( kEditorMiniPaletteEntries ) / sizeof( kEditorMiniPaletteEntries[0] ) );
+
+struct EditorMiniPaletteLayout
+{
+    UIRect buttons[EDITOR_MINI_PALETTE_ENTRY_COUNT];
+    UIRect flyoutOptions[EDITOR_MINI_TREE_VARIANT_COUNT];
+    UIRect bounds;
+    UIRect flyoutBounds;
+    float buttonSize = 0.0f;
+    int buttonCount = 0;
+    bool flyoutVisible = false;
+};
+
+bool IsEditorMiniTreeFamilyValid( int family )
+{
+    return family >= EDITOR_MINI_TREE_FAMILY_SMALL && family <= EDITOR_MINI_TREE_FAMILY_CEDAR;
+}
+
+bool EditorMiniTreeFamilyForType( int objectType, int& outFamily, int& outVariant )
+{
+    switch ( objectType )
+    {
+    case EditorTab::OBJECT_TREE_SMALL:
+        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
+        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        return true;
+    case EditorTab::OBJECT_TREE_SMALL_SLEEP:
+        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
+        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        return true;
+    case EditorTab::OBJECT_TREE_SMALL_ROOTED:
+        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
+        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        return true;
+    case EditorTab::OBJECT_TREE_BIG:
+        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        return true;
+    case EditorTab::OBJECT_TREE_BIG_SLEEP:
+        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        return true;
+    case EditorTab::OBJECT_TREE_BIG_ROOTED:
+        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        return true;
+    case EditorTab::OBJECT_TREE_CEDAR:
+        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
+        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        return true;
+    case EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
+        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        return true;
+    case EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
+        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        return true;
+    default:
+        outFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+        outVariant = -1;
+        return false;
+    }
+}
+
+int EditorMiniTreeObjectType( int family, int variant )
+{
+    if ( family == EDITOR_MINI_TREE_FAMILY_SMALL )
+    {
+        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        {
+            return EditorTab::OBJECT_TREE_SMALL_SLEEP;
+        }
+        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        {
+            return EditorTab::OBJECT_TREE_SMALL_ROOTED;
+        }
+        return EditorTab::OBJECT_TREE_SMALL;
+    }
+    if ( family == EDITOR_MINI_TREE_FAMILY_PINE )
+    {
+        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        {
+            return EditorTab::OBJECT_TREE_BIG_SLEEP;
+        }
+        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        {
+            return EditorTab::OBJECT_TREE_BIG_ROOTED;
+        }
+        return EditorTab::OBJECT_TREE_BIG;
+    }
+    if ( family == EDITOR_MINI_TREE_FAMILY_CEDAR )
+    {
+        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        {
+            return EditorTab::OBJECT_TREE_CEDAR_SLEEP;
+        }
+        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        {
+            return EditorTab::OBJECT_TREE_CEDAR_ROOTED;
+        }
+        return EditorTab::OBJECT_TREE_CEDAR;
+    }
+    return EditorTab::OBJECT_TREE_SMALL;
+}
+
+EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, const UIRect& minimized, int flyoutAnchorEntry, bool flyoutOpen )
+{
+    EditorMiniPaletteLayout layout;
+    layout.buttonCount = EDITOR_MINI_PALETTE_ENTRY_COUNT;
+
+    constexpr float margin = 14.0f;
+    const float topY = margin;
+    const float bottomLimit = (std::max)( margin + 84.0f, minimized.y - 10.0f );
+    const float availableH = (std::max)( 80.0f, bottomLimit - topY );
+    float gap = 4.0f;
+    float buttonSize = 32.0f;
+    float requiredH = static_cast<float>( layout.buttonCount ) * buttonSize + static_cast<float>( layout.buttonCount - 1 ) * gap;
+    if ( requiredH > availableH )
+    {
+        gap = 2.0f;
+        buttonSize = std::floor( ( availableH - static_cast<float>( layout.buttonCount - 1 ) * gap ) / static_cast<float>( layout.buttonCount ) );
+        buttonSize = std::clamp( buttonSize, 10.0f, 32.0f );
+        requiredH = static_cast<float>( layout.buttonCount ) * buttonSize + static_cast<float>( layout.buttonCount - 1 ) * gap;
+    }
+
+    layout.buttonSize = buttonSize;
+    const float x = margin;
+    for ( int i = 0; i < layout.buttonCount; ++i )
+    {
+        layout.buttons[i] = { x, topY + static_cast<float>( i ) * ( buttonSize + gap ), buttonSize, buttonSize };
+    }
+    layout.bounds = { x, topY, buttonSize, requiredH };
+
+    if ( flyoutOpen && flyoutAnchorEntry >= 0 && flyoutAnchorEntry < layout.buttonCount )
+    {
+        const UIRect anchor = layout.buttons[flyoutAnchorEntry];
+        const float optionSize = buttonSize;
+        const float optionGap = (std::max)( 2.0f, std::floor( buttonSize * 0.12f ) );
+        const float padding = 4.0f;
+        const float flyoutW = padding * 2.0f + optionSize * 3.0f + optionGap * 2.0f;
+        const float flyoutH = padding * 2.0f + optionSize;
+        float flyoutX = anchor.x + anchor.w + 8.0f;
+        if ( flyoutX + flyoutW > static_cast<float>( screenW ) - margin )
+        {
+            flyoutX = anchor.x + anchor.w + 4.0f;
+        }
+        const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - flyoutH );
+        const float flyoutY = std::clamp( anchor.y + ( anchor.h - flyoutH ) * 0.5f, margin, maxY );
+        layout.flyoutBounds = { flyoutX, flyoutY, flyoutW, flyoutH };
+        for ( int i = 0; i < EDITOR_MINI_TREE_VARIANT_COUNT; ++i )
+        {
+            layout.flyoutOptions[i] = { flyoutX + padding + static_cast<float>( i ) * ( optionSize + optionGap ), flyoutY + padding, optionSize, optionSize };
+        }
+        layout.flyoutVisible = true;
+    }
+
+    return layout;
+}
+
+int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
+{
+    for ( int i = 0; i < layout.buttonCount; ++i )
+    {
+        if ( layout.buttons[i].Contains( mouseX, mouseY ) )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
+{
+    if ( !layout.flyoutVisible )
+    {
+        return -1;
+    }
+
+    for ( int i = 0; i < EDITOR_MINI_TREE_VARIANT_COUNT; ++i )
+    {
+        if ( layout.flyoutOptions[i].Contains( mouseX, mouseY ) )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool EditorMiniPaletteContains( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
+{
+    return HitEditorMiniPaletteButton( layout, mouseX, mouseY ) >= 0 ||
+           HitEditorMiniPaletteFlyoutOption( layout, mouseX, mouseY ) >= 0 ||
+           ( layout.flyoutVisible && layout.flyoutBounds.Contains( mouseX, mouseY ) );
+}
+
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
 {
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
@@ -798,6 +1039,49 @@ float EditorMiniChipWidth( const char* label )
 }
 
 
+struct EditorMinimizedStatusLayout
+{
+    UIRect restoreButton;
+    UIRect glyph;
+    UIRect modeChip;
+    UIRect bodyChip;
+    UIRect alignChip;
+    float labelX = 0.0f;
+    float labelMaxW = 0.0f;
+};
+
+
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign )
+{
+    EditorMinimizedStatusLayout layout;
+    layout.restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
+    layout.glyph = { minimized.x + 11.0f, minimized.y + 7.0f, 24.0f, 24.0f };
+
+    const char* modeLabel = editorPlacementMode ? "Place" : "Gizmo";
+    const char* bodyLabel = editorPlaceStatic ? "Static" : "Dynamic";
+    const char* alignLabel = editorTerrainAlign ? "Align" : "Level";
+    const float alignW = EditorMiniChipWidth( alignLabel );
+    const float bodyW = EditorMiniChipWidth( bodyLabel );
+    const float modeW = EditorMiniChipWidth( modeLabel );
+    const float chipY = minimized.y + 9.0f;
+    const float alignX = layout.restoreButton.x - 10.0f - alignW;
+    const float bodyX = alignX - 8.0f - bodyW;
+    const float modeX = bodyX - 8.0f - modeW;
+    layout.modeChip = { modeX, chipY, modeW, 20.0f };
+    layout.bodyChip = { bodyX, chipY, bodyW, 20.0f };
+    layout.alignChip = { alignX, chipY, alignW, 20.0f };
+    layout.labelX = layout.glyph.x + layout.glyph.w + 10.0f;
+    layout.labelMaxW = (std::max)( 42.0f, modeX - layout.labelX - 10.0f );
+    return layout;
+}
+
+
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data )
+{
+    return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic, data.editorTerrainAlign );
+}
+
+
 float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
 {
     constexpr float margin = 14.0f;
@@ -805,11 +1089,13 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
     const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
     const float desiredW = 140.0f +
                            Text2d::MeasureText( 12.0f, shapeLabel ) +
                            EditorMiniChipWidth( modeLabel ) +
-                           EditorMiniChipWidth( bodyLabel );
-    return std::clamp( desiredW, 328.0f, maxW );
+                           EditorMiniChipWidth( bodyLabel ) +
+                           EditorMiniChipWidth( alignLabel );
+    return std::clamp( desiredW, 376.0f, maxW );
 }
 
 
@@ -818,11 +1104,279 @@ void DrawEditorMiniChip( const UIDrawContext& draw,
                          float y,
                          const char* label,
                          const Style::UIColor& fill,
-                         const Style::UIColor& text )
+                         const Style::UIColor& text,
+                         bool hot )
 {
+    const Style::UIPalette& palette = Style::Palette();
     const float w = EditorMiniChipWidth( label );
-    draw.RoundedRect( x, y, w, 20.0f, Style::Radii().smallButton, fill.r, fill.g, fill.b, fill.a );
+    Style::UIColor chipFill = fill;
+    chipFill.a = hot ? (std::min)( 1.0f, chipFill.a + 0.08f ) : chipFill.a;
+    draw.RoundedRect( x, y, w, 20.0f, Style::Radii().smallButton, chipFill.r, chipFill.g, chipFill.b, chipFill.a );
+    if ( hot )
+    {
+        draw.Outline( x, y, w, 20.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.72f );
+    }
     draw.Text( x + 9.0f, y + 5.0f, 10.5f, text.r, text.g, text.b, label );
+}
+
+
+bool IsEditorMiniRootType( int objectType )
+{
+    return objectType == EditorTab::OBJECT_ROOT_SMALL ||
+           objectType == EditorTab::OBJECT_ROOT_LARGE;
+}
+
+
+bool IsEditorMiniRockType( int objectType )
+{
+    return objectType >= EditorTab::OBJECT_ROCK_SLAB &&
+           objectType <= EditorTab::OBJECT_ROCK_CHIPPED;
+}
+
+
+bool IsEditorMiniHullType( int objectType )
+{
+    return objectType >= EditorTab::OBJECT_HULL_WEDGE &&
+           objectType <= EditorTab::OBJECT_HULL_DIAMOND;
+}
+
+
+bool EditorMiniTreeVisualForType( int objectType, int& outFamily, int& outVariant, bool& outSlope, bool& outShedding )
+{
+    outSlope = false;
+    outShedding = false;
+    if ( EditorMiniTreeFamilyForType( objectType, outFamily, outVariant ) )
+    {
+        return true;
+    }
+
+    outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+    switch ( objectType )
+    {
+    case EditorTab::OBJECT_TREE_SMALL_SLOPE:
+        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
+        outSlope = true;
+        return true;
+    case EditorTab::OBJECT_TREE_BIG_SLOPE:
+        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outSlope = true;
+        return true;
+    case EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
+        outSlope = true;
+        return true;
+    case EditorTab::OBJECT_TREE_PINE_SHEDDING:
+        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outShedding = true;
+        return true;
+    default:
+        outFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+        return false;
+    }
+}
+
+
+void DrawEditorMiniRootSilhouette( const UIDrawContext& draw, const UIRect& bounds, bool largeRoot, const Style::UIColor& color, float alpha )
+{
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.52f;
+    const float r = (std::min)( bounds.w, bounds.h ) * ( largeRoot ? 0.36f : 0.31f );
+    const float stemW = (std::max)( 2.0f, r * 0.24f );
+
+    draw.Rect( cx - stemW * 0.5f, cy - r * 1.05f, stemW, r * 1.18f, color.r, color.g, color.b, alpha );
+    draw.Triangle( cx - stemW * 0.2f, cy - r * 0.10f, cx - r * 1.02f, cy + r * 0.68f, cx - stemW * 1.15f, cy + r * 0.17f, color.r, color.g, color.b, alpha * 0.94f );
+    draw.Triangle( cx + stemW * 0.2f, cy - r * 0.08f, cx + r * 1.02f, cy + r * 0.68f, cx + stemW * 1.15f, cy + r * 0.18f, color.r, color.g, color.b, alpha * 0.94f );
+    draw.Triangle( cx, cy + r * 0.04f, cx - r * 0.22f, cy + r * 1.02f, cx + r * 0.16f, cy + r * 0.35f, color.r, color.g, color.b, alpha * 0.84f );
+    if ( largeRoot )
+    {
+        draw.Triangle( cx - r * 0.18f, cy + r * 0.18f, cx - r * 0.72f, cy + r * 1.00f, cx - r * 0.38f, cy + r * 0.38f, color.r, color.g, color.b, alpha * 0.78f );
+        draw.Triangle( cx + r * 0.14f, cy + r * 0.18f, cx + r * 0.74f, cy + r * 1.00f, cx + r * 0.36f, cy + r * 0.38f, color.r, color.g, color.b, alpha * 0.78f );
+    }
+}
+
+
+void DrawEditorMiniTreeSilhouette( const UIDrawContext& draw,
+                                   const UIRect& bounds,
+                                   int family,
+                                   bool rooted,
+                                   bool slope,
+                                   bool shedding,
+                                   const Style::UIColor& color,
+                                   float alpha )
+{
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.51f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.32f;
+    const float trunkW = (std::max)( 2.0f, r * 0.24f );
+
+    if ( slope )
+    {
+        draw.Triangle( cx - r * 1.22f, cy + r * 1.10f, cx + r * 1.20f, cy + r * 0.66f, cx + r * 1.20f, cy + r * 1.10f, color.r, color.g, color.b, alpha * 0.42f );
+    }
+
+    draw.Rect( cx - trunkW * 0.5f, cy + r * 0.05f, trunkW, r * 0.94f, color.r, color.g, color.b, alpha * 0.74f );
+
+    if ( family == EDITOR_MINI_TREE_FAMILY_SMALL )
+    {
+        draw.RoundedRect( cx - r * 0.72f, cy - r * 0.72f, r * 1.44f, r * 0.92f, 999.0f, color.r, color.g, color.b, alpha );
+        draw.RoundedRect( cx - r * 0.54f, cy - r * 1.12f, r * 1.08f, r * 0.82f, 999.0f, color.r, color.g, color.b, alpha * 0.94f );
+    }
+    else if ( family == EDITOR_MINI_TREE_FAMILY_CEDAR )
+    {
+        draw.Triangle( cx, cy - r * 1.25f, cx - r * 0.48f, cy - r * 0.30f, cx + r * 0.48f, cy - r * 0.30f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx, cy - r * 0.82f, cx - r * 0.70f, cy + r * 0.28f, cx + r * 0.70f, cy + r * 0.28f, color.r, color.g, color.b, alpha * 0.92f );
+        draw.Triangle( cx, cy - r * 0.24f, cx - r * 0.82f, cy + r * 0.88f, cx + r * 0.82f, cy + r * 0.88f, color.r, color.g, color.b, alpha * 0.84f );
+    }
+    else
+    {
+        draw.Triangle( cx, cy - r * 1.18f, cx - r * 0.70f, cy - r * 0.06f, cx + r * 0.70f, cy - r * 0.06f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx, cy - r * 0.58f, cx - r * 0.96f, cy + r * 0.56f, cx + r * 0.96f, cy + r * 0.56f, color.r, color.g, color.b, alpha * 0.90f );
+        draw.Triangle( cx, cy + r * 0.00f, cx - r * 1.12f, cy + r * 0.98f, cx + r * 1.12f, cy + r * 0.98f, color.r, color.g, color.b, alpha * 0.80f );
+    }
+
+    if ( rooted )
+    {
+        draw.Triangle( cx, cy + r * 0.76f, cx - r * 0.62f, cy + r * 1.18f, cx - trunkW * 0.5f, cy + r * 0.88f, color.r, color.g, color.b, alpha * 0.84f );
+        draw.Triangle( cx, cy + r * 0.76f, cx + r * 0.62f, cy + r * 1.18f, cx + trunkW * 0.5f, cy + r * 0.88f, color.r, color.g, color.b, alpha * 0.84f );
+    }
+
+    if ( shedding )
+    {
+        draw.RoundedRect( cx - r * 1.12f, cy + r * 1.03f, 3.0f, 3.0f, 999.0f, color.r, color.g, color.b, alpha * 0.80f );
+        draw.RoundedRect( cx - r * 0.18f, cy + r * 1.15f, 3.0f, 3.0f, 999.0f, color.r, color.g, color.b, alpha * 0.78f );
+        draw.RoundedRect( cx + r * 0.92f, cy + r * 0.94f, 3.0f, 3.0f, 999.0f, color.r, color.g, color.b, alpha * 0.78f );
+    }
+}
+
+
+void DrawEditorMiniHullSilhouette( const UIDrawContext& draw, const UIRect& bounds, int objectType, const Style::UIColor& color, float alpha )
+{
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.34f;
+
+    switch ( objectType )
+    {
+    case EditorTab::OBJECT_HULL_WEDGE:
+        draw.Triangle( cx - r * 1.05f, cy + r * 0.82f, cx + r * 1.05f, cy + r * 0.82f, cx + r * 0.36f, cy - r * 0.86f, color.r, color.g, color.b, alpha );
+        draw.Rect( cx - r * 1.05f, cy + r * 0.62f, r * 2.10f, r * 0.24f, color.r, color.g, color.b, alpha * 0.70f );
+        return;
+    case EditorTab::OBJECT_HULL_TRI_PRISM:
+        draw.Triangle( cx - r * 0.92f, cy + r * 0.76f, cx - r * 0.14f, cy - r * 0.76f, cx + r * 0.56f, cy + r * 0.76f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx - r * 0.38f, cy + r * 0.46f, cx + r * 0.34f, cy - r * 0.92f, cx + r * 0.98f, cy + r * 0.46f, color.r, color.g, color.b, alpha * 0.70f );
+        return;
+    case EditorTab::OBJECT_HULL_TAPERED_BLOCK:
+        draw.Rect( cx - r * 0.54f, cy - r * 0.70f, r * 1.08f, r * 1.40f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx - r * 0.54f, cy - r * 0.70f, cx - r * 1.02f, cy + r * 0.72f, cx - r * 0.54f, cy + r * 0.72f, color.r, color.g, color.b, alpha * 0.86f );
+        draw.Triangle( cx + r * 0.54f, cy - r * 0.70f, cx + r * 1.02f, cy + r * 0.72f, cx + r * 0.54f, cy + r * 0.72f, color.r, color.g, color.b, alpha * 0.86f );
+        return;
+    case EditorTab::OBJECT_HULL_PYRAMID:
+        draw.Triangle( cx, cy - r * 0.98f, cx - r * 1.04f, cy + r * 0.82f, cx + r * 1.04f, cy + r * 0.82f, color.r, color.g, color.b, alpha );
+        draw.Rect( cx - 1.0f, cy - r * 0.40f, 2.0f, r * 1.10f, color.r, color.g, color.b, alpha * 0.54f );
+        return;
+    case EditorTab::OBJECT_HULL_HEX_PRISM:
+        draw.Rect( cx - r * 0.66f, cy - r * 0.86f, r * 1.32f, r * 1.72f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx - r * 0.66f, cy - r * 0.86f, cx - r * 1.12f, cy, cx - r * 0.66f, cy + r * 0.86f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Triangle( cx + r * 0.66f, cy - r * 0.86f, cx + r * 1.12f, cy, cx + r * 0.66f, cy + r * 0.86f, color.r, color.g, color.b, alpha * 0.82f );
+        return;
+    case EditorTab::OBJECT_HULL_DIAMOND:
+        draw.Triangle( cx, cy - r * 1.08f, cx + r * 0.96f, cy, cx, cy + r * 1.08f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx, cy - r * 1.08f, cx - r * 0.96f, cy, cx, cy + r * 1.08f, color.r, color.g, color.b, alpha * 0.88f );
+        return;
+    default:
+        draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, color.r, color.g, color.b, alpha );
+        return;
+    }
+}
+
+
+void DrawEditorMiniRockSilhouette( const UIDrawContext& draw, const UIRect& bounds, int objectType, const Style::UIColor& color, float alpha )
+{
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.52f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.34f;
+
+    switch ( objectType )
+    {
+    case EditorTab::OBJECT_ROCK_SLAB:
+        draw.Rect( cx - r * 1.12f, cy + r * 0.10f, r * 2.24f, r * 0.56f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx - r * 1.12f, cy + r * 0.10f, cx - r * 0.66f, cy - r * 0.44f, cx - r * 0.10f, cy + r * 0.10f, color.r, color.g, color.b, alpha * 0.78f );
+        draw.Triangle( cx + r * 1.12f, cy + r * 0.10f, cx + r * 0.50f, cy - r * 0.52f, cx + r * 0.08f, cy + r * 0.10f, color.r, color.g, color.b, alpha * 0.74f );
+        return;
+    case EditorTab::OBJECT_ROCK_LUMP:
+        draw.RoundedRect( cx - r * 1.02f, cy - r * 0.30f, r * 2.04f, r * 1.02f, r * 0.40f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx - r * 0.94f, cy + r * 0.12f, cx - r * 0.34f, cy - r * 0.86f, cx + r * 0.12f, cy + r * 0.12f, color.r, color.g, color.b, alpha * 0.82f );
+        return;
+    case EditorTab::OBJECT_ROCK_SHARD:
+        draw.Triangle( cx, cy - r * 1.16f, cx - r * 0.58f, cy + r * 0.90f, cx + r * 0.42f, cy + r * 0.90f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx + r * 0.14f, cy - r * 0.58f, cx + r * 0.96f, cy + r * 0.72f, cx + r * 0.40f, cy + r * 0.90f, color.r, color.g, color.b, alpha * 0.72f );
+        return;
+    case EditorTab::OBJECT_ROCK_CHIPPED:
+        draw.Rect( cx - r * 0.86f, cy - r * 0.62f, r * 1.44f, r * 1.36f, color.r, color.g, color.b, alpha );
+        draw.Triangle( cx + r * 0.24f, cy - r * 0.62f, cx + r * 0.86f, cy - r * 0.04f, cx + r * 0.58f, cy - r * 0.62f, color.r, color.g, color.b, alpha * 0.58f );
+        draw.Triangle( cx - r * 0.86f, cy + r * 0.74f, cx - r * 0.38f, cy + r * 0.28f, cx + r * 0.58f, cy + r * 0.74f, color.r, color.g, color.b, alpha * 0.76f );
+        return;
+    default:
+        draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, color.r, color.g, color.b, alpha );
+        return;
+    }
+}
+
+
+void DrawEditorMiniIcon( const UIDrawContext& draw, const UIRect& bounds, int objectType, const Style::UIColor& color, float alpha )
+{
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float r = (std::min)( bounds.w, bounds.h ) * 0.31f;
+    const int type = std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+
+    if ( type == EditorTab::OBJECT_BALL )
+    {
+        draw.RoundedRect( cx - r, cy - r, r * 2.0f, r * 2.0f, 999.0f, color.r, color.g, color.b, alpha );
+        draw.RoundedRect( cx - r * 0.42f, cy - r * 0.48f, r * 0.38f, r * 0.30f, 999.0f, color.r, color.g, color.b, alpha * 0.46f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_SPHERE )
+    {
+        draw.RoundedRect( cx - r, cy - r, r * 2.0f, r * 2.0f, 999.0f, color.r, color.g, color.b, alpha * 0.74f );
+        draw.Rect( cx - r * 0.72f, cy - 1.0f, r * 1.44f, 2.0f, color.r, color.g, color.b, alpha * 0.90f );
+        draw.Rect( cx - 1.0f, cy - r * 0.72f, 2.0f, r * 1.44f, color.r, color.g, color.b, alpha * 0.58f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_BOX )
+    {
+        draw.Rect( cx - r * 0.66f, cy - r * 0.86f, r * 1.42f, r * 1.42f, color.r, color.g, color.b, alpha * 0.48f );
+        draw.Rect( cx - r * 0.92f, cy - r * 0.58f, r * 1.48f, r * 1.48f, color.r, color.g, color.b, alpha );
+        draw.Rect( cx + r * 0.56f, cy - r * 0.38f, r * 0.22f, r * 1.26f, color.r, color.g, color.b, alpha * 0.56f );
+        return;
+    }
+    if ( IsEditorMiniRootType( type ) )
+    {
+        DrawEditorMiniRootSilhouette( draw, bounds, type == EditorTab::OBJECT_ROOT_LARGE, color, alpha );
+        return;
+    }
+
+    int treeFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+    int treeVariant = -1;
+    bool treeSlope = false;
+    bool treeShedding = false;
+    if ( EditorMiniTreeVisualForType( type, treeFamily, treeVariant, treeSlope, treeShedding ) )
+    {
+        DrawEditorMiniTreeSilhouette( draw, bounds, treeFamily, treeVariant == EDITOR_MINI_TREE_VARIANT_ROOTED, treeSlope, treeShedding, color, alpha );
+        return;
+    }
+    if ( IsEditorMiniHullType( type ) )
+    {
+        DrawEditorMiniHullSilhouette( draw, bounds, type, color, alpha );
+        return;
+    }
+    if ( IsEditorMiniRockType( type ) )
+    {
+        DrawEditorMiniRockSilhouette( draw, bounds, type, color, alpha );
+        return;
+    }
+
+    draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, color.r, color.g, color.b, alpha );
 }
 
 
@@ -831,67 +1385,219 @@ void DrawEditorMiniGlyph( const UIDrawContext& draw, const UIRect& bounds, int o
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, 6.0f, palette.control.r, palette.control.g, palette.control.b, 0.92f );
     draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, palette.border.r, palette.border.g, palette.border.b, 0.75f );
-
-    const float cx = bounds.x + bounds.w * 0.5f;
-    const float cy = bounds.y + bounds.h * 0.5f;
-    const float r = (std::min)( bounds.w, bounds.h ) * 0.31f;
-    const int type = std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
-    if ( type == EditorTab::OBJECT_BALL || type == EditorTab::OBJECT_SPHERE )
-    {
-        draw.RoundedRect( cx - r, cy - r, r * 2.0f, r * 2.0f, 999.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
-        return;
-    }
-    if ( type == EditorTab::OBJECT_BOX )
-    {
-        draw.Rect( cx - r, cy - r, r * 2.0f, r * 2.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.94f );
-        return;
-    }
-    if ( type == EditorTab::OBJECT_HULL_DIAMOND )
-    {
-        draw.Triangle( cx, cy - r, cx + r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
-        draw.Triangle( cx, cy - r, cx - r, cy, cx, cy + r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
-        return;
-    }
-
-    draw.Triangle( cx - r, cy + r, cx + r, cy + r, cx, cy - r, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.92f );
+    DrawEditorMiniIcon( draw, bounds, objectType, palette.accentStrong, 0.92f );
 }
 
 
-void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data )
+void DrawEditorMiniVariantMarker( const UIDrawContext& draw, const UIRect& bounds, int variant, const Style::UIColor& color )
+{
+    const float x = bounds.x + bounds.w - 8.0f;
+    const float y = bounds.y + bounds.h - 8.0f;
+    if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+    {
+        draw.Rect( x - 3.0f, y - 3.0f, 2.0f, 6.0f, color.r, color.g, color.b, 0.92f );
+        draw.Rect( x + 1.0f, y - 3.0f, 2.0f, 6.0f, color.r, color.g, color.b, 0.92f );
+        return;
+    }
+    if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+    {
+        draw.Rect( x - 1.0f, y - 5.0f, 2.0f, 7.0f, color.r, color.g, color.b, 0.92f );
+        draw.Triangle( x, y, x - 5.0f, y + 4.0f, x - 1.0f, y + 1.0f, color.r, color.g, color.b, 0.92f );
+        draw.Triangle( x, y, x + 5.0f, y + 4.0f, x + 1.0f, y + 1.0f, color.r, color.g, color.b, 0.92f );
+        return;
+    }
+    draw.RoundedRect( x - 3.0f, y - 3.0f, 6.0f, 6.0f, 999.0f, color.r, color.g, color.b, 0.88f );
+}
+
+
+void DrawEditorMiniHoldMarker( const UIDrawContext& draw, const UIRect& bounds, const Style::UIColor& color, bool active )
+{
+    const float dot = (std::max)( 2.0f, std::floor( bounds.w * 0.075f ) );
+    const float x = bounds.x + bounds.w - dot - 5.0f;
+    const float y = bounds.y + 5.0f;
+    const float gap = (std::max)( 1.0f, dot * 0.75f );
+    const float alpha = active ? 0.95f : 0.52f;
+    draw.RoundedRect( x, y, dot, dot, 999.0f, color.r, color.g, color.b, alpha );
+    draw.RoundedRect( x, y + dot + gap, dot, dot, 999.0f, color.r, color.g, color.b, alpha );
+    draw.RoundedRect( x, y + ( dot + gap ) * 2.0f, dot, dot, 999.0f, color.r, color.g, color.b, alpha );
+}
+
+
+void DrawEditorMiniPaletteButton( const UIDrawContext& draw,
+                                  const UIRect& bounds,
+                                  int objectType,
+                                  bool selected,
+                                  bool hot,
+                                  int variantMarker,
+                                  bool holdCapable,
+                                  bool holdActive )
 {
     const Style::UIPalette& palette = Style::Palette();
-    const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
+    Style::UIColor fill = hot ? palette.controlHover : palette.control;
+    if ( selected )
+    {
+        fill = palette.windowRaised;
+    }
+    fill.a = selected ? 0.96f : 0.88f;
+
+    draw.RoundedRect( bounds.x + 2.0f, bounds.y + 2.0f, bounds.w, bounds.h, Style::Radii().smallButton, 0.0f, 0.0f, 0.0f, 0.20f );
+    draw.RoundedPanel( bounds, Style::Radii().smallButton, fill, selected ? palette.accentStrong : palette.border );
+    const Style::UIColor icon = selected ? palette.accentStrong : palette.textSecondary;
+    const UIRect iconBounds = { bounds.x + 3.0f, bounds.y + 3.0f, (std::max)( 4.0f, bounds.w - 6.0f ), (std::max)( 4.0f, bounds.h - 6.0f ) };
+    DrawEditorMiniIcon( draw, iconBounds, objectType, icon, selected || hot ? 0.98f : 0.86f );
+    if ( variantMarker >= 0 )
+    {
+        DrawEditorMiniVariantMarker( draw, bounds, variantMarker, selected ? palette.accentStrong : palette.textMuted );
+    }
+    if ( holdCapable )
+    {
+        DrawEditorMiniHoldMarker( draw, bounds, holdActive ? palette.accentStrong : palette.textMuted, holdActive );
+    }
+}
+
+
+void DrawEditorMiniTooltip( const UIDrawContext& draw,
+                            const UIRect& anchor,
+                            const char* label,
+                            int screenW,
+                            int screenH )
+{
+    if ( !label || label[0] == '\0' || screenW <= 0 || screenH <= 0 )
+    {
+        return;
+    }
+
+    const Style::UIPalette& palette = Style::Palette();
+    const float textSize = 10.5f;
+    const float padX = 8.0f;
+    const float padY = 5.0f;
+    const float margin = 6.0f;
+    const float maxTextW = (std::max)( 32.0f, (std::min)( 220.0f, static_cast<float>( screenW ) - margin * 2.0f - padX * 2.0f ) );
+
+    char tooltip[80] = {};
+    snprintf( tooltip, sizeof( tooltip ), "%s", label );
+    Chrome::FitTitleText( tooltip, sizeof( tooltip ), textSize, maxTextW );
+
+    const float textW = Text2d::MeasureText( textSize, tooltip );
+    const float w = std::ceil( textW + padX * 2.0f );
+    const float h = std::ceil( textSize + padY * 2.0f + 2.0f );
+
+    float x = anchor.x + anchor.w + 10.0f;
+    if ( x + w > static_cast<float>( screenW ) - margin )
+    {
+        x = anchor.x - w - 10.0f;
+    }
+    const float maxX = (std::max)( margin, static_cast<float>( screenW ) - w - margin );
+    x = std::clamp( x, margin, maxX );
+
+    float y = anchor.y + anchor.h * 0.5f - h * 0.5f;
+    const float maxY = (std::max)( margin, static_cast<float>( screenH ) - h - margin );
+    y = std::clamp( y, margin, maxY );
+
+    draw.RoundedRect( x + 2.0f, y + 2.0f, w, h, Style::Radii().smallButton, 0.0f, 0.0f, 0.0f, 0.28f );
+    draw.RoundedPanel( { x, y, w, h }, Style::Radii().smallButton, palette.windowRaised, palette.border );
+    draw.Text( x + padX, y + padY + 1.0f, textSize, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, tooltip );
+}
+
+
+void DrawEditorMiniPalette( const UIDrawContext& draw,
+                            const EditorMiniPaletteLayout& layout,
+                            int editorObjectType,
+                            int mouseX,
+                            int mouseY,
+                            int flyoutFamily,
+                            int flyoutHoldMode,
+                            int pressedEntry,
+                            int screenW,
+                            int screenH )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    int currentFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+    int currentVariant = -1;
+    EditorMiniTreeFamilyForType( editorObjectType, currentFamily, currentVariant );
+
+    const char* tooltipLabel = nullptr;
+    UIRect tooltipAnchor = {};
+
+    for ( int i = 0; i < layout.buttonCount; ++i )
+    {
+        const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[i];
+        const bool familyEntry = IsEditorMiniTreeFamilyValid( entry.treeFamily );
+        const bool selected = familyEntry ? currentFamily == entry.treeFamily : entry.objectType == editorObjectType;
+        const bool hot = layout.buttons[i].Contains( mouseX, mouseY );
+        const int marker = familyEntry && selected ? currentVariant : -1;
+        const bool holdCapable = entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE;
+        const bool holdActive = holdCapable && i == pressedEntry && flyoutHoldMode != EDITOR_MINI_HOLD_MODE_NONE;
+        DrawEditorMiniPaletteButton( draw, layout.buttons[i], entry.objectType, selected, hot, marker, holdCapable, holdActive );
+        if ( hot )
+        {
+            tooltipLabel = EditorTab::ObjectLabel( entry.objectType );
+            tooltipAnchor = layout.buttons[i];
+        }
+    }
+
+    if ( layout.flyoutVisible )
+    {
+        draw.RoundedRect( layout.flyoutBounds.x + 2.0f, layout.flyoutBounds.y + 2.0f, layout.flyoutBounds.w, layout.flyoutBounds.h, Style::Radii().control, 0.0f, 0.0f, 0.0f, 0.24f );
+        draw.RoundedPanel( layout.flyoutBounds, Style::Radii().control, palette.window, palette.border );
+        for ( int variant = 0; variant < EDITOR_MINI_TREE_VARIANT_COUNT; ++variant )
+        {
+            int marker = variant;
+            int type = EditorMiniTreeObjectType( flyoutFamily, variant );
+            if ( flyoutHoldMode == EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY )
+            {
+                type = EditorMiniTreeObjectType( variant, EDITOR_MINI_TREE_VARIANT_ROOTED );
+                marker = EDITOR_MINI_TREE_VARIANT_ROOTED;
+            }
+            const bool selected = type == editorObjectType;
+            const bool hot = layout.flyoutOptions[variant].Contains( mouseX, mouseY );
+            DrawEditorMiniPaletteButton( draw, layout.flyoutOptions[variant], type, selected, hot, marker, false, false );
+            if ( hot )
+            {
+                tooltipLabel = EditorTab::ObjectLabel( type );
+                tooltipAnchor = layout.flyoutOptions[variant];
+            }
+        }
+    }
+
+    if ( tooltipLabel )
+    {
+        DrawEditorMiniTooltip( draw, tooltipAnchor, tooltipLabel, screenW, screenH );
+    }
+}
+
+
+void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const InGameUIFrameData& data, int mouseX, int mouseY )
+{
+    const Style::UIPalette& palette = Style::Palette();
+    const EditorMinimizedStatusLayout layout = BuildEditorMinimizedStatusLayout( minimized, data );
     draw.RoundedRect( minimized.x + 4.0f, minimized.y + 5.0f, minimized.w, minimized.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.26f );
     draw.RoundedPanel( minimized, Style::Radii().window, palette.window, palette.border );
 
-    const UIRect glyph = { minimized.x + 11.0f, minimized.y + 7.0f, 24.0f, 24.0f };
-    DrawEditorMiniGlyph( draw, glyph, data.editorObjectType );
+    DrawEditorMiniGlyph( draw, layout.glyph, data.editorObjectType );
 
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
-    const float bodyW = EditorMiniChipWidth( bodyLabel );
-    const float modeW = EditorMiniChipWidth( modeLabel );
-    const float chipY = minimized.y + 9.0f;
-    const float bodyX = restoreButton.x - 10.0f - bodyW;
-    const float modeX = bodyX - 8.0f - modeW;
+    const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
 
     char shapeLabel[64] = {};
     snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
-    const float labelX = glyph.x + glyph.w + 10.0f;
-    const float labelMaxW = (std::max)( 42.0f, modeX - labelX - 10.0f );
-    Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, labelMaxW );
-    draw.Text( labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, shapeLabel );
+    Chrome::FitTitleText( shapeLabel, sizeof( shapeLabel ), 12.0f, layout.labelMaxW );
+    draw.Text( layout.labelX, minimized.y + 13.0f, 12.0f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, shapeLabel );
 
     Style::UIColor modeFill = palette.accent;
     modeFill.a = 0.92f;
     Style::UIColor bodyFill = data.editorPlaceStatic ? palette.control : palette.warningAccent;
     bodyFill.a = 0.92f;
-    DrawEditorMiniChip( draw, modeX, chipY, modeLabel, modeFill, palette.textPrimary );
-    DrawEditorMiniChip( draw, bodyX, chipY, bodyLabel, bodyFill, palette.textPrimary );
+    Style::UIColor alignFill = data.editorTerrainAlign ? palette.accentStrong : palette.control;
+    alignFill.a = 0.92f;
+    DrawEditorMiniChip( draw, layout.modeChip.x, layout.modeChip.y, modeLabel, modeFill, palette.textPrimary, layout.modeChip.Contains( mouseX, mouseY ) );
+    DrawEditorMiniChip( draw, layout.bodyChip.x, layout.bodyChip.y, bodyLabel, bodyFill, palette.textPrimary, layout.bodyChip.Contains( mouseX, mouseY ) );
+    DrawEditorMiniChip( draw, layout.alignChip.x, layout.alignChip.y, alignLabel, alignFill, palette.textPrimary, layout.alignChip.Contains( mouseX, mouseY ) );
 
-    draw.RoundedPanel( restoreButton, Style::Radii().smallButton, palette.control, palette.border );
-    const float plusX = restoreButton.x + restoreButton.w * 0.5f;
-    const float plusY = restoreButton.y + restoreButton.h * 0.5f;
+    draw.RoundedPanel( layout.restoreButton, Style::Radii().smallButton, palette.control, palette.border );
+    const float plusX = layout.restoreButton.x + layout.restoreButton.w * 0.5f;
+    const float plusY = layout.restoreButton.y + layout.restoreButton.h * 0.5f;
     draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
     draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
 }
@@ -914,6 +1620,7 @@ void InGameUI::SetVisible( bool visible, double now )
     {
         m_window.isMinimized = false;
         m_scrollbarVisibleUntil = now + 1.2;
+        CancelEditorMiniPaletteInteraction();
     }
     else
     {
@@ -921,6 +1628,7 @@ void InGameUI::SetVisible( bool visible, double now )
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         m_interaction.blocksCameraMouse = false;
+        CancelEditorMiniPaletteInteraction();
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
@@ -941,6 +1649,18 @@ void InGameUI::ToggleVisible( double now )
 }
 
 
+void InGameUI::CancelEditorMiniPaletteInteraction()
+{
+    m_editorMiniPalettePressActive = false;
+    m_editorMiniPaletteFlyoutOpen = false;
+    m_editorMiniPalettePressedEntry = -1;
+    m_editorMiniPalettePressedObjectType = -1;
+    m_editorMiniPalettePressedFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+    m_editorMiniPalettePressedHoldMode = EDITOR_MINI_HOLD_MODE_NONE;
+    m_editorMiniPalettePressStart = 0.0;
+}
+
+
 void InGameUI::SetMinimized( bool minimized, double now )
 {
     if ( m_window.isMinimized == minimized )
@@ -953,6 +1673,7 @@ void InGameUI::SetMinimized( bool minimized, double now )
     m_interaction.isDragging = false;
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
+    CancelEditorMiniPaletteInteraction();
     if ( minimized )
     {
         m_window.isMinimized = true;
@@ -1037,6 +1758,7 @@ void InGameUI::CancelInputCapture()
     ControlsTab::ResetPreviewState( m_controlsTab );
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
+    CancelEditorMiniPaletteInteraction();
 }
 
 
@@ -1363,10 +2085,23 @@ void InGameUI::CloseSceneCombo()
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption )
+InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
+                                           int screenW,
+                                           int screenH,
+                                           double now,
+                                           bool editorModeEnabled,
+                                           bool editorPlacementMode,
+                                           bool editorPlaceStatic,
+                                           bool editorTerrainAlign,
+                                           int editorObjectType,
+                                           const char* const* sceneOptions,
+                                           int sceneOptionCount,
+                                           int selectedSceneOption )
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
     InGameUIInputResult result;
+    editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+    (void)editorObjectType;
     m_interaction.blocksCameraMouse = false;
     const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
@@ -1405,17 +2140,152 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     {
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
-        if ( insideMinimized )
+        const bool showEditorMiniPalette = editorModeEnabled;
+        if ( !showEditorMiniPalette )
+        {
+            if ( m_editorMiniPalettePressActive )
+            {
+                InputControl::EndMouseCapture();
+            }
+            CancelEditorMiniPaletteInteraction();
+        }
+
+        EditorMiniPaletteLayout editorMiniPalette;
+        bool editorMiniPaletteHandled = false;
+        bool insideEditorMiniPalette = false;
+        bool editorMinimizedStatusHandled = false;
+        bool insideEditorMinimizedStatusControl = false;
+        if ( showEditorMiniPalette )
+        {
+            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout( minimized, editorPlacementMode, editorPlaceStatic, editorTerrainAlign );
+            const bool insideModeChip = statusLayout.modeChip.Contains( m_mouseX, m_mouseY );
+            const bool insideBodyChip = statusLayout.bodyChip.Contains( m_mouseX, m_mouseY );
+            const bool insideAlignChip = statusLayout.alignChip.Contains( m_mouseX, m_mouseY );
+            insideEditorMinimizedStatusControl = insideModeChip || insideBodyChip || insideAlignChip;
+            if ( input.leftPressed && insideModeChip )
+            {
+                result.commands.editor.togglePlacementMode = true;
+                result.commands.ui.userInteracted = true;
+                editorMinimizedStatusHandled = true;
+            }
+            else if ( input.leftPressed && insideBodyChip )
+            {
+                result.commands.editor.togglePlaceStatic = true;
+                result.commands.ui.userInteracted = true;
+                editorMinimizedStatusHandled = true;
+            }
+            else if ( input.leftPressed && insideAlignChip )
+            {
+                result.commands.editor.toggleTerrainAlign = true;
+                result.commands.ui.userInteracted = true;
+                editorMinimizedStatusHandled = true;
+            }
+
+            if ( m_editorMiniPalettePressActive && !leftNow && !input.leftReleased )
+            {
+                CancelEditorMiniPaletteInteraction();
+                InputControl::EndMouseCapture();
+            }
+
+            if ( m_editorMiniPalettePressActive &&
+                 !m_editorMiniPaletteFlyoutOpen &&
+                 m_editorMiniPalettePressedHoldMode != EDITOR_MINI_HOLD_MODE_NONE &&
+                 now - m_editorMiniPalettePressStart >= EDITOR_MINI_HOLD_SECONDS )
+            {
+                m_editorMiniPaletteFlyoutOpen = true;
+            }
+
+            editorMiniPalette = BuildEditorMiniPaletteLayout( screenW,
+                                                              screenH,
+                                                              minimized,
+                                                              m_editorMiniPalettePressedEntry,
+                                                              m_editorMiniPaletteFlyoutOpen );
+            insideEditorMiniPalette = EditorMiniPaletteContains( editorMiniPalette, m_mouseX, m_mouseY );
+
+            const auto SelectEditorMiniPaletteObject = [&]( int objectType ) -> void
+            {
+                result.commands.editor.requestedObjectType = std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+                result.commands.editor.enterPlacementMode = true;
+                result.commands.ui.userInteracted = true;
+                editorMiniPaletteHandled = true;
+            };
+
+            if ( input.leftPressed && insideEditorMiniPalette )
+            {
+                const int pressedButton = HitEditorMiniPaletteButton( editorMiniPalette, m_mouseX, m_mouseY );
+                if ( pressedButton >= 0 )
+                {
+                    const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[pressedButton];
+                    if ( entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE )
+                    {
+                        m_editorMiniPalettePressActive = true;
+                        m_editorMiniPaletteFlyoutOpen = false;
+                        m_editorMiniPalettePressedEntry = pressedButton;
+                        m_editorMiniPalettePressedObjectType = entry.objectType;
+                        m_editorMiniPalettePressedFamily = entry.treeFamily;
+                        m_editorMiniPalettePressedHoldMode = entry.holdMode;
+                        m_editorMiniPalettePressStart = now;
+                        result.commands.ui.userInteracted = true;
+                        editorMiniPaletteHandled = true;
+                        InputControl::BeginMouseCapture( hwnd );
+                    }
+                    else
+                    {
+                        SelectEditorMiniPaletteObject( entry.objectType );
+                    }
+                }
+            }
+
+            if ( m_editorMiniPalettePressActive )
+            {
+                result.commands.ui.userInteracted = true;
+                editorMiniPaletteHandled = true;
+                if ( input.leftReleased )
+                {
+                    int selectedObjectType = -1;
+                    if ( m_editorMiniPaletteFlyoutOpen )
+                    {
+                        const int flyoutOption = HitEditorMiniPaletteFlyoutOption( editorMiniPalette, m_mouseX, m_mouseY );
+                        if ( flyoutOption >= 0 )
+                        {
+                            if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_VARIANTS )
+                            {
+                                selectedObjectType = EditorMiniTreeObjectType( m_editorMiniPalettePressedFamily, flyoutOption );
+                            }
+                            else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY )
+                            {
+                                selectedObjectType = EditorMiniTreeObjectType( flyoutOption, EDITOR_MINI_TREE_VARIANT_ROOTED );
+                            }
+                        }
+                    }
+                    else if ( m_editorMiniPalettePressedEntry >= 0 &&
+                              m_editorMiniPalettePressedEntry < editorMiniPalette.buttonCount &&
+                              editorMiniPalette.buttons[m_editorMiniPalettePressedEntry].Contains( m_mouseX, m_mouseY ) )
+                    {
+                        selectedObjectType = m_editorMiniPalettePressedObjectType;
+                    }
+
+                    if ( selectedObjectType >= 0 )
+                    {
+                        SelectEditorMiniPaletteObject( selectedObjectType );
+                    }
+                    CancelEditorMiniPaletteInteraction();
+                    InputControl::EndMouseCapture();
+                }
+            }
+        }
+
+        if ( insideMinimized || insideEditorMiniPalette || insideEditorMinimizedStatusControl || m_editorMiniPalettePressActive )
         {
             result.unhandledWheelDelta = 0;
         }
-        if ( input.leftPressed && insideMinimized )
+        if ( input.leftPressed && insideMinimized && !editorMiniPaletteHandled && !editorMinimizedStatusHandled )
         {
             SetMinimized( false, now );
             result.commands.ui.userInteracted = true;
         }
         m_interaction.leftWasDown = leftNow;
-        m_interaction.blocksCameraMouse = insideMinimized;
+        m_interaction.blocksCameraMouse = insideMinimized || insideEditorMiniPalette || insideEditorMinimizedStatusControl || m_editorMiniPalettePressActive;
         return result;
     }
 
@@ -2096,7 +2966,22 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         if ( data.editorModeEnabled )
         {
-            DrawEditorMinimizedWindow( draw, minimized, data );
+            const EditorMiniPaletteLayout editorMiniPalette = BuildEditorMiniPaletteLayout( screenW,
+                                                                                            screenH,
+                                                                                            minimized,
+                                                                                            m_editorMiniPalettePressedEntry,
+                                                                                            m_editorMiniPaletteFlyoutOpen );
+            DrawEditorMiniPalette( draw,
+                                   editorMiniPalette,
+                                   data.editorObjectType,
+                                   m_mouseX,
+                                   m_mouseY,
+                                   m_editorMiniPalettePressedFamily,
+                                   m_editorMiniPalettePressedHoldMode,
+                                   m_editorMiniPalettePressedEntry,
+                                   screenW,
+                                   screenH );
+            DrawEditorMinimizedWindow( draw, minimized, data, m_mouseX, m_mouseY );
         }
         else
         {

@@ -1,0 +1,325 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -9.8100004196167,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500.0,
+        120.0,
+        760.0
+      ],
+      "view": [
+        500.0,
+        45.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_small_000_trunk",
+      "hull": "tree_trunk_small_faceted",
+      "position": [
+        470.0,
+        36.52000045776367,
+        530.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 42.0,
+      "restitution": 0.05999999865889549,
+      "inertia": [
+        633.400634765625,
+        97.90059661865234,
+        647.5
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_small_000_low",
+      "hull": "cedar_tier_low",
+      "position": [
+        470.0,
+        46.864130012419544,
+        530.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 26.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        1224.166666667,
+        2097.333333333,
+        1224.166666667
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_small_000_mid",
+      "hull": "cedar_tier_mid",
+      "position": [
+        470.0,
+        55.41534929497298,
+        530.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 18.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        480.0,
+        768.0,
+        480.0
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_small_000_top",
+      "hull": "cedar_tier_top",
+      "position": [
+        470.0,
+        62.14500045776367,
+        530.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 12.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        172.25,
+        200.0,
+        172.25
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_big_001_trunk",
+      "hull": "tree_trunk_faceted",
+      "position": [
+        524.0,
+        39.02000045776367,
+        534.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 90.0,
+      "restitution": 0.05999999865889549,
+      "inertia": [
+        2605.69189453125,
+        410.8919982910156,
+        2665.199951171875
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_big_001_low",
+      "hull": "pine_tier_large",
+      "position": [
+        524.0,
+        52.59021512681555,
+        534.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 52.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        5533.666666667,
+        10018.666666667,
+        5533.666666667
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_big_001_mid",
+      "hull": "pine_tier_mid",
+      "position": [
+        524.0,
+        62.74833980794418,
+        534.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 38.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        2080.5,
+        3648.0,
+        2080.5
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_tree_big_001_top",
+      "hull": "pine_tier_top",
+      "position": [
+        524.0,
+        70.02000045776367,
+        534.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 24.0,
+      "restitution": 0.05000000074505806,
+      "inertia": [
+        640.0,
+        1024.0,
+        640.0
+      ],
+      "fixed": false
+    }
+  ]
+}

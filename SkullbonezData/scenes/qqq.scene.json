@@ -1,0 +1,155 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -9.8100004196167,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500.0,
+        120.0,
+        760.0
+      ],
+      "view": [
+        500.0,
+        45.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHullState",
+      "name": "dynamic_pyramid_011",
+      "hull": "pyramid",
+      "position": [
+        488.0,
+        32.52000045776367,
+        524.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 24.0,
+      "restitution": 0.25,
+      "inertia": [
+        400.0,
+        400.0,
+        400.0
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_pyramid_012",
+      "hull": "pyramid",
+      "position": [
+        488.0,
+        42.52000045776367,
+        524.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 24.0,
+      "restitution": 0.25,
+      "inertia": [
+        400.0,
+        400.0,
+        400.0
+      ],
+      "fixed": false
+    },
+    {
+      "type": "convexHullState",
+      "name": "dynamic_pyramid_013",
+      "hull": "pyramid",
+      "position": [
+        488.0,
+        52.52000045776367,
+        524.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mass": 24.0,
+      "restitution": 0.25,
+      "inertia": [
+        400.0,
+        400.0,
+        400.0
+      ],
+      "fixed": false
+    }
+  ]
+}

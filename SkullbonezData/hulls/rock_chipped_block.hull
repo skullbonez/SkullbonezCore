@@ -1,16 +1,61 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name rock_chipped_block
-vertex -8 -4 -7
-vertex 8 -4 -7
-vertex 9 -4 6
-vertex -7 -4 8
-vertex -5.56 4 -5.34
-vertex 5.96 4 -5.34
-vertex 6.68 4 4.02
-vertex -4.84 4 5.46
-face 0 1 2 3
-face 4 5 6 7
-face 0 4 5 1
-face 1 5 6 2
-face 2 6 7 3
-face 3 7 4 0
+source_hash 0xd38cb57cac2a641f
+
+# Editable source geometry.
+source_vertex -8 -4 -7
+source_vertex 8 -4 -7
+source_vertex 9 -4 6
+source_vertex -7 -4 8
+source_vertex -5.56 4 -5.34
+source_vertex 5.96 4 -5.34
+source_vertex 6.68 4 4.02
+source_vertex -4.84 4 5.46
+source_face 0 1 2 3
+source_face 4 5 6 7
+source_face 0 4 5 1
+source_face 1 5 6 2
+source_face 2 6 7 3
+source_face 3 7 4 0
+
+# Baked runtime metadata.
+center_of_mass 0.361483441 -0.430307362 -0.114417679
+volume 1343.04
+bounding_radius 11.5229301
+inertia_half_extents 8.5 4 7.5
+unit_inertia 24.0833333 42.8333333 29.4166667
+projected_surface_area 170.333333
+
+# Baked centered vertices.
+vertex -8.36148344 -3.56969264 -6.88558232
+vertex 7.63851656 -3.56969264 -6.88558232
+vertex 8.63851656 -3.56969264 6.11441768
+vertex -7.36148344 -3.56969264 8.11441768
+vertex -5.92148344 4.43030736 -5.22558232
+vertex 5.59851656 4.43030736 -5.22558232
+vertex 6.31851656 4.43030736 4.13441768
+vertex -5.20148344 4.43030736 5.57441768
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 3.56969264 0 1 2 3
+face 0 1 0 4.43030736 7 6 5 4
+face 0 0.203172178 -0.979143026 6.01670768 0 4 5 1
+face 0.962545802 0.260812891 -0.0740419847 6.93122237 1 5 6 2
+face 0.119392538 0.271021062 0.955140307 5.90403931 2 6 7 3
+face -0.95816809 0.278986609 0.0638778727 6.57597383 3 7 4 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 0 3 0 5
+edge 6 7 1 4
+edge 5 6 1 3
+edge 4 5 1 2
+edge 4 7 1 5
+edge 0 4 2 5
+edge 1 5 2 3
+edge 2 6 3 4
+edge 3 7 4 5

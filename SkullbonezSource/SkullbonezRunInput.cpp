@@ -36,6 +36,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
+using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 
@@ -68,12 +69,19 @@ Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
 }
 
 
-float HullBottomOffset( const ConvexHullShape& hull )
+Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
+{
+    return hull.GetPosition() + hull.GetAuthoredCenterOfMass();
+}
+
+
+float HullAuthoredBottomOffset( const ConvexHullShape& hull )
 {
     float minY = FLT_MAX;
+    const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
     for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
     {
-        minY = (std::min)( minY, hull.GetVertex( i ).y );
+        minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
     }
     return minY == FLT_MAX ? 0.0f : -minY;
 }
@@ -145,6 +153,9 @@ struct EditorTreePartDefinition
     float roughness;
     float specular;
     float stylization;
+    bool startsFixed = false;
+    bool contactReleaseOnImpact = false;
+    float contactReleaseImpulseThreshold = 1.0f;
 };
 
 
@@ -153,26 +164,184 @@ struct EditorTreeDefinition
     const char* label;
     const EditorTreePartDefinition* parts;
     int partCount;
+    bool alignToTerrainNormal = false;
+    bool forceFixed = false;
+    bool seedAsleep = false;
 };
+
+
+constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset,
+                                                       const char* suffix,
+                                                       float offsetX,
+                                                       float offsetY,
+                                                       float offsetZ,
+                                                       float mass,
+                                                       float restitution,
+                                                       SkullbonezCore::Rendering::RenderMaterialKind materialKind,
+                                                       const char* materialName,
+                                                       float colorR,
+                                                       float colorG,
+                                                       float colorB,
+                                                       float roughness,
+                                                       float specular,
+                                                       float stylization,
+                                                       bool startsFixed = false,
+                                                       bool contactReleaseOnImpact = false,
+                                                       float contactReleaseImpulseThreshold = 1.0f )
+{
+    return { hullAsset,
+             suffix,
+             offsetX,
+             offsetY,
+             offsetZ,
+             mass,
+             restitution,
+             materialKind,
+             materialName,
+             colorR,
+             colorG,
+             colorB,
+             roughness,
+             specular,
+             stylization,
+             startsFixed,
+             contactReleaseOnImpact || EditorHullAssetDefaultsToContactRelease( hullAsset ),
+             contactReleaseImpulseThreshold };
+}
+
+
+constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition part, float liftY )
+{
+    part.offsetY += liftY;
+    return part;
+}
+
+
+constexpr EditorTreePartDefinition SmallRootPart()
+{
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL, "root", 0.0f, 0.55f, 0.0f, 18.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_root", 0.24f, 0.12f, 0.055f, 0.96f, 0.05f, 0.50f );
+}
+
+
+constexpr EditorTreePartDefinition LargeRootPart()
+{
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE, "root", 0.0f, 0.75f, 0.0f, 34.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_large_root", 0.23f, 0.115f, 0.052f, 0.96f, 0.05f, 0.50f );
+}
+
+
+constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ, float shade )
+{
+    return MakeEditorTreePart( EditorHullAsset::PINE_NEEDLE_CLUSTER,
+                               suffix,
+                               offsetX,
+                               offsetY,
+                               offsetZ,
+                               0.34f,
+                               0.04f,
+                               SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                               "editor_pine_loose_needles",
+                               0.035f + shade * 0.025f,
+                               0.18f + shade * 0.11f,
+                               0.052f + shade * 0.045f,
+                               0.90f,
+                               0.06f,
+                               0.94f,
+                               true,
+                               true,
+                               1.25f );
+}
 
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
-    { EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f },
-    { EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 14.5f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f },
-    { EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 22.5f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f },
-    { EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 29.5f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f },
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
 };
 constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP = { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
-    { EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f },
-    { EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 22.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f },
-    { EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 31.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f },
-    { EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 39.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f },
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f ),
 };
 constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_big", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP = { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 95.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_cedar_bark", 0.28f, 0.13f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW, "low", 0.0f, 25.0f, 0.0f, 44.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID, "mid", 0.0f, 38.0f, 0.0f, 32.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 48.0f, 0.0f, 20.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
+};
+constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) / sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, true, false };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLEEP = { "tree_cedar_sleep", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, false, false, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = {
+    SmallRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) / sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted", EDITOR_TREE_SMALL_ROOTED_PARTS, EDITOR_TREE_SMALL_ROOTED_PART_COUNT, true, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) / sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted", EDITOR_TREE_BIG_ROOTED_PARTS, EDITOR_TREE_BIG_ROOTED_PART_COUNT, true, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) / sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted", EDITOR_TREE_CEDAR_ROOTED_PARTS, EDITOR_TREE_CEDAR_ROOTED_PART_COUNT, true, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) / sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding", EDITOR_TREE_PINE_SHEDDING_PARTS, EDITOR_TREE_PINE_SHEDDING_PART_COUNT, true, true };
 
 
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
@@ -184,9 +353,86 @@ const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
         return &EDITOR_TREE_SMALL;
     case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG:
         return &EDITOR_TREE_BIG;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR:
+        return &EDITOR_TREE_CEDAR;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+        return &EDITOR_TREE_SMALL_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+        return &EDITOR_TREE_BIG_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+        return &EDITOR_TREE_CEDAR_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+        return &EDITOR_TREE_SMALL_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+        return &EDITOR_TREE_BIG_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+        return &EDITOR_TREE_CEDAR_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+        return &EDITOR_TREE_SMALL_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+        return &EDITOR_TREE_BIG_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+        return &EDITOR_TREE_CEDAR_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+        return &EDITOR_TREE_PINE_SHEDDING;
     default:
         return nullptr;
     }
+}
+
+
+bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( autoTerrainAlign )
+    {
+        return true;
+    }
+    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
+    {
+        return tree->alignToTerrainNormal;
+    }
+    return type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL ||
+           type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE;
+}
+
+
+Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
+{
+    if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
+    {
+        return IDENTITY_QUATERNION;
+    }
+
+    const float normalMag = VectorMag( terrainNormal );
+    if ( normalMag <= TOLERANCE )
+    {
+        return IDENTITY_QUATERNION;
+    }
+    terrainNormal /= normalMag;
+
+    const Vector3 up( 0.0f, 1.0f, 0.0f );
+    const float dot = std::clamp( up * terrainNormal, -1.0f, 1.0f );
+    Quaternion orientation = IDENTITY_QUATERNION;
+    if ( dot > 0.9995f )
+    {
+        return orientation;
+    }
+    if ( dot < -0.9995f )
+    {
+        orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), _PI );
+        return orientation;
+    }
+
+    Vector3 axis = CrossProduct( up, terrainNormal );
+    const float axisMag = VectorMag( axis );
+    if ( axisMag <= TOLERANCE )
+    {
+        return orientation;
+    }
+    axis /= axisMag;
+    orientation.RotateAboutAxis( axis, acosf( dot ) );
+    return orientation;
 }
 
 
@@ -214,6 +460,10 @@ EditorHullAsset EditorHullAssetForType( int objectType )
         return EditorHullAsset::ROCK_SHARD_TALL;
     case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_CHIPPED:
         return EditorHullAsset::ROCK_CHIPPED_BLOCK;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL:
+        return EditorHullAsset::TREE_ROOT_SMALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE:
+        return EditorHullAsset::TREE_ROOT_LARGE;
     default:
         return EditorHullAsset::UNKNOWN;
     }
@@ -268,12 +518,43 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
         }
         for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
         {
-            const float y = part.offsetY + hull->GetPosition().y + hull->GetVertex( vertexIndex ).y;
+            const Vector3 authoredOffset = HullAuthoredLocalOffset( *hull );
+            const float y = part.offsetY + authoredOffset.y + hull->GetVertex( vertexIndex ).y;
             outMinY = (std::min)( outMinY, y );
             outMaxY = (std::max)( outMaxY, y );
         }
     }
     return outMinY != FLT_MAX && outMaxY != -FLT_MAX;
+}
+
+
+bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree, const Vector3& terrainPoint, const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
+{
+    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
+    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    const Vector3 surfaceLift = orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+    for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
+    {
+        const EditorTreePartDefinition& part = tree.parts[partIndex];
+        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        if ( !hull )
+        {
+            return false;
+        }
+
+        const Vector3 localBase = Vector3( part.offsetX, part.offsetY, part.offsetZ ) + HullAuthoredLocalOffset( *hull );
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+        {
+            const Vector3 world = terrainPoint + surfaceLift + orientation * ( localBase + hull->GetVertex( vertexIndex ) );
+            outMin.x = (std::min)( outMin.x, world.x );
+            outMin.y = (std::min)( outMin.y, world.y );
+            outMin.z = (std::min)( outMin.z, world.z );
+            outMax.x = (std::max)( outMax.x, world.x );
+            outMax.y = (std::max)( outMax.y, world.y );
+            outMax.z = (std::max)( outMax.z, world.z );
+        }
+    }
+    return outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
 }
 
 
@@ -354,6 +635,28 @@ bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     outMaterial.roughness = roughness;
     outMaterial.specular = specular;
     outMaterial.stylization = stylization;
+    return true;
+}
+
+
+bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::RenderMaterial& outMaterial )
+{
+    const bool smallRoot = asset == EditorHullAsset::TREE_ROOT_SMALL;
+    const bool largeRoot = asset == EditorHullAsset::TREE_ROOT_LARGE;
+    if ( !smallRoot && !largeRoot )
+    {
+        return false;
+    }
+
+    const char* name = smallRoot ? "editor_small_root" : "editor_large_root";
+    const float r = smallRoot ? 0.24f : 0.23f;
+    const float g = smallRoot ? 0.12f : 0.115f;
+    const float b = smallRoot ? 0.055f : 0.052f;
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( r, g, b, static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
+    strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
+    outMaterial.roughness = 0.96f;
+    outMaterial.specular = 0.05f;
+    outMaterial.stylization = 0.50f;
     return true;
 }
 
@@ -1434,23 +1737,19 @@ void RunEditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& 
 }
 
 
-void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, const Vector3& placementScale )
+void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, const Vector3& terrainPoint, const Vector3& placementScale, const Quaternion& orientation )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    Quaternion orientationCopy = orientation;
+    const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
     constexpr float ghostR = 0.25f;
     constexpr float ghostG = 1.0f;
     constexpr float ghostB = 0.85f;
 
     if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
     {
-        float minY = 0.0f;
-        float maxY = 1.0f;
-        if ( !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
-        {
-            return;
-        }
-        const Vector3 base( center.x, center.y - ( minY + maxY ) * 0.5f, center.z );
+        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = tree->parts[partIndex];
@@ -1459,11 +1758,11 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
             {
                 continue;
             }
-            const Vector3 hullCenter = base + Vector3( part.offsetX, part.offsetY, part.offsetZ ) + hull->GetPosition();
+            const Vector3 hullCenter = base + rotation * ( Vector3( part.offsetX, part.offsetY, part.offsetZ ) + HullAuthoredLocalOffset( *hull ) );
             for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
             {
                 const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-                EmitLine( hullCenter + hull->GetVertex( edge.vertexA ), hullCenter + hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+                EmitLine( hullCenter + rotation * hull->GetVertex( edge.vertexA ), hullCenter + rotation * hull->GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
             }
         }
         return;
@@ -1472,7 +1771,7 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
-        EmitBox( center, Vector3( scale.x, 0.0f, 0.0f ), Vector3( 0.0f, scale.y, 0.0f ), Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
+        EmitBox( center, rotation * Vector3( scale.x, 0.0f, 0.0f ), rotation * Vector3( 0.0f, scale.y, 0.0f ), rotation * Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
         break;
     case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
         EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
@@ -1487,11 +1786,11 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
         {
             return;
         }
-        const Vector3 hullCenter = center + hull.GetPosition();
+        const Vector3 hullCenter = center + rotation * hull.GetPosition();
         for ( uint16_t edgeIndex = 0; edgeIndex < hull.GetEdgeCount(); ++edgeIndex )
         {
             const ConvexHullEdge& edge = hull.GetEdge( edgeIndex );
-            EmitLine( hullCenter + hull.GetVertex( edge.vertexA ), hullCenter + hull.GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
+            EmitLine( hullCenter + rotation * hull.GetVertex( edge.vertexA ), hullCenter + rotation * hull.GetVertex( edge.vertexB ), ghostR, ghostG, ghostB );
         }
         break;
     }
@@ -2062,6 +2361,11 @@ void SkullbonezRun::TakeInput()
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
                                                          m_timers.simulationTimer.GetTotalTime(),
+                                                         m_editor.editorModeEnabled,
+                                                         m_editor.placementModeEnabled,
+                                                         m_editor.placeStaticObject,
+                                                         m_editor.autoTerrainAlign,
+                                                         m_editor.objectType,
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
@@ -2108,13 +2412,21 @@ void SkullbonezRun::TakeInput()
             const int requestedObjectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
             if ( requestedObjectType != m_editor.objectType )
             {
-                m_editor.placementAltitudeSteps = 0;
-                m_editor.placementScaleActive = false;
-                m_editor.placementScaleWheelSteps = 0;
-                m_editor.placementScale = EditorDefaultPlacementScale( requestedObjectType );
-                m_editor.placementScaleStart = m_editor.placementScale;
+                m_editor.objectType = requestedObjectType;
+                ClearEditorManipulationState();
             }
-            m_editor.objectType = requestedObjectType;
+            else if ( uiCommands.editor.enterPlacementMode )
+            {
+                ClearEditorManipulationState();
+            }
+            if ( uiCommands.editor.enterPlacementMode && m_editor.editorModeEnabled )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.placementModeEnabled = true;
+                m_editor.viewportLookActive = false;
+                ReleaseMouseToUI();
+                ApplyCursorOwnership();
+            }
         }
         if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
@@ -2123,11 +2435,9 @@ void SkullbonezRun::TakeInput()
             if ( m_editor.editorModeEnabled )
             {
                 const bool wasFlyMode = m_camera.isFlyMode;
-                if ( keyboardToggleEditorMode )
-                {
-                    m_editor.placementModeEnabled = false;
-                    ClearEditorManipulationState();
-                }
+                m_editor.placementModeEnabled = true;
+                m_editor.viewportLookActive = false;
+                ClearEditorManipulationState();
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
                 m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
                 m_camera.isFlyMode = true;
@@ -2140,6 +2450,7 @@ void SkullbonezRun::TakeInput()
                 {
                     InputController::ResetMouseLook( m_camera );
                 }
+                ApplyCursorOwnership();
             }
             else
             {
@@ -2178,6 +2489,14 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
             m_editor.placeStaticObject = !m_editor.placeStaticObject;
+        }
+        if ( uiCommands.editor.toggleTerrainAlign )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.autoTerrainAlign = !m_editor.autoTerrainAlign;
+            m_editor.placementPreviewVisible = false;
+            m_editor.placementScaleActive = false;
+            m_editor.placementScaleWheelSteps = 0;
         }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
@@ -3065,14 +3384,27 @@ void SkullbonezRun::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& 
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
+    bool releasedFromFixed = false;
     if ( model.IsFixed() )
     {
-        return;
+        if ( !model.ReleasesFromFixedOnContact() ||
+             m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
+        {
+            return;
+        }
+        model.SetFixed( false );
+        releasedFromFixed = true;
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
     m_cGameModelCollection.WakeModel( modelHitIndex );
+    if ( releasedFromFixed )
+    {
+        const float mass = (std::max)( 0.001f, model.GetMass() );
+        const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
+        m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex, rayDirection * releaseSpeed, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    }
 }
 
 
@@ -3260,14 +3592,16 @@ bool SkullbonezRun::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* 
 }
 
 
-bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, const Vector3& placementScale, Vector3& outCenter ) const
+bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, const Vector3& placementScale, const Quaternion& orientation, Vector3& outCenter ) const
 {
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    Quaternion orientationCopy = orientation;
+    const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
-        outCenter = Vector3( terrainPoint.x, terrainPoint.y + scale.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        outCenter = terrainPoint + rotation * Vector3( 0.0f, scale.y + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         return true;
     case UI::EditorTab::OBJECT_BALL:
     case UI::EditorTab::OBJECT_SPHERE:
@@ -3275,15 +3609,26 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
         return true;
     case UI::EditorTab::OBJECT_TREE_SMALL:
     case UI::EditorTab::OBJECT_TREE_BIG:
+    case UI::EditorTab::OBJECT_TREE_CEDAR:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
     {
         const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
-        float minY = 0.0f;
-        float maxY = 1.0f;
-        if ( !tree || !TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) )
+        Vector3 minV;
+        Vector3 maxV;
+        if ( !tree || !TryComputeEditorTreeWorldBounds( *tree, terrainPoint, rotation, minV, maxV ) )
         {
             return false;
         }
-        outCenter = Vector3( terrainPoint.x, terrainPoint.y + ( minY + maxY ) * 0.5f + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        outCenter = ( minV + maxV ) * 0.5f;
         return true;
     }
     default:
@@ -3293,7 +3638,8 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
         {
             return false;
         }
-        outCenter = Vector3( terrainPoint.x, terrainPoint.y + HullBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const Vector3 authoredOrigin = terrainPoint + rotation * Vector3( 0.0f, HullAuthoredBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        outCenter = authoredOrigin + rotation * hull.GetAuthoredCenterOfMass();
         return true;
     }
     }
@@ -3338,14 +3684,23 @@ bool SkullbonezRun::TryComputeEditorPlacementPreview( int objectType )
                           EditorPlacementAltitudeStepSize( objectType, m_editor.placementScale );
     }
 
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    {
+        float ignoredHeight = 0.0f;
+        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+    }
+    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( objectType, terrainNormal, m_editor.autoTerrainAlign );
+
     Vector3 center;
-    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, m_editor.placementScale, center ) )
+    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, m_editor.placementScale, placementOrientation, center ) )
     {
         return false;
     }
 
     m_editor.placementTerrainPoint = terrainPoint;
     m_editor.placementCenter = center;
+    m_editor.placementOrientation = placementOrientation;
     m_editor.placementRayOrigin = rayOrigin;
     m_editor.placementRayHit = terrainPoint;
     return true;
@@ -3694,7 +4049,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Ve
          m_editor.placementPreviewVisible )
     {
         m_editorTracer.AddPlacementRay( m_editor.placementRayOrigin, m_editor.placementRayHit );
-        m_editorTracer.AddPlacementGhost( m_editor.objectType, m_editor.placementCenter, m_editor.placementScale );
+        m_editorTracer.AddPlacementGhost( m_editor.objectType, m_editor.placementCenter, m_editor.placementTerrainPoint, m_editor.placementScale, m_editor.placementOrientation );
     }
 
     if ( m_editor.editorModeEnabled &&
@@ -3740,16 +4095,34 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
     EnterInteractiveSceneRun();
     const Vector3 placementScale = EditorClampPlacementScale( type, m_editor.placementScale );
     const int serial = m_editor.placedObjectSerial++;
-    const char* modePrefix = fixedObject ? "static" : "dynamic";
-
-    auto addModel = [&]( GameModel model )
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
-        model.SetFixed( fixedObject );
+        float ignoredHeight = 0.0f;
+        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+    }
+    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, m_editor.autoTerrainAlign );
+    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( type, terrainNormal, m_editor.autoTerrainAlign );
+    Quaternion placementOrientationCopy = placementOrientation;
+    const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
+    const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
+    const char* modePrefix = placementFixed ? "static" : ( tree && tree->seedAsleep ? "sleeping" : "dynamic" );
+
+    auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
+    {
+        model.SetFixed( modelFixed );
         const int index = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( model ) );
-        if ( !fixedObject )
+        if ( !modelFixed )
         {
-            m_cGameModelCollection.WakeModel( index );
+            if ( modelStartsAsleep )
+            {
+                m_cGameModelCollection.SeedModelAsleep( index );
+            }
+            else
+            {
+                m_cGameModelCollection.WakeModel( index );
+            }
         }
     };
 
@@ -3768,14 +4141,18 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
-        addModel( std::move( model ) );
+        addModel( std::move( model ), placementFixed );
     };
 
     auto addBox = [&]()
     {
         const Vector3 halfExtents = placementScale;
         constexpr float mass = 24.0f;
-        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        Vector3 center;
+        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
+        {
+            return;
+        }
         GameModel model( &m_cWorldEnvironment,
                          center,
                          BoxInertiaForHalfExtents( halfExtents, mass ),
@@ -3783,11 +4160,15 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
+        if ( alignToTerrain )
+        {
+            model.SetOrientation( placementOrientation );
+        }
         ApplyEditorSpawnMaterial( model, fixedObject, true );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
         model.SetName( name );
-        addModel( std::move( model ) );
+        addModel( std::move( model ), placementFixed );
     };
 
     auto addHull = [&]( EditorHullAsset asset )
@@ -3804,7 +4185,11 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
-        const Vector3 center( terrainPoint.x, terrainPoint.y + HullBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        const bool alignHull = alignToTerrain;
+        const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
+        const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
+        const Vector3 authoredOrigin = terrainPoint + hullRotation * Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
         GameModel model( &m_cWorldEnvironment,
                          center,
                          scaledHull.ComputeBoxApproxInertia( mass ),
@@ -3812,8 +4197,13 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( scaledHull );
+        model.SetOrientation( hullOrientation );
         SkullbonezCore::Rendering::RenderMaterial rockMaterial;
         if ( TryEditorRockMaterial( asset, rockMaterial ) )
+        {
+            model.SetRenderMaterial( rockMaterial );
+        }
+        else if ( TryEditorRootMaterial( asset, rockMaterial ) )
         {
             model.SetRenderMaterial( rockMaterial );
         }
@@ -3824,7 +4214,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
-        addModel( std::move( model ) );
+        addModel( std::move( model ), placementFixed );
     };
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
@@ -3848,9 +4238,9 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
                 continue;
             }
             ConvexHullShape hull = *sourceHull;
-            const Vector3 center( terrainPoint.x + part.offsetX,
-                                  terrainPoint.y + part.offsetY + EDITOR_PLACEMENT_SURFACE_EPSILON,
-                                  terrainPoint.z + part.offsetZ );
+            const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
+            const Vector3 authoredOrigin = terrainPoint + placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
+            const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
             GameModel model( &m_cWorldEnvironment,
                              center,
                              hull.ComputeBoxApproxInertia( part.mass ),
@@ -3858,11 +4248,14 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
             model.SetTerrain( m_systems.terrain.get() );
             model.SetCoefficientRestitution( part.restitution );
             model.AddConvexHull( hull );
+            model.SetOrientation( placementOrientation );
+            model.SetContactReleaseOnImpact( part.contactReleaseOnImpact, part.contactReleaseImpulseThreshold );
             model.SetRenderMaterial( EditorTreePartMaterial( part ) );
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
             model.SetName( name );
-            addModel( std::move( model ) );
+            const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
+            addModel( std::move( model ), partFixed, treeDefinition.seedAsleep && !partFixed );
         }
     };
 
@@ -3907,6 +4300,12 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
     case UI::EditorTab::OBJECT_ROCK_CHIPPED:
         addHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
         break;
+    case UI::EditorTab::OBJECT_ROOT_SMALL:
+        addHull( EditorHullAsset::TREE_ROOT_SMALL );
+        break;
+    case UI::EditorTab::OBJECT_ROOT_LARGE:
+        addHull( EditorHullAsset::TREE_ROOT_LARGE );
+        break;
     case UI::EditorTab::OBJECT_TREE_SMALL:
         if ( tree )
         {
@@ -3914,6 +4313,17 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
         break;
     case UI::EditorTab::OBJECT_TREE_BIG:
+    case UI::EditorTab::OBJECT_TREE_CEDAR:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
         if ( tree )
         {
             addTree( *tree );

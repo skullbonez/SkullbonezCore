@@ -871,6 +871,12 @@
     <None Include="SkullbonezData\scenes\convex_hull_collision.scene.json">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\scenes\convex_hull_stacking.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\convex_hull_stress_sleep.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\scenes\float_snap_test.scene.json">
       <Filter>Scene Files</Filter>
     </None>
