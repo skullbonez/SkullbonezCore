@@ -118,6 +118,16 @@ void RequireNoExtraTokens( char* context, const char* path, int lineNumber, cons
     }
 }
 
+void WarnMissingDefaultMassMetadata( const char* path, bool missingDensity, bool missingMass )
+{
+    fprintf( stderr,
+             "[hull][compat] %s missing %s%s%s; using compatibility mass defaults at load. Re-bake with tools\\bake_hulls.bat --write.\n",
+             path,
+             missingDensity ? "default_density" : "",
+             missingDensity && missingMass ? " and " : "",
+             missingMass ? "default_mass" : "" );
+}
+
 float SweptBoundingRadiusCollision( float focusRadius,
                                     const Vector3& focusOffset,
                                     float targetRadius,
@@ -658,6 +668,10 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
     if ( !sawDefaultMass )
     {
         hull.m_defaultMass = Physics::CalculateVolumeMass( hull.m_volume, hull.m_defaultDensity );
+    }
+    if ( !sawDefaultDensity || !sawDefaultMass )
+    {
+        WarnMissingDefaultMassMetadata( path, !sawDefaultDensity, !sawDefaultMass );
     }
 
     for ( uint16_t f = 0; f < hull.m_faceCount; ++f )

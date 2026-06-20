@@ -17,6 +17,7 @@ MAX_EDGES = 160
 MAX_FACE_VERTICES = 16
 MAX_FACE_INDICES = MAX_FACES * MAX_FACE_VERTICES
 TOLERANCE = 0.00005
+DEFAULT_HULL_DENSITY = 0.90
 
 
 @dataclass
@@ -48,6 +49,8 @@ class BakedHull:
     source_hash: int
     center_of_mass: tuple[float, float, float]
     volume: float
+    default_density: float
+    default_mass: float
     centered_vertices: list[tuple[float, float, float]]
     faces: list[BakedFace]
     edges: list[BakedEdge]
@@ -226,7 +229,7 @@ def compute_mass_properties(source: SourceHull, faces: list[BakedFace]) -> tuple
     return (cx / signed_volume, cy / signed_volume, cz / signed_volume), volume
 
 
-def bake_source_hull(source: SourceHull) -> BakedHull:
+def bake_source_hull(source: SourceHull, default_density: float = DEFAULT_HULL_DENSITY) -> BakedHull:
     centroid = (0.0, 0.0, 0.0)
     for vertex in source.vertices:
         centroid = vec_add(centroid, vertex)
@@ -316,6 +319,8 @@ def bake_source_hull(source: SourceHull) -> BakedHull:
         source_hash=source_hash(source),
         center_of_mass=center_of_mass,
         volume=volume,
+        default_density=default_density,
+        default_mass=volume * default_density,
         centered_vertices=centered_vertices,
         faces=baked_faces,
         edges=edges,
@@ -357,6 +362,8 @@ def serialize_hull(baked: BakedHull) -> str:
             "# Baked runtime metadata.",
             f"center_of_mass {fmt_vec(baked.center_of_mass)}",
             f"volume {fmt(baked.volume)}",
+            f"default_density {fmt(baked.default_density)}",
+            f"default_mass {fmt(baked.default_mass)}",
             f"bounding_radius {fmt(baked.bounding_radius)}",
             f"inertia_half_extents {fmt_vec(baked.inertia_half_extents)}",
             f"unit_inertia {fmt_vec(baked.unit_inertia)}",
@@ -396,11 +403,14 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--write", action="store_true", help="Rewrite hull files with baked hull_version 2 data.")
     parser.add_argument("--check", action="store_true", help="Fail if any hull file is not current serialized output.")
+    parser.add_argument("--default-density", type=float, default=DEFAULT_HULL_DENSITY, help="Density used to bake default_mass for hulls.")
     parser.add_argument("paths", nargs="*", type=Path)
     args = parser.parse_args()
 
     if args.write == args.check:
         parser.error("pass exactly one of --write or --check")
+    if not math.isfinite(args.default_density) or args.default_density <= 0.0:
+        parser.error("--default-density must be positive and finite")
 
     repo = args.repo.resolve()
     paths = discover_hulls(repo, args.paths)
@@ -408,7 +418,7 @@ def main() -> int:
 
     for path in paths:
         source = read_source_hull(path)
-        expected = serialize_hull(bake_source_hull(source))
+        expected = serialize_hull(bake_source_hull(source, args.default_density))
         current = path.read_text(encoding="utf-8")
         if args.write:
             if current != expected:

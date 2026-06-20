@@ -35,6 +35,8 @@ source_face 7 15 8 0
 # Baked runtime metadata.
 center_of_mass 0.668477793 -0.472972973 -0.000408848339
 volume 3025.52083
+default_density 0.9
+default_mass 2722.96875
 bounding_radius 14.4333668
 inertia_half_extents 12.5 5 11.5
 unit_inertia 52.4166667 96.1666667 60.4166667

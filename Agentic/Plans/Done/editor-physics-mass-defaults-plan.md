@@ -4,7 +4,9 @@ Date: 2026-06-20
 Status: Done on `nightrunner-20th-june`
 Impact area: physics, editor placement, scene system, hull assets, tooling
 Validation: `tools\validate_fast.bat` and `tools\validate_full.bat` passed on
-2026-06-20 after implementation.
+2026-06-20 after implementation. Follow-up on 2026-06-21 baked explicit
+`default_density` and `default_mass` metadata into every existing hull asset;
+runtime keeps a compatibility warning fallback for older unbaked hull files.
 
 ## Goal
 
@@ -109,9 +111,9 @@ else:
     use volume * 0.90
 ```
 
-This makes old hull files float by default without requiring every asset to be
-updated in the same commit, while still allowing a later offline refresh to
-write explicit metadata for every hull.
+All current hull files now carry explicit baked metadata. The runtime fallback
+exists only as a compatibility route for older or external hull files and emits
+a warning that the asset should be re-baked.
 
 ## Offline Hull Mass Generation
 
@@ -266,8 +268,9 @@ tools\validate_physics.bat
 
 ### Phase 3: Offline Hull Refresh Tool
 
-Create or extend tooling to refresh hull mass metadata across
-`SkullbonezData/hulls/*.hull`.
+Done on 2026-06-21: `tools\bake_hulls.py` writes `default_density 0.9` and
+`default_mass <volume * density>` across `SkullbonezData/hulls/*.hull`, and
+`tools\bake_hulls.bat --check` verifies the serialized output remains current.
 
 Validation at PR gate:
 
