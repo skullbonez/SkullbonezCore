@@ -81,6 +81,18 @@ SkullbonezRun::~SkullbonezRun()
 #endif
 
     RuntimeDiagnostics::ClosePerfLog( m_perfLogState );
+    m_replay.FlushHashLog();
+    if ( m_replay.IsEnabled() )
+    {
+        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, latest_hash=0x%016llX\n",
+                static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
+                static_cast<unsigned long long>( replayStats.sampleCount ),
+                static_cast<unsigned long long>( replayStats.sampleCapacity ),
+                static_cast<unsigned long long>( replayStats.checkpointCount ),
+                static_cast<unsigned long long>( replayStats.checkpointCapacity ),
+                static_cast<unsigned long long>( replayStats.latestStateHash ) );
+    }
 
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
@@ -408,6 +420,43 @@ void SkullbonezRun::SetUIStressOverride( unsigned int seed, int actionsPerFrame 
     m_cmdUIStress = true;
     m_cmdUIStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
     m_cmdUIStressActions = std::clamp( actionsPerFrame, 1, 32 );
+}
+
+
+void SkullbonezRun::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
+{
+    ReplayRecorderConfig replayConfig;
+    replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
+    replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
+    replayConfig.checkpointIntervalFrames = 30;
+    if ( hashLogPath && hashLogPath[0] != '\0' )
+    {
+        replayConfig.hashLogPath = hashLogPath;
+    }
+
+    m_replay.Configure( replayConfig );
+    if ( m_replay.IsEnabled() )
+    {
+        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d%s%s\n",
+                replayConfig.retentionSeconds,
+                static_cast<unsigned long long>( replayStats.sampleCapacity ),
+                replayConfig.checkpointIntervalFrames,
+                replayConfig.hashLogPath.empty() ? "" : " hash_log=",
+                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str() );
+    }
+}
+
+
+void SkullbonezRun::ResetReplayTimelineForActiveScene()
+{
+    if ( !m_replay.IsEnabled() )
+    {
+        return;
+    }
+
+    const std::string* scenePath = CurrentSceneQueuePath();
+    m_replay.ResetTimeline( scenePath && !scenePath->empty() ? scenePath->c_str() : "generated" );
 }
 
 

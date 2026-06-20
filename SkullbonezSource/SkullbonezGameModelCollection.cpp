@@ -24,6 +24,7 @@ Related:
 #include "SkullbonezGameModelRenderer.h"
 #include "SkullbonezSceneSnapshotWriter.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <cmath>
@@ -120,6 +121,14 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     {
         throw std::runtime_error( "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
+    if ( gameModel.GetReplayBodyId() == 0 )
+    {
+        gameModel.SetReplayBodyId( m_nextReplayBodyId++ );
+    }
+    else
+    {
+        m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, gameModel.GetReplayBodyId() + 1u );
+    }
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
 }
@@ -130,6 +139,7 @@ void GameModelCollection::Clear()
     m_gameModels.clear();
     m_soaCache.Clear();
     m_physicsWorld.Clear();
+    m_nextReplayBodyId = 1;
 }
 
 

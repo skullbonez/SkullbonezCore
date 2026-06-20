@@ -1,10 +1,16 @@
 # Replay System Plan
 
 Date: 2026-06-11
-Status: Draft implementation plan
+Status: Done for Phase 1 replay foundation; later replay phases remain future work
 Source: Extracted from `Agentic/Plans/architecture_pass_2026-06-02.md`
 Impact area: scene system, runtime, physics diagnostics, tests, UI, render capture
-Validation for this document-only change: none required
+Validation note: plan-only edits require no validation. Replay runtime
+implementation changes require the phase-specific gate below.
+Completion note, 2026-06-21: archived after landing the capture-only replay
+foundation. Saved playback, UI scrubbing, branching, authoritative restore, and
+export remain future replay phases rather than part of this completed slice.
+Validated with `tools\validate_fast.bat`, `tools\validate_full.bat`, and
+`tools\validate_perf.bat`.
 
 ## Goal
 
@@ -417,16 +423,27 @@ Validation: none for documentation-only changes.
 
 Goal: define the minimal state needed to sample and restore a frame.
 
+Status, 2026-06-21: capture-only foundation implemented. The runtime now has a
+`ReplayRecorder` adapter that records bounded in-memory presentation samples
+after committed physics ticks, scene-local stable body ids, checkpoint summary
+markers, and optional CSV frame hash logging through `--replay`,
+`--replay-seconds`, and `--replay-hashes`. This is intentionally not saved
+playback, UI scrubbing, branching, or authoritative restore yet.
+
 Tasks:
 
-1. Add replay-facing structs for presentation samples and authoritative
-   checkpoints.
-2. Add stable body ids to runtime physics objects.
-3. Add a deterministic physics state hash over body state and important solver
-   state.
-4. Add capture-only code paths with no gameplay behavior change.
-5. Add a small test scene or harness that prints frame hashes for a fixed-step
-   scene.
+1. Done for presentation samples and checkpoint summaries. Authoritative
+   restore checkpoints remain Phase 4 work.
+2. Done for scene-local physics bodies via replay body ids assigned as models
+   enter `GameModelCollection`.
+3. Done for a presentation/diagnostic state hash over body transforms,
+   velocities, mass/fixed state, sleep/support/contact summaries, world flags,
+   contact count, and pipeline trace count. It is not yet a full authoritative
+   solver hash.
+4. Done as an opt-in capture path; disabled replay should preserve runtime
+   behavior.
+5. Partially done through optional `--replay-hashes <path>` CSV output. A
+   dedicated automated fixed-step replay hash harness remains future work.
 
 Acceptance:
 
@@ -663,6 +680,12 @@ in-memory visual scrubber:
 
 This gives immediate value and teaches the engine what state is missing before
 the harder exact-branch work.
+
+Current slice status, 2026-06-21: the engine now has the recording foundation
+for items 1 and 2, plus opt-in hash CSV output for fixed-step determinism
+experiments. Items 3 through 5 are not complete: there is no pause/scrub UI, no
+historical rendering path, and no selected-sample export. The slice is therefore
+a Phase 1 replay foundation rather than the full visual scrubber.
 
 ## Risks And Mitigations
 

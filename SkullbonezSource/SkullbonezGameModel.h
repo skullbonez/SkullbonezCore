@@ -131,6 +131,7 @@ class GameModel
     bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                  // Fixed decorative pieces can become dynamic after a real hit.
     float m_contactReleaseImpulseThreshold;             // Minimum solved normal impulse before fixed-contact release.
+    uint32_t m_replayBodyId;                            // Stable replay-facing id assigned by GameModelCollection.
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache( float radius );                              // Hot-path cache built from authoring radius before broadphase and drag sampling.
@@ -211,6 +212,8 @@ class GameModel
     void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg );                        // Input angles are degrees in the engine's Euler order.
     void SetName( const char* name );                                                                          // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
+    void SetReplayBodyId( uint32_t id ); // Replay ids are scene-local and assigned once by the owning collection.
+    uint32_t GetReplayBodyId() const;
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );           // Render-only color override; physics state is unaffected.
     void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const; // Mirrors the shader-facing tint payload.
     void SetRenderMaterial( const Rendering::RenderMaterial& material );                        // Render intent only; collision material stays elsewhere.

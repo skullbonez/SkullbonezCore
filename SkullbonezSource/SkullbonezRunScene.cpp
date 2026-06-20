@@ -1760,6 +1760,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_timers.updateTimer.StartTimer();
     m_timers.cameraTimer.StartTimer();
     m_timers.simulationTimer.StartTimer();
+    ResetReplayTimelineForActiveScene();
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
@@ -2465,6 +2466,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     {
         SceneState().modelCount = 0;
         m_camera.trackBallIndex = -1;
+        ResetReplayTimelineForActiveScene();
         PROFILE_SCHEDULE_RESET();
         return;
     }
@@ -2476,6 +2478,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     {
         m_camera.trackBallIndex = m_UIModelCountOverride - 1;
     }
+    ResetReplayTimelineForActiveScene();
     PROFILE_SCHEDULE_RESET();
 }
 
@@ -2518,6 +2521,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     {
         m_camera.trackBallIndex = SceneState().modelCount - 1;
     }
+    ResetReplayTimelineForActiveScene();
     PROFILE_SCHEDULE_RESET();
 }
 

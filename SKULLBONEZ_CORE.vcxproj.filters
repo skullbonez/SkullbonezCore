@@ -136,6 +136,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSimulationSystem.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezReplayRecorder.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -537,6 +540,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSimulationSystem.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezReplayRecorder.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h">

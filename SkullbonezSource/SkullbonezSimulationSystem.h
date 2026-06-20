@@ -31,6 +31,8 @@ namespace Basics
 {
 struct SimulationTickInput
 {
+    using PhysicsStepCallback = void ( * )( void* userData );
+
     double secondsPerFrame = 0.0;
     float timeScale = 1.0f;
     bool isSceneMode = false;
@@ -40,6 +42,8 @@ struct SimulationTickInput
     bool isLauncherMode = false;
     bool isStepRequested = false;
     GameObjects::GameModelCollection* models = nullptr;
+    PhysicsStepCallback afterPhysicsStep = nullptr;
+    void* afterPhysicsStepUserData = nullptr;
 };
 
 struct SimulationTickResult
@@ -47,6 +51,7 @@ struct SimulationTickResult
     bool shouldUpdateLogic = false;
     float simulationDt = 0.0f;
     float cameraDt = 0.0f;
+    int committedPhysicsTicks = 0;
 };
 
 class SimulationSystem

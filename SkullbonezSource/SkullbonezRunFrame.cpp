@@ -199,13 +199,43 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         m_camera.isFlyMode,
         m_camera.isLauncherMode,
         Input::IsKeyDown( VK_SPACE ),
-        &m_cGameModelCollection } );
+        &m_cGameModelCollection,
+        m_replay.IsEnabled() ? &SkullbonezRun::CaptureReplayPhysicsStepThunk : nullptr,
+        this } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_launcherLaser.Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
     }
+}
+
+
+void SkullbonezRun::CaptureReplayPhysicsStepThunk( void* userData )
+{
+    SkullbonezRun* run = static_cast<SkullbonezRun*>( userData );
+    if ( run )
+    {
+        run->CaptureReplayPhysicsStep();
+    }
+}
+
+
+void SkullbonezRun::CaptureReplayPhysicsStep()
+{
+    ReplayCaptureInput input;
+    input.sceneFrame = SceneState().currentFrame;
+    input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+    input.physicsDt = PHYSICS_FIXED_DT;
+    input.fixedStep = SceneState().isFixedStep;
+    input.scenePhysicsEnabled = SceneState().isScenePhysics;
+    input.sceneTextEnabled = SceneState().isSceneText;
+    input.waterHidden = m_debug.isWaterHidden;
+    input.terrainHidden = m_debug.isTerrainHidden;
+    input.cameras = m_systems.cameras;
+    input.world = &m_cWorldEnvironment;
+    input.models = &m_cGameModelCollection;
+    m_replay.CaptureFrame( input );
 }
 
 

@@ -163,6 +163,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkullScope.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezHelper.cpp" />
@@ -295,6 +296,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSimulationSystem.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />

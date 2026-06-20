@@ -58,6 +58,7 @@ Related:
 #include "SkullbonezInput.h"
 #include "SkullbonezInputController.h"
 #include "SkullbonezRuntimeDiagnostics.h"
+#include "SkullbonezReplayRecorder.h"
 #include "SkullbonezSceneRuntime.h"
 #include "SkullbonezSimulationSystem.h"
 #include "SkullbonezTextureCollection.h"
@@ -910,6 +911,7 @@ class SkullbonezRun
     RuntimeInputContext m_runtimeInput;   // Semantic input mode/action state owned by input routing.
     RunCameraState m_camera;              // Camera/input state and ball-tracking settings
     SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
+    ReplayRecorder m_replay;              // Opt-in bounded replay presentation recorder.
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
@@ -1018,6 +1020,9 @@ class SkullbonezRun
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
+    void ResetReplayTimelineForActiveScene(); // Scene/model rebuilds start a fresh in-memory replay branch.
+    void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
+    static void CaptureReplayPhysicsStepThunk( void* userData );
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
@@ -1064,23 +1069,24 @@ class SkullbonezRun
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue ); // sceneQueue empty string selects generated demo mode.
     ~SkullbonezRun();
-    void Initialise();                                                  // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );     // Scene-load smoke path; skips the frame loop.
-    void Run();                                                         // Main message loop; sceneQueue decides generated demo versus suite playback.
-    void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
-    void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
-    void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
-    void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
-    void SetTornadoOverride( bool enabled );                            // Enable/disable tornado mode for loaded scenes (CLI --tornado)
-    void SetTornadoVectorFieldOverride( bool enabled );                 // Show/hide tornado velocity vectors at startup
-    void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
-    void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
-    void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
-    void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
-    void SetLiveStyleControlDirectory( const char* path );              // Enable live style/capture harness in a control folder
-    void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
-    void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
+    void Initialise();                                                                      // Initialises shared resources and loads first scene
+    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );                         // Scene-load smoke path; skips the frame loop.
+    void Run();                                                                             // Main message loop; sceneQueue decides generated demo versus suite playback.
+    void SetTimeScaleOverride( float scale );                                               // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();                                                            // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed );                                              // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                                                              // Start scenes with fluid below terrain (CLI --no-water)
+    void SetNoSleepOverride();                                                              // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetTornadoOverride( bool enabled );                                                // Enable/disable tornado mode for loaded scenes (CLI --tornado)
+    void SetTornadoVectorFieldOverride( bool enabled );                                     // Show/hide tornado velocity vectors at startup
+    void SetCinematicRenderingOverride( bool enabled );                                     // Force cinematic HDR/post rendering on/off for every scene loaded
+    void SetCinematicShadowsOverride( bool enabled );                                       // Force shadow maps on/off for every scene loaded
+    void SetDemoHeroStyleOverride();                                                        // Run generated demo mode with the low-poly hero rendering style
+    void SetInteractiveRunOverride();                                                       // Keep scene automation from quitting the app (CLI --interactive/--hold)
+    void SetLiveStyleControlDirectory( const char* path );                                  // Enable live style/capture harness in a control folder
+    void SetFrameCountOverride( int frames );                                               // Stop scene/demo automation after N frames (CLI --frames)
+    void SetUIStressOverride( unsigned int seed, int actionsPerFrame );                     // Enable deterministic UI stress from CLI
+    void SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath ); // Enable bounded replay capture from CLI.
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );

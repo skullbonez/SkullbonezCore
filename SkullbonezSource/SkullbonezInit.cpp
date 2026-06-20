@@ -584,6 +584,9 @@ struct ParsedArgs
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
+    bool replayRecording = false;
+    int replaySeconds = 30;
+    char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
     bool suppressExitDialog = false;
@@ -1408,6 +1411,24 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 }
 
 
+bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-hashes expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayHashLogPath ) )
+    {
+        return FailCommandLineParse( "--replay-hashes path is too long." );
+    }
+
+    strcpy_s( args.replayHashLogPath, sizeof( args.replayHashLogPath ), value );
+    args.replayRecording = true;
+    fprintf( stdout, "[replay] Hash log: %s\n", args.replayHashLogPath );
+    return true;
+}
+
+
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1437,6 +1458,29 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
+        { "--replay", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--replay expects optional on|off." );
+              }
+              args.replayRecording = enabled;
+              fprintf( stdout, "[replay] Capture %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--replay-seconds", "--replay_seconds", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int seconds = 0;
+              if ( !ParseIntToken( value, seconds ) || seconds < 1 || seconds > 600 )
+              {
+                  return FailCommandLineParse( "--replay-seconds expects 1..600." );
+              }
+              args.replaySeconds = seconds;
+              fprintf( stdout, "[replay] Retention window: %d seconds.\n", args.replaySeconds );
+              return true;
+          } },
+        { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
         { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1827,6 +1871,12 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.uiStress )
         {
             cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+        }
+        if ( args.replayRecording || args.replayHashLogPath[0] != '\0' )
+        {
+            cRun->SetReplayRecording( true,
+                                      args.replaySeconds,
+                                      args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr );
         }
         if ( args.showProfiler )
         {

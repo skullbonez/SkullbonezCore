@@ -18,6 +18,9 @@ This file holds details that are useful during debugging or manual testing but t
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with launcher repro snapshots. |
+| `--replay` | optional `on`, `off` | Enable bounded in-memory replay presentation capture. This records per-physics-tick body transforms, velocities, sleep/contact summaries, and state hashes; it does not enable saved playback, scrubbing, or branching yet. |
+| `--replay-seconds` | `1..600` | Retention window for `--replay`; default is 30 seconds at 120 Hz. Alias: `--replay_seconds`. |
+| `--replay-hashes` | path | Enable replay capture and write a CSV of replay frame hashes for fixed-step comparison runs. Alias: `--replay_hashes`. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--tornado` | optional `on`, `off` | Start with the generated-demo tornado force field enabled or disabled. Bare flag means `on`; the Physics tab can still toggle it live. |
@@ -125,9 +128,19 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 `--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style.json` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene fields such as `terrain`, `objects`, or `simulation.timeScale`.
 
+## Replay Capture
+
+Replay capture is an early foundation, not saved playback. Use it when a fixed-step scene needs cheap frame hashes or when later replay UI work needs recent presentation samples in memory:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\physics_regression_solver.scene.json --fixed-step --frames 240 --replay on --replay-hashes TestOutput\replay_hashes.csv
+```
+
+The recorder stores the configured recent window in memory and writes hash rows only when `--replay-hashes` is supplied. Samples are captured after committed physics ticks and include scene-local replay body IDs, transforms, velocities, sleep/contact flags, camera pose, world presentation state, and a 64-bit presentation hash. Checkpoint summaries are boundary markers for future restore work; they are not authoritative solver checkpoints yet.
+
 ## Runtime Facades And Streams
 
-`SceneRuntime` lives in `SkullbonezSceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `CaptureSystem` lives in `SkullbonezCaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezRuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezInputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
+`SceneRuntime` lives in `SkullbonezSceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezReplayRecorder.h/.cpp` and owns the opt-in bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezCaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezRuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezInputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
 
 `GameModelStreamProvider` lives in `SkullbonezGameModelStreams.h/.cpp` and builds `GameModelBodyStream` and `GameModelRenderStream` as borrowed views over `GameModelCollection`'s `GameModelSoACache`. The provider owns stream construction and cache-validation policy, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat this as a model-data boundary marker for future data separation, not as the final physics/render storage split.
 

@@ -66,6 +66,11 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             {
                 PROFILE_SCOPED( "Frame/Physics/Step" );
                 input.models->RunPhysics( PHYSICS_FIXED_DT );
+                ++result.committedPhysicsTicks;
+                if ( input.afterPhysicsStep )
+                {
+                    input.afterPhysicsStep( input.afterPhysicsStepUserData );
+                }
             }
             PROFILE_END( "Frame/Physics" );
         }
@@ -88,6 +93,11 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
             input.models->RunPhysics( PHYSICS_FIXED_DT );
+            ++result.committedPhysicsTicks;
+            if ( input.afterPhysicsStep )
+            {
+                input.afterPhysicsStep( input.afterPhysicsStepUserData );
+            }
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
             ++steps;
         }
