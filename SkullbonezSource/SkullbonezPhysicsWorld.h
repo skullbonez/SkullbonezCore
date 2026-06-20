@@ -272,6 +272,7 @@ class PhysicsWorld
     void Clear();
     void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
     void WakeModel( GameObjects::GameModelCollection& collection, int index );
+    void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

@@ -800,6 +800,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact, hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
 
         if ( hullScene.hasInitOrient )
@@ -836,12 +837,18 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact, hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
         gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
         gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
         gameModel.SetOrientation( Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
         gameModel.SetFixed( hullScene.isFixed );
+        const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( hullScene.isSleeping && !hullScene.isFixed )
+        {
+            m_cGameModelCollection.SeedModelAsleep( modelIndex );
+        }
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )

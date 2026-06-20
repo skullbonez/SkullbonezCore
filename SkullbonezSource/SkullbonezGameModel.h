@@ -124,6 +124,8 @@ class GameModel
     Rendering::RenderMaterial m_renderMaterial;         // Render-only material intent, mirrored to the current tint bridge
     bool m_isResponseRequired;                          // Terrain detection handoff flag; shared terrain rows consume generated manifolds
     bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
+    bool m_releasesFromFixedOnContact;                  // Fixed decorative pieces can become dynamic after a real hit.
+    float m_contactReleaseImpulseThreshold;             // Minimum solved normal impulse before fixed-contact release.
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache( float radius );                              // Hot-path cache built from authoring radius before broadphase and drag sampling.
@@ -197,6 +199,9 @@ class GameModel
     const char* GetShapeName() const; // Stable diagnostic spelling for logs and SkullScope output.
     void SetFixed( bool isFixed );    // Immovable models still contribute contacts to dynamic bodies.
     bool IsFixed() const;
+    void SetContactReleaseOnImpact( bool enabled, float impulseThreshold ); // Optional fixed-to-dynamic release for hit foliage.
+    bool ReleasesFromFixedOnContact() const;
+    float GetContactReleaseImpulseThreshold() const;
     void NotifyFixedContact( float highlightSeconds );                                  // Restarts red contact feedback when a dynamic body hits fixed geometry.
     void TickFixedContactHighlight( float dt );                                         // dt is seconds; saturates at no-contact tint.
     float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint.

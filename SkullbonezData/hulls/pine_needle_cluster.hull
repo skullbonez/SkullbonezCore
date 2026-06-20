@@ -1,0 +1,18 @@
+hull_version 1
+name pine_needle_cluster
+
+vertex  0.00 -0.18 -2.80
+vertex -0.55 -0.18  0.00
+vertex  0.00 -0.18  2.80
+vertex  0.55 -0.18  0.00
+vertex  0.00  0.30 -0.25
+vertex  0.00 -0.62 -0.25
+
+face 0 1 4
+face 1 2 4
+face 2 3 4
+face 3 0 4
+face 1 0 5
+face 2 1 5
+face 3 2 5
+face 0 3 5

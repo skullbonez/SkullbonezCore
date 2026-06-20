@@ -94,6 +94,7 @@ class GameModelCollection
     void InvalidatePhysicsStreams();
 
     void WakeModel( int index );
+    void SeedModelAsleep( int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();

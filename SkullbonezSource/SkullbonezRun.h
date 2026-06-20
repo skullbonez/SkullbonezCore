@@ -356,6 +356,7 @@ struct RunEditorPlacementState
     Math::Vector::Vector3 placementScaleStart = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
     Math::Vector::Vector3 placementScaleTerrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementScaleRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
     POINT placementScaleStartClient = {};
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
@@ -377,7 +378,7 @@ class RunEditorTracer
     RunEditorTracer();
     void Clear();
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
-    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& placementScale );
+    void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, const Math::Orientation::Quaternion& orientation );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
@@ -1035,7 +1036,7 @@ class SkullbonezRun
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection ) const;                                                                           // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition ) const;                                                                                                        // Raycast current mouse position to terrain for editor placement
     bool TryGetMouseTerrainPlacement( Math::Vector::Vector3& outPosition, Math::Vector::Vector3* outRayOrigin, Math::Vector::Vector3* outRayDirection ) const;                           // Raycast with optional ray output
-    bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, Math::Vector::Vector3& outCenter ) const; // Terrain hit converted to object center; false when placement is invalid.
+    bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, const Math::Orientation::Quaternion& orientation, Math::Vector::Vector3& outCenter ) const; // Terrain hit converted to object center; false when placement is invalid.
     bool TryComputeEditorPlacementPreview( int objectType );                                                                                                                             // Snapped ghost placement data from the mouse ray.
     void UpdateEditorInteractionPreview();                                                                                                                                               // Refreshes ghost and gizmo hover state before world-click handling
     bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, int& outIndex ) const;                                                   // Ray-picks editable objects

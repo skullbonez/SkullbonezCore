@@ -98,6 +98,8 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( m_renderTintR, m_renderTintG, m_renderTintB, m_renderColorOverride );
     m_isResponseRequired = false;
     m_isFixed = false;
+    m_releasesFromFixedOnContact = false;
+    m_contactReleaseImpulseThreshold = 1.0f;
     m_name[0] = '\0';
 }
 
@@ -192,6 +194,25 @@ void GameModel::SetFixed( bool isFixed )
 bool GameModel::IsFixed() const
 {
     return m_isFixed;
+}
+
+
+void GameModel::SetContactReleaseOnImpact( bool enabled, float impulseThreshold )
+{
+    m_releasesFromFixedOnContact = enabled;
+    m_contactReleaseImpulseThreshold = (std::max)( 0.0f, impulseThreshold );
+}
+
+
+bool GameModel::ReleasesFromFixedOnContact() const
+{
+    return m_releasesFromFixedOnContact;
+}
+
+
+float GameModel::GetContactReleaseImpulseThreshold() const
+{
+    return m_contactReleaseImpulseThreshold;
 }
 
 

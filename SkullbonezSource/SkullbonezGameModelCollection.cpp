@@ -246,6 +246,12 @@ void GameModelCollection::WakeModel( int index )
 }
 
 
+void GameModelCollection::SeedModelAsleep( int index )
+{
+    m_physicsWorld.SeedModelAsleep( *this, index );
+}
+
+
 void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 {
     m_physicsWorld.SetPhysicsSleepEnabled( enabled );

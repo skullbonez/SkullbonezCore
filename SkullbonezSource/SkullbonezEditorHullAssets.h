@@ -42,7 +42,12 @@ enum class EditorHullAsset
     PINE_TIER_TOP,
     CEDAR_TIER_LOW,
     CEDAR_TIER_MID,
+    CEDAR_TIER_TALL_LOW,
+    CEDAR_TIER_TALL_MID,
     CEDAR_TIER_TOP,
+    TREE_ROOT_SMALL,
+    TREE_ROOT_LARGE,
+    PINE_NEEDLE_CLUSTER,
 };
 
 struct EditorHullAssetInfo
@@ -71,7 +76,12 @@ inline constexpr EditorHullAssetInfo EDITOR_HULL_ASSETS[] = {
     { EditorHullAsset::PINE_TIER_TOP, "pine_tier_top", "pine_tier_top.hull", "SkullbonezData/hulls/pine_tier_top.hull" },
     { EditorHullAsset::CEDAR_TIER_LOW, "cedar_tier_low", "cedar_tier_low.hull", "SkullbonezData/hulls/cedar_tier_low.hull" },
     { EditorHullAsset::CEDAR_TIER_MID, "cedar_tier_mid", "cedar_tier_mid.hull", "SkullbonezData/hulls/cedar_tier_mid.hull" },
+    { EditorHullAsset::CEDAR_TIER_TALL_LOW, "cedar_tier_tall_low", "cedar_tier_tall_low.hull", "SkullbonezData/hulls/cedar_tier_tall_low.hull" },
+    { EditorHullAsset::CEDAR_TIER_TALL_MID, "cedar_tier_tall_mid", "cedar_tier_tall_mid.hull", "SkullbonezData/hulls/cedar_tier_tall_mid.hull" },
     { EditorHullAsset::CEDAR_TIER_TOP, "cedar_tier_top", "cedar_tier_top.hull", "SkullbonezData/hulls/cedar_tier_top.hull" },
+    { EditorHullAsset::TREE_ROOT_SMALL, "tree_root_small", "tree_root_small.hull", "SkullbonezData/hulls/tree_root_small.hull" },
+    { EditorHullAsset::TREE_ROOT_LARGE, "tree_root_large", "tree_root_large.hull", "SkullbonezData/hulls/tree_root_large.hull" },
+    { EditorHullAsset::PINE_NEEDLE_CLUSTER, "pine_needle_cluster", "pine_needle_cluster.hull", "SkullbonezData/hulls/pine_needle_cluster.hull" },
 };
 
 inline constexpr std::size_t EDITOR_HULL_ASSET_COUNT = sizeof( EDITOR_HULL_ASSETS ) / sizeof( EDITOR_HULL_ASSETS[0] );

@@ -33,6 +33,7 @@ Related:
 #include <cstdio>
 #include <fstream>
 #include <variant>
+#include <vector>
 
 #pragma warning( push, 0 )
 #include "../ThirdPtySource/nlohmann/json.hpp"
@@ -92,6 +93,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                                 float flatSlopeZ )
 {
     auto& m_gameModels = collection.m_gameModels;
+    const std::vector<uint8_t>& sleepStates = collection.GetSleepStates();
 
     std::ofstream output( path, std::ios::trunc );
     if ( !output )
@@ -201,7 +203,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
             const EditorHullAsset hullAsset = EditorHullAssetFromToken( hull.GetName() );
             const char* hullToken = hullAsset == EditorHullAsset::UNKNOWN ? hull.GetName() : EditorHullAssetToken( hullAsset );
-            scene["objects"].push_back( {
+            Json hullState = {
                 { "type", "convexHullState" },
                 { "name", name },
                 { "hull", hullToken },
@@ -213,7 +215,17 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "restitution", rest },
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", m_gameModels[i].IsFixed() },
-            } );
+            };
+            if ( m_gameModels[i].ReleasesFromFixedOnContact() )
+            {
+                hullState["contactReleaseOnImpact"] = true;
+                hullState["contactReleaseImpulseThreshold"] = m_gameModels[i].GetContactReleaseImpulseThreshold();
+            }
+            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            {
+                hullState["sleeping"] = true;
+            }
+            scene["objects"].push_back( hullState );
         }
     }
 

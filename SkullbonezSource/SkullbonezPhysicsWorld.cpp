@@ -402,12 +402,18 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
         return;
     }
 
-    if ( static_cast<int>( m_sleepState.size() ) != static_cast<int>( m_gameModels.size() ) )
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
-        m_sleepState.assign( m_gameModels.size(), 0 );
-        m_sleepCounter.assign( m_gameModels.size(), 0 );
+        m_sleepState.resize( modelCount, 0 );
+        m_sleepCounter.resize( modelCount, 0 );
     }
-    EnsureUnderwaterSleepLockBuffer( static_cast<int>( m_gameModels.size() ) );
+    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
+    {
+        m_sleepState.assign( modelCount, 0 );
+        m_sleepCounter.assign( modelCount, 0 );
+    }
+    EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         GameModelBodyStream bodyStream = collection.GetBodyStream();
@@ -456,6 +462,59 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
                             return cacheEntryReferencesBody( entry, index );
                         } ),
         m_persistentContactCache.end() );
+}
+
+
+void PhysicsWorld::SeedModelAsleep( GameModelCollection& collection, int index )
+{
+    if ( !m_sleepEnabled )
+    {
+        return;
+    }
+
+    auto& m_gameModels = collection.PhysicsModels();
+    if ( index < 0 ||
+         index >= static_cast<int>( m_gameModels.size() ) ||
+         m_gameModels[index].IsFixed() )
+    {
+        return;
+    }
+
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
+    {
+        m_sleepState.resize( modelCount, 0 );
+        m_sleepCounter.resize( modelCount, 0 );
+    }
+    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
+    {
+        m_sleepState.assign( modelCount, 0 );
+        m_sleepCounter.assign( modelCount, 0 );
+    }
+    if ( static_cast<int>( m_sleepIslandVisualId.size() ) < modelCount )
+    {
+        m_sleepIslandVisualId.resize( modelCount, 0 );
+    }
+    else if ( static_cast<int>( m_sleepIslandVisualId.size() ) > modelCount )
+    {
+        m_sleepIslandVisualId.assign( modelCount, 0 );
+    }
+    EnsureUnderwaterSleepLockBuffer( modelCount );
+
+    collection.InvalidatePhysicsStreams();
+    m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
+    m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
+    m_sleepState[index] = 1;
+    m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );
+    m_underwaterSleepLocked[index] = 0;
+    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+    {
+        m_sleepIslandVisualId[index] = m_nextSleepIslandVisualId++;
+        if ( m_nextSleepIslandVisualId <= 0 )
+        {
+            m_nextSleepIslandVisualId = 1;
+        }
+    }
 }
 
 

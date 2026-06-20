@@ -1277,7 +1277,78 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                        []( const PersistentContactCacheEntry& lhs, const PersistentContactCacheEntry& rhs )
                        {
                            return lhs.key < rhs.key;
-                       } );
+            } );
+        }
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
+        auto releaseFixedContactBody = [&]( int fixedIndex, int otherIndex, const PersistentContact& c, bool fixedIsBodyA )
+        {
+            if ( fixedIndex < 0 ||
+                 fixedIndex >= modelCount ||
+                 otherIndex < 0 ||
+                 otherIndex >= modelCount )
+            {
+                return;
+            }
+
+            GameModel& fixedModel = m_gameModels[fixedIndex];
+            GameModel& otherModel = m_gameModels[otherIndex];
+            if ( !fixedModel.IsFixed() ||
+                 !fixedModel.ReleasesFromFixedOnContact() ||
+                 otherModel.IsFixed() ||
+                 otherModel.ReleasesFromFixedOnContact() ||
+                 c.accN < fixedModel.GetContactReleaseImpulseThreshold() )
+            {
+                return;
+            }
+
+            Vector3 releaseDir = fixedIsBodyA ? -c.normal : c.normal;
+            const float dirMag = Vector::VectorMag( releaseDir );
+            if ( dirMag <= TOLERANCE )
+            {
+                return;
+            }
+            releaseDir /= dirMag;
+
+            const float mass = (std::max)( 0.001f, fixedModel.GetMass() );
+            const float impulseSpeed = c.accN / mass;
+            const Vector3 otherVelocity = otherModel.GetVelocity();
+            const float carriedSpeed = (std::max)( 0.0f, otherVelocity * releaseDir );
+            const float releaseSpeed = std::clamp( (std::max)( impulseSpeed, carriedSpeed * 0.35f ), 1.5f, 36.0f );
+
+            Vector3 tangentVelocity = otherVelocity - releaseDir * ( otherVelocity * releaseDir );
+            const float tangentSpeed = Vector::VectorMag( tangentVelocity );
+            if ( tangentSpeed > releaseSpeed * 0.55f && tangentSpeed > TOLERANCE )
+            {
+                tangentVelocity *= ( releaseSpeed * 0.55f ) / tangentSpeed;
+            }
+
+            const Vector3 arm = fixedIsBodyA ? c.rA : c.rB;
+            Vector3 spinAxis = Vector::CrossProduct( arm, releaseDir );
+            const float spinAxisMag = Vector::VectorMag( spinAxis );
+            Vector3 angularVelocity = ZERO_VECTOR;
+            if ( spinAxisMag > TOLERANCE )
+            {
+                const float radius = (std::max)( 0.25f, fixedModel.GetBoundingRadius() );
+                angularVelocity = spinAxis * ( std::clamp( releaseSpeed / radius, 0.0f, 8.0f ) / spinAxisMag );
+            }
+
+            fixedModel.SetFixed( false );
+            fixedModel.SetLinearVelocity( releaseDir * releaseSpeed + tangentVelocity );
+            fixedModel.SetAngularVelocity( angularVelocity );
+            world.WakeModel( collection, fixedIndex );
+        };
+
+        for ( const PersistentContact& c : m_persistentContacts )
+        {
+            if ( c.isTerrain || c.accN <= TOLERANCE )
+            {
+                continue;
+            }
+            releaseFixedContactBody( c.bodyA, c.bodyB, c, true );
+            releaseFixedContactBody( c.bodyB, c.bodyA, c, false );
         }
     }
 }

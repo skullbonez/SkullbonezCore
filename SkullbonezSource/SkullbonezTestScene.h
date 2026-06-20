@@ -105,7 +105,10 @@ struct SceneConvexHullState
     float orientX, orientY, orientZ, orientW;
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
+    float contactReleaseImpulseThreshold;
     bool isFixed;
+    bool isSleeping;
+    bool contactReleaseOnImpact;
 };
 
 struct SceneBox
@@ -131,9 +134,11 @@ struct SceneConvexHull
     float restitution;
     float eulerX, eulerY, eulerZ;
     float velX, velY, velZ;
+    float contactReleaseImpulseThreshold;
     bool hasInitOrient;
     bool hasInitVelocity;
     bool isFixed;
+    bool contactReleaseOnImpact;
 };
 
 enum SceneCinematicOverrideBits : uint64_t

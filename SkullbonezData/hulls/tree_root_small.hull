@@ -1,0 +1,30 @@
+hull_version 1
+name tree_root_small
+
+vertex  5.0 -0.55  0.0
+vertex  3.1 -0.55  3.1
+vertex  0.0 -0.55  5.0
+vertex -3.1 -0.55  3.1
+vertex -5.0 -0.55  0.0
+vertex -3.1 -0.55 -3.1
+vertex  0.0 -0.55 -5.0
+vertex  3.1 -0.55 -3.1
+vertex  3.2  0.55  0.0
+vertex  1.984  0.55  1.984
+vertex  0.0  0.55  3.2
+vertex -1.984  0.55  1.984
+vertex -3.2  0.55  0.0
+vertex -1.984  0.55 -1.984
+vertex  0.0  0.55 -3.2
+vertex  1.984  0.55 -1.984
+
+face 0 1 2 3 4 5 6 7
+face 8 9 10 11 12 13 14 15
+face 0 8 9 1
+face 1 9 10 2
+face 2 10 11 3
+face 3 11 12 4
+face 4 12 13 5
+face 5 13 14 6
+face 6 14 15 7
+face 7 15 8 0

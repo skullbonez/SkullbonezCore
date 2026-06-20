@@ -1,0 +1,176 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "simulation": {
+    "seed": 62026,
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": "unlimited"
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "collisionVisualizer": false,
+    "physics": {
+      "contacts": false,
+      "sleep": false,
+      "transparent": false,
+      "alpha": 0.28
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        520.0,
+        140.0,
+        800.0
+      ],
+      "view": [
+        520.0,
+        36.0,
+        550.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "needle_disturber",
+      "position": [
+        392.0,
+        26.0,
+        624.0
+      ],
+      "radius": 5.0,
+      "mass": 12.0,
+      "moment": 120.0,
+      "restitution": 0.28,
+      "fixed": false,
+      "force": [
+        7800.0,
+        0.0,
+        0.0
+      ],
+      "forcePosition": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "tree.root_small",
+      "name": "prefab_root_small",
+      "position": [
+        430.0,
+        0.55,
+        492.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.root_large",
+      "name": "prefab_root_large",
+      "position": [
+        470.0,
+        0.75,
+        492.0
+      ],
+      "fixed": true
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "prefab_tree_small_dynamic",
+      "position": [
+        430.0,
+        0.0,
+        548.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        9.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "prefab_tree_pine_dynamic",
+      "position": [
+        525.0,
+        0.0,
+        548.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        -13.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "prefab_tree_cedar_dynamic",
+      "position": [
+        635.0,
+        0.0,
+        548.0
+      ],
+      "fixed": false,
+      "euler": [
+        0.0,
+        17.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "prefab_tree_pine_shedding",
+      "position": [
+        455.0,
+        0.0,
+        624.0
+      ],
+      "euler": [
+        0.0,
+        -18.0,
+        0.0
+      ]
+    }
+  ]
+}

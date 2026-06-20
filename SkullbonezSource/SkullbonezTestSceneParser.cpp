@@ -609,6 +609,14 @@ class TestSceneParser
             float x = 0.0f, y = 0.0f, z = 0.0f;
             ReadVec3( *velocity, path, "asset.velocity", x, y, z );
         }
+        if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
+        {
+            ReadBool( *release, path, "asset.contactReleaseOnImpact" );
+        }
+        if ( const Json* threshold = FindMember( asset, "contactReleaseImpulseThreshold" ) )
+        {
+            (void)(std::max)( 0.0f, ReadFloat( *threshold, path, "asset.contactReleaseImpulseThreshold" ) );
+        }
     }
 
     void LoadAssetLibrary( const std::string& assetPath )
@@ -782,6 +790,14 @@ class TestSceneParser
         object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
         object["restitution"] = ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
         object["fixed"] = fixed;
+        if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
+        {
+            object["contactReleaseOnImpact"] = ReadBool( *release, path, "asset.contactReleaseOnImpact" );
+        }
+        if ( const Json* threshold = FindMember( asset, "contactReleaseImpulseThreshold" ) )
+        {
+            object["contactReleaseImpulseThreshold"] = (std::max)( 0.0f, ReadFloat( *threshold, path, "asset.contactReleaseImpulseThreshold" ) );
+        }
         if ( hasEuler )
         {
             object["euler"] = Json::array( { eulerX, eulerY, eulerZ } );
@@ -1658,9 +1674,18 @@ class TestSceneParser
         hull.mass = ReadFloat( RequireMember( object, path, "convexHull", "mass" ), path, "convexHull.mass" );
         hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
         hull.isFixed = isFixed;
+        hull.contactReleaseImpulseThreshold = 1.0f;
         if ( const Json* fixed = FindMember( object, "fixed" ) )
         {
             hull.isFixed = ReadBool( *fixed, path, "convexHull.fixed" );
+        }
+        if ( const Json* release = FindMember( object, "contactReleaseOnImpact" ) )
+        {
+            hull.contactReleaseOnImpact = ReadBool( *release, path, "convexHull.contactReleaseOnImpact" );
+        }
+        if ( const Json* threshold = FindMember( object, "contactReleaseImpulseThreshold" ) )
+        {
+            hull.contactReleaseImpulseThreshold = (std::max)( 0.0f, ReadFloat( *threshold, path, "convexHull.contactReleaseImpulseThreshold" ) );
         }
         if ( const Json* euler = FindMember( object, "euler" ) )
         {
@@ -1723,6 +1748,19 @@ class TestSceneParser
         state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ), path, "convexHullState.restitution" );
         ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ), path, "convexHullState.inertia", state.inertiaX, state.inertiaY, state.inertiaZ );
         state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
+        state.contactReleaseImpulseThreshold = 1.0f;
+        if ( const Json* sleeping = FindMember( object, "sleeping" ) )
+        {
+            state.isSleeping = ReadBool( *sleeping, path, "convexHullState.sleeping" );
+        }
+        if ( const Json* release = FindMember( object, "contactReleaseOnImpact" ) )
+        {
+            state.contactReleaseOnImpact = ReadBool( *release, path, "convexHullState.contactReleaseOnImpact" );
+        }
+        if ( const Json* threshold = FindMember( object, "contactReleaseImpulseThreshold" ) )
+        {
+            state.contactReleaseImpulseThreshold = (std::max)( 0.0f, ReadFloat( *threshold, path, "convexHullState.contactReleaseImpulseThreshold" ) );
+        }
         m_scene.m_convexHullStates.push_back( state );
     }
 
