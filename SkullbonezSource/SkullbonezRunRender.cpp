@@ -334,6 +334,72 @@ bool SkullbonezRun::IsCinematicRenderingEnabled() const
 }
 
 
+bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample )
+{
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    m_replayPoseBackups.clear();
+    m_replayPoseBackups.reserve( (std::min)( sample.bodies.size(), models.size() ) );
+
+    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    if ( !m_replayPoseBackups.empty() )
+    {
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+    }
+    return !m_replayPoseBackups.empty();
+}
+
+
+void SkullbonezRun::RestoreReplayPresentationRenderPose()
+{
+    if ( m_replayPoseBackups.empty() )
+    {
+        return;
+    }
+
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    for ( const RunReplayPoseBackup& backup : m_replayPoseBackups )
+    {
+        if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
+        model.SetPosition( backup.position );
+        model.SetOrientation( backup.orientation );
+    }
+    m_replayPoseBackups.clear();
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
 SkullbonezRun::RenderFrameContext SkullbonezRun::BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig )
 {
     RenderFrameContext frame;
@@ -387,9 +453,19 @@ void SkullbonezRun::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
+    const ReplayPresentationSample* replaySample = CurrentReplayScrubSample();
+    if ( replaySample )
+    {
+        m_systems.cameras->OverrideRenderCameraForFrame( replaySample->camera.eye,
+                                                         replaySample->camera.view,
+                                                         replaySample->camera.up );
+        ApplyReplayPresentationSampleForRender( *replaySample );
+    }
+
     // DrawPrimitives is now the frame story: it chooses the optional cinematic
     // target, then runs named passes in the same order the image is produced.
     DrawPrimitives();
+    RestoreReplayPresentationRenderPose();
 }
 
 

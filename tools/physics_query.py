@@ -41,7 +41,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -332,6 +332,36 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table replay_scrubs(
+            run_id text not null,
+            frame integer not null,
+            normalized real,
+            selected_replay_frame integer,
+            live_replay_frame integer,
+            selected_scene_frame integer,
+            live_scene_frame integer,
+            selected_state_hash text,
+            live_state_hash text,
+            replay_body_id integer,
+            model_index integer,
+            name text,
+            selected_x real,
+            selected_y real,
+            selected_z real,
+            live_x real,
+            live_y real,
+            live_z real,
+            distance_sq real,
+            selected_body_count integer,
+            live_body_count integer,
+            applied integer,
+            restored integer,
+            pre_live_delta_sq real,
+            applied_delta_sq real,
+            restored_delta_sq real,
+            primary key(run_id, frame)
+        );
+
         create table events(
             run_id text not null,
             event_id text not null,
@@ -367,6 +397,7 @@ def create_indexes(conn):
         create index idx_support_edges_frame on support_edges(run_id, frame);
         create index idx_solver_stats_frame on solver_stats(run_id, frame);
         create index idx_pipeline_stages_frame on pipeline_stages(run_id, frame);
+        create index idx_replay_scrubs_frame on replay_scrubs(run_id, selected_replay_frame, live_replay_frame);
         """
     )
 
@@ -483,6 +514,7 @@ def import_trace(conn, trace_path):
         "broadphase": 0,
         "solver_stats": 0,
         "pipeline_stages": 0,
+        "replay_scrub": 0,
         "event": 0,
         "end": 0,
         "unknown": 0,
@@ -520,6 +552,8 @@ def import_trace(conn, trace_path):
                 insert_solver_stats(conn, item)
             elif kind == "pipeline_stages":
                 insert_pipeline_stages(conn, item)
+            elif kind == "replay_scrub":
+                insert_replay_scrub(conn, item)
             elif kind == "event":
                 insert_event(conn, item)
             elif kind == "end":
@@ -812,6 +846,51 @@ def insert_pipeline_stages(conn, item):
             as_int(item.get("frame")),
             as_int(item.get("record_count")),
             as_json(stage_counts),
+        ),
+    )
+
+
+def insert_replay_scrub(conn, item):
+    selected_pos = vector3(item.get("selected_pos"))
+    live_pos = vector3(item.get("live_pos"))
+    conn.execute(
+        """
+        insert or replace into replay_scrubs(
+            run_id, frame, normalized, selected_replay_frame, live_replay_frame,
+            selected_scene_frame, live_scene_frame, selected_state_hash, live_state_hash,
+            replay_body_id, model_index, name, selected_x, selected_y, selected_z,
+            live_x, live_y, live_z, distance_sq, selected_body_count, live_body_count,
+            applied, restored, pre_live_delta_sq, applied_delta_sq, restored_delta_sq
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_float(item.get("normalized")),
+            as_int(item.get("selected_replay_frame")),
+            as_int(item.get("live_replay_frame")),
+            as_int(item.get("selected_scene_frame")),
+            as_int(item.get("live_scene_frame")),
+            str(item.get("selected_state_hash")) if item.get("selected_state_hash") is not None else None,
+            str(item.get("live_state_hash")) if item.get("live_state_hash") is not None else None,
+            as_int(item.get("body_id")),
+            as_int(item.get("model_index")),
+            item.get("name"),
+            selected_pos[0],
+            selected_pos[1],
+            selected_pos[2],
+            live_pos[0],
+            live_pos[1],
+            live_pos[2],
+            as_float(item.get("distance_sq")),
+            as_int(item.get("selected_body_count")),
+            as_int(item.get("live_body_count")),
+            as_int(item.get("applied")),
+            as_int(item.get("restored")),
+            as_float(item.get("pre_live_delta_sq")),
+            as_float(item.get("applied_delta_sq")),
+            as_float(item.get("restored_delta_sq")),
         ),
     )
 
@@ -1626,6 +1705,102 @@ def query_water(conn, cache, args):
     }
 
 
+def vector_distance_sq(a, b):
+    if a is None or b is None:
+        return None
+    components = []
+    for key in ("x", "y", "z"):
+        av = a.get(key)
+        bv = b.get(key)
+        if av is None or bv is None:
+            return None
+        components.append(av - bv)
+    return sum(value * value for value in components)
+
+
+def trace_body_at(conn, run_id, frame, model_index):
+    if frame is None or model_index is None:
+        return None
+    row = conn.execute(
+        """
+        select body_id, name, pos_x, pos_y, pos_z, speed, sleeping
+        from bodies
+        where run_id=? and frame=? and body_id=?
+        """,
+        (run_id, frame, model_index),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "body_id": row["body_id"],
+        "name": row["name"],
+        "pos": {"x": row["pos_x"], "y": row["pos_y"], "z": row["pos_z"]},
+        "speed": row["speed"],
+        "sleeping": row["sleeping"],
+    }
+
+
+def query_replay(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    rows = conn.execute(
+        """
+        select * from replay_scrubs
+        where run_id=?
+        order by frame
+        limit ?
+        """,
+        (run_id, args.limit or DEFAULT_LIMIT),
+    ).fetchall()
+    scrubs = []
+    for row in rows:
+        selected_trace = trace_body_at(conn, run_id, row["selected_scene_frame"], row["model_index"])
+        live_trace = trace_body_at(conn, run_id, row["live_scene_frame"], row["model_index"])
+        selected_pos = {"x": row["selected_x"], "y": row["selected_y"], "z": row["selected_z"]}
+        live_pos = {"x": row["live_x"], "y": row["live_y"], "z": row["live_z"]}
+        selected_trace_delta_sq = vector_distance_sq(selected_pos, selected_trace["pos"]) if selected_trace else None
+        live_trace_delta_sq = vector_distance_sq(live_pos, live_trace["pos"]) if live_trace else None
+
+        checks = {
+            "olderSample": row["selected_replay_frame"] is not None
+            and row["live_replay_frame"] is not None
+            and row["selected_replay_frame"] < row["live_replay_frame"],
+            "hashChanged": row["selected_state_hash"] is not None
+            and row["live_state_hash"] is not None
+            and row["selected_state_hash"] != row["live_state_hash"],
+            "movedBody": row["distance_sq"] is not None and row["distance_sq"] >= (args.min_distance_sq or 0.0001),
+            "appliedAndRestored": row["applied"] == 1
+            and row["restored"] == 1
+            and row["applied_delta_sq"] is not None
+            and row["applied_delta_sq"] <= args.trace_tolerance_sq
+            and row["restored_delta_sq"] is not None
+            and row["restored_delta_sq"] <= args.trace_tolerance_sq
+            and row["pre_live_delta_sq"] is not None
+            and row["pre_live_delta_sq"] <= args.trace_tolerance_sq,
+            "selectedTraceMatches": selected_trace_delta_sq is not None and selected_trace_delta_sq <= args.trace_tolerance_sq,
+            "liveTraceMatches": live_trace_delta_sq is not None and live_trace_delta_sq <= args.trace_tolerance_sq,
+        }
+
+        scrub = row_to_dict(row)
+        scrub["selectedPos"] = selected_pos
+        scrub["livePos"] = live_pos
+        scrub["selectedTraceBody"] = selected_trace
+        scrub["liveTraceBody"] = live_trace
+        scrub["selectedTraceDeltaSq"] = selected_trace_delta_sq
+        scrub["liveTraceDeltaSq"] = live_trace_delta_sq
+        scrub["checks"] = checks
+        scrub["passed"] = all(checks.values())
+        scrubs.append(scrub)
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "scrubs": scrubs,
+        "passed": bool(scrubs) and all(item["passed"] for item in scrubs),
+        "note": None if rows else "No replay scrub probe rows are present for this trace.",
+        "relatedQueries": ["body <model_index> --frames <selected>:<live>", "frame <selected_replay_frame>", "frame <live_replay_frame>"],
+    }
+
+
 def load_questions():
     if not QUESTIONS_PATH.exists():
         return {}
@@ -1867,6 +2042,12 @@ def build_parser():
     add_common(water)
     water.add_argument("--frames", default=None)
     water.set_defaults(func=query_water)
+
+    replay = sub.add_parser("replay", help="Replay scrub probe diagnostics.")
+    add_common(replay)
+    replay.add_argument("--min-distance-sq", type=float, default=0.0001)
+    replay.add_argument("--trace-tolerance-sq", type=float, default=0.000001)
+    replay.set_defaults(func=query_replay)
 
     questions = sub.add_parser("questions", help="List or expand pre-baked question query packs.")
     add_common(questions)

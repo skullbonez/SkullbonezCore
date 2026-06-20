@@ -23,6 +23,7 @@ Related:
 #include "SkullbonezInputController.h"
 #include "SkullbonezPhysicsMass.h"
 #include "SkullbonezWorkerPool.h"
+#include "UI/UIInput.h"
 #include "UI/UILayout.h"
 
 #include <cfloat>
@@ -1995,11 +1996,101 @@ void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 }
 
 
+bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
+{
+    const bool leftDown = Input::IsLeftMouseDown();
+    const bool leftPressed = leftDown && !m_replayScrubber.leftWasDown;
+    const bool leftReleased = !leftDown && m_replayScrubber.leftWasDown;
+    m_replayScrubber.leftWasDown = leftDown;
+
+    const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
+    const ReplayRecorderStats replayStats = m_replay.GetStats();
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    if ( !scrubberAllowed || !replayStats.enabled || replayStats.sampleCount < 2 || screenW <= 0 || screenH <= 0 )
+    {
+        if ( m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+        }
+        ResetReplayScrubber();
+        m_replayScrubber.leftWasDown = leftDown;
+        return false;
+    }
+
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    m_replayScrubber.mouseX = mouse.x;
+    m_replayScrubber.mouseY = mouse.y;
+
+    const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
+    const bool overPanel = panel.Contains( mouse.x, mouse.y );
+    const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
+    const double now = m_timers.simulationTimer.GetTotalTime();
+
+    if ( inHotZone || overPanel || m_replayScrubber.dragging || m_replayScrubber.paused )
+    {
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    }
+
+    if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    {
+        EnterInteractiveSceneRun();
+        m_replayScrubber.dragging = true;
+        if ( !m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::BeginMouseCapture( hwnd );
+            m_replayScrubber.mouseCaptured = true;
+        }
+    }
+
+    bool consumesMouse = canTakeMouse && ( m_replayScrubber.dragging || ( m_replayScrubber.visibleUntil >= now && inHotZone ) );
+    if ( m_replayScrubber.dragging )
+    {
+        m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH );
+        if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+        {
+            m_replayScrubber.position = 1.0f;
+            m_replayScrubber.paused = false;
+        }
+        else
+        {
+            m_replayScrubber.paused = true;
+        }
+
+        if ( leftReleased )
+        {
+            m_replayScrubber.dragging = false;
+            if ( m_replayScrubber.mouseCaptured )
+            {
+                UI::InputControl::EndMouseCapture();
+                m_replayScrubber.mouseCaptured = false;
+            }
+        }
+    }
+    else if ( !m_replayScrubber.paused )
+    {
+        m_replayScrubber.position = 1.0f;
+    }
+
+    m_replayScrubber.visible = m_replayScrubber.dragging ||
+                               m_replayScrubber.paused ||
+                               m_replayScrubber.visibleUntil >= now;
+    return consumesMouse;
+}
+
+
 void SkullbonezRun::TakeInput()
 {
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
+        if ( m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+        }
+        ResetReplayScrubber();
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
@@ -2443,7 +2534,9 @@ void SkullbonezRun::TakeInput()
             EnterInteractiveSceneRun();
         }
         suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
-        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() );
+        const bool replayScrubberOwnsMouse = TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse;
+        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.

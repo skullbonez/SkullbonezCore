@@ -86,10 +86,50 @@ inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
+inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 88.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 48.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 760.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
+inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
+inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
+inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 #ifdef _DEBUG
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
+
+inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
+{
+    const float width = (std::min)( REPLAY_SCRUBBER_PANEL_MAX_WIDTH,
+                                    (std::max)( 260.0f, static_cast<float>( screenW ) - REPLAY_SCRUBBER_PANEL_MARGIN * 2.0f ) );
+    const float x = ( static_cast<float>( screenW ) - width ) * 0.5f;
+    const float y = (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_PANEL_HEIGHT - REPLAY_SCRUBBER_PANEL_MARGIN );
+    return { x, y, width, REPLAY_SCRUBBER_PANEL_HEIGHT };
+}
+
+inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH )
+{
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    constexpr float trackInset = 70.0f;
+    return { panel.x + trackInset,
+             panel.y + 25.0f,
+             (std::max)( 80.0f, panel.w - trackInset * 2.0f ),
+             REPLAY_SCRUBBER_TRACK_HEIGHT };
+}
+
+inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
+{
+    return { 0.0f,
+             (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_HOT_ZONE_HEIGHT ),
+             static_cast<float>( screenW ),
+             REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
+}
+
+inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH )
+{
+    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
+}
 
 inline void DrawUITestPattern( int screenW, int screenH )
 {

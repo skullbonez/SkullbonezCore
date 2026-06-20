@@ -1,14 +1,22 @@
 # Replay System Plan
 
 Date: 2026-06-11
-Status: Done for Phase 1 replay foundation; later replay phases remain future work
+Status: Done for Phase 1 replay foundation plus first visual scrubber slice; later authoritative replay phases remain future work
 Source: Extracted from `Agentic/Plans/architecture_pass_2026-06-02.md`
 Impact area: scene system, runtime, physics diagnostics, tests, UI, render capture
 Validation note: plan-only edits require no validation. Replay runtime
 implementation changes require the phase-specific gate below.
-Completion note, 2026-06-21: archived after landing the capture-only replay
-foundation. Saved playback, UI scrubbing, branching, authoritative restore, and
-export remain future replay phases rather than part of this completed slice.
+Completion note, 2026-06-21: archived after landing the replay foundation, then
+updated with a first visual scrubber slice. Generated/interactive runs keep a
+default 30-second presentation buffer; scene/suite automation opts in with
+`--replay on`, `--replay-seconds`, or `--replay-hashes`. The runtime reveals a
+bottom hot-zone scrubber only when the in-game UI is minimized and editor mode
+is off, pauses while showing selected historical presentation samples, and
+resumes when the thumb returns to the live end. Debug builds also include
+`tools\validate_replay_scrub.bat`, a focused SkullScope probe that proves an
+older selected replay sample maps back to queried body state. Saved playback,
+branching, authoritative restore, and export remain future replay phases rather
+than part of this completed slice.
 Validated with `tools\validate_fast.bat`, `tools\validate_full.bat`, and
 `tools\validate_perf.bat`.
 
@@ -423,12 +431,15 @@ Validation: none for documentation-only changes.
 
 Goal: define the minimal state needed to sample and restore a frame.
 
-Status, 2026-06-21: capture-only foundation implemented. The runtime now has a
-`ReplayRecorder` adapter that records bounded in-memory presentation samples
-after committed physics ticks, scene-local stable body ids, checkpoint summary
-markers, and optional CSV frame hash logging through `--replay`,
-`--replay-seconds`, and `--replay-hashes`. This is intentionally not saved
-playback, UI scrubbing, branching, or authoritative restore yet.
+Status, 2026-06-21: replay foundation plus a visual scrubber implemented. The
+runtime now has a `ReplayRecorder` adapter that records bounded in-memory
+presentation samples after committed physics ticks, scene-local stable body ids,
+checkpoint summary markers, and optional CSV frame hash logging through
+`--replay`, `--replay-seconds`, and `--replay-hashes`. Debug builds add
+`--replay-scrub-test` plus `tools\validate_replay_scrub.bat` for a SkullScope
+query that verifies selected replay state moves back from the live edge. The
+first scrubber draws from retained presentation samples only; saved playback,
+branching, export, and authoritative restore remain future work.
 
 Tasks:
 
@@ -440,8 +451,9 @@ Tasks:
    velocities, mass/fixed state, sleep/support/contact summaries, world flags,
    contact count, and pipeline trace count. It is not yet a full authoritative
    solver hash.
-4. Done as an opt-in capture path; disabled replay should preserve runtime
-   behavior.
+4. Done as a bounded default-on presentation capture path for generated and
+   interactive runs. Scene/suite automation stays replay-free unless explicitly
+   opted in so validation and perf runs keep their existing cost profile.
 5. Partially done through optional `--replay-hashes <path>` CSV output. A
    dedicated automated fixed-step replay hash harness remains future work.
 
@@ -452,6 +464,7 @@ Acceptance:
 | Fixed-step scene run twice | Frame hashes match byte-for-byte. |
 | Capture disabled | No measurable behavior change. |
 | Capture enabled | No gameplay behavior change except bounded memory use. |
+| Scrub retained window | Runtime pauses physics, renders selected presentation sample, and resumes at the live end. |
 
 Validation:
 
@@ -682,10 +695,10 @@ This gives immediate value and teaches the engine what state is missing before
 the harder exact-branch work.
 
 Current slice status, 2026-06-21: the engine now has the recording foundation
-for items 1 and 2, plus opt-in hash CSV output for fixed-step determinism
-experiments. Items 3 through 5 are not complete: there is no pause/scrub UI, no
-historical rendering path, and no selected-sample export. The slice is therefore
-a Phase 1 replay foundation rather than the full visual scrubber.
+for items 1 and 2, opt-in hash CSV output for fixed-step determinism
+experiments, and a first visual scrubber for items 3 and 4. Selected-sample
+export and authoritative solver restore are not complete. The slice is still a
+presentation replay foundation rather than full deterministic replay.
 
 ## Risks And Mitigations
 
@@ -704,7 +717,7 @@ a Phase 1 replay foundation rather than the full visual scrubber.
 
 | Question | Default answer for planning |
 |----------|-----------------------------|
-| Should always-on replay be enabled by default? | Start opt-in through config/CLI; later enable for Debug/Profile with a conservative buffer. |
+| Should always-on replay be enabled by default? | Yes for generated/interactive runs. Scene/suite automation should opt in explicitly so validation and perf runs stay cheap. |
 | What extension should saved replay use? | Use `.skreplay` unless a better project convention appears. |
 | How long should the default ring be? | 30 seconds for large scenes, configurable. |
 | Should every frame be an authoritative checkpoint? | Only for small debug scenes; use periodic checkpoints for broad scenes. |

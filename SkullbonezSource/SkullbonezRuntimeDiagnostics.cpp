@@ -25,6 +25,7 @@ Related:
 #include "SkullbonezConfig.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezReplayRecorder.h"
 #include "SkullbonezSceneRuntime.h"
 
 #include <cstring>
@@ -239,6 +240,57 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   config.physicsSleepLinearSpeed,
                   config.physicsSleepAngularSpeed,
                   config.physicsSleepFrames );
+}
+
+void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                              const RunSceneState& scene,
+                                              const ReplayPresentationSample& selected,
+                                              const ReplayPresentationSample& live,
+                                              const ReplayBodyPresentationSample& selectedBody,
+                                              const ReplayBodyPresentationSample& liveBody,
+                                              float normalized,
+                                              float distanceSquared,
+                                              bool applied,
+                                              bool restored,
+                                              float preLiveDeltaSquared,
+                                              float appliedDeltaSquared,
+                                              float restoredDeltaSquared )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+
+    std::string escapedName = JsonEscape( selectedBody.name );
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"replay_scrub\",\"run\":\"%s\",\"frame\":%d,\"normalized\":%.6f,\"selected_replay_frame\":%llu,\"live_replay_frame\":%llu,\"selected_scene_frame\":%d,\"live_scene_frame\":%d,\"selected_state_hash\":%llu,\"live_state_hash\":%llu,\"body_id\":%u,\"model_index\":%d,\"name\":\"%s\",\"selected_pos\":[%.6f,%.6f,%.6f],\"live_pos\":[%.6f,%.6f,%.6f],\"distance_sq\":%.9f,\"selected_body_count\":%zu,\"live_body_count\":%zu,\"applied\":%d,\"restored\":%d,\"pre_live_delta_sq\":%.9f,\"applied_delta_sq\":%.9f,\"restored_delta_sq\":%.9f}\n",
+                  diagnostics.currentRunId,
+                  scene.currentFrame,
+                  normalized,
+                  static_cast<unsigned long long>( selected.frameIndex ),
+                  static_cast<unsigned long long>( live.frameIndex ),
+                  selected.sceneFrame,
+                  live.sceneFrame,
+                  static_cast<unsigned long long>( selected.stateHash ),
+                  static_cast<unsigned long long>( live.stateHash ),
+                  selectedBody.id.value,
+                  liveBody.modelIndex,
+                  escapedName.c_str(),
+                  selectedBody.position.x,
+                  selectedBody.position.y,
+                  selectedBody.position.z,
+                  liveBody.position.x,
+                  liveBody.position.y,
+                  liveBody.position.z,
+                  distanceSquared,
+                  selected.bodies.size(),
+                  live.bodies.size(),
+                  applied ? 1 : 0,
+                  restored ? 1 : 0,
+                  preLiveDeltaSquared,
+                  appliedDeltaSquared,
+                  restoredDeltaSquared );
+    Log().FlushAll();
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,

@@ -393,6 +393,22 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
     return &m_samples[index];
 }
 
+
+const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normalized ) const
+{
+    if ( m_sampleCount == 0 || m_samples.empty() )
+    {
+        return nullptr;
+    }
+
+    const float t = std::clamp( normalized, 0.0f, 1.0f );
+    const std::size_t maxOffset = m_sampleCount - 1;
+    const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
+    const std::size_t index = ( m_sampleHead + (std::min)( offset, maxOffset ) ) % m_samples.size();
+    return &m_samples[index];
+}
+
+
 ReplayPresentationSample& ReplayRecorder::AcquireSampleSlot()
 {
     if ( m_sampleCount < m_samples.size() )

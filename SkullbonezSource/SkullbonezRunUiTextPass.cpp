@@ -38,13 +38,68 @@ void SkullbonezRun::UiTextPass::ReleaseGpuResources()
 }
 
 
+void SkullbonezRun::RenderReplayScrubberOverlay()
+{
+    if ( !ShouldRenderReplayScrubber() )
+    {
+        return;
+    }
+
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    const ReplayRecorderStats replayStats = m_replay.GetStats();
+    if ( screenW <= 0 || screenH <= 0 || replayStats.sampleCount < 2 )
+    {
+        return;
+    }
+
+    const float t = std::clamp( m_replayScrubber.position, 0.0f, 1.0f );
+    const ReplayPresentationSample* selected = m_replay.SampleAtNormalized( t );
+    const ReplayPresentationSample* latest = m_replay.LatestSample();
+    double secondsBack = 0.0;
+    if ( selected && latest && latest->simulationSeconds >= selected->simulationSeconds )
+    {
+        secondsBack = latest->simulationSeconds - selected->simulationSeconds;
+    }
+
+    char timeLabel[48] = {};
+    if ( t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused )
+    {
+        sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
+    }
+    else
+    {
+        sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
+    }
+
+    const UI::UIDrawContext draw( screenW, screenH );
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * t );
+    const float knobX = track.x + track.w * t;
+    const bool live = t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused;
+
+    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
+    draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, 0.16f, 0.18f, 0.22f, 0.92f );
+    draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, 0.20f, 0.70f, 0.96f, live ? 0.64f : 0.94f );
+    draw.RoundedRect( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, 5.0f, 0.92f, 0.96f, 1.0f, 0.98f );
+    draw.Text( panel.x + 16.0f, panel.y + 15.0f, 11.0f, 0.72f, 0.88f, 1.0f, "REPLAY" );
+    const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
+    draw.Text( panel.x + panel.w - labelW - 16.0f, panel.y + 15.0f, 11.0f, live ? 0.58f : 1.0f, live ? 0.96f : 0.86f, live ? 0.70f : 0.36f, timeLabel );
+
+    Text2d::FlushQuads();
+    Text2d::FlushText();
+}
+
+
 bool SkullbonezRun::UiTextPass::ShouldRender() const
 {
     return m_run.m_debug.isTextOnly ||
            !m_run.SceneState().isSceneMode ||
            m_run.SceneState().isSceneText ||
            m_run.m_debug.overlayMode != OverlayMode::None ||
-           m_run.m_UI.IsVisible();
+           m_run.m_UI.IsVisible() ||
+           m_run.ShouldRenderReplayScrubber();
 }
 
 
@@ -327,12 +382,14 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
+        m_run.RenderReplayScrubberOverlay();
         return;
     }
 
     // --- Overlay: None ---
     if ( m_run.m_debug.overlayMode == OverlayMode::None )
     {
+        m_run.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText();
@@ -365,6 +422,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
+        m_run.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText();
@@ -384,6 +442,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_run.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        m_run.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText();
@@ -471,6 +530,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
+        m_run.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText();
@@ -491,6 +551,7 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     }
 #endif
 
+    m_run.RenderReplayScrubberOverlay();
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText();

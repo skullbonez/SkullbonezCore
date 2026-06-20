@@ -435,6 +435,7 @@ void SkullbonezRun::SetReplayRecording( bool enabled, int retentionSeconds, cons
     }
 
     m_replay.Configure( replayConfig );
+    ResetReplayScrubber();
     if ( m_replay.IsEnabled() )
     {
         const ReplayRecorderStats replayStats = m_replay.GetStats();
@@ -448,8 +449,20 @@ void SkullbonezRun::SetReplayRecording( bool enabled, int retentionSeconds, cons
 }
 
 
+#ifdef _DEBUG
+void SkullbonezRun::SetReplayScrubProbe( float normalized )
+{
+    m_replayScrubProbe.enabled = true;
+    m_replayScrubProbe.completed = false;
+    m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
+}
+#endif
+
+
 void SkullbonezRun::ResetReplayTimelineForActiveScene()
 {
+    ResetReplayScrubber();
     if ( !m_replay.IsEnabled() )
     {
         return;
@@ -457,6 +470,50 @@ void SkullbonezRun::ResetReplayTimelineForActiveScene()
 
     const std::string* scenePath = CurrentSceneQueuePath();
     m_replay.ResetTimeline( scenePath && !scenePath->empty() ? scenePath->c_str() : "generated" );
+}
+
+
+void SkullbonezRun::ResetReplayScrubber()
+{
+    const bool leftWasDown = m_replayScrubber.leftWasDown;
+    m_replayScrubber = RunReplayScrubberState{};
+    m_replayScrubber.leftWasDown = leftWasDown;
+}
+
+
+bool SkullbonezRun::ShouldRenderReplayScrubber() const
+{
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_replay.IsEnabled() )
+    {
+        return false;
+    }
+
+    const ReplayRecorderStats replayStats = m_replay.GetStats();
+    return replayStats.sampleCount >= 2 &&
+           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused );
+}
+
+
+bool SkullbonezRun::IsReplayScrubPaused() const
+{
+    if ( !m_replay.IsEnabled() || !m_replayScrubber.paused )
+    {
+        return false;
+    }
+
+    return m_replayScrubber.position < REPLAY_SCRUBBER_LIVE_THRESHOLD &&
+           m_replay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
+}
+
+
+const ReplayPresentationSample* SkullbonezRun::CurrentReplayScrubSample() const
+{
+    if ( !IsReplayScrubPaused() )
+    {
+        return nullptr;
+    }
+
+    return m_replay.SampleAtNormalized( m_replayScrubber.position );
 }
 
 

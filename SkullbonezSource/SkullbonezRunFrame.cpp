@@ -20,6 +20,8 @@ Related:
 
 #include "SkullbonezCaptureSystem.h"
 
+#include <stdexcept>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -190,6 +192,11 @@ void SkullbonezRun::Run()
 
 void SkullbonezRun::TickPhysics( double secondsPerFrame )
 {
+    if ( IsReplayScrubPaused() )
+    {
+        return;
+    }
+
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         SceneState().timeScale,
@@ -236,7 +243,131 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
     input.world = &m_cWorldEnvironment;
     input.models = &m_cGameModelCollection;
     m_replay.CaptureFrame( input );
+#ifdef _DEBUG
+    TickReplayScrubProbe();
+#endif
 }
+
+
+#ifdef _DEBUG
+void SkullbonezRun::TickReplayScrubProbe()
+{
+    auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
+    {
+        const Math::Vector::Vector3 delta = a - b;
+        return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+    };
+
+    if ( !m_replayScrubProbe.enabled || m_replayScrubProbe.completed )
+    {
+        return;
+    }
+
+    const ReplayRecorderStats stats = m_replay.GetStats();
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replayScrubProbe.minSampleCount ) )
+    {
+        return;
+    }
+
+    const ReplayPresentationSample* selected = m_replay.SampleAtNormalized( m_replayScrubProbe.normalized );
+    const ReplayPresentationSample* live = m_replay.LatestSample();
+    if ( !selected || !live || selected->frameIndex >= live->frameIndex )
+    {
+        throw std::runtime_error( "replay scrub probe could not select an older replay sample" );
+    }
+
+    const ReplayBodyPresentationSample* selectedBody = nullptr;
+    const ReplayBodyPresentationSample* liveBody = nullptr;
+    float bestDistanceSquared = 0.0f;
+    for ( const ReplayBodyPresentationSample& candidate : selected->bodies )
+    {
+        if ( candidate.fixed )
+        {
+            continue;
+        }
+
+        for ( const ReplayBodyPresentationSample& liveCandidate : live->bodies )
+        {
+            if ( liveCandidate.id.value != candidate.id.value )
+            {
+                continue;
+            }
+
+            const float candidateDistanceSquared = distanceSquared( liveCandidate.position, candidate.position );
+            if ( candidateDistanceSquared > bestDistanceSquared )
+            {
+                bestDistanceSquared = candidateDistanceSquared;
+                selectedBody = &candidate;
+                liveBody = &liveCandidate;
+            }
+            break;
+        }
+    }
+
+    if ( !selectedBody || !liveBody || bestDistanceSquared < m_replayScrubProbe.minDistanceSquared )
+    {
+        throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
+    }
+
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    {
+        throw std::runtime_error( "replay scrub probe selected an invalid live model index" );
+    }
+
+    SkullbonezCore::GameObjects::GameModel& probedModel = physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
+    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
+    if ( preLiveDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    {
+        throw std::runtime_error( "replay scrub probe live model did not match the current replay sample before applying scrub state" );
+    }
+
+    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    if ( !applied )
+    {
+        throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
+    if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    {
+        RestoreReplayPresentationRenderPose();
+        throw std::runtime_error( "replay scrub probe did not move the live model to the selected replay sample" );
+    }
+
+    RestoreReplayPresentationRenderPose();
+    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
+    const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
+    if ( !restored )
+    {
+        throw std::runtime_error( "replay scrub probe did not restore the live model after applying the selected sample" );
+    }
+
+    RuntimeDiagnostics::LogReplayScrubProbe( m_physicsDiagnostics,
+                                             SceneState(),
+                                             *selected,
+                                             *live,
+                                             *selectedBody,
+                                             *liveBody,
+                                             m_replayScrubProbe.normalized,
+                                             bestDistanceSquared,
+                                             applied,
+                                             restored,
+                                             preLiveDeltaSquared,
+                                             appliedDeltaSquared,
+                                             restoredDeltaSquared );
+
+    m_replayScrubProbe.completed = true;
+    printf( "[replay] Scrub probe passed: selected_replay_frame=%llu live_replay_frame=%llu body_id=%u distance_sq=%.6f\n",
+            static_cast<unsigned long long>( selected->frameIndex ),
+            static_cast<unsigned long long>( live->frameIndex ),
+            selectedBody->id.value,
+            bestDistanceSquared );
+    PostQuitMessage( 0 );
+}
+#endif
 
 
 void SkullbonezRun::EnterInteractiveSceneRun()

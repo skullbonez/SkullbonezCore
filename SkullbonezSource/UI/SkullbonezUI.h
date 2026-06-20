@@ -173,6 +173,7 @@ class InGameUI
 {
   public:
     bool IsVisible() const;
+    bool IsMinimized() const;
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );

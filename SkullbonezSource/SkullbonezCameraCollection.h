@@ -76,6 +76,7 @@ class CameraCollection
     void SetPrimaryPosition( const Math::Vector::Vector3& vPos );  // Tracking cameras can bypass movement-buffer translation.
     void SetTweenSpeed( float fTweenSpeed );
     void SetCamera(); // Call once per frame after camera updates to refresh render pose and view matrix.
+    void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up );
     bool IsPrimaryLocked();
     void SetLockedMode( bool fIsLocked );
     void AmmendPrimaryY( float yCoordinate ); // Pins primary camera height to a world-space Y value.

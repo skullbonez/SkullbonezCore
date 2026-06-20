@@ -166,6 +166,7 @@ class ReplayRecorder
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     const ReplayPresentationSample* LatestSample() const;
+    const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 
   private:
     ReplayPresentationSample& AcquireSampleSlot();

@@ -584,8 +584,11 @@ struct ParsedArgs
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
-    bool replayRecording = false;
+    bool replayRecording = true;
+    bool replayExplicit = false;
     int replaySeconds = 30;
+    bool replayScrubProbe = false;
+    float replayScrubProbeNormalized = 0.25f;
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
@@ -737,6 +740,17 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--dump-assets", nullptr, []( ParsedArgs& args )
           { args.dumpAssets = true; },
           nullptr },
+        { "--replay-scrub-test", "--replay_scrub_test", []( ParsedArgs& args )
+          {
+              args.replayScrubProbe = true;
+              args.replayScrubProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Scrub SkullScope probe enabled." },
         { "--worker-self-test", "--workers-self-test", []( ParsedArgs& args )
           {
               args.workerSelfTest = true;
@@ -1424,6 +1438,7 @@ bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 
     strcpy_s( args.replayHashLogPath, sizeof( args.replayHashLogPath ), value );
     args.replayRecording = true;
+    args.replayExplicit = true;
     fprintf( stdout, "[replay] Hash log: %s\n", args.replayHashLogPath );
     return true;
 }
@@ -1466,6 +1481,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
                   return FailCommandLineParse( "--replay expects optional on|off." );
               }
               args.replayRecording = enabled;
+              args.replayExplicit = true;
               fprintf( stdout, "[replay] Capture %s via command line.\n", enabled ? "enabled" : "disabled" );
               return true;
           } },
@@ -1477,7 +1493,25 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
                   return FailCommandLineParse( "--replay-seconds expects 1..600." );
               }
               args.replaySeconds = seconds;
+              args.replayExplicit = true;
               fprintf( stdout, "[replay] Retention window: %d seconds.\n", args.replaySeconds );
+              return true;
+          } },
+        { "--replay-scrub-probe", "--replay_scrub_probe", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float normalized = 0.0f;
+              if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
+              {
+                  return FailCommandLineParse( "--replay-scrub-probe expects a normalized position in the range 0..0.995." );
+              }
+              args.replayScrubProbe = true;
+              args.replayScrubProbeNormalized = normalized;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[replay] Scrub probe normalized position: %.3f\n", args.replayScrubProbeNormalized );
               return true;
           } },
         { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
@@ -1601,6 +1635,25 @@ bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 #endif
 }
 
+
+// Guards the replay scrub SkullScope probe against use in non-Debug builds.
+bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-scrub-test" ) &&
+         !HasOption( commandLine, "--replay_scrub_test" ) &&
+         !HasOption( commandLine, "--replay-scrub-probe" ) &&
+         !HasOption( commandLine, "--replay_scrub_probe" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-scrub-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
@@ -1689,6 +1742,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     {
         return false;
     }
+    if ( !ValidateReplayScrubProbe( commandLine ) )
+    {
+        return false;
+    }
 
 #ifdef _DEBUG
     if ( !ParsePhysicsRegressionLogOverride( commandLine, out.physicsRegressionLogOverride ) )
@@ -1762,6 +1819,20 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     {
         return false;
     }
+
+#ifdef _DEBUG
+    if ( out.replayScrubProbe )
+    {
+        if ( !out.replayRecording )
+        {
+            return FailCommandLineParse( "--replay-scrub-probe requires replay capture; remove --replay off." );
+        }
+        if ( !out.physicsDiagnosticsRequested )
+        {
+            return FailCommandLineParse( "--replay-scrub-probe requires --physics-diag so SkullScope can query the result." );
+        }
+    }
+#endif
 
     if ( out.uiStress )
     {
@@ -1872,12 +1943,20 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
         {
             cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
         }
-        if ( args.replayRecording || args.replayHashLogPath[0] != '\0' )
+        const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
+        const bool replayEnabled = args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
+        if ( replayEnabled || args.replayHashLogPath[0] != '\0' )
         {
             cRun->SetReplayRecording( true,
                                       args.replaySeconds,
                                       args.replayHashLogPath[0] != '\0' ? args.replayHashLogPath : nullptr );
         }
+#ifdef _DEBUG
+        if ( args.replayScrubProbe )
+        {
+            cRun->SetReplayScrubProbe( args.replayScrubProbeNormalized );
+        }
+#endif
         if ( args.showProfiler )
         {
             cRun->SetInitialOverlayMode( OverlayMode::Timers );

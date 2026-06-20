@@ -324,6 +324,37 @@ struct RunRayCastTestState
     float projectileSpeed = 160.0f;
 };
 
+struct RunReplayScrubberState
+{
+    bool visible = false;
+    bool dragging = false;
+    bool paused = false;
+    bool mouseCaptured = false;
+    bool leftWasDown = false;
+    float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
+    int mouseX = 0;
+    int mouseY = 0;
+    double visibleUntil = 0.0;
+};
+
+struct RunReplayPoseBackup
+{
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+#ifdef _DEBUG
+struct RunReplayScrubProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    float normalized = 0.25f;
+    int minSampleCount = 24;
+    float minDistanceSquared = 0.0001f;
+};
+#endif
+
 struct RunEditorPlacementState
 {
     bool editorModeEnabled = false;
@@ -904,6 +935,7 @@ class SkullbonezRun
     RunPerfLogState m_perfLogState; // Perf/test logging paths, files, and flush policy
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
+    RunReplayScrubProbeState m_replayScrubProbe;     // CLI-only SkullScope replay scrub self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings; // Scene/app runtime swap policy toggles
     RunTimerState m_timers;               // Frame/simulation timers and rolling timing values
@@ -911,7 +943,9 @@ class SkullbonezRun
     RuntimeInputContext m_runtimeInput;   // Semantic input mode/action state owned by input routing.
     RunCameraState m_camera;              // Camera/input state and ball-tracking settings
     SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
-    ReplayRecorder m_replay;              // Opt-in bounded replay presentation recorder.
+    ReplayRecorder m_replay;              // Bounded replay presentation recorder for recent-frame inspection.
+    RunReplayScrubberState m_replayScrubber;
+    std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
@@ -1023,6 +1057,14 @@ class SkullbonezRun
     void ResetReplayTimelineForActiveScene(); // Scene/model rebuilds start a fresh in-memory replay branch.
     void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
+    void ResetReplayScrubber();
+    bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
+    bool ShouldRenderReplayScrubber() const;
+    bool IsReplayScrubPaused() const;
+    const ReplayPresentationSample* CurrentReplayScrubSample() const;
+    void RenderReplayScrubberOverlay();
+    bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
+    void RestoreReplayPresentationRenderPose();
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
@@ -1063,6 +1105,7 @@ class SkullbonezRun
     bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
+    void TickReplayScrubProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -1101,6 +1144,7 @@ class SkullbonezRun
     void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
     void SetPhysicsCollisionTimeLogOverride( const char* path );                           // Override swept collision-time CSV path for all scenes
     void SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics ); // Enable queryable physics diagnostics (CLI --physics-diag)
+    void SetReplayScrubProbe( float normalized );                                          // Enable CLI-only replay scrub SkullScope probe.
 #endif
 };
 } // namespace Basics

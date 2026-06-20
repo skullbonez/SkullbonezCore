@@ -1612,6 +1612,12 @@ bool InGameUI::IsVisible() const
 }
 
 
+bool InGameUI::IsMinimized() const
+{
+    return m_window.isMinimized;
+}
+
+
 void InGameUI::SetVisible( bool visible, double now )
 {
     m_window.isVisible = visible;
