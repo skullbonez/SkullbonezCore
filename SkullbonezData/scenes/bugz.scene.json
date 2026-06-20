@@ -1,0 +1,52 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "name": "bugz",
+  "simulation": {
+    "physics": true,
+    "text": true,
+    "world": {
+      "gravity": -9.8100004196167,
+      "fluidHeight": 0.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 30.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        500.0,
+        120.0,
+        760.0
+      ],
+      "view": [
+        500.0,
+        45.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "objects": []
+}

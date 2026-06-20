@@ -1,22 +1,79 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name hex_prism
-vertex 6 -4 0
+source_hash 0x5b74184907a234f7
+
+# Editable source geometry.
+source_vertex 6 -4 0
+source_vertex 3 -4 5.2
+source_vertex -3 -4 5.2
+source_vertex -6 -4 0
+source_vertex -3 -4 -5.2
+source_vertex 3 -4 -5.2
+source_vertex 6 4 0
+source_vertex 3 4 5.2
+source_vertex -3 4 5.2
+source_vertex -6 4 0
+source_vertex -3 4 -5.2
+source_vertex 3 4 -5.2
+source_face 0 1 2 3 4 5
+source_face 6 7 8 9 10 11
+source_face 0 6 7 1
+source_face 1 7 8 2
+source_face 2 8 9 3
+source_face 3 9 10 4
+source_face 4 10 11 5
+source_face 5 11 6 0
+
+# Baked runtime metadata.
+center_of_mass 0 3.79563427e-17 -8.54017711e-17
+volume 748.8
+bounding_radius 7.21387552
+inertia_half_extents 6 4 5.2
+unit_inertia 14.3466667 21.0133333 17.3333333
+projected_surface_area 101.333333
+
+# Baked centered vertices.
+vertex 6 -4 8.54017711e-17
 vertex 3 -4 5.2
 vertex -3 -4 5.2
-vertex -6 -4 0
+vertex -6 -4 8.54017711e-17
 vertex -3 -4 -5.2
 vertex 3 -4 -5.2
-vertex 6 4 0
+vertex 6 4 8.54017711e-17
 vertex 3 4 5.2
 vertex -3 4 5.2
-vertex -6 4 0
+vertex -6 4 8.54017711e-17
 vertex -3 4 -5.2
 vertex 3 4 -5.2
-face 0 1 2 3 4 5
-face 6 7 8 9 10 11
-face 0 6 7 1
-face 1 7 8 2
-face 2 8 9 3
-face 3 9 10 4
-face 4 10 11 5
-face 5 11 6 0
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 4 0 1 2 3 4 5
+face 0 1 0 4 11 10 9 8 7 6
+face 0.866185586 0 0.499722453 5.19711352 0 6 7 1
+face 0 0 1 5.2 1 7 8 2
+face -0.866185586 0 0.499722453 5.19711352 2 8 9 3
+face -0.866185586 0 -0.499722453 5.19711352 3 9 10 4
+face 0 0 -1 5.2 4 10 11 5
+face 0.866185586 0 -0.499722453 5.19711352 5 11 6 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 3 4 0 5
+edge 4 5 0 6
+edge 0 5 0 7
+edge 10 11 1 6
+edge 9 10 1 5
+edge 8 9 1 4
+edge 7 8 1 3
+edge 6 7 1 2
+edge 6 11 1 7
+edge 0 6 2 7
+edge 1 7 2 3
+edge 2 8 3 4
+edge 3 9 4 5
+edge 4 10 5 6
+edge 5 11 6 7

@@ -1,18 +1,61 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name pine_needle_cluster
+source_hash 0xff3ce785ec6700fd
 
-vertex  0.00 -0.18 -2.80
-vertex -0.55 -0.18  0.00
-vertex  0.00 -0.18  2.80
-vertex  0.55 -0.18  0.00
-vertex  0.00  0.30 -0.25
-vertex  0.00 -0.62 -0.25
+# Editable source geometry.
+source_vertex 0 -0.18 -2.8
+source_vertex -0.55 -0.18 0
+source_vertex 0 -0.18 2.8
+source_vertex 0.55 -0.18 0
+source_vertex 0 0.3 -0.25
+source_vertex 0 -0.62 -0.25
+source_face 0 1 4
+source_face 1 2 4
+source_face 2 3 4
+source_face 3 0 4
+source_face 1 0 5
+source_face 2 1 5
+source_face 3 2 5
+source_face 0 3 5
 
-face 0 1 4
-face 1 2 4
-face 2 3 4
-face 3 0 4
-face 1 0 5
-face 2 1 5
-face 3 2 5
-face 0 3 5
+# Baked runtime metadata.
+center_of_mass 0 -0.17 -0.0625
+volume 0.944533333
+bounding_radius 2.86251747
+inertia_half_extents 0.55 0.46 2.8
+unit_inertia 2.68386667 2.71416667 0.171366667
+projected_surface_area 4.108
+
+# Baked centered vertices.
+vertex 0 -0.01 -2.7375
+vertex -0.55 -0.01 0.0625
+vertex 0 -0.01 2.8625
+vertex 0.55 -0.01 0.0625
+vertex 0 0.47 -0.1875
+vertex 0 -0.45 -0.1875
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face -0.68558596 0.715427313 -0.134668671 0.361501213 0 1 4
+face -0.620599007 0.774594371 0.121903376 0.341202471 1 2 4
+face 0.620599007 0.774594371 0.121903376 0.341202471 2 3 4
+face 0.68558596 0.715427313 -0.134668671 0.361501213 3 0 4
+face -0.654486917 -0.745063232 -0.12855993 0.359383441 1 0 5
+face -0.587975117 -0.800591119 0.115495112 0.33861067 2 1 5
+face 0.587975117 -0.800591119 0.115495112 0.33861067 3 2 5
+face 0.654486917 -0.745063232 -0.12855993 0.359383441 0 3 5
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 4
+edge 1 4 0 1
+edge 0 4 0 3
+edge 1 2 1 5
+edge 2 4 1 2
+edge 2 3 2 6
+edge 3 4 2 3
+edge 0 3 3 7
+edge 0 5 4 7
+edge 1 5 4 5
+edge 2 5 5 6
+edge 3 5 6 7

@@ -36,6 +36,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
+using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 
@@ -204,8 +205,15 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
              specular,
              stylization,
              startsFixed,
-             contactReleaseOnImpact,
+             contactReleaseOnImpact || EditorHullAssetDefaultsToContactRelease( hullAsset ),
              contactReleaseImpulseThreshold };
+}
+
+
+constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition part, float liftY )
+{
+    part.offsetY += liftY;
+    return part;
 }
 
 
@@ -279,58 +287,58 @@ constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLEEP = { "tree_cedar_sleep", E
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = {
     SmallRootPart(),
-    EDITOR_TREE_SMALL_PARTS[0],
-    EDITOR_TREE_SMALL_PARTS[1],
-    EDITOR_TREE_SMALL_PARTS[2],
-    EDITOR_TREE_SMALL_PARTS[3],
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) / sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted", EDITOR_TREE_SMALL_ROOTED_PARTS, EDITOR_TREE_SMALL_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
     LargeRootPart(),
-    EDITOR_TREE_BIG_PARTS[0],
-    EDITOR_TREE_BIG_PARTS[1],
-    EDITOR_TREE_BIG_PARTS[2],
-    EDITOR_TREE_BIG_PARTS[3],
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) / sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted", EDITOR_TREE_BIG_ROOTED_PARTS, EDITOR_TREE_BIG_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = {
     LargeRootPart(),
-    EDITOR_TREE_CEDAR_PARTS[0],
-    EDITOR_TREE_CEDAR_PARTS[1],
-    EDITOR_TREE_CEDAR_PARTS[2],
-    EDITOR_TREE_CEDAR_PARTS[3],
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) / sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted", EDITOR_TREE_CEDAR_ROOTED_PARTS, EDITOR_TREE_CEDAR_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
     LargeRootPart(),
-    EDITOR_TREE_BIG_PARTS[0],
-    EDITOR_TREE_BIG_PARTS[1],
-    EDITOR_TREE_BIG_PARTS[2],
-    EDITOR_TREE_BIG_PARTS[3],
-    PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ),
-    PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ),
-    PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ),
-    PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ),
-    PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ),
-    PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ),
-    PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ),
-    PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ),
-    PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ),
-    PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ),
-    PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ),
-    PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ),
-    PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ),
-    PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ),
-    PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ),
-    PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ),
-    PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ),
-    PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ), SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) / sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding", EDITOR_TREE_PINE_SHEDDING_PARTS, EDITOR_TREE_PINE_SHEDDING_PART_COUNT, true, true };
@@ -2349,6 +2357,10 @@ void SkullbonezRun::TakeInput()
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
                                                          m_timers.simulationTimer.GetTotalTime(),
+                                                         m_editor.editorModeEnabled,
+                                                         m_editor.placementModeEnabled,
+                                                         m_editor.placeStaticObject,
+                                                         m_editor.objectType,
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
@@ -2395,13 +2407,21 @@ void SkullbonezRun::TakeInput()
             const int requestedObjectType = std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
             if ( requestedObjectType != m_editor.objectType )
             {
-                m_editor.placementAltitudeSteps = 0;
-                m_editor.placementScaleActive = false;
-                m_editor.placementScaleWheelSteps = 0;
-                m_editor.placementScale = EditorDefaultPlacementScale( requestedObjectType );
-                m_editor.placementScaleStart = m_editor.placementScale;
+                m_editor.objectType = requestedObjectType;
+                ClearEditorManipulationState();
             }
-            m_editor.objectType = requestedObjectType;
+            else if ( uiCommands.editor.enterPlacementMode )
+            {
+                ClearEditorManipulationState();
+            }
+            if ( uiCommands.editor.enterPlacementMode && m_editor.editorModeEnabled )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.placementModeEnabled = true;
+                m_editor.viewportLookActive = false;
+                ReleaseMouseToUI();
+                ApplyCursorOwnership();
+            }
         }
         if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
@@ -2410,11 +2430,9 @@ void SkullbonezRun::TakeInput()
             if ( m_editor.editorModeEnabled )
             {
                 const bool wasFlyMode = m_camera.isFlyMode;
-                if ( keyboardToggleEditorMode )
-                {
-                    m_editor.placementModeEnabled = false;
-                    ClearEditorManipulationState();
-                }
+                m_editor.placementModeEnabled = true;
+                m_editor.viewportLookActive = false;
+                ClearEditorManipulationState();
                 m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
                 m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
                 m_camera.isFlyMode = true;
@@ -2427,6 +2445,7 @@ void SkullbonezRun::TakeInput()
                 {
                     InputController::ResetMouseLook( m_camera );
                 }
+                ApplyCursorOwnership();
             }
             else
             {
@@ -3352,14 +3371,27 @@ void SkullbonezRun::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& 
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
+    bool releasedFromFixed = false;
     if ( model.IsFixed() )
     {
-        return;
+        if ( !model.ReleasesFromFixedOnContact() ||
+             m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
+        {
+            return;
+        }
+        model.SetFixed( false );
+        releasedFromFixed = true;
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
     m_cGameModelCollection.WakeModel( modelHitIndex );
+    if ( releasedFromFixed )
+    {
+        const float mass = (std::max)( 0.001f, model.GetMass() );
+        const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
+        m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex, rayDirection * releaseSpeed, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    }
 }
 
 

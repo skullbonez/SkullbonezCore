@@ -121,6 +121,7 @@ bool HandleContentClick( UIEditorTabState& state,
         {
             state.selectedObjectType = option;
             result.commands.editor.requestedObjectType = option;
+            result.commands.editor.enterPlacementMode = true;
             state.objectCombo.Close();
             return true;
         }

@@ -1,12 +1,49 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name cedar_tier_top
-vertex -5 -5 -5
-vertex 5 -5 -5
-vertex 5 -5 5
-vertex -5 -5 5
-vertex 0 3.5 0
-face 0 1 2 3
-face 0 4 1
-face 1 4 2
-face 2 4 3
-face 3 4 0
+source_hash 0x4d056fcb30a6ddcb
+
+# Editable source geometry.
+source_vertex -5 -5 -5
+source_vertex 5 -5 -5
+source_vertex 5 -5 5
+source_vertex -5 -5 5
+source_vertex 0 3.5 0
+source_face 0 1 2 3
+source_face 0 4 1
+source_face 1 4 2
+source_face 2 4 3
+source_face 3 4 0
+
+# Baked runtime metadata.
+center_of_mass 0 -2.875 0
+volume 283.333333
+bounding_radius 7.38346971
+inertia_half_extents 5 4.25 5
+unit_inertia 14.3541667 16.6666667 14.3541667
+projected_surface_area 90
+
+# Baked centered vertices.
+vertex -5 -2.125 -5
+vertex 5 -2.125 -5
+vertex 5 -2.125 5
+vertex -5 -2.125 5
+vertex 0 6.375 0
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 2.125 0 1 2 3
+face 0 0.507020127 -0.861934215 3.23225331 0 4 1
+face 0.861934215 0.507020127 0 3.23225331 1 4 2
+face 0 0.507020127 0.861934215 3.23225331 2 4 3
+face -0.861934215 0.507020127 0 3.23225331 3 4 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 1
+edge 1 2 0 2
+edge 2 3 0 3
+edge 0 3 0 4
+edge 0 4 1 4
+edge 1 4 1 2
+edge 2 4 2 3
+edge 3 4 3 4

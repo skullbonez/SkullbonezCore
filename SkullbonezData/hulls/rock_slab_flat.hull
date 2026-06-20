@@ -1,28 +1,97 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name rock_slab_flat
-vertex -14 -3 -6
-vertex -5 -3 -10
-vertex 7 -3 -9
-vertex 14 -3 -3
-vertex 12 -3 6
-vertex 3 -3 10
-vertex -9 -3 8
-vertex -16 -3 1
-vertex -9.3 3 -4
-vertex -3 3 -6.8
-vertex 5.4 3 -6.1
-vertex 10.3 3 -1.9
-vertex 8.9 3 4.4
-vertex 2.6 3 7.2
-vertex -5.8 3 5.8
-vertex -10.7 3 0.9
-face 0 1 2 3 4 5 6 7
-face 8 9 10 11 12 13 14 15
-face 0 8 9 1
-face 1 9 10 2
-face 2 10 11 3
-face 3 11 12 4
-face 4 12 13 5
-face 5 13 14 6
-face 6 14 15 7
-face 7 15 8 0
+source_hash 0xdced04db48a29d35
+
+# Editable source geometry.
+source_vertex -14 -3 -6
+source_vertex -5 -3 -10
+source_vertex 7 -3 -9
+source_vertex 14 -3 -3
+source_vertex 12 -3 6
+source_vertex 3 -3 10
+source_vertex -9 -3 8
+source_vertex -16 -3 1
+source_vertex -9.3 3 -4
+source_vertex -3 3 -6.8
+source_vertex 5.4 3 -6.1
+source_vertex 10.3 3 -1.9
+source_vertex 8.9 3 4.4
+source_vertex 2.6 3 7.2
+source_vertex -5.8 3 5.8
+source_vertex -10.7 3 0.9
+source_face 0 1 2 3 4 5 6 7
+source_face 8 9 10 11 12 13 14 15
+source_face 0 8 9 1
+source_face 1 9 10 2
+source_face 2 10 11 3
+source_face 3 11 12 4
+source_face 4 12 13 5
+source_face 5 13 14 6
+source_face 6 14 15 7
+source_face 7 15 8 0
+
+# Baked runtime metadata.
+center_of_mass -0.413635749 -0.349315068 -0.118414071
+volume 1960.05
+bounding_radius 15.8496603
+inertia_half_extents 15 3 10
+unit_inertia 36.3333333 108.333333 78
+projected_surface_area 300
+
+# Baked centered vertices.
+vertex -13.5863643 -2.65068493 -5.88158593
+vertex -4.58636425 -2.65068493 -9.88158593
+vertex 7.41363575 -2.65068493 -8.88158593
+vertex 14.4136357 -2.65068493 -2.88158593
+vertex 12.4136357 -2.65068493 6.11841407
+vertex 3.41363575 -2.65068493 10.1184141
+vertex -8.58636425 -2.65068493 8.11841407
+vertex -15.5863643 -2.65068493 1.11841407
+vertex -8.88636425 3.34931507 -3.88158593
+vertex -2.58636425 3.34931507 -6.68158593
+vertex 5.81363575 3.34931507 -5.98158593
+vertex 10.7136357 3.34931507 -1.78158593
+vertex 9.31363575 3.34931507 4.51841407
+vertex 3.01363575 3.34931507 7.31841407
+vertex -5.38636425 3.34931507 5.91841407
+vertex -10.2863643 3.34931507 1.01841407
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 2.65068493 0 1 2 3 4 5 6 7
+face 0 1 0 3.34931507 15 14 13 12 11 10 9 8
+face -0.344753578 0.528622154 -0.775695552 7.84505696 0 8 9 1
+face 0.0741647867 0.449933039 -0.88997744 7.2616111 1 9 10 2
+face 0.572510715 0.475501955 -0.667929167 8.91625033 2 10 11 3
+face 0.850925663 0.49007015 0.189094592 10.4210187 3 11 12 4
+face 0.369877416 0.413029781 0.832224187 8.58860387 4 12 13 5
+face -0.14995502 0.409877055 0.899730121 7.50549517 5 13 14 6
+face -0.596549986 0.536894988 0.596549986 8.54209583 6 14 15 7
+face -0.73451609 0.645324851 -0.20986174 9.50317015 7 15 8 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 3 4 0 5
+edge 4 5 0 6
+edge 5 6 0 7
+edge 6 7 0 8
+edge 0 7 0 9
+edge 14 15 1 8
+edge 13 14 1 7
+edge 12 13 1 6
+edge 11 12 1 5
+edge 10 11 1 4
+edge 9 10 1 3
+edge 8 9 1 2
+edge 8 15 1 9
+edge 0 8 2 9
+edge 1 9 2 3
+edge 2 10 3 4
+edge 3 11 4 5
+edge 4 12 5 6
+edge 5 13 6 7
+edge 6 14 7 8
+edge 7 15 8 9

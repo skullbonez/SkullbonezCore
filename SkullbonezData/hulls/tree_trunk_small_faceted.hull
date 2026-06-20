@@ -1,22 +1,79 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name tree_trunk_small_faceted
-vertex 2.0 -6.5 0
-vertex 1.0 -6.5 1.73
-vertex -1.0 -6.5 1.73
-vertex -2.0 -6.5 0
-vertex -1.0 -6.5 -1.73
-vertex 1.0 -6.5 -1.73
-vertex 2.0 6.5 0
-vertex 1.0 6.5 1.73
-vertex -1.0 6.5 1.73
-vertex -2.0 6.5 0
-vertex -1.0 6.5 -1.73
-vertex 1.0 6.5 -1.73
-face 0 1 2 3 4 5
-face 6 7 8 9 10 11
-face 0 6 7 1
-face 1 7 8 2
-face 2 8 9 3
-face 3 9 10 4
-face 4 10 11 5
-face 5 11 6 0
+source_hash 0x37dcc49b311468f7
+
+# Editable source geometry.
+source_vertex 2 -6.5 0
+source_vertex 1 -6.5 1.73
+source_vertex -1 -6.5 1.73
+source_vertex -2 -6.5 0
+source_vertex -1 -6.5 -1.73
+source_vertex 1 -6.5 -1.73
+source_vertex 2 6.5 0
+source_vertex 1 6.5 1.73
+source_vertex -1 6.5 1.73
+source_vertex -2 6.5 0
+source_vertex -1 6.5 -1.73
+source_vertex 1 6.5 -1.73
+source_face 0 1 2 3 4 5
+source_face 6 7 8 9 10 11
+source_face 0 6 7 1
+source_face 1 7 8 2
+source_face 2 8 9 3
+source_face 3 9 10 4
+source_face 4 10 11 5
+source_face 5 11 6 0
+
+# Baked runtime metadata.
+center_of_mass 0 5.2656198e-17 -3.29101237e-17
+volume 134.94
+bounding_radius 6.80073525
+inertia_half_extents 2 6.5 1.73
+unit_inertia 15.0809667 2.33096667 15.4166667
+projected_surface_area 36.94
+
+# Baked centered vertices.
+vertex 2 -6.5 3.29101237e-17
+vertex 1 -6.5 1.73
+vertex -1 -6.5 1.73
+vertex -2 -6.5 3.29101237e-17
+vertex -1 -6.5 -1.73
+vertex 1 -6.5 -1.73
+vertex 2 6.5 3.29101237e-17
+vertex 1 6.5 1.73
+vertex -1 6.5 1.73
+vertex -2 6.5 3.29101237e-17
+vertex -1 6.5 -1.73
+vertex 1 6.5 -1.73
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 6.5 0 1 2 3 4 5
+face 0 1 0 6.5 11 10 9 8 7 6
+face 0.865768711 0 0.500444342 1.73153742 0 6 7 1
+face 0 0 1 1.73 1 7 8 2
+face -0.865768711 0 0.500444342 1.73153742 2 8 9 3
+face -0.865768711 0 -0.500444342 1.73153742 3 9 10 4
+face 0 0 -1 1.73 4 10 11 5
+face 0.865768711 0 -0.500444342 1.73153742 5 11 6 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 2
+edge 1 2 0 3
+edge 2 3 0 4
+edge 3 4 0 5
+edge 4 5 0 6
+edge 0 5 0 7
+edge 10 11 1 6
+edge 9 10 1 5
+edge 8 9 1 4
+edge 7 8 1 3
+edge 6 7 1 2
+edge 6 11 1 7
+edge 0 6 2 7
+edge 1 7 2 3
+edge 2 8 3 4
+edge 3 9 4 5
+edge 4 10 5 6
+edge 5 11 6 7

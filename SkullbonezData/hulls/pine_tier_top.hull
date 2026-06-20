@@ -1,12 +1,49 @@
-hull_version 1
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
 name pine_tier_top
-vertex -8 -5 -8
-vertex 8 -5 -8
-vertex 8 -5 8
-vertex -8 -5 8
-vertex 0 3 0
-face 0 1 2 3
-face 0 4 1
-face 1 4 2
-face 2 4 3
-face 3 4 0
+source_hash 0x4b5cb8ce134a1aef
+
+# Editable source geometry.
+source_vertex -8 -5 -8
+source_vertex 8 -5 -8
+source_vertex 8 -5 8
+source_vertex -8 -5 8
+source_vertex 0 3 0
+source_face 0 1 2 3
+source_face 0 4 1
+source_face 1 4 2
+source_face 2 4 3
+source_face 3 4 0
+
+# Baked runtime metadata.
+center_of_mass 0 -3 0
+volume 682.666667
+bounding_radius 11.4891253
+inertia_half_extents 8 4 8
+unit_inertia 26.6666667 42.6666667 26.6666667
+projected_surface_area 170.666667
+
+# Baked centered vertices.
+vertex -8 -2 -8
+vertex 8 -2 -8
+vertex 8 -2 8
+vertex -8 -2 8
+vertex 0 6 0
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 -1 0 2 0 1 2 3
+face 0 0.707106781 -0.707106781 4.24264069 0 4 1
+face 0.707106781 0.707106781 0 4.24264069 1 4 2
+face 0 0.707106781 0.707106781 4.24264069 2 4 3
+face -0.707106781 0.707106781 0 4.24264069 3 4 0
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 0 1 0 1
+edge 1 2 0 2
+edge 2 3 0 3
+edge 0 3 0 4
+edge 0 4 1 4
+edge 1 4 1 2
+edge 2 4 2 3
+edge 3 4 3 4

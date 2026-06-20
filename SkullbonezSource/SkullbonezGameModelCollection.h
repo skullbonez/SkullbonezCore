@@ -92,6 +92,7 @@ class GameModelCollection
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
     void InvalidatePhysicsStreams();
+    void ReleaseAttachedFixedTreeParts( int sourceIndex, const Math::Vector::Vector3& seedLinearVelocity, const Math::Vector::Vector3& seedAngularVelocity ); // Wakes same-tree parts at or above a released break point.
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );

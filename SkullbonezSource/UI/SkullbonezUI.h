@@ -195,7 +195,17 @@ class InGameUI
     void CancelInputCapture();
     void ResetResources();
 
-    InGameUIInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );
+    InGameUIInputResult UpdateInput( HWND hwnd,
+                                     int screenW,
+                                     int screenH,
+                                     double now,
+                                     bool editorModeEnabled = false,
+                                     bool editorPlacementMode = false,
+                                     bool editorPlaceStatic = true,
+                                     int editorObjectType = EditorTab::OBJECT_BOX,
+                                     const char* const* sceneOptions = nullptr,
+                                     int sceneOptionCount = 0,
+                                     int selectedSceneOption = -1 );
     void Draw( const InGameUIFrameData& data );
 
   private:
@@ -254,10 +264,18 @@ class InGameUI
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
     bool m_hitboxOverlayEnabled = false;
+    bool m_editorMiniPalettePressActive = false;
+    bool m_editorMiniPaletteFlyoutOpen = false;
+    int m_editorMiniPalettePressedEntry = -1;
+    int m_editorMiniPalettePressedObjectType = -1;
+    int m_editorMiniPalettePressedFamily = -1;
+    int m_editorMiniPalettePressedHoldMode = 0;
+    double m_editorMiniPalettePressStart = 0.0;
 
     int ContentHeight() const;
     void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds ) const;
     void CloseSceneCombo();
+    void CancelEditorMiniPaletteInteraction();
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
 };
 

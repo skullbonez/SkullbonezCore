@@ -1277,7 +1277,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                        []( const PersistentContactCacheEntry& lhs, const PersistentContactCacheEntry& rhs )
                        {
                            return lhs.key < rhs.key;
-            } );
+                       } );
         }
     }
 
@@ -1339,6 +1339,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             fixedModel.SetLinearVelocity( releaseDir * releaseSpeed + tangentVelocity );
             fixedModel.SetAngularVelocity( angularVelocity );
             world.WakeModel( collection, fixedIndex );
+            collection.ReleaseAttachedFixedTreeParts( fixedIndex, fixedModel.GetVelocity(), fixedModel.GetAngularVelocity() );
         };
 
         for ( const PersistentContact& c : m_persistentContacts )

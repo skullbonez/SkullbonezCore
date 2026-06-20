@@ -25,6 +25,7 @@ Related:
 #include "SkullbonezSceneSnapshotWriter.h"
 
 #include <cassert>
+#include <cstring>
 #include <cmath>
 #include <stdexcept>
 #include <utility>
@@ -34,6 +35,71 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::ShadowFrameData;
+
+namespace
+{
+bool IsDecimalDigit( char c )
+{
+    return c >= '0' && c <= '9';
+}
+
+
+bool IsReleasableEditorTreePartSuffix( const char* suffix )
+{
+    if ( !suffix || suffix[0] == '\0' )
+    {
+        return false;
+    }
+    return strcmp( suffix, "trunk" ) == 0 ||
+           strcmp( suffix, "low" ) == 0 ||
+           strcmp( suffix, "mid" ) == 0 ||
+           strcmp( suffix, "top" ) == 0 ||
+           strncmp( suffix, "needle_", 7 ) == 0;
+}
+
+
+bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLength )
+{
+    outPrefixLength = 0;
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    if ( strstr( name, "_tree_" ) == nullptr && strncmp( name, "tree_", 5 ) != 0 )
+    {
+        return false;
+    }
+
+    const size_t nameLength = strlen( name );
+    size_t marker = nameLength;
+    for ( size_t i = 0; i + 5 < nameLength; ++i )
+    {
+        if ( name[i] == '_' &&
+             IsDecimalDigit( name[i + 1] ) &&
+             IsDecimalDigit( name[i + 2] ) &&
+             IsDecimalDigit( name[i + 3] ) &&
+             name[i + 4] == '_' )
+        {
+            marker = i;
+        }
+    }
+
+    if ( marker == nameLength )
+    {
+        return false;
+    }
+
+    const size_t prefixLength = marker + 5;
+    if ( !IsReleasableEditorTreePartSuffix( name + prefixLength ) )
+    {
+        return false;
+    }
+
+    outPrefixLength = prefixLength;
+    return true;
+}
+} // namespace
 
 
 GameModelCollection::GameModelCollection()
@@ -231,6 +297,57 @@ double GameModelCollection::GetSceneKineticEnergy()
 void GameModelCollection::InvalidatePhysicsStreams()
 {
     InvalidateSoA();
+}
+
+
+void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex, const Vector3& seedLinearVelocity, const Vector3& seedAngularVelocity )
+{
+    if ( sourceIndex < 0 || sourceIndex >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return;
+    }
+
+    const char* sourceName = m_gameModels[static_cast<size_t>( sourceIndex )].GetName();
+    const float sourceY = m_gameModels[static_cast<size_t>( sourceIndex )].GetPosition().y;
+    size_t sourcePrefixLength = 0;
+    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
+    {
+        return;
+    }
+
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    {
+        if ( i == sourceIndex )
+        {
+            continue;
+        }
+
+        GameModel& model = m_gameModels[static_cast<size_t>( i )];
+        const char* modelName = model.GetName();
+        size_t modelPrefixLength = 0;
+        if ( !TryGetEditorTreeInstancePrefixLength( modelName, modelPrefixLength ) ||
+             modelPrefixLength != sourcePrefixLength ||
+             strncmp( modelName, sourceName, sourcePrefixLength ) != 0 )
+        {
+            continue;
+        }
+        if ( model.GetPosition().y + 0.05f < sourceY )
+        {
+            continue;
+        }
+
+        if ( model.IsFixed() )
+        {
+            if ( !model.ReleasesFromFixedOnContact() )
+            {
+                continue;
+            }
+            model.SetFixed( false );
+            model.SetLinearVelocity( seedLinearVelocity );
+            model.SetAngularVelocity( seedAngularVelocity );
+        }
+        WakeModel( i );
+    }
 }
 
 

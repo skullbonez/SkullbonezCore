@@ -72,6 +72,7 @@ class ConvexHullShape
     Vector::Vector3 m_position = Vector::ZERO_VECTOR;
     Vector::Vector3 m_authoredCenterOfMass = Vector::ZERO_VECTOR;
     Vector::Vector3 m_inertiaHalfExtents = Vector::Vector3( 1.0f, 1.0f, 1.0f );
+    Vector::Vector3 m_unitInertia = Vector::Vector3( 0.6666667f, 0.6666667f, 0.6666667f );
     uint16_t m_vertexCount = 0;
     uint16_t m_faceCount = 0;
     uint16_t m_edgeCount = 0;

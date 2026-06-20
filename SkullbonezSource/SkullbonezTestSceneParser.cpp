@@ -22,6 +22,7 @@ Related:
 */
 #include "SkullbonezTestScene.h"
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezEditorHullAssets.h"
 
 #include <algorithm>
 #include <cctype>
@@ -81,6 +82,104 @@ bool EndsWith( const std::string& value, const char* suffix )
     const size_t valueLen = value.size();
     const size_t suffixLen = strlen( suffix );
     return valueLen >= suffixLen && value.compare( valueLen - suffixLen, suffixLen, suffix ) == 0;
+}
+
+bool IsSceneNameDigit( char c )
+{
+    return c >= '0' && c <= '9';
+}
+
+
+bool TryGetEditorTreeInstancePrefixLengthAnyPart( const char* name, size_t& outPrefixLength )
+{
+    outPrefixLength = 0;
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    const size_t nameLength = strlen( name );
+    size_t marker = nameLength;
+    for ( size_t i = 0; i + 5 < nameLength; ++i )
+    {
+        if ( name[i] == '_' &&
+             IsSceneNameDigit( name[i + 1] ) &&
+             IsSceneNameDigit( name[i + 2] ) &&
+             IsSceneNameDigit( name[i + 3] ) &&
+             name[i + 4] == '_' )
+        {
+            marker = i;
+        }
+    }
+
+    if ( marker == nameLength )
+    {
+        return false;
+    }
+
+    outPrefixLength = marker + 5;
+    return true;
+}
+
+
+bool EditorTreeNamesShareInstancePrefix( const char* a, const char* b, size_t prefixLength )
+{
+    return a && b && strncmp( a, b, prefixLength ) == 0;
+}
+
+
+template <typename THull>
+void ApplyRootedTreeCompatibilityClearanceToHulls( std::vector<THull>& hulls )
+{
+    for ( const THull& root : hulls )
+    {
+        const float liftY = SkullbonezCore::Assets::EditorTreeRootedAboveRootLiftY( root.name );
+        const float legacyRootToTrunkY = SkullbonezCore::Assets::EditorTreeRootedLegacyRootToTrunkDeltaY( root.name );
+        const SkullbonezCore::Assets::EditorHullAsset rootAsset = SkullbonezCore::Assets::EditorHullAssetFromToken( root.hullPath );
+        if ( liftY <= 0.0f ||
+             legacyRootToTrunkY <= 0.0f ||
+             ( rootAsset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_SMALL &&
+               rootAsset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_LARGE ) )
+        {
+            continue;
+        }
+
+        size_t prefixLength = 0;
+        if ( !TryGetEditorTreeInstancePrefixLengthAnyPart( root.name, prefixLength ) )
+        {
+            continue;
+        }
+
+        const THull* trunk = nullptr;
+        for ( const THull& candidate : hulls )
+        {
+            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken( candidate.hullPath );
+            if ( ( asset == SkullbonezCore::Assets::EditorHullAsset::TREE_TRUNK_SMALL_FACETED ||
+                   asset == SkullbonezCore::Assets::EditorHullAsset::TREE_TRUNK_FACETED ) &&
+                 EditorTreeNamesShareInstancePrefix( root.name, candidate.name, prefixLength ) )
+            {
+                trunk = &candidate;
+                break;
+            }
+        }
+
+        if ( !trunk || trunk->posY - root.posY >= legacyRootToTrunkY + liftY * 0.5f )
+        {
+            continue;
+        }
+
+        for ( THull& candidate : hulls )
+        {
+            const SkullbonezCore::Assets::EditorHullAsset asset = SkullbonezCore::Assets::EditorHullAssetFromToken( candidate.hullPath );
+            if ( candidate.isFixed &&
+                 asset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_SMALL &&
+                 asset != SkullbonezCore::Assets::EditorHullAsset::TREE_ROOT_LARGE &&
+                 EditorTreeNamesShareInstancePrefix( root.name, candidate.name, prefixLength ) )
+            {
+                candidate.posY += liftY;
+            }
+        }
+    }
 }
 
 std::string JsonTypeName( const Json& value )
@@ -1674,7 +1773,8 @@ class TestSceneParser
         hull.mass = ReadFloat( RequireMember( object, path, "convexHull", "mass" ), path, "convexHull.mass" );
         hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
         hull.isFixed = isFixed;
-        hull.contactReleaseImpulseThreshold = 1.0f;
+        hull.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( hull.hullPath );
+        hull.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( hull.hullPath );
         if ( const Json* fixed = FindMember( object, "fixed" ) )
         {
             hull.isFixed = ReadBool( *fixed, path, "convexHull.fixed" );
@@ -1748,7 +1848,8 @@ class TestSceneParser
         state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ), path, "convexHullState.restitution" );
         ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ), path, "convexHullState.inertia", state.inertiaX, state.inertiaY, state.inertiaZ );
         state.isFixed = ReadBool( RequireMember( object, path, "convexHullState", "fixed" ), path, "convexHullState.fixed" );
-        state.contactReleaseImpulseThreshold = 1.0f;
+        state.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( state.hullPath );
+        state.contactReleaseImpulseThreshold = SkullbonezCore::Assets::HullAssetTokenDefaultContactReleaseThreshold( state.hullPath );
         if ( const Json* sleeping = FindMember( object, "sleeping" ) )
         {
             state.isSleeping = ReadBool( *sleeping, path, "convexHullState.sleeping" );
@@ -2011,6 +2112,8 @@ class TestSceneParser
             }
         }
         ApplyAssetInstances( root, path );
+        ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHulls );
+        ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHullStates );
         if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
         {
             RequireArray( *objectMaterials, path, "objectMaterials" );
