@@ -75,21 +75,6 @@ class CollisionVisualizer
         float r, g, b, a;
     };
 
-    struct HullMeshResource
-    {
-        uint64_t hash = 0;
-        uint32_t mesh = 0;
-        int vertexCount = 0;
-    };
-
-    struct HullInstance
-    {
-        uint32_t mesh = 0;
-        int vertexCount = 0;
-        Math::Transformation::Matrix4 model;
-        Color color = {};
-    };
-
     static constexpr float FADE_DURATION = 0.5f;
     static constexpr int INSTANCE_FLOATS = 20; // mat4 + rgba
 
@@ -100,6 +85,7 @@ class CollisionVisualizer
     std::unique_ptr<Rendering::IShader> m_shader;
     uint32_t m_sphereInstMesh = 0;
     uint32_t m_boxInstMesh = 0;
+    uint32_t m_hullDynamicVB = 0;
     int m_sphereVertexCount = 0;
     int m_boxVertexCount = 0;
 
@@ -107,18 +93,15 @@ class CollisionVisualizer
     std::vector<int> m_sleepGroupSizes;
     std::vector<float> m_sphereInstanceData;
     std::vector<float> m_boxInstanceData;
-    std::vector<HullMeshResource> m_hullMeshes;
-    std::vector<HullInstance> m_hullInstances;
 
     void BuildSphereMesh();
     void BuildBoxMesh();
     void EnsureResources();
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
-    uint32_t GetOrCreateHullMesh( const Math::CollisionDetection::ConvexHullShape& hull, int& outVertexCount );
     Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;
     void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );
     void DrawInstances( uint32_t mesh, int vertexCount, const std::vector<float>& instanceData );
-    void DrawHullInstance( const HullInstance& instance );
+    void DrawHullInstance( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Transformation::Matrix4& model, const Color& color );
 
   public:
     CollisionVisualizer() = default;

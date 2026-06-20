@@ -86,7 +86,7 @@ struct DynamicVBDX12
     int maxVertices;
     int stride;
     int numAttribs;
-    int attribComponents[8];
+    int attribComponents[12];
 };
 
 

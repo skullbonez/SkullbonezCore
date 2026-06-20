@@ -106,7 +106,6 @@ class ConvexHullShape
     const ConvexHullFace& GetFace( uint16_t index ) const;
     const ConvexHullEdge& GetEdge( uint16_t index ) const;
     uint16_t GetFaceIndex( uint16_t index ) const;
-    uint64_t GetGeometryHash() const;
     const char* GetName() const;
 
     float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;

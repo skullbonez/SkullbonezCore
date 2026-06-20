@@ -63,6 +63,8 @@ static constexpr int INSTANCE_MATRIX_FLOATS = 16;
 static constexpr int INSTANCE_MATERIAL_FLOAT4_COUNT = 3;
 static constexpr int INSTANCE_MATERIAL_FLOATS = INSTANCE_MATERIAL_FLOAT4_COUNT * 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_MATERIAL_FLOATS;
+static constexpr int HULL_MAX_TRIANGLE_VERTICES = ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3;
+static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + 2 + INSTANCE_FLOATS;
 static constexpr int PRIMITIVE_SHAPE_MESH = 0;
 static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
 static constexpr int MATERIAL_TABLE_WIDTH = 16;
@@ -74,15 +76,8 @@ static bool sSphereBatchReady = false;
 static bool sBoxBatchReady = false;
 static bool sPineBatchReady = false;
 static uint32_t sMaterialTableTexture = 0;
-
-struct ConvexHullMeshResource
-{
-    uint64_t hash = 0;
-    uint32_t mesh = 0;
-    int vertexCount = 0;
-};
-
-static std::vector<ConvexHullMeshResource> sConvexHullMeshes;
+static uint32_t sConvexHullDynamicVB = 0;
+static std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> sConvexHullVertexData = {};
 
 // Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
 // SetConstantBufferBytes rejects this block if the reflected shader size drifts,
@@ -201,24 +196,47 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMaterialInstancePayload( co
     return out;
 }
 
-static uint32_t GetConvexHullInstancedMesh( const ConvexHullShape& hull, int& outVertexCount )
+static std::array<float, INSTANCE_FLOATS> BuildSingleMatrixPayload( const Matrix4& model )
 {
-    const uint64_t hash = hull.GetGeometryHash();
-    for ( const ConvexHullMeshResource& resource : sConvexHullMeshes )
+    std::array<float, INSTANCE_FLOATS> out = {};
+    const float* md = model.Data();
+    std::copy( md, md + INSTANCE_MATRIX_FLOATS, out.begin() );
+    return out;
+}
+
+static void EnsureConvexHullDynamicVB()
+{
+    if ( sConvexHullDynamicVB != 0 )
     {
-        if ( resource.hash == hash )
-        {
-            outVertexCount = resource.vertexCount;
-            return resource.mesh;
-        }
+        return;
     }
 
-    std::vector<float> verts;
-    verts.reserve( static_cast<size_t>( hull.GetFaceCount() ) * 6u * 8u );
+    int attribs[] = { 3, 3, 2, 4, 4, 4, 4, 4, 4, 4 };
+    sConvexHullDynamicVB = Gfx().CreateDynamicVB( attribs, 10, HULL_MAX_TRIANGLE_VERTICES );
+}
+
+static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull, const std::array<float, INSTANCE_FLOATS>& instancePayload )
+{
+    int vertexCount = 0;
     auto emitVertex = [&]( uint16_t index, const Vector3& normal, float u, float v )
     {
+        if ( vertexCount >= HULL_MAX_TRIANGLE_VERTICES )
+        {
+            return;
+        }
+
         const Vector3 p = hull.GetPosition() + hull.GetVertex( index );
-        verts.insert( verts.end(), { p.x, p.y, p.z, normal.x, normal.y, normal.z, u, v } );
+        float* out = &sConvexHullVertexData[static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX];
+        out[0] = p.x;
+        out[1] = p.y;
+        out[2] = p.z;
+        out[3] = normal.x;
+        out[4] = normal.y;
+        out[5] = normal.z;
+        out[6] = u;
+        out[7] = v;
+        std::copy( instancePayload.begin(), instancePayload.end(), out + 8 );
+        ++vertexCount;
     };
 
     for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
@@ -240,20 +258,7 @@ static uint32_t GetConvexHullInstancedMesh( const ConvexHullShape& hull, int& ou
         }
     }
 
-    outVertexCount = static_cast<int>( verts.size() / 8 );
-    if ( outVertexCount <= 0 )
-    {
-        return 0;
-    }
-
-    int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
-    ConvexHullMeshResource resource;
-    resource.hash = hash;
-    resource.vertexCount = outVertexCount;
-    resource.mesh = Gfx().CreateInstancedMesh( verts.data(), outVertexCount, 8, 1, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
-    sConvexHullMeshes.push_back( resource );
-    return resource.mesh;
+    return vertexCount;
 }
 
 static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
@@ -440,17 +445,13 @@ void SkullbonezHelper::ResetRenderResources()
         Gfx().DeleteTexture( sMaterialTableTexture );
         sMaterialTableTexture = 0;
     }
+    if ( sConvexHullDynamicVB != 0 )
+    {
+        Gfx().DestroyDynamicVB( sConvexHullDynamicVB );
+        sConvexHullDynamicVB = 0;
+    }
     activeSphereInstMesh = 0;
     activeSphereVertexCount = 0;
-    for ( ConvexHullMeshResource& resource : sConvexHullMeshes )
-    {
-        if ( resource.mesh != 0 )
-        {
-            Gfx().DestroyInstancedMesh( resource.mesh );
-            resource.mesh = 0;
-        }
-    }
-    sConvexHullMeshes.clear();
 }
 
 
@@ -801,9 +802,10 @@ void SkullbonezHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                             const ShadowFrameData* shadow,
                                             float materialAlpha )
 {
-    int vertexCount = 0;
-    const uint32_t mesh = GetConvexHullInstancedMesh( hull, vertexCount );
-    if ( mesh == 0 || vertexCount <= 0 )
+    EnsureConvexHullDynamicVB();
+    const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMaterialInstancePayload( model, material );
+    const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload );
+    if ( sConvexHullDynamicVB == 0 || vertexCount <= 0 )
     {
         return;
     }
@@ -822,18 +824,17 @@ void SkullbonezHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                                    materialAlpha } );
     if ( ready )
     {
-        const std::array<float, INSTANCE_FLOATS> instanceData = BuildSingleMaterialInstancePayload( model, material );
-        Gfx().UploadInstanceData( mesh, instanceData.data(), static_cast<int>( instanceData.size() ) );
-        Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
+        Gfx().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
     EndPrimitiveBatchTransparency( isTransparent );
 }
 
 void SkullbonezHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull, const Matrix4& model, const Matrix4& view, const Matrix4& proj )
 {
-    int vertexCount = 0;
-    const uint32_t mesh = GetConvexHullInstancedMesh( hull, vertexCount );
-    if ( mesh == 0 || vertexCount <= 0 )
+    EnsureConvexHullDynamicVB();
+    const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMatrixPayload( model );
+    const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload );
+    if ( sConvexHullDynamicVB == 0 || vertexCount <= 0 )
     {
         return;
     }
@@ -849,9 +850,7 @@ void SkullbonezHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hu
     constants.clipPlane[3] = sClipPlane[3];
     if ( shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" ) )
     {
-        const std::array<float, INSTANCE_FLOATS> instanceData = BuildSingleMaterialInstancePayload( model, MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f ) );
-        Gfx().UploadInstanceData( mesh, instanceData.data(), static_cast<int>( instanceData.size() ) );
-        Gfx().DrawInstancedMesh( mesh, vertexCount, 1 );
+        Gfx().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
 }
 

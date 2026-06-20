@@ -80,7 +80,7 @@ uint32_t RenderBackendDX12::CreateDynamicVB( const int* attribComponents, int nu
     dvb.numAttribs = numAttribs;
     dvb.maxVertices = maxVertices;
     int totalFloats = 0;
-    for ( int i = 0; i < numAttribs && i < 8; ++i )
+    for ( int i = 0; i < numAttribs && i < 12; ++i )
     {
         dvb.attribComponents[i] = attribComponents[i];
         totalFloats += attribComponents[i];

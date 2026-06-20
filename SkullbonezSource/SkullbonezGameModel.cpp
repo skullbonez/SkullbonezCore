@@ -1513,16 +1513,26 @@ GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
                         for ( int sz = -1; sz <= 1; sz += 2 )
                         {
                             const Vector3 local = shape.GetPosition() + Vector3( he.x * static_cast<float>( sx ),
-                                                                                  he.y * static_cast<float>( sy ),
-                                                                                  he.z * static_cast<float>( sz ) );
+                                                                                 he.y * static_cast<float>( sy ),
+                                                                                 he.z * static_cast<float>( sz ) );
                             vertices[vertexIndex++] = bodyPosition + ( rotMat * local );
                         }
                     }
                 }
 
                 static constexpr int BOX_EDGES[12][2] = {
-                    { 0, 1 }, { 0, 2 }, { 0, 4 }, { 1, 3 }, { 1, 5 }, { 2, 3 },
-                    { 2, 6 }, { 3, 7 }, { 4, 5 }, { 4, 6 }, { 5, 7 }, { 6, 7 } };
+                    { 0, 1 },
+                    { 0, 2 },
+                    { 0, 4 },
+                    { 1, 3 },
+                    { 1, 5 },
+                    { 2, 3 },
+                    { 2, 6 },
+                    { 3, 7 },
+                    { 4, 5 },
+                    { 4, 6 },
+                    { 5, 7 },
+                    { 6, 7 } };
 
                 Vector3 sum = Vector::ZERO_VECTOR;
                 float weight = 0.0f;

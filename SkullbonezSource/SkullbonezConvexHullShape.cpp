@@ -29,7 +29,6 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <stdexcept>
 
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -42,23 +41,6 @@ namespace
 float ClampPositive( float value, float fallback )
 {
     return value > TOLERANCE ? value : fallback;
-}
-
-void HashUint32( uint64_t& hash, uint32_t value )
-{
-    constexpr uint64_t FNV_PRIME = 1099511628211ull;
-    for ( int i = 0; i < 4; ++i )
-    {
-        hash ^= static_cast<uint8_t>( value >> ( i * 8 ) );
-        hash *= FNV_PRIME;
-    }
-}
-
-void HashFloat( uint64_t& hash, float value )
-{
-    uint32_t bits = 0;
-    std::memcpy( &bits, &value, sizeof( bits ) );
-    HashUint32( hash, bits );
 }
 
 Vector3 BoxApproxUnitInertia( const Vector3& halfExtents )
@@ -822,33 +804,6 @@ const ConvexHullEdge& ConvexHullShape::GetEdge( uint16_t index ) const
 uint16_t ConvexHullShape::GetFaceIndex( uint16_t index ) const
 {
     return m_faceIndices[index];
-}
-
-uint64_t ConvexHullShape::GetGeometryHash() const
-{
-    uint64_t hash = 1469598103934665603ull;
-    HashUint32( hash, m_vertexCount );
-    HashUint32( hash, m_faceCount );
-    HashFloat( hash, m_position.x );
-    HashFloat( hash, m_position.y );
-    HashFloat( hash, m_position.z );
-    for ( uint16_t v = 0; v < m_vertexCount; ++v )
-    {
-        const Vector3& p = m_vertices[v];
-        HashFloat( hash, p.x );
-        HashFloat( hash, p.y );
-        HashFloat( hash, p.z );
-    }
-    for ( uint16_t f = 0; f < m_faceCount; ++f )
-    {
-        const ConvexHullFace& face = m_faces[f];
-        HashUint32( hash, face.indexCount );
-        for ( uint8_t i = 0; i < face.indexCount; ++i )
-        {
-            HashUint32( hash, GetFaceIndex( face.firstIndex + i ) );
-        }
-    }
-    return hash;
 }
 
 const char* ConvexHullShape::GetName() const

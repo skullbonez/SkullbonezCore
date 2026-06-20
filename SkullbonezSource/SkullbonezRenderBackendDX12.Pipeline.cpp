@@ -247,6 +247,12 @@ void RenderBackendDX12::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb, D3D
 {
     count = 0;
     UINT offset = 0;
+    const bool hasNormal = dvb.numAttribs >= 2 &&
+                           dvb.attribComponents[0] == 3 &&
+                           dvb.attribComponents[1] == 3;
+    const bool hasUvAfterNormal = hasNormal &&
+                                  dvb.numAttribs >= 3 &&
+                                  dvb.attribComponents[2] == 2;
     for ( int i = 0; i < dvb.numAttribs; ++i )
     {
         DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
@@ -267,9 +273,20 @@ void RenderBackendDX12::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb, D3D
         {
             out[count] = { "POSITION", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
         }
+        else if ( hasNormal && i == 1 )
+        {
+            out[count] = { "NORMAL", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+        }
+        else if ( hasUvAfterNormal && i == 2 )
+        {
+            out[count] = { "TEXCOORD", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+        }
         else
         {
-            out[count] = { "TEXCOORD", (UINT)( i - 1 ), fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+            const UINT semanticIndex = hasNormal
+                                           ? static_cast<UINT>( hasUvAfterNormal ? i - 2 : i - 1 )
+                                           : static_cast<UINT>( i - 1 );
+            out[count] = { "TEXCOORD", semanticIndex, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
         }
         ++count;
         offset += (UINT)dvb.attribComponents[i] * sizeof( float );
