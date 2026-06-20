@@ -1,9 +1,10 @@
 # Editor Physics Mass Defaults Plan
 
 Date: 2026-06-20
-Status: Draft implementation plan
+Status: Done on `nightrunner-20th-june`
 Impact area: physics, editor placement, scene system, hull assets, tooling
-Validation for this document-only change: none required
+Validation: `tools\validate_fast.bat` and `tools\validate_full.bat` passed on
+2026-06-20 after implementation.
 
 ## Goal
 

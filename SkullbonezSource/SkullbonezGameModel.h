@@ -159,7 +159,7 @@ class GameModel
         // while the frame is being simulated.
         static constexpr uint8_t MAX_WET_POINTS = 32;
 
-        float submergedVolumePercent = 0.0f; // 0..1 fraction of collision volume below usable water.
+        float submergedVolumePercent = 0.0f;                                // 0..1 fraction of collision volume below usable water.
         Math::Vector::Vector3 centerOfBuoyancy = Math::Vector::ZERO_VECTOR; // World-space lift point.
 
         // Wet points are world-space samples used by water damping and

@@ -470,6 +470,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsMass.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsWorld.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>

@@ -272,6 +272,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSleepIslandSystem.h" />

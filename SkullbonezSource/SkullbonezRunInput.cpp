@@ -21,6 +21,7 @@ Related:
 #include "SkullbonezRunInternal.h"
 #include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezInputController.h"
+#include "SkullbonezPhysicsMass.h"
 #include "SkullbonezWorkerPool.h"
 #include "UI/UILayout.h"
 
@@ -57,17 +58,6 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
     outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
     return true;
 }
-
-
-Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
-{
-    const float hx2 = halfExtents.x * halfExtents.x;
-    const float hy2 = halfExtents.y * halfExtents.y;
-    const float hz2 = halfExtents.z * halfExtents.z;
-    const float m3 = mass / 3.0f;
-    return Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-}
-
 
 Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
 {
@@ -143,7 +133,6 @@ struct EditorTreePartDefinition
     float offsetX;
     float offsetY;
     float offsetZ;
-    float mass;
     float restitution;
     SkullbonezCore::Rendering::RenderMaterialKind materialKind;
     const char* materialName;
@@ -175,7 +164,6 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
                                                        float offsetX,
                                                        float offsetY,
                                                        float offsetZ,
-                                                       float mass,
                                                        float restitution,
                                                        SkullbonezCore::Rendering::RenderMaterialKind materialKind,
                                                        const char* materialName,
@@ -194,7 +182,6 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
              offsetX,
              offsetY,
              offsetZ,
-             mass,
              restitution,
              materialKind,
              materialName,
@@ -219,13 +206,13 @@ constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition
 
 constexpr EditorTreePartDefinition SmallRootPart()
 {
-    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL, "root", 0.0f, 0.55f, 0.0f, 18.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_root", 0.24f, 0.12f, 0.055f, 0.96f, 0.05f, 0.50f );
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL, "root", 0.0f, 0.55f, 0.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_root", 0.24f, 0.12f, 0.055f, 0.96f, 0.05f, 0.50f );
 }
 
 
 constexpr EditorTreePartDefinition LargeRootPart()
 {
-    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE, "root", 0.0f, 0.75f, 0.0f, 34.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_large_root", 0.23f, 0.115f, 0.052f, 0.96f, 0.05f, 0.50f );
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE, "root", 0.0f, 0.75f, 0.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_large_root", 0.23f, 0.115f, 0.052f, 0.96f, 0.05f, 0.50f );
 }
 
 
@@ -236,7 +223,6 @@ constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float off
                                offsetX,
                                offsetY,
                                offsetZ,
-                               0.34f,
                                0.04f,
                                SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
                                "editor_pine_loose_needles",
@@ -253,10 +239,10 @@ constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float off
 
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
 };
 constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
@@ -264,10 +250,10 @@ constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", E
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP = { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f ),
 };
 constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
@@ -275,10 +261,10 @@ constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDIT
 constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP = { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 95.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_cedar_bark", 0.28f, 0.13f, 0.055f, 0.94f, 0.06f, 0.50f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW, "low", 0.0f, 25.0f, 0.0f, 44.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID, "mid", 0.0f, 38.0f, 0.0f, 32.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 48.0f, 0.0f, 20.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_cedar_bark", 0.28f, 0.13f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW, "low", 0.0f, 25.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID, "mid", 0.0f, 38.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 48.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
 };
 constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) / sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT };
@@ -4126,13 +4112,14 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
     };
 
-    auto addSphere = [&]( const char* label, float radius, float mass, float restitution )
+    auto addSphere = [&]( const char* label, float radius, float restitution )
     {
-        const float moment = 0.4f * mass * radius * radius;
+        const float mass = CalculateSphereMass( radius );
+        const Vector3 inertia = CalculateSphereInertia( radius, mass );
         const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         GameModel model( &m_cWorldEnvironment,
                          center,
-                         Vector3( moment, moment, moment ),
+                         inertia,
                          mass );
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( restitution );
@@ -4147,7 +4134,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
     auto addBox = [&]()
     {
         const Vector3 halfExtents = placementScale;
-        constexpr float mass = 24.0f;
+        const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
         if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
         {
@@ -4155,7 +4142,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
         GameModel model( &m_cWorldEnvironment,
                          center,
-                         BoxInertiaForHalfExtents( halfExtents, mass ),
+                         CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
                          mass );
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
@@ -4179,12 +4166,12 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         {
             return;
         }
-        constexpr float mass = 24.0f;
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
         ConvexHullShape scaledHull = hull;
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
+        const float mass = CalculateHullMass( scaledHull.GetDefaultMass() );
         const bool alignHull = alignToTerrain;
         const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
         const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
@@ -4241,10 +4228,11 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
             const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
             const Vector3 authoredOrigin = terrainPoint + placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
+            const float mass = CalculateHullMass( hull.GetDefaultMass() );
             GameModel model( &m_cWorldEnvironment,
                              center,
-                             hull.ComputeBoxApproxInertia( part.mass ),
-                             part.mass );
+                             hull.ComputeBoxApproxInertia( mass ),
+                             mass );
             model.SetTerrain( m_systems.terrain.get() );
             model.SetCoefficientRestitution( part.restitution );
             model.AddConvexHull( hull );
@@ -4265,10 +4253,10 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addBox();
         break;
     case UI::EditorTab::OBJECT_BALL:
-        addSphere( "ball", placementScale.x, 6.0f, 0.45f );
+        addSphere( "ball", placementScale.x, 0.45f );
         break;
     case UI::EditorTab::OBJECT_SPHERE:
-        addSphere( "sphere", placementScale.x, 24.0f, 0.35f );
+        addSphere( "sphere", placementScale.x, 0.35f );
         break;
     case UI::EditorTab::OBJECT_HULL_WEDGE:
         addHull( EditorHullAsset::WEDGE );

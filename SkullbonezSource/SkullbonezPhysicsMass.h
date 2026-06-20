@@ -1,0 +1,90 @@
+/*
+File: SkullbonezSource/SkullbonezPhysicsMass.h
+Purpose:
+  Defines shared mass, density, and inertia defaults for physics object creation.
+
+Mental model:
+  Object mass is an authored physical property. Editor defaults derive it from
+  collision volume and a stable density, while scene-authored explicit masses
+  remain authoritative.
+
+Related:
+  - SkullbonezSource/SkullbonezRunInput.cpp
+  - SkullbonezSource/SkullbonezConvexHullShape.cpp
+*/
+#pragma once
+
+#include "SkullbonezCommon.h"
+#include "SkullbonezVector3.h"
+
+namespace SkullbonezCore
+{
+namespace Physics
+{
+constexpr float DEFAULT_FLOATING_OBJECT_DENSITY = 0.90f;
+constexpr float MIN_DYNAMIC_MASS = 0.001f;
+
+inline float ClampPositiveMass( float mass )
+{
+    return std::isfinite( mass ) && mass > MIN_DYNAMIC_MASS ? mass : MIN_DYNAMIC_MASS;
+}
+
+inline float ClampPositiveDensityOrDefault( float density )
+{
+    return std::isfinite( density ) && density > TOLERANCE ? density : DEFAULT_FLOATING_OBJECT_DENSITY;
+}
+
+inline float CalculateSphereVolume( float radius )
+{
+    radius = (std::max)( 0.0f, radius );
+    return FOUR_OVER_THREE * _PI * radius * radius * radius;
+}
+
+inline float CalculateBoxVolume( const Math::Vector::Vector3& halfExtents )
+{
+    const float halfX = (std::max)( 0.0f, halfExtents.x );
+    const float halfY = (std::max)( 0.0f, halfExtents.y );
+    const float halfZ = (std::max)( 0.0f, halfExtents.z );
+    return 8.0f * halfX * halfY * halfZ;
+}
+
+inline float CalculateVolumeMass( float volume, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
+{
+    const float positiveVolume = std::isfinite( volume ) ? (std::max)( 0.0f, volume ) : 0.0f;
+    return ClampPositiveMass( positiveVolume * ClampPositiveDensityOrDefault( density ) );
+}
+
+inline float CalculateSphereMass( float radius, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
+{
+    return CalculateVolumeMass( CalculateSphereVolume( radius ), density );
+}
+
+inline float CalculateBoxMass( const Math::Vector::Vector3& halfExtents, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
+{
+    return CalculateVolumeMass( CalculateBoxVolume( halfExtents ), density );
+}
+
+inline float CalculateHullMass( float hullDefaultMass )
+{
+    return ClampPositiveMass( hullDefaultMass );
+}
+
+inline Math::Vector::Vector3 CalculateSphereInertia( float radius, float mass )
+{
+    radius = (std::max)( 0.0f, radius );
+    mass = ClampPositiveMass( mass );
+    const float moment = 0.4f * mass * radius * radius;
+    return Math::Vector::Vector3( moment, moment, moment );
+}
+
+inline Math::Vector::Vector3 CalculateBoxInertiaForHalfExtents( const Math::Vector::Vector3& halfExtents, float mass )
+{
+    mass = ClampPositiveMass( mass );
+    const float hx2 = halfExtents.x * halfExtents.x;
+    const float hy2 = halfExtents.y * halfExtents.y;
+    const float hz2 = halfExtents.z * halfExtents.z;
+    const float m3 = mass / 3.0f;
+    return Math::Vector::Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+}
+} // namespace Physics
+} // namespace SkullbonezCore

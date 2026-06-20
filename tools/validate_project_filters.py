@@ -82,6 +82,7 @@ PHYSICS_PREFIXES = (
     "SkullbonezPersistentContactSolver",
     "SkullbonezPhysicsDebugVisualizer",
     "SkullbonezPhysicsDiagnosticsSink",
+    "SkullbonezPhysicsMass",
     "SkullbonezPhysicsWorld",
     "SkullbonezResponseInformation",
     "SkullbonezRigidBody",
