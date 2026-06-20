@@ -478,7 +478,8 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 
     float totalVolume = target.GetVolume();
 
-    float submergedVolumePercent = target.GetSubmergedVolumePercent();
+    const GameModel::BuoyancySample buoyancySample = target.CalculateBuoyancySample();
+    float submergedVolumePercent = buoyancySample.submergedVolumePercent;
 
     float m_dragCoefficient = target.GetDragCoefficient();
 
@@ -487,8 +488,30 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     m_worldForce.y += CalculateGravity( target.GetMass() );
 
     const float buoyancyForce = CalculateBuoyancy( totalVolume * submergedVolumePercent );
-    m_worldForce.y += buoyancyForce;
+    const Vector3 buoyancyForceVector( 0.0f, buoyancyForce, 0.0f );
+    const Vector3 buoyancyArm = buoyancySample.centerOfBuoyancy - target.GetPosition();
+    m_worldForce += buoyancyForceVector;
+    m_worldTorque += CrossProduct( buoyancyArm, buoyancyForceVector );
     m_worldTorque += target.CalculateBuoyancyRightingTorque( buoyancyForce, submergedVolumePercent );
+
+    if ( changeInTime > TOLERANCE &&
+         buoyancyForce > TOLERANCE &&
+         VectorMagSquared( buoyancyArm ) > TOLERANCE * TOLERANCE )
+    {
+        const Vector3 pointVelocity = target.GetVelocity() + CrossProduct( target.GetAngularVelocity(), buoyancyArm );
+        const float pointVerticalSpeed = pointVelocity.y;
+        if ( fabsf( pointVerticalSpeed ) > TOLERANCE )
+        {
+            const float waterCoupling = sqrtf( std::clamp( submergedVolumePercent, 0.0f, 1.0f ) );
+            const float dampingImpulse = -pointVerticalSpeed * target.GetMass() * waterCoupling * 0.55f;
+            const float weight = fabsf( m_gravity ) * target.GetMass();
+            const float maxDampingForce = (std::max)( fabsf( buoyancyForce ), weight ) * 3.0f;
+            const float dampingForceY = std::clamp( dampingImpulse / changeInTime, -maxDampingForce, maxDampingForce );
+            const Vector3 dampingForce( 0.0f, dampingForceY, 0.0f );
+            m_worldForce += dampingForce;
+            m_worldTorque += CrossProduct( buoyancyArm, dampingForce );
+        }
+    }
 
     m_worldForce += CalculateViscousDrag( target.GetVelocity(),
                                           submergedVolumePercent,

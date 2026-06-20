@@ -147,6 +147,12 @@ class GameModel
     void ClampToTerrainSurface(); // Keep residual terrain penetration from leaking past integration
 
   public:
+    struct BuoyancySample
+    {
+        float submergedVolumePercent = 0.0f;
+        Math::Vector::Vector3 centerOfBuoyancy = Math::Vector::ZERO_VECTOR;
+    };
+
     struct ObjectSweepResult
     {
         bool hit = false;
@@ -162,6 +168,7 @@ class GameModel
     bool IsResponseRequired();                      // Legacy terrain-response mailbox has data waiting for the owner.
     void ClearResponseRequired();                   // Owner has consumed the terrain-response mailbox for this tick.
     float GetSubmergedVolumePercent();              // Fraction in [0,1] used by buoyancy and fluid drag.
+    BuoyancySample CalculateBuoyancySample();       // Submerged fraction plus the world-space center of displaced water.
     Math::Vector::Vector3 CalculateBuoyancyRightingTorque( float buoyancyForce,
                                                            float submergedVolumePercent ); // Water stability torque from principal inertia.
     float GetMass();

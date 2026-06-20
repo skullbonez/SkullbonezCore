@@ -1393,9 +1393,17 @@ void GameModel::ClampToTerrainSurface()
 
 float GameModel::GetSubmergedVolumePercent()
 {
+    return CalculateBuoyancySample().submergedVolumePercent;
+}
+
+
+GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
+{
     const float fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
     const Vector3 bodyPosition = m_physicsInfo.GetPosition();
     Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+    BuoyancySample sample;
+    sample.centerOfBuoyancy = bodyPosition;
 
     auto verticalSlabPercent = [fluidSurfaceHeight]( float bottom, float top ) -> float
     {
@@ -1416,36 +1424,117 @@ float GameModel::GetSubmergedVolumePercent()
         return std::clamp( ( fluidSurfaceHeight - bottom ) / height, 0.0f, 1.0f );
     };
 
-    return std::visit(
-        [&]( const auto& shape ) -> float
+    auto addPointBelowWater = [fluidSurfaceHeight]( const Vector3& point, Vector3& sum, float& weight )
+    {
+        if ( point.y <= fluidSurfaceHeight )
+        {
+            sum += point;
+            weight += 1.0f;
+        }
+    };
+
+    auto addWaterlineEdgePoint = [fluidSurfaceHeight]( const Vector3& a, const Vector3& b, Vector3& sum, float& weight )
+    {
+        const float da = fluidSurfaceHeight - a.y;
+        const float db = fluidSurfaceHeight - b.y;
+        if ( da == 0.0f || db == 0.0f || ( da > 0.0f ) == ( db > 0.0f ) )
+        {
+            return;
+        }
+
+        const float edgeY = b.y - a.y;
+        if ( fabsf( edgeY ) <= TOLERANCE )
+        {
+            return;
+        }
+
+        const float t = std::clamp( ( fluidSurfaceHeight - a.y ) / edgeY, 0.0f, 1.0f );
+        sum += a + ( b - a ) * t;
+        weight += 1.0f;
+    };
+
+    auto finishCenter = []( const Vector3& sum, float weight, const Vector3& fallback ) -> Vector3
+    {
+        if ( weight <= 0.0f )
+        {
+            return fallback;
+        }
+        return sum / weight;
+    };
+
+    std::visit(
+        [&]( const auto& shape )
         {
             using ShapeT = std::decay_t<decltype( shape )>;
 
             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
             {
                 const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
+                sample.centerOfBuoyancy = center;
                 const float radius = shape.GetRadius();
                 const float fluidHeightRelativeToCenter = fluidSurfaceHeight - center.y;
 
                 if ( fluidHeightRelativeToCenter <= -radius )
                 {
-                    return 0.0f;
+                    sample.submergedVolumePercent = 0.0f;
+                    return;
                 }
                 if ( fluidHeightRelativeToCenter >= radius )
                 {
-                    return 1.0f;
+                    sample.submergedVolumePercent = 1.0f;
+                    return;
                 }
 
                 const float yValue = fluidHeightRelativeToCenter + radius;
-                return std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / shape.GetVolume(),
-                                   0.0f,
-                                   1.0f );
+                sample.submergedVolumePercent =
+                    std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / shape.GetVolume(),
+                                0.0f,
+                                1.0f );
             }
             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
             {
                 const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
                 const float verticalExtent = rotMat.SupportExtentY( shape.GetHalfExtents() );
-                return verticalSlabPercent( center.y - verticalExtent, center.y + verticalExtent );
+                sample.centerOfBuoyancy = center;
+                sample.submergedVolumePercent = verticalSlabPercent( center.y - verticalExtent, center.y + verticalExtent );
+                if ( sample.submergedVolumePercent <= TOLERANCE ||
+                     sample.submergedVolumePercent >= 1.0f - TOLERANCE )
+                {
+                    return;
+                }
+
+                const Vector3& he = shape.GetHalfExtents();
+                Vector3 vertices[8];
+                int vertexIndex = 0;
+                for ( int sx = -1; sx <= 1; sx += 2 )
+                {
+                    for ( int sy = -1; sy <= 1; sy += 2 )
+                    {
+                        for ( int sz = -1; sz <= 1; sz += 2 )
+                        {
+                            const Vector3 local = shape.GetPosition() + Vector3( he.x * static_cast<float>( sx ),
+                                                                                  he.y * static_cast<float>( sy ),
+                                                                                  he.z * static_cast<float>( sz ) );
+                            vertices[vertexIndex++] = bodyPosition + ( rotMat * local );
+                        }
+                    }
+                }
+
+                static constexpr int BOX_EDGES[12][2] = {
+                    { 0, 1 }, { 0, 2 }, { 0, 4 }, { 1, 3 }, { 1, 5 }, { 2, 3 },
+                    { 2, 6 }, { 3, 7 }, { 4, 5 }, { 4, 6 }, { 5, 7 }, { 6, 7 } };
+
+                Vector3 sum = Vector::ZERO_VECTOR;
+                float weight = 0.0f;
+                for ( const Vector3& vertex : vertices )
+                {
+                    addPointBelowWater( vertex, sum, weight );
+                }
+                for ( const auto& edge : BOX_EDGES )
+                {
+                    addWaterlineEdgePoint( vertices[edge[0]], vertices[edge[1]], sum, weight );
+                }
+                sample.centerOfBuoyancy = finishCenter( sum, weight, center );
             }
             else
             {
@@ -1453,23 +1542,53 @@ float GameModel::GetSubmergedVolumePercent()
                 float minY = 1.0e30f;
                 float maxY = -1.0e30f;
                 const uint16_t vertexCount = shape.GetVertexCount();
+                Vector3 vertices[ConvexHullShape::MAX_VERTICES];
                 for ( uint16_t v = 0; v < vertexCount; ++v )
                 {
                     const Vector3 worldVertex = hullCenter + ( rotMat * shape.GetVertex( v ) );
+                    vertices[v] = worldVertex;
                     minY = (std::min)( minY, worldVertex.y );
                     maxY = (std::max)( maxY, worldVertex.y );
                 }
 
+                sample.centerOfBuoyancy = hullCenter;
                 if ( vertexCount == 0 )
                 {
                     const float radius = shape.GetBoundingRadius();
                     minY = hullCenter.y - radius;
                     maxY = hullCenter.y + radius;
+                    sample.submergedVolumePercent = verticalSlabPercent( minY, maxY );
+                    return;
                 }
-                return verticalSlabPercent( minY, maxY );
+
+                sample.submergedVolumePercent = verticalSlabPercent( minY, maxY );
+                if ( sample.submergedVolumePercent <= TOLERANCE ||
+                     sample.submergedVolumePercent >= 1.0f - TOLERANCE )
+                {
+                    return;
+                }
+
+                Vector3 sum = Vector::ZERO_VECTOR;
+                float weight = 0.0f;
+                for ( uint16_t v = 0; v < vertexCount; ++v )
+                {
+                    addPointBelowWater( vertices[v], sum, weight );
+                }
+                for ( uint16_t e = 0; e < shape.GetEdgeCount(); ++e )
+                {
+                    const ConvexHullEdge& edge = shape.GetEdge( e );
+                    if ( edge.vertexA >= vertexCount || edge.vertexB >= vertexCount )
+                    {
+                        continue;
+                    }
+                    addWaterlineEdgePoint( vertices[edge.vertexA], vertices[edge.vertexB], sum, weight );
+                }
+                sample.centerOfBuoyancy = finishCenter( sum, weight, hullCenter );
             }
         },
         m_boundingVolume );
+
+    return sample;
 }
 
 

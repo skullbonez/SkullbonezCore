@@ -1,0 +1,150 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "seed": 20260620,
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -35.0,
+      "fluidHeight": 0.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "capture": {
+    "screenshot": {
+      "path": "TestOutput/buoyancy_shoreline_lever.bmp",
+      "frame": 2100
+    }
+  },
+  "playback": {
+    "frames": 2100,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -50.0,
+      "slopeX": 0.1,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": false,
+    "waterFreeze": true,
+    "waterFlat": true,
+    "terrainHidden": false,
+    "collisionVisualizer": true,
+    "physics": {
+      "axes": true,
+      "transparent": true,
+      "alpha": 0.22
+    }
+  },
+  "cameras": [
+    {
+      "name": "shoreline_overview",
+      "position": [
+        500,
+        105,
+        720
+      ],
+      "view": [
+        505,
+        0,
+        505
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "shore_log_half_wet_half_grounded",
+      "position": [
+        500,
+        3.6,
+        492
+      ],
+      "mass": 120.0,
+      "restitution": 0.04,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        -84.3
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "shore_log_wet_end_low",
+      "position": [
+        490,
+        2.7,
+        516
+      ],
+      "mass": 120.0,
+      "restitution": 0.04,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        18,
+        -76.0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "jetty_beam_half_afloat",
+      "position": [
+        500,
+        1.6,
+        540
+      ],
+      "halfExtents": [
+        42.0,
+        1.5,
+        4.0
+      ],
+      "mass": 520.0,
+      "restitution": 0.03,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        5.7
+      ]
+    },
+    {
+      "type": "box",
+      "name": "wide_plank_shoreline_control",
+      "position": [
+        498,
+        1.5,
+        462
+      ],
+      "halfExtents": [
+        28.0,
+        1.0,
+        8.0
+      ],
+      "mass": 360.0,
+      "restitution": 0.03,
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        5.7
+      ]
+    }
+  ]
+}
