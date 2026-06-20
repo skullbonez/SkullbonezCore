@@ -45,6 +45,7 @@ Related:
 
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezConvexHullShape.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezIRenderBackend.h"
@@ -59,8 +60,8 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Rendering;
-
 
 CollisionVisualizer::~CollisionVisualizer()
 {
@@ -100,11 +101,20 @@ void CollisionVisualizer::ResetResources()
         {
             Gfx().DestroyInstancedMesh( m_boxInstMesh );
         }
+        for ( const HullMeshResource& resource : m_hullMeshes )
+        {
+            if ( resource.mesh )
+            {
+                Gfx().DestroyInstancedMesh( resource.mesh );
+            }
+        }
     }
     m_sphereInstMesh = 0;
     m_boxInstMesh = 0;
     m_sphereVertexCount = 0;
     m_boxVertexCount = 0;
+    m_hullMeshes.clear();
+    m_hullInstances.clear();
 }
 
 
@@ -187,6 +197,62 @@ void CollisionVisualizer::AppendInstance( std::vector<float>& out, const Matrix4
     out.push_back( color.g );
     out.push_back( color.b );
     out.push_back( color.a );
+}
+
+
+uint32_t CollisionVisualizer::GetOrCreateHullMesh( const ConvexHullShape& hull, int& outVertexCount )
+{
+    const uint64_t hash = hull.GetGeometryHash();
+    for ( const HullMeshResource& resource : m_hullMeshes )
+    {
+        if ( resource.hash == hash )
+        {
+            outVertexCount = resource.vertexCount;
+            return resource.mesh;
+        }
+    }
+
+    std::vector<float> verts;
+    verts.reserve( static_cast<size_t>( hull.GetFaceCount() ) * 6u * 6u );
+    auto emitVertex = [&]( uint16_t index, const Vector3& normal )
+    {
+        const Vector3 p = hull.GetPosition() + hull.GetVertex( index );
+        verts.insert( verts.end(), { p.x, p.y, p.z, normal.x, normal.y, normal.z } );
+    };
+
+    for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
+    {
+        const ConvexHullFace& face = hull.GetFace( f );
+        if ( face.indexCount < 3 )
+        {
+            continue;
+        }
+
+        const uint16_t root = hull.GetFaceIndex( face.firstIndex );
+        for ( uint8_t i = 1; i + 1 < face.indexCount; ++i )
+        {
+            const uint16_t b = hull.GetFaceIndex( face.firstIndex + i );
+            const uint16_t c = hull.GetFaceIndex( face.firstIndex + i + 1 );
+            emitVertex( root, face.normalLocal );
+            emitVertex( b, face.normalLocal );
+            emitVertex( c, face.normalLocal );
+        }
+    }
+
+    outVertexCount = static_cast<int>( verts.size() / 6u );
+    if ( outVertexCount <= 0 )
+    {
+        return 0;
+    }
+
+    int staticAttribSizes[] = { 3, 3 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
+    HullMeshResource resource;
+    resource.hash = hash;
+    resource.vertexCount = outVertexCount;
+    resource.mesh = Gfx().CreateInstancedMesh( verts.data(), outVertexCount, 6, 1, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 2 );
+    m_hullMeshes.push_back( resource );
+    return resource.mesh;
 }
 
 
@@ -328,6 +394,26 @@ void CollisionVisualizer::DrawInstances( uint32_t mesh, int vertexCount, const s
 }
 
 
+void CollisionVisualizer::DrawHullInstance( const HullInstance& instance )
+{
+    if ( instance.mesh == 0 || instance.vertexCount <= 0 )
+    {
+        return;
+    }
+
+    float instanceData[INSTANCE_FLOATS] = {};
+    const float* md = instance.model.Data();
+    std::copy( md, md + 16, instanceData );
+    instanceData[16] = instance.color.r;
+    instanceData[17] = instance.color.g;
+    instanceData[18] = instance.color.b;
+    instanceData[19] = instance.color.a;
+
+    Gfx().UploadInstanceData( instance.mesh, instanceData, INSTANCE_FLOATS );
+    Gfx().DrawInstancedMesh( instance.mesh, instance.vertexCount, 1 );
+}
+
+
 void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
     if ( !m_enabled || models.GetModelCount() <= 0 )
@@ -340,11 +426,9 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
 
     m_sphereInstanceData.clear();
     m_boxInstanceData.clear();
+    m_hullInstances.clear();
 
-    // Build per-shape streams from the authoritative collision shape. Hulls use
-    // their validated inertia/AABB extents in this solid view; the physics debug
-    // axes overlay draws the authored hull edges when exact polytope inspection is
-    // needed.
+    // Build per-shape streams from the authoritative collision shape.
     const int modelCount = models.GetModelCount();
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -363,9 +447,14 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
             const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
             if ( hull )
             {
-                const Matrix4 rotation = Matrix4::FromQuaternion( model.GetOrientation() );
-                const Matrix4 hullModel = Matrix4::Translate( model.GetPosition() ) * rotation * Matrix4::Translate( hull->GetPosition() ) * Matrix4::Scale( hull->GetInertiaHalfExtents() );
-                AppendInstance( m_boxInstanceData, hullModel, color );
+                HullInstance instance;
+                instance.mesh = GetOrCreateHullMesh( *hull, instance.vertexCount );
+                instance.model = Matrix4::Translate( model.GetPosition() ) * Matrix4::FromQuaternion( model.GetOrientation() );
+                instance.color = color;
+                if ( instance.mesh != 0 && instance.vertexCount > 0 )
+                {
+                    m_hullInstances.push_back( instance );
+                }
             }
         }
         else
@@ -404,6 +493,13 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
     {
         DRAW_CALL_TRACE_SCOPE( "CollisionBoxes" );
         DrawInstances( m_boxInstMesh, m_boxVertexCount, m_boxInstanceData );
+    }
+    {
+        DRAW_CALL_TRACE_SCOPE( "CollisionHulls" );
+        for ( const HullInstance& instance : m_hullInstances )
+        {
+            DrawHullInstance( instance );
+        }
     }
     if ( translucent )
     {

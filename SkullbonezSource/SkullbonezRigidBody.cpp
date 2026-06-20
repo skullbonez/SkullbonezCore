@@ -125,11 +125,10 @@ void RigidBody::ApplyWorldForce()
     Vector3 worldLinearAcceleration = m_worldForce / m_mass;
     m_linearVelocity += worldLinearAcceleration;
 
-    // Angular: α = τ/I, then ω += α
-    // (component-wise division because we store inertia as a diagonal vector)
-    Vector3 worldAngularAcceleration = m_worldTorque /
-                                       m_rotationalInertia;
-    m_angularVelocity += worldAngularAcceleration;
+    // World torque must use the rotated inertia tensor for boxes and hulls.
+    RotationMatrix orientation = m_orientation.GetOrientationMatrix();
+    Vector3 localAngularImpulse = orientation.TransposeMultiply( m_worldTorque ) / m_rotationalInertia;
+    m_angularVelocity += orientation * localAngularImpulse;
 }
 
 

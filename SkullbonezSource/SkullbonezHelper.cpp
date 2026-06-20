@@ -201,50 +201,9 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMaterialInstancePayload( co
     return out;
 }
 
-static void HashUint32( uint64_t& hash, uint32_t value )
-{
-    constexpr uint64_t FNV_PRIME = 1099511628211ull;
-    for ( int i = 0; i < 4; ++i )
-    {
-        hash ^= static_cast<uint8_t>( value >> ( i * 8 ) );
-        hash *= FNV_PRIME;
-    }
-}
-
-static void HashFloat( uint64_t& hash, float value )
-{
-    uint32_t bits = 0;
-    std::memcpy( &bits, &value, sizeof( bits ) );
-    HashUint32( hash, bits );
-}
-
-static uint64_t HashConvexHullGeometry( const ConvexHullShape& hull )
-{
-    uint64_t hash = 1469598103934665603ull;
-    HashUint32( hash, hull.GetVertexCount() );
-    HashUint32( hash, hull.GetFaceCount() );
-    for ( uint16_t v = 0; v < hull.GetVertexCount(); ++v )
-    {
-        const Vector3& p = hull.GetVertex( v );
-        HashFloat( hash, p.x );
-        HashFloat( hash, p.y );
-        HashFloat( hash, p.z );
-    }
-    for ( uint16_t f = 0; f < hull.GetFaceCount(); ++f )
-    {
-        const ConvexHullFace& face = hull.GetFace( f );
-        HashUint32( hash, face.indexCount );
-        for ( uint8_t i = 0; i < face.indexCount; ++i )
-        {
-            HashUint32( hash, hull.GetFaceIndex( face.firstIndex + i ) );
-        }
-    }
-    return hash;
-}
-
 static uint32_t GetConvexHullInstancedMesh( const ConvexHullShape& hull, int& outVertexCount )
 {
-    const uint64_t hash = HashConvexHullGeometry( hull );
+    const uint64_t hash = hull.GetGeometryHash();
     for ( const ConvexHullMeshResource& resource : sConvexHullMeshes )
     {
         if ( resource.hash == hash )

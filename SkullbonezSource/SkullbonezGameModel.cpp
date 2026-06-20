@@ -1393,23 +1393,173 @@ void GameModel::ClampToTerrainSurface()
 
 float GameModel::GetSubmergedVolumePercent()
 {
-    // For current sphere-only scenes, submerged volume is evaluated from cached
-    // immutable sphere terms (radius + inverse volume) and the current center height.
-    float fluidHeightRelativeToCenter = m_worldEnvironment->GetFluidSurfaceHeight() - m_physicsInfo.GetPosition().y;
-    float radius = m_ballPhysics.radius;
+    const float fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
+    const Vector3 bodyPosition = m_physicsInfo.GetPosition();
+    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
 
-    if ( fluidHeightRelativeToCenter <= -radius )
+    auto verticalSlabPercent = [fluidSurfaceHeight]( float bottom, float top ) -> float
     {
-        return 0.0f;
+        if ( fluidSurfaceHeight <= bottom )
+        {
+            return 0.0f;
+        }
+        if ( fluidSurfaceHeight >= top )
+        {
+            return 1.0f;
+        }
+
+        const float height = top - bottom;
+        if ( height <= TOLERANCE )
+        {
+            return 0.0f;
+        }
+        return std::clamp( ( fluidSurfaceHeight - bottom ) / height, 0.0f, 1.0f );
+    };
+
+    return std::visit(
+        [&]( const auto& shape ) -> float
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+
+            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+            {
+                const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
+                const float radius = shape.GetRadius();
+                const float fluidHeightRelativeToCenter = fluidSurfaceHeight - center.y;
+
+                if ( fluidHeightRelativeToCenter <= -radius )
+                {
+                    return 0.0f;
+                }
+                if ( fluidHeightRelativeToCenter >= radius )
+                {
+                    return 1.0f;
+                }
+
+                const float yValue = fluidHeightRelativeToCenter + radius;
+                return std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / shape.GetVolume(),
+                                   0.0f,
+                                   1.0f );
+            }
+            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+            {
+                const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
+                const float verticalExtent = rotMat.SupportExtentY( shape.GetHalfExtents() );
+                return verticalSlabPercent( center.y - verticalExtent, center.y + verticalExtent );
+            }
+            else
+            {
+                const Vector3 hullCenter = bodyPosition + ( rotMat * shape.GetPosition() );
+                float minY = 1.0e30f;
+                float maxY = -1.0e30f;
+                const uint16_t vertexCount = shape.GetVertexCount();
+                for ( uint16_t v = 0; v < vertexCount; ++v )
+                {
+                    const Vector3 worldVertex = hullCenter + ( rotMat * shape.GetVertex( v ) );
+                    minY = (std::min)( minY, worldVertex.y );
+                    maxY = (std::max)( maxY, worldVertex.y );
+                }
+
+                if ( vertexCount == 0 )
+                {
+                    const float radius = shape.GetBoundingRadius();
+                    minY = hullCenter.y - radius;
+                    maxY = hullCenter.y + radius;
+                }
+                return verticalSlabPercent( minY, maxY );
+            }
+        },
+        m_boundingVolume );
+}
+
+
+Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float submergedVolumePercent )
+{
+    if ( m_isFixed ||
+         IsSphere() ||
+         buoyancyForce <= TOLERANCE ||
+         submergedVolumePercent <= TOLERANCE )
+    {
+        return Vector::ZERO_VECTOR;
     }
 
-    if ( fluidHeightRelativeToCenter >= radius )
+    const Vector3& inertia = m_ballPhysics.rotationalInertia;
+    float maxInertia = (std::max)( inertia.x, (std::max)( inertia.y, inertia.z ) );
+    float minInertia = inertia.y;
+    minInertia = (std::min)( minInertia, inertia.x );
+    minInertia = (std::min)( minInertia, inertia.z );
+    if ( maxInertia <= TOLERANCE )
     {
-        return 1.0f;
+        return Vector::ZERO_VECTOR;
     }
 
-    float yValue = fluidHeightRelativeToCenter + radius;
-    return ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) * m_ballPhysics.invVolume;
+    const float anisotropy = ( maxInertia - minInertia ) / maxInertia;
+    if ( anisotropy < 0.08f )
+    {
+        return Vector::ZERO_VECTOR;
+    }
+
+    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+    Vector3 stableWorldAxis = Vector::ZERO_VECTOR;
+    float bestAxisScore = -1.0f;
+    const Vector3 localAxes[3] = {
+        Vector3( 1.0f, 0.0f, 0.0f ),
+        Vector3( 0.0f, 1.0f, 0.0f ),
+        Vector3( 0.0f, 0.0f, 1.0f ),
+    };
+    const float localInertia[3] = { inertia.x, inertia.y, inertia.z };
+    for ( int axisIndex = 0; axisIndex < 3; ++axisIndex )
+    {
+        const float candidateInertia = localInertia[axisIndex];
+        if ( candidateInertia < maxInertia * 0.75f )
+        {
+            continue;
+        }
+
+        Vector3 candidateWorldAxis = rotMat * localAxes[axisIndex];
+        const float axisLengthSq = Vector::VectorMagSquared( candidateWorldAxis );
+        if ( axisLengthSq <= TOLERANCE * TOLERANCE )
+        {
+            continue;
+        }
+
+        candidateWorldAxis /= sqrtf( axisLengthSq );
+        if ( candidateWorldAxis.y < 0.0f )
+        {
+            candidateWorldAxis = -candidateWorldAxis;
+        }
+
+        const float verticalError = 1.0f - std::clamp( candidateWorldAxis.y, 0.0f, 1.0f );
+        const float score = verticalError + ( candidateInertia / maxInertia ) * 0.001f;
+        if ( score > bestAxisScore )
+        {
+            bestAxisScore = score;
+            stableWorldAxis = candidateWorldAxis;
+        }
+    }
+
+    if ( bestAxisScore < 0.0f )
+    {
+        return Vector::ZERO_VECTOR;
+    }
+
+    const Vector3 worldUp( 0.0f, 1.0f, 0.0f );
+    Vector3 correctionAxis = Vector::CrossProduct( stableWorldAxis, worldUp );
+    const float errorSq = Vector::VectorMagSquared( correctionAxis );
+    if ( errorSq <= TOLERANCE * TOLERANCE )
+    {
+        return Vector::ZERO_VECTOR;
+    }
+
+    const float error = sqrtf( errorSq );
+    correctionAxis /= error;
+
+    const float gravityMagnitude = fabsf( m_worldEnvironment->GetGravity() );
+    const float weight = m_ballPhysics.mass * gravityMagnitude;
+    const float cappedLift = (std::min)( buoyancyForce, weight * 6.0f );
+    const float waterCoupling = sqrtf( std::clamp( submergedVolumePercent, 0.0f, 1.0f ) );
+    const float torqueMagnitude = cappedLift * m_ballPhysics.radius * anisotropy * waterCoupling * error;
+    return correctionAxis * torqueMagnitude;
 }
 
 

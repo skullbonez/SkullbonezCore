@@ -486,7 +486,9 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 
     m_worldForce.y += CalculateGravity( target.GetMass() );
 
-    m_worldForce.y += CalculateBuoyancy( totalVolume * submergedVolumePercent );
+    const float buoyancyForce = CalculateBuoyancy( totalVolume * submergedVolumePercent );
+    m_worldForce.y += buoyancyForce;
+    m_worldTorque += target.CalculateBuoyancyRightingTorque( buoyancyForce, submergedVolumePercent );
 
     m_worldForce += CalculateViscousDrag( target.GetVelocity(),
                                           submergedVolumePercent,

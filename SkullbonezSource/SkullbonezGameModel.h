@@ -162,6 +162,8 @@ class GameModel
     bool IsResponseRequired();                      // Legacy terrain-response mailbox has data waiting for the owner.
     void ClearResponseRequired();                   // Owner has consumed the terrain-response mailbox for this tick.
     float GetSubmergedVolumePercent();              // Fraction in [0,1] used by buoyancy and fluid drag.
+    Math::Vector::Vector3 CalculateBuoyancyRightingTorque( float buoyancyForce,
+                                                           float submergedVolumePercent ); // Water stability torque from principal inertia.
     float GetMass();
     float GetInvertedMass(); // Immutable inverse mass cache; fixed bodies use zero.
     float GetVolume();

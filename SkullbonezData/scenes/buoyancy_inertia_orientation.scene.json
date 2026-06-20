@@ -1,0 +1,142 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "seed": 20260620,
+    "physics": true,
+    "text": true,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -35.0,
+      "fluidHeight": 0.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "capture": {
+    "screenshot": {
+      "path": "TestOutput/buoyancy_inertia_orientation.bmp",
+      "frame": 1800
+    }
+  },
+  "playback": {
+    "frames": 1800,
+    "exitOnComplete": true,
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -80.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": false,
+    "waterFreeze": true,
+    "waterFlat": true,
+    "terrainHidden": false,
+    "collisionVisualizer": true,
+    "physics": {
+      "axes": true,
+      "transparent": true,
+      "alpha": 0.24
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        500,
+        115,
+        710
+      ],
+      "view": [
+        560,
+        0,
+        520
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "convexHull",
+      "name": "upright_log_should_roll_side",
+      "position": [
+        500,
+        5.0,
+        500
+      ],
+      "mass": 120.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        35,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "tilted_log_should_finish_side",
+      "position": [
+        535,
+        4.0,
+        500
+      ],
+      "mass": 120.0,
+      "restitution": 0.05,
+      "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        0,
+        45
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "edge_raft_should_lie_flat",
+      "position": [
+        585,
+        5.0,
+        500
+      ],
+      "mass": 800.0,
+      "restitution": 0.04,
+      "hull": "SkullbonezData/hulls/rock_slab_flat.hull",
+      "fixed": false,
+      "euler": [
+        90,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "convexHull",
+      "name": "flat_raft_should_stay_flat",
+      "position": [
+        640,
+        1.5,
+        500
+      ],
+      "mass": 800.0,
+      "restitution": 0.04,
+      "hull": "SkullbonezData/hulls/rock_slab_flat.hull",
+      "fixed": false,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    }
+  ]
+}
