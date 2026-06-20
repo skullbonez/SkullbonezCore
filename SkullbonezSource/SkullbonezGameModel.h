@@ -9,6 +9,11 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Center of buoyancy: World-space average location of displaced water. Applying
+  lift through this point creates the roll/pitch torque that makes floating
+  bodies settle.
+  Wet sample: Fixed point inside a box-like volume used to approximate how much
+  water is under that part of the body.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -149,8 +154,21 @@ class GameModel
   public:
     struct BuoyancySample
     {
-        float submergedVolumePercent = 0.0f;
-        Math::Vector::Vector3 centerOfBuoyancy = Math::Vector::ZERO_VECTOR;
+        // Invariant: this report is part of deterministic physics. Keep the
+        // sample storage fixed-size and caller-owned so buoyancy never allocates
+        // while the frame is being simulated.
+        static constexpr uint8_t MAX_WET_POINTS = 32;
+
+        float submergedVolumePercent = 0.0f; // 0..1 fraction of collision volume below usable water.
+        Math::Vector::Vector3 centerOfBuoyancy = Math::Vector::ZERO_VECTOR; // World-space lift point.
+
+        // Wet points are world-space samples used by water damping and
+        // righting. Weights are relative water exposure and are normalized by
+        // wetWeightTotal before callers share damping across the sample set.
+        Math::Vector::Vector3 wetPoints[MAX_WET_POINTS] = {};
+        float wetWeights[MAX_WET_POINTS] = {};
+        float wetWeightTotal = 0.0f;
+        uint8_t wetPointCount = 0;
     };
 
     struct ObjectSweepResult

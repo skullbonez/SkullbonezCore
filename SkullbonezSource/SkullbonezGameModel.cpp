@@ -9,6 +9,14 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Buoyancy: Upward force from displaced water, applied through the center of
+  buoyancy instead of the model origin.
+  Center of buoyancy: World-space average location of displaced water. It is the
+  lever arm that lets water roll a hull toward a stable pose.
+  Wet sample: Fixed interior sample point used to estimate local water exposure
+  without storing per-frame dynamic data.
+  Righting torque: Corrective spin produced by buoyancy so long bodies settle on
+  a side and broad flat bodies settle like rafts.
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
   CCD (Continuous Collision Detection): Swept collision test that asks whether
@@ -1396,7 +1404,14 @@ float GameModel::GetSubmergedVolumePercent()
     return CalculateBuoyancySample().submergedVolumePercent;
 }
 
-
+// Concept: buoyancy samples are deliberately approximate and allocation-free.
+//
+// Spheres use an analytic submerged-volume formula because their orientation is
+// irrelevant. Boxes and convex hulls use a fixed 3x3x3 set of interior points.
+// That is coarse, but it gives the water a stable side-to-side lever arm for
+// logs, planks, and rafts without transforming every hull vertex every frame.
+// Physics validation treats the exact sample count and ordering as byte-exact
+// behavior, so changes here require a baseline refresh from the final build.
 GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
 {
     const float fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
@@ -1405,61 +1420,116 @@ GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
     BuoyancySample sample;
     sample.centerOfBuoyancy = bodyPosition;
 
-    auto verticalSlabPercent = [fluidSurfaceHeight]( float bottom, float top ) -> float
+    auto addWetPoint = [&sample]( const Vector3& point, float weight, Vector3& weightedSum, float& wetWeight )
     {
-        if ( fluidSurfaceHeight <= bottom )
+        // Wetness is a normalized exposure, not mass or volume. The total is
+        // converted to a 0..1 submerged fraction after all fixed samples run.
+        weight = std::clamp( weight, 0.0f, 1.0f );
+        if ( weight <= TOLERANCE )
         {
-            return 0.0f;
+            return;
         }
-        if ( fluidSurfaceHeight >= top )
+
+        weightedSum += point * weight;
+        wetWeight += weight;
+        // Invariant: the current sampler has 27 points. MAX_WET_POINTS leaves a
+        // little room for future shape samplers while keeping the frame hot path
+        // on stack/inline storage instead of heap vectors or hash maps.
+        if ( sample.wetPointCount < BuoyancySample::MAX_WET_POINTS )
+        {
+            sample.wetPoints[sample.wetPointCount] = point;
+            sample.wetWeights[sample.wetPointCount] = weight;
+            ++sample.wetPointCount;
+        }
+    };
+
+    auto finishWeightedSample = [&sample]( const Vector3& weightedSum, float wetWeight, const Vector3& fallback )
+    {
+        sample.wetWeightTotal = wetWeight;
+        if ( wetWeight <= TOLERANCE )
+        {
+            sample.centerOfBuoyancy = fallback;
+            sample.submergedVolumePercent = 0.0f;
+            return;
+        }
+
+        sample.centerOfBuoyancy = weightedSum / wetWeight;
+        sample.submergedVolumePercent = std::clamp( wetWeight / 27.0f, 0.0f, 1.0f );
+    };
+
+    auto terrainWaterScale = [&]( const Vector3& worldPoint, float sampleBand ) -> float
+    {
+        // Why: a point cannot displace water that is physically blocked by land.
+        // This is the shoreline/jetty case: the wet end of a log can float, but
+        // the end resting on a ramp should not receive fake lift from "water"
+        // inside the terrain.
+        if ( !m_terrain || !m_terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
         {
             return 1.0f;
         }
 
-        const float height = top - bottom;
-        if ( height <= TOLERANCE )
+        const float terrainHeight = m_terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+        if ( terrainHeight >= fluidSurfaceHeight - TOLERANCE )
         {
             return 0.0f;
         }
-        return std::clamp( ( fluidSurfaceHeight - bottom ) / height, 0.0f, 1.0f );
-    };
 
-    auto addPointBelowWater = [fluidSurfaceHeight]( const Vector3& point, Vector3& sum, float& weight )
-    {
-        if ( point.y <= fluidSurfaceHeight )
+        const float clearanceAboveTerrain = worldPoint.y - terrainHeight;
+        if ( clearanceAboveTerrain <= TOLERANCE )
         {
-            sum += point;
-            weight += 1.0f;
+            return 0.0f;
         }
+
+        return std::clamp( clearanceAboveTerrain / (std::max)( sampleBand, TOLERANCE ), 0.0f, 1.0f );
     };
 
-    auto addWaterlineEdgePoint = [fluidSurfaceHeight]( const Vector3& a, const Vector3& b, Vector3& sum, float& weight )
+    auto sampleOrientedBoxVolume = [&]( const Vector3& localCenter, const Vector3& halfExtents )
     {
-        const float da = fluidSurfaceHeight - a.y;
-        const float db = fluidSurfaceHeight - b.y;
-        if ( da == 0.0f || db == 0.0f || ( da > 0.0f ) == ( db > 0.0f ) )
+        // Concept: treat boxes and hulls as a cheap oriented volume for water.
+        //
+        // For boxes the extents are exact. For convex hulls the inertia extents
+        // preserve the authored body's long/flat character without walking every
+        // hull face or rebuilding a clipped water polygon during gameplay.
+        const Vector3 center = bodyPosition + ( rotMat * localCenter );
+        const float verticalExtent = rotMat.SupportExtentY( halfExtents );
+        sample.centerOfBuoyancy = center;
+
+        if ( verticalExtent <= TOLERANCE ||
+             fluidSurfaceHeight <= center.y - verticalExtent )
         {
             return;
         }
 
-        const float edgeY = b.y - a.y;
-        if ( fabsf( edgeY ) <= TOLERANCE )
+        static constexpr float SAMPLE_COORDS[3] = { -0.6666667f, 0.0f, 0.6666667f };
+        // The band softens waterline crossing so a sample near the surface fades
+        // in instead of snapping on/off, which would show up as jitter in logs.
+        const float sampleBand = (std::max)( 0.25f, verticalExtent * 0.5f );
+        Vector3 weightedSum = Vector::ZERO_VECTOR;
+        float wetWeight = 0.0f;
+        for ( float sx : SAMPLE_COORDS )
         {
-            return;
+            for ( float sy : SAMPLE_COORDS )
+            {
+                for ( float sz : SAMPLE_COORDS )
+                {
+                    const Vector3 local = localCenter + Vector3( halfExtents.x * sx,
+                                                                 halfExtents.y * sy,
+                                                                 halfExtents.z * sz );
+                    const Vector3 worldPoint = bodyPosition + ( rotMat * local );
+                    const float depth = fluidSurfaceHeight - worldPoint.y;
+                    // Fully submerged volumes get exact sample weight 1.0. Near
+                    // the surface, depth is mapped through sampleBand so the
+                    // center of buoyancy can move smoothly across the body.
+                    const float waterWetness = fluidSurfaceHeight >= center.y + verticalExtent
+                                                   ? 1.0f
+                                                   : std::clamp( 0.5f + depth / sampleBand, 0.0f, 1.0f );
+                    const float wetness = waterWetness * terrainWaterScale( worldPoint, sampleBand );
+                    addWetPoint( worldPoint, wetness, weightedSum, wetWeight );
+                }
+            }
         }
 
-        const float t = std::clamp( ( fluidSurfaceHeight - a.y ) / edgeY, 0.0f, 1.0f );
-        sum += a + ( b - a ) * t;
-        weight += 1.0f;
-    };
-
-    auto finishCenter = []( const Vector3& sum, float weight, const Vector3& fallback ) -> Vector3
-    {
-        if ( weight <= 0.0f )
-        {
-            return fallback;
-        }
-        return sum / weight;
+        finishWeightedSample( weightedSum, wetWeight, center );
     };
 
     std::visit(
@@ -1469,6 +1539,10 @@ GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
 
             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
             {
+                // Spheres have no preferred orientation, so only submerged
+                // volume matters. Do not add wet points here: the shared water
+                // damping in WorldEnvironment already slows linear motion, and
+                // point damping on a sphere made balls stick to water like glue.
                 const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
                 sample.centerOfBuoyancy = center;
                 const float radius = shape.GetRadius();
@@ -1493,107 +1567,14 @@ GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
             }
             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
             {
-                const Vector3 center = bodyPosition + ( rotMat * shape.GetPosition() );
-                const float verticalExtent = rotMat.SupportExtentY( shape.GetHalfExtents() );
-                sample.centerOfBuoyancy = center;
-                sample.submergedVolumePercent = verticalSlabPercent( center.y - verticalExtent, center.y + verticalExtent );
-                if ( sample.submergedVolumePercent <= TOLERANCE ||
-                     sample.submergedVolumePercent >= 1.0f - TOLERANCE )
-                {
-                    return;
-                }
-
-                const Vector3& he = shape.GetHalfExtents();
-                Vector3 vertices[8];
-                int vertexIndex = 0;
-                for ( int sx = -1; sx <= 1; sx += 2 )
-                {
-                    for ( int sy = -1; sy <= 1; sy += 2 )
-                    {
-                        for ( int sz = -1; sz <= 1; sz += 2 )
-                        {
-                            const Vector3 local = shape.GetPosition() + Vector3( he.x * static_cast<float>( sx ),
-                                                                                 he.y * static_cast<float>( sy ),
-                                                                                 he.z * static_cast<float>( sz ) );
-                            vertices[vertexIndex++] = bodyPosition + ( rotMat * local );
-                        }
-                    }
-                }
-
-                static constexpr int BOX_EDGES[12][2] = {
-                    { 0, 1 },
-                    { 0, 2 },
-                    { 0, 4 },
-                    { 1, 3 },
-                    { 1, 5 },
-                    { 2, 3 },
-                    { 2, 6 },
-                    { 3, 7 },
-                    { 4, 5 },
-                    { 4, 6 },
-                    { 5, 7 },
-                    { 6, 7 } };
-
-                Vector3 sum = Vector::ZERO_VECTOR;
-                float weight = 0.0f;
-                for ( const Vector3& vertex : vertices )
-                {
-                    addPointBelowWater( vertex, sum, weight );
-                }
-                for ( const auto& edge : BOX_EDGES )
-                {
-                    addWaterlineEdgePoint( vertices[edge[0]], vertices[edge[1]], sum, weight );
-                }
-                sample.centerOfBuoyancy = finishCenter( sum, weight, center );
+                sampleOrientedBoxVolume( shape.GetPosition(), shape.GetHalfExtents() );
             }
             else
             {
-                const Vector3 hullCenter = bodyPosition + ( rotMat * shape.GetPosition() );
-                float minY = 1.0e30f;
-                float maxY = -1.0e30f;
-                const uint16_t vertexCount = shape.GetVertexCount();
-                Vector3 vertices[ConvexHullShape::MAX_VERTICES];
-                for ( uint16_t v = 0; v < vertexCount; ++v )
-                {
-                    const Vector3 worldVertex = hullCenter + ( rotMat * shape.GetVertex( v ) );
-                    vertices[v] = worldVertex;
-                    minY = (std::min)( minY, worldVertex.y );
-                    maxY = (std::max)( maxY, worldVertex.y );
-                }
-
-                sample.centerOfBuoyancy = hullCenter;
-                if ( vertexCount == 0 )
-                {
-                    const float radius = shape.GetBoundingRadius();
-                    minY = hullCenter.y - radius;
-                    maxY = hullCenter.y + radius;
-                    sample.submergedVolumePercent = verticalSlabPercent( minY, maxY );
-                    return;
-                }
-
-                sample.submergedVolumePercent = verticalSlabPercent( minY, maxY );
-                if ( sample.submergedVolumePercent <= TOLERANCE ||
-                     sample.submergedVolumePercent >= 1.0f - TOLERANCE )
-                {
-                    return;
-                }
-
-                Vector3 sum = Vector::ZERO_VECTOR;
-                float weight = 0.0f;
-                for ( uint16_t v = 0; v < vertexCount; ++v )
-                {
-                    addPointBelowWater( vertices[v], sum, weight );
-                }
-                for ( uint16_t e = 0; e < shape.GetEdgeCount(); ++e )
-                {
-                    const ConvexHullEdge& edge = shape.GetEdge( e );
-                    if ( edge.vertexA >= vertexCount || edge.vertexB >= vertexCount )
-                    {
-                        continue;
-                    }
-                    addWaterlineEdgePoint( vertices[edge.vertexA], vertices[edge.vertexB], sum, weight );
-                }
-                sample.centerOfBuoyancy = finishCenter( sum, weight, hullCenter );
+                // Convex hull buoyancy uses the inertia volume as its runtime
+                // proxy. The real hull still owns collision; this proxy only
+                // decides how water applies lift and damping.
+                sampleOrientedBoxVolume( shape.GetPosition(), shape.GetInertiaHalfExtents() );
             }
         },
         m_boundingVolume );
@@ -1602,6 +1583,13 @@ GameModel::BuoyancySample GameModel::CalculateBuoyancySample()
 }
 
 
+// Concept: righting torque chooses which local axis should point upward.
+//
+// A floating sphere has no preferred "up", but an anisotropic object does. The
+// stable axis is selected from the thinnest local dimensions: a log's thin axes
+// make it roll onto its side, while a flat plank/raft prefers its thin thickness
+// axis upward. The torque is intentionally approximate and damped by submersion
+// because this runs every physics tick.
 Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float submergedVolumePercent )
 {
     if ( m_isFixed ||
@@ -1625,10 +1613,119 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
     const float anisotropy = ( maxInertia - minInertia ) / maxInertia;
     if ( anisotropy < 0.08f )
     {
+        // Nearly isotropic objects should not be forced into an arbitrary pose.
+        // This keeps rounded hulls and almost-cubes from behaving like planks.
         return Vector::ZERO_VECTOR;
     }
 
     Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+    Vector3 stableHalfExtents( 1.0f, 1.0f, 1.0f );
+    bool hasStableHalfExtents = false;
+    std::visit(
+        [&]( const auto& shape )
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+            {
+                stableHalfExtents = shape.GetHalfExtents();
+                hasStableHalfExtents = true;
+            }
+            else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
+            {
+                stableHalfExtents = shape.GetInertiaHalfExtents();
+                hasStableHalfExtents = true;
+            }
+            else
+            {
+                (void)shape;
+            }
+        },
+        m_boundingVolume );
+    if ( !hasStableHalfExtents )
+    {
+        return Vector::ZERO_VECTOR;
+    }
+
+    const float minThickness = (std::min)( stableHalfExtents.x, (std::min)( stableHalfExtents.y, stableHalfExtents.z ) );
+    const float maxThickness = (std::max)( stableHalfExtents.x, (std::max)( stableHalfExtents.y, stableHalfExtents.z ) );
+    if ( minThickness <= TOLERANCE || maxThickness <= TOLERANCE )
+    {
+        return Vector::ZERO_VECTOR;
+    }
+
+    auto terrainSupportFactor = [&]() -> float
+    {
+        // Why: terrain support should reduce water's authority to roll a body.
+        // A half-grounded log or jetty beam is partly constrained by the ramp; if
+        // water still applied full righting torque, the dry end would pivot and
+        // bounce instead of sliding or settling against the terrain.
+        if ( !m_terrain )
+        {
+            return 0.0f;
+        }
+
+        int closeSamples = 0;
+        int terrainSamples = 0;
+        const Vector3 position = m_physicsInfo.GetPosition();
+        const float supportGap = Cfg().contactEpsilon + Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+        std::visit(
+            [&]( const auto& shape )
+            {
+                using ShapeT = std::decay_t<decltype( shape )>;
+                if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                {
+                    (void)shape;
+                }
+                else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                {
+                    const Vector3& he = shape.GetHalfExtents();
+                    for ( int corner = 0; corner < 8; ++corner )
+                    {
+                        const Vector3 local = shape.GetPosition() + Physics::GetBoxTerrainLocalCorner( he, corner );
+                        const Vector3 worldPoint = position + ( rotMat * local );
+                        if ( !m_terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
+                        {
+                            continue;
+                        }
+
+                        ++terrainSamples;
+                        const float terrainHeight = m_terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+                        if ( worldPoint.y - terrainHeight <= supportGap )
+                        {
+                            ++closeSamples;
+                        }
+                    }
+                }
+                else
+                {
+                    const Vector3 hullCenter = position + ( rotMat * shape.GetPosition() );
+                    const uint16_t vertexCount = shape.GetVertexCount();
+                    for ( uint16_t v = 0; v < vertexCount; ++v )
+                    {
+                        const Vector3 worldPoint = hullCenter + ( rotMat * shape.GetVertex( v ) );
+                        if ( !m_terrain->IsInBounds( worldPoint.x, worldPoint.z ) )
+                        {
+                            continue;
+                        }
+
+                        ++terrainSamples;
+                        const float terrainHeight = m_terrain->GetTerrainHeightAt( worldPoint.x, worldPoint.z );
+                        if ( worldPoint.y - terrainHeight <= supportGap )
+                        {
+                            ++closeSamples;
+                        }
+                    }
+                }
+            },
+            m_boundingVolume );
+
+        if ( terrainSamples <= 0 || closeSamples <= 0 )
+        {
+            return 0.0f;
+        }
+        return std::clamp( static_cast<float>( closeSamples ) / 3.0f, 0.0f, 1.0f );
+    };
+
     Vector3 stableWorldAxis = Vector::ZERO_VECTOR;
     float bestAxisScore = -1.0f;
     const Vector3 localAxes[3] = {
@@ -1637,10 +1734,15 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
         Vector3( 0.0f, 0.0f, 1.0f ),
     };
     const float localInertia[3] = { inertia.x, inertia.y, inertia.z };
+    const float localThickness[3] = { stableHalfExtents.x, stableHalfExtents.y, stableHalfExtents.z };
     for ( int axisIndex = 0; axisIndex < 3; ++axisIndex )
     {
         const float candidateInertia = localInertia[axisIndex];
-        if ( candidateInertia < maxInertia * 0.75f )
+        const float candidateThickness = localThickness[axisIndex];
+        // Only axes from the thinnest dimension family are eligible. The 20%
+        // tolerance lets slightly imperfect authored hulls behave like their
+        // intended primitive instead of flipping between almost-equal axes.
+        if ( candidateThickness > minThickness * 1.20f )
         {
             continue;
         }
@@ -1658,8 +1760,13 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
             candidateWorldAxis = -candidateWorldAxis;
         }
 
-        const float verticalError = 1.0f - std::clamp( candidateWorldAxis.y, 0.0f, 1.0f );
-        const float score = verticalError + ( candidateInertia / maxInertia ) * 0.001f;
+        const float verticalAlignment = std::clamp( candidateWorldAxis.y, 0.0f, 1.0f );
+        const float thicknessPreference = minThickness / (std::max)( candidateThickness, TOLERANCE );
+        const float inertiaPreference = candidateInertia / maxInertia;
+        // Score mostly follows the axis already closest to world up so righting
+        // is stable. Thickness and inertia are small tie-breakers that preserve
+        // the object's authored long/flat character.
+        const float score = verticalAlignment + thicknessPreference * 0.20f + inertiaPreference * 0.03f;
         if ( score > bestAxisScore )
         {
             bestAxisScore = score;
@@ -1687,7 +1794,11 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
     const float weight = m_ballPhysics.mass * gravityMagnitude;
     const float cappedLift = (std::min)( buoyancyForce, weight * 6.0f );
     const float waterCoupling = sqrtf( std::clamp( submergedVolumePercent, 0.0f, 1.0f ) );
-    const float torqueMagnitude = cappedLift * m_ballPhysics.radius * anisotropy * waterCoupling * error;
+    // Terrain contact never disables buoyancy, it only limits the righting
+    // torque. Linear lift and drag still act on the wet end, so a shoreline log
+    // can slide into the water instead of being locked in place.
+    const float supportBlend = 1.0f - terrainSupportFactor() * 0.85f;
+    const float torqueMagnitude = cappedLift * m_ballPhysics.radius * anisotropy * waterCoupling * supportBlend * error;
     return correctionAxis * torqueMagnitude;
 }
 

@@ -9,6 +9,12 @@ Mental model:
   reading anchors.
 
 Glossary:
+  Buoyancy: Upward force from displaced water, applied through the center of
+  buoyancy instead of the model origin.
+  Center of buoyancy: World-space average location of displaced water. Its
+  offset from the model origin creates roll/pitch torque.
+  Wet sample: Fixed point inside a box-like body used to add angular water
+  damping without allocating per-frame data.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -460,19 +466,28 @@ void WorldEnvironment::SetFluidDensity( float density )
 }
 
 
-// World-space forces acting on the target body accumulate here for this frame.
-// Forces are scaled by changeInTime before being set on the rigid body, converting
-// force (N) to impulse (N·s = kg·m/s) — matching the semi-implicit Euler integrator
-// which adds impulse directly to velocity.
+// Forces are scaled by changeInTime before being set on the rigid body,
+// converting force in newtons to impulse in newton-seconds. The semi-implicit
+// Euler integrator then adds that impulse directly to velocity.
 //
-//  Forces applied (Y-axis positive = up):
-//    1. Gravity:      F_g = m * g             (always downward; g is negative)
-//    2. Buoyancy:     F_b = -g * ρ_f * V_sub  (upward; Archimedes' Principle)
-//    3. Linear drag:  F_d = -v̂ * ½ρv²CdA     (opposes linear velocity)
-//    4. Angular drag: τ   = -C_d * ρ_avg * R³ * ω  (opposes spin)
+// Forces applied, with positive Y upward:
+//   1. Gravity: downward mass-scaled acceleration.
+//   2. Buoyancy: upward lift from displaced water.
+//   3. Water damping: low-speed coupling that keeps floating bodies from
+//      vibrating at the waterline.
+//   4. Aerodynamic/fluid drag: velocity-squared linear drag and spin drag.
+// Concept: the buoyancy part of this force pass is split into lift, righting,
+// and damping.
+//
+// Lift is ordinary upward buoyancy through the sampled center of buoyancy.
+// Righting torque is shape preference: logs should settle sideways and rafts
+// should settle flat. Damping is intentionally shared for linear motion across
+// every buoyant body, then wet samples add only angular damping for box-like
+// shapes so water slows spin without gluing bodies in place.
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
-    // initialise the world force vector so we can add to it
+    // Accumulators stay local until the end of the pass so gravity, buoyancy,
+    // damping, and drag combine into one deterministic impulse.
     Vector3 m_worldForce = Math::Vector::ZERO_VECTOR;
     Vector3 m_worldTorque = Math::Vector::ZERO_VECTOR;
 
@@ -492,24 +507,58 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     const Vector3 buoyancyArm = buoyancySample.centerOfBuoyancy - target.GetPosition();
     m_worldForce += buoyancyForceVector;
     m_worldTorque += CrossProduct( buoyancyArm, buoyancyForceVector );
+    // The center-of-buoyancy lever arm reacts to where the water is. Righting
+    // torque adds the shape preference that makes long bodies lie on their side
+    // and large flat bodies settle like rafts.
     m_worldTorque += target.CalculateBuoyancyRightingTorque( buoyancyForce, submergedVolumePercent );
 
     if ( changeInTime > TOLERANCE &&
          buoyancyForce > TOLERANCE &&
-         VectorMagSquared( buoyancyArm ) > TOLERANCE * TOLERANCE )
+         submergedVolumePercent > TOLERANCE )
     {
-        const Vector3 pointVelocity = target.GetVelocity() + CrossProduct( target.GetAngularVelocity(), buoyancyArm );
-        const float pointVerticalSpeed = pointVelocity.y;
-        if ( fabsf( pointVerticalSpeed ) > TOLERANCE )
+        const float waterCoupling = sqrtf( std::clamp( submergedVolumePercent, 0.0f, 1.0f ) );
+        const float weight = fabsf( m_gravity ) * target.GetMass();
+        const float maxDampingForce = (std::max)( fabsf( buoyancyForce ), weight ) * 3.0f;
+        // Why: all buoyant shapes need the same slow linear damping path. The
+        // earlier point-only approach made hulls settle, but made compact bodies
+        // such as balls lose their sideways motion too quickly at the surface.
+        Vector3 linearDampingImpulse = target.GetVelocity() * ( -target.GetMass() * waterCoupling * 0.006f );
+        linearDampingImpulse.y *= 1.5f;
+
+        Vector3 linearDampingForce = linearDampingImpulse / changeInTime;
+        linearDampingForce.x = std::clamp( linearDampingForce.x, -maxDampingForce, maxDampingForce );
+        linearDampingForce.y = std::clamp( linearDampingForce.y, -maxDampingForce, maxDampingForce );
+        linearDampingForce.z = std::clamp( linearDampingForce.z, -maxDampingForce, maxDampingForce );
+        m_worldForce += linearDampingForce;
+
+        const bool hasWetPoints = buoyancySample.wetPointCount > 0 &&
+                                  buoyancySample.wetWeightTotal > TOLERANCE;
+        for ( uint8_t i = 0; hasWetPoints && i < buoyancySample.wetPointCount; ++i )
         {
-            const float waterCoupling = sqrtf( std::clamp( submergedVolumePercent, 0.0f, 1.0f ) );
-            const float dampingImpulse = -pointVerticalSpeed * target.GetMass() * waterCoupling * 0.55f;
-            const float weight = fabsf( m_gravity ) * target.GetMass();
-            const float maxDampingForce = (std::max)( fabsf( buoyancyForce ), weight ) * 3.0f;
-            const float dampingForceY = std::clamp( dampingImpulse / changeInTime, -maxDampingForce, maxDampingForce );
-            const Vector3 dampingForce( 0.0f, dampingForceY, 0.0f );
-            m_worldForce += dampingForce;
-            m_worldTorque += CrossProduct( buoyancyArm, dampingForce );
+            const float pointShare = buoyancySample.wetWeights[i] / buoyancySample.wetWeightTotal;
+            if ( pointShare <= TOLERANCE )
+            {
+                continue;
+            }
+
+            const Vector3 arm = buoyancySample.wetPoints[i] - target.GetPosition();
+            const Vector3 pointVelocity = CrossProduct( target.GetAngularVelocity(), arm );
+            // Wet points damp spin only. Feeding these distributed forces back
+            // into m_worldForce would create artificial linear drag proportional
+            // to sample count, which is the "water as glue" failure mode.
+            Vector3 dampingImpulse = pointVelocity * ( -target.GetMass() * waterCoupling * pointShare * 0.035f );
+
+            Vector3 dampingForce = dampingImpulse / changeInTime;
+            const float pointForceLimit = maxDampingForce * pointShare;
+            dampingForce.x = std::clamp( dampingForce.x, -pointForceLimit, pointForceLimit );
+            dampingForce.y = std::clamp( dampingForce.y, -pointForceLimit, pointForceLimit );
+            dampingForce.z = std::clamp( dampingForce.z, -pointForceLimit, pointForceLimit );
+            if ( VectorMagSquared( dampingForce ) <= TOLERANCE * TOLERANCE )
+            {
+                continue;
+            }
+
+            m_worldTorque += CrossProduct( arm, dampingForce );
         }
     }
 

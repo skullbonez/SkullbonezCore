@@ -13,6 +13,10 @@ Glossary:
   collision tests.
   PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
   bounded contact impulses.
+  Warm starting: Reusing an estimated previous support impulse so resting
+  contacts do not have to rediscover the full normal force from zero each tick.
+  Sleep: Optimization that stops simulating stable bodies until collision,
+  movement, or explicit gameplay input wakes them.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -636,14 +640,24 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             manifoldRecord.scalarC = manifold.timeOfImpact;
             RecordPhysicsPipelineStage( manifoldRecord );
 
-            // Stable terrain support receives a gravity-sized normal seed so a
-            // resting body does not sink a little before the solver rediscovers
-            // the support force. Edge/point terrain contacts deliberately get
-            // zero here: they still resolve impact and penetration, but cannot
-            // become sleep anchors or rest-friction anchors.
-            const float warmStartTotal = manifold.supportsRestingPolicy
-                                             ? m_gameModels[manifold.bodyA].GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y ) * dt
-                                             : 0.0f;
+            // Why: terrain support needs two strengths of warm starting.
+            //
+            // Stable resting footprints get a full gravity-sized seed so a body
+            // already on the ground does not sink before the solver converges.
+            // Shoreline edge contacts are not stable enough for sleep or cached
+            // friction, but they still need a small one-frame support seed;
+            // otherwise a half-wet log or jetty beam falls into the slope, gets
+            // pushed out, and repeats as visible bobbing. This seed is not
+            // written to the persistent cache, so the contact remains wakeable
+            // and cannot become a hidden sleep anchor.
+            const float supportSeedScale = manifold.supportsRestingPolicy
+                                               ? 1.0f
+                                               : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
+            const float warmStartTotal = m_gameModels[manifold.bodyA].GetMass() *
+                                         fabsf( Cfg().gravity ) *
+                                         fabsf( manifold.normal.y ) *
+                                         dt *
+                                         supportSeedScale;
             const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
 
             for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
