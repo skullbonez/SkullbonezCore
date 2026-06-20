@@ -56,6 +56,7 @@ Related:
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
+#include "SkullbonezInputController.h"
 #include "SkullbonezRuntimeDiagnostics.h"
 #include "SkullbonezSceneRuntime.h"
 #include "SkullbonezSimulationSystem.h"
@@ -906,6 +907,7 @@ class SkullbonezRun
     RunRuntimeSettings m_runtimeSettings; // Scene/app runtime swap policy toggles
     RunTimerState m_timers;               // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;          // Window, camera, texture, terrain, and pass resource ownership
+    RuntimeInputContext m_runtimeInput;   // Semantic input mode/action state owned by input routing.
     RunCameraState m_camera;              // Camera/input state and ball-tracking settings
     SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state

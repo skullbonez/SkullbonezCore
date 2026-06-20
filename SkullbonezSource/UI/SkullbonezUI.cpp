@@ -193,6 +193,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.waterRTReflect );
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
+    hash = HashTextValue( hash, data.runtimeInputModeLabel );
     hash = HashBool( hash, data.editorModeEnabled );
     hash = HashBool( hash, data.editorPlacementMode );
     hash = HashBool( hash, data.editorPlaceStatic );

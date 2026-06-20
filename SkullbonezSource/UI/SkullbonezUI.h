@@ -154,6 +154,7 @@ struct InGameUIFrameData
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
+    const char* runtimeInputModeLabel = "";
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;

@@ -78,6 +78,15 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
     }
 
     out[outSize - 1] = '\0';
+
+    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
+    if ( runtimeMode[0] != '\0' && std::strcmp( runtimeMode, "Scene" ) != 0 )
+    {
+        char base[192] = {};
+        strcpy_s( base, sizeof( base ), out );
+        snprintf( out, outSize, "%s  [%s]", base, runtimeMode );
+        out[outSize - 1] = '\0';
+    }
 }
 
 

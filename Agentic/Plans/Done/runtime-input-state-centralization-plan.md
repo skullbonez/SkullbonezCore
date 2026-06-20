@@ -1,5 +1,8 @@
 # Runtime Input State Centralization Plan
 
+Status: Done on `nightrunner-20th-june`
+Validation: `tools\validate_full.bat` passed on 2026-06-21 after implementation.
+
 ## Summary
 
 Refactor runtime input around a single `RuntimeInputContext` owned by the input
