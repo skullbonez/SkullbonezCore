@@ -93,11 +93,13 @@ or:
 default_mass <volume * 0.90>
 ```
 
-Preferred implementation:
+Implemented hull asset contract:
 
 - Store `default_density` for readability and future material tuning.
-- Compute `default_mass = volume * default_density` after loading.
-- Allow an optional explicit `default_mass` to override density where art or
+- Store `default_mass` as the runtime-authoritative value.
+- Compute `default_mass = volume * default_density` in `tools\bake_hulls.py`,
+  not in runtime C++.
+- Allow an optional explicit `default_mass` in future tooling where art or
   gameplay needs a hand-tuned value.
 
 Fallback for existing hulls:
@@ -105,10 +107,8 @@ Fallback for existing hulls:
 ```text
 if default_mass exists:
     use default_mass
-else if default_density exists:
-    use volume * default_density
 else:
-    use volume * 0.90
+    warn and use a simple compatibility mass until the hull is re-baked
 ```
 
 All current hull files now carry explicit baked metadata. The runtime fallback
@@ -143,9 +143,9 @@ current hard-coded `24.0` mass.
 Add a small physics mass utility, for example:
 
 ```text
-CalculateSphereMass(radius, density)
-CalculateBoxMass(halfExtents, density)
-CalculateHullMass(hull, scale)
+CalculateSphereMass(radius)
+CalculateBoxMass(halfExtents)
+ReadHullDefaultMass(hull) and scale the baked mass with placement scale
 CalculateInertiaForShape(shape, mass)
 ```
 
@@ -257,8 +257,9 @@ tools\validate_physics.bat
 
 ### Phase 2: Hull Metadata
 
-Extend hull parsing for `default_density` and optional `default_mass`. Add
-accessors for default density/mass and update hull load diagnostics.
+Extend hull parsing for `default_density` and optional `default_mass`. Runtime
+accepts `default_density` as provenance, treats `default_mass` as authoritative,
+and emits a compatibility warning if an older hull is missing `default_mass`.
 
 Validation at PR gate:
 

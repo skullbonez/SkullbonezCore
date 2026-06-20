@@ -4,9 +4,8 @@ Purpose:
   Defines shared mass, density, and inertia defaults for physics object creation.
 
 Mental model:
-  Object mass is an authored physical property. Editor defaults derive it from
-  collision volume and a stable density, while scene-authored explicit masses
-  remain authoritative.
+  Object mass is an authored physical property. Hull masses come from baked
+  assets; only parametric editor primitives still derive defaults at runtime.
 
 Related:
   - SkullbonezSource/SkullbonezRunInput.cpp
@@ -29,11 +28,6 @@ inline float ClampPositiveMass( float mass )
     return std::isfinite( mass ) && mass > MIN_DYNAMIC_MASS ? mass : MIN_DYNAMIC_MASS;
 }
 
-inline float ClampPositiveDensityOrDefault( float density )
-{
-    return std::isfinite( density ) && density > TOLERANCE ? density : DEFAULT_FLOATING_OBJECT_DENSITY;
-}
-
 inline float CalculateSphereVolume( float radius )
 {
     radius = (std::max)( 0.0f, radius );
@@ -48,25 +42,14 @@ inline float CalculateBoxVolume( const Math::Vector::Vector3& halfExtents )
     return 8.0f * halfX * halfY * halfZ;
 }
 
-inline float CalculateVolumeMass( float volume, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
+inline float CalculateSphereMass( float radius )
 {
-    const float positiveVolume = std::isfinite( volume ) ? (std::max)( 0.0f, volume ) : 0.0f;
-    return ClampPositiveMass( positiveVolume * ClampPositiveDensityOrDefault( density ) );
+    return ClampPositiveMass( CalculateSphereVolume( radius ) * DEFAULT_FLOATING_OBJECT_DENSITY );
 }
 
-inline float CalculateSphereMass( float radius, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
+inline float CalculateBoxMass( const Math::Vector::Vector3& halfExtents )
 {
-    return CalculateVolumeMass( CalculateSphereVolume( radius ), density );
-}
-
-inline float CalculateBoxMass( const Math::Vector::Vector3& halfExtents, float density = DEFAULT_FLOATING_OBJECT_DENSITY )
-{
-    return CalculateVolumeMass( CalculateBoxVolume( halfExtents ), density );
-}
-
-inline float CalculateHullMass( float hullDefaultMass )
-{
-    return ClampPositiveMass( hullDefaultMass );
+    return ClampPositiveMass( CalculateBoxVolume( halfExtents ) * DEFAULT_FLOATING_OBJECT_DENSITY );
 }
 
 inline Math::Vector::Vector3 CalculateSphereInertia( float radius, float mass )

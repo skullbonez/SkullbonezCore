@@ -4409,7 +4409,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
-        const float mass = CalculateHullMass( scaledHull.GetDefaultMass() );
+        const float mass = scaledHull.GetDefaultMass();
         const bool alignHull = alignToTerrain;
         const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
         const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
@@ -4466,7 +4466,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
             const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
             const Vector3 authoredOrigin = terrainPoint + placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
-            const float mass = CalculateHullMass( hull.GetDefaultMass() );
+            const float mass = hull.GetDefaultMass();
             GameModel model( &m_cWorldEnvironment,
                              center,
                              hull.ComputeBoxApproxInertia( mass ),

@@ -39,6 +39,8 @@ namespace Physics = SkullbonezCore::Physics;
 
 namespace
 {
+constexpr float COMPATIBILITY_HULL_DEFAULT_MASS = 24.0f;
+
 float ClampPositive( float value, float fallback )
 {
     return value > TOLERANCE ? value : fallback;
@@ -118,14 +120,12 @@ void RequireNoExtraTokens( char* context, const char* path, int lineNumber, cons
     }
 }
 
-void WarnMissingDefaultMassMetadata( const char* path, bool missingDensity, bool missingMass )
+void WarnMissingDefaultMassMetadata( const char* path )
 {
     fprintf( stderr,
-             "[hull][compat] %s missing %s%s%s; using compatibility mass defaults at load. Re-bake with tools\\bake_hulls.bat --write.\n",
+             "[hull][compat] %s missing default_mass; using compatibility mass default %.3f at load. Re-bake with tools\\bake_hulls.bat --write.\n",
              path,
-             missingDensity ? "default_density" : "",
-             missingDensity && missingMass ? " and " : "",
-             missingMass ? "default_mass" : "" );
+             COMPATIBILITY_HULL_DEFAULT_MASS );
 }
 
 float SweptBoundingRadiusCollision( float focusRadius,
@@ -223,7 +223,6 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
     bool sawInertiaHalfExtents = false;
     bool sawUnitInertia = false;
     bool sawProjectedSurfaceArea = false;
-    bool sawDefaultDensity = false;
     bool sawDefaultMass = false;
 
     char line[512];
@@ -388,16 +387,12 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
                     fclose( file );
                     throw std::runtime_error( msg );
                 }
-                if ( strcmp( token, "default_density" ) == 0 )
-                {
-                    hull.m_defaultDensity = parsed;
-                    sawDefaultDensity = true;
-                }
-                else
+                if ( strcmp( token, "default_mass" ) == 0 )
                 {
                     hull.m_defaultMass = Physics::ClampPositiveMass( parsed );
                     sawDefaultMass = true;
                 }
+                // default_density is accepted as baked provenance; default_mass is runtime-authoritative.
             }
             catch ( ... )
             {
@@ -661,17 +656,10 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         throw std::runtime_error( msg );
     }
 
-    if ( !sawDefaultDensity )
-    {
-        hull.m_defaultDensity = Physics::DEFAULT_FLOATING_OBJECT_DENSITY;
-    }
     if ( !sawDefaultMass )
     {
-        hull.m_defaultMass = Physics::CalculateVolumeMass( hull.m_volume, hull.m_defaultDensity );
-    }
-    if ( !sawDefaultDensity || !sawDefaultMass )
-    {
-        WarnMissingDefaultMassMetadata( path, !sawDefaultDensity, !sawDefaultMass );
+        hull.m_defaultMass = COMPATIBILITY_HULL_DEFAULT_MASS;
+        WarnMissingDefaultMassMetadata( path );
     }
 
     for ( uint16_t f = 0; f < hull.m_faceCount; ++f )
@@ -721,11 +709,6 @@ Matrix4 ConvexHullShape::GetModelMatrix( const Vector3& worldPos, const Matrix4&
 float ConvexHullShape::GetVolume() const
 {
     return m_volume;
-}
-
-float ConvexHullShape::GetDefaultDensity() const
-{
-    return m_defaultDensity;
 }
 
 float ConvexHullShape::GetDefaultMass() const

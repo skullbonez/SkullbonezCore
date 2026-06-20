@@ -81,7 +81,6 @@ class ConvexHullShape
     float m_boundingRadius = 0.0f;
     float m_volume = 0.0f;
     float m_projectedSurfaceArea = 0.0f;
-    float m_defaultDensity = Physics::DEFAULT_FLOATING_OBJECT_DENSITY;
     float m_defaultMass = Physics::MIN_DYNAMIC_MASS;
     char m_name[64] = {};
 
@@ -92,7 +91,6 @@ class ConvexHullShape
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
-    float GetDefaultDensity() const;
     float GetDefaultMass() const;
     float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;
