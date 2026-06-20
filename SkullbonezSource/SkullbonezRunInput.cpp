@@ -381,9 +381,13 @@ const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
 }
 
 
-bool EditorObjectAlignsToTerrainNormal( int objectType )
+bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( autoTerrainAlign )
+    {
+        return true;
+    }
     if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
     {
         return tree->alignToTerrainNormal;
@@ -393,9 +397,9 @@ bool EditorObjectAlignsToTerrainNormal( int objectType )
 }
 
 
-Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal )
+Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
 {
-    if ( !EditorObjectAlignsToTerrainNormal( objectType ) )
+    if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
     {
         return IDENTITY_QUATERNION;
     }
@@ -1767,7 +1771,7 @@ void RunEditorTracer::AddPlacementGhost( int objectType, const Vector3& center, 
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
-        EmitBox( center, Vector3( scale.x, 0.0f, 0.0f ), Vector3( 0.0f, scale.y, 0.0f ), Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
+        EmitBox( center, rotation * Vector3( scale.x, 0.0f, 0.0f ), rotation * Vector3( 0.0f, scale.y, 0.0f ), rotation * Vector3( 0.0f, 0.0f, scale.z ), ghostR, ghostG, ghostB );
         break;
     case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
         EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
@@ -2360,6 +2364,7 @@ void SkullbonezRun::TakeInput()
                                                          m_editor.editorModeEnabled,
                                                          m_editor.placementModeEnabled,
                                                          m_editor.placeStaticObject,
+                                                         m_editor.autoTerrainAlign,
                                                          m_editor.objectType,
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
@@ -2484,6 +2489,14 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
             m_editor.placeStaticObject = !m_editor.placeStaticObject;
+        }
+        if ( uiCommands.editor.toggleTerrainAlign )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.autoTerrainAlign = !m_editor.autoTerrainAlign;
+            m_editor.placementPreviewVisible = false;
+            m_editor.placementScaleActive = false;
+            m_editor.placementScaleWheelSteps = 0;
         }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
@@ -3588,7 +3601,7 @@ bool SkullbonezRun::TryComputeEditorObjectCenter( int objectType, const Vector3&
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
-        outCenter = Vector3( terrainPoint.x, terrainPoint.y + scale.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        outCenter = terrainPoint + rotation * Vector3( 0.0f, scale.y + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         return true;
     case UI::EditorTab::OBJECT_BALL:
     case UI::EditorTab::OBJECT_SPHERE:
@@ -3677,7 +3690,7 @@ bool SkullbonezRun::TryComputeEditorPlacementPreview( int objectType )
         float ignoredHeight = 0.0f;
         m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
-    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( objectType, terrainNormal );
+    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( objectType, terrainNormal, m_editor.autoTerrainAlign );
 
     Vector3 center;
     if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, m_editor.placementScale, placementOrientation, center ) )
@@ -4088,7 +4101,8 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         float ignoredHeight = 0.0f;
         m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
-    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( type, terrainNormal );
+    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, m_editor.autoTerrainAlign );
+    const Quaternion placementOrientation = EditorOrientationFromTerrainNormal( type, terrainNormal, m_editor.autoTerrainAlign );
     Quaternion placementOrientationCopy = placementOrientation;
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
@@ -4134,7 +4148,11 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
     {
         const Vector3 halfExtents = placementScale;
         constexpr float mass = 24.0f;
-        const Vector3 center( terrainPoint.x, terrainPoint.y + halfExtents.y + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        Vector3 center;
+        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
+        {
+            return;
+        }
         GameModel model( &m_cWorldEnvironment,
                          center,
                          BoxInertiaForHalfExtents( halfExtents, mass ),
@@ -4142,6 +4160,10 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
+        if ( alignToTerrain )
+        {
+            model.SetOrientation( placementOrientation );
+        }
         ApplyEditorSpawnMaterial( model, fixedObject, true );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
@@ -4163,7 +4185,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
-        const bool alignHull = EditorObjectAlignsToTerrainNormal( type );
+        const bool alignHull = alignToTerrain;
         const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
         const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
         const Vector3 authoredOrigin = terrainPoint + hullRotation * Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );

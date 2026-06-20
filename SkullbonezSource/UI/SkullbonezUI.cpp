@@ -196,6 +196,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.editorModeEnabled );
     hash = HashBool( hash, data.editorPlacementMode );
     hash = HashBool( hash, data.editorPlaceStatic );
+    hash = HashBool( hash, data.editorTerrainAlign );
     hash = HashBool( hash, data.editorViewportLookActive );
     hash = HashInt( hash, data.editorObjectType );
     hash = HashBool( hash, data.canSaveSceneDefaults );
@@ -1044,12 +1045,13 @@ struct EditorMinimizedStatusLayout
     UIRect glyph;
     UIRect modeChip;
     UIRect bodyChip;
+    UIRect alignChip;
     float labelX = 0.0f;
     float labelMaxW = 0.0f;
 };
 
 
-EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode, bool editorPlaceStatic )
+EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign )
 {
     EditorMinimizedStatusLayout layout;
     layout.restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
@@ -1057,13 +1059,17 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 
     const char* modeLabel = editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = editorPlaceStatic ? "Static" : "Dynamic";
+    const char* alignLabel = editorTerrainAlign ? "Align" : "Level";
+    const float alignW = EditorMiniChipWidth( alignLabel );
     const float bodyW = EditorMiniChipWidth( bodyLabel );
     const float modeW = EditorMiniChipWidth( modeLabel );
     const float chipY = minimized.y + 9.0f;
-    const float bodyX = layout.restoreButton.x - 10.0f - bodyW;
+    const float alignX = layout.restoreButton.x - 10.0f - alignW;
+    const float bodyX = alignX - 8.0f - bodyW;
     const float modeX = bodyX - 8.0f - modeW;
     layout.modeChip = { modeX, chipY, modeW, 20.0f };
     layout.bodyChip = { bodyX, chipY, bodyW, 20.0f };
+    layout.alignChip = { alignX, chipY, alignW, 20.0f };
     layout.labelX = layout.glyph.x + layout.glyph.w + 10.0f;
     layout.labelMaxW = (std::max)( 42.0f, modeX - layout.labelX - 10.0f );
     return layout;
@@ -1072,7 +1078,7 @@ EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& mini
 
 EditorMinimizedStatusLayout BuildEditorMinimizedStatusLayout( const UIRect& minimized, const InGameUIFrameData& data )
 {
-    return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic );
+    return BuildEditorMinimizedStatusLayout( minimized, data.editorPlacementMode, data.editorPlaceStatic, data.editorTerrainAlign );
 }
 
 
@@ -1083,11 +1089,13 @@ float EditorMinimizedWidth( const InGameUIFrameData& data, int screenW )
     const char* shapeLabel = EditorTab::ObjectLabel( data.editorObjectType );
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
     const float desiredW = 140.0f +
                            Text2d::MeasureText( 12.0f, shapeLabel ) +
                            EditorMiniChipWidth( modeLabel ) +
-                           EditorMiniChipWidth( bodyLabel );
-    return std::clamp( desiredW, 328.0f, maxW );
+                           EditorMiniChipWidth( bodyLabel ) +
+                           EditorMiniChipWidth( alignLabel );
+    return std::clamp( desiredW, 376.0f, maxW );
 }
 
 
@@ -1570,6 +1578,7 @@ void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimiz
 
     const char* modeLabel = data.editorPlacementMode ? "Place" : "Gizmo";
     const char* bodyLabel = data.editorPlaceStatic ? "Static" : "Dynamic";
+    const char* alignLabel = data.editorTerrainAlign ? "Align" : "Level";
 
     char shapeLabel[64] = {};
     snprintf( shapeLabel, sizeof( shapeLabel ), "%s", EditorTab::ObjectLabel( data.editorObjectType ) );
@@ -1580,8 +1589,11 @@ void DrawEditorMinimizedWindow( const UIDrawContext& draw, const UIRect& minimiz
     modeFill.a = 0.92f;
     Style::UIColor bodyFill = data.editorPlaceStatic ? palette.control : palette.warningAccent;
     bodyFill.a = 0.92f;
+    Style::UIColor alignFill = data.editorTerrainAlign ? palette.accentStrong : palette.control;
+    alignFill.a = 0.92f;
     DrawEditorMiniChip( draw, layout.modeChip.x, layout.modeChip.y, modeLabel, modeFill, palette.textPrimary, layout.modeChip.Contains( mouseX, mouseY ) );
     DrawEditorMiniChip( draw, layout.bodyChip.x, layout.bodyChip.y, bodyLabel, bodyFill, palette.textPrimary, layout.bodyChip.Contains( mouseX, mouseY ) );
+    DrawEditorMiniChip( draw, layout.alignChip.x, layout.alignChip.y, alignLabel, alignFill, palette.textPrimary, layout.alignChip.Contains( mouseX, mouseY ) );
 
     draw.RoundedPanel( layout.restoreButton, Style::Radii().smallButton, palette.control, palette.border );
     const float plusX = layout.restoreButton.x + layout.restoreButton.w * 0.5f;
@@ -2080,6 +2092,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                            bool editorModeEnabled,
                                            bool editorPlacementMode,
                                            bool editorPlaceStatic,
+                                           bool editorTerrainAlign,
                                            int editorObjectType,
                                            const char* const* sceneOptions,
                                            int sceneOptionCount,
@@ -2144,10 +2157,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         bool insideEditorMinimizedStatusControl = false;
         if ( showEditorMiniPalette )
         {
-            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout( minimized, editorPlacementMode, editorPlaceStatic );
+            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout( minimized, editorPlacementMode, editorPlaceStatic, editorTerrainAlign );
             const bool insideModeChip = statusLayout.modeChip.Contains( m_mouseX, m_mouseY );
             const bool insideBodyChip = statusLayout.bodyChip.Contains( m_mouseX, m_mouseY );
-            insideEditorMinimizedStatusControl = insideModeChip || insideBodyChip;
+            const bool insideAlignChip = statusLayout.alignChip.Contains( m_mouseX, m_mouseY );
+            insideEditorMinimizedStatusControl = insideModeChip || insideBodyChip || insideAlignChip;
             if ( input.leftPressed && insideModeChip )
             {
                 result.commands.editor.togglePlacementMode = true;
@@ -2157,6 +2171,12 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             else if ( input.leftPressed && insideBodyChip )
             {
                 result.commands.editor.togglePlaceStatic = true;
+                result.commands.ui.userInteracted = true;
+                editorMinimizedStatusHandled = true;
+            }
+            else if ( input.leftPressed && insideAlignChip )
+            {
+                result.commands.editor.toggleTerrainAlign = true;
                 result.commands.ui.userInteracted = true;
                 editorMinimizedStatusHandled = true;
             }

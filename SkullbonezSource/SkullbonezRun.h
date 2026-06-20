@@ -327,6 +327,7 @@ struct RunEditorPlacementState
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
     bool placeStaticObject = true;
+    bool autoTerrainAlign = false;
     bool restoreFlyModeAfterEditor = false;
     bool restoreRayTestModeAfterEditor = false;
     bool viewportLookActive = false;

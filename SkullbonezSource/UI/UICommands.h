@@ -214,6 +214,7 @@ struct UIEditorCommands
     bool toggleEditorMode = false;
     bool togglePlacementMode = false;
     bool togglePlaceStatic = false;
+    bool toggleTerrainAlign = false;
     bool enterPlacementMode = false;
     int requestedObjectType = -1;
 };

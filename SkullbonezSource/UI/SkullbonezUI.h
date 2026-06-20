@@ -157,6 +157,7 @@ struct InGameUIFrameData
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
+    bool editorTerrainAlign = false;
     bool editorViewportLookActive = false;
     int editorObjectType = 0;
     bool canSaveSceneDefaults = false;
@@ -202,6 +203,7 @@ class InGameUI
                                      bool editorModeEnabled = false,
                                      bool editorPlacementMode = false,
                                      bool editorPlaceStatic = true,
+                                     bool editorTerrainAlign = false,
                                      int editorObjectType = EditorTab::OBJECT_BOX,
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
