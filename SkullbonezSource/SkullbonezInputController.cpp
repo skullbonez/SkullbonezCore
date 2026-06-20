@@ -190,7 +190,7 @@ void InputController::BeginFrame( RuntimeInputContext& context,
                      appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
 }
 
-bool InputController::QueueKeyboardAction( RuntimeInputContext& context, RuntimeInputAction action, int virtualKey )
+bool InputController::CaptureKeyboardActionPress( RuntimeInputContext& context, RuntimeInputAction action, int virtualKey )
 {
     return context.CaptureActionPress( action, virtualKey );
 }

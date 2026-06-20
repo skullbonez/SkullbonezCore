@@ -212,7 +212,7 @@ class InputController
     static RuntimeKeyEdge CaptureKeyEdge( Hardware::InputState& state, Hardware::InputState::Key memoryKey, int virtualKey );
     static bool CaptureKeyPress( bool& wasDown, int virtualKey );
     static void BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused, bool uiBlocksKeyboard, bool uiBlocksMouse );
-    static bool QueueKeyboardAction( RuntimeInputContext& context, RuntimeInputAction action, int virtualKey );
+    static bool CaptureKeyboardActionPress( RuntimeInputContext& context, RuntimeInputAction action, int virtualKey );
     static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
     static const char* DescribeMode( RuntimeInputMode mode );

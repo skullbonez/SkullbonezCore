@@ -42,7 +42,7 @@ Current scattered state found:
 - Move mode-transition helpers out of `SkullbonezRun::TakeInput()` into
   `InputController` methods:
   - `BeginFrame(...)` captures device state and UI blocking.
-  - `QueueKeyboardActions(...)` turns edges into `RuntimeInputAction`s.
+  - `CaptureKeyboardActionPress(...)` turns key edges into `RuntimeInputAction`s.
   - `ApplyModeAction(...)` updates `RuntimeInputContext` and returns side-effect
     requests.
   - `DescribeMode()` and `DescribeLastTransitions()` expose debuggable strings
