@@ -1448,6 +1448,50 @@ void DrawEditorMiniPaletteButton( const UIDrawContext& draw,
 }
 
 
+void DrawEditorMiniTooltip( const UIDrawContext& draw,
+                            const UIRect& anchor,
+                            const char* label,
+                            int screenW,
+                            int screenH )
+{
+    if ( !label || label[0] == '\0' || screenW <= 0 || screenH <= 0 )
+    {
+        return;
+    }
+
+    const Style::UIPalette& palette = Style::Palette();
+    const float textSize = 10.5f;
+    const float padX = 8.0f;
+    const float padY = 5.0f;
+    const float margin = 6.0f;
+    const float maxTextW = (std::max)( 32.0f, (std::min)( 220.0f, static_cast<float>( screenW ) - margin * 2.0f - padX * 2.0f ) );
+
+    char tooltip[80] = {};
+    snprintf( tooltip, sizeof( tooltip ), "%s", label );
+    Chrome::FitTitleText( tooltip, sizeof( tooltip ), textSize, maxTextW );
+
+    const float textW = Text2d::MeasureText( textSize, tooltip );
+    const float w = std::ceil( textW + padX * 2.0f );
+    const float h = std::ceil( textSize + padY * 2.0f + 2.0f );
+
+    float x = anchor.x + anchor.w + 10.0f;
+    if ( x + w > static_cast<float>( screenW ) - margin )
+    {
+        x = anchor.x - w - 10.0f;
+    }
+    const float maxX = (std::max)( margin, static_cast<float>( screenW ) - w - margin );
+    x = std::clamp( x, margin, maxX );
+
+    float y = anchor.y + anchor.h * 0.5f - h * 0.5f;
+    const float maxY = (std::max)( margin, static_cast<float>( screenH ) - h - margin );
+    y = std::clamp( y, margin, maxY );
+
+    draw.RoundedRect( x + 2.0f, y + 2.0f, w, h, Style::Radii().smallButton, 0.0f, 0.0f, 0.0f, 0.28f );
+    draw.RoundedPanel( { x, y, w, h }, Style::Radii().smallButton, palette.windowRaised, palette.border );
+    draw.Text( x + padX, y + padY + 1.0f, textSize, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, tooltip );
+}
+
+
 void DrawEditorMiniPalette( const UIDrawContext& draw,
                             const EditorMiniPaletteLayout& layout,
                             int editorObjectType,
@@ -1455,12 +1499,17 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
                             int mouseY,
                             int flyoutFamily,
                             int flyoutHoldMode,
-                            int pressedEntry )
+                            int pressedEntry,
+                            int screenW,
+                            int screenH )
 {
     const Style::UIPalette& palette = Style::Palette();
     int currentFamily = EDITOR_MINI_TREE_FAMILY_NONE;
     int currentVariant = -1;
     EditorMiniTreeFamilyForType( editorObjectType, currentFamily, currentVariant );
+
+    const char* tooltipLabel = nullptr;
+    UIRect tooltipAnchor = {};
 
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
@@ -1472,6 +1521,11 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
         const bool holdCapable = entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE;
         const bool holdActive = holdCapable && i == pressedEntry && flyoutHoldMode != EDITOR_MINI_HOLD_MODE_NONE;
         DrawEditorMiniPaletteButton( draw, layout.buttons[i], entry.objectType, selected, hot, marker, holdCapable, holdActive );
+        if ( hot )
+        {
+            tooltipLabel = EditorTab::ObjectLabel( entry.objectType );
+            tooltipAnchor = layout.buttons[i];
+        }
     }
 
     if ( layout.flyoutVisible )
@@ -1490,7 +1544,17 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
             const bool selected = type == editorObjectType;
             const bool hot = layout.flyoutOptions[variant].Contains( mouseX, mouseY );
             DrawEditorMiniPaletteButton( draw, layout.flyoutOptions[variant], type, selected, hot, marker, false, false );
+            if ( hot )
+            {
+                tooltipLabel = EditorTab::ObjectLabel( type );
+                tooltipAnchor = layout.flyoutOptions[variant];
+            }
         }
+    }
+
+    if ( tooltipLabel )
+    {
+        DrawEditorMiniTooltip( draw, tooltipAnchor, tooltipLabel, screenW, screenH );
     }
 }
 
@@ -2894,7 +2958,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                    m_mouseY,
                                    m_editorMiniPalettePressedFamily,
                                    m_editorMiniPalettePressedHoldMode,
-                                   m_editorMiniPalettePressedEntry );
+                                   m_editorMiniPalettePressedEntry,
+                                   screenW,
+                                   screenH );
             DrawEditorMinimizedWindow( draw, minimized, data, m_mouseX, m_mouseY );
         }
         else
