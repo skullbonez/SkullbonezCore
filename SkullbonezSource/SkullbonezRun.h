@@ -335,6 +335,10 @@ struct RunReplayScrubberState
     bool visible = false;
     bool dragging = false;
     bool paused = false;
+    bool simulationPaused = false;
+    bool pauseHovered = false;
+    bool pauseRestoreFlyMode = false;
+    bool pauseRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
     bool restoreWasDown = false;
@@ -362,6 +366,13 @@ struct RunReplayPathTraceNode
     int depth = 0;
 };
 
+struct RunReplayPathTarget
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+};
+
 struct RunReplayPathVisualizerState
 {
     bool hasTarget = false;
@@ -369,6 +380,7 @@ struct RunReplayPathVisualizerState
     int targetModelIndex = -1;
     char targetName[64] = {};
     std::vector<RunReplayPathTraceNode> futureNodes;
+    std::vector<RunReplayPathTarget> targets;
 };
 
 struct RunReplayPredictionBodyBackup
@@ -403,8 +415,10 @@ struct RunReplayPredictionState
     bool checkboxHovered = false;
     bool decreaseHovered = false;
     bool increaseHovered = false;
+    bool horizonHovered = false;
+    bool horizonDragging = false;
     bool dirty = true;
-    float horizonSeconds = 3.0f;
+    float horizonSeconds = 10.0f;
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
@@ -1147,13 +1161,14 @@ class SkullbonezRun
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     void ClearReplayPathVisualizer();
-    bool TryPickReplayPathTargetFromMouse( bool clearOnMiss );
+    bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     void MarkReplayPredictionDirty();
     void ClearReplayPredictionCache();
     bool BuildReplayPrediction();
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     void ResetReplayScrubber();
+    void SetReplaySimulationPaused( bool paused );
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;

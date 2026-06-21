@@ -197,15 +197,17 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         return;
     }
 
+    const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
+    const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
-        SceneState().timeScale,
+        replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
         SceneState().isSceneMode,
         SceneState().isScenePhysics,
         SceneState().isFixedStep,
-        m_camera.isFlyMode,
+        m_camera.isFlyMode || replaySimulationPaused,
         m_camera.isLauncherMode,
-        Input::IsKeyDown( VK_SPACE ),
+        stepRequested,
         &m_cGameModelCollection,
         ( m_replay.IsEnabled() || m_solverReplay.IsEnabled() ) ? &SkullbonezRun::CaptureReplayPhysicsStepThunk : nullptr,
         this } );

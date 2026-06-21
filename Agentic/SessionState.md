@@ -9,12 +9,12 @@ audits when it is still useful.
 |-------|-------|
 | Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
 | Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
-| Active objective | Extend live prediction horizon controls and clarify independent replay scrubber row behavior. |
-| Pending work | Commit and push the replay prediction/scrubber follow-up. |
+| Active objective | Replay pause/multi-select follow-up is implemented and validated. |
+| Pending work | None for the replay pause/multi-select follow-up. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | `tools\validate_full.bat` passed for the replay prediction horizon/scrubber follow-up on 2026-06-21; bounded `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` marker launch passed. |
+| Validation | Replay pause/multi-select follow-up passed `tools\validate_full.bat` on 2026-06-21 (`TestOutput\agent_logs\2026-06-21_replay_pause_multiselect_validate_full.log`, 46.05s) and bounded `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\physics_regression_solver.scene.json --fixed-step --frames 2 --platform-profiler-markers --vsync off` (`TestOutput\agent_logs\2026-06-21_replay_pause_multiselect_platform_markers.log`, 1.74s). |
 
 ## Active Notes
 

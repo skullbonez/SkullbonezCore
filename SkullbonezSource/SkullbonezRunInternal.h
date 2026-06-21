@@ -87,13 +87,15 @@ inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 118.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 76.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 800.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 82.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 940.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 168.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 306.0f;
+inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 238.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
@@ -123,7 +125,7 @@ inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTr
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
-    constexpr float rightInset = 70.0f + REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH;
+    constexpr float rightInset = 70.0f + REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH;
     return { panel.x + leftInset,
              ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
              (std::max)( 80.0f, panel.w - leftInset - rightInset ),
@@ -140,31 +142,58 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
 }
 
+inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
+{
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH - 8.0f,
+             panel.y + 16.0f,
+             REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH,
+             22.0f };
+}
+
 inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     return { panel.x + panel.w - REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH - 8.0f,
-             panel.y + 43.0f,
+             panel.y + 49.0f,
              REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH,
-             20.0f };
+             22.0f };
 }
 
 inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x, control.y, 92.0f, control.h };
+    return { control.x, control.y, 84.0f, control.h };
 }
 
 inline UI::UIRect ReplayScrubberPredictDecreaseRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 98.0f, control.y + 3.0f, 16.0f, 14.0f };
+    return { control.x + 90.0f, control.y + 4.0f, 16.0f, 14.0f };
 }
 
 inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + control.w - 22.0f, control.y + 3.0f, 16.0f, 14.0f };
+    return { control.x + control.w - 22.0f, control.y + 4.0f, 16.0f, 14.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x + 112.0f, control.y + 7.0f, control.w - 148.0f, 8.0f };
+}
+
+inline float ReplayPredictionHorizonT( float seconds )
+{
+    return std::clamp( ( seconds - REPLAY_PREDICTION_MIN_SECONDS ) / ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS ), 0.0f, 1.0f );
+}
+
+inline float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
+{
+    const float t = horizon.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - horizon.x ) / horizon.w, 0.0f, 1.0f ) : 1.0f;
+    const float seconds = REPLAY_PREDICTION_MIN_SECONDS + t * ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS );
+    return std::clamp( std::round( seconds ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )

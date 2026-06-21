@@ -504,6 +504,10 @@ void SkullbonezRun::SetReplayScrubProbe( float normalized )
 
 void SkullbonezRun::ResetReplayTimelineForActiveScene()
 {
+    if ( m_replayScrubber.simulationPaused )
+    {
+        SetReplaySimulationPaused( false );
+    }
     ResetReplayScrubber();
     ClearReplayPathVisualizer();
     if ( !m_replay.IsEnabled() )
@@ -525,10 +529,16 @@ void SkullbonezRun::ResetReplayScrubber()
     const bool leftWasDown = m_replayScrubber.leftWasDown;
     const bool restoreWasDown = m_replayScrubber.restoreWasDown;
     const bool restoreConsumedThisFrame = m_replayScrubber.restoreConsumedThisFrame;
+    const bool simulationPaused = m_replayScrubber.simulationPaused;
+    const bool pauseRestoreFlyMode = m_replayScrubber.pauseRestoreFlyMode;
+    const bool pauseRestoreLauncherMode = m_replayScrubber.pauseRestoreLauncherMode;
     m_replayScrubber = RunReplayScrubberState{};
     m_replayScrubber.leftWasDown = leftWasDown;
     m_replayScrubber.restoreWasDown = restoreWasDown;
     m_replayScrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
+    m_replayScrubber.simulationPaused = simulationPaused;
+    m_replayScrubber.pauseRestoreFlyMode = pauseRestoreFlyMode;
+    m_replayScrubber.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
 }
 
 
@@ -543,7 +553,7 @@ bool SkullbonezRun::ShouldRenderReplayScrubber() const
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
     return replayStats.sampleCount >= 2 &&
            solverReplayStats.sampleCount >= 2 &&
-           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused );
+           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused || m_replayScrubber.simulationPaused );
 }
 
 

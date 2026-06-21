@@ -68,16 +68,20 @@ the trace; child bodies draw grey future-only paths plus grey first-contact
 markers. `SkullbonezData/scenes/replay_path_pool.scene.json` provides a
 pool-table-style chain for manual/screenshot inspection.
 
-The scrubber now also exposes a `PREDICT` checkbox with compact `-` and `+`
-horizon controls, default off and defaulting to 3 seconds. The horizon clamps
-from 1 to 10 seconds. When a root body is selected and prediction is enabled,
-the runtime backs up live body and solver state, suppresses Debug physics
-diagnostics, runs the current solver forward for the selected horizon, captures
-predicted body positions and contact rows, then restores the live world before
-drawing. The predicted root path draws white-to-green from the live state;
-future bodies contacted by that path draw grey future-only traces and contact
-markers. The new work is profiled under `Frame/Replay/Prediction/...`,
-`Frame/Replay/PathVisualizer/...`, `Frame/Replay/ScrubberInput`,
+The scrubber now also exposes a `PREDICT` checkbox with compact `-`, `+`, and
+slider horizon controls, default off and defaulting to 10 seconds. The horizon
+clamps from 1 to 10 seconds. When a root body is selected and prediction is
+enabled, the runtime backs up live body and solver state, suppresses Debug
+physics diagnostics, runs the current solver forward for the selected horizon,
+captures predicted body positions and contact rows, then restores the live
+world before drawing. The predicted root path draws white-to-green from the live
+state; future bodies contacted by that path draw grey future-only traces and
+contact markers. Shift-click can add multiple retained history roots; the most
+recently selected root remains the prediction root. The scrubber also has a
+`PAUSE`/`PLAY` button for frozen live inspection with free-camera movement and
+right-mouse look. The new work is profiled under
+`Frame/Replay/Prediction/...`, `Frame/Replay/PathVisualizer/...`,
+`Frame/Replay/ScrubberInput`, `Frame/Replay/SimulationPause`,
 `Frame/Replay/ScrubberOverlay`, and the existing physics scopes, so PIX and the
 in-engine profiler can isolate the speculative lookahead and scrubber UI cost.
 
@@ -92,7 +96,7 @@ and add depth/parent labels.
 | Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
 | Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
 | Branch restore | Press `Enter` while paused on the solver row to restore the selected retained solver frame as the new live branch. |
-| Path visualizer | Mouse-selected root body draws retained past/future paths; future contacts awaken child future-only grey traces. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. |
+| Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts awaken child future-only grey traces. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. |
 | Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` with compact authoritative snapshot summaries. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
 | Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. |

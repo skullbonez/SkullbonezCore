@@ -112,6 +112,27 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
     draw.Text( panel.x + panel.w - labelW - 16.0f, panel.y + 15.0f, 11.0f, live ? 0.58f : 1.0f, live ? 0.96f : 0.86f, live ? 0.70f : 0.36f, timeLabel );
 
+    const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
+    const bool simulationPaused = m_replayScrubber.simulationPaused;
+    const bool pauseHover = m_replayScrubber.pauseHovered;
+    draw.RoundedRect( pauseButton.x,
+                      pauseButton.y,
+                      pauseButton.w,
+                      pauseButton.h,
+                      4.0f,
+                      simulationPaused ? 0.18f : 0.08f,
+                      simulationPaused ? 0.33f : 0.12f,
+                      simulationPaused ? 0.21f : 0.15f,
+                      pauseHover || simulationPaused ? 0.94f : 0.78f );
+    draw.Outline( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h, 0.58f, 0.92f, 0.72f, pauseHover || simulationPaused ? 0.78f : 0.36f );
+    draw.Text( pauseButton.x + 9.0f,
+               pauseButton.y + 5.0f,
+               9.5f,
+               simulationPaused ? 0.72f : 0.60f,
+               simulationPaused ? 1.0f : 0.72f,
+               simulationPaused ? 0.78f : 0.76f,
+               simulationPaused ? "PLAY" : "PAUSE" );
+
     auto drawReplayRow = [&]( RunReplayTrack trackName, float fillR, float fillG, float fillB, float outlineR, float outlineG, float outlineB )
     {
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
@@ -174,9 +195,12 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictDecrease = ReplayScrubberPredictDecreaseRect( screenW, screenH );
     const UI::UIRect predictIncrease = ReplayScrubberPredictIncreaseRect( screenW, screenH );
+    const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const bool predictHover = m_replayPrediction.checkboxHovered ||
                               m_replayPrediction.decreaseHovered ||
-                              m_replayPrediction.increaseHovered;
+                              m_replayPrediction.increaseHovered ||
+                              m_replayPrediction.horizonHovered ||
+                              m_replayPrediction.horizonDragging;
     const bool predictEnabled = m_replayPrediction.enabled;
     const float predictSeconds = std::clamp( m_replayPrediction.horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
@@ -238,15 +262,27 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
 
     char predictSecondsLabel[16] = {};
     sprintf_s( predictSecondsLabel, sizeof( predictSecondsLabel ), "%.0fs", static_cast<double>( predictSeconds ) );
-    const float valueX = predictDecrease.x + predictDecrease.w + 5.0f;
-    const float valueW = (std::max)( 18.0f, predictIncrease.x - valueX - 5.0f );
-    const float valueLabelW = Text2d::MeasureText( 9.5f, predictSecondsLabel );
-    draw.Text( valueX + ( valueW - valueLabelW ) * 0.5f,
-               predict.y + 4.5f,
-               9.5f,
-               predictEnabled ? 0.82f : 0.60f,
-               predictEnabled ? 1.0f : 0.72f,
-               predictEnabled ? 0.82f : 0.76f,
+    const float horizonT = ReplayPredictionHorizonT( predictSeconds );
+    const float horizonFillW = (std::max)( 4.0f, predictHorizon.w * horizonT );
+    const float horizonKnobX = predictHorizon.x + predictHorizon.w * horizonT;
+    draw.RoundedRect( predictHorizon.x, predictHorizon.y, predictHorizon.w, predictHorizon.h, 4.0f, 0.10f, 0.14f, 0.15f, 0.86f );
+    draw.RoundedRect( predictHorizon.x, predictHorizon.y, horizonFillW, predictHorizon.h, 4.0f, 0.34f, 0.95f, 0.62f, predictEnabled ? 0.86f : 0.48f );
+    draw.RoundedRect( horizonKnobX - 4.0f,
+                      predictHorizon.y - 3.0f,
+                      8.0f,
+                      14.0f,
+                      3.0f,
+                      predictEnabled ? 0.88f : 0.56f,
+                      predictEnabled ? 1.0f : 0.62f,
+                      predictEnabled ? 0.82f : 0.64f,
+                      m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging ? 0.98f : 0.86f );
+    const float valueLabelW = Text2d::MeasureText( 8.5f, predictSecondsLabel );
+    draw.Text( predictHorizon.x + ( predictHorizon.w - valueLabelW ) * 0.5f,
+               predict.y + 1.8f,
+               8.5f,
+               predictEnabled ? 0.90f : 0.64f,
+               predictEnabled ? 1.0f : 0.74f,
+               predictEnabled ? 0.88f : 0.76f,
                predictSecondsLabel );
 
     Text2d::FlushQuads();
