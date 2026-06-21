@@ -2489,11 +2489,12 @@ void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 
 void SkullbonezRun::SetReplaySimulationPaused( bool paused )
 {
-    PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
     if ( m_replayScrubber.simulationPaused == paused )
     {
         return;
     }
+
+    PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
 
     if ( paused )
     {
