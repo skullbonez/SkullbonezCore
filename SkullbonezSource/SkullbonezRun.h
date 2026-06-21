@@ -324,6 +324,12 @@ struct RunRayCastTestState
     float projectileSpeed = 160.0f;
 };
 
+enum class RunReplayTrack
+{
+    Presentation,
+    Solver
+};
+
 struct RunReplayScrubberState
 {
     bool visible = false;
@@ -331,6 +337,9 @@ struct RunReplayScrubberState
     bool paused = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
+    RunReplayTrack activeTrack = RunReplayTrack::Presentation;
+    RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
+    RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
     bool leftWasDown = false;
     float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
     int mouseX = 0;
@@ -947,8 +956,11 @@ class SkullbonezRun
     RunCameraState m_camera;              // Camera/input state and ball-tracking settings
     SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;              // Bounded replay presentation recorder for recent-frame inspection.
+    ReplaySolverRecorder m_solverReplay;  // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
+    uint32_t m_solverReplayMismatchReports = 0;
+    bool m_solverReplayMismatchSuppressed = false;
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
@@ -1015,7 +1027,7 @@ class SkullbonezRun
     int WindowScreenHeight() const;                                                                                                        // Current window height, or config fallback before window init
     void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Backbuffer capture path; current encoder writes BMP files.
-    bool SaveReplayBufferFromScrubber();                                                                                                   // Writes the retained in-memory replay buffer to replays/.
+    bool SaveReplayBufferFromScrubber( RunReplayTrack track );                                                                             // Writes one retained in-memory replay track to replays/.
     bool SaveCurrentSceneDefaults();                                                                                                       // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                                                                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                                                                             // Ordinary Render-tab values persisted to engine.cfg.
@@ -1062,12 +1074,15 @@ class SkullbonezRun
     void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void ResetReplayScrubber();
+    void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;
     bool IsReplayScrubPaused() const;
     const ReplayPresentationSample* CurrentReplayScrubSample() const;
+    const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
     void RenderReplayScrubberOverlay();
     bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
+    bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
     void RestoreReplayPresentationRenderPose();
 
     // --- Per-frame tick helpers (called from Run()) ---

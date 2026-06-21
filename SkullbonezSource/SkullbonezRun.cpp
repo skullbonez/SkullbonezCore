@@ -39,6 +39,25 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+std::string SolverReplayHashLogPath( const std::string& presentationPath )
+{
+    if ( presentationPath.empty() )
+    {
+        return {};
+    }
+
+    const std::size_t slash = presentationPath.find_last_of( "/\\" );
+    const std::size_t dot = presentationPath.find_last_of( '.' );
+    if ( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) )
+    {
+        return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
+    }
+    return presentationPath + ".solver";
+}
+} // namespace
+
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     : m_sceneRuntime( std::move( sceneQueue ) ),
@@ -84,10 +103,22 @@ SkullbonezRun::~SkullbonezRun()
 
     RuntimeDiagnostics::ClosePerfLog( m_perfLogState );
     m_replay.FlushHashLog();
+    m_solverReplay.FlushHashLog();
     if ( m_replay.IsEnabled() )
     {
         const ReplayRecorderStats replayStats = m_replay.GetStats();
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, latest_hash=0x%016llX\n",
+                static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
+                static_cast<unsigned long long>( replayStats.sampleCount ),
+                static_cast<unsigned long long>( replayStats.sampleCapacity ),
+                static_cast<unsigned long long>( replayStats.checkpointCount ),
+                static_cast<unsigned long long>( replayStats.checkpointCapacity ),
+                static_cast<unsigned long long>( replayStats.latestStateHash ) );
+    }
+    if ( m_solverReplay.IsEnabled() )
+    {
+        const ReplayRecorderStats replayStats = m_solverReplay.GetStats();
+        printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
                 static_cast<unsigned long long>( replayStats.sampleCount ),
                 static_cast<unsigned long long>( replayStats.sampleCapacity ),
@@ -437,16 +468,25 @@ void SkullbonezRun::SetReplayRecording( bool enabled, int retentionSeconds, cons
     }
 
     m_replay.Configure( replayConfig );
+    ReplayRecorderConfig solverReplayConfig = replayConfig;
+    solverReplayConfig.checkpointIntervalFrames = 60;
+    solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
+    m_solverReplay.Configure( solverReplayConfig );
     ResetReplayScrubber();
     if ( m_replay.IsEnabled() )
     {
         const ReplayRecorderStats replayStats = m_replay.GetStats();
-        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d%s%s\n",
+        const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d solver_retention_frames=%llu solver_checkpoint_interval_frames=%d%s%s%s%s\n",
                 replayConfig.retentionSeconds,
                 static_cast<unsigned long long>( replayStats.sampleCapacity ),
                 replayConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( solverReplayStats.sampleCapacity ),
+                solverReplayConfig.checkpointIntervalFrames,
                 replayConfig.hashLogPath.empty() ? "" : " hash_log=",
-                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str() );
+                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str(),
+                solverReplayConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
+                solverReplayConfig.hashLogPath.empty() ? "" : solverReplayConfig.hashLogPath.c_str() );
     }
 }
 
@@ -471,7 +511,11 @@ void SkullbonezRun::ResetReplayTimelineForActiveScene()
     }
 
     const std::string* scenePath = CurrentSceneQueuePath();
-    m_replay.ResetTimeline( scenePath && !scenePath->empty() ? scenePath->c_str() : "generated" );
+    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
+    m_replay.ResetTimeline( sceneLabel );
+    m_solverReplay.ResetTimeline( sceneLabel );
+    m_solverReplayMismatchReports = 0;
+    m_solverReplayMismatchSuppressed = false;
 }
 
 
@@ -485,25 +529,37 @@ void SkullbonezRun::ResetReplayScrubber()
 
 bool SkullbonezRun::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_replay.IsEnabled() )
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_replay.IsEnabled() || !m_solverReplay.IsEnabled() )
     {
         return false;
     }
 
     const ReplayRecorderStats replayStats = m_replay.GetStats();
+    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
     return replayStats.sampleCount >= 2 &&
+           solverReplayStats.sampleCount >= 2 &&
            ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused );
 }
 
 
 bool SkullbonezRun::IsReplayScrubPaused() const
 {
-    if ( !m_replay.IsEnabled() || !m_replayScrubber.paused )
+    if ( !m_replayScrubber.paused )
     {
         return false;
     }
 
-    return m_replayScrubber.position < REPLAY_SCRUBBER_LIVE_THRESHOLD &&
+    if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+    {
+        return false;
+    }
+
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    {
+        return m_solverReplay.IsEnabled() &&
+               m_solverReplay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
+    }
+    return m_replay.IsEnabled() &&
            m_replay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
 }
 
@@ -515,21 +571,41 @@ const ReplayPresentationSample* SkullbonezRun::CurrentReplayScrubSample() const
         return nullptr;
     }
 
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
+    {
+        return nullptr;
+    }
+
     return m_replay.SampleAtNormalized( m_replayScrubber.position );
 }
 
-bool SkullbonezRun::SaveReplayBufferFromScrubber()
+
+const ReplaySolverFrameSample* SkullbonezRun::CurrentReplaySolverScrubSample() const
+{
+    if ( !IsReplayScrubPaused() || m_replayScrubber.activeTrack != RunReplayTrack::Solver )
+    {
+        return nullptr;
+    }
+
+    return m_solverReplay.SampleAtNormalized( m_replayScrubber.position );
+}
+
+bool SkullbonezRun::SaveReplayBufferFromScrubber( RunReplayTrack track )
 {
     static int sReplaySeq = 0;
+    static int sSolverReplaySeq = 0;
 
     char path[256] = {};
     bool saved = false;
-    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", "replay_", ".skreplay", sReplaySeq ) )
+    int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
+    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_";
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved = ReplayExporter::Save( m_replay, path );
+        saved = track == RunReplayTrack::Solver ? ReplayExporter::Save( m_solverReplay, path ) : ReplayExporter::Save( m_replay, path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
+    m_replayScrubber.saveMessageTrack = track;
     if ( saved )
     {
         const char* fileName = strrchr( path, '\\' );

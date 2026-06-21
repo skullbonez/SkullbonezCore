@@ -15,6 +15,7 @@ class ReplayExporter
 {
   public:
     static bool Save( const ReplayRecorder& recorder, const char* path );
+    static bool Save( const ReplaySolverRecorder& recorder, const char* path );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

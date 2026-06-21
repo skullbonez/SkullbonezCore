@@ -4,13 +4,16 @@ Purpose:
   Defines bounded replay capture records for simulation debugging.
 
 Mental model:
-  Replay capture is presentation-only in this slice. It records stable body
-  identifiers, transforms, velocities, sleep/contact summaries, and hashes so
-  later scrub/playback work has a coherent timeline to build on.
+  Replay capture has two bounded tracks. Presentation samples feed immediate
+  visual scrubbing. Solver samples keep same-tick body constants, inertia,
+  sleep/contact summaries, and hashes for the authoritative rollback path.
 
 Glossary:
   Presentation sample: A compact, render-facing record of one committed physics
   tick. It is useful for inspection, but it is not enough to restore the solver.
+  Solver sample: A same-tick physics-state record with extra mass and inertia
+  inputs. It is still not a full restore checkpoint until persistent contacts,
+  event streams, and hidden solver caches are captured.
   Checkpoint summary: A replay boundary marker with hashes and counts. It is
   deliberately not an authoritative restore checkpoint yet.
 */
@@ -110,6 +113,47 @@ struct ReplayPresentationSample
     bool checkpointBoundary = false;
 };
 
+struct ReplaySolverBodySample
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+    ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float mass = 0.0f;
+    float inverseMass = 0.0f;
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
+    bool fixed = false;
+    bool sleeping = false;
+    bool sleepSupported = false;
+    bool sleepInhibited = false;
+    bool collisionContact = false;
+    int sleepIslandVisualId = 0;
+    uint16_t contactCount = 0;
+    float maxPenetration = 0.0f;
+    float normalImpulseSum = 0.0f;
+};
+
+struct ReplaySolverFrameSample
+{
+    ReplayFrameIndex frameIndex = 0;
+    int sceneFrame = 0;
+    double simulationSeconds = 0.0;
+    float physicsDt = 0.0f;
+    ReplayCameraSample camera;
+    ReplayWorldPresentationSample world;
+    std::vector<ReplaySolverBodySample> bodies;
+    uint64_t solverHash = 0;
+    uint64_t presentationHash = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+};
+
 struct ReplayCheckpointSummary
 {
     ReplayFrameIndex frameIndex = 0;
@@ -192,6 +236,44 @@ class ReplayRecorder
     uint64_t m_totalFramesCaptured = 0;
     uint64_t m_totalFramesEvicted = 0;
     uint64_t m_latestStateHash = 0;
+};
+
+class ReplaySolverRecorder
+{
+  public:
+    bool Configure( const ReplayRecorderConfig& config );
+    void ResetTimeline( const char* sceneLabel );
+    void CaptureFrame( const ReplayCaptureInput& input );
+    void FlushHashLog();
+    bool IsEnabled() const;
+    ReplayRecorderStats GetStats() const;
+    void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
+    const ReplaySolverFrameSample* LatestSample() const;
+    const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
+
+  private:
+    ReplaySolverFrameSample& AcquireSampleSlot();
+    void StoreCheckpointSummary( const ReplaySolverFrameSample& sample );
+    void WriteHashLogHeader( const char* sceneLabel );
+    void WriteHashLogRow( const ReplaySolverFrameSample& sample );
+    std::size_t SampleCapacityFromConfig() const;
+    std::size_t CheckpointCapacityFromConfig() const;
+
+    ReplayRecorderConfig m_config;
+    std::vector<ReplaySolverFrameSample> m_samples;
+    std::vector<ReplayCheckpointSummary> m_checkpoints;
+    std::vector<uint16_t> m_contactCountScratch;
+    std::vector<float> m_maxPenetrationScratch;
+    std::vector<float> m_normalImpulseSumScratch;
+    std::ofstream m_hashLog;
+    std::size_t m_sampleHead = 0;
+    std::size_t m_sampleCount = 0;
+    std::size_t m_checkpointHead = 0;
+    std::size_t m_checkpointCount = 0;
+    ReplayFrameIndex m_nextFrameIndex = 0;
+    uint64_t m_totalFramesCaptured = 0;
+    uint64_t m_totalFramesEvicted = 0;
+    uint64_t m_latestSolverHash = 0;
 };
 } // namespace Basics
 } // namespace SkullbonezCore
