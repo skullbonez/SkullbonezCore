@@ -86,8 +86,8 @@ inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
-inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 88.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 48.0f;
+inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 118.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 76.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 760.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
@@ -109,21 +109,26 @@ inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
     return { x, y, width, REPLAY_SCRUBBER_PANEL_HEIGHT };
 }
 
-inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH )
+inline float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track )
+{
+    return panel.y + ( track == RunReplayTrack::Presentation ? 25.0f : 53.0f );
+}
+
+inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
     constexpr float rightInset = 70.0f;
     return { panel.x + leftInset,
-             panel.y + 25.0f,
+             ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
              (std::max)( 80.0f, panel.w - leftInset - rightInset ),
              REPLAY_SCRUBBER_TRACK_HEIGHT };
 }
 
-inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH )
+inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
     return { panel.x + 70.0f,
              track.y - ( REPLAY_SCRUBBER_SAVE_BUTTON_SIZE - track.h ) * 0.5f,
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE,
@@ -138,9 +143,9 @@ inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
 }
 
-inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH )
+inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
 {
-    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
     return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
 }
 

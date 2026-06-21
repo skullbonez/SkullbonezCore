@@ -2006,9 +2006,10 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const ReplayRecorderStats replayStats = m_replay.GetStats();
+    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    if ( !scrubberAllowed || !replayStats.enabled || replayStats.sampleCount < 2 || screenW <= 0 || screenH <= 0 )
+    if ( !scrubberAllowed || !replayStats.enabled || !solverReplayStats.enabled || replayStats.sampleCount < 2 || solverReplayStats.sampleCount < 2 || screenW <= 0 || screenH <= 0 )
     {
         if ( m_replayScrubber.mouseCaptured )
         {
@@ -2025,10 +2026,18 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH );
+    const UI::UIRect presentationTrack = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Presentation );
+    const UI::UIRect solverTrack = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
+    const UI::UIRect presentationSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Presentation );
+    const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
-    const bool overSaveButton = saveButton.Contains( mouse.x, mouse.y );
+    const bool overPresentationSaveButton = presentationSaveButton.Contains( mouse.x, mouse.y );
+    const bool overSolverSaveButton = solverSaveButton.Contains( mouse.x, mouse.y );
+    const bool overSaveButton = overPresentationSaveButton || overSolverSaveButton;
+    const bool overSolverRow = solverTrack.Contains( mouse.x, mouse.y ) || overSolverSaveButton ||
+                               ( overPanel && mouse.y >= ( presentationTrack.y + solverTrack.y ) * 0.5f );
+    const RunReplayTrack hoveredTrack = overSolverRow ? RunReplayTrack::Solver : RunReplayTrack::Presentation;
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
@@ -2040,6 +2049,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                    ( m_replayScrubber.visibleUntil >= now ||
                                      m_replayScrubber.dragging ||
                                      m_replayScrubber.paused );
+    m_replayScrubber.saveHoveredTrack = hoveredTrack;
 
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
@@ -2048,12 +2058,14 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
-        SaveReplayBufferFromScrubber();
+        m_replayScrubber.activeTrack = hoveredTrack;
+        SaveReplayBufferFromScrubber( hoveredTrack );
         consumesMouse = true;
     }
     else if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
+        m_replayScrubber.activeTrack = hoveredTrack;
         m_replayScrubber.dragging = true;
         if ( !m_replayScrubber.mouseCaptured )
         {
@@ -2064,7 +2076,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( m_replayScrubber.dragging )
     {
-        m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH );
+        m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayScrubber.activeTrack );
         if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
         {
             m_replayScrubber.position = 1.0f;

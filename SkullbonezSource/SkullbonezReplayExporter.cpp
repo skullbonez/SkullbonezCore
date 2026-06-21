@@ -76,6 +76,33 @@ Json BodyJson( const ReplayBodyPresentationSample& body )
     return result;
 }
 
+Json BodyJson( const ReplaySolverBodySample& body )
+{
+    Json result;
+    result["id"] = body.id.value;
+    result["modelIndex"] = body.modelIndex;
+    result["name"] = body.name;
+    result["shape"] = ShapeKindName( body.shapeKind );
+    result["position"] = Vec3Json( body.position );
+    result["linearVelocity"] = Vec3Json( body.linearVelocity );
+    result["angularVelocity"] = Vec3Json( body.angularVelocity );
+    result["orientation"] = OrientationJson( body.orientation );
+    result["mass"] = body.mass;
+    result["inverseMass"] = body.inverseMass;
+    result["rotationalInertia"] = Vec3Json( body.rotationalInertia );
+    result["inverseRotationalInertia"] = Vec3Json( body.inverseRotationalInertia );
+    result["fixed"] = body.fixed;
+    result["sleeping"] = body.sleeping;
+    result["sleepSupported"] = body.sleepSupported;
+    result["sleepInhibited"] = body.sleepInhibited;
+    result["collisionContact"] = body.collisionContact;
+    result["sleepIslandVisualId"] = body.sleepIslandVisualId;
+    result["contactCount"] = body.contactCount;
+    result["maxPenetration"] = body.maxPenetration;
+    result["normalImpulseSum"] = body.normalImpulseSum;
+    return result;
+}
+
 Json WorldJson( const ReplayWorldPresentationSample& world )
 {
     Json result;
@@ -120,6 +147,30 @@ Json FrameJson( const ReplayPresentationSample& sample )
     }
     return frame;
 }
+
+Json FrameJson( const ReplaySolverFrameSample& sample )
+{
+    char solverHashBuffer[24] = {};
+    char presentationHashBuffer[24] = {};
+    Json frame;
+    frame["frameIndex"] = sample.frameIndex;
+    frame["sceneFrame"] = sample.sceneFrame;
+    frame["simulationSeconds"] = sample.simulationSeconds;
+    frame["physicsDt"] = sample.physicsDt;
+    frame["solverHash"] = HashText( sample.solverHash, solverHashBuffer );
+    frame["presentationHash"] = HashText( sample.presentationHash, presentationHashBuffer );
+    frame["contactCount"] = sample.contactCount;
+    frame["pipelineRecordCount"] = sample.pipelineRecordCount;
+    frame["checkpointBoundary"] = sample.checkpointBoundary;
+    frame["world"] = WorldJson( sample.world );
+    frame["camera"] = CameraJson( sample.camera );
+    frame["bodies"] = Json::array();
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        frame["bodies"].push_back( BodyJson( body ) );
+    }
+    return frame;
+}
 } // namespace
 
 bool ReplayExporter::Save( const ReplayRecorder& recorder, const char* path )
@@ -148,6 +199,45 @@ bool ReplayExporter::Save( const ReplayRecorder& recorder, const char* path )
     output << "  \"totalFramesCaptured\": " << static_cast<unsigned long long>( stats.totalFramesCaptured ) << ",\n";
     output << "  \"totalFramesEvicted\": " << static_cast<unsigned long long>( stats.totalFramesEvicted ) << ",\n";
     output << "  \"latestStateHash\": \"" << HashText( stats.latestStateHash, latestHash ) << "\",\n";
+    output << "  \"frames\": [\n";
+
+    for ( std::size_t i = 0; i < samples.size(); ++i )
+    {
+        output << "    " << FrameJson( samples[i] ).dump();
+        output << ( i + 1 < samples.size() ? "," : "" ) << "\n";
+    }
+
+    output << "  ]\n";
+    output << "}\n";
+    return output.good();
+}
+
+bool ReplayExporter::Save( const ReplaySolverRecorder& recorder, const char* path )
+{
+    std::vector<ReplaySolverFrameSample> samples;
+    recorder.CopySamplesChronological( samples );
+    if ( samples.empty() )
+    {
+        return false;
+    }
+
+    std::ofstream output;
+    if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
+    {
+        return false;
+    }
+
+    const ReplayRecorderStats stats = recorder.GetStats();
+    char latestHash[24] = {};
+
+    output << "{\n";
+    output << "  \"format\": \"skullbonez.solver-skreplay\",\n";
+    output << "  \"version\": 1,\n";
+    output << "  \"sampleCount\": " << static_cast<unsigned long long>( samples.size() ) << ",\n";
+    output << "  \"sampleCapacity\": " << static_cast<unsigned long long>( stats.sampleCapacity ) << ",\n";
+    output << "  \"totalFramesCaptured\": " << static_cast<unsigned long long>( stats.totalFramesCaptured ) << ",\n";
+    output << "  \"totalFramesEvicted\": " << static_cast<unsigned long long>( stats.totalFramesEvicted ) << ",\n";
+    output << "  \"latestSolverHash\": \"" << HashText( stats.latestStateHash, latestHash ) << "\",\n";
     output << "  \"frames\": [\n";
 
     for ( std::size_t i = 0; i < samples.size(); ++i )

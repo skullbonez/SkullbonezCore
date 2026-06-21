@@ -48,18 +48,33 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
     const ReplayRecorderStats replayStats = m_replay.GetStats();
-    if ( screenW <= 0 || screenH <= 0 || replayStats.sampleCount < 2 )
+    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+    if ( screenW <= 0 || screenH <= 0 || replayStats.sampleCount < 2 || solverReplayStats.sampleCount < 2 )
     {
         return;
     }
 
     const float t = std::clamp( m_replayScrubber.position, 0.0f, 1.0f );
-    const ReplayPresentationSample* selected = m_replay.SampleAtNormalized( t );
-    const ReplayPresentationSample* latest = m_replay.LatestSample();
-    double secondsBack = 0.0;
-    if ( selected && latest && latest->simulationSeconds >= selected->simulationSeconds )
+    double selectedSeconds = 0.0;
+    double latestSeconds = 0.0;
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
-        secondsBack = latest->simulationSeconds - selected->simulationSeconds;
+        const ReplaySolverFrameSample* selected = m_solverReplay.SampleAtNormalized( t );
+        const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample();
+        selectedSeconds = selected ? selected->simulationSeconds : 0.0;
+        latestSeconds = latest ? latest->simulationSeconds : 0.0;
+    }
+    else
+    {
+        const ReplayPresentationSample* selected = m_replay.SampleAtNormalized( t );
+        const ReplayPresentationSample* latest = m_replay.LatestSample();
+        selectedSeconds = selected ? selected->simulationSeconds : 0.0;
+        latestSeconds = latest ? latest->simulationSeconds : 0.0;
+    }
+    double secondsBack = 0.0;
+    if ( latestSeconds >= selectedSeconds )
+    {
+        secondsBack = latestSeconds - selectedSeconds;
     }
 
     char timeLabel[48] = {};
@@ -74,45 +89,58 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
 
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
-    const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH );
-    const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * t );
-    const float knobX = track.x + track.w * t;
     const bool live = t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
-    draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, 0.16f, 0.18f, 0.22f, 0.92f );
-    draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, 0.20f, 0.70f, 0.96f, live ? 0.64f : 0.94f );
-    draw.RoundedRect( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, 5.0f, 0.92f, 0.96f, 1.0f, 0.98f );
-    draw.Text( panel.x + 16.0f, panel.y + 15.0f, 11.0f, 0.72f, 0.88f, 1.0f, "REPLAY" );
+    draw.Text( panel.x + 16.0f, panel.y + 8.0f, 10.0f, 0.72f, 0.88f, 1.0f, "REPLAY" );
+    draw.Text( panel.x + 16.0f, panel.y + 36.0f, 10.0f, 0.78f, 0.82f, 0.86f, "SOLVER" );
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
     draw.Text( panel.x + panel.w - labelW - 16.0f, panel.y + 15.0f, 11.0f, live ? 0.58f : 1.0f, live ? 0.96f : 0.86f, live ? 0.70f : 0.36f, timeLabel );
 
-    const bool saveHover = m_replayScrubber.saveHovered;
-    const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' && m_replayScrubber.saveMessageUntil >= now;
-    const bool saveFailed = saveFeedback && strstr( m_replayScrubber.saveMessage, "FAILED" ) != nullptr;
-    const float saveR = saveFeedback ? ( saveFailed ? 0.48f : 0.13f ) : ( saveHover ? 0.20f : 0.09f );
-    const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
-    const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
-    draw.RoundedRect( saveButton.x,
-                      saveButton.y,
-                      saveButton.w,
-                      saveButton.h,
-                      4.0f,
-                      saveR,
-                      saveG,
-                      saveB,
-                      0.96f );
-    draw.Outline( saveButton.x, saveButton.y, saveButton.w, saveButton.h, 0.54f, 0.78f, 0.90f, saveHover || saveFeedback ? 0.74f : 0.36f );
+    auto drawReplayRow = [&]( RunReplayTrack trackName, float fillR, float fillG, float fillB, float outlineR, float outlineG, float outlineB )
+    {
+        const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
+        const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
+        const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * t );
+        const float knobX = track.x + track.w * t;
+        const bool active = m_replayScrubber.activeTrack == trackName;
+        const bool saveHover = m_replayScrubber.saveHovered && m_replayScrubber.saveHoveredTrack == trackName;
+        const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' &&
+                                  m_replayScrubber.saveMessageUntil >= now &&
+                                  m_replayScrubber.saveMessageTrack == trackName;
+        const bool saveFailed = saveFeedback && strstr( m_replayScrubber.saveMessage, "FAILED" ) != nullptr;
+        const float saveR = saveFeedback ? ( saveFailed ? 0.48f : 0.13f ) : ( saveHover ? 0.20f : 0.09f );
+        const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
+        const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
 
-    const float iconX = saveButton.x + 6.0f;
-    const float iconY = saveButton.y + 5.0f;
-    const float iconW = 10.0f;
-    const float iconH = 12.0f;
-    draw.Outline( iconX, iconY, iconW, iconH, 0.88f, 0.97f, 1.0f, 0.96f );
-    draw.Rect( iconX + 2.0f, iconY + 2.0f, iconW - 4.0f, 3.0f, 0.88f, 0.97f, 1.0f, 0.70f );
-    draw.Rect( iconX + 3.0f, iconY + 8.0f, iconW - 6.0f, 3.0f, 0.88f, 0.97f, 1.0f, 0.82f );
+        draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, 0.16f, 0.18f, 0.22f, 0.92f );
+        draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, fillR, fillG, fillB, live ? 0.64f : 0.94f );
+        draw.RoundedRect( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, 5.0f, active ? 0.98f : 0.74f, active ? 0.98f : 0.78f, active ? 1.0f : 0.82f, active ? 0.98f : 0.86f );
+        draw.Outline( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, outlineR, outlineG, outlineB, active ? 0.72f : 0.28f );
+
+        draw.RoundedRect( saveButton.x,
+                          saveButton.y,
+                          saveButton.w,
+                          saveButton.h,
+                          4.0f,
+                          saveR,
+                          saveG,
+                          saveB,
+                          0.96f );
+        draw.Outline( saveButton.x, saveButton.y, saveButton.w, saveButton.h, outlineR, outlineG, outlineB, saveHover || saveFeedback ? 0.74f : 0.36f );
+
+        const float iconX = saveButton.x + 6.0f;
+        const float iconY = saveButton.y + 5.0f;
+        const float iconW = 10.0f;
+        const float iconH = 12.0f;
+        draw.Outline( iconX, iconY, iconW, iconH, 0.88f, 0.97f, 1.0f, 0.96f );
+        draw.Rect( iconX + 2.0f, iconY + 2.0f, iconW - 4.0f, 3.0f, 0.88f, 0.97f, 1.0f, 0.70f );
+        draw.Rect( iconX + 3.0f, iconY + 8.0f, iconW - 6.0f, 3.0f, 0.88f, 0.97f, 1.0f, 0.82f );
+    };
+
+    drawReplayRow( RunReplayTrack::Presentation, 0.20f, 0.70f, 0.96f, 0.54f, 0.78f, 0.90f );
+    drawReplayRow( RunReplayTrack::Solver, 0.70f, 0.76f, 0.82f, 0.72f, 0.78f, 0.84f );
 
     Text2d::FlushQuads();
     Text2d::FlushText();
