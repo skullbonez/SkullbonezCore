@@ -472,4 +472,10 @@ void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_physicsWorld.SetPhysicsDiagnosticsRunId( runId );
 }
+
+
+bool GameModelCollection::SetPhysicsDiagnosticsSuppressed( bool suppressed )
+{
+    return m_physicsWorld.SetDiagnosticsSuppressed( suppressed );
+}
 #endif

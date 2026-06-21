@@ -584,9 +584,12 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
     RunSolverPhysics( collection, fChangeInTime );
 
 #ifdef _DEBUG
-    m_diagnostics.EmitRegressionLog( *this, collection );
-    m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
-    m_diagnostics.EmitFrame( collection, fChangeInTime );
+    if ( !m_diagnosticsSuppressed )
+    {
+        m_diagnostics.EmitRegressionLog( *this, collection );
+        m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
+        m_diagnostics.EmitFrame( collection, fChangeInTime );
+    }
 #endif
 
     collection.InvalidatePhysicsStreams();
@@ -903,8 +906,20 @@ void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
+bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
+{
+    const bool previous = m_diagnosticsSuppressed;
+    m_diagnosticsSuppressed = suppressed;
+    return previous;
+}
+
+
 void PhysicsWorld::EmitPhysicsDiagnosticsFrame( GameModelCollection& collection, float dt )
 {
+    if ( m_diagnosticsSuppressed )
+    {
+        return;
+    }
     m_diagnostics.EmitFrame( collection, dt );
 }
 #endif
@@ -912,6 +927,12 @@ void PhysicsWorld::EmitPhysicsDiagnosticsFrame( GameModelCollection& collection,
 
 void PhysicsWorld::EmitPhysicsCollisionTime( GameModelCollection& collection, const char* type, int bodyA, int bodyB, float collisionTime, float availableTime )
 {
+#ifdef _DEBUG
+    if ( m_diagnosticsSuppressed )
+    {
+        return;
+    }
+#endif
     m_diagnostics.EmitCollisionTime( collection, type, bodyA, bodyB, collisionTime, availableTime );
 }
 

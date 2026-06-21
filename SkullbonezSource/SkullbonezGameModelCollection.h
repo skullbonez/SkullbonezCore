@@ -152,6 +152,7 @@ class GameModelCollection
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    bool SetPhysicsDiagnosticsSuppressed( bool suppressed );
 #endif
 };
 } // namespace GameObjects

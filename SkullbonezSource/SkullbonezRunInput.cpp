@@ -1054,6 +1054,8 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+constexpr float REPLAY_PREDICTION_SECONDS = 3.0f;
+constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
 {
@@ -1076,6 +1078,36 @@ ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, i
     }
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex == modelIndex )
+        {
+            return body.id;
+        }
+    }
+    return id;
+}
+
+const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame, ReplayBodyId id )
+{
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.id.value == id.value )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
+{
+    ReplayBodyId id;
+    if ( modelIndex < 0 )
+    {
+        return id;
+    }
+
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
         if ( body.modelIndex == modelIndex )
         {
@@ -1368,6 +1400,92 @@ void AddReplayFutureContactMarkers( const RunReplayPathVisualizerState& visualiz
             b = 0.86f;
         }
         tracer.AddReplayContactMarker( node.contactPoint, node.contactNormal, r, g, b );
+    }
+}
+
+struct ReplayPredictionFutureContext
+{
+    RunReplayPredictionState* prediction = nullptr;
+    ReplayBodyId rootId;
+};
+
+bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& context, ReplayBodyId id, ReplayFrameIndex frame, int& outDepth )
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+    if ( id.value == context.rootId.value )
+    {
+        outDepth = 0;
+        return true;
+    }
+
+    for ( const RunReplayPathTraceNode& node : context.prediction->futureNodes )
+    {
+        if ( node.id.value == id.value && frame >= node.firstFrame )
+        {
+            outDepth = node.depth;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ReplayPredictionFutureNodeExists( const RunReplayPredictionState& prediction, ReplayBodyId id )
+{
+    for ( const RunReplayPathTraceNode& node : prediction.futureNodes )
+    {
+        if ( node.id.value == id.value )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
+                                    ReplayBodyId id,
+                                    ReplayFrameIndex firstFrame,
+                                    const Vector3& contactPoint,
+                                    const Vector3& contactNormal,
+                                    int depth )
+{
+    if ( id.value == 0 ||
+         id.value == context.rootId.value ||
+         ReplayPredictionFutureNodeExists( *context.prediction, id ) ||
+         context.prediction->futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    {
+        return;
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = id;
+    node.firstFrame = firstFrame;
+    node.contactPoint = contactPoint;
+    node.contactNormal = contactNormal;
+    node.depth = depth;
+    context.prediction->futureNodes.push_back( node );
+}
+
+void BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame, ReplayPredictionFutureContext& context )
+{
+    for ( const PhysicsDebugContact& contact : frame.debugContacts )
+    {
+        const ReplayBodyId idA = ReplayPredictionBodyIdForModelIndex( frame, contact.bodyA );
+        const ReplayBodyId idB = ReplayPredictionBodyIdForModelIndex( frame, contact.bodyB );
+        int depthA = -1;
+        int depthB = -1;
+        const bool activeA = TryGetReplayPredictionFutureDepth( context, idA, frame.frameIndex, depthA );
+        const bool activeB = TryGetReplayPredictionFutureDepth( context, idB, frame.frameIndex, depthB );
+        if ( activeA && !activeB )
+        {
+            AddReplayPredictionFutureNode( context, idB, frame.frameIndex, contact.point, contact.normal, depthA + 1 );
+        }
+        else if ( activeB && !activeA )
+        {
+            AddReplayPredictionFutureNode( context, idA, frame.frameIndex, contact.point, contact.normal * -1.0f, depthB + 1 );
+        }
     }
 }
 
@@ -2366,6 +2484,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             UI::InputControl::EndMouseCapture();
         }
         ResetReplayScrubber();
+        m_replayPrediction.checkboxHovered = false;
         m_replayScrubber.leftWasDown = leftDown;
         return false;
     }
@@ -2380,18 +2499,20 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect solverTrack = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
     const UI::UIRect presentationSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Presentation );
     const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
+    const UI::UIRect predictCheckbox = ReplayScrubberPredictCheckboxRect( screenW, screenH );
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overPresentationSaveButton = presentationSaveButton.Contains( mouse.x, mouse.y );
     const bool overSolverSaveButton = solverSaveButton.Contains( mouse.x, mouse.y );
     const bool overSaveButton = overPresentationSaveButton || overSolverSaveButton;
+    const bool overPredictCheckbox = predictCheckbox.Contains( mouse.x, mouse.y );
     const bool overSolverRow = solverTrack.Contains( mouse.x, mouse.y ) || overSolverSaveButton ||
                                ( overPanel && mouse.y >= ( presentationTrack.y + solverTrack.y ) * 0.5f );
     const RunReplayTrack hoveredTrack = overSolverRow ? RunReplayTrack::Solver : RunReplayTrack::Presentation;
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
-    if ( inHotZone || overPanel || overSaveButton || m_replayScrubber.dragging || m_replayScrubber.paused )
+    if ( inHotZone || overPanel || overSaveButton || overPredictCheckbox || m_replayScrubber.dragging || m_replayScrubber.paused )
     {
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
@@ -2400,10 +2521,14 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                      m_replayScrubber.dragging ||
                                      m_replayScrubber.paused );
     m_replayScrubber.saveHoveredTrack = hoveredTrack;
+    m_replayPrediction.checkboxHovered = overPredictCheckbox &&
+                                         ( m_replayScrubber.visibleUntil >= now ||
+                                           m_replayScrubber.dragging ||
+                                           m_replayScrubber.paused );
 
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
-                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton ) ) );
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPredictCheckbox ) ) );
 
     if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
@@ -2427,7 +2552,20 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return true;
     }
 
-    if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
+    if ( leftPressed && canTakeMouse && overPredictCheckbox && m_replayScrubber.visibleUntil >= now )
+    {
+        EnterInteractiveSceneRun();
+        m_replayPrediction.enabled = !m_replayPrediction.enabled;
+        if ( !m_replayPrediction.enabled )
+        {
+            ClearReplayPredictionCache();
+        }
+        MarkReplayPredictionDirty();
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        consumesMouse = true;
+    }
+    else if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
         m_replayScrubber.activeTrack = hoveredTrack;
@@ -2491,6 +2629,7 @@ void SkullbonezRun::TakeInput()
             UI::InputControl::EndMouseCapture();
         }
         ResetReplayScrubber();
+        m_replayPrediction.checkboxHovered = false;
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
@@ -4368,6 +4507,25 @@ void SkullbonezRun::ClearReplayPathVisualizer()
     m_replayPathVisualizer.targetModelIndex = -1;
     m_replayPathVisualizer.targetName[0] = '\0';
     m_replayPathVisualizer.futureNodes.clear();
+    ClearReplayPredictionCache();
+    MarkReplayPredictionDirty();
+}
+
+
+void SkullbonezRun::MarkReplayPredictionDirty()
+{
+    m_replayPrediction.dirty = true;
+}
+
+
+void SkullbonezRun::ClearReplayPredictionCache()
+{
+    m_replayPrediction.frames.clear();
+    m_replayPrediction.futureNodes.clear();
+    m_replayPrediction.targetId = ReplayBodyId{};
+    m_replayPrediction.sourceFrameIndex = 0;
+    m_replayPrediction.sourceSolverHash = 0;
+    m_replayPrediction.lastBuildTime = 0.0;
 }
 
 
@@ -4436,6 +4594,8 @@ bool SkullbonezRun::TryPickReplayPathTargetFromMouse( bool clearOnMiss )
         {
             strncpy_s( m_replayPathVisualizer.targetName, sizeof( m_replayPathVisualizer.targetName ), pickedName, _TRUNCATE );
         }
+        ClearReplayPredictionCache();
+        MarkReplayPredictionDirty();
         return true;
     }
 
@@ -4447,8 +4607,285 @@ bool SkullbonezRun::TryPickReplayPathTargetFromMouse( bool clearOnMiss )
 }
 
 
+bool SkullbonezRun::BuildReplayPrediction()
+{
+    PROFILE_SCOPED( "Frame/Replay/Prediction/Build" );
+    m_replayPrediction.frames.clear();
+    m_replayPrediction.futureNodes.clear();
+    m_replayPrediction.targetId = m_replayPathVisualizer.targetId;
+    m_replayPrediction.dirty = false;
+
+    if ( !m_replayPrediction.enabled ||
+         !m_replayPathVisualizer.hasTarget ||
+         m_replayPathVisualizer.targetId.value == 0 ||
+         !SceneState().isScenePhysics )
+    {
+        return false;
+    }
+
+    const ReplaySolverFrameSample* sourceSample = m_solverReplay.LatestSample();
+    m_replayPrediction.sourceFrameIndex = sourceSample ? sourceSample->frameIndex : 0;
+    m_replayPrediction.sourceSolverHash = sourceSample ? sourceSample->solverHash : 0;
+    m_replayPrediction.lastBuildTime = m_timers.simulationTimer.GetTotalTime();
+
+    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    int targetIndex = -1;
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_replayPathVisualizer.targetId.value )
+        {
+            targetIndex = i;
+            break;
+        }
+    }
+    if ( targetIndex < 0 )
+    {
+        return false;
+    }
+    m_replayPathVisualizer.targetModelIndex = targetIndex;
+
+    ReplaySolverWorldSnapshot worldBackup;
+    std::vector<RunReplayPredictionBodyBackup> bodyBackups;
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Backup" );
+        bodyBackups.reserve( models.size() );
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            GameModel& model = models[static_cast<std::size_t>( i )];
+            RunReplayPredictionBodyBackup backup;
+            backup.id.value = model.GetReplayBodyId();
+            backup.modelIndex = i;
+            backup.position = model.GetPosition();
+            backup.orientation = model.GetOrientation();
+            backup.linearVelocity = model.GetVelocity();
+            backup.angularVelocity = model.GetAngularVelocity();
+            backup.fixedContactHighlightSeconds = model.GetFixedContactHighlightSeconds();
+            backup.fixed = model.IsFixed();
+            bodyBackups.push_back( backup );
+        }
+        m_cGameModelCollection.CaptureReplaySolverWorldSnapshot( worldBackup );
+    }
+
+    auto capturePredictionFrame = [&]( ReplayFrameIndex frameIndex )
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
+        RunReplayPredictionFrame frame;
+        frame.frameIndex = frameIndex;
+        frame.bodies.reserve( models.size() );
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            GameModel& model = models[static_cast<std::size_t>( i )];
+            RunReplayPredictionBodySample body;
+            body.id.value = model.GetReplayBodyId();
+            body.modelIndex = i;
+            body.position = model.GetPosition();
+            frame.bodies.push_back( body );
+        }
+        frame.debugContacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+        m_replayPrediction.frames.push_back( std::move( frame ) );
+    };
+
+#ifdef _DEBUG
+    const bool previousDiagnosticsSuppressed = m_cGameModelCollection.SetPhysicsDiagnosticsSuppressed( true );
+#endif
+
+    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( REPLAY_PREDICTION_SECONDS / PHYSICS_FIXED_DT ) ) );
+    m_replayPrediction.frames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
+    capturePredictionFrame( 0 );
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Steps" );
+        for ( int tick = 1; tick <= predictionTicks; ++tick )
+        {
+            {
+                PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
+                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            }
+            capturePredictionFrame( static_cast<ReplayFrameIndex>( tick ) );
+        }
+    }
+
+#ifdef _DEBUG
+    m_cGameModelCollection.SetPhysicsDiagnosticsSuppressed( previousDiagnosticsSuppressed );
+#endif
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Restore" );
+        for ( const RunReplayPredictionBodyBackup& backup : bodyBackups )
+        {
+            if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
+            {
+                continue;
+            }
+            GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
+            if ( model.GetReplayBodyId() != backup.id.value )
+            {
+                continue;
+            }
+            model.SetFixed( backup.fixed );
+            model.SetPosition( backup.position );
+            model.SetOrientation( backup.orientation );
+            model.SetLinearVelocity( backup.linearVelocity );
+            model.SetAngularVelocity( backup.angularVelocity );
+            model.SetFixedContactHighlightSeconds( backup.fixedContactHighlightSeconds );
+        }
+        m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( worldBackup );
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+    }
+
+    return m_replayPrediction.frames.size() >= 2;
+}
+
+
+void SkullbonezRun::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
+{
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
+    if ( !m_replayPrediction.enabled ||
+         !m_replayPathVisualizer.hasTarget ||
+         m_replayPathVisualizer.targetId.value == 0 )
+    {
+        return;
+    }
+
+    const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample();
+    const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
+    const uint64_t latestHash = latest ? latest->solverHash : 0;
+    const double now = m_timers.simulationTimer.GetTotalTime();
+    const bool sourceChanged = m_replayPrediction.targetId.value != m_replayPathVisualizer.targetId.value ||
+                               m_replayPrediction.sourceFrameIndex != latestFrame ||
+                               m_replayPrediction.sourceSolverHash != latestHash;
+    const bool refreshDue = ( now - m_replayPrediction.lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
+    if ( m_replayPrediction.dirty || ( sourceChanged && refreshDue ) )
+    {
+        BuildReplayPrediction();
+    }
+
+    if ( m_replayPrediction.frames.size() < 2 )
+    {
+        return;
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
+        m_replayPrediction.futureNodes.clear();
+        ReplayPredictionFutureContext futureContext;
+        futureContext.prediction = &m_replayPrediction;
+        futureContext.rootId = m_replayPathVisualizer.targetId;
+        for ( const RunReplayPredictionFrame& frame : m_replayPrediction.frames )
+        {
+            BuildReplayPredictionFutureNodes( frame, futureContext );
+        }
+    }
+
+    const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( m_replayPrediction.frames.size() );
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
+        bool hasPrevious = false;
+        Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        std::size_t ordinal = 0;
+        for ( const RunReplayPredictionFrame& frame : m_replayPrediction.frames )
+        {
+            const std::size_t currentOrdinal = ordinal++;
+            if ( frame.frameIndex != lastFrame && !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+            {
+                continue;
+            }
+            const RunReplayPredictionBodySample* body = FindReplayPredictionBodyById( frame, m_replayPathVisualizer.targetId );
+            if ( !body )
+            {
+                continue;
+            }
+
+            if ( hasPrevious && VectorMagSquared( body->position - previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+            {
+                const float t = ReplayPathFrameT( frame.frameIndex, 0, lastFrame );
+                tracer.AddReplayPathSegment( previous, body->position, 1.0f - t * 0.85f, 1.0f, 1.0f - t * 0.72f );
+            }
+            previous = body->position;
+            hasPrevious = true;
+        }
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
+        ReplayPathChildDrawContext childDraw;
+        childDraw.tracer = &tracer;
+        childDraw.lastFrame = lastFrame;
+        childDraw.sampleStride = sampleStride;
+        childDraw.nodeCount = (std::min)( m_replayPrediction.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+        for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
+        {
+            childDraw.nodes[i].node = m_replayPrediction.futureNodes[i];
+        }
+
+        std::size_t ordinal = 0;
+        for ( const RunReplayPredictionFrame& frame : m_replayPrediction.frames )
+        {
+            const std::size_t currentOrdinal = ordinal++;
+            bool startsChildTrace = false;
+            for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
+            {
+                if ( frame.frameIndex == childDraw.nodes[i].node.firstFrame )
+                {
+                    startsChildTrace = true;
+                    break;
+                }
+            }
+            if ( frame.frameIndex != lastFrame &&
+                 !startsChildTrace &&
+                 !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+            {
+                continue;
+            }
+
+            for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
+            {
+                ReplayPathChildDrawState& drawState = childDraw.nodes[i];
+                if ( frame.frameIndex < drawState.node.firstFrame )
+                {
+                    continue;
+                }
+
+                const RunReplayPredictionBodySample* body = FindReplayPredictionBodyById( frame, drawState.node.id );
+                if ( !body )
+                {
+                    continue;
+                }
+
+                if ( drawState.hasPrevious && VectorMagSquared( body->position - drawState.previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+                {
+                    const float t = ReplayPathFrameT( frame.frameIndex, drawState.node.firstFrame, lastFrame );
+                    float r = 0.5f;
+                    float g = 0.5f;
+                    float b = 0.56f;
+                    ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
+                    tracer.AddReplayPathSegment( drawState.previous, body->position, r, g, b );
+                }
+                drawState.previous = body->position;
+                drawState.hasPrevious = true;
+            }
+        }
+
+        for ( const RunReplayPathTraceNode& node : m_replayPrediction.futureNodes )
+        {
+            float r = 0.58f;
+            float g = 0.64f;
+            float b = 0.68f;
+            if ( node.depth <= 1 )
+            {
+                r = 0.68f;
+                g = 0.78f;
+                b = 0.76f;
+            }
+            tracer.AddReplayContactMarker( node.contactPoint, node.contactNormal, r, g, b );
+        }
+    }
+}
+
+
 void SkullbonezRun::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 {
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
     if ( !m_replayPathVisualizer.hasTarget || !m_solverReplay.IsEnabled() )
     {
         return;
@@ -4502,9 +4939,12 @@ void SkullbonezRun::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     }
     if ( childDraw.nodeCount > 0 )
     {
+        PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedFuture" );
         m_solverReplay.ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
         AddReplayFutureContactMarkers( m_replayPathVisualizer, tracer );
     }
+
+    RenderReplayPredictionVisualizer( tracer );
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     int markerIndex = m_replayPathVisualizer.targetModelIndex;

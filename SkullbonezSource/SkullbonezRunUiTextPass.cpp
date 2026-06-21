@@ -40,6 +40,7 @@ void SkullbonezRun::UiTextPass::ReleaseGpuResources()
 
 void SkullbonezRun::RenderReplayScrubberOverlay()
 {
+    PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     if ( !ShouldRenderReplayScrubber() )
     {
         return;
@@ -141,6 +142,37 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
 
     drawReplayRow( RunReplayTrack::Presentation, 0.20f, 0.70f, 0.96f, 0.54f, 0.78f, 0.90f );
     drawReplayRow( RunReplayTrack::Solver, 0.70f, 0.76f, 0.82f, 0.72f, 0.78f, 0.84f );
+
+    const UI::UIRect predict = ReplayScrubberPredictCheckboxRect( screenW, screenH );
+    const bool predictHover = m_replayPrediction.checkboxHovered;
+    const bool predictEnabled = m_replayPrediction.enabled;
+    const float predictBackR = predictEnabled ? 0.08f : 0.055f;
+    const float predictBackG = predictEnabled ? 0.24f : 0.08f;
+    const float predictBackB = predictEnabled ? 0.16f : 0.105f;
+    draw.RoundedRect( predict.x,
+                      predict.y,
+                      predict.w,
+                      predict.h,
+                      4.0f,
+                      predictBackR + ( predictHover ? 0.07f : 0.0f ),
+                      predictBackG + ( predictHover ? 0.07f : 0.0f ),
+                      predictBackB + ( predictHover ? 0.07f : 0.0f ),
+                      0.88f );
+    draw.Outline( predict.x, predict.y, predict.w, predict.h, 0.62f, 0.86f, 0.78f, predictHover || predictEnabled ? 0.72f : 0.34f );
+    const float checkX = predict.x + 7.0f;
+    const float checkY = predict.y + 5.0f;
+    draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
+    if ( predictEnabled )
+    {
+        draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 0.38f, 1.0f, 0.58f, 0.95f );
+    }
+    draw.Text( predict.x + 23.0f,
+               predict.y + 4.5f,
+               9.5f,
+               predictEnabled ? 0.70f : 0.60f,
+               predictEnabled ? 1.0f : 0.72f,
+               predictEnabled ? 0.78f : 0.76f,
+               "PREDICT 3s" );
 
     Text2d::FlushQuads();
     Text2d::FlushText();

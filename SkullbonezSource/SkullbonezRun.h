@@ -369,6 +369,45 @@ struct RunReplayPathVisualizerState
     std::vector<RunReplayPathTraceNode> futureNodes;
 };
 
+struct RunReplayPredictionBodyBackup
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float fixedContactHighlightSeconds = 0.0f;
+    bool fixed = false;
+};
+
+struct RunReplayPredictionBodySample
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+};
+
+struct RunReplayPredictionFrame
+{
+    ReplayFrameIndex frameIndex = 0;
+    std::vector<RunReplayPredictionBodySample> bodies;
+    std::vector<Physics::PhysicsDebugContact> debugContacts;
+};
+
+struct RunReplayPredictionState
+{
+    bool enabled = false;
+    bool checkboxHovered = false;
+    bool dirty = true;
+    ReplayBodyId targetId;
+    ReplayFrameIndex sourceFrameIndex = 0;
+    uint64_t sourceSolverHash = 0;
+    double lastBuildTime = 0.0;
+    std::vector<RunReplayPredictionFrame> frames;
+    std::vector<RunReplayPathTraceNode> futureNodes;
+};
+
 struct RunReplayPoseBackup
 {
     int modelIndex = -1;
@@ -982,6 +1021,7 @@ class SkullbonezRun
     ReplaySolverRecorder m_solverReplay;  // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
     RunReplayPathVisualizerState m_replayPathVisualizer; // Mouse-selected cause/effect trace over retained solver replay samples.
+    RunReplayPredictionState m_replayPrediction;         // Optional live solver lookahead for the selected replay path target.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
@@ -1103,6 +1143,10 @@ class SkullbonezRun
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     void ClearReplayPathVisualizer();
     bool TryPickReplayPathTargetFromMouse( bool clearOnMiss );
+    void MarkReplayPredictionDirty();
+    void ClearReplayPredictionCache();
+    bool BuildReplayPrediction();
+    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     void ResetReplayScrubber();
     void CompareLatestReplaySamples();

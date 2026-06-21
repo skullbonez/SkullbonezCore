@@ -265,6 +265,18 @@ float GameModel::GetFixedContactHighlightAlpha() const
 }
 
 
+float GameModel::GetFixedContactHighlightSeconds() const
+{
+    return m_fixedContactHighlightSeconds;
+}
+
+
+void GameModel::SetFixedContactHighlightSeconds( float seconds )
+{
+    m_fixedContactHighlightSeconds = (std::max)( 0.0f, seconds );
+}
+
+
 void GameModel::SetImpulseForce( const Vector3& vForce,
                                  const Vector3& vApplicationPoint )
 {

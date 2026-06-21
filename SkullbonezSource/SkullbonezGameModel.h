@@ -235,6 +235,8 @@ class GameModel
     void NotifyFixedContact( float highlightSeconds );                                  // Restarts red contact feedback when a dynamic body hits fixed geometry.
     void TickFixedContactHighlight( float dt );                                         // dt is seconds; saturates at no-contact tint.
     float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint.
+    float GetFixedContactHighlightSeconds() const;                                      // Raw highlight timer for replay/prediction state restore.
+    void SetFixedContactHighlightSeconds( float seconds );                              // Restores the raw contact-highlight timer after speculative physics.
     ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime ); // Swept object/object query with explicit hit state.
     float GetBoundingRadius();                                                          // Conservative broadphase radius; convex hulls and boxes are not sphere geometry.
     Math::Vector::Vector3 GetOrientationUp();                                           // Local +Y axis rotated into world space by the visual orientation.

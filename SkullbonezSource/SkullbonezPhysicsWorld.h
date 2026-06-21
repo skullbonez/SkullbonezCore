@@ -248,6 +248,9 @@ class PhysicsWorld
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
+#ifdef _DEBUG
+    bool m_diagnosticsSuppressed = false;
+#endif
 
     void RunSolverPhysics( GameObjects::GameModelCollection& collection, float dt );
     void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );
@@ -298,6 +301,7 @@ class PhysicsWorld
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
 };
 } // namespace Physics

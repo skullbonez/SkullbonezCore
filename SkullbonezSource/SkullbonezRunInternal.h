@@ -93,6 +93,7 @@ inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 128.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 #ifdef _DEBUG
@@ -118,7 +119,7 @@ inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTr
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
-    constexpr float rightInset = 70.0f;
+    constexpr float rightInset = 70.0f + REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH;
     return { panel.x + leftInset,
              ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
              (std::max)( 80.0f, panel.w - leftInset - rightInset ),
@@ -133,6 +134,15 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              track.y - ( REPLAY_SCRUBBER_SAVE_BUTTON_SIZE - track.h ) * 0.5f,
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE,
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
+}
+
+inline UI::UIRect ReplayScrubberPredictCheckboxRect( int screenW, int screenH )
+{
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    return { panel.x + panel.w - REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH - 8.0f,
+             panel.y + 43.0f,
+             REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH,
+             20.0f };
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
