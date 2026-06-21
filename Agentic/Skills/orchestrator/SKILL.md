@@ -1,16 +1,15 @@
 ---
 name: orchestrator
-description: Coordinate SkullbonezCore plan implementation with fresh Codex agents. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, or asks Codex to complete one or more Agentic/Plans items by dispatching implementation workers, running rubber-duck review agents, then validating, committing, and pushing each accepted plan.
+description: Coordinate SkullbonezCore plan implementation in the main Codex agent, using sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, or asks Codex to complete one or more Agentic/Plans items, then validate, commit, and push each accepted plan.
 ---
 
 # Orchestrator
 
 Coordinate a SkullbonezCore plan queue without the retired repository-owned
 JSON/Python state machine. This skill is coordinator-only: it resolves plan
-scope and branch policy, delegates implementation to fresh agents, reviews the
-result, asks a separate `$rubber-duck` review agent to critique the work, runs
-the required final validation gate, and commits/pushes one accepted plan at a
-time.
+scope and branch policy, implements each plan in the main agent, asks a
+separate `$rubber-duck` review sub-agent to critique the work, runs the required
+final validation gate, and commits/pushes one accepted plan at a time.
 
 ## Inputs
 
@@ -21,7 +20,8 @@ gives a path. If a plan cannot be found, search by stem with
 
 Determine the branch before edits:
 
-- If the user gives a branch name, use it exactly.
+- If the user gives a branch name, use that exact branch name. Do not add,
+  remove, normalize, prefix, suffix, or replace any part of the requested name.
 - If the current branch is already `nightrunner-*`, reuse it unless the user
   asked for a different branch.
 - Otherwise create `nightrunner-<local-date-slug>`, such as
@@ -42,17 +42,17 @@ Follow the SkullbonezCore startup contract before any edit:
 Do not force-push, rebase, rewrite history, merge PRs, or commit/push on
 `main` without explicit confirmation.
 
-## Agent Tools
+## Sub-Agent Tools
 
-Use subagents or Codex thread tools for implementation and review. If the tools
-are not already loaded, search for them with `tool_search` using names such as
-`create_thread`, `send_message_to_thread`, `read_thread`, `handoff_thread`, and
-`list_threads`.
+Use sub-agents or Codex thread tools only for independent `$rubber-duck` review.
+Do not dispatch plan implementation, cleanup, validation, staging, committing,
+or pushing to a sub-agent. If the tools are not already loaded, search for them
+with `tool_search` using names such as `create_thread`, `send_message_to_thread`,
+`read_thread`, `handoff_thread`, and `list_threads`.
 
-If a tool creates a separate worktree, ensure the worker is on the selected
-branch or a clearly named child branch before it edits. Keep one active
-implementation plan at a time unless the user explicitly asks for parallel work
-and isolated worktrees are available.
+If a review tool creates a separate worktree, keep it read-only. Keep one active
+implementation plan at a time unless the user explicitly asks for a different
+queue policy.
 
 ## Plan Loop
 
@@ -60,21 +60,11 @@ For each plan, in order:
 
 1. Read the plan enough to understand scope, required validation, and
    archival/report expectations.
-2. Launch a fresh worker agent to complete exactly that plan. The worker may
-   edit files but should not commit, push, open PRs, merge PRs, or overwrite
-   unrelated dirty files.
-3. Give the worker a compact prompt:
-
-```text
-Use the SkullbonezCore startup contract. On branch <branch>, complete <plan-path> only.
-Use Agentic/Skills/orchestrator/SKILL.md as the coordination contract.
-Do not commit or push. Treat pre-existing dirty files as user-owned.
-Return changed files, validation required by AGENTS.md, commands run, blockers, and any follow-up needed.
-```
-
-4. Inspect the worker result with `git status --short` and targeted file reads
-   or diffs. Do not assume the worker's summary is complete.
-5. Launch a separate read-only rubber-duck review agent:
+2. Complete exactly that plan in the main agent. Do not launch an implementation
+   worker or ask a sub-agent to edit files.
+3. Inspect the result with `git status --short` and targeted file reads or
+   diffs.
+4. Launch a separate read-only rubber-duck review sub-agent:
 
 ```text
 Use $rubber-duck to review the completed work for <plan-path> on branch <branch>.
@@ -83,21 +73,19 @@ baseline mistakes, determinism risks, DX12 validation risks, and hot-path alloca
 Return findings with file/line references and a clear verdict.
 ```
 
-6. Address blocking rubber-duck findings before committing. Prefer sending
-   focused fixes back to a worker agent; make small fixes directly only when
-   doing so is simpler and safe.
-7. Repeat the rubber-duck pass if the fix changed meaningful behavior or
+5. Address blocking rubber-duck findings in the main agent before committing.
+6. Repeat the rubber-duck pass if the fix changed meaningful behavior or
    touched the reviewed risk area.
-8. Run the smallest required pre-commit validation from `AGENTS.md` for that
+7. Run the smallest required pre-commit validation from `AGENTS.md` for that
    plan's final changed-file set. Documentation-only changes require no
    validation.
-9. Run `git status --short --branch` before staging.
-10. Stage only files belonging to the completed plan and its required
+8. Run `git status --short --branch` before staging.
+9. Stage only files belonging to the completed plan and its required
     reports/session-state updates.
-11. Commit with useful notes: what changed, why, implementation details by
+10. Commit with useful notes: what changed, why, implementation details by
     area, exact validation command and result, and baseline/report/session-state
     updates.
-12. Push normally. Never force-push.
+11. Push normally. Never force-push.
 
 Only advance to the next plan after the current plan is reviewed, validated as
 required, committed, and pushed.
@@ -122,7 +110,7 @@ Report:
 - Branch name and push target.
 - Plans completed, in order.
 - Commit hashes and subjects for each plan.
-- Worker and rubber-duck agent verdicts.
+- Main-agent implementation summary and rubber-duck sub-agent verdicts.
 - Validation commands and key result lines, or "documentation-only, no
   validation required."
 - Any skipped plan, blocker, dirty user-owned file, or residual risk.
