@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Completed plan archival, agent documentation alignment, JSON-only orchestrator config, and executable orchestrator tooling; parallel-capacity guardrails are being introduced. |
-| Active objective | JSON-only orchestrator policy and parallel-safe queue selection. |
-| Pending work | Validate and commit the orchestrator hardening after the current dirty user-owned work is handled. Future orchestrator role, hook, generated-doc, and workflow-eval tooling remains optional next work. |
+| Branch | `codex/retire-repo-orchestrator` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
+| Active objective | Retire the repository-owned orchestrator control plane and promote `Agentic/Skills/orchestrator/SKILL.md` as the active coordination contract. |
+| Pending work | None for the retirement branch; open a PR or merge only if explicitly requested. |
 | Blockers | None known. |
-| Orchestrator policy | Disabled by user request on 2026-06-18; `Agentic/Orchestrator/policy.json` has `enabled: false`. |
+| Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Current scope touches `tools/*`; use `tools\validate_fast.bat` plus `tools\orchestrator.bat check --self-test` and doctor checks before committing. |
+| Validation | `tools\validate_fast.bat` passed for the orchestrator retirement scope on 2026-06-21. |
 
 ## Active Notes
 
@@ -34,7 +34,8 @@ audits when it is still useful.
   launched.
 - Time user-requested work and report elapsed wall-clock time in the final
   answer or handoff.
-- Implementing work from `Agentic/Plans` defaults to the orchestrator workflow.
+- Implementing work from `Agentic/Plans` defaults to
+  `Agentic/Skills/orchestrator/SKILL.md`.
 
 ## Current Work Items
 
@@ -46,8 +47,8 @@ audits when it is still useful.
 | Shader architecture cleanup | Done | Archived in `Agentic/Plans/Done/shader-architecture-cleanup-plan.md`; object material contracts, typed upload paths, shader contract checking, and the `t4` material table landed on `main`. |
 | DX12 descriptor/upload/root-signature cleanup | Done | Archived in `Agentic/Plans/Done/dx12-descriptor-upload-root-signature-plan.md`; ordinary raster ABI is `b0 + t0..t4` with named descriptor/upload accounting. |
 | Material system v1 object slice | Done | Archived in `Agentic/Plans/Done/material-system-v1-implementation-plan.md`; named material assets and terrain/water/post unification should be new focused work. |
-| Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and plan-orchestration guidance are now centralized. |
-| Executable orchestrator loop | Active hardening | `tools/orchestrator.bat` and `tools/orchestrator.py` enforce JSON policy/queue/machine state, drive `run-loop`, run Codex worker/verifier rounds, archive plans, finalize reports, and check report-only commits. Live YAML mirrors were removed; JSON is the orchestrator control source. |
+| Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and agent-orchestration guidance are now centralized. |
+| Agent orchestrator skill | Active | The old JSON/Python control plane is retired. `Agentic/Skills/orchestrator/SKILL.md` is the active coordinator contract for plan queues, fresh worker agents, rubber-duck review agents, validation, commits, pushes, and handoffs. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |

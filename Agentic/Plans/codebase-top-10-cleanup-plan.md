@@ -150,30 +150,32 @@ Fix direction:
 - Use `tools\validate_fast.bat` at PR gate for UI-only refactors unless runtime
   launch or rendering behavior changes.
 
-### 6. Split `tools/orchestrator.py`
+### 6. Harden Lightweight Agent Workflow Metadata
 
-The orchestrator is useful, but it has become too large and too powerful in one
-file. It owns queue policy, state transitions, process execution, git state,
-validation gates, worker/verifier loops, report generation, plan archival, and
-finalization behavior.
+The retired repository-owned orchestrator is no longer the place to improve
+agent process. The active process surface is now the lightweight skill contract
+plus the repository validation map. Future cleanup should make that path easier
+to audit without rebuilding a queue/state-machine tool.
 
 Evidence:
 
-- `tools/orchestrator.py:1` identifies the file as the executable control plane.
-- `tools/orchestrator.py:47` hardcodes policy, queue, machine-state, schema,
-  and template paths.
-- `tools/orchestrator.py:853` contains git status and process-tree helpers.
-- `tools/orchestrator.py:2749` executes validation gates and tees logs.
-- `tools/orchestrator.py:3315` handles finalization, archive, report, and
-  commit-related checks.
+- `AGENTS.md` defines the startup contract, plan implementation default,
+  validation mapping, dirty-worktree policy, and commit expectations.
+- `Agentic/Skills/orchestrator/SKILL.md` is the active coordination contract
+  for fresh worker agents, rubber-duck review agents, validation, commits, and
+  pushes.
+- `tools/README.md` lists the available validation helpers.
+- `Agentic/SessionState.md` remains the compact shared state agents read at
+  startup.
 
 Fix direction:
 
-- Split policy/state, process execution, git/reporting, validation, and command
-  loop behavior into separately testable modules.
-- Add self-tests around each module before changing behavior.
-- Since this touches `tools/*`, PR-bound work should run `tools\validate_fast.bat`
-  plus the orchestrator self-test/doctor checks expected by session state.
+- Keep the orchestrator skill short, human-readable, and free of executable
+  queue/state-machine behavior.
+- Add machine-readable validation or workflow metadata only when it directly
+  supports gate selection, report hygiene, or agent handoff checks.
+- Use `tools\validate_fast.bat` for executable helper changes; documentation-only
+  process edits require no repository validation.
 
 ### 7. Remove Static Render Helper State
 
@@ -282,13 +284,14 @@ Fix direction:
    and parser directive handlers.
 2. Then attack structural boundaries: `SkullbonezRun`, physics storage, render
    graph ownership, and helper/global state.
-3. Treat backend interface splitting and orchestrator modularization as
-   enabling work for specific follow-up tasks, not cleanup for its own sake.
+3. Treat backend interface splitting and agent workflow metadata as enabling
+   work for specific follow-up tasks, not cleanup for its own sake.
 
 ## Notes
 
 - Documentation-only changes require no validation.
-- Implementation work from this plan should use the orchestrator workflow
-  unless the user explicitly asks to bypass it.
+- Implementation work from this plan should use
+  `Agentic/Skills/orchestrator/SKILL.md` unless the user explicitly asks to
+  bypass it.
 - Dirty worktrees must be checked before each implementation slice, and
   unrelated user-owned files must be left alone.
