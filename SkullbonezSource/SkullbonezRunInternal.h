@@ -86,13 +86,13 @@ inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
-inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 104.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 72.0f;
+inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 88.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 760.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
-inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_WIDTH = 88.0f;
-inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_HEIGHT = 22.0f;
+inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
+inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 #ifdef _DEBUG
@@ -112,20 +112,22 @@ inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
 inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    constexpr float trackInset = 70.0f;
-    return { panel.x + trackInset,
+    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
+    constexpr float rightInset = 70.0f;
+    return { panel.x + leftInset,
              panel.y + 25.0f,
-             (std::max)( 80.0f, panel.w - trackInset * 2.0f ),
+             (std::max)( 80.0f, panel.w - leftInset - rightInset ),
              REPLAY_SCRUBBER_TRACK_HEIGHT };
 }
 
 inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    return { panel.x + panel.w - REPLAY_SCRUBBER_SAVE_BUTTON_WIDTH - 16.0f,
-             panel.y + panel.h - REPLAY_SCRUBBER_SAVE_BUTTON_HEIGHT - 10.0f,
-             REPLAY_SCRUBBER_SAVE_BUTTON_WIDTH,
-             REPLAY_SCRUBBER_SAVE_BUTTON_HEIGHT };
+    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    return { panel.x + 70.0f,
+             track.y - ( REPLAY_SCRUBBER_SAVE_BUTTON_SIZE - track.h ) * 0.5f,
+             REPLAY_SCRUBBER_SAVE_BUTTON_SIZE,
+             REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
