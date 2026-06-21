@@ -230,19 +230,22 @@ void SkullbonezRun::CaptureReplayPhysicsStepThunk( void* userData )
 
 void SkullbonezRun::CaptureReplayPhysicsStep()
 {
-    ReplayCaptureInput input;
-    input.sceneFrame = SceneState().currentFrame;
-    input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-    input.physicsDt = PHYSICS_FIXED_DT;
-    input.fixedStep = SceneState().isFixedStep;
-    input.scenePhysicsEnabled = SceneState().isScenePhysics;
-    input.sceneTextEnabled = SceneState().isSceneText;
-    input.waterHidden = m_debug.isWaterHidden;
-    input.terrainHidden = m_debug.isTerrainHidden;
-    input.cameras = m_systems.cameras;
-    input.world = &m_cWorldEnvironment;
-    input.models = &m_cGameModelCollection;
-    m_replay.CaptureFrame( input );
+    {
+        PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+        ReplayCaptureInput input;
+        input.sceneFrame = SceneState().currentFrame;
+        input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+        input.physicsDt = PHYSICS_FIXED_DT;
+        input.fixedStep = SceneState().isFixedStep;
+        input.scenePhysicsEnabled = SceneState().isScenePhysics;
+        input.sceneTextEnabled = SceneState().isSceneText;
+        input.waterHidden = m_debug.isWaterHidden;
+        input.terrainHidden = m_debug.isTerrainHidden;
+        input.cameras = m_systems.cameras;
+        input.world = &m_cWorldEnvironment;
+        input.models = &m_cGameModelCollection;
+        m_replay.CaptureFrame( input );
+    }
 #ifdef _DEBUG
     TickReplayScrubProbe();
 #endif
