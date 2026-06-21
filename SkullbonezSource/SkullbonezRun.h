@@ -360,6 +360,7 @@ struct RunReplayScrubberState
 struct RunReplayPathTraceNode
 {
     ReplayBodyId id;
+    ReplayBodyId parentId;
     ReplayFrameIndex firstFrame = 0;
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
@@ -506,6 +507,7 @@ class RunEditorTracer
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b );
     void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g, float b );
+    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
     void AddReplayTargetMarker( const GameObjects::GameModel& model );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
