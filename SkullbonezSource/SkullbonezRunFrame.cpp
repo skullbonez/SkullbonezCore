@@ -194,6 +194,8 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 {
     if ( IsReplayScrubPaused() )
     {
+        PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
+        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
         return;
     }
 
