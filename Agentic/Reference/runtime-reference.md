@@ -135,6 +135,8 @@ Replay capture keeps the last 30 seconds of presentation and solver samples in m
 
 The top row is the presentation track: it previews camera/body presentation samples for inspection only. The lower `SOLVER` row records body state plus the hidden sleep, contact-cache, persistent-contact, tornado, and launcher visual state needed to restore that retained fixed tick. While the solver row is paused on an old frame, press `Enter` to restore that solver sample as the new live branch. Bodies created after the selected frame, such as later launcher projectiles, are removed; existing projectile bodies and laser/raycast visuals from the selected sample are restored. The current implementation restores directly from retained per-frame in-memory solver snapshots. It does not yet restore from saved replay files, sparse checkpoints, or an event-stream replay.
 
+Left-click a world object outside editor/launcher/UI ownership to select it as the replay path target. In launcher mode, use `Ctrl+Left Click` to select instead of firing. The selected root body gets a past/future path overlay built from retained solver samples. Red fades to white from the oldest retained root sample to the current solver scrub frame; white fades to green from the scrub frame to the latest retained frame. Future contacts involving the root wake child bodies into the trace; child bodies draw future-only grey paths and grey contact markers. At the live edge there is no retained future, so scrub the solver row backward to inspect the recorded future. Miss-clicking the world clears the selected trace.
+
 The scrubber's inline save-icon button writes the retained buffer to `replays\replay_####.skreplay` or `replays\solver_replay_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. Solver replay exports include compact authoritative snapshot and launcher-visual summaries instead of dumping full persistent-contact rows.
 
 Use hash logging when a fixed-step scene needs cheap frame hashes:
@@ -191,7 +193,8 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
 | N | Toggle launcher mode. Free camera with live simulation. |
 | M | In launcher mode, cycle between laser ray impulse and small projectile modes. |
-| Left Click | In launcher mode, fire the selected launcher action from the camera. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
+| Left Click | Outside UI/editor ownership, select or clear the replay path target. In launcher mode, fire the selected launcher action from the camera instead. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
+| Ctrl+Left Click | In launcher mode, select or clear the replay path target without firing. |
 | Enter | In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. While the replay scrubber is paused on the solver row, restore that solver sample as the new live branch instead. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
@@ -226,6 +229,7 @@ Fly and launcher mode use WASD, mouse look, Shift for faster movement, and Space
 | `SkullbonezData/scenes/solver_smoke.scene.json` | Smoke test with 300 generated balls. |
 | `SkullbonezData/scenes/perf_test.scene.json` | DX12 performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene.json` | Physics rolling validation. |
+| `SkullbonezData/scenes/replay_path_pool.scene.json` | Pool-table-style chain for solver replay path/contact visualizer inspection. |
 | `SkullbonezData/scenes/cause_effect_marble_run.scene.json` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
 | `SkullbonezData/scenes/physics_regression_solver.scene.json` | Byte-exact Debug physics CSV regression. |
 | `SkullbonezData/scenes/bullet_sweep_wall.scene.json` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |

@@ -1,7 +1,7 @@
 # Authoritative Replay Rollback Plan
 
 Date: 2026-06-21
-Status: In progress - retained in-memory solver snapshot v1 implemented
+Status: In progress - retained solver rollback plus path/contact visualizer v1 implemented
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -56,14 +56,21 @@ physics ticks forward to the selected target tick.
 | Video-first replay | Video cannot branch, inspect contacts, or validate solver hashes. |
 | Lossy authoritative state | Compression is allowed only after deterministic restore tests prove the uncompressed schema. |
 
-## Follow-Up Visualizer Target
+## Visualizer V1
 
-The next commit can build the path/contact visualizer on top of rollback. The
-target workflow is an awake-frontier trace: start from the selected solver
-snapshot, draw past and predicted future paths for currently awake bodies, draw
-future contact manifolds, and expand the visible trace as predicted contacts
-wake additional bodies. A dedicated pool-table-style scene with one launched
-ball waking a chain of other balls should be used for screenshot verification.
+The follow-up visualizer is now layered on the retained solver replay samples.
+Left-click selects a root body when world input is not already owned by UI,
+editor, or launcher firing; `Ctrl+Left Click` selects while launcher mode is
+active. The root draws a retained past path from red to white and a retained
+future path from white to green, using the current solver scrub sample as
+present. Future contact rows involving active traced bodies add child bodies to
+the trace; child bodies draw grey future-only paths plus grey first-contact
+markers. `SkullbonezData/scenes/replay_path_pool.scene.json` provides a
+pool-table-style chain for manual/screenshot inspection.
+
+Future work can turn the flat child set into an explicit cause/effect tree UI,
+add depth/parent labels, and optionally run a prediction branch so future paths
+can exist from the live edge instead of only from retained replay frames.
 
 ## Current Starting Point
 
@@ -73,6 +80,7 @@ ball waking a chain of other balls should be used for screenshot verification.
 | Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
 | Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
 | Branch restore | Press `Enter` while paused on the solver row to restore the selected retained solver frame as the new live branch. |
+| Path visualizer | Mouse-selected root body draws retained past/future paths; future contacts awaken child future-only grey traces. |
 | Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` with compact authoritative snapshot summaries. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
 | Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. |

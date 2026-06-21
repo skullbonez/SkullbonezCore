@@ -29,6 +29,7 @@ Related:
 
 #include <cfloat>
 #include <cstddef>
+#include <cstring>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -1050,6 +1051,326 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
     return true;
 }
 
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
+constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
+constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+{
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.id.value == id.value )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
+{
+    ReplayBodyId id;
+    if ( modelIndex < 0 )
+    {
+        return id;
+    }
+
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex == modelIndex )
+        {
+            return body.id;
+        }
+    }
+    return id;
+}
+
+float ReplayPathFrameT( ReplayFrameIndex frame, ReplayFrameIndex start, ReplayFrameIndex end )
+{
+    if ( end <= start || frame <= start )
+    {
+        return 0.0f;
+    }
+    if ( frame >= end )
+    {
+        return 1.0f;
+    }
+    const double numerator = static_cast<double>( frame - start );
+    const double denominator = static_cast<double>( end - start );
+    return static_cast<float>( std::clamp( numerator / denominator, 0.0, 1.0 ) );
+}
+
+std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
+{
+    if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
+    {
+        return 1;
+    }
+    return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
+}
+
+struct ReplayPathBoundsContext
+{
+    bool hasSample = false;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
+void CaptureReplayPathBounds( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathBoundsContext& context = *static_cast<ReplayPathBoundsContext*>( userData );
+    if ( !context.hasSample )
+    {
+        context.hasSample = true;
+        context.firstFrame = sample.frameIndex;
+    }
+    context.lastFrame = sample.frameIndex;
+}
+
+struct ReplayPathFutureContext
+{
+    RunReplayPathVisualizerState* visualizer = nullptr;
+    ReplayBodyId rootId;
+    ReplayFrameIndex presentFrame = 0;
+};
+
+bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context, ReplayBodyId id, ReplayFrameIndex frame, int& outDepth )
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+    if ( id.value == context.rootId.value )
+    {
+        outDepth = 0;
+        return frame >= context.presentFrame;
+    }
+
+    for ( const RunReplayPathTraceNode& node : context.visualizer->futureNodes )
+    {
+        if ( node.id.value == id.value && frame >= node.firstFrame )
+        {
+            outDepth = node.depth;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ReplayFutureNodeExists( const RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
+{
+    for ( const RunReplayPathTraceNode& node : visualizer.futureNodes )
+    {
+        if ( node.id.value == id.value )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void AddReplayFutureNode( ReplayPathFutureContext& context,
+                          ReplayBodyId id,
+                          ReplayFrameIndex firstFrame,
+                          const Vector3& contactPoint,
+                          const Vector3& contactNormal,
+                          int depth )
+{
+    if ( id.value == 0 ||
+         id.value == context.rootId.value ||
+         ReplayFutureNodeExists( *context.visualizer, id ) ||
+         context.visualizer->futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    {
+        return;
+    }
+
+    RunReplayPathTraceNode node;
+    node.id = id;
+    node.firstFrame = firstFrame;
+    node.contactPoint = contactPoint;
+    node.contactNormal = contactNormal;
+    node.depth = depth;
+    context.visualizer->futureNodes.push_back( node );
+}
+
+void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathFutureContext& context = *static_cast<ReplayPathFutureContext*>( userData );
+    if ( !context.visualizer || sample.frameIndex < context.presentFrame )
+    {
+        return;
+    }
+
+    for ( const PhysicsDebugContact& contact : sample.worldSnapshot.debugContacts )
+    {
+        const ReplayBodyId idA = ReplayBodyIdForModelIndex( sample, contact.bodyA );
+        const ReplayBodyId idB = ReplayBodyIdForModelIndex( sample, contact.bodyB );
+        int depthA = -1;
+        int depthB = -1;
+        const bool activeA = TryGetReplayFutureDepth( context, idA, sample.frameIndex, depthA );
+        const bool activeB = TryGetReplayFutureDepth( context, idB, sample.frameIndex, depthB );
+        if ( activeA && !activeB )
+        {
+            AddReplayFutureNode( context, idB, sample.frameIndex, contact.point, contact.normal, depthA + 1 );
+        }
+        else if ( activeB && !activeA )
+        {
+            AddReplayFutureNode( context, idA, sample.frameIndex, contact.point, contact.normal * -1.0f, depthB + 1 );
+        }
+    }
+}
+
+bool ShouldDrawReplayPathSample( std::size_t ordinal, std::size_t stride )
+{
+    return stride <= 1 || ( ordinal % stride ) == 0;
+}
+
+struct ReplayPathRootDrawContext
+{
+    RunEditorTracer* tracer = nullptr;
+    ReplayBodyId rootId;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex presentFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    std::size_t sampleOrdinal = 0;
+    std::size_t sampleStride = 1;
+    bool hasPastPrevious = false;
+    bool hasFuturePrevious = false;
+    Vector3 pastPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 futurePrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+};
+
+void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathRootDrawContext& context = *static_cast<ReplayPathRootDrawContext*>( userData );
+    const std::size_t ordinal = context.sampleOrdinal++;
+    if ( sample.frameIndex != context.presentFrame &&
+         sample.frameIndex != context.lastFrame &&
+         !ShouldDrawReplayPathSample( ordinal, context.sampleStride ) )
+    {
+        return;
+    }
+
+    const ReplaySolverBodySample* body = FindReplayBodyById( sample, context.rootId );
+    if ( !body )
+    {
+        return;
+    }
+
+    if ( sample.frameIndex <= context.presentFrame )
+    {
+        if ( context.hasPastPrevious && VectorMagSquared( body->position - context.pastPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, context.firstFrame, context.presentFrame );
+            context.tracer->AddReplayPathSegment( context.pastPrevious, body->position, 1.0f, t, t );
+        }
+        context.pastPrevious = body->position;
+        context.hasPastPrevious = true;
+    }
+
+    if ( sample.frameIndex >= context.presentFrame )
+    {
+        if ( context.hasFuturePrevious && VectorMagSquared( body->position - context.futurePrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, context.presentFrame, context.lastFrame );
+            context.tracer->AddReplayPathSegment( context.futurePrevious, body->position, 1.0f - t, 1.0f, 1.0f - t );
+        }
+        context.futurePrevious = body->position;
+        context.hasFuturePrevious = true;
+    }
+}
+
+struct ReplayPathChildDrawState
+{
+    RunReplayPathTraceNode node;
+    bool hasPrevious = false;
+    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+};
+
+struct ReplayPathChildDrawContext
+{
+    RunEditorTracer* tracer = nullptr;
+    std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
+    std::size_t nodeCount = 0;
+    ReplayFrameIndex lastFrame = 0;
+    std::size_t sampleOrdinal = 0;
+    std::size_t sampleStride = 1;
+};
+
+void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
+{
+    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.08f, 0.0f, 0.30f );
+    const float shade = std::clamp( 0.48f + t * 0.28f - depthFade, 0.25f, 0.78f );
+    r = shade;
+    g = shade;
+    b = shade + 0.06f;
+}
+
+void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData )
+{
+    ReplayPathChildDrawContext& context = *static_cast<ReplayPathChildDrawContext*>( userData );
+    const std::size_t ordinal = context.sampleOrdinal++;
+    bool startsChildTrace = false;
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( sample.frameIndex == context.nodes[i].node.firstFrame )
+        {
+            startsChildTrace = true;
+            break;
+        }
+    }
+    if ( sample.frameIndex != context.lastFrame &&
+         !startsChildTrace &&
+         !ShouldDrawReplayPathSample( ordinal, context.sampleStride ) )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( sample.frameIndex < drawState.node.firstFrame )
+        {
+            continue;
+        }
+
+        const ReplaySolverBodySample* body = FindReplayBodyById( sample, drawState.node.id );
+        if ( !body )
+        {
+            continue;
+        }
+
+        if ( drawState.hasPrevious && VectorMagSquared( body->position - drawState.previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+        {
+            const float t = ReplayPathFrameT( sample.frameIndex, drawState.node.firstFrame, context.lastFrame );
+            float r = 0.5f;
+            float g = 0.5f;
+            float b = 0.56f;
+            ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
+            context.tracer->AddReplayPathSegment( drawState.previous, body->position, r, g, b );
+        }
+        drawState.previous = body->position;
+        drawState.hasPrevious = true;
+    }
+}
+
+void AddReplayFutureContactMarkers( const RunReplayPathVisualizerState& visualizer, RunEditorTracer& tracer )
+{
+    for ( const RunReplayPathTraceNode& node : visualizer.futureNodes )
+    {
+        float r = 0.58f;
+        float g = 0.62f;
+        float b = 0.70f;
+        if ( node.depth <= 1 )
+        {
+            r = 0.72f;
+            g = 0.78f;
+            b = 0.86f;
+        }
+        tracer.AddReplayContactMarker( node.contactPoint, node.contactNormal, r, g, b );
+    }
+}
+
 
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
@@ -1858,6 +2179,31 @@ void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& e
     const float g = hit ? 0.34f : 0.72f;
     const float b = hit ? 0.12f : 1.0f;
     EmitLine( start, end, r * alpha, g * alpha, b * alpha );
+}
+
+void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+{
+    EmitLine( start, end, r, g, b );
+}
+
+
+void RunEditorTracer::AddReplayContactMarker( const Vector3& point, const Vector3& normal, float r, float g, float b )
+{
+    constexpr float crossSize = 0.55f;
+    EmitLine( point - Vector3( crossSize, 0.0f, 0.0f ), point + Vector3( crossSize, 0.0f, 0.0f ), r, g, b );
+    EmitLine( point - Vector3( 0.0f, crossSize, 0.0f ), point + Vector3( 0.0f, crossSize, 0.0f ), r, g, b );
+    EmitLine( point - Vector3( 0.0f, 0.0f, crossSize ), point + Vector3( 0.0f, 0.0f, crossSize ), r, g, b );
+    if ( VectorMagSquared( normal ) > TOLERANCE * TOLERANCE )
+    {
+        EmitArrow( point, point + normal * 1.8f, r, g, b );
+    }
+}
+
+
+void RunEditorTracer::AddReplayTargetMarker( const GameModel& model )
+{
+    AddSelectionOutline( model );
+    EmitRing( model.GetPosition(), 1, (std::max)( 1.0f, EditorModelRadius( model ) * 1.18f ), 1.0f, 1.0f, 1.0f );
 }
 
 
@@ -3265,6 +3611,17 @@ void SkullbonezRun::TakeInput()
         }
 
         if ( !consumedWorldClick &&
+             leftPressed &&
+             !suppressWorldActionThisFrame &&
+             !m_editor.editorModeEnabled &&
+             !m_UI.WantsNativeMouseCursor() &&
+             ( Input::IsKeyDown( VK_CONTROL ) || !m_camera.isLauncherMode ) )
+        {
+            TryPickReplayPathTargetFromMouse( true );
+            consumedWorldClick = true;
+        }
+
+        if ( !consumedWorldClick &&
              m_camera.isLauncherMode &&
              leftPressed &&
              !suppressWorldActionThisFrame &&
@@ -4004,6 +4361,175 @@ bool SkullbonezRun::TryPickEditorModel( const Vector3& rayOrigin, const Vector3&
 }
 
 
+void SkullbonezRun::ClearReplayPathVisualizer()
+{
+    m_replayPathVisualizer.hasTarget = false;
+    m_replayPathVisualizer.targetId = ReplayBodyId{};
+    m_replayPathVisualizer.targetModelIndex = -1;
+    m_replayPathVisualizer.targetName[0] = '\0';
+    m_replayPathVisualizer.futureNodes.clear();
+}
+
+
+bool SkullbonezRun::TryPickReplayPathTargetFromMouse( bool clearOnMiss )
+{
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    {
+        if ( clearOnMiss )
+        {
+            ClearReplayPathVisualizer();
+        }
+        return false;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    ReplayBodyId pickedId;
+    int pickedIndex = -1;
+    char pickedName[64] = {};
+    if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+    {
+        float bestT = FLT_MAX;
+        for ( const ReplaySolverBodySample& body : sample->bodies )
+        {
+            float radius = 1.0f;
+            if ( body.modelIndex >= 0 && body.modelIndex < static_cast<int>( models.size() ) )
+            {
+                radius = EditorModelRadius( models[static_cast<std::size_t>( body.modelIndex )] ) + 1.0f;
+            }
+            float rayT = 0.0f;
+            if ( IntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT < bestT )
+            {
+                bestT = rayT;
+                pickedId = body.id;
+                pickedIndex = body.modelIndex;
+                pickedName[0] = '\0';
+                if ( body.name[0] != '\0' )
+                {
+                    strncpy_s( pickedName, sizeof( pickedName ), body.name, _TRUNCATE );
+                }
+            }
+        }
+    }
+    else if ( TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) &&
+              pickedIndex >= 0 &&
+              pickedIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
+        pickedId.value = model.GetReplayBodyId();
+        const char* modelName = model.GetName();
+        if ( modelName && modelName[0] != '\0' )
+        {
+            strncpy_s( pickedName, sizeof( pickedName ), modelName, _TRUNCATE );
+        }
+    }
+
+    if ( pickedId.value != 0 )
+    {
+        m_replayPathVisualizer.hasTarget = true;
+        m_replayPathVisualizer.targetId = pickedId;
+        m_replayPathVisualizer.targetModelIndex = pickedIndex;
+        m_replayPathVisualizer.futureNodes.clear();
+        m_replayPathVisualizer.targetName[0] = '\0';
+        if ( pickedName[0] != '\0' )
+        {
+            strncpy_s( m_replayPathVisualizer.targetName, sizeof( m_replayPathVisualizer.targetName ), pickedName, _TRUNCATE );
+        }
+        return true;
+    }
+
+    if ( clearOnMiss )
+    {
+        ClearReplayPathVisualizer();
+    }
+    return false;
+}
+
+
+void SkullbonezRun::RenderReplayPathVisualizer( RunEditorTracer& tracer )
+{
+    if ( !m_replayPathVisualizer.hasTarget || !m_solverReplay.IsEnabled() )
+    {
+        return;
+    }
+
+    const ReplaySolverFrameSample* presentSample = CurrentReplaySolverScrubSample();
+    if ( !presentSample )
+    {
+        presentSample = m_solverReplay.LatestSample();
+    }
+    if ( !presentSample )
+    {
+        return;
+    }
+
+    ReplayPathBoundsContext bounds;
+    m_solverReplay.ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
+    if ( !bounds.hasSample )
+    {
+        return;
+    }
+
+    const ReplayFrameIndex presentFrame = std::clamp( presentSample->frameIndex, bounds.firstFrame, bounds.lastFrame );
+    const ReplayRecorderStats stats = m_solverReplay.GetStats();
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( stats.sampleCount );
+
+    m_replayPathVisualizer.futureNodes.clear();
+    ReplayPathFutureContext futureContext;
+    futureContext.visualizer = &m_replayPathVisualizer;
+    futureContext.rootId = m_replayPathVisualizer.targetId;
+    futureContext.presentFrame = presentFrame;
+    m_solverReplay.ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
+
+    ReplayPathRootDrawContext rootDraw;
+    rootDraw.tracer = &tracer;
+    rootDraw.rootId = m_replayPathVisualizer.targetId;
+    rootDraw.firstFrame = bounds.firstFrame;
+    rootDraw.presentFrame = presentFrame;
+    rootDraw.lastFrame = bounds.lastFrame;
+    rootDraw.sampleStride = sampleStride;
+    m_solverReplay.ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
+
+    ReplayPathChildDrawContext childDraw;
+    childDraw.tracer = &tracer;
+    childDraw.lastFrame = bounds.lastFrame;
+    childDraw.sampleStride = sampleStride;
+    childDraw.nodeCount = (std::min)( m_replayPathVisualizer.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+    for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
+    {
+        childDraw.nodes[i].node = m_replayPathVisualizer.futureNodes[i];
+    }
+    if ( childDraw.nodeCount > 0 )
+    {
+        m_solverReplay.ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
+        AddReplayFutureContactMarkers( m_replayPathVisualizer, tracer );
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    int markerIndex = m_replayPathVisualizer.targetModelIndex;
+    if ( markerIndex < 0 ||
+         markerIndex >= static_cast<int>( models.size() ) ||
+         models[static_cast<std::size_t>( markerIndex )].GetReplayBodyId() != m_replayPathVisualizer.targetId.value )
+    {
+        markerIndex = -1;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_replayPathVisualizer.targetId.value )
+            {
+                markerIndex = i;
+                m_replayPathVisualizer.targetModelIndex = i;
+                break;
+            }
+        }
+    }
+    if ( markerIndex >= 0 && markerIndex < static_cast<int>( models.size() ) )
+    {
+        tracer.AddReplayTargetMarker( models[static_cast<std::size_t>( markerIndex )] );
+    }
+}
+
+
 int SkullbonezRun::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
 {
     if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
@@ -4333,6 +4859,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Ve
         m_editorTracer.AddSelectionOutline( selected );
         m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
+    RenderReplayPathVisualizer( m_editorTracer );
     m_editorTracer.Render( viewProjection );
     m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
 }

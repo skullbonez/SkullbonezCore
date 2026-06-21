@@ -351,6 +351,24 @@ struct RunReplayScrubberState
     char saveMessage[96] = {};
 };
 
+struct RunReplayPathTraceNode
+{
+    ReplayBodyId id;
+    ReplayFrameIndex firstFrame = 0;
+    Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
+    int depth = 0;
+};
+
+struct RunReplayPathVisualizerState
+{
+    bool hasTarget = false;
+    ReplayBodyId targetId;
+    int targetModelIndex = -1;
+    char targetName[64] = {};
+    std::vector<RunReplayPathTraceNode> futureNodes;
+};
+
 struct RunReplayPoseBackup
 {
     int modelIndex = -1;
@@ -428,6 +446,9 @@ class RunEditorTracer
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, const Math::Orientation::Quaternion& orientation );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
+    void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b );
+    void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g, float b );
+    void AddReplayTargetMarker( const GameObjects::GameModel& model );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
     void Render( const Math::Transformation::Matrix4& viewProjection );
@@ -960,6 +981,7 @@ class SkullbonezRun
     ReplayRecorder m_replay;              // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;  // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
+    RunReplayPathVisualizerState m_replayPathVisualizer; // Mouse-selected cause/effect trace over retained solver replay samples.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
@@ -1079,6 +1101,9 @@ class SkullbonezRun
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
+    void ClearReplayPathVisualizer();
+    bool TryPickReplayPathTargetFromMouse( bool clearOnMiss );
+    void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     void ResetReplayScrubber();
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );

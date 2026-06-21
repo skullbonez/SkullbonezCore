@@ -505,6 +505,7 @@ void SkullbonezRun::SetReplayScrubProbe( float normalized )
 void SkullbonezRun::ResetReplayTimelineForActiveScene()
 {
     ResetReplayScrubber();
+    ClearReplayPathVisualizer();
     if ( !m_replay.IsEnabled() )
     {
         return;

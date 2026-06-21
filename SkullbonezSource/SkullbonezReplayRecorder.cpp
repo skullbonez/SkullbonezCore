@@ -1063,6 +1063,20 @@ void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFra
     }
 }
 
+void ReplaySolverRecorder::ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const
+{
+    if ( !visitor || m_sampleCount == 0 || m_samples.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < m_sampleCount; ++i )
+    {
+        const std::size_t index = ( m_sampleHead + i ) % m_samples.size();
+        visitor( m_samples[index], userData );
+    }
+}
+
 const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
 {
     if ( m_sampleCount == 0 || m_samples.empty() )

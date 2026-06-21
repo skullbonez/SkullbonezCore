@@ -232,6 +232,8 @@ struct ReplayRecorderStats
     uint64_t latestStateHash = 0;
 };
 
+using ReplaySolverSampleVisitor = void ( * )( const ReplaySolverFrameSample& sample, void* userData );
+
 class ReplayRecorder
 {
   public:
@@ -280,6 +282,7 @@ class ReplaySolverRecorder
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
+    void ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const;
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 
