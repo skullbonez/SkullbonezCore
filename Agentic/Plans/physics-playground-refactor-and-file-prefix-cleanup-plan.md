@@ -1,20 +1,26 @@
-# Physics Playground Refactor And File Prefix Cleanup Plan
+# Physics Playground Refactor And File And Type Prefix Cleanup Plan
 
 Date: 2026-06-21
 Status: Overnight implementation plan
-Impact area: source naming, Visual Studio project metadata, runtime architecture, physics playground direction
+Impact area: source/type naming, Visual Studio project metadata, runtime architecture, physics playground direction
 Validation for this document-only change: none required
 
 ## Goal
 
-Make the engine feel like a deliberate, professional physics playground instead
-of an old codebase with one brand prefix stamped across every source file.
+Make SkullbonezCore feel like a deliberate, professional physics playground
+instead of an old codebase with the same brand prefix stamped across every
+ordinary source file and type name.
+
+SkullbonezCore is the heart of the engine. This plan must not erase that
+identity. The goal is to remove blanket superfluous repetition, not to pretend
+the engine is no longer SKULLBONEZ CORE.
 
 This plan replaces the narrow `skullbonez-run-decomposition-plan.md` direction.
 That older plan is useful as inventory, but it mostly slices `SkullbonezRun`
 sideways. The better direction is:
 
-1. Remove the `Skullbonez` filename prefix as a foundation cleanup.
+1. Remove the blanket `Skullbonez` prefix from ordinary file and type names as a
+   foundation cleanup.
 2. Make Visual Studio filters tell the real subsystem story.
 3. Fix the formatter so declarations and calls are readable.
 4. Keep the first rename pass behavior-preserving.
@@ -28,22 +34,10 @@ code, and gives future files a clean convention.
 
 ## Current Read
 
-The workspace had user-owned dirty files at planning time:
-
-- `SkullbonezData/shaders/lit_textured_instanced.hlsl`
-- `SkullbonezSource/SkullbonezCommon.h`
-- `SkullbonezSource/SkullbonezGameModelCollection.cpp`
-- `SkullbonezSource/SkullbonezGameModelCollection.h`
-- `SkullbonezSource/SkullbonezGameModelRenderer.cpp`
-- `SkullbonezSource/SkullbonezGameModelRenderer.h`
-- `SkullbonezSource/SkullbonezHelper.cpp`
-- `SkullbonezSource/SkullbonezRenderMaterial.h`
-- `SkullbonezSource/SkullbonezRun.h`
-- `SkullbonezSource/SkullbonezRunPasses.cpp`
-
-Treat those changes as user-owned. The overnight worker must not overwrite,
-revert, reformat, or stage unrelated user edits. If a dirty file is renamed,
-the worker must preserve its current contents exactly while moving it.
+The implementation workspace is expected to be clean at handoff. The overnight
+worker must still run `git status --short --branch` before editing and before
+committing, but this plan assumes there are no pre-existing dirty files to
+preserve.
 
 Observed filename scope:
 
@@ -54,17 +48,17 @@ Observed filename scope:
 | Prefixed include directives | About 495 | Must be updated in source and UI files |
 
 The implementation should remove the exact mixed-case `Skullbonez` prefix from
-source filenames first. Uppercase build identity files such as
-`SKULLBONEZ_CORE.sln`, `SKULLBONEZ_CORE.vcxproj`, output exe names, macros, and
-the `SkullbonezCore` namespace remain unchanged in this plan. A full product
-rebrand is a separate, higher-risk task.
+ordinary source filenames and ordinary engine type names. Uppercase build
+identity files such as `SKULLBONEZ_CORE.sln`, `SKULLBONEZ_CORE.vcxproj`, output
+exe names, macros, and the `SkullbonezCore` namespace remain unchanged in this
+plan. A full product rebrand is explicitly out of scope.
 
 ## Naming Rules
 
 ### Files
 
 Rename every C++ source/header file whose basename starts with exact
-`Skullbonez` by deleting only that leading prefix:
+`Skullbonez` by deleting that leading prefix when the remaining name is clear:
 
 | Before | After |
 |--------|-------|
@@ -74,16 +68,48 @@ Rename every C++ source/header file whose basename starts with exact
 | `SkullbonezSource/SkullbonezRenderBackendDX12.Textures.cpp` | `SkullbonezSource/RenderBackendDX12.Textures.cpp` |
 | `SkullbonezSource/UI/SkullbonezUI.cpp` | `SkullbonezSource/UI/UI.cpp` |
 
-Do not rename classes, namespaces, macros, executable names, project names, or
-config keys in the filename cleanup pass. For example:
+Keep `Skullbonez` in a filename only when the brand is genuinely the subject of
+the file, not a blanket prefix. Examples that may keep the name:
 
-- `class SkullbonezRun` remains `class SkullbonezRun`.
-- `namespace SkullbonezCore` remains `namespace SkullbonezCore`.
-- `SKULLBONEZ_CORE.exe` remains the output.
-- `SKULLBONEZ_PROFILE_ENABLED` remains the macro.
+- `SkullbonezCore.png`, because it is product branding.
+- historical reports or docs that discuss SkullbonezCore by name.
+- any future file whose purpose is explicitly about SkullbonezCore identity,
+  packaging, release branding, or migration history.
 
-This keeps the rename reviewable and lets build failures point to path metadata
-rather than broad symbol churn.
+### Types And Symbols
+
+Rename ordinary C++ classes, structs, enums, and free functions whose leading
+`Skullbonez` prefix is only redundant branding. Do not rename symbols where
+`Skullbonez` is the product identity, namespace, binary contract, macro family,
+or external artifact.
+
+Examples:
+
+| Before | After |
+|--------|-------|
+| `class SkullbonezRun` | `class Run` |
+| `class SkullbonezWindow` | `class Window` |
+| `class SkullbonezConfig` | `class Config` or `EngineConfig` if `Config` collides |
+| `SkullbonezRun::Run()` | `Run::Run()` |
+| `namespace SkullbonezCore` | unchanged |
+| `SKULLBONEZ_CORE.exe` | unchanged |
+| `SKULLBONEZ_PROFILE_ENABLED` | unchanged |
+
+Rules:
+
+- Prefer the shortest clear engine name after removing the prefix.
+- If the stripped name collides or becomes too generic, choose the subsystem
+  name that reads best in context, such as `EngineConfig`, `RenderDeviceDX12`,
+  or `RuntimeDiagnostics`.
+- Keep namespace-qualified meaning rather than restamping every type with the
+  product name.
+- Update constructor/destructor names, forward declarations, friend
+  declarations, comments, tests, and project references in the same slice.
+- Do not rename public file formats, config keys, scene directives, CLI flags,
+  executable names, project names, macros, or namespaces as part of this pass.
+
+This keeps SkullbonezCore as the engine identity while making ordinary code read
+like engine code instead of a brand prefix catalog.
 
 ### Includes And File Headers
 
@@ -115,8 +141,8 @@ Do not rename these in the first overnight implementation:
 
 Reason: these are product/build identity or historical documentation paths.
 Changing them has wider script, README, image, and handoff implications. The
-source prefix cleanup gives the architecture immediate clarity without bundling
-a full rebrand.
+ordinary file/type prefix cleanup gives the architecture immediate clarity
+without bundling a full rebrand.
 
 `SkullbonezCore.png` may remain in place during the source pass. If the worker
 renames it, use `Core.png` and update README references in the same commit.
@@ -282,10 +308,15 @@ Acceptance for filters:
 Tasks:
 
 1. Run `git status --short --branch`.
-2. Record dirty files as user-owned.
+2. Confirm the workspace is clean before starting. If it is not clean, stop and
+   ask for a clean handoff rather than working around dirty files.
 3. Generate a rename map for exact `Skullbonez*` source/header basenames.
-4. Assert every target path is absent before moving anything.
-5. Assert the map has 174 source/header entries unless the worktree changed.
+4. Generate a type rename map for ordinary C++ symbols with a redundant
+   `Skullbonez` prefix.
+5. Assert every target path and target symbol is collision-free before moving
+   anything.
+6. Assert the file map has 174 source/header entries unless the worktree
+   changed.
 
 Suggested map generation:
 
@@ -306,13 +337,15 @@ Acceptance:
 
 - The rename map is deterministic and sorted.
 - No target collision exists.
-- Dirty source files are included in the map only as moves, not content edits.
+- The type map explicitly distinguishes ordinary redundant prefixes from
+  product identity names that must remain.
+- The workspace is clean before mutation starts.
 
 Validation:
 
 - No repository validation required.
 
-### Slice 1: Mechanical Source Rename
+### Slice 1: Mechanical File And Type Rename
 
 Tasks:
 
@@ -320,13 +353,19 @@ Tasks:
 2. Do not use broad delete or clean commands.
 3. Keep physical source location flat for this first slice except existing
    `SkullbonezSource/UI`.
-4. Do not rename symbols.
+4. Apply the approved type rename map to declarations, definitions,
+   constructors/destructors, call sites, forward declarations, friends, and
+   comments.
+5. Keep `SkullbonezCore`, `SKULLBONEZ_CORE`, macro prefixes, project names,
+   executable names, CLI flags, config keys, and file formats unchanged.
 
 Acceptance:
 
 - `rg --files SkullbonezSource | rg '[/\\]Skullbonez[^/\\]*\.(cpp|h)$'`
   returns no results.
-- Dirty file contents remain preserved after move.
+- Ordinary engine type declarations no longer carry the blanket `Skullbonez`
+  prefix unless the plan records a specific reason.
+- Brand identity symbols remain intact.
 
 Validation:
 
@@ -449,8 +488,7 @@ Acceptance:
 - Validation succeeds.
 - No DX12 validation errors are introduced.
 - Physics deterministic baseline still matches because no behavior changed.
-- No user-owned dirty changes are staged unless they are the renamed versions of
-  files intentionally moved by this branch.
+- The final staged set contains only this planned work.
 
 ## Architecture Refactor After Rename
 
@@ -473,7 +511,8 @@ Target shape:
 
 Rules:
 
-- Keep `class SkullbonezRun` until the public launch surface is stable.
+- Keep the renamed `Run` facade as the public launch surface until the runtime
+  shell is stable.
 - Do not add new feature logic directly to `RunInput.cpp` or `RunScene.cpp`.
 - UI and raw hardware input emit commands; runtime systems consume commands in
   the current order.
@@ -646,11 +685,11 @@ Validation:
 
 | Risk | Mitigation |
 |------|------------|
-| Dirty user work is overwritten | Use `git status` before editing, move dirty files only with `git mv`, and never revert content. |
+| Handoff is not clean | Stop before editing and ask for a clean workspace, because this plan assumes clean handoff. |
 | Include update misses UI relative paths | Apply a generated rename map to both `"Header.h"` and `"../Header.h"` forms. |
 | Visual Studio project compiles wrong paths | Validate every `ClCompile`/`ClInclude` item exists on disk after the update. |
 | Filters become misleading | Use the required module filter table and review the Solution Explorer grouping as an acceptance criterion. |
-| Rename hides behavior edits | Keep the first PR move/path-only except file header path comments. |
+| Rename hides behavior edits | Keep the first PR rename/type-update-only except required path comments and constructor/destructor changes. |
 | Formatter preserves the bad one-line signature style | Remove `collapse_params.py` from the format path and set a real column limit before broad formatting. |
 | Comments drift away from declarations | Prefer leading comments above multiline signatures and keep trailing comments only when they remain visually close. |
 | Dead-code removal deletes hidden tool paths | Prove unused status through search/build/reference evidence and preserve CLI, scene, validation, debug, replay, and SkullScope entry points unless clearly dead. |
@@ -662,33 +701,36 @@ Validation:
 
 1. Read root `AGENTS.md`, `README.md`, `Agentic/README.md`, and
    `Agentic/SessionState.md`.
-2. Run `git status --short --branch`; preserve user-owned dirty files.
+2. Run `git status --short --branch`; stop if the workspace is not clean.
 3. Use the orchestrator skill for implementation coordination.
 4. Generate and review the source/header rename map.
-5. Move files with `git mv`.
-6. Update includes, active file header paths, project files, filters, and Agentic
+5. Generate and review the ordinary type rename map.
+6. Move files with `git mv`.
+7. Apply type renames while preserving SkullbonezCore identity symbols.
+8. Update includes, active file header paths, project files, filters, and Agentic
    test project paths.
-7. Verify `.vcxproj.filters` grouping matches the module table in this plan.
-8. Fix formatter policy before running any broad formatting:
+9. Verify `.vcxproj.filters` grouping matches the module table in this plan.
+10. Fix formatter policy before running any broad formatting:
    - remove `collapse_params.py` from the format path,
    - set a real column limit,
    - make long declarations and calls multiline,
    - ensure format scripts recurse into UI and future module folders.
-9. Run a targeted Profile build while repairing path references.
-10. Run `tools\validate_format.bat`.
-11. Run `tools\validate_full.bat` as the PR-bound final gate.
-12. After architecture movement, run the final dead-code cleanup and full
+11. Run a targeted Profile build while repairing path references.
+12. Run `tools\validate_format.bat`.
+13. Run `tools\validate_full.bat` as the PR-bound final gate.
+14. After architecture movement, run the final dead-code cleanup and full
     comment-style audit as a separate endgame slice.
-13. Commit on the feature branch with a detailed message that explains:
-    - prefix removal scope,
+15. Commit on the feature branch with a detailed message that explains:
+    - file prefix removal scope,
+    - type prefix removal scope,
+    - SkullbonezCore identity preserved,
     - project/filter updates,
     - formatter policy fix,
-    - no symbol rename,
     - dead-code cleanup scope when applicable,
     - comment-style audit scope when applicable,
-    - dirty worktree protection,
+    - clean worktree confirmation,
     - validation command and result.
-14. Push the feature branch when ready. Do not merge or submit a PR unless the
+16. Push the feature branch when ready. Do not merge or submit a PR unless the
     user explicitly asks.
 
 ## Success Criteria
@@ -697,6 +739,10 @@ Near-term:
 
 - No active C++ source/header filename begins with `Skullbonez`.
 - No active source include points at a removed prefixed filename.
+- Ordinary engine classes and structs no longer carry the redundant
+  `Skullbonez` prefix unless an exception is documented.
+- `SkullbonezCore`, `SKULLBONEZ_CORE`, product branding, namespaces, macros,
+  file formats, config keys, and executable identity remain intact.
 - `SKULLBONEZ_CORE.vcxproj` and `.filters` reference the renamed files.
 - Visual Studio filters are meaningful and module-aligned.
 - The formatter breaks long declarations and calls so comments stay near the
