@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Completed replay cause tree panel follow-up on the authoritative replay branch. |
-| Active objective | Replay velocity edit for live prediction is implemented and validated. |
-| Pending work | Commit and push the replay velocity edit follow-up. |
+| Last committed milestone | Completed replay velocity edit for live prediction on the authoritative replay branch. |
+| Active objective | Scene-to-demo world reset leak is fixed and validated. |
+| Pending work | Commit and push the scene world reset follow-up. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Replay velocity edit passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_build_profile_final.log`, 4.47s), `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_validate_full.log`, 60.29s), and a bounded platform-profiler marker launch of `replay_velocity_four_ball.scene.json` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_platform_markers.log`, 1.93s) on 2026-06-21. Replay cause tree panel passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_build_profile.log`, 26.46s), `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_validate_full.log`, 41.81s), and a bounded platform-profiler marker launch (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_platform_markers.log`, 1.73s) on 2026-06-21. |
+| Validation | Scene world reset leak fix passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_scene_world_reset_build_profile.log`, 1.91s after stopping stale Profile PID 49028), a one-process four-ball-to-generated-demo smoke suite (`TestOutput\agent_logs\2026-06-21_scene_world_reset_repro_suite.log`, 3.17s), and `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_scene_world_reset_validate_full.log`, 40.39s) on 2026-06-21. Replay velocity edit passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_build_profile_final.log`, 4.47s), `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_validate_full.log`, 60.29s), and a bounded platform-profiler marker launch of `replay_velocity_four_ball.scene.json` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_platform_markers.log`, 1.93s) on 2026-06-21. |
 
 ## Active Notes
 

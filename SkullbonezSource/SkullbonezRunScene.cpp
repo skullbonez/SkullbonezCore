@@ -1335,6 +1335,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         UseDefaultTerrain();
+        ApplyConfiguredWorldEnvironment();
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
         {
@@ -1588,6 +1589,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             UseDefaultTerrain();
         }
 
+        ApplyConfiguredWorldEnvironment();
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
@@ -2531,6 +2533,14 @@ void SkullbonezRun::ApplyUIWorldOverride( float gravity, float fluidHeight, floa
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
     m_cWorldEnvironment.SetFluidDensity( fluidDensity );
+}
+
+
+void SkullbonezRun::ApplyConfiguredWorldEnvironment()
+{
+    const SkullbonezConfig& cfg = Cfg();
+    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    UpdateWorldTerrainBounds();
 }
 
 

@@ -1186,6 +1186,7 @@ class SkullbonezRun
     void ApplyUIModelCountOverride( int count );                                                                                           // Rebuilds the active generated model pool from the UI slider
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                                // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                     // Live world/fluid scalar override from UI controls.
+    void ApplyConfiguredWorldEnvironment();                                                                                                // Restores engine.cfg world/fluid defaults for a fresh scene load.
     void ApplyNoWaterOverride();                                                                                                           // Pushes fluid surface below the active terrain when requested
     void ApplyTornadoDefaultsForActiveScene();                                                                                             // Centers the tornado around the active inner-water/basin region
     void SyncTornadoFieldToPhysics();                                                                                                      // Sends live tornado state to the physics collection
