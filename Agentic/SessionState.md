@@ -9,12 +9,12 @@ audits when it is still useful.
 |-------|-------|
 | Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
 | Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
-| Active objective | Implement retained solver replay rollback plus mouse-selected past/future path/contact visualization and optional live future prediction. |
-| Pending work | None for the replay prediction follow-up after commit/push. |
+| Active objective | Extend live prediction horizon controls and clarify independent replay scrubber row behavior. |
+| Pending work | Commit and push the replay prediction/scrubber follow-up. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | `tools\validate_full.bat` passed for the replay prediction follow-up on 2026-06-21. |
+| Validation | `tools\validate_full.bat` passed for the replay prediction horizon/scrubber follow-up on 2026-06-21; bounded `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` marker launch passed. |
 
 ## Active Notes
 

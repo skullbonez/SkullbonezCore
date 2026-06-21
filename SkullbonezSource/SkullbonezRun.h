@@ -344,6 +344,8 @@ struct RunReplayScrubberState
     RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
     bool leftWasDown = false;
     float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
+    float presentationPosition = 1.0f;
+    float solverPosition = 1.0f;
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
@@ -399,7 +401,10 @@ struct RunReplayPredictionState
 {
     bool enabled = false;
     bool checkboxHovered = false;
+    bool decreaseHovered = false;
+    bool increaseHovered = false;
     bool dirty = true;
+    float horizonSeconds = 3.0f;
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;

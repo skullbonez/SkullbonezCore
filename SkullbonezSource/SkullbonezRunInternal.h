@@ -88,14 +88,18 @@ inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 118.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 76.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 760.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 800.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 128.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 168.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
+inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
+inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
+inline constexpr float REPLAY_PREDICTION_STEP_SECONDS = 1.0f;
+inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 #ifdef _DEBUG
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
@@ -136,13 +140,31 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
 }
 
-inline UI::UIRect ReplayScrubberPredictCheckboxRect( int screenW, int screenH )
+inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     return { panel.x + panel.w - REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH - 8.0f,
              panel.y + 43.0f,
              REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH,
              20.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x, control.y, 92.0f, control.h };
+}
+
+inline UI::UIRect ReplayScrubberPredictDecreaseRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x + 98.0f, control.y + 3.0f, 16.0f, 14.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x + control.w - 22.0f, control.y + 3.0f, 16.0f, 14.0f };
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
@@ -157,6 +179,42 @@ inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int scree
 {
     const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
     return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
+}
+
+inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
+{
+    return track == RunReplayTrack::Solver ? state.solverPosition : state.presentationPosition;
+}
+
+inline void ReplayScrubberSetTrackPosition( RunReplayScrubberState& state, RunReplayTrack track, float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    if ( track == RunReplayTrack::Solver )
+    {
+        state.solverPosition = clamped;
+    }
+    else
+    {
+        state.presentationPosition = clamped;
+    }
+
+    if ( state.activeTrack == track )
+    {
+        state.position = clamped;
+    }
+}
+
+inline void ReplayScrubberSyncActivePosition( RunReplayScrubberState& state )
+{
+    state.position = ReplayScrubberTrackPosition( state, state.activeTrack );
+}
+
+inline void ReplayScrubberSetAllTrackPositions( RunReplayScrubberState& state, float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    state.presentationPosition = clamped;
+    state.solverPosition = clamped;
+    state.position = clamped;
 }
 
 inline void DrawUITestPattern( int screenW, int screenH )

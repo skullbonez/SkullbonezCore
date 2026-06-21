@@ -554,7 +554,8 @@ bool SkullbonezRun::IsReplayScrubPaused() const
         return false;
     }
 
-    if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
+    if ( position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
     {
         return false;
     }
@@ -562,10 +563,10 @@ bool SkullbonezRun::IsReplayScrubPaused() const
     if ( m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
         return m_solverReplay.IsEnabled() &&
-               m_solverReplay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
+               m_solverReplay.SampleAtNormalized( position ) != nullptr;
     }
     return m_replay.IsEnabled() &&
-           m_replay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
+           m_replay.SampleAtNormalized( position ) != nullptr;
 }
 
 
@@ -581,7 +582,7 @@ const ReplayPresentationSample* SkullbonezRun::CurrentReplayScrubSample() const
         return nullptr;
     }
 
-    return m_replay.SampleAtNormalized( m_replayScrubber.position );
+    return m_replay.SampleAtNormalized( ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) );
 }
 
 
@@ -592,7 +593,7 @@ const ReplaySolverFrameSample* SkullbonezRun::CurrentReplaySolverScrubSample() c
         return nullptr;
     }
 
-    return m_solverReplay.SampleAtNormalized( m_replayScrubber.position );
+    return m_solverReplay.SampleAtNormalized( ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver ) );
 }
 
 bool SkullbonezRun::SaveReplayBufferFromScrubber( RunReplayTrack track )

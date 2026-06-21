@@ -1054,8 +1054,6 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
-constexpr float REPLAY_PREDICTION_SECONDS = 3.0f;
-constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
 {
@@ -2463,6 +2461,7 @@ void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 
 bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
+    PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     m_replayScrubber.restoreConsumedThisFrame = false;
     const bool leftDown = Input::IsLeftMouseDown();
     const bool leftPressed = leftDown && !m_replayScrubber.leftWasDown;
@@ -2485,6 +2484,8 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         }
         ResetReplayScrubber();
         m_replayPrediction.checkboxHovered = false;
+        m_replayPrediction.decreaseHovered = false;
+        m_replayPrediction.increaseHovered = false;
         m_replayScrubber.leftWasDown = leftDown;
         return false;
     }
@@ -2499,20 +2500,26 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect solverTrack = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
     const UI::UIRect presentationSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Presentation );
     const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
-    const UI::UIRect predictCheckbox = ReplayScrubberPredictCheckboxRect( screenW, screenH );
+    const UI::UIRect predictControl = ReplayScrubberPredictControlRect( screenW, screenH );
+    const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
+    const UI::UIRect predictDecrease = ReplayScrubberPredictDecreaseRect( screenW, screenH );
+    const UI::UIRect predictIncrease = ReplayScrubberPredictIncreaseRect( screenW, screenH );
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overPresentationSaveButton = presentationSaveButton.Contains( mouse.x, mouse.y );
     const bool overSolverSaveButton = solverSaveButton.Contains( mouse.x, mouse.y );
     const bool overSaveButton = overPresentationSaveButton || overSolverSaveButton;
-    const bool overPredictCheckbox = predictCheckbox.Contains( mouse.x, mouse.y );
+    const bool overPredictControl = predictControl.Contains( mouse.x, mouse.y );
+    const bool overPredictToggle = predictToggle.Contains( mouse.x, mouse.y );
+    const bool overPredictDecrease = predictDecrease.Contains( mouse.x, mouse.y );
+    const bool overPredictIncrease = predictIncrease.Contains( mouse.x, mouse.y );
     const bool overSolverRow = solverTrack.Contains( mouse.x, mouse.y ) || overSolverSaveButton ||
                                ( overPanel && mouse.y >= ( presentationTrack.y + solverTrack.y ) * 0.5f );
     const RunReplayTrack hoveredTrack = overSolverRow ? RunReplayTrack::Solver : RunReplayTrack::Presentation;
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
-    if ( inHotZone || overPanel || overSaveButton || overPredictCheckbox || m_replayScrubber.dragging || m_replayScrubber.paused )
+    if ( inHotZone || overPanel || overSaveButton || overPredictControl || m_replayScrubber.dragging || m_replayScrubber.paused )
     {
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
@@ -2521,14 +2528,16 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                      m_replayScrubber.dragging ||
                                      m_replayScrubber.paused );
     m_replayScrubber.saveHoveredTrack = hoveredTrack;
-    m_replayPrediction.checkboxHovered = overPredictCheckbox &&
-                                         ( m_replayScrubber.visibleUntil >= now ||
-                                           m_replayScrubber.dragging ||
-                                           m_replayScrubber.paused );
+    const bool predictionControlVisible = m_replayScrubber.visibleUntil >= now ||
+                                          m_replayScrubber.dragging ||
+                                          m_replayScrubber.paused;
+    m_replayPrediction.checkboxHovered = overPredictToggle && predictionControlVisible;
+    m_replayPrediction.decreaseHovered = overPredictDecrease && predictionControlVisible;
+    m_replayPrediction.increaseHovered = overPredictIncrease && predictionControlVisible;
 
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
-                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPredictCheckbox ) ) );
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPredictControl ) ) );
 
     if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
@@ -2552,10 +2561,37 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return true;
     }
 
-    if ( leftPressed && canTakeMouse && overPredictCheckbox && m_replayScrubber.visibleUntil >= now )
+    auto changePredictionHorizon = [&]( float deltaSeconds )
+    {
+        EnterInteractiveSceneRun();
+        const float nextSeconds = std::clamp( m_replayPrediction.horizonSeconds + deltaSeconds,
+                                              REPLAY_PREDICTION_MIN_SECONDS,
+                                              REPLAY_PREDICTION_MAX_SECONDS );
+        if ( nextSeconds != m_replayPrediction.horizonSeconds )
+        {
+            m_replayPrediction.horizonSeconds = nextSeconds;
+            MarkReplayPredictionDirty();
+        }
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        consumesMouse = true;
+    };
+
+    if ( leftPressed && canTakeMouse && overPredictDecrease && m_replayScrubber.visibleUntil >= now )
+    {
+        changePredictionHorizon( -REPLAY_PREDICTION_STEP_SECONDS );
+    }
+    else if ( leftPressed && canTakeMouse && overPredictIncrease && m_replayScrubber.visibleUntil >= now )
+    {
+        changePredictionHorizon( REPLAY_PREDICTION_STEP_SECONDS );
+    }
+    else if ( leftPressed && canTakeMouse && overPredictToggle && m_replayScrubber.visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
         m_replayPrediction.enabled = !m_replayPrediction.enabled;
+        m_replayPrediction.horizonSeconds = std::clamp( m_replayPrediction.horizonSeconds,
+                                                        REPLAY_PREDICTION_MIN_SECONDS,
+                                                        REPLAY_PREDICTION_MAX_SECONDS );
         if ( !m_replayPrediction.enabled )
         {
             ClearReplayPredictionCache();
@@ -2569,13 +2605,15 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     {
         EnterInteractiveSceneRun();
         m_replayScrubber.activeTrack = hoveredTrack;
+        ReplayScrubberSyncActivePosition( m_replayScrubber );
         SaveReplayBufferFromScrubber( hoveredTrack );
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    else if ( leftPressed && canTakeMouse && !overPredictControl && ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
         m_replayScrubber.activeTrack = hoveredTrack;
+        ReplayScrubberSyncActivePosition( m_replayScrubber );
         m_replayScrubber.dragging = true;
         if ( !m_replayScrubber.mouseCaptured )
         {
@@ -2586,10 +2624,12 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( m_replayScrubber.dragging )
     {
-        m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayScrubber.activeTrack );
+        ReplayScrubberSetTrackPosition( m_replayScrubber,
+                                        m_replayScrubber.activeTrack,
+                                        ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayScrubber.activeTrack ) );
         if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
         {
-            m_replayScrubber.position = 1.0f;
+            ReplayScrubberSetTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack, 1.0f );
             m_replayScrubber.paused = false;
         }
         else
@@ -2609,7 +2649,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     }
     else if ( !m_replayScrubber.paused )
     {
-        m_replayScrubber.position = 1.0f;
+        ReplayScrubberSetAllTrackPositions( m_replayScrubber, 1.0f );
     }
 
     m_replayScrubber.visible = m_replayScrubber.dragging ||
@@ -2630,6 +2670,8 @@ void SkullbonezRun::TakeInput()
         }
         ResetReplayScrubber();
         m_replayPrediction.checkboxHovered = false;
+        m_replayPrediction.decreaseHovered = false;
+        m_replayPrediction.increaseHovered = false;
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
@@ -4689,7 +4731,10 @@ bool SkullbonezRun::BuildReplayPrediction()
     const bool previousDiagnosticsSuppressed = m_cGameModelCollection.SetPhysicsDiagnosticsSuppressed( true );
 #endif
 
-    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( REPLAY_PREDICTION_SECONDS / PHYSICS_FIXED_DT ) ) );
+    m_replayPrediction.horizonSeconds = std::clamp( m_replayPrediction.horizonSeconds,
+                                                    REPLAY_PREDICTION_MIN_SECONDS,
+                                                    REPLAY_PREDICTION_MAX_SECONDS );
+    const int predictionTicks = (std::max)( 1, static_cast<int>( std::ceil( m_replayPrediction.horizonSeconds / PHYSICS_FIXED_DT ) ) );
     m_replayPrediction.frames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
     capturePredictionFrame( 0 );
     {
