@@ -135,6 +135,44 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
                simulationPaused ? 0.78f : 0.76f,
                simulationPaused ? "PLAY" : "PAUSE" );
 
+    {
+        PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
+        const UI::UIRect velocityEdit = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+        const bool velocityEditEnabled = m_replayVelocityEdit.enabled;
+        const bool velocityEditHover = m_replayVelocityEdit.toggleHovered;
+        draw.RoundedRect( velocityEdit.x,
+                          velocityEdit.y,
+                          velocityEdit.w,
+                          velocityEdit.h,
+                          4.0f,
+                          velocityEditEnabled ? 0.25f : 0.08f,
+                          velocityEditEnabled ? 0.19f : 0.12f,
+                          velocityEditEnabled ? 0.06f : 0.15f,
+                          velocityEditHover || velocityEditEnabled ? 0.94f : 0.78f );
+        draw.Outline( velocityEdit.x,
+                      velocityEdit.y,
+                      velocityEdit.w,
+                      velocityEdit.h,
+                      0.98f,
+                      0.82f,
+                      0.42f,
+                      velocityEditHover || velocityEditEnabled ? 0.78f : 0.34f );
+        const float checkX = velocityEdit.x + 7.0f;
+        const float checkY = velocityEdit.y + 5.0f;
+        draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.98f, 0.86f, 0.54f, 0.82f );
+        if ( velocityEditEnabled )
+        {
+            draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 1.0f, 0.62f, 0.16f, 0.95f );
+        }
+        draw.Text( velocityEdit.x + 23.0f,
+                   velocityEdit.y + 4.5f,
+                   9.5f,
+                   velocityEditEnabled ? 1.0f : 0.66f,
+                   velocityEditEnabled ? 0.86f : 0.72f,
+                   velocityEditEnabled ? 0.56f : 0.76f,
+                   "ALT VEL" );
+    }
+
     auto drawReplayRow = [&]( RunReplayTrack trackName, float fillR, float fillG, float fillB, float outlineR, float outlineG, float outlineB )
     {
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );

@@ -609,6 +609,12 @@ const Vector3& GameModel::GetVelocity()
 }
 
 
+const Vector3& GameModel::GetVelocity() const
+{
+    return m_physicsInfo.GetVelocity();
+}
+
+
 void GameModel::UpdateModelInfo()
 {
     CalculateVolume();
@@ -741,6 +747,12 @@ float GameModel::GetInvertedMass()
 
 
 const Vector3& GameModel::GetAngularVelocity()
+{
+    return m_physicsInfo.GetAngularVelocity();
+}
+
+
+const Vector3& GameModel::GetAngularVelocity() const
 {
     return m_physicsInfo.GetAngularVelocity();
 }

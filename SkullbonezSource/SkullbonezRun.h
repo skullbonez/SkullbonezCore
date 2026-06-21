@@ -450,6 +450,24 @@ struct RunReplayPredictionState
     std::vector<RunReplayPathTraceNode> futureNodes;
 };
 
+struct RunReplayVelocityEditState
+{
+    bool enabled = false;
+    bool toggleHovered = false;
+    bool keyboardAltWasDown = false;
+    bool dragging = false;
+    bool draggingAngular = false;
+    bool mouseCaptured = false;
+    bool leftWasDown = false;
+    int hotLinearAxis = -1;
+    int hotAngularAxis = -1;
+    int activeAxis = -1;
+    float dragStartAxisT = 0.0f;
+    float dragStartAngle = 0.0f;
+    Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
 struct RunReplayPoseBackup
 {
     int modelIndex = -1;
@@ -533,6 +551,7 @@ class RunEditorTracer
     void AddReplayTargetMarker( const GameObjects::GameModel& model );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
+    void AddReplayVelocityGizmo( const GameObjects::GameModel& model, int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
     void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
@@ -1066,6 +1085,7 @@ class SkullbonezRun
     RunReplayPathVisualizerState m_replayPathVisualizer; // Mouse-selected cause/effect trace over retained solver replay samples.
     RunReplayPredictionState m_replayPrediction;         // Optional live solver lookahead for the selected replay path target.
     RunReplayCauseTreeState m_replayCauseTree;           // Right-side object hierarchy for the active replay cause/effect chain.
+    RunReplayVelocityEditState m_replayVelocityEdit;     // Alt-enabled live velocity handles feeding the prediction cache.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
@@ -1197,6 +1217,16 @@ class SkullbonezRun
     bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Math::Vector::Vector3& outPosition ) const;
     bool FocusReplayCauseTreeBody( ReplayBodyId id );
     void RenderReplayCauseTreeOverlay();
+    void SetReplayVelocityEditEnabled( bool enabled );
+    bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
+    int ResolveReplayVelocityEditModelIndex() const;
+    int HitReplayVelocityLinearAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;
+    int HitReplayVelocityAngularAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;
+    bool TryReplayVelocityAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;
+    bool TryReplayVelocityAngularRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;
+    void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );
+    void ApplyReplayVelocityEditToModel( int modelIndex, const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity );
+    void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ResetReplayScrubber();
     void SetReplaySimulationPaused( bool paused );
     void CompareLatestReplaySamples();

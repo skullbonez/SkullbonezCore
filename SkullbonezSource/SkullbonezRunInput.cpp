@@ -925,6 +925,93 @@ float EditorGizmoRotationRadius( float modelRadius )
 }
 
 
+float ReplayVelocityLinearBaseLength( float modelRadius )
+{
+    return (std::max)( 10.0f, modelRadius + 7.0f );
+}
+
+
+float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent )
+{
+    const float sign = velocityComponent < 0.0f ? -1.0f : 1.0f;
+    const float t = std::clamp( fabsf( velocityComponent ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
+    return sign * ( ReplayVelocityLinearBaseLength( modelRadius ) + t * REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
+}
+
+
+float ReplayVelocityLinearUnitsPerWorld()
+{
+    return REPLAY_VELOCITY_EDIT_LINEAR_MAX / REPLAY_VELOCITY_EDIT_LINEAR_EXTRA;
+}
+
+
+float ReplayVelocityAngularBaseRadius( float modelRadius )
+{
+    return (std::max)( 11.0f, modelRadius + 6.0f );
+}
+
+
+float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent )
+{
+    const float t = std::clamp( fabsf( angularComponent ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
+    return ReplayVelocityAngularBaseRadius( modelRadius ) + t * (std::max)( 5.0f, modelRadius * 0.85f );
+}
+
+
+float ReplayVelocityAxisComponent( const Vector3& value, int axis )
+{
+    if ( axis == 0 )
+    {
+        return value.x;
+    }
+    if ( axis == 1 )
+    {
+        return value.y;
+    }
+    return value.z;
+}
+
+
+void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
+{
+    if ( axis == 0 )
+    {
+        value.x = component;
+    }
+    else if ( axis == 1 )
+    {
+        value.y = component;
+    }
+    else
+    {
+        value.z = component;
+    }
+}
+
+
+void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b )
+{
+    r = axis == 0 ? 1.0f : 0.10f;
+    g = axis == 1 ? 0.95f : 0.16f;
+    b = axis == 2 ? 1.0f : 0.14f;
+    r = std::clamp( r + heat * 0.46f, 0.0f, 1.0f );
+    g = std::clamp( g + heat * 0.22f, 0.0f, 1.0f );
+    b = std::clamp( b - heat * 0.34f, 0.05f, 1.0f );
+    if ( hot || active )
+    {
+        r = (std::min)( 1.0f, r + 0.34f );
+        g = (std::min)( 1.0f, g + 0.34f );
+        b = (std::min)( 1.0f, b + 0.20f );
+    }
+    if ( active )
+    {
+        r = 1.0f;
+        g = 0.96f;
+        b = 0.18f;
+    }
+}
+
+
 Vector3 EditorRotationRingBasisA( int axis )
 {
     switch ( axis )
@@ -2522,6 +2609,49 @@ void RunEditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTran
 }
 
 
+void RunEditorTracer::AddReplayVelocityGizmo( const GameModel& model, int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular )
+{
+    AddSelectionOutline( model );
+
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const Vector3 linearVelocity = model.GetVelocity();
+    const Vector3 angularVelocity = model.GetAngularVelocity();
+    const float baseLength = ReplayVelocityLinearBaseLength( radius );
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float component = ReplayVelocityAxisComponent( linearVelocity, axis );
+        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
+        const bool hot = hotLinearAxis == axis;
+        const bool active = !activeAngular && activeAxis == axis;
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
+
+        const float axisT = ReplayVelocityLinearVisualAxisT( radius, component );
+        const Vector3 endpoint = origin + axisVector * axisT;
+        EmitLine( origin - axisVector * ( baseLength * 0.24f ), origin + axisVector * ( baseLength * 0.24f ), r * 0.34f, g * 0.34f, b * 0.34f );
+        EmitArrow( origin, endpoint, r, g, b );
+    }
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const float component = ReplayVelocityAxisComponent( angularVelocity, axis );
+        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
+        const bool hot = hotAngularAxis == axis;
+        const bool active = activeAngular && activeAxis == axis;
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
+        EmitRing( origin, axis, ReplayVelocityAngularVisualRadius( radius, component ), r, g, b );
+    }
+}
+
+
 void RunEditorTracer::Render( const Matrix4& viewProjection )
 {
     if ( m_lineData.empty() || !IsGfxReady() )
@@ -2628,6 +2758,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayPrediction.increaseHovered = false;
         m_replayPrediction.horizonHovered = false;
         m_replayPrediction.horizonDragging = false;
+        m_replayVelocityEdit.toggleHovered = false;
         m_replayScrubber.leftWasDown = leftDown;
         return false;
     }
@@ -2643,6 +2774,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect presentationSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Presentation );
     const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
     const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
+    const UI::UIRect velocityEditToggle = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
     const UI::UIRect predictControl = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predictDecrease = ReplayScrubberPredictDecreaseRect( screenW, screenH );
@@ -2654,6 +2786,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overSolverSaveButton = solverSaveButton.Contains( mouse.x, mouse.y );
     const bool overSaveButton = overPresentationSaveButton || overSolverSaveButton;
     const bool overPauseButton = pauseButton.Contains( mouse.x, mouse.y );
+    const bool overVelocityEditToggle = velocityEditToggle.Contains( mouse.x, mouse.y );
     const bool overPredictControl = predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = predictToggle.Contains( mouse.x, mouse.y );
     const bool overPredictDecrease = predictDecrease.Contains( mouse.x, mouse.y );
@@ -2670,6 +2803,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
          overPanel ||
          overSaveButton ||
          overPauseButton ||
+         overVelocityEditToggle ||
          overPredictControl ||
          m_replayScrubber.dragging ||
          m_replayPrediction.horizonDragging ||
@@ -2689,6 +2823,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                           m_replayScrubber.paused ||
                                           m_replayScrubber.simulationPaused;
     m_replayScrubber.pauseHovered = overPauseButton && predictionControlVisible;
+    m_replayVelocityEdit.toggleHovered = overVelocityEditToggle && predictionControlVisible;
     m_replayPrediction.checkboxHovered = overPredictToggle && predictionControlVisible;
     m_replayPrediction.decreaseHovered = overPredictDecrease && predictionControlVisible;
     m_replayPrediction.increaseHovered = overPredictIncrease && predictionControlVisible;
@@ -2697,7 +2832,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
                            m_replayPrediction.horizonDragging ||
-                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPauseButton || overPredictControl ) ) );
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPauseButton || overVelocityEditToggle || overPredictControl ) ) );
 
     if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
@@ -2754,6 +2889,13 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( leftPressed && canTakeMouse && overPauseButton && m_replayScrubber.visibleUntil >= now )
     {
         SetReplaySimulationPaused( !m_replayScrubber.simulationPaused );
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        consumesMouse = true;
+    }
+    else if ( leftPressed && canTakeMouse && overVelocityEditToggle && m_replayScrubber.visibleUntil >= now )
+    {
+        SetReplayVelocityEditEnabled( !m_replayVelocityEdit.enabled );
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayScrubber.visible = true;
         consumesMouse = true;
@@ -2880,6 +3022,18 @@ void SkullbonezRun::TakeInput()
         m_replayPrediction.increaseHovered = false;
         m_replayPrediction.horizonHovered = false;
         m_replayPrediction.horizonDragging = false;
+        m_replayVelocityEdit.toggleHovered = false;
+        m_replayVelocityEdit.keyboardAltWasDown = false;
+        m_replayVelocityEdit.dragging = false;
+        m_replayVelocityEdit.draggingAngular = false;
+        m_replayVelocityEdit.activeAxis = -1;
+        m_replayVelocityEdit.hotLinearAxis = -1;
+        m_replayVelocityEdit.hotAngularAxis = -1;
+        if ( m_replayVelocityEdit.mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayVelocityEdit.mouseCaptured = false;
+        }
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
@@ -3082,6 +3236,7 @@ void SkullbonezRun::TakeInput()
         {
             m_camera.isFlyMode = true;
             m_camera.isLauncherMode = false;
+            m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditorTool, VK_MENU ) )
             {
                 ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );
@@ -3105,9 +3260,15 @@ void SkullbonezRun::TakeInput()
         }
         else
         {
-            m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, Input::IsKeyDown( VK_MENU ) );
+            const bool altDown = Input::IsKeyDown( VK_MENU );
+            if ( altDown && !m_replayVelocityEdit.keyboardAltWasDown )
+            {
+                SetReplayVelocityEditEnabled( !m_replayVelocityEdit.enabled );
+            }
+            m_replayVelocityEdit.keyboardAltWasDown = altDown;
+            m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
             m_runtimeInput.SetActionDown( RuntimeInputAction::CycleEditorPlacementType, Input::IsKeyDown( VK_TAB ) );
-            m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+            m_editor.altShortcutWasDown = altDown;
             m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         }
 
@@ -3308,6 +3469,7 @@ void SkullbonezRun::TakeInput()
         AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
+        m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
         m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
         m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         m_editor.tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
@@ -3339,8 +3501,9 @@ void SkullbonezRun::TakeInput()
         suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
         const bool replayScrubberOwnsMouse = TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
         const bool replayCauseTreeOwnsMouse = TickReplayCauseTreeInput( m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
-        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse;
-        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
+        const bool replayVelocityEditOwnsMouse = TickReplayVelocityEditInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse;
+        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse || replayVelocityEditOwnsMouse );
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -5016,6 +5179,436 @@ bool SkullbonezRun::TickReplayCauseTreeInput( bool uiBlocksMouse )
 }
 
 
+void SkullbonezRun::SetReplayVelocityEditEnabled( bool enabled )
+{
+    if ( m_replayVelocityEdit.enabled == enabled )
+    {
+        return;
+    }
+
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+    m_replayVelocityEdit.enabled = enabled;
+    m_replayVelocityEdit.hotLinearAxis = -1;
+    m_replayVelocityEdit.hotAngularAxis = -1;
+    m_replayVelocityEdit.activeAxis = -1;
+    m_replayVelocityEdit.dragging = false;
+    m_replayVelocityEdit.draggingAngular = false;
+    if ( m_replayVelocityEdit.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+        m_replayVelocityEdit.mouseCaptured = false;
+    }
+
+    if ( enabled )
+    {
+        EnterInteractiveSceneRun();
+        SetReplaySimulationPaused( true );
+        m_replayPrediction.enabled = true;
+        m_replayPrediction.horizonSeconds = std::clamp( m_replayPrediction.horizonSeconds,
+                                                        REPLAY_PREDICTION_MIN_SECONDS,
+                                                        REPLAY_PREDICTION_MAX_SECONDS );
+        MarkReplayPredictionDirty();
+        m_replayScrubber.visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+    }
+}
+
+
+int SkullbonezRun::ResolveReplayVelocityEditModelIndex() const
+{
+    if ( !m_replayPathVisualizer.hasTarget ||
+         m_replayPathVisualizer.targetId.value == 0 )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const int cachedIndex = m_replayPathVisualizer.targetModelIndex;
+    if ( cachedIndex >= 0 &&
+         cachedIndex < static_cast<int>( models.size() ) &&
+         models[static_cast<std::size_t>( cachedIndex )].GetReplayBodyId() == m_replayPathVisualizer.targetId.value )
+    {
+        return cachedIndex;
+    }
+
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_replayPathVisualizer.targetId.value )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+int SkullbonezRun::HitReplayVelocityLinearAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    if ( model.IsFixed() )
+    {
+        return -1;
+    }
+
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const float threshold = (std::max)( 1.15f, radius * 0.12f );
+    const float thresholdSq = threshold * threshold;
+    int bestAxis = -1;
+    float bestDistanceSq = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float component = ReplayVelocityAxisComponent( model.GetVelocity(), axis );
+        const Vector3 endpoint = origin + axisVector * ReplayVelocityLinearVisualAxisT( radius, component );
+        const float distanceSq = DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, endpoint );
+        if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
+        {
+            bestDistanceSq = distanceSq;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+int SkullbonezRun::HitReplayVelocityAngularAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    if ( model.IsFixed() )
+    {
+        return -1;
+    }
+
+    const Vector3 origin = model.GetPosition();
+    const float modelRadius = EditorModelRadius( model );
+    int bestAxis = -1;
+    float bestDiff = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 normal = EditorAxisVector( axis );
+        const float denom = normal * rayDirection;
+        if ( fabsf( denom ) <= 1e-4f )
+        {
+            continue;
+        }
+
+        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        if ( rayT < 0.0f )
+        {
+            continue;
+        }
+
+        const float ringRadius = ReplayVelocityAngularVisualRadius( modelRadius, ReplayVelocityAxisComponent( model.GetAngularVelocity(), axis ) );
+        const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
+        const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
+        const Vector3 radial = hitPoint - origin;
+        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float diff = fabsf( radialDistance - ringRadius );
+        if ( diff <= threshold && diff < bestDiff )
+        {
+            bestDiff = diff;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+bool SkullbonezRun::TryReplayVelocityAxisRayParameter( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT ) const
+{
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 axisOrigin = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )].GetPosition();
+    const Vector3 axisVector = EditorAxisVector( axis );
+    const Vector3 w = axisOrigin - rayOrigin;
+    const float b = axisVector * rayDirection;
+    const float d = axisVector * w;
+    const float e = rayDirection * w;
+    const float denom = 1.0f - b * b;
+    if ( fabsf( denom ) <= 1e-5f )
+    {
+        return false;
+    }
+
+    outAxisT = ( b * e - d ) / denom;
+    return true;
+}
+
+
+bool SkullbonezRun::TryReplayVelocityAngularRayAngle( int axis, const Vector3& rayOrigin, const Vector3& rayDirection, float& outAngle ) const
+{
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 origin = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )].GetPosition();
+    const Vector3 normal = EditorAxisVector( axis );
+    const float denom = normal * rayDirection;
+    if ( fabsf( denom ) <= 1e-4f )
+    {
+        return false;
+    }
+
+    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    if ( rayT < 0.0f )
+    {
+        return false;
+    }
+
+    Vector3 radial = rayOrigin + rayDirection * rayT - origin;
+    radial -= normal * ( radial * normal );
+    const float radialLenSq = radial * radial;
+    if ( radialLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    radial = radial * ( 1.0f / sqrtf( radialLenSq ) );
+
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    outAngle = atan2f( radial * basisB, radial * basisA );
+    return true;
+}
+
+
+void SkullbonezRun::ApplyReplayVelocityEditToModel( int modelIndex, const Vector3& linearVelocity, const Vector3& angularVelocity )
+{
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Apply" );
+    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return;
+    }
+
+    Vector3 clampedLinear = linearVelocity;
+    Vector3 clampedAngular = angularVelocity;
+    clampedLinear.x = std::clamp( clampedLinear.x, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+    clampedLinear.y = std::clamp( clampedLinear.y, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+    clampedLinear.z = std::clamp( clampedLinear.z, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX );
+    clampedAngular.x = std::clamp( clampedAngular.x, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+    clampedAngular.y = std::clamp( clampedAngular.y, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+    clampedAngular.z = std::clamp( clampedAngular.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+    if ( model.IsFixed() )
+    {
+        return;
+    }
+
+    model.SetLinearVelocity( clampedLinear );
+    model.SetAngularVelocity( clampedAngular );
+    if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
+         VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
+    {
+        m_cGameModelCollection.WakeModel( modelIndex );
+    }
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+    MarkReplayPredictionDirty();
+    m_replayScrubber.visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+}
+
+
+void SkullbonezRun::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() || m_replayVelocityEdit.activeAxis < 0 )
+    {
+        m_replayVelocityEdit.dragging = false;
+        m_replayVelocityEdit.activeAxis = -1;
+        return;
+    }
+
+    Vector3 linearVelocity = m_replayVelocityEdit.dragStartLinearVelocity;
+    Vector3 angularVelocity = m_replayVelocityEdit.dragStartAngularVelocity;
+    if ( m_replayVelocityEdit.draggingAngular )
+    {
+        float currentAngle = 0.0f;
+        if ( !TryReplayVelocityAngularRayAngle( m_replayVelocityEdit.activeAxis, rayOrigin, rayDirection, currentAngle ) )
+        {
+            return;
+        }
+        const float angleDelta = WrapEditorAngleDelta( currentAngle - m_replayVelocityEdit.dragStartAngle );
+        const float component = ReplayVelocityAxisComponent( m_replayVelocityEdit.dragStartAngularVelocity, m_replayVelocityEdit.activeAxis ) +
+                                angleDelta * ( REPLAY_VELOCITY_EDIT_ANGULAR_MAX / _PI );
+        ReplayVelocitySetAxisComponent( angularVelocity,
+                                        m_replayVelocityEdit.activeAxis,
+                                        std::clamp( component, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX ) );
+    }
+    else
+    {
+        float axisT = 0.0f;
+        if ( !TryReplayVelocityAxisRayParameter( m_replayVelocityEdit.activeAxis, rayOrigin, rayDirection, axisT ) )
+        {
+            return;
+        }
+        const float component = ReplayVelocityAxisComponent( m_replayVelocityEdit.dragStartLinearVelocity, m_replayVelocityEdit.activeAxis ) +
+                                ( axisT - m_replayVelocityEdit.dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
+        ReplayVelocitySetAxisComponent( linearVelocity,
+                                        m_replayVelocityEdit.activeAxis,
+                                        std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
+    }
+
+    ApplyReplayVelocityEditToModel( modelIndex, linearVelocity, angularVelocity );
+}
+
+
+bool SkullbonezRun::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
+{
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
+    const bool leftDown = Input::IsLeftMouseDown();
+    const bool leftPressed = leftDown && !m_replayVelocityEdit.leftWasDown;
+    const bool leftReleased = !leftDown && m_replayVelocityEdit.leftWasDown;
+    m_replayVelocityEdit.leftWasDown = leftDown;
+
+    if ( !m_replayVelocityEdit.enabled ||
+         m_editor.editorModeEnabled ||
+         !SceneState().isScenePhysics ||
+         WindowScreenWidth() <= 0 ||
+         WindowScreenHeight() <= 0 )
+    {
+        m_replayVelocityEdit.hotLinearAxis = -1;
+        m_replayVelocityEdit.hotAngularAxis = -1;
+        if ( m_replayVelocityEdit.mouseCaptured && !leftDown )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayVelocityEdit.mouseCaptured = false;
+        }
+        return false;
+    }
+
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    {
+        return m_replayVelocityEdit.dragging;
+    }
+
+    if ( m_replayVelocityEdit.dragging )
+    {
+        if ( leftDown && !uiBlocksMouse )
+        {
+            ApplyReplayVelocityEditDrag( rayOrigin, rayDirection );
+        }
+        if ( leftReleased || !leftDown )
+        {
+            m_replayVelocityEdit.dragging = false;
+            m_replayVelocityEdit.draggingAngular = false;
+            m_replayVelocityEdit.activeAxis = -1;
+            if ( m_replayVelocityEdit.mouseCaptured )
+            {
+                UI::InputControl::EndMouseCapture();
+                m_replayVelocityEdit.mouseCaptured = false;
+            }
+        }
+        return true;
+    }
+
+    m_replayVelocityEdit.hotAngularAxis = uiBlocksMouse ? -1 : HitReplayVelocityAngularAxis( rayOrigin, rayDirection );
+    m_replayVelocityEdit.hotLinearAxis = ( uiBlocksMouse || m_replayVelocityEdit.hotAngularAxis >= 0 ) ? -1 : HitReplayVelocityLinearAxis( rayOrigin, rayDirection );
+
+    if ( !uiBlocksMouse && leftPressed )
+    {
+        const int modelIndex = ResolveReplayVelocityEditModelIndex();
+        if ( modelIndex >= 0 && modelIndex < m_cGameModelCollection.GetModelCount() )
+        {
+            const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+            if ( m_replayVelocityEdit.hotAngularAxis >= 0 )
+            {
+                float startAngle = 0.0f;
+                if ( TryReplayVelocityAngularRayAngle( m_replayVelocityEdit.hotAngularAxis, rayOrigin, rayDirection, startAngle ) )
+                {
+                    EnterInteractiveSceneRun();
+                    SetReplaySimulationPaused( true );
+                    m_replayPrediction.enabled = true;
+                    m_replayVelocityEdit.dragging = true;
+                    m_replayVelocityEdit.draggingAngular = true;
+                    m_replayVelocityEdit.activeAxis = m_replayVelocityEdit.hotAngularAxis;
+                    m_replayVelocityEdit.dragStartAngle = startAngle;
+                    m_replayVelocityEdit.dragStartLinearVelocity = model.GetVelocity();
+                    m_replayVelocityEdit.dragStartAngularVelocity = model.GetAngularVelocity();
+                    if ( !m_replayVelocityEdit.mouseCaptured )
+                    {
+                        UI::InputControl::BeginMouseCapture( hwnd );
+                        m_replayVelocityEdit.mouseCaptured = true;
+                    }
+                    return true;
+                }
+            }
+            else if ( m_replayVelocityEdit.hotLinearAxis >= 0 )
+            {
+                float axisT = 0.0f;
+                if ( TryReplayVelocityAxisRayParameter( m_replayVelocityEdit.hotLinearAxis, rayOrigin, rayDirection, axisT ) )
+                {
+                    EnterInteractiveSceneRun();
+                    SetReplaySimulationPaused( true );
+                    m_replayPrediction.enabled = true;
+                    m_replayVelocityEdit.dragging = true;
+                    m_replayVelocityEdit.draggingAngular = false;
+                    m_replayVelocityEdit.activeAxis = m_replayVelocityEdit.hotLinearAxis;
+                    m_replayVelocityEdit.dragStartAxisT = axisT;
+                    m_replayVelocityEdit.dragStartLinearVelocity = model.GetVelocity();
+                    m_replayVelocityEdit.dragStartAngularVelocity = model.GetAngularVelocity();
+                    if ( !m_replayVelocityEdit.mouseCaptured )
+                    {
+                        UI::InputControl::BeginMouseCapture( hwnd );
+                        m_replayVelocityEdit.mouseCaptured = true;
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+
+    return m_replayVelocityEdit.hotLinearAxis >= 0 || m_replayVelocityEdit.hotAngularAxis >= 0;
+}
+
+
+void SkullbonezRun::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
+{
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
+    if ( !m_replayVelocityEdit.enabled || m_editor.editorModeEnabled )
+    {
+        return;
+    }
+
+    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return;
+    }
+
+    const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    if ( model.IsFixed() )
+    {
+        return;
+    }
+    tracer.AddReplayVelocityGizmo( model,
+                                   m_replayVelocityEdit.hotLinearAxis,
+                                   m_replayVelocityEdit.hotAngularAxis,
+                                   m_replayVelocityEdit.activeAxis,
+                                   m_replayVelocityEdit.draggingAngular );
+}
+
+
 bool SkullbonezRun::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 {
     Vector3 rayOrigin;
@@ -5416,7 +6009,14 @@ void SkullbonezRun::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
 void SkullbonezRun::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
-    if ( !m_replayPathVisualizer.hasTarget || !m_solverReplay.IsEnabled() )
+    if ( !m_replayPathVisualizer.hasTarget )
+    {
+        return;
+    }
+
+    RenderReplayPredictionVisualizer( tracer );
+
+    if ( !m_solverReplay.IsEnabled() )
     {
         return;
     }
@@ -5539,8 +6139,6 @@ void SkullbonezRun::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             }
         }
     }
-
-    RenderReplayPredictionVisualizer( tracer );
 }
 
 
@@ -5874,6 +6472,7 @@ void SkullbonezRun::RenderEditorOverlay( const Matrix4& viewProjection, const Ve
         m_editorTracer.AddGizmo( selected.GetPosition(), radius, m_editor.hotGizmoAxis, m_editor.hotRotationAxis, m_editor.activeGizmoAxis, m_editor.gizmoDragIsRotation, scaleMode, m_editor.gizmoDragIsScale );
     }
     RenderReplayPathVisualizer( m_editorTracer );
+    RenderReplayVelocityEditOverlay( m_editorTracer );
     m_editorTracer.Render( viewProjection );
     m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
 }

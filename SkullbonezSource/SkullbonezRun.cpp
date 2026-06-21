@@ -29,6 +29,7 @@ Related:
 #include "SkullbonezRunInternal.h"
 #include "SkullbonezReplayExporter.h"
 #include "SkullbonezRuntimeFileWriter.h"
+#include "UI/UIInput.h"
 
 #include <stdexcept>
 
@@ -510,6 +511,11 @@ void SkullbonezRun::ResetReplayTimelineForActiveScene()
     }
     ResetReplayScrubber();
     ClearReplayPathVisualizer();
+    if ( m_replayVelocityEdit.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+    m_replayVelocityEdit = RunReplayVelocityEditState{};
     if ( !m_replay.IsEnabled() )
     {
         return;

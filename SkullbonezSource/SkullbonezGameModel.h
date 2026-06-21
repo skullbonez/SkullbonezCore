@@ -200,7 +200,9 @@ class GameModel
     const Math::Vector::Vector3& GetPosition();
     const Math::Vector::Vector3& GetPosition() const; // Const read for manifold row rA/rB setup
     const Math::Vector::Vector3& GetVelocity();
+    const Math::Vector::Vector3& GetVelocity() const;
     const Math::Vector::Vector3& GetAngularVelocity();
+    const Math::Vector::Vector3& GetAngularVelocity() const;
     void ApplyForces( float changeInTime );
     void UpdatePosition( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                                                                                   // Borrowed scene terrain; caller keeps it alive for this model.

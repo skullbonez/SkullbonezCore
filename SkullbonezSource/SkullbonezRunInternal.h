@@ -88,20 +88,24 @@ inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 118.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 82.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 940.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 306.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 430.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 238.0f;
+inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 300.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
 inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
 inline constexpr float REPLAY_PREDICTION_STEP_SECONDS = 1.0f;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
@@ -150,10 +154,19 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
 inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH - 8.0f,
-             panel.y + 16.0f,
+    return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH,
+             panel.y + 13.0f,
              REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH,
              22.0f };
+}
+
+inline UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect pause = ReplayScrubberPauseButtonRect( screenW, screenH );
+    return { pause.x + pause.w + 8.0f,
+             pause.y,
+             REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH,
+             pause.h };
 }
 
 inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
@@ -168,13 +181,13 @@ inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
 inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x, control.y, 84.0f, control.h };
+    return { control.x, control.y, 92.0f, control.h };
 }
 
 inline UI::UIRect ReplayScrubberPredictDecreaseRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 90.0f, control.y + 4.0f, 16.0f, 14.0f };
+    return { control.x + 100.0f, control.y + 4.0f, 16.0f, 14.0f };
 }
 
 inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
@@ -186,7 +199,7 @@ inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
 inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 112.0f, control.y + 7.0f, control.w - 148.0f, 8.0f };
+    return { control.x + 126.0f, control.y + 7.0f, control.w - 162.0f, 8.0f };
 }
 
 inline float ReplayPredictionHorizonT( float seconds )

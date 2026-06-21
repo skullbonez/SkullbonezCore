@@ -139,6 +139,8 @@ Left-click a world object outside editor/launcher/UI ownership to select it as t
 
 The bottom scrubber also has a `PREDICT` checkbox with `-`, `+`, and a 1-10 second horizon slider. Prediction defaults to 10 seconds but remains off until enabled. When enabled with a selected replay path target, the runtime runs a sandboxed solver lookahead for the selected horizon from the current live state, captures predicted positions and contact manifolds, then restores the live world before rendering the overlay. The predicted root future draws white-to-green; bodies touched by that future draw amber incoming paths and target rings before their first predicted collision, then grey post-contact paths and contact markers after activation. The cause tree switches to the predicted chain when prediction rows are available. Prediction suppresses Debug physics diagnostics while the speculative ticks run, and exposes profiler/PIX markers under `Frame/Replay/Prediction/...`, `Frame/Replay/PathVisualizer/...`, `Frame/Replay/CauseTree/...`, `Frame/Replay/ScrubberInput`, `Frame/Replay/SimulationPause`, and `Frame/Replay/ScrubberOverlay`.
 
+Press `Alt` outside editor mode, or click the scrubber's `ALT VEL` toggle, to enter replay velocity edit. The mode pauses live simulation, keeps the camera in free-cam inspection, enables prediction, and draws a selected dynamic body's velocity gizmo. Drag a colored linear axis handle to increase or reverse that body's velocity component; drag a colored angular ring to change angular velocity around that axis. Ring radius and color heat rise with spin magnitude. Every edit wakes the body when needed, invalidates retained physics streams, marks prediction dirty, and immediately rebuilds the future path/cause chain from the new live velocity state. `SkullbonezData/scenes/replay_velocity_four_ball.scene.json` is the manual test scene for this workflow: four resting balls in a line so the first ball can be selected, accelerated, spun, and watched as predicted downstream contacts appear or disappear.
+
 The scrubber's inline save-icon button writes the retained buffer to `replays\replay_####.skreplay` or `replays\solver_replay_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. Solver replay exports include compact authoritative snapshot and launcher-visual summaries instead of dumping full persistent-contact rows.
 
 Use hash logging when a fixed-step scene needs cheap frame hashes:
@@ -203,7 +205,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
 | Backtick / ~ | Toggle edit mode. |
-| Alt | In edit mode, toggle Place/Gizmo mode. |
+| Alt | In edit mode, toggle Place/Gizmo mode. Outside edit mode, toggle replay velocity edit for the selected dynamic replay target. |
 | Tab | In edit mode, cycle the placement object type. |
 | Ctrl+Tab | In edit mode, toggle new placements between static/fixed and dynamic/physics. |
 | Rock placement | Tab-selectable rock slab, lump, shard, and chipped-block entries place the authored convex hull rock assets with their stone material colors. |
@@ -233,6 +235,7 @@ Fly and launcher mode use WASD, mouse look, Shift for faster movement, and Space
 | `SkullbonezData/scenes/perf_test.scene.json` | DX12 performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene.json` | Physics rolling validation. |
 | `SkullbonezData/scenes/replay_path_pool.scene.json` | Pool-table-style chain for solver replay path/contact visualizer inspection. |
+| `SkullbonezData/scenes/replay_velocity_four_ball.scene.json` | Four resting balls in a line for replay velocity editing and live prediction/cause-chain inspection. |
 | `SkullbonezData/scenes/cause_effect_marble_run.scene.json` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
 | `SkullbonezData/scenes/physics_regression_solver.scene.json` | Byte-exact Debug physics CSV regression. |
 | `SkullbonezData/scenes/bullet_sweep_wall.scene.json` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |
