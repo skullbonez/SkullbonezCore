@@ -48,135 +48,165 @@ SCENE_FILTER = "Scene Files"
 STYLE_FILTER = "Style Files"
 PROJECT_FILTER = "Project Files"
 SHADER_FILTER = "Resource Files\\HLSL"
+SOURCE_PROJECT_ROOT = "SkullbonezSource"
+SOURCE_PROJECT_SUFFIX_TYPES = {
+    ".cpp": "ClCompile",
+    ".h": "ClInclude",
+}
 
 MATH_PREFIXES = (
-    "SkullbonezGeometricMath",
-    "SkullbonezGeometricStructures",
-    "SkullbonezMatrix4",
-    "SkullbonezQuaternion",
-    "SkullbonezRotationMatrix",
-    "SkullbonezVector3",
+    "GeometricMath",
+    "GeometricStructures",
+    "Matrix4",
+    "Quaternion",
+    "RotationMatrix",
+    "Vector3",
 )
 
 ASSET_PREFIXES = (
-    "SkullbonezAssetSystem",
-    "SkullbonezTextureCollection",
+    "AssetSystem",
+    "TextureCollection",
 )
 
 GAME_OBJECT_PREFIXES = (
-    "SkullbonezGameModelCollection",
-    "SkullbonezGameModelSoACache",
-    "SkullbonezGameModelStreams",
-    "SkullbonezGameModel",
+    "GameModelCollection",
+    "GameModelSoACache",
+    "GameModelStreams",
+    "GameModel",
 )
 
 PHYSICS_PREFIXES = (
-    "SkullbonezBoundingBox",
-    "SkullbonezBoundingSphere",
-    "SkullbonezBroadphaseVisualizer",
-    "SkullbonezCollisionShape",
-    "SkullbonezCollisionVisualizer",
-    "SkullbonezContactSolverCommon",
-    "SkullbonezConvexHullShape",
-    "SkullbonezObjectContactManifold",
-    "SkullbonezPersistentContactSolver",
-    "SkullbonezPhysicsDebugVisualizer",
-    "SkullbonezPhysicsDiagnosticsSink",
-    "SkullbonezPhysicsMass",
-    "SkullbonezPhysicsWorld",
-    "SkullbonezResponseInformation",
-    "SkullbonezRigidBody",
-    "SkullbonezSleepIslandSystem",
-    "SkullbonezSpatialGrid",
-    "SkullbonezTerrainSupportClassifier",
-    "SkullbonezTornadoField",
-    "SkullbonezWorldEnvironment",
+    "BoundingBox",
+    "BoundingSphere",
+    "CollisionShape",
+    "ContactSolverCommon",
+    "ConvexHullShape",
+    "ObjectContactManifold",
+    "PersistentContactSolver",
+    "PhysicsDiagnosticsSink",
+    "PhysicsMass",
+    "PhysicsWorld",
+    "ResponseInformation",
+    "RigidBody",
+    "SimulationSystem",
+    "SleepIslandSystem",
+    "SpatialGrid",
+    "TornadoField",
+)
+
+PHYSICS_DEBUG_PREFIXES = (
+    "BroadphaseVisualizer",
+    "CollisionVisualizer",
+    "PhysicsDebugVisualizer",
 )
 
 DX12_RENDERING_PREFIXES = (
-    "SkullbonezBLASDX12",
-    "SkullbonezDx12RenderGraphExecutor",
-    "SkullbonezFramebufferDX12",
-    "SkullbonezMeshDX12",
-    "SkullbonezRenderBackendDX12",
-    "SkullbonezRenderDeviceDX12",
-    "SkullbonezSBTDX12",
-    "SkullbonezShaderContracts",
-    "SkullbonezShaderDX12",
-    "SkullbonezTLASDX12",
+    "BLASDX12",
+    "Dx12RenderGraphExecutor",
+    "FramebufferDX12",
+    "MeshDX12",
+    "RenderBackendDX12",
+    "RenderDeviceDX12",
+    "SBTDX12",
+    "ShaderDX12",
+    "TLASDX12",
 )
 
 RENDERING_PREFIXES = (
-    "SkullbonezDrawCallTrace",
-    "SkullbonezGameModelRenderer",
-    "SkullbonezIFramebuffer",
-    "SkullbonezIMesh",
-    "SkullbonezIRenderBackend",
-    "SkullbonezIShader",
-    "SkullbonezPrimitiveMeshBuilder",
-    "SkullbonezRenderGraph",
-    "SkullbonezRenderMaterial",
-    "SkullbonezShadow",
-    "SkullbonezSkyBox",
-    "SkullbonezText",
+    "DrawCallTrace",
+    "GameModelRenderer",
+    "Helper",
+    "IFramebuffer",
+    "IMesh",
+    "IRenderBackend",
+    "IShader",
+    "PrimitiveMeshBuilder",
+    "RenderGraph",
+    "RenderMaterial",
+    "ShaderContracts",
+    "Shadow",
+    "Text",
 )
 
 SCENE_PREFIXES = (
-    "SkullbonezSceneSnapshotWriter",
-    "SkullbonezTerrain",
-    "SkullbonezTestScene",
-    "SkullbonezTestSceneParser",
+    "SceneSnapshotWriter",
+    "TestScene",
+    "TestSceneParser",
+)
+
+WORLD_PREFIXES = (
+    "SkyBox",
+    "Terrain",
+    "TerrainSupportClassifier",
+    "WorldEnvironment",
+)
+
+RUNTIME_PREFIXES = (
+    "Camera",
+    "CameraCollection",
+    "CaptureSystem",
+    "Init",
+    "Input",
+    "InputController",
+    "Run",
+    "RunCapture",
+    "RunFrame",
+    "RunInput",
+    "RunInternal",
+    "RunLiveStyle",
+    "RunPasses",
+    "RunRender",
+    "RunStress",
+    "RunUiTextPass",
+    "RuntimeDiagnostics",
+    "RuntimeFileWriter",
+    "Window",
+)
+
+RUNTIME_SCENE_PREFIXES = (
+    "RunScene",
+    "SceneRuntime",
+)
+
+RUNTIME_REPLAY_PREFIXES = (
+    "ReplayExporter",
+    "ReplayRecorder",
+    "ReplaySolverSnapshot",
+)
+
+RUNTIME_EDITOR_PREFIXES = (
+    "EditorHullAssets",
+    "LauncherLaser",
 )
 
 CORE_PREFIXES = (
-    "SkullbonezAmortizedTask",
-    "SkullbonezCamera",
-    "SkullbonezCameraCollection",
-    "SkullbonezCaptureSystem",
-    "SkullbonezCommon",
-    "SkullbonezConfig",
-    "SkullbonezFence",
-    "SkullbonezHelper",
-    "SkullbonezInit",
-    "SkullbonezInput",
-    "SkullbonezInputController",
-    "SkullbonezLockOrderValidator",
-    "SkullbonezLog",
-    "SkullbonezLauncherLaser",
-    "SkullbonezPlatformProfiler",
-    "SkullbonezProfiler",
-    "SkullbonezRun",
-    "SkullbonezRunCapture",
-    "SkullbonezRunFrame",
-    "SkullbonezRunInput",
-    "SkullbonezRunInternal",
-    "SkullbonezRunLiveStyle",
-    "SkullbonezRunPasses",
-    "SkullbonezRunRender",
-    "SkullbonezRunScene",
-    "SkullbonezRunStress",
-    "SkullbonezRunUiTextPass",
-    "SkullbonezReplayExporter",
-    "SkullbonezRuntimeFileWriter",
-    "SkullbonezRuntimeDiagnostics",
-    "SkullbonezReplayRecorder",
-    "SkullbonezReplaySolverSnapshot",
-    "SkullbonezSceneRuntime",
-    "SkullbonezSimulationSystem",
-    "SkullbonezSkullScope",
-    "SkullbonezTimer",
-    "SkullbonezWindow",
-    "SkullbonezWorkerPool",
+    "AmortizedTask",
+    "Common",
+    "Config",
+    "Fence",
+    "LockOrderValidator",
+    "Log",
+    "PlatformProfiler",
+    "Profiler",
+    "SkullScope",
+    "Timer",
+    "WorkerPool",
 )
 
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
+    ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
+    ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
+    ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
+    ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),
+    ("World", WORLD_PREFIXES),
     ("GameObjects", GAME_OBJECT_PREFIXES),
     ("Assets", ASSET_PREFIXES),
     ("Maths", MATH_PREFIXES),
     ("Scene", SCENE_PREFIXES),
+    ("Runtime", RUNTIME_PREFIXES),
     ("Core", CORE_PREFIXES),
 )
 
@@ -245,6 +275,22 @@ def read_declared_filters(root: ET.Element, namespace: str) -> set[str]:
         if include:
             filters.add(include)
     return filters
+
+
+def read_source_files_on_disk(repo: Path) -> list[ProjectItem]:
+    source_root = repo / SOURCE_PROJECT_ROOT
+    if not source_root.exists():
+        return []
+
+    items: list[ProjectItem] = []
+    for path in sorted(source_root.rglob("*")):
+        if not path.is_file():
+            continue
+        item_type = SOURCE_PROJECT_SUFFIX_TYPES.get(path.suffix.lower())
+        if not item_type:
+            continue
+        items.append(ProjectItem(item_type, repo_relative(repo, path)))
+    return items
 
 
 def exact_path_on_disk(repo: Path, include: str) -> str | None:
@@ -394,6 +440,14 @@ def validate_project_filters(repo: Path, project_path: Path, filters_path: Path)
 
     project_by_key = {item.key: item for item in project_items}
     filter_by_key = {item.key: item for item in filter_items}
+    source_files_on_disk = read_source_files_on_disk(repo)
+
+    for item in source_files_on_disk:
+        if item.key not in project_by_key:
+            errors.append(
+                f"{item.include}: source/header file missing from "
+                f"{repo_relative(repo, project_path)} as {item.item_type}."
+            )
 
     for item in sorted(project_items, key=lambda entry: entry.include.lower()):
         actual = exact_path_on_disk(repo, item.include)
@@ -444,6 +498,7 @@ def validate_project_filters(repo: Path, project_path: Path, filters_path: Path)
         "projectItemCount": len(project_items),
         "filterItemCount": len(filter_items),
         "declaredFilterCount": len(declared_filters),
+        "diskSourceItemCount": len(source_files_on_disk),
         "errorCount": len(errors),
     }
     return errors, stats

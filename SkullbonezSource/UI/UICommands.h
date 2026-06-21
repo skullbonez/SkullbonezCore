@@ -155,7 +155,7 @@ enum class UIRenderParam
 struct UIOnlyCommands
 {
     // Commands are one-frame requests, not durable state. The UI sets them
-    // while handling input; SkullbonezRun consumes them and mutates the engine.
+    // while handling input; Run consumes them and mutates the engine.
     // This prevents UI widgets from directly owning renderer, scene, or physics
     // state.
     bool userInteracted = false;

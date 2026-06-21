@@ -36,10 +36,10 @@ if errorlevel 1 exit /b 99
 
 echo Checking formatting...
 
-for %%f in ("%REPO%\SkullbonezSource\*.cpp" "%REPO%\SkullbonezSource\*.h") do (
+for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
     "%CLANG_FMT%" --dry-run -Werror "%%f" >nul 2>&1
     if errorlevel 1 (
-        echo   FAIL: %%~nxf
+        echo   FAIL: %%f
         set /a BAD_COUNT+=1
     )
 )

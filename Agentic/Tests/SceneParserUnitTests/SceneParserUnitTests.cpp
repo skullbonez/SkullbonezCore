@@ -15,11 +15,11 @@ Glossary:
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
 
 Related:
-  - SkullbonezSource/SkullbonezTestScene.h
-  - SkullbonezSource/SkullbonezTestSceneParser.cpp
+  - SkullbonezSource/TestScene.h
+  - SkullbonezSource/TestSceneParser.cpp
   - SkullbonezData/styles/material_authoring_contract.style.json
 */
-#include "SkullbonezTestScene.h"
+#include "TestScene.h"
 
 #include <cmath>
 #include <cstring>
@@ -240,13 +240,13 @@ void TestMaterialAuthoringRejectsMalformedOptions()
                           "Unknown objectMaterial field: shininess" );
     ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style.json",
                           R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
-                          "objectMaterial.tint must contain exactly 3 numbers" );
+                          "objectMaterial.color must contain exactly 3 numbers" );
     ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style.json",
                           R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
-                          "objectMaterial.tint must contain exactly 3 numbers" );
+                          "objectMaterial.color must contain exactly 3 numbers" );
     ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_type.style.json",
                           R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
-                          "objectMaterial.tint must be an array" );
+                          "objectMaterial.color must be an array" );
 }
 
 const TestCase kTests[] = {

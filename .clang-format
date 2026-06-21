@@ -35,12 +35,14 @@ SpaceBeforeParens: ControlStatements
 # Line endings — LF
 LineEnding: LF
 
-# No column limit — combined with BinPackParameters false, forces all params onto one line
-ColumnLimit: 0
+# Keep signatures and calls readable without forcing one-line declarations.
+ColumnLimit: 120
 BinPackParameters: false
 BinPackArguments: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowAllArgumentsOnNextLine: false
+AlignAfterOpenBracket: Align
+PenaltyBreakBeforeFirstCallParameter: 0
 
 # Don't reorder #includes (preserve existing grouping)
 SortIncludes: Never

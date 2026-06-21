@@ -23,7 +23,7 @@ Related:
 */
 #pragma once
 
-#include "../SkullbonezCommon.h"
+#include "../Common.h"
 
 namespace SkullbonezCore
 {

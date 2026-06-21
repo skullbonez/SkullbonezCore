@@ -23,7 +23,7 @@ Related:
 */
 #include "UIDraw.h"
 
-#include "../SkullbonezText.h"
+#include "../Text.h"
 #include "UIDrawList.h"
 #include "UIStyle.h"
 
@@ -39,8 +39,8 @@ namespace UI
 
 bool UIRect::Contains( int px, int py ) const
 {
-    return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w &&
-           static_cast<float>( py ) >= y && static_cast<float>( py ) <= y + h;
+    return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w && static_cast<float>( py ) >= y &&
+           static_cast<float>( py ) <= y + h;
 }
 
 
@@ -80,7 +80,16 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
 }
 
 
-void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const
+void UIDrawContext::Triangle( float x0,
+                              float y0,
+                              float x1,
+                              float y1,
+                              float x2,
+                              float y2,
+                              float r,
+                              float g,
+                              float b,
+                              float a ) const
 {
     if ( m_drawList )
     {
@@ -137,7 +146,16 @@ void DrawRoundedSpan( const UIDrawContext& draw, float left, float y, float righ
 }
 
 
-void DrawRoundedRectFill( const UIDrawContext& draw, float x, float y, float w, float h, float radius, float r, float g, float b, float a )
+void DrawRoundedRectFill( const UIDrawContext& draw,
+                          float x,
+                          float y,
+                          float w,
+                          float h,
+                          float radius,
+                          float r,
+                          float g,
+                          float b,
+                          float a )
 {
     if ( w <= 0.0f || h <= 0.0f || a <= 0.0f )
     {
@@ -173,7 +191,8 @@ void DrawRoundedRectFill( const UIDrawContext& draw, float x, float y, float w, 
 }
 
 
-void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a ) const
+void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
+    const
 {
     if ( m_drawList )
     {
@@ -189,7 +208,10 @@ void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radiu
 }
 
 
-void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Style::UIColor& fill, const Style::UIColor& border ) const
+void UIDrawContext::RoundedPanel( const UIRect& bounds,
+                                  float radius,
+                                  const Style::UIColor& fill,
+                                  const Style::UIColor& border ) const
 {
     RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, radius, border.r, border.g, border.b, border.a );
     const float inset = border.a > 0.0f ? 1.0f : 0.0f;

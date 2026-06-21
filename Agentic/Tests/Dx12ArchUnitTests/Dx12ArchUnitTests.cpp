@@ -16,9 +16,9 @@ Related:
   - AGENTS.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "SkullbonezRenderDeviceDX12.h"
-#include "SkullbonezRenderGraph.h"
-#include "SkullbonezDx12RenderGraphExecutor.h"
+#include "RenderDeviceDX12.h"
+#include "RenderGraph.h"
+#include "Dx12RenderGraphExecutor.h"
 
 #include <cstdint>
 #include <exception>

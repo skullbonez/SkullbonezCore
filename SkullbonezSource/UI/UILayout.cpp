@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UILayout.h"
-#include "../SkullbonezText.h"
+#include "../Text.h"
 
 #include <algorithm>
 
@@ -62,9 +62,7 @@ int SceneComboScrollForSelection( int selectedIndex, int optionCount )
 float SceneTabComboWidth( float contentW )
 {
     const float maxComboW = (std::min)( contentW, 520.0f );
-    const float buttonW = UI_SCENE_RESET_BUTTON_W +
-                          UI_SCENE_RESET_DEFAULTS_BUTTON_W +
-                          UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
+    const float buttonW = UI_SCENE_RESET_BUTTON_W + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
                           UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
     const float withButtons = contentW - buttonW;
     return (std::max)( 180.0f, (std::min)( maxComboW, withButtons ) );

@@ -23,7 +23,7 @@ Related:
 */
 #include "UISlider.h"
 
-#include "../SkullbonezText.h"
+#include "../Text.h"
 #include "UIStyle.h"
 
 #include <algorithm>
@@ -67,7 +67,12 @@ float UISlider::ValueFromMouse( int mouseX, float minValue, float maxValue, floa
 }
 
 
-void UISlider::Draw( const UIDrawContext& draw, const char* label, const char* valueText, float value, float minValue, float maxValue ) const
+void UISlider::Draw( const UIDrawContext& draw,
+                     const char* label,
+                     const char* valueText,
+                     float value,
+                     float minValue,
+                     float maxValue ) const
 {
     const Style::UIPalette& palette = Style::Palette();
     const Style::UIControlStyle& control = Style::Control();
@@ -76,16 +81,45 @@ void UISlider::Draw( const UIDrawContext& draw, const char* label, const char* v
     const float trackW = TrackW();
     const float trackH = control.sliderTrackHeight;
     const float trackY = m_bounds.y + 17.0f;
-    const float t = maxValue > minValue ? std::clamp( ( value - minValue ) / ( maxValue - minValue ), 0.0f, 1.0f ) : 0.0f;
+    const float t =
+        maxValue > minValue ? std::clamp( ( value - minValue ) / ( maxValue - minValue ), 0.0f, 1.0f ) : 0.0f;
     const float knobX = trackX + trackW * t;
     const float textSize = 10.5f;
     const float valueW = Text::Text2d::MeasureText( textSize, valueText ? valueText : "" );
     const float valueX = m_bounds.x + m_bounds.w - valueW - 4.0f;
 
-    draw.Text( m_bounds.x, m_bounds.y + 1.0f, textSize, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, label );
-    draw.Text( valueX, m_bounds.y + 1.0f, textSize, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, valueText );
-    draw.RoundedRect( trackX, trackY, trackW, trackH, trackH * 0.5f, palette.control.r, palette.control.g, palette.control.b, 0.78f );
-    draw.RoundedRect( trackX, trackY, (std::max)( trackH, trackW * t ), trackH, trackH * 0.5f, palette.accent.r, palette.accent.g, palette.accent.b, 0.90f );
+    draw.Text( m_bounds.x,
+               m_bounds.y + 1.0f,
+               textSize,
+               palette.textSecondary.r,
+               palette.textSecondary.g,
+               palette.textSecondary.b,
+               label );
+    draw.Text( valueX,
+               m_bounds.y + 1.0f,
+               textSize,
+               palette.accentStrong.r,
+               palette.accentStrong.g,
+               palette.accentStrong.b,
+               valueText );
+    draw.RoundedRect( trackX,
+                      trackY,
+                      trackW,
+                      trackH,
+                      trackH * 0.5f,
+                      palette.control.r,
+                      palette.control.g,
+                      palette.control.b,
+                      0.78f );
+    draw.RoundedRect( trackX,
+                      trackY,
+                      (std::max)( trackH, trackW * t ),
+                      trackH,
+                      trackH * 0.5f,
+                      palette.accent.r,
+                      palette.accent.g,
+                      palette.accent.b,
+                      0.90f );
     draw.RoundedPanel( { knobX - 5.0f, trackY - 5.0f, 10.0f, 16.0f }, 5.0f, palette.accentStrong, palette.border );
 }
 

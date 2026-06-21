@@ -83,7 +83,8 @@ class UICacheState
 
     std::unique_ptr<UIDrawList> m_drawList;
     UICacheFrameKey m_lastKey;
-    uint32_t m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT | UI_DIRTY_BLUR_SOURCE;
+    uint32_t m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION |
+                            UI_DIRTY_VIEWPORT | UI_DIRTY_BLUR_SOURCE;
     bool m_hasFrame = false;
 };
 

@@ -14,11 +14,11 @@ Glossary:
 
 Related:
   - SkullbonezSource/UI/UITabEditor.h
-  - SkullbonezSource/SkullbonezRunInput.cpp
+  - SkullbonezSource/RunInput.cpp
 */
 #include "UITabEditor.h"
 
-#include "SkullbonezUI.h"
+#include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
 #include "UIStyle.h"
@@ -67,7 +67,8 @@ const char* const kEditorObjectOptions[] = {
     "Tree cedar rooted",
     "Pine shedding",
 };
-static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) == SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );
+static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) ==
+               SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );
 
 void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
                        float contentX,
@@ -79,7 +80,10 @@ void SetContentBounds( SkullbonezCore::UI::EditorTab::UIEditorTabState& state,
     state.editorModeToggle.SetBounds( contentX, contentBaseY + EDITOR_MODE_TOGGLE_Y, colW, 24.0f );
     state.placementModeToggle.SetBounds( contentX, contentBaseY + EDITOR_PLACE_TOGGLE_Y, colW, 24.0f );
     state.staticObjectToggle.SetBounds( contentX, contentBaseY + EDITOR_STATIC_TOGGLE_Y, colW, 24.0f );
-    state.objectCombo.SetBounds( contentX, contentBaseY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
+    state.objectCombo.SetBounds( contentX,
+                                 contentBaseY + EDITOR_OBJECT_COMBO_Y,
+                                 (std::max)( 190.0f, contentW * 0.55f ),
+                                 24.0f );
 }
 
 } // namespace
@@ -202,17 +206,15 @@ void Draw( UIEditorTabState& state,
                        "Static object",
                        data.editorPlaceStatic );
 
-    state.objectCombo.SetBounds( contentX, scrolledY + EDITOR_OBJECT_COMBO_Y, (std::max)( 190.0f, contentW * 0.55f ), 24.0f );
+    state.objectCombo.SetBounds( contentX,
+                                 scrolledY + EDITOR_OBJECT_COMBO_Y,
+                                 (std::max)( 190.0f, contentW * 0.55f ),
+                                 24.0f );
     state.selectedObjectType = std::clamp( data.editorObjectType, 0, OBJECT_TYPE_COUNT - 1 );
     if ( IsRowVisible( contentY, contentH, scrolledY + EDITOR_OBJECT_COMBO_Y, 24.0f ) || state.objectCombo.IsOpen() )
     {
-        state.objectCombo.Draw( draw,
-                                "Object",
-                                kEditorObjectOptions,
-                                OBJECT_TYPE_COUNT,
-                                state.selectedObjectType,
-                                mouseX,
-                                mouseY );
+        state.objectCombo
+            .Draw( draw, "Object", kEditorObjectOptions, OBJECT_TYPE_COUNT, state.selectedObjectType, mouseX, mouseY );
     }
 
     const char* viewportState = "Cursor";
@@ -222,7 +224,8 @@ void Draw( UIEditorTabState& state,
     }
     else if ( data.editorModeEnabled )
     {
-        viewportState = data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
+        viewportState =
+            data.editorPlacementMode ? ( data.editorPlaceStatic ? "Place static" : "Place dynamic" ) : "Gizmo";
     }
 
     DrawLabelValueAt( draw,
