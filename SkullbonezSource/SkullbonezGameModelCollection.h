@@ -75,7 +75,7 @@ class GameModelCollection
     void AddGameModel( GameModel gameModel );
     void Clear();
     void RunPhysics( float fChangeInTime );
-    void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
+    void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f, const std::vector<uint8_t>* modelMask = nullptr, bool drawMaskedModels = true );
     void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches );
     void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );
     void RenderShadowCasters( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );

@@ -2693,40 +2693,99 @@ void SkullbonezRun::SetReplaySimulationPaused( bool paused )
     if ( paused )
     {
         EnterInteractiveSceneRun();
-        m_replayScrubber.pauseRestoreFlyMode = m_camera.isFlyMode;
-        m_replayScrubber.pauseRestoreLauncherMode = m_camera.isLauncherMode;
         m_replayScrubber.simulationPaused = true;
-        m_camera.isFlyMode = true;
-        m_camera.isLauncherMode = false;
-        if ( m_systems.cameras )
-        {
-            if ( !SceneState().isSceneMode )
-            {
-                m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-            }
-            XZBounds unbounded;
-            unbounded.m_xMin = -99999.9f;
-            unbounded.m_xMax = 99999.9f;
-            unbounded.m_zMin = -99999.9f;
-            unbounded.m_zMax = 99999.9f;
-            const uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-        }
-        Input::SetSystemCursorVisible( true );
-        InputController::ResetMouseLook( m_camera );
+        UpdateReplayInspectionCamera();
         return;
     }
 
     m_replayScrubber.simulationPaused = false;
-    m_camera.isLauncherMode = m_replayScrubber.pauseRestoreLauncherMode;
-    m_camera.isFlyMode = m_replayScrubber.pauseRestoreFlyMode || m_camera.isLauncherMode;
-    if ( m_systems.cameras && m_systems.terrain && !m_camera.isFlyMode )
+    UpdateReplayInspectionCamera();
+}
+
+
+void SkullbonezRun::EnterReplayInspectionCamera()
+{
+    if ( !m_systems.cameras )
     {
-        const uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-        m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+        return;
+    }
+
+    if ( !m_replayScrubber.inspectionCameraActive )
+    {
+        m_replayScrubber.inspectionRestoreFlyMode = m_camera.isFlyMode;
+        m_replayScrubber.inspectionRestoreLauncherMode = m_camera.isLauncherMode;
+        m_replayScrubber.inspectionRestoreCameraHash = m_systems.cameras->GetSelectedCameraName();
+
+        const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+        const Vector3 view = m_systems.cameras->GetRenderCameraView();
+        m_systems.cameras->CancelTween();
+        m_systems.cameras->SelectCamera( CAMERA_FREE, false );
+        m_systems.cameras->SetPrimaryPosition( eye );
+        m_systems.cameras->SetViewCoordinates( view );
+        m_replayScrubber.inspectionCameraActive = true;
+    }
+
+    XZBounds unbounded;
+    unbounded.m_xMin = -99999.9f;
+    unbounded.m_xMax = 99999.9f;
+    unbounded.m_zMin = -99999.9f;
+    unbounded.m_zMax = 99999.9f;
+    m_systems.cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
+    m_camera.cameraTime = 0.0f;
+    m_camera.isFlyMode = true;
+    m_camera.isLauncherMode = false;
+    Input::SetSystemCursorVisible( true );
+    InputController::ResetMouseLook( m_camera );
+}
+
+
+void SkullbonezRun::ExitReplayInspectionCamera()
+{
+    if ( !m_replayScrubber.inspectionCameraActive )
+    {
+        return;
+    }
+
+    m_replayScrubber.inspectionCameraActive = false;
+    m_camera.isLauncherMode = m_replayScrubber.inspectionRestoreLauncherMode;
+    m_camera.isFlyMode = m_replayScrubber.inspectionRestoreFlyMode || m_camera.isLauncherMode;
+    if ( m_systems.cameras )
+    {
+        m_systems.cameras->CancelTween();
+        m_systems.cameras->SelectCamera( m_replayScrubber.inspectionRestoreCameraHash, false );
+        if ( m_systems.terrain )
+        {
+            const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
+            if ( m_camera.isFlyMode )
+            {
+                XZBounds unbounded;
+                unbounded.m_xMin = -99999.9f;
+                unbounded.m_xMax = 99999.9f;
+                unbounded.m_zMin = -99999.9f;
+                unbounded.m_zMax = 99999.9f;
+                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+            }
+            else
+            {
+                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+            }
+        }
     }
     Input::SetSystemCursorVisible( true );
     InputController::ResetMouseLook( m_camera );
+}
+
+
+void SkullbonezRun::UpdateReplayInspectionCamera()
+{
+    if ( m_replayScrubber.paused || m_replayScrubber.simulationPaused )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
 }
 
 
@@ -2790,6 +2849,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overVelocityEditToggle = velocityEditToggle.Contains( mouse.x, mouse.y );
     const bool overPredictControl = predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = predictToggle.Contains( mouse.x, mouse.y );
+    const bool overPredictUi = overPredictControl || overPredictToggle;
     const bool overPredictDecrease = predictDecrease.Contains( mouse.x, mouse.y );
     const bool overPredictIncrease = predictIncrease.Contains( mouse.x, mouse.y );
     const bool overPredictHorizon = predictHorizon.Contains( mouse.x, mouse.y ) ||
@@ -2805,7 +2865,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
          overSaveButton ||
          overPauseButton ||
          overVelocityEditToggle ||
-         overPredictControl ||
+         overPredictUi ||
          m_replayScrubber.dragging ||
          m_replayPrediction.horizonDragging ||
          m_replayScrubber.paused ||
@@ -2833,7 +2893,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
                            m_replayPrediction.horizonDragging ||
-                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPauseButton || overVelocityEditToggle || overPredictControl ) ) );
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
 
     if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {
@@ -2943,7 +3003,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         SaveReplayBufferFromScrubber( hoveredTrack );
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && !overPauseButton && !overPredictControl && ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    else if ( leftPressed && canTakeMouse && !overPauseButton && !overPredictUi && ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
         m_replayScrubber.activeTrack = hoveredTrack;
@@ -3004,6 +3064,7 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                m_replayScrubber.paused ||
                                m_replayScrubber.simulationPaused ||
                                m_replayScrubber.visibleUntil >= now;
+    UpdateReplayInspectionCamera();
     return consumesMouse;
 }
 
@@ -5955,6 +6016,83 @@ bool SkullbonezRun::StepReplayPredictionJob( double budgetMilliseconds )
 }
 
 
+bool SkullbonezRun::BuildReplayFocusModelMask()
+{
+    PROFILE_SCOPED( "Frame/Replay/FocusMask" );
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    if ( !m_replayPathVisualizer.hasTarget || m_replayPathVisualizer.targetId.value == 0 || modelCount <= 0 )
+    {
+        m_replayFocusModelMask.clear();
+        return false;
+    }
+
+    m_replayFocusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    int markedCount = 0;
+    const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
+    {
+        if ( id.value == 0 )
+        {
+            return;
+        }
+
+        int resolvedIndex = -1;
+        if ( preferredModelIndex >= 0 &&
+             preferredModelIndex < modelCount &&
+             models[static_cast<std::size_t>( preferredModelIndex )].GetReplayBodyId() == id.value )
+        {
+            resolvedIndex = preferredModelIndex;
+        }
+        else
+        {
+            for ( int i = 0; i < modelCount; ++i )
+            {
+                if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
+                {
+                    resolvedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if ( resolvedIndex >= 0 )
+        {
+            uint8_t& mask = m_replayFocusModelMask[static_cast<std::size_t>( resolvedIndex )];
+            if ( mask == 0 )
+            {
+                mask = 1;
+                ++markedCount;
+            }
+        }
+    };
+
+    if ( m_replayPathVisualizer.targets.empty() )
+    {
+        markByReplayId( m_replayPathVisualizer.targetId, m_replayPathVisualizer.targetModelIndex );
+    }
+    else
+    {
+        for ( const RunReplayPathTarget& target : m_replayPathVisualizer.targets )
+        {
+            markByReplayId( target.id, target.modelIndex );
+        }
+    }
+
+    const std::vector<RunReplayPathTraceNode>& futureNodes = m_replayPrediction.enabled ? m_replayPrediction.futureNodes : m_replayPathVisualizer.futureNodes;
+    for ( const RunReplayPathTraceNode& node : futureNodes )
+    {
+        markByReplayId( node.id, -1 );
+    }
+
+    if ( markedCount <= 0 || markedCount >= modelCount )
+    {
+        m_replayFocusModelMask.clear();
+        return false;
+    }
+    return true;
+}
+
+
 void SkullbonezRun::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
@@ -5977,7 +6115,8 @@ void SkullbonezRun::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
                                m_replayPrediction.sourceFrameIndex != latestFrame ||
                                m_replayPrediction.sourceSolverHash != latestHash;
     const bool refreshDue = ( now - m_replayPrediction.lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    if ( m_replayPrediction.dirty || ( !m_replayPrediction.building && sourceChanged && refreshDue ) )
+    const bool allowAutomaticRefresh = !m_replayScrubber.simulationPaused;
+    if ( m_replayPrediction.dirty || ( allowAutomaticRefresh && !m_replayPrediction.building && sourceChanged && refreshDue ) )
     {
         BeginReplayPredictionJob( latestFrame, latestHash );
     }

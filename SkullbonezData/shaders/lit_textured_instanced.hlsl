@@ -84,10 +84,10 @@ SamplerState sSampler3 : register(s3);
 // Concept: object material data arrives through two small channels.
 //
 // The per-instance stream carries draw-local color and response values in
-// material0/material1/material2. The t4 material table carries defaults by
-// material kind, sampled through material2.w. Keeping both channels lets legacy
-// tint/colorOverride authoring keep working while the shader gains typed
-// roughness, specular, and emissive controls.
+// material0/material1/material2/material3. The t4 material table carries
+// defaults by material kind, sampled through material2.w. Keeping both channels
+// lets legacy tint/colorOverride authoring keep working while the shader gains
+// typed roughness, specular, emissive controls, and per-object alpha.
 struct VS_IN
 {
     float3 position : POSITION;   // Per-vertex: object-space position
@@ -100,6 +100,7 @@ struct VS_IN
     float4 material0 : TEXCOORD5; // base rgb + legacy mode bridge
     float4 material1 : TEXCOORD6; // roughness, metallic, specular, emissive strength
     float4 material2 : TEXCOORD7; // emissive rgb + material-table row
+    float4 material3 : TEXCOORD8; // alpha, transmission, flags, pad
 };
 
 struct VS_OUT
@@ -112,6 +113,7 @@ struct VS_OUT
     float4 material0 : TEXCOORD3;
     float4 material1 : TEXCOORD4;
     float4 material2 : TEXCOORD5;
+    float4 material3 : TEXCOORD10;
     float3 worldPos  : TEXCOORD6;
     nointerpolation float4 sphereShadowInfo : TEXCOORD7;
     float3 worldNormal : TEXCOORD8;
@@ -141,6 +143,7 @@ VS_OUT main_vs(VS_IN input)
     output.material0 = input.material0;
     output.material1 = input.material1;
     output.material2 = input.material2;
+    output.material3 = input.material3;
     output.worldPos = worldPos.xyz;
     float3 sphereCenter = mul(model, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
     float3 sphereAxis = mul(model, float4(1.0f, 0.0f, 0.0f, 1.0f)).xyz - sphereCenter;
@@ -523,6 +526,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     int materialMode = ResolveMaterialMode(input.material0.a, uObjectStyle);
 
     float3 materialColor = input.material0.rgb;
+    float materialAlpha = saturate(uMaterialAlpha * input.material3.x);
     if (materialMode == 0)
     {
         float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
@@ -551,10 +555,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
         styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
-        return float4((materialMode == 0 ? beachBall : styled + rimLight * 0.35f) + emissive, uMaterialAlpha);
+        return float4((materialMode == 0 ? beachBall : styled + rimLight * 0.35f) + emissive, materialAlpha);
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
     float3 litColor = OrdinaryMaterialBRDF(materialColor, emissive, roughness, metallic, materialSpecular, worldN, N, V, L, shadowFactor);
-    return float4(litColor, uMaterialAlpha);
+    return float4(litColor, materialAlpha);
 }

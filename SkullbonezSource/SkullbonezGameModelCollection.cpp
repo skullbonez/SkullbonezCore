@@ -159,9 +159,9 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
+void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
-    GameModelRenderer::RenderModels( *this, view, proj, lightPos, cinematic, shadow, materialAlpha );
+    GameModelRenderer::RenderModels( *this, view, proj, lightPos, cinematic, shadow, materialAlpha, modelMask, drawMaskedModels );
 }
 
 

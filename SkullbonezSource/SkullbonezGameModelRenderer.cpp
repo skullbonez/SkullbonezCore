@@ -80,7 +80,7 @@ RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool b
 } // namespace
 
 
-void GameModelRenderer::RenderModels( GameModelCollection& collection, const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
+void GameModelRenderer::RenderModels( GameModelCollection& collection, const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
     const std::vector<GameModel>& models = collection.Models();
 
@@ -92,13 +92,30 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     const GameModelRenderStream renderStream = collection.GetRenderStream();
     const int modelCount = renderStream.count;
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    const bool transparentMaterial = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+    const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+    const auto shouldDrawModel = [&]( int index ) -> bool
+    {
+        if ( !modelMask )
+        {
+            return true;
+        }
+        if ( index < 0 || static_cast<std::size_t>( index ) >= modelMask->size() )
+        {
+            return !drawMaskedModels;
+        }
+        const bool masked = ( *modelMask )[static_cast<std::size_t>( index )] != 0;
+        return drawMaskedModels ? masked : !masked;
+    };
 
     {
         DRAW_CALL_TRACE_SCOPE( "Spheres" );
-        SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
         for ( int x = 0; x < modelCount; ++x )
         {
+            if ( !shouldDrawModel( x ) )
+            {
+                continue;
+            }
             if ( models[x].IsSphere() )
             {
                 RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
@@ -113,6 +130,10 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     {
         for ( int x = 0; x < modelCount; ++x )
         {
+            if ( !shouldDrawModel( x ) )
+            {
+                continue;
+            }
             if ( renderStream.isBox[x] )
             {
                 RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], true ) : models[x].GetRenderMaterial();
@@ -139,7 +160,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
 
     {
         DRAW_CALL_TRACE_SCOPE( "Boxes" );
-        SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
         appendBoxLikeModels( false );
         SkullbonezHelper::DrawBoxBatchEnd();
     }
@@ -147,7 +168,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     if ( hasPineVisualModels )
     {
         DRAW_CALL_TRACE_SCOPE( "Pines" );
-        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawPineBatchEnd();
     }
@@ -156,6 +177,10 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
         DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
         for ( int x = 0; x < modelCount; ++x )
         {
+            if ( !shouldDrawModel( x ) )
+            {
+                continue;
+            }
             if ( !models[x].IsConvexHull() )
             {
                 continue;
@@ -169,7 +194,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
 
             const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) * Matrix4::FromQuaternion( models[x].GetOrientation() );
             const RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], false ) : models[x].GetRenderMaterial();
-            SkullbonezHelper::DrawConvexHullModel( *hull, bodyModel, material, view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
+            SkullbonezHelper::DrawConvexHullModel( *hull, bodyModel, material, view, proj, lightPos, alphaBlendedPass, cinematic, shadow, clampedMaterialAlpha );
         }
     }
 }

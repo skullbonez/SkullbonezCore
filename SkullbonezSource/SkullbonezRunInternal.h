@@ -93,10 +93,11 @@ inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 430.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 520.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 300.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 348.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
@@ -164,7 +165,7 @@ inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
 inline UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )
 {
     const UI::UIRect pause = ReplayScrubberPauseButtonRect( screenW, screenH );
-    return { pause.x + pause.w + 8.0f,
+    return { pause.x + pause.w + 10.0f,
              pause.y,
              REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH,
              pause.h };
@@ -181,26 +182,31 @@ inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
 
 inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
 {
-    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x, control.y, 92.0f, control.h };
+    const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+    return { velocity.x + velocity.w + 10.0f,
+             velocity.y,
+             REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH,
+             velocity.h };
 }
 
 inline UI::UIRect ReplayScrubberPredictDecreaseRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 100.0f, control.y + 4.0f, 16.0f, 14.0f };
+    return { control.x, control.y + 4.0f, 16.0f, 14.0f };
 }
 
 inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + control.w - 22.0f, control.y + 4.0f, 16.0f, 14.0f };
+    return { control.x + control.w - 54.0f, control.y + 4.0f, 16.0f, 14.0f };
 }
 
 inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 126.0f, control.y + 7.0f, control.w - 162.0f, 8.0f };
+    const UI::UIRect increase = ReplayScrubberPredictIncreaseRect( screenW, screenH );
+    const float x = control.x + 26.0f;
+    return { x, control.y + 7.0f, (std::max)( 40.0f, increase.x - x - 10.0f ), 8.0f };
 }
 
 inline float ReplayPredictionHorizonT( float seconds )

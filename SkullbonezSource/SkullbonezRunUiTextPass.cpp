@@ -232,12 +232,12 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     drawReplayRow( RunReplayTrack::Presentation, 0.20f, 0.70f, 0.96f, 0.54f, 0.78f, 0.90f );
     drawReplayRow( RunReplayTrack::Solver, 0.30f, 0.93f, 0.72f, 0.48f, 0.86f, 0.74f );
 
+    const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictDecrease = ReplayScrubberPredictDecreaseRect( screenW, screenH );
     const UI::UIRect predictIncrease = ReplayScrubberPredictIncreaseRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
-    const bool predictHover = m_replayPrediction.checkboxHovered ||
-                              m_replayPrediction.decreaseHovered ||
+    const bool predictHover = m_replayPrediction.decreaseHovered ||
                               m_replayPrediction.increaseHovered ||
                               m_replayPrediction.horizonHovered ||
                               m_replayPrediction.horizonDragging;
@@ -248,6 +248,41 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const float predictBackR = predictEnabled ? 0.08f : 0.055f;
     const float predictBackG = predictEnabled ? 0.24f : 0.08f;
     const float predictBackB = predictEnabled ? 0.16f : 0.105f;
+    draw.RoundedRect( predictToggle.x,
+                      predictToggle.y,
+                      predictToggle.w,
+                      predictToggle.h,
+                      4.0f,
+                      predictBackR + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackG + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackB + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      0.88f );
+    draw.Outline( predictToggle.x, predictToggle.y, predictToggle.w, predictToggle.h, 0.62f, 0.86f, 0.78f, m_replayPrediction.checkboxHovered || predictEnabled ? 0.72f : 0.34f );
+    const float checkX = predictToggle.x + 7.0f;
+    const float checkY = predictToggle.y + 5.0f;
+    draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
+    if ( predictEnabled )
+    {
+        draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 0.38f, 1.0f, 0.58f, 0.95f );
+    }
+    draw.Text( predictToggle.x + 23.0f,
+               predictToggle.y + 4.5f,
+               9.5f,
+               predictEnabled ? 0.70f : 0.60f,
+               predictEnabled ? 1.0f : 0.72f,
+               predictEnabled ? 0.78f : 0.76f,
+               "PREDICT" );
+    if ( !m_runtimeSettings.isVsyncEnabled )
+    {
+        draw.Text( predictToggle.x + predictToggle.w + 12.0f,
+                   predictToggle.y + 5.0f,
+                   9.0f,
+                   1.0f,
+                   0.18f,
+                   0.12f,
+                   "WARNING: VSYNC OFF" );
+    }
+
     draw.RoundedRect( predict.x,
                       predict.y,
                       predict.w,
@@ -258,20 +293,6 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
                       predictBackB + ( predictHover ? 0.07f : 0.0f ),
                       0.88f );
     draw.Outline( predict.x, predict.y, predict.w, predict.h, 0.62f, 0.86f, 0.78f, predictHover || predictEnabled ? 0.72f : 0.34f );
-    const float checkX = predict.x + 7.0f;
-    const float checkY = predict.y + 5.0f;
-    draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
-    if ( predictEnabled )
-    {
-        draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 0.38f, 1.0f, 0.58f, 0.95f );
-    }
-    draw.Text( predict.x + 23.0f,
-               predict.y + 4.5f,
-               9.5f,
-               predictEnabled ? 0.70f : 0.60f,
-               predictEnabled ? 1.0f : 0.72f,
-               predictEnabled ? 0.78f : 0.76f,
-               "PREDICT" );
 
     auto drawPredictStep = [&]( const UI::UIRect& rect, bool hovered, const char* label, bool enabled )
     {
@@ -316,9 +337,8 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
                       predictEnabled ? 1.0f : 0.62f,
                       predictEnabled ? 0.82f : 0.64f,
                       m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging ? 0.98f : 0.86f );
-    const float valueLabelW = Text2d::MeasureText( 8.5f, predictSecondsLabel );
-    draw.Text( predictHorizon.x + ( predictHorizon.w - valueLabelW ) * 0.5f,
-               predict.y + 1.8f,
+    draw.Text( predictIncrease.x + predictIncrease.w + 8.0f,
+               predict.y + 4.5f,
                8.5f,
                predictEnabled ? 0.90f : 0.64f,
                predictEnabled ? 1.0f : 0.74f,

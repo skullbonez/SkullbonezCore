@@ -339,6 +339,9 @@ struct RunReplayScrubberState
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
+    bool inspectionCameraActive = false;
+    bool inspectionRestoreFlyMode = false;
+    bool inspectionRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
     bool restoreWasDown = false;
@@ -346,6 +349,7 @@ struct RunReplayScrubberState
     RunReplayTrack activeTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
+    uint32_t inspectionRestoreCameraHash = CAMERA_FREE;
     bool leftWasDown = false;
     float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
@@ -669,6 +673,8 @@ class SkullbonezRun
         bool collisionStateColorsVisible;       // Route bodies through collision-state visualization instead of materials.
         float collisionVisualizerAlphaOverride; // -1 keeps visualizer defaults; otherwise overrides debug alpha.
         float bodyAlpha;                        // 1 for opaque bodies; debug alpha for the transparent object pass.
+        const std::vector<uint8_t>* modelMask;  // Optional replay focus mask for split opaque/faded body rendering.
+        bool drawMaskedModels;                  // True draws only masked bodies; false draws everything outside the mask.
     };
 
     struct TerrainPassInputs
@@ -1095,6 +1101,7 @@ class SkullbonezRun
     RunReplayPredictionState m_replayPrediction;         // Optional live solver lookahead for the selected replay path target.
     RunReplayCauseTreeState m_replayCauseTree;           // Right-side object hierarchy for the active replay cause/effect chain.
     RunReplayVelocityEditState m_replayVelocityEdit;     // Alt-enabled live velocity handles feeding the prediction cache.
+    std::vector<uint8_t> m_replayFocusModelMask;         // Render-only body mask for selected replay prediction chains.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
@@ -1227,6 +1234,7 @@ class SkullbonezRun
     void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
+    bool BuildReplayFocusModelMask();
     bool BuildReplayCauseTreeRows();
     bool TickReplayCauseTreeInput( bool uiBlocksMouse );
     bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Math::Vector::Vector3& outPosition ) const;
@@ -1244,6 +1252,9 @@ class SkullbonezRun
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ResetReplayScrubber();
     void SetReplaySimulationPaused( bool paused );
+    void EnterReplayInspectionCamera();
+    void ExitReplayInspectionCamera();
+    void UpdateReplayInspectionCamera();
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;

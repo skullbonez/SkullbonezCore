@@ -532,12 +532,21 @@ void SkullbonezRun::ResetReplayTimelineForActiveScene()
 
 void SkullbonezRun::ResetReplayScrubber()
 {
+    if ( m_replayScrubber.inspectionCameraActive && !m_replayScrubber.simulationPaused )
+    {
+        ExitReplayInspectionCamera();
+    }
+
     const bool leftWasDown = m_replayScrubber.leftWasDown;
     const bool restoreWasDown = m_replayScrubber.restoreWasDown;
     const bool restoreConsumedThisFrame = m_replayScrubber.restoreConsumedThisFrame;
     const bool simulationPaused = m_replayScrubber.simulationPaused;
     const bool pauseRestoreFlyMode = m_replayScrubber.pauseRestoreFlyMode;
     const bool pauseRestoreLauncherMode = m_replayScrubber.pauseRestoreLauncherMode;
+    const bool inspectionCameraActive = m_replayScrubber.inspectionCameraActive;
+    const bool inspectionRestoreFlyMode = m_replayScrubber.inspectionRestoreFlyMode;
+    const bool inspectionRestoreLauncherMode = m_replayScrubber.inspectionRestoreLauncherMode;
+    const uint32_t inspectionRestoreCameraHash = m_replayScrubber.inspectionRestoreCameraHash;
     m_replayScrubber = RunReplayScrubberState{};
     m_replayScrubber.leftWasDown = leftWasDown;
     m_replayScrubber.restoreWasDown = restoreWasDown;
@@ -545,6 +554,10 @@ void SkullbonezRun::ResetReplayScrubber()
     m_replayScrubber.simulationPaused = simulationPaused;
     m_replayScrubber.pauseRestoreFlyMode = pauseRestoreFlyMode;
     m_replayScrubber.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
+    m_replayScrubber.inspectionCameraActive = inspectionCameraActive;
+    m_replayScrubber.inspectionRestoreFlyMode = inspectionRestoreFlyMode;
+    m_replayScrubber.inspectionRestoreLauncherMode = inspectionRestoreLauncherMode;
+    m_replayScrubber.inspectionRestoreCameraHash = inspectionRestoreCameraHash;
 }
 
 
