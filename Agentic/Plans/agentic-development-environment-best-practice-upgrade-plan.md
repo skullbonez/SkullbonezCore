@@ -21,7 +21,7 @@ adds the missing pieces that current agent tooling practice points toward:
 - agent-workflow evals,
 - script or hook enforcement for critical rules,
 - reproducible setup for local and cloud agents,
-- a small cleanup for the report directory expected by the orchestrator.
+- a small cleanup for durable user-facing report storage.
 
 ## Already Done In This Pass
 
@@ -48,8 +48,9 @@ Validation: documentation-only; no repository validation required.
   gates discoverable.
 - SkullScope gives agents bounded, queryable physics diagnostics and explicit
   model-read data-size accounting.
-- `Agentic/Orchestrator` records policy, queue, runbook, and report templates
-  for sequential roadmap execution.
+- `Agentic/Skills/orchestrator/SKILL.md` records the lightweight coordinator
+  workflow for sequential plan execution through fresh worker agents and
+  rubber-duck review agents.
 
 ## Workstream 1: Path-Scoped Agent Instructions
 
@@ -169,7 +170,7 @@ Later helper behavior:
 
 - compare Markdown validation tables against the JSON contract,
 - emit a concise validation recommendation for agents,
-- drive orchestrator queue validation.
+- inform orchestrator-skill prompts and validation handoffs.
 
 ### Validation
 
@@ -349,9 +350,9 @@ tools\check_agent_environment.bat
 
 ### Problem
 
-`Agentic/Orchestrator/runbook.md` expects committed reports under
-`Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, but the `Agentic/Reports` directory
-does not currently exist in the worktree.
+The lightweight orchestrator skill expects durable user-facing summaries for
+completed plan work, but report storage should stay separate from raw run state
+and temporary artifacts.
 
 ### Proposed Changes
 

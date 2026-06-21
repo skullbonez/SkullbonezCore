@@ -12,11 +12,12 @@ material.
   calls for them.
 - Completed plans belong in `Plans/Done`; failed or rejected plans belong in
   their matching archive folders.
-- Implementing work from `Plans/` should default to the orchestrator workflow.
-  Ordinary plan drafting or plan maintenance can stay as documentation work.
+- Implementing work from `Plans/` should default to
+  `Skills/orchestrator/SKILL.md`. Ordinary plan drafting or plan maintenance
+  can stay as documentation work.
 - `Agentic/Runs` contains run-state and raw evidence. Do not treat it as the
   final user-facing report unless a specific workflow says so.
 - Documentation-only edits under this folder require no repository validation
   script.
-- If editing orchestrator process files that a tool consumes, use the root
+- If editing executable helper scripts under `../tools`, use the root
   `AGENTS.md` tools validation mapping.

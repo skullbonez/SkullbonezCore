@@ -29,12 +29,14 @@ files only when the current task calls for them.
 
 ## Plan Implementation Mode
 
-When implementing work from `Agentic/Plans`, use orchestration as the default
-mode. The orchestrator owns queue selection, branch/state policy,
-worker/verifier handoff, required validation selection, report creation, and
-plan archival. Reading, updating, or drafting a plan is normal documentation
-work; turning a plan into repository changes should follow the orchestrator
-workflow unless the user explicitly asks to bypass it.
+When implementing work from `Agentic/Plans`, use the repo-local orchestrator
+skill as the default coordination path:
+`Agentic/Skills/orchestrator/SKILL.md`. The skill owns plan selection, branch
+choice, fresh worker-agent delegation, independent rubber-duck review, required
+validation selection, commits, pushes, and handoff reporting. Reading, updating,
+or drafting a plan is normal documentation work; turning a plan into repository
+changes should follow the orchestrator skill unless the user explicitly asks to
+bypass it.
 
 ---
 
