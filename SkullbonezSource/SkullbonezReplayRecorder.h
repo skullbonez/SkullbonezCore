@@ -165,6 +165,7 @@ class ReplayRecorder
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+    void CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const;
     const ReplayPresentationSample* LatestSample() const;
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 

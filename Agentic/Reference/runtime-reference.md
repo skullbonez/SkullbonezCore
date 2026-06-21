@@ -131,7 +131,7 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 ## Replay Capture And Scrub
 
-Replay capture keeps the last 30 seconds of presentation samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag the thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. Drag the thumb back to the live end to resume simulation. This is visual/presentation scrubbing, not authoritative solver rollback or branching.
+Replay capture keeps the last 30 seconds of presentation samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag the thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. Drag the thumb back to the live end to resume simulation. The scrubber's `SAVE` button writes the retained buffer to `replays\replay_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. This is visual/presentation scrubbing, not authoritative solver rollback or branching.
 
 Use hash logging when a fixed-step scene needs cheap frame hashes:
 

@@ -156,6 +156,8 @@ CORE_PREFIXES = (
     "SkullbonezRunScene",
     "SkullbonezRunStress",
     "SkullbonezRunUiTextPass",
+    "SkullbonezReplayExporter",
+    "SkullbonezRuntimeFileWriter",
     "SkullbonezRuntimeDiagnostics",
     "SkullbonezReplayRecorder",
     "SkullbonezSceneRuntime",

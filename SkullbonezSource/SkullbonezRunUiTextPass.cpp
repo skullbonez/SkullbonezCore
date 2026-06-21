@@ -75,9 +75,11 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH );
+    const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH );
     const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * t );
     const float knobX = track.x + track.w * t;
     const bool live = t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused;
+    const double now = m_timers.simulationTimer.GetTotalTime();
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
     draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, 0.16f, 0.18f, 0.22f, 0.92f );
@@ -86,6 +88,44 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     draw.Text( panel.x + 16.0f, panel.y + 15.0f, 11.0f, 0.72f, 0.88f, 1.0f, "REPLAY" );
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
     draw.Text( panel.x + panel.w - labelW - 16.0f, panel.y + 15.0f, 11.0f, live ? 0.58f : 1.0f, live ? 0.96f : 0.86f, live ? 0.70f : 0.36f, timeLabel );
+
+    const bool saveHover = m_replayScrubber.saveHovered;
+    draw.RoundedRect( saveButton.x,
+                      saveButton.y,
+                      saveButton.w,
+                      saveButton.h,
+                      5.0f,
+                      saveHover ? 0.20f : 0.10f,
+                      saveHover ? 0.42f : 0.20f,
+                      saveHover ? 0.55f : 0.28f,
+                      0.96f );
+    draw.Outline( saveButton.x, saveButton.y, saveButton.w, saveButton.h, 0.54f, 0.78f, 0.90f, saveHover ? 0.72f : 0.38f );
+    const char* saveLabel = "SAVE";
+    const float saveLabelW = Text2d::MeasureText( 10.0f, saveLabel );
+    draw.Text( saveButton.x + ( saveButton.w - saveLabelW ) * 0.5f,
+               saveButton.y + 6.0f,
+               10.0f,
+               0.88f,
+               0.97f,
+               1.0f,
+               saveLabel );
+
+    if ( m_replayScrubber.saveMessage[0] != '\0' && m_replayScrubber.saveMessageUntil >= now )
+    {
+        const char* message = m_replayScrubber.saveMessage;
+        const float maxMessageW = saveButton.x - panel.x - 28.0f;
+        if ( Text2d::MeasureText( 10.0f, message ) > maxMessageW )
+        {
+            message = strncmp( m_replayScrubber.saveMessage, "SAVED", 5 ) == 0 ? "SAVED" : "SAVE FAILED";
+        }
+        draw.Text( panel.x + 16.0f,
+                   saveButton.y + 6.0f,
+                   10.0f,
+                   0.60f,
+                   0.86f,
+                   0.74f,
+                   message );
+    }
 
     Text2d::FlushQuads();
     Text2d::FlushText();

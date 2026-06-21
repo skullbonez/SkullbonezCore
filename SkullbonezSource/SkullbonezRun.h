@@ -330,11 +330,14 @@ struct RunReplayScrubberState
     bool dragging = false;
     bool paused = false;
     bool mouseCaptured = false;
+    bool saveHovered = false;
     bool leftWasDown = false;
     float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
+    double saveMessageUntil = 0.0;
+    char saveMessage[96] = {};
 };
 
 struct RunReplayPoseBackup
@@ -1012,6 +1015,7 @@ class SkullbonezRun
     int WindowScreenHeight() const;                                                                                                        // Current window height, or config fallback before window init
     void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Backbuffer capture path; current encoder writes BMP files.
+    bool SaveReplayBufferFromScrubber();                                                                                                   // Writes the retained in-memory replay buffer to replays/.
     bool SaveCurrentSceneDefaults();                                                                                                       // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                                                                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                                                                             // Ordinary Render-tab values persisted to engine.cfg.

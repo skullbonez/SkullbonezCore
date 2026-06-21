@@ -382,6 +382,22 @@ ReplayRecorderStats ReplayRecorder::GetStats() const
     return stats;
 }
 
+void ReplayRecorder::CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const
+{
+    outSamples.clear();
+    outSamples.reserve( m_sampleCount );
+    if ( m_sampleCount == 0 || m_samples.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < m_sampleCount; ++i )
+    {
+        const std::size_t index = ( m_sampleHead + i ) % m_samples.size();
+        outSamples.push_back( m_samples[index] );
+    }
+}
+
 const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 {
     if ( m_sampleCount == 0 || m_samples.empty() )

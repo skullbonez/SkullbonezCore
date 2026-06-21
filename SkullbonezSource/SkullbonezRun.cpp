@@ -27,6 +27,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezReplayExporter.h"
+#include "SkullbonezRuntimeFileWriter.h"
 
 #include <stdexcept>
 
@@ -514,6 +516,43 @@ const ReplayPresentationSample* SkullbonezRun::CurrentReplayScrubSample() const
     }
 
     return m_replay.SampleAtNormalized( m_replayScrubber.position );
+}
+
+bool SkullbonezRun::SaveReplayBufferFromScrubber()
+{
+    static int sReplaySeq = 0;
+
+    char path[256] = {};
+    bool saved = false;
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", "replay_", ".skreplay", sReplaySeq ) )
+    {
+        saved = ReplayExporter::Save( m_replay, path );
+    }
+
+    const double now = m_timers.simulationTimer.GetTotalTime();
+    if ( saved )
+    {
+        const char* fileName = strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   "SAVED %s",
+                   fileName );
+    }
+    else
+    {
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   "REPLAY SAVE FAILED" );
+    }
+    m_replayScrubber.saveMessageUntil = now + 2.5;
+    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+    return saved;
 }
 
 

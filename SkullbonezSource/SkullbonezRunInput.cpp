@@ -22,6 +22,7 @@ Related:
 #include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezInputController.h"
 #include "SkullbonezPhysicsMass.h"
+#include "SkullbonezRuntimeFileWriter.h"
 #include "SkullbonezWorkerPool.h"
 #include "UI/UIInput.h"
 #include "UI/UILayout.h"
@@ -2024,17 +2025,33 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH );
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
+    const bool overSaveButton = saveButton.Contains( mouse.x, mouse.y );
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
-    if ( inHotZone || overPanel || m_replayScrubber.dragging || m_replayScrubber.paused )
+    if ( inHotZone || overPanel || overSaveButton || m_replayScrubber.dragging || m_replayScrubber.paused )
     {
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
+    m_replayScrubber.saveHovered = overSaveButton &&
+                                   ( m_replayScrubber.visibleUntil >= now ||
+                                     m_replayScrubber.dragging ||
+                                     m_replayScrubber.paused );
 
-    if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    bool consumesMouse = canTakeMouse &&
+                         ( m_replayScrubber.dragging ||
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton ) ) );
+
+    if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
+    {
+        EnterInteractiveSceneRun();
+        SaveReplayBufferFromScrubber();
+        consumesMouse = true;
+    }
+    else if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
         m_replayScrubber.dragging = true;
@@ -2045,7 +2062,6 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         }
     }
 
-    bool consumesMouse = canTakeMouse && ( m_replayScrubber.dragging || ( m_replayScrubber.visibleUntil >= now && inHotZone ) );
     if ( m_replayScrubber.dragging )
     {
         m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH );
@@ -3236,14 +3252,11 @@ void SkullbonezRun::TakeInput()
     {
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
         {
-            CreateDirectoryA( "Scenes", nullptr );
             static int sSnapshotSeq = 0;
-            bool saved = false;
-            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            char path[256] = {};
+            if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sSnapshotSeq, 100 ) )
             {
-                char path[256];
-                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene.json", sSnapshotSeq++ );
-                saved = m_cGameModelCollection.SaveSceneSnapshot(
+                m_cGameModelCollection.SaveSceneSnapshot(
                     path,
                     SceneState().isScenePhysics,
                     SceneState().isSceneText,
@@ -3259,18 +3272,11 @@ void SkullbonezRun::TakeInput()
     {
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
         {
-            CreateDirectoryA( "Screenshots", nullptr );
             static int sScreenshotSeq = 0;
-            bool saved = false;
-            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            char path[256] = {};
+            if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq, 100 ) )
             {
-                char path[256];
-                sprintf_s( path, sizeof( path ), "Screenshots\\screenshot_%04d.bmp", sScreenshotSeq++ );
-                if ( GetFileAttributesA( path ) == INVALID_FILE_ATTRIBUTES )
-                {
-                    SaveScreenshot( path );
-                    saved = true;
-                }
+                SaveScreenshot( path );
             }
         }
     }
