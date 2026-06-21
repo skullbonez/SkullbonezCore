@@ -2710,6 +2710,7 @@ void SkullbonezRun::EnterReplayInspectionCamera()
         return;
     }
 
+    const bool enteringInspectionCamera = !m_replayScrubber.inspectionCameraActive;
     if ( !m_replayScrubber.inspectionCameraActive )
     {
         m_replayScrubber.inspectionRestoreFlyMode = m_camera.isFlyMode;
@@ -2734,8 +2735,11 @@ void SkullbonezRun::EnterReplayInspectionCamera()
     m_camera.cameraTime = 0.0f;
     m_camera.isFlyMode = true;
     m_camera.isLauncherMode = false;
-    Input::SetSystemCursorVisible( true );
-    InputController::ResetMouseLook( m_camera );
+    if ( enteringInspectionCamera )
+    {
+        Input::SetSystemCursorVisible( true );
+        InputController::ResetMouseLook( m_camera );
+    }
 }
 
 
@@ -3118,9 +3122,15 @@ void SkullbonezRun::TakeInput()
         return;
     }
 
-    const auto ReplayPauseMouseLookActive = [&]() -> bool
+    const auto ReplayInspectionActive = [&]() -> bool
     {
-        return m_replayScrubber.simulationPaused &&
+        return m_replayScrubber.inspectionCameraActive ||
+               m_replayScrubber.paused ||
+               m_replayScrubber.simulationPaused;
+    };
+    const auto ReplayInspectionMouseLookActive = [&]() -> bool
+    {
+        return ReplayInspectionActive() &&
                Input::IsRightMouseDown() &&
                !m_UI.WantsNativeMouseCursor() &&
                !m_UI.BlocksCameraMouse();
@@ -3137,9 +3147,9 @@ void SkullbonezRun::TakeInput()
             return m_editor.viewportLookActive;
         }
 
-        if ( m_replayScrubber.simulationPaused )
+        if ( ReplayInspectionActive() )
         {
-            return ReplayPauseMouseLookActive();
+            return ReplayInspectionMouseLookActive();
         }
 
         return m_camera.isFlyMode;
@@ -4325,7 +4335,7 @@ void SkullbonezRun::TakeInput()
 
     const bool cameraMouseLookActive = ( !m_editor.editorModeEnabled &&
                                          m_camera.isFlyMode &&
-                                         ( !m_replayScrubber.simulationPaused || ReplayPauseMouseLookActive() ) ) ||
+                                         ( !ReplayInspectionActive() || ReplayInspectionMouseLookActive() ) ) ||
                                        m_editor.viewportLookActive;
     const bool cameraKeyboardControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
     if ( cameraMouseLookActive )
