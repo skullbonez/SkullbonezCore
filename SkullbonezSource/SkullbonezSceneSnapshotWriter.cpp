@@ -28,6 +28,7 @@ Related:
 #include "SkullbonezConvexHullShape.h"
 #include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezGameModelCollection.h"
+#include "SkullbonezRuntimeFileWriter.h"
 #include "SkullbonezWorldEnvironment.h"
 
 #include <cstdio>
@@ -44,6 +45,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetFromToken;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+using SkullbonezCore::Basics::RuntimeFileWriter;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
@@ -95,8 +97,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     auto& m_gameModels = collection.m_gameModels;
     const std::vector<uint8_t>& sleepStates = collection.GetSleepStates();
 
-    std::ofstream output( path, std::ios::trunc );
-    if ( !output )
+    std::ofstream output;
+    if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
     {
         return false;
     }

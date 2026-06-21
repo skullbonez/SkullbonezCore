@@ -22,6 +22,7 @@ Related:
 */
 #include "SkullbonezTestScene.h"
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezConvexHullShape.h"
 #include "SkullbonezEditorHullAssets.h"
 
 #include <algorithm>
@@ -49,6 +50,13 @@ namespace
 using Json = nlohmann::ordered_json;
 
 constexpr int kMaxStyleIncludeDepth = 8;
+
+float LoadConvexHullDefaultMass( const char* hullPath )
+{
+    const Math::CollisionDetection::ConvexHullShape hull =
+        Math::CollisionDetection::ConvexHullShape::LoadFromFile( Assets::ResolveEditorHullAssetPath( hullPath ) );
+    return hull.GetDefaultMass();
+}
 
 struct SceneIntOption
 {
@@ -686,7 +694,10 @@ class TestSceneParser
     void ValidateConvexHullAssetFields( const Json& asset, const std::string& path, const char* context ) const
     {
         ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
-        ReadFloat( RequireMember( asset, path, context, "mass" ), path, "asset.mass" );
+        if ( const Json* mass = FindMember( asset, "mass" ) )
+        {
+            ReadFloat( *mass, path, "asset.mass" );
+        }
         ReadFloat( RequireMember( asset, path, context, "restitution" ), path, "asset.restitution" );
         ValidateAssetMaterial( asset, path, context );
         if ( const Json* fixed = FindMember( asset, "fixed" ) )
@@ -886,7 +897,10 @@ class TestSceneParser
         object["name"] = objectName;
         object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
         object["position"] = Json::array( { baseX + offsetX, baseY + offsetY, baseZ + offsetZ } );
-        object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
+        if ( const Json* mass = FindMember( asset, "mass" ) )
+        {
+            object["mass"] = ReadFloat( *mass, path, "asset.mass" );
+        }
         object["restitution"] = ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
         object["fixed"] = fixed;
         if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
@@ -1770,7 +1784,14 @@ class TestSceneParser
         ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
         ReadRequiredStringField( hull.hullPath, object, path, "convexHull", "hull" );
         ReadVec3( RequireMember( object, path, "convexHull", "position" ), path, "convexHull.position", hull.posX, hull.posY, hull.posZ );
-        hull.mass = ReadFloat( RequireMember( object, path, "convexHull", "mass" ), path, "convexHull.mass" );
+        if ( const Json* mass = FindMember( object, "mass" ) )
+        {
+            hull.mass = ReadFloat( *mass, path, "convexHull.mass" );
+        }
+        else
+        {
+            hull.mass = LoadConvexHullDefaultMass( hull.hullPath );
+        }
         hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
         hull.isFixed = isFixed;
         hull.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( hull.hullPath );

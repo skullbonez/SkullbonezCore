@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include <cstdio>
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -34,6 +35,8 @@ class GameModelCollection;
 namespace Basics
 {
 class SkullbonezConfig;
+struct ReplayBodyPresentationSample;
+struct ReplayPresentationSample;
 struct RunSceneState;
 
 struct RunPerfLogState
@@ -84,6 +87,19 @@ class RuntimeDiagnostics
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, GameObjects::GameModelCollection& models, const char* path, bool fixedStepForcedByDiagnostics );
     static void LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, GameObjects::GameModelCollection& models, const RunSceneState& scene, const SkullbonezConfig& config, const char* scenePath, const char* rendererName );
+    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                     const RunSceneState& scene,
+                                     const ReplayPresentationSample& selected,
+                                     const ReplayPresentationSample& live,
+                                     const ReplayBodyPresentationSample& selectedBody,
+                                     const ReplayBodyPresentationSample& liveBody,
+                                     float normalized,
+                                     float distanceSquared,
+                                     bool applied,
+                                     bool restored,
+                                     float preLiveDeltaSquared,
+                                     float appliedDeltaSquared,
+                                     float restoredDeltaSquared );
     static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif
 };

@@ -1,5 +1,8 @@
 # Runtime Input State Centralization Plan
 
+Status: Done on `nightrunner-20th-june`
+Validation: `tools\validate_full.bat` passed on 2026-06-21 after implementation.
+
 ## Summary
 
 Refactor runtime input around a single `RuntimeInputContext` owned by the input
@@ -39,7 +42,7 @@ Current scattered state found:
 - Move mode-transition helpers out of `SkullbonezRun::TakeInput()` into
   `InputController` methods:
   - `BeginFrame(...)` captures device state and UI blocking.
-  - `QueueKeyboardActions(...)` turns edges into `RuntimeInputAction`s.
+  - `CaptureKeyboardActionPress(...)` turns key edges into `RuntimeInputAction`s.
   - `ApplyModeAction(...)` updates `RuntimeInputContext` and returns side-effect
     requests.
   - `DescribeMode()` and `DescribeLastTransitions()` expose debuggable strings

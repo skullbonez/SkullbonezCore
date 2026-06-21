@@ -27,6 +27,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
+#include "SkullbonezReplayExporter.h"
+#include "SkullbonezRuntimeFileWriter.h"
 
 #include <stdexcept>
 
@@ -81,6 +83,18 @@ SkullbonezRun::~SkullbonezRun()
 #endif
 
     RuntimeDiagnostics::ClosePerfLog( m_perfLogState );
+    m_replay.FlushHashLog();
+    if ( m_replay.IsEnabled() )
+    {
+        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, latest_hash=0x%016llX\n",
+                static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
+                static_cast<unsigned long long>( replayStats.sampleCount ),
+                static_cast<unsigned long long>( replayStats.sampleCapacity ),
+                static_cast<unsigned long long>( replayStats.checkpointCount ),
+                static_cast<unsigned long long>( replayStats.checkpointCapacity ),
+                static_cast<unsigned long long>( replayStats.latestStateHash ) );
+    }
 
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
@@ -408,6 +422,137 @@ void SkullbonezRun::SetUIStressOverride( unsigned int seed, int actionsPerFrame 
     m_cmdUIStress = true;
     m_cmdUIStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
     m_cmdUIStressActions = std::clamp( actionsPerFrame, 1, 32 );
+}
+
+
+void SkullbonezRun::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
+{
+    ReplayRecorderConfig replayConfig;
+    replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
+    replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
+    replayConfig.checkpointIntervalFrames = 30;
+    if ( hashLogPath && hashLogPath[0] != '\0' )
+    {
+        replayConfig.hashLogPath = hashLogPath;
+    }
+
+    m_replay.Configure( replayConfig );
+    ResetReplayScrubber();
+    if ( m_replay.IsEnabled() )
+    {
+        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d%s%s\n",
+                replayConfig.retentionSeconds,
+                static_cast<unsigned long long>( replayStats.sampleCapacity ),
+                replayConfig.checkpointIntervalFrames,
+                replayConfig.hashLogPath.empty() ? "" : " hash_log=",
+                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str() );
+    }
+}
+
+
+#ifdef _DEBUG
+void SkullbonezRun::SetReplayScrubProbe( float normalized )
+{
+    m_replayScrubProbe.enabled = true;
+    m_replayScrubProbe.completed = false;
+    m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
+}
+#endif
+
+
+void SkullbonezRun::ResetReplayTimelineForActiveScene()
+{
+    ResetReplayScrubber();
+    if ( !m_replay.IsEnabled() )
+    {
+        return;
+    }
+
+    const std::string* scenePath = CurrentSceneQueuePath();
+    m_replay.ResetTimeline( scenePath && !scenePath->empty() ? scenePath->c_str() : "generated" );
+}
+
+
+void SkullbonezRun::ResetReplayScrubber()
+{
+    const bool leftWasDown = m_replayScrubber.leftWasDown;
+    m_replayScrubber = RunReplayScrubberState{};
+    m_replayScrubber.leftWasDown = leftWasDown;
+}
+
+
+bool SkullbonezRun::ShouldRenderReplayScrubber() const
+{
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_replay.IsEnabled() )
+    {
+        return false;
+    }
+
+    const ReplayRecorderStats replayStats = m_replay.GetStats();
+    return replayStats.sampleCount >= 2 &&
+           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused );
+}
+
+
+bool SkullbonezRun::IsReplayScrubPaused() const
+{
+    if ( !m_replay.IsEnabled() || !m_replayScrubber.paused )
+    {
+        return false;
+    }
+
+    return m_replayScrubber.position < REPLAY_SCRUBBER_LIVE_THRESHOLD &&
+           m_replay.SampleAtNormalized( m_replayScrubber.position ) != nullptr;
+}
+
+
+const ReplayPresentationSample* SkullbonezRun::CurrentReplayScrubSample() const
+{
+    if ( !IsReplayScrubPaused() )
+    {
+        return nullptr;
+    }
+
+    return m_replay.SampleAtNormalized( m_replayScrubber.position );
+}
+
+bool SkullbonezRun::SaveReplayBufferFromScrubber()
+{
+    static int sReplaySeq = 0;
+
+    char path[256] = {};
+    bool saved = false;
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", "replay_", ".skreplay", sReplaySeq ) )
+    {
+        saved = ReplayExporter::Save( m_replay, path );
+    }
+
+    const double now = m_timers.simulationTimer.GetTotalTime();
+    if ( saved )
+    {
+        const char* fileName = strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   "SAVED %s",
+                   fileName );
+    }
+    else
+    {
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   "REPLAY SAVE FAILED" );
+    }
+    m_replayScrubber.saveMessageUntil = now + 2.5;
+    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+    return saved;
 }
 
 

@@ -1,9 +1,12 @@
 # Editor Physics Mass Defaults Plan
 
 Date: 2026-06-20
-Status: Draft implementation plan
+Status: Done on `nightrunner-20th-june`
 Impact area: physics, editor placement, scene system, hull assets, tooling
-Validation for this document-only change: none required
+Validation: `tools\validate_fast.bat` and `tools\validate_full.bat` passed on
+2026-06-20 after implementation. Follow-up on 2026-06-21 baked explicit
+`default_density` and `default_mass` metadata into every existing hull asset;
+runtime keeps a compatibility warning fallback for older unbaked hull files.
 
 ## Goal
 
@@ -90,11 +93,13 @@ or:
 default_mass <volume * 0.90>
 ```
 
-Preferred implementation:
+Implemented hull asset contract:
 
 - Store `default_density` for readability and future material tuning.
-- Compute `default_mass = volume * default_density` after loading.
-- Allow an optional explicit `default_mass` to override density where art or
+- Store `default_mass` as the runtime-authoritative value.
+- Compute `default_mass = volume * default_density` in `tools\bake_hulls.py`,
+  not in runtime C++.
+- Allow an optional explicit `default_mass` in future tooling where art or
   gameplay needs a hand-tuned value.
 
 Fallback for existing hulls:
@@ -102,15 +107,13 @@ Fallback for existing hulls:
 ```text
 if default_mass exists:
     use default_mass
-else if default_density exists:
-    use volume * default_density
 else:
-    use volume * 0.90
+    warn and use a simple compatibility mass until the hull is re-baked
 ```
 
-This makes old hull files float by default without requiring every asset to be
-updated in the same commit, while still allowing a later offline refresh to
-write explicit metadata for every hull.
+All current hull files now carry explicit baked metadata. The runtime fallback
+exists only as a compatibility route for older or external hull files and emits
+a warning that the asset should be re-baked.
 
 ## Offline Hull Mass Generation
 
@@ -140,9 +143,9 @@ current hard-coded `24.0` mass.
 Add a small physics mass utility, for example:
 
 ```text
-CalculateSphereMass(radius, density)
-CalculateBoxMass(halfExtents, density)
-CalculateHullMass(hull, scale)
+CalculateSphereMass(radius)
+CalculateBoxMass(halfExtents)
+ReadHullDefaultMass(hull) and scale the baked mass with placement scale
 CalculateInertiaForShape(shape, mass)
 ```
 
@@ -254,8 +257,9 @@ tools\validate_physics.bat
 
 ### Phase 2: Hull Metadata
 
-Extend hull parsing for `default_density` and optional `default_mass`. Add
-accessors for default density/mass and update hull load diagnostics.
+Extend hull parsing for `default_density` and optional `default_mass`. Runtime
+accepts `default_density` as provenance, treats `default_mass` as authoritative,
+and emits a compatibility warning if an older hull is missing `default_mass`.
 
 Validation at PR gate:
 
@@ -265,8 +269,10 @@ tools\validate_physics.bat
 
 ### Phase 3: Offline Hull Refresh Tool
 
-Create or extend tooling to refresh hull mass metadata across
-`SkullbonezData/hulls/*.hull`.
+Done on 2026-06-21: `tools\bake_hulls.py` writes `default_density 0.9` and
+`default_mass <volume * density>` across `SkullbonezData/hulls/*.hull`.
+Use `tools\refresh_hulls.bat` to refresh every committed hull from source
+geometry and immediately verify the serialized output remains current.
 
 Validation at PR gate:
 

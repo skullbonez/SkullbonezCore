@@ -64,6 +64,7 @@ class GameModelCollection
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
     Physics::PhysicsWorld m_physicsWorld;
+    uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
 

@@ -76,6 +76,7 @@ dx12_validation.txt
 # To keep a specific screenshot, move it to a deliberate tracked data folder
 /Scenes/
 /Screenshots/
+/replays/
 
 # Root-level snapshot files saved before Scenes/ folder existed
 /snapshot_*.scene

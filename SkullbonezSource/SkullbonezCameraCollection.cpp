@@ -409,6 +409,13 @@ void CameraCollection::SetCamera()
 }
 
 
+void CameraCollection::OverrideRenderCameraForFrame( const Vector3& position, const Vector3& view, const Vector3& up )
+{
+    m_renderCamera.SetAll( position, view, up );
+    SetViewMatrix( m_renderCamera );
+}
+
+
 void CameraCollection::SetViewMatrix( const Camera& cCameraData )
 {
     m_renderCamera = cCameraData;

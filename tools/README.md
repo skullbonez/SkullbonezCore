@@ -51,6 +51,7 @@ tools\validate_select.bat build-profile
 
 | Script | Purpose |
 |--------|---------|
+| `refresh_hulls.bat` | Rewrite every committed convex hull asset from source geometry, then verify the result |
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |

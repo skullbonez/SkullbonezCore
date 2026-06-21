@@ -154,6 +154,7 @@ struct InGameUIFrameData
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
+    const char* runtimeInputModeLabel = "";
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -172,6 +173,7 @@ class InGameUI
 {
   public:
     bool IsVisible() const;
+    bool IsMinimized() const;
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );

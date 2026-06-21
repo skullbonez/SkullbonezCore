@@ -163,7 +163,10 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkullScope.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezReplayExporter.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezHelper.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezInit.cpp" />
@@ -272,6 +275,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSleepIslandSystem.h" />
@@ -294,6 +298,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSimulationSystem.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezReplayExporter.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezReplayRecorder.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />

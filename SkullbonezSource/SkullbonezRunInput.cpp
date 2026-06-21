@@ -21,10 +21,14 @@ Related:
 #include "SkullbonezRunInternal.h"
 #include "SkullbonezEditorHullAssets.h"
 #include "SkullbonezInputController.h"
+#include "SkullbonezPhysicsMass.h"
+#include "SkullbonezRuntimeFileWriter.h"
 #include "SkullbonezWorkerPool.h"
+#include "UI/UIInput.h"
 #include "UI/UILayout.h"
 
 #include <cfloat>
+#include <cstddef>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -42,6 +46,65 @@ using SkullbonezCore::Assets::EditorHullAssetToken;
 
 namespace
 {
+RuntimeInputModeState BuildRuntimeInputModeState( const RunCameraState& camera, const RunEditorPlacementState& editor )
+{
+    RuntimeInputModeState state;
+    state.flyCamera = camera.isFlyMode;
+    state.launcher = camera.isLauncherMode;
+    state.editor = editor.editorModeEnabled;
+    state.editorPlacement = editor.placementModeEnabled;
+    state.editorViewportLook = editor.viewportLookActive;
+    state.editorPlacementScale = editor.placementScaleActive;
+    state.editorGizmoDrag = editor.gizmoDragActive;
+    state.editorGizmoRotation = editor.gizmoDragIsRotation;
+    state.editorGizmoScale = editor.gizmoDragIsScale;
+    return state;
+}
+
+struct RuntimeInputKeyBinding
+{
+    RuntimeInputAction action;
+    int virtualKey;
+};
+
+void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
+{
+    static const RuntimeInputKeyBinding kBindings[] = {
+        { RuntimeInputAction::ToggleFlyCamera, 'F' },
+        { RuntimeInputAction::ToggleLauncher, 'N' },
+        { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
+        { RuntimeInputAction::ToggleEditorTool, VK_MENU },
+        { RuntimeInputAction::CycleEditorPlacementType, VK_TAB },
+        { RuntimeInputAction::CycleLauncherFireMode, 'M' },
+        { RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN },
+        { RuntimeInputAction::ToggleWaterFreeze, '1' },
+        { RuntimeInputAction::CycleWaterReflection, '2' },
+        { RuntimeInputAction::ToggleWaterFlat, '3' },
+        { RuntimeInputAction::ToggleTerrainHidden, '4' },
+        { RuntimeInputAction::ToggleWaterHidden, '5' },
+        { RuntimeInputAction::ToggleCollisionVisualizer, 'V' },
+        { RuntimeInputAction::CyclePhysicsDebugOverlay, 'C' },
+        { RuntimeInputAction::ToggleTerrainContactProbe, 'O' },
+        { RuntimeInputAction::StepPhysicsPipelinePrevious, VK_F7 },
+        { RuntimeInputAction::StepPhysicsPipelineNext, VK_F8 },
+        { RuntimeInputAction::TogglePhysicsDebugTransparent, '6' },
+        { RuntimeInputAction::ReportRendererRuntimeRetired, 'Q' },
+        { RuntimeInputAction::ToggleBroadphaseOverlay, 'G' },
+        { RuntimeInputAction::ToggleUIVisibility, '0' },
+        { RuntimeInputAction::NavigateScenePrevious, VK_LEFT },
+        { RuntimeInputAction::NavigateSceneNext, VK_RIGHT },
+        { RuntimeInputAction::DismissOrExitUI, VK_ESCAPE },
+        { RuntimeInputAction::SaveSceneSnapshot, VK_F2 },
+        { RuntimeInputAction::SaveScreenshot, VK_F3 },
+        { RuntimeInputAction::ResetScene, 'R' },
+        { RuntimeInputAction::ResetSceneFromBackspace, VK_BACK } };
+
+    for ( std::size_t i = 0; i < sizeof( kBindings ) / sizeof( kBindings[0] ); ++i )
+    {
+        input.SetActionDown( kBindings[i].action, Input::IsKeyDown( kBindings[i].virtualKey ) );
+    }
+}
+
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
     const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y + inverseViewProjection.m[8] * z + inverseViewProjection.m[12];
@@ -57,17 +120,6 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
     outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
     return true;
 }
-
-
-Vector3 BoxInertiaForHalfExtents( const Vector3& halfExtents, float mass )
-{
-    const float hx2 = halfExtents.x * halfExtents.x;
-    const float hy2 = halfExtents.y * halfExtents.y;
-    const float hz2 = halfExtents.z * halfExtents.z;
-    const float m3 = mass / 3.0f;
-    return Vector3( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-}
-
 
 Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
 {
@@ -143,7 +195,6 @@ struct EditorTreePartDefinition
     float offsetX;
     float offsetY;
     float offsetZ;
-    float mass;
     float restitution;
     SkullbonezCore::Rendering::RenderMaterialKind materialKind;
     const char* materialName;
@@ -175,7 +226,6 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
                                                        float offsetX,
                                                        float offsetY,
                                                        float offsetZ,
-                                                       float mass,
                                                        float restitution,
                                                        SkullbonezCore::Rendering::RenderMaterialKind materialKind,
                                                        const char* materialName,
@@ -194,7 +244,6 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
              offsetX,
              offsetY,
              offsetZ,
-             mass,
              restitution,
              materialKind,
              materialName,
@@ -219,13 +268,13 @@ constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition
 
 constexpr EditorTreePartDefinition SmallRootPart()
 {
-    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL, "root", 0.0f, 0.55f, 0.0f, 18.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_root", 0.24f, 0.12f, 0.055f, 0.96f, 0.05f, 0.50f );
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL, "root", 0.0f, 0.55f, 0.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_root", 0.24f, 0.12f, 0.055f, 0.96f, 0.05f, 0.50f );
 }
 
 
 constexpr EditorTreePartDefinition LargeRootPart()
 {
-    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE, "root", 0.0f, 0.75f, 0.0f, 34.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_large_root", 0.23f, 0.115f, 0.052f, 0.96f, 0.05f, 0.50f );
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE, "root", 0.0f, 0.75f, 0.0f, 0.04f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_large_root", 0.23f, 0.115f, 0.052f, 0.96f, 0.05f, 0.50f );
 }
 
 
@@ -236,7 +285,6 @@ constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float off
                                offsetX,
                                offsetY,
                                offsetZ,
-                               0.34f,
                                0.04f,
                                SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
                                "editor_pine_loose_needles",
@@ -253,10 +301,10 @@ constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float off
 
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 42.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 26.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 18.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 12.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED, "trunk", 0.0f, 6.5f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_small_bark", 0.30f, 0.14f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW, "low", 0.0f, 20.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID, "mid", 0.0f, 28.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 35.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_small_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
 };
 constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
@@ -264,10 +312,10 @@ constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", E
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP = { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 90.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 52.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 38.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f ),
-    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 24.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_big_bark", 0.31f, 0.16f, 0.07f, 0.94f, 0.06f, 0.48f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE, "low", 0.0f, 24.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_low", 0.045f, 0.20f, 0.055f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID, "mid", 0.0f, 34.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_mid", 0.06f, 0.25f, 0.075f, 0.88f, 0.08f, 0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP, "top", 0.0f, 43.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_big_needles_top", 0.09f, 0.31f, 0.10f, 0.88f, 0.08f, 0.88f ),
 };
 constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
@@ -275,10 +323,10 @@ constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDIT
 constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP = { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
-    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 95.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_cedar_bark", 0.28f, 0.13f, 0.055f, 0.94f, 0.06f, 0.50f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW, "low", 0.0f, 25.0f, 0.0f, 44.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID, "mid", 0.0f, 38.0f, 0.0f, 32.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
-    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 48.0f, 0.0f, 20.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED, "trunk", 0.0f, 9.0f, 0.0f, 0.06f, SkullbonezCore::Rendering::RenderMaterialKind::Bark, "editor_cedar_bark", 0.28f, 0.13f, 0.055f, 0.94f, 0.06f, 0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW, "low", 0.0f, 25.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_low", 0.055f, 0.24f, 0.12f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID, "mid", 0.0f, 38.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_mid", 0.075f, 0.30f, 0.15f, 0.89f, 0.08f, 0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP, "top", 0.0f, 48.0f, 0.0f, 0.05f, SkullbonezCore::Rendering::RenderMaterialKind::Foliage, "editor_cedar_needles_top", 0.10f, 0.36f, 0.18f, 0.89f, 0.08f, 0.90f ),
 };
 constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) / sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT };
@@ -1949,18 +1997,133 @@ void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 }
 
 
+bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
+{
+    const bool leftDown = Input::IsLeftMouseDown();
+    const bool leftPressed = leftDown && !m_replayScrubber.leftWasDown;
+    const bool leftReleased = !leftDown && m_replayScrubber.leftWasDown;
+    m_replayScrubber.leftWasDown = leftDown;
+
+    const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
+    const ReplayRecorderStats replayStats = m_replay.GetStats();
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    if ( !scrubberAllowed || !replayStats.enabled || replayStats.sampleCount < 2 || screenW <= 0 || screenH <= 0 )
+    {
+        if ( m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+        }
+        ResetReplayScrubber();
+        m_replayScrubber.leftWasDown = leftDown;
+        return false;
+    }
+
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    m_replayScrubber.mouseX = mouse.x;
+    m_replayScrubber.mouseY = mouse.y;
+
+    const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH );
+    const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
+    const bool overPanel = panel.Contains( mouse.x, mouse.y );
+    const bool overSaveButton = saveButton.Contains( mouse.x, mouse.y );
+    const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging;
+    const double now = m_timers.simulationTimer.GetTotalTime();
+
+    if ( inHotZone || overPanel || overSaveButton || m_replayScrubber.dragging || m_replayScrubber.paused )
+    {
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    }
+    m_replayScrubber.saveHovered = overSaveButton &&
+                                   ( m_replayScrubber.visibleUntil >= now ||
+                                     m_replayScrubber.dragging ||
+                                     m_replayScrubber.paused );
+
+    bool consumesMouse = canTakeMouse &&
+                         ( m_replayScrubber.dragging ||
+                           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton ) ) );
+
+    if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
+    {
+        EnterInteractiveSceneRun();
+        SaveReplayBufferFromScrubber();
+        consumesMouse = true;
+    }
+    else if ( leftPressed && canTakeMouse && ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    {
+        EnterInteractiveSceneRun();
+        m_replayScrubber.dragging = true;
+        if ( !m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::BeginMouseCapture( hwnd );
+            m_replayScrubber.mouseCaptured = true;
+        }
+    }
+
+    if ( m_replayScrubber.dragging )
+    {
+        m_replayScrubber.position = ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH );
+        if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+        {
+            m_replayScrubber.position = 1.0f;
+            m_replayScrubber.paused = false;
+        }
+        else
+        {
+            m_replayScrubber.paused = true;
+        }
+
+        if ( leftReleased )
+        {
+            m_replayScrubber.dragging = false;
+            if ( m_replayScrubber.mouseCaptured )
+            {
+                UI::InputControl::EndMouseCapture();
+                m_replayScrubber.mouseCaptured = false;
+            }
+        }
+    }
+    else if ( !m_replayScrubber.paused )
+    {
+        m_replayScrubber.position = 1.0f;
+    }
+
+    m_replayScrubber.visible = m_replayScrubber.dragging ||
+                               m_replayScrubber.paused ||
+                               m_replayScrubber.visibleUntil >= now;
+    return consumesMouse;
+}
+
+
 void SkullbonezRun::TakeInput()
 {
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
+        if ( m_replayScrubber.mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+        }
+        ResetReplayScrubber();
         m_editor.viewportLookActive = false;
         m_editor.altShortcutWasDown = false;
         m_editor.tabShortcutWasDown = false;
         m_editor.tildeShortcutWasDown = false;
         m_editor.placementScaleActive = false;
         m_editor.placementScaleWheelSteps = 0;
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+        m_editor.gizmoDragStartAxisT = 0.0f;
+        m_editor.gizmoDragStartRotationAngle = 0.0f;
+        m_editor.gizmoDragStartPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        m_editor.gizmoDragStartOrientation = IDENTITY_QUATERNION;
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
+        m_runtimeInput.ResetEdges();
+        InputController::BeginFrame( m_runtimeInput, BuildRuntimeInputModeState( m_camera, m_editor ), false, true, true );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
@@ -2005,6 +2168,13 @@ void SkullbonezRun::TakeInput()
             InputController::ResetMouseLook( m_camera );
         }
     };
+    const auto UpdateRuntimeInputModeAfterAction = [&]( RuntimeInputAction action, RuntimeInputActionSource source ) -> void
+    {
+        InputController::ApplyModeAction( m_runtimeInput,
+                                          InputController::ResolveMode( BuildRuntimeInputModeState( m_camera, m_editor ) ),
+                                          action,
+                                          source );
+    };
     const auto ClearEditorManipulationState = [&]() -> void
     {
         m_editor.placementPreviewVisible = false;
@@ -2018,7 +2188,7 @@ void SkullbonezRun::TakeInput()
         m_editor.activeGizmoAxis = -1;
         m_editor.placementAltitudeSteps = 0;
     };
-    const auto ToggleEditorPlacementMode = [&]() -> void
+    const auto ToggleEditorPlacementMode = [&]( RuntimeInputActionSource source ) -> void
     {
         EnterInteractiveSceneRun();
         m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
@@ -2026,6 +2196,7 @@ void SkullbonezRun::TakeInput()
         ClearEditorManipulationState();
         ReleaseMouseToUI();
         ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
     };
     const auto EnterFlyModeCamera = [&]() -> void
     {
@@ -2070,34 +2241,42 @@ void SkullbonezRun::TakeInput()
     ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    InputController::BeginFrame( m_runtimeInput,
+                                 BuildRuntimeInputModeState( m_camera, m_editor ),
+                                 true,
+                                 UIBlocksKeyboardBeforeInput,
+                                 m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
     if ( !UIBlocksKeyboardBeforeInput )
     {
-        keyboardToggleEditorMode = InputController::CaptureKeyPress( m_editor.tildeShortcutWasDown, VK_OEM_3 );
+        keyboardToggleEditorMode = InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
 
         // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
         bool prevFlyMode = m_camera.isFlyMode;
-        const RuntimeKeyEdge fEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::FWasDown, 'F' );
-        if ( fEdge.wasPressed )
+        bool keyboardModeAction = false;
+        RuntimeInputAction keyboardModeActionName = RuntimeInputAction::None;
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
         {
             m_camera.isFlyMode = !m_camera.isFlyMode;
             m_camera.isLauncherMode = false; // F-key fly never implies launcher mode.
+            keyboardModeAction = true;
+            keyboardModeActionName = RuntimeInputAction::ToggleFlyCamera;
         }
 
         // N key: toggle launcher mode with live simulation (edge-detected).
         // Entering also enters fly mode; exiting also exits fly mode.
         {
-            const RuntimeKeyEdge nEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::NWasDown, 'N' );
-            if ( nEdge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleLauncher, 'N' ) )
             {
                 m_camera.isLauncherMode = !m_camera.isLauncherMode;
                 m_camera.isFlyMode = m_camera.isLauncherMode;
+                keyboardModeAction = true;
+                keyboardModeActionName = RuntimeInputAction::ToggleLauncher;
             }
         }
 
         {
-            const RuntimeKeyEdge mEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::MKeyWasDown, 'M' );
-            if ( mEdge.wasPressed && m_camera.isLauncherMode )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::CycleLauncherFireMode, 'M' ) && m_camera.isLauncherMode )
             {
                 m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Laser ? RunLauncherFireMode::Projectile : RunLauncherFireMode::Laser;
             }
@@ -2105,8 +2284,7 @@ void SkullbonezRun::TakeInput()
 
 #ifdef _DEBUG
         {
-            const RuntimeKeyEdge enterEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EnterWasDown, VK_RETURN );
-            if ( enterEdge.wasPressed && m_camera.isLauncherMode )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN ) && m_camera.isLauncherMode )
             {
                 WriteLauncherReproSnapshot();
             }
@@ -2117,27 +2295,31 @@ void SkullbonezRun::TakeInput()
         {
             m_camera.isFlyMode = true;
             m_camera.isLauncherMode = false;
-            if ( InputController::CaptureKeyPress( m_editor.altShortcutWasDown, VK_MENU ) )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditorTool, VK_MENU ) )
             {
-                ToggleEditorPlacementMode();
+                ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );
             }
-            if ( InputController::CaptureKeyPress( m_editor.tabShortcutWasDown, VK_TAB ) )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::CycleEditorPlacementType, VK_TAB ) )
             {
                 if ( Input::IsKeyDown( VK_CONTROL ) )
                 {
                     EnterInteractiveSceneRun();
                     m_editor.placeStaticObject = !m_editor.placeStaticObject;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement, RuntimeInputActionSource::Keyboard );
                 }
                 else
                 {
                     EnterInteractiveSceneRun();
                     m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
                     ClearEditorManipulationState();
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType, RuntimeInputActionSource::Keyboard );
                 }
             }
         }
         else
         {
+            m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, Input::IsKeyDown( VK_MENU ) );
+            m_runtimeInput.SetActionDown( RuntimeInputAction::CycleEditorPlacementType, Input::IsKeyDown( VK_TAB ) );
             m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
             m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         }
@@ -2153,10 +2335,13 @@ void SkullbonezRun::TakeInput()
                 ExitFlyModeCamera();
             }
         }
+        if ( keyboardModeAction )
+        {
+            UpdateRuntimeInputModeAfterAction( keyboardModeActionName, RuntimeInputActionSource::Keyboard );
+        }
 
         // Water m_shader debug toggles
-        const RuntimeKeyEdge key1Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key1WasDown, '1' );
-        if ( key1Edge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleWaterFreeze, '1' ) )
         {
             m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
             if ( m_debug.isWaterFreezeDebug )
@@ -2169,8 +2354,7 @@ void SkullbonezRun::TakeInput()
         // then no reflection, then back to FBO. Machines without DXR skip the
         // unsupported mode instead of leaving the toggle in a dead state.
         {
-            static bool s_key2WasDown = false;
-            if ( InputController::CaptureKeyPress( s_key2WasDown, '2' ) )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::CycleWaterReflection, '2' ) )
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
@@ -2195,30 +2379,26 @@ void SkullbonezRun::TakeInput()
             }
         }
         {
-            const RuntimeKeyEdge key3Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key3WasDown, '3' );
-            if ( key3Edge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleWaterFlat, '3' ) )
             {
                 m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
             }
         }
         {
-            const RuntimeKeyEdge key4Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key4WasDown, '4' );
-            if ( key4Edge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleTerrainHidden, '4' ) )
             {
                 m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
             }
         }
         {
-            const RuntimeKeyEdge key5Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key5WasDown, '5' );
-            if ( key5Edge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleWaterHidden, '5' ) )
             {
                 m_debug.isWaterHidden = !m_debug.isWaterHidden;
             }
         }
         // V key: collision visualizer for balls and boxes as solid debug colours.
         {
-            const RuntimeKeyEdge vEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::VWasDown, 'V' );
-            if ( vEdge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleCollisionVisualizer, 'V' ) )
             {
                 m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
             }
@@ -2226,8 +2406,7 @@ void SkullbonezRun::TakeInput()
 
         // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
         {
-            const RuntimeKeyEdge cEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::CKeyWasDown, 'C' );
-            if ( cEdge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::CyclePhysicsDebugOverlay, 'C' ) )
             {
                 switch ( m_debug.physicsDebugFlags )
                 {
@@ -2253,8 +2432,7 @@ void SkullbonezRun::TakeInput()
         // O key: toggle the terrain polygon/contact probe. It is independent of
         // the C-key debug cycle so it can be layered over any other physics view.
         {
-            const RuntimeKeyEdge oEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::OKeyWasDown, 'O' );
-            if ( oEdge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleTerrainContactProbe, 'O' ) )
             {
                 m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
             }
@@ -2264,13 +2442,11 @@ void SkullbonezRun::TakeInput()
         // stage trace from the most recent physics tick. The simulation can be
         // paused with fly mode and advanced separately with Space.
         {
-            static bool s_pipelinePrevWasDown = false;
-            static bool s_pipelineNextWasDown = false;
-            if ( InputController::CaptureKeyPress( s_pipelinePrevWasDown, VK_F7 ) )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::StepPhysicsPipelinePrevious, VK_F7 ) )
             {
                 StepPhysicsPipelineStage( -1 );
             }
-            if ( InputController::CaptureKeyPress( s_pipelineNextWasDown, VK_F8 ) )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::StepPhysicsPipelineNext, VK_F8 ) )
             {
                 StepPhysicsPipelineStage( 1 );
             }
@@ -2278,8 +2454,7 @@ void SkullbonezRun::TakeInput()
 
         // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
         {
-            const RuntimeKeyEdge key6Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key6WasDown, '6' );
-            if ( key6Edge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::TogglePhysicsDebugTransparent, '6' ) )
             {
                 m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
             }
@@ -2287,16 +2462,14 @@ void SkullbonezRun::TakeInput()
 
         // Q key used to cycle legacy renderers; it now reports that DX12 is the only runtime renderer.
         {
-            const RuntimeKeyEdge qEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::QKeyWasDown, 'Q' );
-            if ( qEdge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ReportRendererRuntimeRetired, 'Q' ) )
             {
                 fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
             }
         }
 
         // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
-        const RuntimeKeyEdge gEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::GKeyWasDown, 'G' );
-        if ( gEdge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleBroadphaseOverlay, 'G' ) )
         {
             if ( SceneState().isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
             {
@@ -2315,18 +2488,18 @@ void SkullbonezRun::TakeInput()
         // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
         // Edge-detected in both scene and generated demo modes; one toggle per keypress.
         {
-            const RuntimeKeyEdge key0Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::Key0WasDown, '0' );
-            if ( key0Edge.wasPressed )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleUIVisibility, '0' ) )
             {
                 EnterInteractiveSceneRun();
                 m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
                 m_debug.overlayMode = OverlayMode::None;
                 ApplyCursorOwnership();
                 ReleaseMouseToUI();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleUIVisibility, RuntimeInputActionSource::Keyboard );
             }
         }
 
-        if ( InputController::CaptureKeyPress( m_leftSceneCycleWasDown, VK_LEFT ) )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::NavigateScenePrevious, VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
             if ( !ApplyAdjacentCinematicMode( -1 ) )
@@ -2334,7 +2507,7 @@ void SkullbonezRun::TakeInput()
                 LoadAdjacentSceneFromBrowser( -1 );
             }
         }
-        if ( InputController::CaptureKeyPress( m_rightSceneCycleWasDown, VK_RIGHT ) )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::NavigateSceneNext, VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
             if ( !ApplyAdjacentCinematicMode( 1 ) )
@@ -2345,6 +2518,7 @@ void SkullbonezRun::TakeInput()
     }
     else
     {
+        AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
         m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
@@ -2376,14 +2550,16 @@ void SkullbonezRun::TakeInput()
             EnterInteractiveSceneRun();
         }
         suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
+        const bool replayScrubberOwnsMouse = TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse;
+        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
         // Run it after UI input processing so focused controls keep their local ESC
         // behavior first, such as closing the scene filter combo without also
         // hiding the whole diagnostics surface on the same frame.
-        const RuntimeKeyEdge escapeEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::EscapeWasDown, VK_ESCAPE );
-        if ( escapeEdge.wasPressed && !uiCommands.ui.userInteracted )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::DismissOrExitUI, VK_ESCAPE ) && !uiCommands.ui.userInteracted )
         {
             constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
             const double UINow = m_timers.simulationTimer.GetTotalTime();
@@ -2406,6 +2582,7 @@ void SkullbonezRun::TakeInput()
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.editor.requestedObjectType >= 0 )
         {
@@ -2426,11 +2603,14 @@ void SkullbonezRun::TakeInput()
                 m_editor.viewportLookActive = false;
                 ReleaseMouseToUI();
                 ApplyCursorOwnership();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
         {
             EnterInteractiveSceneRun();
+            const RuntimeInputActionSource toggleEditorSource = keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI;
             m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
             if ( m_editor.editorModeEnabled )
             {
@@ -2480,15 +2660,17 @@ void SkullbonezRun::TakeInput()
                     InputController::ResetMouseLook( m_camera );
                 }
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, toggleEditorSource );
         }
         if ( uiCommands.editor.togglePlacementMode )
         {
-            ToggleEditorPlacementMode();
+            ToggleEditorPlacementMode( RuntimeInputActionSource::UI );
         }
         if ( uiCommands.editor.togglePlaceStatic )
         {
             EnterInteractiveSceneRun();
             m_editor.placeStaticObject = !m_editor.placeStaticObject;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.editor.toggleTerrainAlign )
         {
@@ -2497,75 +2679,91 @@ void SkullbonezRun::TakeInput()
             m_editor.placementPreviewVisible = false;
             m_editor.placementScaleActive = false;
             m_editor.placementScaleWheelSteps = 0;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCollisionVisualizer, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.togglePhysicsSleepPolicy )
         {
             m_runtimeSettings.isPhysicsSleepEnabled = !m_runtimeSettings.isPhysicsSleepEnabled;
             m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsSleepPolicy, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.togglePhysicsDebugFlags != 0 )
         {
             m_debug.physicsDebugFlags ^= ( uiCommands.physics.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugFlags, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.stepPhysicsPipelinePrevious )
         {
             StepPhysicsPipelineStage( -1 );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelinePrevious, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.stepPhysicsPipelineNext )
         {
             StepPhysicsPipelineStage( 1 );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::StepPhysicsPipelineNext, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.togglePhysicsDebugTransparent )
         {
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePhysicsDebugTransparent, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleBroadphaseOverlay, RuntimeInputActionSource::UI );
         }
         bool tornadoFieldChanged = false;
         if ( uiCommands.physics.toggleTornado )
         {
             m_runtimeSettings.tornadoField.enabled = !m_runtimeSettings.tornadoField.enabled;
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornado, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.toggleTornadoFieldVectors )
         {
             m_runtimeSettings.tornadoField.visualizeVelocityField = !m_runtimeSettings.tornadoField.visualizeVelocityField;
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoFieldVectors, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.toggleRayCastVisualization )
         {
             m_rayCastTest.visualizeRays = !m_rayCastTest.visualizeRays;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRayCastVisualization, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoRadius )
         {
             m_runtimeSettings.tornadoField.radius = std::clamp( uiCommands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX );
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoHeight )
         {
             m_runtimeSettings.tornadoField.height = std::clamp( uiCommands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX );
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoInward )
         {
             m_runtimeSettings.tornadoField.inwardAcceleration = std::clamp( uiCommands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX );
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoSwirl )
         {
             m_runtimeSettings.tornadoField.swirlAcceleration = std::clamp( uiCommands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX );
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoLift )
         {
             m_runtimeSettings.tornadoField.liftAcceleration = std::clamp( uiCommands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX );
             tornadoFieldChanged = true;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( tornadoFieldChanged )
         {
@@ -2574,23 +2772,28 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.physics.toggleTerrainContactProbe )
         {
             m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainContactProbe, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleTextOnly )
         {
             m_debug.isTextOnly = !m_debug.isTextOnly;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTextOnly, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleFixedStep )
         {
             SceneState().isFixedStep = !SceneState().isFixedStep;
             m_simulation.Reset();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleFixedStep, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleTerrainHidden )
         {
             m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTerrainHidden, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleWaterHidden )
         {
             m_debug.isWaterHidden = !m_debug.isWaterHidden;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterHidden, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleWaterFreeze )
         {
@@ -2599,10 +2802,12 @@ void SkullbonezRun::TakeInput()
             {
                 m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFreeze, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleWaterFlat )
         {
             m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterFlat, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
@@ -2616,18 +2821,22 @@ void SkullbonezRun::TakeInput()
             {
                 Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.toggleShadows )
         {
             Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRenderShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.saveDefaults )
         {
             SaveRenderDefaults();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveRenderDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
         {
             ApplyOrdinaryRenderUIParam( Cfg().ordinaryRender, uiCommands.renderTuning.requestedParam, uiCommands.renderTuning.requestedValue );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {
@@ -2640,58 +2849,70 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterNoReflect = true;
                 m_debug.isWaterRTReflect = false;
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleWaterReflection, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.requestedWaterReflectionMode >= 0 )
         {
             const int mode = std::clamp( uiCommands.water.requestedWaterReflectionMode, 0, 2 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWaterReflectionMode, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
             m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
             SceneState().timeScale = m_UITimeScaleOverride;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetTimeScale, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSeed > 0 )
         {
             SceneState().rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
             SceneState().rngState = SceneState().rngSeed;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRunSeed, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
         {
             m_debug.physicsDebugAlpha = std::clamp( uiCommands.physics.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugAlpha, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestedPhysicsDebugContactLinger >= 0.0f )
         {
             m_debug.physicsDebugContactLinger = std::clamp( uiCommands.physics.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetPhysicsDebugContactLinger, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestRayCastImpulseStrength )
         {
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength, UI_RAY_IMPULSE_MIN, UI_RAY_IMPULSE_MAX );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestLauncherProjectileSpeed )
         {
             m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed, UI_LAUNCHER_PROJECTILE_SPEED_MIN, UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
             ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
         {
             ApplyWorkerThreadCountOverride( uiCommands.profiler.requestedWorkerThreads );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
             const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : SceneState().solverBoxCount;
             ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ), boxes );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
             const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : SceneState().solverBallCount;
             ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight || uiCommands.water.requestWorldFluidDensity )
         {
@@ -2701,6 +2922,7 @@ void SkullbonezRun::TakeInput()
             ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.toggleRendering )
         {
@@ -2717,10 +2939,12 @@ void SkullbonezRun::TakeInput()
                 SceneState().cinematicOverrideMask |= SCENE_CINE_RENDERING;
                 SceneState().uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
             }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicRendering, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
             ApplyCinematicModeFromBrowserIndex( uiCommands.cinematic.requestedModeSceneIndex );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
@@ -2730,37 +2954,45 @@ void SkullbonezRun::TakeInput()
                 m_cmdHasCinematicShadowsOverride = false;
             }
             ToggleCinematicUIFeature( cinematic, SceneState(), uiCommands.cinematic.requestedFeature );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicFeature, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
             ApplyCinematicUIParam( cinematic, SceneState(), uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyCinematicParam, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.resetScene )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.resetSceneDefaults )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( false, true, false );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetSceneDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.requestDemoScene )
         {
             LoadDemoSceneFromUI();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::LoadDemoScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.saveSceneDefaults )
         {
             SaveCurrentSceneDefaults();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSceneDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.createScene )
         {
             CreateSceneFromUI( uiCommands.scene.requestedSceneName );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CreateScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.requestedSceneIndex >= 0 )
         {
             LoadSceneFromBrowserIndex( uiCommands.scene.requestedSceneIndex );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectScene, RuntimeInputActionSource::UI );
         }
 
         RunUIStressActions();
@@ -2771,6 +3003,11 @@ void SkullbonezRun::TakeInput()
             InputController::ResetMouseLook( m_camera );
         }
         m_editor.viewportLookActive = editorViewportLookNow;
+        if ( editorViewportLookNow != ( m_runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook ) )
+        {
+            UpdateRuntimeInputModeAfterAction( editorViewportLookNow ? RuntimeInputAction::BeginEditorViewportLook : RuntimeInputAction::EndEditorViewportLook,
+                                               RuntimeInputActionSource::Mouse );
+        }
 
         const int placementWheelSteps = EditorMouseWheelSteps( editorUnhandledWheelDelta );
         const bool placementLeftMouseNow = Input::IsLeftMouseDown();
@@ -2815,10 +3052,10 @@ void SkullbonezRun::TakeInput()
     // Editor and launcher actions share world clicks. UI hover/capture
     // suppresses both so panel interaction never mutates the scene.
     {
-        const bool leftMouseNow = Input::IsLeftMouseDown();
-        const bool leftMouseWasDown = m_camera.input.Get( InputState::LeftMouseWasDown );
-        const bool leftPressed = leftMouseNow && !leftMouseWasDown;
-        const bool leftReleased = !leftMouseNow && leftMouseWasDown;
+        const RuntimeMouseEdges mouseEdges = m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
+        const bool leftMouseNow = mouseEdges.leftDown;
+        const bool leftPressed = mouseEdges.leftPressed;
+        const bool leftReleased = mouseEdges.leftReleased;
         bool consumedWorldClick = false;
 
         if ( m_editor.placementScaleActive )
@@ -2837,6 +3074,7 @@ void SkullbonezRun::TakeInput()
                 }
                 m_editor.placementScaleActive = false;
                 m_editor.placementScaleWheelSteps = 0;
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale, RuntimeInputActionSource::Mouse );
             }
         }
 
@@ -2869,6 +3107,7 @@ void SkullbonezRun::TakeInput()
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = -1;
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag, RuntimeInputActionSource::Mouse );
             }
         }
 
@@ -2897,6 +3136,7 @@ void SkullbonezRun::TakeInput()
                     m_editor.gizmoDragStartAxisT = axisT;
                     m_editor.gizmoDragStartShape = model.GetCollisionShape();
                     consumedWorldClick = true;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale, RuntimeInputActionSource::Mouse );
                 }
             }
 
@@ -2920,6 +3160,7 @@ void SkullbonezRun::TakeInput()
                     m_editor.gizmoDragStartRotationAngle = startAngle;
                     m_editor.gizmoDragStartOrientation = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
                     consumedWorldClick = true;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate, RuntimeInputActionSource::Mouse );
                 }
             }
 
@@ -2944,6 +3185,7 @@ void SkullbonezRun::TakeInput()
                     m_editor.gizmoDragStartAxisT = axisT;
                     m_editor.gizmoDragStartPosition = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
                     consumedWorldClick = true;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate, RuntimeInputActionSource::Mouse );
                 }
             }
 
@@ -2960,6 +3202,7 @@ void SkullbonezRun::TakeInput()
                         m_editor.placementScaleStartClient = Input::GetClientMouseCoordinates();
                         m_editor.placementScaleTerrainPoint = m_editor.placementTerrainPoint;
                         m_editor.placementScaleRayOrigin = m_editor.placementRayOrigin;
+                        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale, RuntimeInputActionSource::Mouse );
                     }
                 }
                 else
@@ -2989,12 +3232,13 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
             FireRayCastTest();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
         }
-        m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
     }
 
     if ( m_UI.BlocksKeyboard() )
     {
+        AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
         InputController::ResetMouseLook( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
@@ -3006,17 +3250,13 @@ void SkullbonezRun::TakeInput()
 
     // F2: Save scene snapshot to Scenes/
     {
-        const RuntimeKeyEdge f2Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::F2WasDown, VK_F2 );
-        if ( f2Edge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
         {
-            CreateDirectoryA( "Scenes", nullptr );
             static int sSnapshotSeq = 0;
-            bool saved = false;
-            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            char path[256] = {};
+            if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Scenes", "snapshot_", ".scene.json", sSnapshotSeq, 100 ) )
             {
-                char path[256];
-                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene.json", sSnapshotSeq++ );
-                saved = m_cGameModelCollection.SaveSceneSnapshot(
+                m_cGameModelCollection.SaveSceneSnapshot(
                     path,
                     SceneState().isScenePhysics,
                     SceneState().isSceneText,
@@ -3030,29 +3270,20 @@ void SkullbonezRun::TakeInput()
 
     // F3: Save screenshot to Screenshots/
     {
-        const RuntimeKeyEdge f3Edge = InputController::CaptureKeyEdge( m_camera.input, InputState::F3WasDown, VK_F3 );
-        if ( f3Edge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
         {
-            CreateDirectoryA( "Screenshots", nullptr );
             static int sScreenshotSeq = 0;
-            bool saved = false;
-            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            char path[256] = {};
+            if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq, 100 ) )
             {
-                char path[256];
-                sprintf_s( path, sizeof( path ), "Screenshots\\screenshot_%04d.bmp", sScreenshotSeq++ );
-                if ( GetFileAttributesA( path ) == INVALID_FILE_ATTRIBUTES )
-                {
-                    SaveScreenshot( path );
-                    saved = true;
-                }
+                SaveScreenshot( path );
             }
         }
     }
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
-        const RuntimeKeyEdge rEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::RKeyWasDown, 'R' );
-        if ( rEdge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ResetScene, 'R' ) )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
@@ -3060,8 +3291,7 @@ void SkullbonezRun::TakeInput()
     }
     if ( SceneState().isSceneMode )
     {
-        const RuntimeKeyEdge backspaceEdge = InputController::CaptureKeyEdge( m_camera.input, InputState::BackspaceWasDown, VK_BACK );
-        if ( backspaceEdge.wasPressed )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ResetSceneFromBackspace, VK_BACK ) )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
@@ -4126,13 +4356,14 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
     };
 
-    auto addSphere = [&]( const char* label, float radius, float mass, float restitution )
+    auto addSphere = [&]( const char* label, float radius, float restitution )
     {
-        const float moment = 0.4f * mass * radius * radius;
+        const float mass = CalculateSphereMass( radius );
+        const Vector3 inertia = CalculateSphereInertia( radius, mass );
         const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
         GameModel model( &m_cWorldEnvironment,
                          center,
-                         Vector3( moment, moment, moment ),
+                         inertia,
                          mass );
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( restitution );
@@ -4147,7 +4378,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
     auto addBox = [&]()
     {
         const Vector3 halfExtents = placementScale;
-        constexpr float mass = 24.0f;
+        const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
         if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
         {
@@ -4155,7 +4386,7 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         }
         GameModel model( &m_cWorldEnvironment,
                          center,
-                         BoxInertiaForHalfExtents( halfExtents, mass ),
+                         CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
                          mass );
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( 0.25f );
@@ -4179,12 +4410,12 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         {
             return;
         }
-        constexpr float mass = 24.0f;
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
         ConvexHullShape scaledHull = hull;
         scaledHull.ScaleAxis( 0, placementScale.x );
         scaledHull.ScaleAxis( 1, placementScale.y );
         scaledHull.ScaleAxis( 2, placementScale.z );
+        const float mass = scaledHull.GetDefaultMass();
         const bool alignHull = alignToTerrain;
         const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
         const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
@@ -4241,10 +4472,11 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
             const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
             const Vector3 authoredOrigin = terrainPoint + placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
+            const float mass = hull.GetDefaultMass();
             GameModel model( &m_cWorldEnvironment,
                              center,
-                             hull.ComputeBoxApproxInertia( part.mass ),
-                             part.mass );
+                             hull.ComputeBoxApproxInertia( mass ),
+                             mass );
             model.SetTerrain( m_systems.terrain.get() );
             model.SetCoefficientRestitution( part.restitution );
             model.AddConvexHull( hull );
@@ -4265,10 +4497,10 @@ void SkullbonezRun::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedO
         addBox();
         break;
     case UI::EditorTab::OBJECT_BALL:
-        addSphere( "ball", placementScale.x, 6.0f, 0.45f );
+        addSphere( "ball", placementScale.x, 0.45f );
         break;
     case UI::EditorTab::OBJECT_SPHERE:
-        addSphere( "sphere", placementScale.x, 24.0f, 0.35f );
+        addSphere( "sphere", placementScale.x, 0.35f );
         break;
     case UI::EditorTab::OBJECT_HULL_WEDGE:
         addHull( EditorHullAsset::WEDGE );

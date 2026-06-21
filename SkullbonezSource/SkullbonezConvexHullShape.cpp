@@ -35,9 +35,12 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
+namespace Physics = SkullbonezCore::Physics;
 
 namespace
 {
+constexpr float COMPATIBILITY_HULL_DEFAULT_MASS = 24.0f;
+
 float ClampPositive( float value, float fallback )
 {
     return value > TOLERANCE ? value : fallback;
@@ -115,6 +118,14 @@ void RequireNoExtraTokens( char* context, const char* path, int lineNumber, cons
         sprintf_s( msg, sizeof( msg ), "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)", directive, path, lineNumber );
         throw std::runtime_error( msg );
     }
+}
+
+void WarnMissingDefaultMassMetadata( const char* path )
+{
+    fprintf( stderr,
+             "[hull][compat] %s missing default_mass; using compatibility mass default %.3f at load. Re-bake with tools\\bake_hulls.bat --write.\n",
+             path,
+             COMPATIBILITY_HULL_DEFAULT_MASS );
 }
 
 float SweptBoundingRadiusCollision( float focusRadius,
@@ -212,6 +223,7 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
     bool sawInertiaHalfExtents = false;
     bool sawUnitInertia = false;
     bool sawProjectedSurfaceArea = false;
+    bool sawDefaultMass = false;
 
     char line[512];
     while ( fgets( line, sizeof( line ), file ) )
@@ -350,6 +362,43 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
                 throw;
             }
             sawCenterOfMass = true;
+            continue;
+        }
+
+        if ( strcmp( token, "default_density" ) == 0 ||
+             strcmp( token, "default_mass" ) == 0 )
+        {
+            char* value = strtok_s( nullptr, " \t\r\n", &context );
+            if ( !value )
+            {
+                char msg[384];
+                sprintf_s( msg, sizeof( msg ), "Invalid %s at %s:%d.  (ConvexHullShape::LoadFromFile)", token, path, lineNumber );
+                fclose( file );
+                throw std::runtime_error( msg );
+            }
+            try
+            {
+                const float parsed = ParseFiniteFloatOrThrow( value, path, lineNumber, token );
+                RequireNoExtraTokens( context, path, lineNumber, token );
+                if ( parsed <= 0.0f )
+                {
+                    char msg[384];
+                    sprintf_s( msg, sizeof( msg ), "%s must be positive at %s:%d.  (ConvexHullShape::LoadFromFile)", token, path, lineNumber );
+                    fclose( file );
+                    throw std::runtime_error( msg );
+                }
+                if ( strcmp( token, "default_mass" ) == 0 )
+                {
+                    hull.m_defaultMass = Physics::ClampPositiveMass( parsed );
+                    sawDefaultMass = true;
+                }
+                // default_density is accepted as baked provenance; default_mass is runtime-authoritative.
+            }
+            catch ( ... )
+            {
+                fclose( file );
+                throw;
+            }
             continue;
         }
 
@@ -607,6 +656,12 @@ ConvexHullShape ConvexHullShape::LoadFromFile( const char* path )
         throw std::runtime_error( msg );
     }
 
+    if ( !sawDefaultMass )
+    {
+        hull.m_defaultMass = COMPATIBILITY_HULL_DEFAULT_MASS;
+        WarnMissingDefaultMassMetadata( path );
+    }
+
     for ( uint16_t f = 0; f < hull.m_faceCount; ++f )
     {
         const ConvexHullFace& face = hull.m_faces[f];
@@ -654,6 +709,11 @@ Matrix4 ConvexHullShape::GetModelMatrix( const Vector3& worldPos, const Matrix4&
 float ConvexHullShape::GetVolume() const
 {
     return m_volume;
+}
+
+float ConvexHullShape::GetDefaultMass() const
+{
+    return Physics::ClampPositiveMass( m_defaultMass );
 }
 
 float ConvexHullShape::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
@@ -759,16 +819,37 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
         face.planeOffsetLocal = normal * a;
     }
 
+    float projectedX = 0.0f;
+    float projectedY = 0.0f;
+    float projectedZ = 0.0f;
+    for ( uint16_t f = 0; f < m_faceCount; ++f )
+    {
+        const ConvexHullFace& face = m_faces[f];
+        if ( face.indexCount < 3 )
+        {
+            continue;
+        }
+
+        const Vector3& root = m_vertices[m_faceIndices[face.firstIndex]];
+        for ( uint8_t i = 1; i + 1 < face.indexCount; ++i )
+        {
+            const Vector3& b = m_vertices[m_faceIndices[face.firstIndex + i]];
+            const Vector3& c = m_vertices[m_faceIndices[face.firstIndex + i + 1]];
+            const Vector3 areaVector = CrossProduct( b - root, c - root ) * 0.5f;
+            projectedX += fabsf( areaVector.x );
+            projectedY += fabsf( areaVector.y );
+            projectedZ += fabsf( areaVector.z );
+        }
+    }
+
     m_inertiaHalfExtents = ( maxV - minV ) * 0.5f;
     m_inertiaHalfExtents.x = ClampPositive( m_inertiaHalfExtents.x, m_boundingRadius );
     m_inertiaHalfExtents.y = ClampPositive( m_inertiaHalfExtents.y, m_boundingRadius );
     m_inertiaHalfExtents.z = ClampPositive( m_inertiaHalfExtents.z, m_boundingRadius );
     m_unitInertia = BoxApproxUnitInertia( m_inertiaHalfExtents );
-    m_volume = (std::max)( 1.0e-4f, 8.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.y * m_inertiaHalfExtents.z * 0.55f );
-    m_projectedSurfaceArea = ( 4.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.y +
-                               4.0f * m_inertiaHalfExtents.x * m_inertiaHalfExtents.z +
-                               4.0f * m_inertiaHalfExtents.y * m_inertiaHalfExtents.z ) /
-                             3.0f;
+    m_volume = (std::max)( 1.0e-4f, m_volume * factor );
+    m_defaultMass = Physics::ClampPositiveMass( m_defaultMass * factor );
+    m_projectedSurfaceArea = (std::max)( 1.0e-4f, ( projectedX + projectedY + projectedZ ) / 6.0f );
 }
 
 uint16_t ConvexHullShape::GetVertexCount() const

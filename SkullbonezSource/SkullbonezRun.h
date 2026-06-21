@@ -56,7 +56,9 @@ Related:
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
+#include "SkullbonezInputController.h"
 #include "SkullbonezRuntimeDiagnostics.h"
+#include "SkullbonezReplayRecorder.h"
 #include "SkullbonezSceneRuntime.h"
 #include "SkullbonezSimulationSystem.h"
 #include "SkullbonezTextureCollection.h"
@@ -321,6 +323,40 @@ struct RunRayCastTestState
     float impulseStrength = 1800.0f;
     float projectileSpeed = 160.0f;
 };
+
+struct RunReplayScrubberState
+{
+    bool visible = false;
+    bool dragging = false;
+    bool paused = false;
+    bool mouseCaptured = false;
+    bool saveHovered = false;
+    bool leftWasDown = false;
+    float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
+    int mouseX = 0;
+    int mouseY = 0;
+    double visibleUntil = 0.0;
+    double saveMessageUntil = 0.0;
+    char saveMessage[96] = {};
+};
+
+struct RunReplayPoseBackup
+{
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+#ifdef _DEBUG
+struct RunReplayScrubProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    float normalized = 0.25f;
+    int minSampleCount = 24;
+    float minDistanceSquared = 0.0001f;
+};
+#endif
 
 struct RunEditorPlacementState
 {
@@ -902,12 +938,17 @@ class SkullbonezRun
     RunPerfLogState m_perfLogState; // Perf/test logging paths, files, and flush policy
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
+    RunReplayScrubProbeState m_replayScrubProbe;     // CLI-only SkullScope replay scrub self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings; // Scene/app runtime swap policy toggles
     RunTimerState m_timers;               // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;          // Window, camera, texture, terrain, and pass resource ownership
+    RuntimeInputContext m_runtimeInput;   // Semantic input mode/action state owned by input routing.
     RunCameraState m_camera;              // Camera/input state and ball-tracking settings
     SimulationSystem m_simulation;        // Simulation timestep policy and physics accumulators
+    ReplayRecorder m_replay;              // Bounded replay presentation recorder for recent-frame inspection.
+    RunReplayScrubberState m_replayScrubber;
+    std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle; // Live style tweak/capture harness state
     UI::InGameUI m_UI;                    // Encapsulated in-game diagnostics window
@@ -974,6 +1015,7 @@ class SkullbonezRun
     int WindowScreenHeight() const;                                                                                                        // Current window height, or config fallback before window init
     void SetViewingOrientation();                                                                                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                                                                               // Backbuffer capture path; current encoder writes BMP files.
+    bool SaveReplayBufferFromScrubber();                                                                                                   // Writes the retained in-memory replay buffer to replays/.
     bool SaveCurrentSceneDefaults();                                                                                                       // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                                                                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                                                                             // Ordinary Render-tab values persisted to engine.cfg.
@@ -1016,6 +1058,17 @@ class SkullbonezRun
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
+    void ResetReplayTimelineForActiveScene(); // Scene/model rebuilds start a fresh in-memory replay branch.
+    void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
+    static void CaptureReplayPhysicsStepThunk( void* userData );
+    void ResetReplayScrubber();
+    bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
+    bool ShouldRenderReplayScrubber() const;
+    bool IsReplayScrubPaused() const;
+    const ReplayPresentationSample* CurrentReplayScrubSample() const;
+    void RenderReplayScrubberOverlay();
+    bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
+    void RestoreReplayPresentationRenderPose();
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator
@@ -1056,29 +1109,31 @@ class SkullbonezRun
     bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
+    void TickReplayScrubProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue ); // sceneQueue empty string selects generated demo mode.
     ~SkullbonezRun();
-    void Initialise();                                                  // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );     // Scene-load smoke path; skips the frame loop.
-    void Run();                                                         // Main message loop; sceneQueue decides generated demo versus suite playback.
-    void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
-    void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
-    void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
-    void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
-    void SetTornadoOverride( bool enabled );                            // Enable/disable tornado mode for loaded scenes (CLI --tornado)
-    void SetTornadoVectorFieldOverride( bool enabled );                 // Show/hide tornado velocity vectors at startup
-    void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
-    void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
-    void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
-    void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
-    void SetLiveStyleControlDirectory( const char* path );              // Enable live style/capture harness in a control folder
-    void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
-    void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
+    void Initialise();                                                                      // Initialises shared resources and loads first scene
+    void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );                         // Scene-load smoke path; skips the frame loop.
+    void Run();                                                                             // Main message loop; sceneQueue decides generated demo versus suite playback.
+    void SetTimeScaleOverride( float scale );                                               // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();                                                            // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed );                                              // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                                                              // Start scenes with fluid below terrain (CLI --no-water)
+    void SetNoSleepOverride();                                                              // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetTornadoOverride( bool enabled );                                                // Enable/disable tornado mode for loaded scenes (CLI --tornado)
+    void SetTornadoVectorFieldOverride( bool enabled );                                     // Show/hide tornado velocity vectors at startup
+    void SetCinematicRenderingOverride( bool enabled );                                     // Force cinematic HDR/post rendering on/off for every scene loaded
+    void SetCinematicShadowsOverride( bool enabled );                                       // Force shadow maps on/off for every scene loaded
+    void SetDemoHeroStyleOverride();                                                        // Run generated demo mode with the low-poly hero rendering style
+    void SetInteractiveRunOverride();                                                       // Keep scene automation from quitting the app (CLI --interactive/--hold)
+    void SetLiveStyleControlDirectory( const char* path );                                  // Enable live style/capture harness in a control folder
+    void SetFrameCountOverride( int frames );                                               // Stop scene/demo automation after N frames (CLI --frames)
+    void SetUIStressOverride( unsigned int seed, int actionsPerFrame );                     // Enable deterministic UI stress from CLI
+    void SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath ); // Enable bounded replay capture from CLI.
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );
@@ -1093,6 +1148,7 @@ class SkullbonezRun
     void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
     void SetPhysicsCollisionTimeLogOverride( const char* path );                           // Override swept collision-time CSV path for all scenes
     void SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics ); // Enable queryable physics diagnostics (CLI --physics-diag)
+    void SetReplayScrubProbe( float normalized );                                          // Enable CLI-only replay scrub SkullScope probe.
 #endif
 };
 } // namespace Basics
