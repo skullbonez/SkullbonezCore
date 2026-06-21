@@ -9,12 +9,12 @@ audits when it is still useful.
 |-------|-------|
 | Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
 | Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
-| Active objective | Pre-impact child highlighting for replay/prediction paths is implemented and validated. |
-| Pending work | None for the pre-impact child highlighting follow-up. |
+| Active objective | Replay cause tree panel is implemented and validated. |
+| Pending work | Commit and push the replay cause tree panel follow-up. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Pre-impact child highlighting passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_preimpact_children_build_profile.log`, 26.68s) and `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_preimpact_children_validate_full.log`, 41.78s) on 2026-06-21. |
+| Validation | Replay cause tree panel passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_build_profile.log`, 26.46s), `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_validate_full.log`, 41.81s), and a bounded platform-profiler marker launch (`TestOutput\agent_logs\2026-06-21_replay_cause_tree_platform_markers.log`, 1.73s) on 2026-06-21. Previous pre-impact child highlighting passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_preimpact_children_build_profile.log`, 26.68s) and `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_preimpact_children_validate_full.log`, 41.78s) on 2026-06-21. |
 
 ## Active Notes
 

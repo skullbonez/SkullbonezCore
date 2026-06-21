@@ -374,6 +374,28 @@ struct RunReplayPathTarget
     char name[64] = {};
 };
 
+static constexpr int REPLAY_CAUSE_TREE_MAX_ROWS = 65;
+
+struct RunReplayCauseTreeRow
+{
+    ReplayBodyId id;
+    ReplayBodyId parentId;
+    ReplayFrameIndex firstFrame = 0;
+    int depth = 0;
+    int modelIndex = -1;
+    bool prediction = false;
+    char name[64] = {};
+};
+
+struct RunReplayCauseTreeState
+{
+    std::array<RunReplayCauseTreeRow, REPLAY_CAUSE_TREE_MAX_ROWS> rows = {};
+    int rowCount = 0;
+    int hoveredRow = -1;
+    ReplayBodyId focusedId;
+    bool leftWasDown = false;
+};
+
 struct RunReplayPathVisualizerState
 {
     bool hasTarget = false;
@@ -1043,6 +1065,7 @@ class SkullbonezRun
     RunReplayScrubberState m_replayScrubber;
     RunReplayPathVisualizerState m_replayPathVisualizer; // Mouse-selected cause/effect trace over retained solver replay samples.
     RunReplayPredictionState m_replayPrediction;         // Optional live solver lookahead for the selected replay path target.
+    RunReplayCauseTreeState m_replayCauseTree;           // Right-side object hierarchy for the active replay cause/effect chain.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
@@ -1169,6 +1192,11 @@ class SkullbonezRun
     bool BuildReplayPrediction();
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
+    bool BuildReplayCauseTreeRows();
+    bool TickReplayCauseTreeInput( bool uiBlocksMouse );
+    bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Math::Vector::Vector3& outPosition ) const;
+    bool FocusReplayCauseTreeBody( ReplayBodyId id );
+    void RenderReplayCauseTreeOverlay();
     void ResetReplayScrubber();
     void SetReplaySimulationPaused( bool paused );
     void CompareLatestReplaySamples();

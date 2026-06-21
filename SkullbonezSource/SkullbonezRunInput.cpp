@@ -3338,8 +3338,9 @@ void SkullbonezRun::TakeInput()
         }
         suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
         const bool replayScrubberOwnsMouse = TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
-        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse;
-        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
+        const bool replayCauseTreeOwnsMouse = TickReplayCauseTreeInput( m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse;
+        m_runtimeInput.BeginFrame( true, m_UI.BlocksKeyboard(), m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -4793,6 +4794,225 @@ void SkullbonezRun::ClearReplayPredictionCache()
     m_replayPrediction.sourceFrameIndex = 0;
     m_replayPrediction.sourceSolverHash = 0;
     m_replayPrediction.lastBuildTime = 0.0;
+}
+
+
+bool SkullbonezRun::BuildReplayCauseTreeRows()
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
+    m_replayCauseTree.rowCount = 0;
+
+    if ( !m_replayPathVisualizer.hasTarget ||
+         m_replayPathVisualizer.targetId.value == 0 )
+    {
+        return false;
+    }
+
+    const bool usePrediction = m_replayPrediction.enabled &&
+                               m_replayPrediction.frames.size() >= 2 &&
+                               m_replayPrediction.targetId.value == m_replayPathVisualizer.targetId.value;
+    const std::vector<RunReplayPathTraceNode>& nodes = usePrediction ? m_replayPrediction.futureNodes : m_replayPathVisualizer.futureNodes;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+
+    auto modelIndexForId = [&]( ReplayBodyId id ) -> int
+    {
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
+            {
+                return i;
+            }
+        }
+        return -1;
+    };
+
+    auto writeName = [&]( ReplayBodyId id, int modelIndex, const char* fallback, char* out, std::size_t outSize ) -> void
+    {
+        out[0] = '\0';
+        if ( fallback && fallback[0] != '\0' )
+        {
+            strncpy_s( out, outSize, fallback, _TRUNCATE );
+            return;
+        }
+        if ( modelIndex >= 0 && modelIndex < static_cast<int>( models.size() ) )
+        {
+            const char* modelName = models[static_cast<std::size_t>( modelIndex )].GetName();
+            if ( modelName && modelName[0] != '\0' )
+            {
+                strncpy_s( out, outSize, modelName, _TRUNCATE );
+                return;
+            }
+        }
+        if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+        {
+            if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
+            {
+                if ( body->name[0] != '\0' )
+                {
+                    strncpy_s( out, outSize, body->name, _TRUNCATE );
+                    return;
+                }
+            }
+        }
+        sprintf_s( out, outSize, "body_%u", id.value );
+    };
+
+    auto addRow = [&]( ReplayBodyId id, ReplayBodyId parentId, ReplayFrameIndex firstFrame, int depth, int modelIndex, const char* fallbackName ) -> bool
+    {
+        if ( id.value == 0 || m_replayCauseTree.rowCount >= REPLAY_CAUSE_TREE_MAX_ROWS )
+        {
+            return false;
+        }
+
+        RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( m_replayCauseTree.rowCount++ )];
+        row = RunReplayCauseTreeRow{};
+        row.id = id;
+        row.parentId = parentId;
+        row.firstFrame = firstFrame;
+        row.depth = depth;
+        row.modelIndex = modelIndex >= 0 ? modelIndex : modelIndexForId( id );
+        row.prediction = usePrediction;
+        writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
+        return true;
+    };
+
+    addRow( m_replayPathVisualizer.targetId,
+            ReplayBodyId{},
+            0,
+            0,
+            m_replayPathVisualizer.targetModelIndex,
+            m_replayPathVisualizer.targetName );
+
+    auto addChildren = [&]( auto&& self, ReplayBodyId parentId, int fallbackDepth ) -> void
+    {
+        for ( const RunReplayPathTraceNode& node : nodes )
+        {
+            if ( node.parentId.value != parentId.value )
+            {
+                continue;
+            }
+            const int depth = node.depth > 0 ? node.depth : fallbackDepth;
+            if ( addRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id ), nullptr ) )
+            {
+                self( self, node.id, depth + 1 );
+            }
+        }
+    };
+    addChildren( addChildren, m_replayPathVisualizer.targetId, 1 );
+
+    return m_replayCauseTree.rowCount > 0;
+}
+
+
+bool SkullbonezRun::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPosition ) const
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+
+    if ( m_replayPrediction.enabled &&
+         !m_replayPrediction.frames.empty() &&
+         m_replayPrediction.targetId.value == m_replayPathVisualizer.targetId.value )
+    {
+        if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyById( m_replayPrediction.frames.front(), id ) )
+        {
+            outPosition = body->position;
+            return true;
+        }
+    }
+
+    if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+    {
+        if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
+        {
+            outPosition = body->position;
+            return true;
+        }
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( const GameModel& model : models )
+    {
+        if ( model.GetReplayBodyId() == id.value )
+        {
+            outPosition = model.GetPosition();
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool SkullbonezRun::FocusReplayCauseTreeBody( ReplayBodyId id )
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
+    Vector3 targetPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    if ( !TryResolveReplayCauseTreeBodyPosition( id, targetPosition ) )
+    {
+        return false;
+    }
+
+    EnterInteractiveSceneRun();
+    if ( !m_replayScrubber.simulationPaused )
+    {
+        SetReplaySimulationPaused( true );
+    }
+    if ( m_systems.cameras )
+    {
+        m_systems.cameras->CancelTween();
+        m_systems.cameras->SetViewCoordinates( targetPosition );
+        m_systems.cameras->ResetRelativity();
+    }
+    m_replayCauseTree.focusedId = id;
+    InputController::ResetMouseLook( m_camera );
+    Input::SetSystemCursorVisible( true );
+    return true;
+}
+
+
+bool SkullbonezRun::TickReplayCauseTreeInput( bool uiBlocksMouse )
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
+    const bool leftDown = Input::IsLeftMouseDown();
+    const bool leftPressed = leftDown && !m_replayCauseTree.leftWasDown;
+    m_replayCauseTree.leftWasDown = leftDown;
+    m_replayCauseTree.hoveredRow = -1;
+
+    if ( uiBlocksMouse ||
+         m_editor.editorModeEnabled ||
+         !m_UI.IsVisible() ||
+         !m_UI.IsMinimized() ||
+         WindowScreenWidth() <= 0 ||
+         WindowScreenHeight() <= 0 ||
+         !BuildReplayCauseTreeRows() )
+    {
+        return false;
+    }
+
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    const UI::UIRect panel = ReplayCauseTreePanelRect( WindowScreenWidth(), WindowScreenHeight() );
+    if ( !panel.Contains( mouse.x, mouse.y ) )
+    {
+        return false;
+    }
+
+    const int visibleRows = (std::min)( m_replayCauseTree.rowCount, ReplayCauseTreeVisibleRowCapacity( panel ) );
+    for ( int rowIndex = 0; rowIndex < visibleRows; ++rowIndex )
+    {
+        const UI::UIRect rowRect = ReplayCauseTreeRowRect( panel, rowIndex );
+        if ( rowRect.Contains( mouse.x, mouse.y ) )
+        {
+            m_replayCauseTree.hoveredRow = rowIndex;
+            if ( leftPressed )
+            {
+                FocusReplayCauseTreeBody( m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )].id );
+            }
+            break;
+        }
+    }
+
+    return true;
 }
 
 

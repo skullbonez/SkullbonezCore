@@ -41,6 +41,8 @@ void SkullbonezRun::UiTextPass::ReleaseGpuResources()
 void SkullbonezRun::RenderReplayScrubberOverlay()
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
+    RenderReplayCauseTreeOverlay();
+
     if ( !ShouldRenderReplayScrubber() )
     {
         return;
@@ -284,6 +286,149 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
                predictEnabled ? 1.0f : 0.74f,
                predictEnabled ? 0.88f : 0.76f,
                predictSecondsLabel );
+
+    Text2d::FlushQuads();
+    Text2d::FlushText();
+}
+
+
+void SkullbonezRun::RenderReplayCauseTreeOverlay()
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
+    if ( !m_UI.IsVisible() ||
+         !m_UI.IsMinimized() ||
+         WindowScreenWidth() <= 0 ||
+         WindowScreenHeight() <= 0 ||
+         !BuildReplayCauseTreeRows() )
+    {
+        return;
+    }
+
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    const UI::UIRect panel = ReplayCauseTreePanelRect( screenW, screenH );
+    const int visibleRows = (std::min)( m_replayCauseTree.rowCount, ReplayCauseTreeVisibleRowCapacity( panel ) );
+    if ( visibleRows <= 0 )
+    {
+        return;
+    }
+
+    const UI::UIDrawContext draw( screenW, screenH );
+    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.012f, 0.016f, 0.022f, 0.78f );
+    draw.Outline( panel.x, panel.y, panel.w, panel.h, 0.36f, 0.54f, 0.62f, 0.38f );
+    draw.Text( panel.x + 14.0f, panel.y + 12.0f, 11.0f, 0.82f, 0.94f, 1.0f, "CAUSE TREE" );
+
+    const bool predictionRows = m_replayCauseTree.rows[0].prediction;
+    const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
+    const float sourceW = Text2d::MeasureText( 8.5f, sourceLabel );
+    draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f,
+                      panel.y + 11.0f,
+                      sourceW + 14.0f,
+                      16.0f,
+                      4.0f,
+                      predictionRows ? 0.08f : 0.08f,
+                      predictionRows ? 0.30f : 0.18f,
+                      predictionRows ? 0.17f : 0.27f,
+                      0.70f );
+    draw.Text( panel.x + panel.w - sourceW - 19.0f,
+               panel.y + 14.0f,
+               8.5f,
+               predictionRows ? 0.62f : 0.62f,
+               predictionRows ? 1.0f : 0.86f,
+               predictionRows ? 0.72f : 1.0f,
+               sourceLabel );
+
+    const ReplaySolverFrameSample* scrubSample = CurrentReplaySolverScrubSample();
+    const ReplayFrameIndex presentFrame = scrubSample ? scrubSample->frameIndex : 0;
+
+    for ( int rowIndex = 0; rowIndex < visibleRows; ++rowIndex )
+    {
+        const RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )];
+        const UI::UIRect rowRect = ReplayCauseTreeRowRect( panel, rowIndex );
+        const bool hovered = rowIndex == m_replayCauseTree.hoveredRow;
+        const bool focused = row.id.value != 0 && row.id.value == m_replayCauseTree.focusedId.value;
+        if ( hovered || focused )
+        {
+            draw.RoundedRect( rowRect.x,
+                              rowRect.y,
+                              rowRect.w,
+                              rowRect.h,
+                              4.0f,
+                              focused ? 0.12f : 0.08f,
+                              focused ? 0.30f : 0.18f,
+                              focused ? 0.22f : 0.24f,
+                              hovered ? 0.82f : 0.56f );
+        }
+
+        const float indent = (std::min)( 118.0f, static_cast<float>( row.depth ) * 18.0f );
+        if ( row.depth > 0 )
+        {
+            const float lineX = rowRect.x + 9.0f + indent - 10.0f;
+            draw.Rect( lineX, rowRect.y + 4.0f, 1.0f, rowRect.h - 8.0f, 0.62f, 0.68f, 0.72f, 0.32f );
+            draw.Rect( lineX, rowRect.y + rowRect.h * 0.5f, 8.0f, 1.0f, 0.62f, 0.68f, 0.72f, 0.32f );
+        }
+
+        char clippedName[32] = {};
+        strncpy_s( clippedName, sizeof( clippedName ), row.name, _TRUNCATE );
+        if ( strlen( clippedName ) > 24 )
+        {
+            clippedName[21] = '.';
+            clippedName[22] = '.';
+            clippedName[23] = '.';
+            clippedName[24] = '\0';
+        }
+
+        char label[80] = {};
+        if ( row.depth == 0 )
+        {
+            sprintf_s( label, sizeof( label ), "ROOT  %s", clippedName );
+        }
+        else
+        {
+            double secondsToHit = 0.0;
+            if ( row.prediction )
+            {
+                secondsToHit = static_cast<double>( row.firstFrame ) * PHYSICS_FIXED_DT;
+            }
+            else if ( row.firstFrame > presentFrame )
+            {
+                secondsToHit = static_cast<double>( row.firstFrame - presentFrame ) * PHYSICS_FIXED_DT;
+            }
+            sprintf_s( label, sizeof( label ), "+%.2fs  %s", secondsToHit, clippedName );
+        }
+
+        const float markerX = rowRect.x + 8.0f + indent;
+        const float markerY = rowRect.y + rowRect.h * 0.5f - 2.0f;
+        if ( row.depth == 0 )
+        {
+            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.94f, 1.0f, 0.74f, 0.92f );
+        }
+        else
+        {
+            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.92f, 0.56f, 0.20f, 0.86f );
+        }
+        draw.Text( markerX + 11.0f,
+                   rowRect.y + 4.0f,
+                   9.5f,
+                   row.depth == 0 ? 0.88f : 0.76f,
+                   row.depth == 0 ? 1.0f : 0.82f,
+                   row.depth == 0 ? 0.86f : 0.78f,
+                   label );
+    }
+
+    const int hiddenRows = m_replayCauseTree.rowCount - visibleRows;
+    if ( hiddenRows > 0 )
+    {
+        char moreLabel[32] = {};
+        sprintf_s( moreLabel, sizeof( moreLabel ), "+%d more", hiddenRows );
+        draw.Text( panel.x + 14.0f,
+                   panel.y + panel.h - 18.0f,
+                   8.5f,
+                   0.58f,
+                   0.66f,
+                   0.72f,
+                   moreLabel );
+    }
 
     Text2d::FlushQuads();
     Text2d::FlushText();

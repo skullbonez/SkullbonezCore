@@ -102,6 +102,11 @@ inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
 inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
 inline constexpr float REPLAY_PREDICTION_STEP_SECONDS = 1.0f;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
+inline constexpr float REPLAY_CAUSE_TREE_ROW_HEIGHT = 22.0f;
+inline constexpr float REPLAY_CAUSE_TREE_HEADER_HEIGHT = 42.0f;
 #ifdef _DEBUG
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
@@ -202,6 +207,32 @@ inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
              (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_HOT_ZONE_HEIGHT ),
              static_cast<float>( screenW ),
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
+}
+
+inline UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
+{
+    const UI::UIRect scrubber = ReplayScrubberPanelRect( screenW, screenH );
+    const float width = (std::min)( REPLAY_CAUSE_TREE_PANEL_WIDTH,
+                                    (std::max)( 220.0f, static_cast<float>( screenW ) - REPLAY_CAUSE_TREE_PANEL_MARGIN * 2.0f ) );
+    const float x = (std::max)( REPLAY_CAUSE_TREE_PANEL_MARGIN,
+                                static_cast<float>( screenW ) - width - REPLAY_CAUSE_TREE_PANEL_MARGIN );
+    const float y = REPLAY_CAUSE_TREE_PANEL_TOP;
+    const float maxHeight = (std::max)( 120.0f, scrubber.y - y - REPLAY_CAUSE_TREE_PANEL_MARGIN );
+    const float height = (std::min)( 420.0f, maxHeight );
+    return { x, y, width, height };
+}
+
+inline UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow )
+{
+    return { panel.x + 10.0f,
+             panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT + static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
+             panel.w - 20.0f,
+             REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
+}
+
+inline int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
+{
+    return (std::max)( 0, static_cast<int>( ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) / REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
 }
 
 inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
