@@ -77,17 +77,25 @@ into inspection mode when needed and points the camera view target at that body.
 The scrubber now also exposes a `PREDICT` checkbox with compact `-`, `+`, and
 slider horizon controls, default off and defaulting to 10 seconds. The horizon
 clamps from 1 to 10 seconds. When a root body is selected and prediction is
-enabled, the runtime backs up live body and solver state, suppresses Debug
-physics diagnostics, runs the current solver forward for the selected horizon,
-captures predicted body positions and contact rows, then restores the live
-world before drawing. The predicted root path draws white-to-green from the live
-state; future bodies contacted by that path draw amber incoming traces and
-target rings before first impact, then grey post-contact traces and contact
-markers. Shift-click can add multiple retained history roots; the most
-recently selected root remains the prediction root. The scrubber also has a
-`PAUSE`/`PLAY` button for frozen live inspection with free-camera movement and
-right-mouse look. The new work is profiled under
-`Frame/Replay/Prediction/...`, `Frame/Replay/PathVisualizer/...`,
+enabled, the runtime starts a sandboxed solver lookahead from the current live
+state and advances it as a cancellable drawing job capped at 5 ms of
+speculative work per frame. Each slice restores the live world before rendering,
+while the saved prediction cursor resumes on the next frame. Partial samples
+draw as soon as they are captured, so long horizons fill in over multiple
+frames instead of blocking the demo scene. Target, horizon, and velocity edits
+cancel the current job, clear the partial paths, and restart from the new live
+state. The predicted root path draws white-to-green from the live state; future
+bodies contacted by that path draw amber incoming traces and target rings before
+first impact, then grey post-contact traces and contact markers. Shift-click can
+add multiple retained history roots; the most recently selected root remains the
+prediction root. The scrubber also has a `PAUSE`/`PLAY` button for frozen live
+inspection with free-camera movement and right-mouse look. The new work is
+profiled under `Frame/Replay/Prediction/BeginJob`,
+`Frame/Replay/Prediction/Slice`, `Frame/Replay/Prediction/Steps`,
+`Frame/Replay/Prediction/StepPhysics`,
+`Frame/Replay/Prediction/ApplyJobState`,
+`Frame/Replay/Prediction/CaptureJobState`,
+`Frame/Replay/Prediction/RestoreLive`, `Frame/Replay/PathVisualizer/...`,
 `Frame/Replay/ScrubberInput`, `Frame/Replay/SimulationPause`,
 `Frame/Replay/ScrubberOverlay`, and the existing physics scopes, so PIX and the
 in-engine profiler can isolate the speculative lookahead and scrubber UI cost.
@@ -97,10 +105,10 @@ editor mode, `Alt` or the scrubber `ALT VEL` toggle pauses into inspection,
 enables prediction, and shows a selected dynamic body's linear-axis handles plus
 angular velocity rings. Dragging linear handles or angular rings writes the live
 body's velocity, wakes it when needed, invalidates the retained physics streams,
-and marks prediction dirty so the future path and cause tree rebuild from the
-new state. `SkullbonezData/scenes/replay_velocity_four_ball.scene.json` provides
-four resting balls in a line for manually ramping the cue ball and watching the
-downstream predicted children appear.
+and cancels/restarts prediction so the future path and cause tree redraw from
+the new state. `SkullbonezData/scenes/replay_velocity_four_ball.scene.json`
+provides four resting balls in a line for manually ramping the cue ball and
+watching the downstream predicted children appear.
 
 Future work can add numeric velocity fields, explicit parent collision timing
 labels, and deeper tree controls.

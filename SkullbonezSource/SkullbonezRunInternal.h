@@ -103,6 +103,7 @@ inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
 inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
 inline constexpr float REPLAY_PREDICTION_STEP_SECONDS = 1.0f;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
+inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
