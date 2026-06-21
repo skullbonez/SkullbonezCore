@@ -1,7 +1,7 @@
 # Authoritative Replay Rollback Plan
 
 Date: 2026-06-21
-Status: Proposed
+Status: In progress - retained in-memory solver snapshot v1 implemented
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -20,6 +20,13 @@ while inspecting it, resume from the live edge, and save the retained
 presentation buffer. Authoritative rollback means the user can choose a replay
 time, restore the actual solver state for that tick, and continue simulation
 from there as a new live branch.
+
+Implementation note, 2026-06-21: the first runtime implementation uses retained
+per-frame in-memory solver snapshots rather than sparse checkpoints plus an event
+stream. This is intentionally memory-heavier, but it makes scrub-to-branch
+correctness available now. Future work can replace the dense retained snapshot
+with checkpoint/event replay once restore hashes and visualization tooling are
+proven.
 
 The core rule remains:
 
@@ -49,14 +56,25 @@ physics ticks forward to the selected target tick.
 | Video-first replay | Video cannot branch, inspect contacts, or validate solver hashes. |
 | Lossy authoritative state | Compression is allowed only after deterministic restore tests prove the uncompressed schema. |
 
+## Follow-Up Visualizer Target
+
+The next commit can build the path/contact visualizer on top of rollback. The
+target workflow is an awake-frontier trace: start from the selected solver
+snapshot, draw past and predicted future paths for currently awake bodies, draw
+future contact manifolds, and expand the visible trace as predicted contacts
+wake additional bodies. A dedicated pool-table-style scene with one launched
+ball waking a chain of other balls should be used for screenshot verification.
+
 ## Current Starting Point
 
 | Area | Current behavior |
 |------|------------------|
 | Replay recording | `ReplayRecorder` stores a bounded 30-second presentation ring by default for generated/interactive runs. |
-| Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live. |
-| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`. |
-| Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output. |
+| Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
+| Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
+| Branch restore | Press `Enter` while paused on the solver row to restore the selected retained solver frame as the new live branch. |
+| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` with compact authoritative snapshot summaries. |
+| Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
 | Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. |
 
 ## Definitions
@@ -153,6 +171,7 @@ state.
 | Dragging scrubber | Use presentation samples only; no expensive solver restore while dragging. |
 | Holding on old frame | Keep visual/presentation pause as today. |
 | Commit restore | Add an explicit action later, or treat mouse release away from live as restore only after the user confirms the workflow. |
+| Commit restore, v1 | Press `Enter` while paused on the solver row. |
 | Dragging back to live | Keep current behavior: resume live simulation without restore. |
 | Save replay | Continue saving presentation buffer for now; future `.skreplay` v2 should include checkpoints and event chunks. |
 

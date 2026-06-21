@@ -554,6 +554,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezReplayRecorder.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezReplaySolverSnapshot.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRuntimeFileWriter.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>

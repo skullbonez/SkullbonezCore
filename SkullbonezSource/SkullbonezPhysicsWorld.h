@@ -37,6 +37,7 @@ Related:
 #include "SkullbonezPersistentContactSolver.h"
 #include "SkullbonezPhysicsDiagnosticsSink.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezReplaySolverSnapshot.h"
 #include "SkullbonezSkullScope.h"
 #include "SkullbonezSleepIslandSystem.h"
 #include "SkullbonezSpatialGrid.h"
@@ -279,6 +280,8 @@ class PhysicsWorld
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
+    bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;

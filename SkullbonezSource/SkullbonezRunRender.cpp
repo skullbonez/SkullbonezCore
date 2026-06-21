@@ -338,7 +338,8 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
 {
     std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
     m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( (std::min)( sample.bodies.size(), models.size() ) );
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
@@ -358,6 +359,7 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
         backup.position = model.GetPosition();
         backup.orientation = model.GetOrientation();
         m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
 
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
@@ -366,6 +368,22 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
         orientation.Normalise();
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
     }
 
     if ( !m_replayPoseBackups.empty() )
@@ -380,7 +398,8 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
 {
     std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
     m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( (std::min)( sample.bodies.size(), models.size() ) );
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
@@ -400,6 +419,7 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
         backup.position = model.GetPosition();
         backup.orientation = model.GetOrientation();
         m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
 
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
@@ -408,6 +428,22 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
         orientation.Normalise();
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
     }
 
     if ( !m_replayPoseBackups.empty() )
@@ -439,6 +475,32 @@ void SkullbonezRun::RestoreReplayPresentationRenderPose()
     }
     m_replayPoseBackups.clear();
     m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
+void SkullbonezRun::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
+{
+    if ( m_replayLauncherVisualBackupActive )
+    {
+        return;
+    }
+
+    BuildReplayLauncherVisualSample( m_replayLauncherVisualBackup );
+    m_replayLauncherVisualBackupActive = true;
+    RestoreReplayLauncherVisualSample( sample );
+}
+
+
+void SkullbonezRun::RestoreReplayLauncherVisualForRender()
+{
+    if ( !m_replayLauncherVisualBackupActive )
+    {
+        return;
+    }
+
+    RestoreReplayLauncherVisualSample( m_replayLauncherVisualBackup );
+    m_replayLauncherVisualBackup = ReplayLauncherVisualSample();
+    m_replayLauncherVisualBackupActive = false;
 }
 
 
@@ -508,12 +570,14 @@ void SkullbonezRun::Render()
                                                          solverSample->camera.view,
                                                          solverSample->camera.up );
         ApplyReplaySolverSampleForRender( *solverSample );
+        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
     }
 
     // DrawPrimitives is now the frame story: it chooses the optional cinematic
     // target, then runs named passes in the same order the image is produced.
     DrawPrimitives();
     RestoreReplayPresentationRenderPose();
+    RestoreReplayLauncherVisualForRender();
 }
 
 

@@ -300,6 +300,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezSimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezReplayExporter.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezReplayRecorder.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />

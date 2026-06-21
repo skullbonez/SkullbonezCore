@@ -1999,10 +1999,14 @@ void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 
 bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
+    m_replayScrubber.restoreConsumedThisFrame = false;
     const bool leftDown = Input::IsLeftMouseDown();
     const bool leftPressed = leftDown && !m_replayScrubber.leftWasDown;
     const bool leftReleased = !leftDown && m_replayScrubber.leftWasDown;
     m_replayScrubber.leftWasDown = leftDown;
+    const bool restoreDown = Input::IsKeyDown( VK_RETURN );
+    const bool restorePressed = restoreDown && !m_replayScrubber.restoreWasDown;
+    m_replayScrubber.restoreWasDown = restoreDown;
 
     const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const ReplayRecorderStats replayStats = m_replay.GetStats();
@@ -2054,6 +2058,28 @@ bool SkullbonezRun::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     bool consumesMouse = canTakeMouse &&
                          ( m_replayScrubber.dragging ||
                            ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton ) ) );
+
+    if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    {
+        EnterInteractiveSceneRun();
+        char reason[96] = {};
+        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+        const bool restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
+        m_replayScrubber.restoreConsumedThisFrame = true;
+        m_replayScrubber.saveMessageTrack = RunReplayTrack::Solver;
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   restored ? "SOLVER RESTORED" : "RESTORE FAILED" );
+        m_replayScrubber.saveMessageUntil = now + 2.5;
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        fprintf( stderr,
+                 "[replay] Solver restore %s%s%s\n",
+                 restored ? "applied" : "failed",
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+        return true;
+    }
 
     if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
     {
@@ -2296,7 +2322,9 @@ void SkullbonezRun::TakeInput()
 
 #ifdef _DEBUG
         {
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN ) && m_camera.isLauncherMode )
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN ) &&
+                 m_camera.isLauncherMode &&
+                 !m_replayScrubber.restoreConsumedThisFrame )
             {
                 WriteLauncherReproSnapshot();
             }

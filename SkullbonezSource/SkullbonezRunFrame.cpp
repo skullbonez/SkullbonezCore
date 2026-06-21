@@ -232,6 +232,9 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
 {
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+        ReplayLauncherVisualSample launcherVisual;
+        BuildReplayLauncherVisualSample( launcherVisual );
+
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
@@ -244,6 +247,7 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
         input.cameras = m_systems.cameras;
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
+        input.launcherVisual = &launcherVisual;
         m_replay.CaptureFrame( input );
         m_solverReplay.CaptureFrame( input );
         CompareLatestReplaySamples();
@@ -251,6 +255,29 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
 #ifdef _DEBUG
     TickReplayScrubProbe();
 #endif
+}
+
+
+void SkullbonezRun::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
+{
+    outSample = ReplayLauncherVisualSample();
+    outSample.nextRayLine = m_rayCastTest.nextLine;
+    outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile : ReplayLauncherFireMode::Laser;
+    outSample.visualizeRays = m_rayCastTest.visualizeRays;
+    outSample.impulseStrength = m_rayCastTest.impulseStrength;
+    outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
+    outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        ReplayRayCastLineSample sample;
+        sample.start = line.start;
+        sample.end = line.end;
+        sample.ageSeconds = line.ageSeconds;
+        sample.active = line.active;
+        sample.hit = line.hit;
+        outSample.rayLines.push_back( sample );
+    }
+    m_launcherLaser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
 }
 
 

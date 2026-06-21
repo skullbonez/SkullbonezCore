@@ -88,6 +88,9 @@ class GameModelCollection
     const std::vector<GameModel>& Models() const;
     std::vector<GameModel>& PhysicsModels();
     const std::vector<GameModel>& PhysicsModels() const;
+    bool TrimModelsForReplayRestore( int modelCount );
+    void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
+    bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
     GameModel& GetModelAtIndex( int index );

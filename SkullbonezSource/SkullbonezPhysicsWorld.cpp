@@ -44,6 +44,10 @@ Related:
 
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
+using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
+using SkullbonezCore::Basics::ReplaySolverStatsSample;
+using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Math = SkullbonezCore::Math;
@@ -165,6 +169,203 @@ void PhysicsWorld::Clear()
     m_objectNarrowphaseRank.clear();
     m_objectNarrowphaseRootToIsland.clear();
     m_collisionCellKeys.clear();
+}
+
+
+void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
+{
+    outSnapshot = ReplaySolverWorldSnapshot();
+    outSnapshot.version = 1;
+    outSnapshot.modelCount = modelCount;
+    outSnapshot.nextSleepIslandVisualId = m_nextSleepIslandVisualId;
+    outSnapshot.sleepEnabled = m_sleepEnabled;
+    outSnapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
+    outSnapshot.tornadoConfig = m_tornadoField.GetConfig();
+    outSnapshot.timeRemaining = m_timeRemaining;
+    outSnapshot.sleepSupportedThisFrame = m_sleepSupportedThisFrame;
+    outSnapshot.sleepInhibitedThisFrame = m_sleepInhibitedThisFrame;
+    outSnapshot.sleepState = m_sleepState;
+    outSnapshot.sleepCounter = m_sleepCounter;
+    outSnapshot.underwaterSleepLocked = m_underwaterSleepLocked;
+    outSnapshot.tornadoCaptureSeconds = m_tornadoCaptureSeconds;
+    outSnapshot.tornadoEjectCooldownSeconds = m_tornadoEjectCooldownSeconds;
+    outSnapshot.collisionVisualContacts = m_collisionVisualContacts;
+    outSnapshot.sleepIslandVisualId = m_sleepIslandVisualId;
+    outSnapshot.sleepIslandAssignedVisualId = m_sleepIslandAssignedVisualId;
+    outSnapshot.sleepSupportEdges = m_sleepSupportEdges;
+    outSnapshot.sleepIslandParent = m_sleepIslandParent;
+    outSnapshot.sleepIslandRank = m_sleepIslandRank;
+    outSnapshot.sleepIslandHasAwake = m_sleepIslandHasAwake;
+    outSnapshot.sleepIslandHasSupportAnchor = m_sleepIslandHasSupportAnchor;
+    outSnapshot.sleepIslandEligible = m_sleepIslandEligible;
+    outSnapshot.sleepIslandCanSleep = m_sleepIslandCanSleep;
+    outSnapshot.persistentContactCounts = m_persistentContactCounts;
+    outSnapshot.persistentRestingContactCounts = m_persistentRestingContactCounts;
+    outSnapshot.debugContacts = m_physicsDebugContacts;
+    outSnapshot.pipelineTrace = m_physicsPipelineTrace;
+    outSnapshot.collisionCellKeys = m_collisionCellKeys;
+
+    outSnapshot.persistentContacts.reserve( m_persistentContacts.size() );
+    for ( const PersistentContact& contact : m_persistentContacts )
+    {
+        ReplaySolverPersistentContactSample sample;
+        sample.bodyA = contact.bodyA;
+        sample.bodyB = contact.bodyB;
+        sample.featureId = contact.featureId;
+        sample.key = contact.key;
+        sample.normal = contact.normal;
+        sample.tangent1 = contact.tangent1;
+        sample.tangent2 = contact.tangent2;
+        sample.rA = contact.rA;
+        sample.rB = contact.rB;
+        sample.penetration = contact.penetration;
+        sample.normalMass = contact.normalMass;
+        sample.tangentMass1 = contact.tangentMass1;
+        sample.tangentMass2 = contact.tangentMass2;
+        sample.bias = contact.bias;
+        sample.frictionLimit = contact.frictionLimit;
+        sample.accN = contact.accN;
+        sample.accT1 = contact.accT1;
+        sample.accT2 = contact.accT2;
+        sample.warmStarted = contact.warmStarted;
+        sample.isTerrain = contact.isTerrain;
+        sample.supportsRestingPolicy = contact.supportsRestingPolicy;
+        sample.allowsTangentFriction = contact.allowsTangentFriction;
+        sample.normalCoupledFriction = contact.normalCoupledFriction;
+        sample.inhibitsSleep = contact.inhibitsSleep;
+        sample.manifoldPointCount = contact.manifoldPointCount;
+        sample.terrainNormal = contact.terrainNormal;
+        sample.terrainWarmStart = contact.terrainWarmStart;
+        outSnapshot.persistentContacts.push_back( sample );
+    }
+
+    outSnapshot.persistentContactCache.reserve( m_persistentContactCache.size() );
+    for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
+    {
+        ReplaySolverContactCacheSample sample;
+        sample.key = cache.key;
+        sample.accN = cache.accN;
+        sample.accT1 = cache.accT1;
+        sample.accT2 = cache.accT2;
+        outSnapshot.persistentContactCache.push_back( sample );
+    }
+
+    outSnapshot.solverStats.rowCount = m_persistentContactSolverStats.rowCount;
+    outSnapshot.solverStats.cachePreviousRows = m_persistentContactSolverStats.cachePreviousRows;
+    outSnapshot.solverStats.cacheHits = m_persistentContactSolverStats.cacheHits;
+    outSnapshot.solverStats.cacheMisses = m_persistentContactSolverStats.cacheMisses;
+    outSnapshot.solverStats.warmStartedRows = m_persistentContactSolverStats.warmStartedRows;
+    outSnapshot.solverStats.positionCorrectionRows = m_persistentContactSolverStats.positionCorrectionRows;
+    outSnapshot.solverStats.solverIterations = m_persistentContactSolverStats.solverIterations;
+    outSnapshot.solverStats.positionCorrectionTotal = m_persistentContactSolverStats.positionCorrectionTotal;
+    outSnapshot.solverStats.positionCorrectionMax = m_persistentContactSolverStats.positionCorrectionMax;
+}
+
+
+bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
+{
+    if ( snapshot.version != 1 || snapshot.modelCount != modelCount )
+    {
+        return false;
+    }
+
+    m_timeRemaining = snapshot.timeRemaining;
+    m_sleepSupportedThisFrame = snapshot.sleepSupportedThisFrame;
+    m_sleepInhibitedThisFrame = snapshot.sleepInhibitedThisFrame;
+    m_sleepState = snapshot.sleepState;
+    m_sleepCounter = snapshot.sleepCounter;
+    m_underwaterSleepLocked = snapshot.underwaterSleepLocked;
+    m_tornadoCaptureSeconds = snapshot.tornadoCaptureSeconds;
+    m_tornadoEjectCooldownSeconds = snapshot.tornadoEjectCooldownSeconds;
+    m_collisionVisualContacts = snapshot.collisionVisualContacts;
+    m_sleepIslandVisualId = snapshot.sleepIslandVisualId;
+    m_sleepIslandAssignedVisualId = snapshot.sleepIslandAssignedVisualId;
+    m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
+    m_sleepEnabled = snapshot.sleepEnabled;
+    m_collisionVisualFrameActive = snapshot.collisionVisualFrameActive;
+    m_sleepSupportEdges = snapshot.sleepSupportEdges;
+    m_sleepIslandParent = snapshot.sleepIslandParent;
+    m_sleepIslandRank = snapshot.sleepIslandRank;
+    m_sleepIslandHasAwake = snapshot.sleepIslandHasAwake;
+    m_sleepIslandHasSupportAnchor = snapshot.sleepIslandHasSupportAnchor;
+    m_sleepIslandEligible = snapshot.sleepIslandEligible;
+    m_sleepIslandCanSleep = snapshot.sleepIslandCanSleep;
+    m_persistentContactCounts = snapshot.persistentContactCounts;
+    m_persistentRestingContactCounts = snapshot.persistentRestingContactCounts;
+    m_physicsDebugContacts = snapshot.debugContacts;
+    m_physicsPipelineTrace = snapshot.pipelineTrace;
+    m_collisionCellKeys = snapshot.collisionCellKeys;
+    m_tornadoField.SetConfig( snapshot.tornadoConfig );
+
+    m_persistentContacts.clear();
+    m_persistentContacts.reserve( snapshot.persistentContacts.size() );
+    for ( const ReplaySolverPersistentContactSample& sample : snapshot.persistentContacts )
+    {
+        PersistentContact contact;
+        contact.bodyA = sample.bodyA;
+        contact.bodyB = sample.bodyB;
+        contact.featureId = sample.featureId;
+        contact.key = sample.key;
+        contact.normal = sample.normal;
+        contact.tangent1 = sample.tangent1;
+        contact.tangent2 = sample.tangent2;
+        contact.rA = sample.rA;
+        contact.rB = sample.rB;
+        contact.penetration = sample.penetration;
+        contact.normalMass = sample.normalMass;
+        contact.tangentMass1 = sample.tangentMass1;
+        contact.tangentMass2 = sample.tangentMass2;
+        contact.bias = sample.bias;
+        contact.frictionLimit = sample.frictionLimit;
+        contact.accN = sample.accN;
+        contact.accT1 = sample.accT1;
+        contact.accT2 = sample.accT2;
+        contact.warmStarted = sample.warmStarted;
+        contact.isTerrain = sample.isTerrain;
+        contact.supportsRestingPolicy = sample.supportsRestingPolicy;
+        contact.allowsTangentFriction = sample.allowsTangentFriction;
+        contact.normalCoupledFriction = sample.normalCoupledFriction;
+        contact.inhibitsSleep = sample.inhibitsSleep;
+        contact.manifoldPointCount = sample.manifoldPointCount;
+        contact.terrainNormal = sample.terrainNormal;
+        contact.terrainWarmStart = sample.terrainWarmStart;
+        m_persistentContacts.push_back( contact );
+    }
+
+    m_persistentContactCache.clear();
+    m_persistentContactCache.reserve( snapshot.persistentContactCache.size() );
+    for ( const ReplaySolverContactCacheSample& sample : snapshot.persistentContactCache )
+    {
+        PersistentContactCacheEntry cache;
+        cache.key = sample.key;
+        cache.accN = sample.accN;
+        cache.accT1 = sample.accT1;
+        cache.accT2 = sample.accT2;
+        m_persistentContactCache.push_back( cache );
+    }
+
+    m_persistentContactSolverStats = PersistentContactSolverStats();
+    m_persistentContactSolverStats.rowCount = snapshot.solverStats.rowCount;
+    m_persistentContactSolverStats.cachePreviousRows = snapshot.solverStats.cachePreviousRows;
+    m_persistentContactSolverStats.cacheHits = snapshot.solverStats.cacheHits;
+    m_persistentContactSolverStats.cacheMisses = snapshot.solverStats.cacheMisses;
+    m_persistentContactSolverStats.warmStartedRows = snapshot.solverStats.warmStartedRows;
+    m_persistentContactSolverStats.positionCorrectionRows = snapshot.solverStats.positionCorrectionRows;
+    m_persistentContactSolverStats.solverIterations = snapshot.solverStats.solverIterations;
+    m_persistentContactSolverStats.positionCorrectionTotal = snapshot.solverStats.positionCorrectionTotal;
+    m_persistentContactSolverStats.positionCorrectionMax = snapshot.solverStats.positionCorrectionMax;
+
+    m_candidatePairs.clear();
+    m_solverBodies.clear();
+    m_terrainContactManifolds.clear();
+    m_terrainDetectionCandidates.clear();
+    m_objectNarrowphaseEvents.clear();
+    m_objectNarrowphaseIslands.clear();
+    m_objectNarrowphaseParent.clear();
+    m_objectNarrowphaseRank.clear();
+    m_objectNarrowphaseRootToIsland.clear();
+    m_spatialGrid.Clear();
+    return true;
 }
 
 

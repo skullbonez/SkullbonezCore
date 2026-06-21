@@ -160,6 +160,7 @@ CORE_PREFIXES = (
     "SkullbonezRuntimeFileWriter",
     "SkullbonezRuntimeDiagnostics",
     "SkullbonezReplayRecorder",
+    "SkullbonezReplaySolverSnapshot",
     "SkullbonezSceneRuntime",
     "SkullbonezSimulationSystem",
     "SkullbonezSkullScope",

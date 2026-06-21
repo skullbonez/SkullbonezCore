@@ -30,6 +30,18 @@ class IShader;
 
 namespace Basics
 {
+struct LauncherLaserShotSnapshot
+{
+    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 cameraRight = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
+    Math::Vector::Vector3 cameraUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    float ageSeconds = 0.0f;
+    float lifetimeSeconds = 0.18f;
+    bool active = false;
+    bool hit = false;
+};
+
 class LauncherLaser
 {
   private:
@@ -95,6 +107,8 @@ class LauncherLaser
                float distance,
                bool hit );
     void Update( float dt );
+    void CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const;
+    void RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot );
     void Render( const Math::Transformation::Matrix4& viewProjection,
                  const Math::Vector::Vector3& cameraEye,
                  const Math::Vector::Vector3& cameraUp );

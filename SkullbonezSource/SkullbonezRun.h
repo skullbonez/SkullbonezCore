@@ -337,6 +337,8 @@ struct RunReplayScrubberState
     bool paused = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
+    bool restoreWasDown = false;
+    bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
@@ -959,6 +961,8 @@ class SkullbonezRun
     ReplaySolverRecorder m_solverReplay;  // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
+    ReplayLauncherVisualSample m_replayLauncherVisualBackup;
+    bool m_replayLauncherVisualBackupActive = false;
     uint32_t m_solverReplayMismatchReports = 0;
     bool m_solverReplayMismatchSuppressed = false;
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
@@ -1073,6 +1077,8 @@ class SkullbonezRun
     void ResetReplayTimelineForActiveScene(); // Scene/model rebuilds start a fresh in-memory replay branch.
     void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
+    void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
+    void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     void ResetReplayScrubber();
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
@@ -1084,6 +1090,9 @@ class SkullbonezRun
     bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
     bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
     void RestoreReplayPresentationRenderPose();
+    void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
+    void RestoreReplayLauncherVisualForRender();
+    bool RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator

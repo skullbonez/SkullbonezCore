@@ -25,6 +25,8 @@ Glossary:
 #include <string>
 #include <vector>
 
+#include "SkullbonezLauncherLaser.h"
+#include "SkullbonezReplaySolverSnapshot.h"
 #include "SkullbonezVector3.h"
 
 namespace SkullbonezCore
@@ -138,6 +140,33 @@ struct ReplaySolverBodySample
     float normalImpulseSum = 0.0f;
 };
 
+enum class ReplayLauncherFireMode : uint8_t
+{
+    Laser,
+    Projectile
+};
+
+struct ReplayRayCastLineSample
+{
+    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
+    float ageSeconds = 0.0f;
+    bool active = false;
+    bool hit = false;
+};
+
+struct ReplayLauncherVisualSample
+{
+    std::vector<ReplayRayCastLineSample> rayLines;
+    std::vector<LauncherLaserShotSnapshot> laserShots;
+    int nextRayLine = 0;
+    int nextLaserShot = 0;
+    ReplayLauncherFireMode fireMode = ReplayLauncherFireMode::Laser;
+    bool visualizeRays = false;
+    float impulseStrength = 0.0f;
+    float projectileSpeed = 0.0f;
+};
+
 struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;
@@ -146,6 +175,8 @@ struct ReplaySolverFrameSample
     float physicsDt = 0.0f;
     ReplayCameraSample camera;
     ReplayWorldPresentationSample world;
+    ReplayLauncherVisualSample launcherVisual;
+    ReplaySolverWorldSnapshot worldSnapshot;
     std::vector<ReplaySolverBodySample> bodies;
     uint64_t solverHash = 0;
     uint64_t presentationHash = 0;
@@ -177,6 +208,7 @@ struct ReplayCaptureInput
     Environment::CameraCollection* cameras = nullptr;
     Environment::WorldEnvironment* world = nullptr;
     GameObjects::GameModelCollection* models = nullptr;
+    const ReplayLauncherVisualSample* launcherVisual = nullptr;
 };
 
 struct ReplayRecorderConfig

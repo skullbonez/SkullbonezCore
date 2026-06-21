@@ -27,6 +27,7 @@ using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::PhysicsDebugContact;
+namespace Physics = SkullbonezCore::Physics;
 
 namespace
 {
@@ -56,6 +57,21 @@ uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
 uint64_t HashUint32( uint64_t hash, uint32_t value )
 {
     return HashBytes( hash, &value, sizeof( value ) );
+}
+
+uint64_t HashUint64( uint64_t hash, uint64_t value )
+{
+    return HashBytes( hash, &value, sizeof( value ) );
+}
+
+uint64_t HashInt64( uint64_t hash, int64_t value )
+{
+    return HashBytes( hash, &value, sizeof( value ) );
+}
+
+uint64_t HashSize( uint64_t hash, std::size_t value )
+{
+    return HashUint64( hash, static_cast<uint64_t>( value ) );
 }
 
 uint64_t HashInt( uint64_t hash, int value )
@@ -93,6 +109,67 @@ uint64_t HashOrientation( uint64_t hash, const float orientation[4] )
     return hash;
 }
 
+uint64_t HashFloatVector( uint64_t hash, const std::vector<float>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( float value : values )
+    {
+        hash = HashFloat( hash, value );
+    }
+    return hash;
+}
+
+uint64_t HashUint8Vector( uint64_t hash, const std::vector<uint8_t>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( uint8_t value : values )
+    {
+        hash = HashByte( hash, value );
+    }
+    return hash;
+}
+
+uint64_t HashUint16Vector( uint64_t hash, const std::vector<uint16_t>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( uint16_t value : values )
+    {
+        hash = HashBytes( hash, &value, sizeof( value ) );
+    }
+    return hash;
+}
+
+uint64_t HashIntVector( uint64_t hash, const std::vector<int>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( int value : values )
+    {
+        hash = HashInt( hash, value );
+    }
+    return hash;
+}
+
+uint64_t HashInt64Vector( uint64_t hash, const std::vector<int64_t>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( int64_t value : values )
+    {
+        hash = HashInt64( hash, value );
+    }
+    return hash;
+}
+
+uint64_t HashPairVector( uint64_t hash, const std::vector<std::pair<int, int>>& values )
+{
+    hash = HashSize( hash, values.size() );
+    for ( const std::pair<int, int>& value : values )
+    {
+        hash = HashInt( hash, value.first );
+        hash = HashInt( hash, value.second );
+    }
+    return hash;
+}
+
 uint64_t HashWorld( uint64_t hash, const ReplayWorldPresentationSample& world )
 {
     hash = HashFloat( hash, world.gravity );
@@ -103,6 +180,59 @@ uint64_t HashWorld( uint64_t hash, const ReplayWorldPresentationSample& world )
     hash = HashBool( hash, world.fixedStep );
     hash = HashBool( hash, world.scenePhysicsEnabled );
     hash = HashBool( hash, world.sceneTextEnabled );
+    return hash;
+}
+
+uint64_t HashTornadoConfig( uint64_t hash, const Physics::TornadoFieldConfig& config )
+{
+    hash = HashBool( hash, config.enabled );
+    hash = HashBool( hash, config.visualizeVelocityField );
+    hash = HashVector( hash, config.center );
+    hash = HashFloat( hash, config.radius );
+    hash = HashFloat( hash, config.height );
+    hash = HashFloat( hash, config.inwardAcceleration );
+    hash = HashFloat( hash, config.swirlAcceleration );
+    hash = HashFloat( hash, config.liftAcceleration );
+    hash = HashFloat( hash, config.ejectAcceleration );
+    hash = HashFloat( hash, config.ejectUpAcceleration );
+    hash = HashFloat( hash, config.ejectBand );
+    hash = HashFloat( hash, config.minCaptureSeconds );
+    hash = HashFloat( hash, config.ejectCooldownSeconds );
+    hash = HashFloat( hash, config.maxDeltaVelocity );
+    return hash;
+}
+
+uint64_t HashLauncherVisual( uint64_t hash, const ReplayLauncherVisualSample& visual )
+{
+    hash = HashInt( hash, visual.nextRayLine );
+    hash = HashInt( hash, visual.nextLaserShot );
+    hash = HashInt( hash, static_cast<int>( visual.fireMode ) );
+    hash = HashBool( hash, visual.visualizeRays );
+    hash = HashFloat( hash, visual.impulseStrength );
+    hash = HashFloat( hash, visual.projectileSpeed );
+
+    hash = HashSize( hash, visual.rayLines.size() );
+    for ( const ReplayRayCastLineSample& line : visual.rayLines )
+    {
+        hash = HashVector( hash, line.start );
+        hash = HashVector( hash, line.end );
+        hash = HashFloat( hash, line.ageSeconds );
+        hash = HashBool( hash, line.active );
+        hash = HashBool( hash, line.hit );
+    }
+
+    hash = HashSize( hash, visual.laserShots.size() );
+    for ( const LauncherLaserShotSnapshot& shot : visual.laserShots )
+    {
+        hash = HashVector( hash, shot.start );
+        hash = HashVector( hash, shot.end );
+        hash = HashVector( hash, shot.cameraRight );
+        hash = HashVector( hash, shot.cameraUp );
+        hash = HashFloat( hash, shot.ageSeconds );
+        hash = HashFloat( hash, shot.lifetimeSeconds );
+        hash = HashBool( hash, shot.active );
+        hash = HashBool( hash, shot.hit );
+    }
     return hash;
 }
 
@@ -199,6 +329,149 @@ uint64_t HashSolverBodySample( uint64_t hash, const ReplaySolverBodySample& body
     hash = HashFloat( hash, body.inverseMass );
     hash = HashVector( hash, body.rotationalInertia );
     hash = HashVector( hash, body.inverseRotationalInertia );
+    return hash;
+}
+
+uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentContactSample& contact )
+{
+    hash = HashInt( hash, contact.bodyA );
+    hash = HashInt( hash, contact.bodyB );
+    hash = HashUint32( hash, contact.featureId );
+    hash = HashInt64( hash, contact.key );
+    hash = HashVector( hash, contact.normal );
+    hash = HashVector( hash, contact.tangent1 );
+    hash = HashVector( hash, contact.tangent2 );
+    hash = HashVector( hash, contact.rA );
+    hash = HashVector( hash, contact.rB );
+    hash = HashFloat( hash, contact.penetration );
+    hash = HashFloat( hash, contact.normalMass );
+    hash = HashFloat( hash, contact.tangentMass1 );
+    hash = HashFloat( hash, contact.tangentMass2 );
+    hash = HashFloat( hash, contact.bias );
+    hash = HashFloat( hash, contact.frictionLimit );
+    hash = HashFloat( hash, contact.accN );
+    hash = HashFloat( hash, contact.accT1 );
+    hash = HashFloat( hash, contact.accT2 );
+    hash = HashBool( hash, contact.warmStarted );
+    hash = HashBool( hash, contact.isTerrain );
+    hash = HashBool( hash, contact.supportsRestingPolicy );
+    hash = HashBool( hash, contact.allowsTangentFriction );
+    hash = HashBool( hash, contact.normalCoupledFriction );
+    hash = HashBool( hash, contact.inhibitsSleep );
+    hash = HashByte( hash, contact.manifoldPointCount );
+    hash = HashVector( hash, contact.terrainNormal );
+    hash = HashFloat( hash, contact.terrainWarmStart );
+    return hash;
+}
+
+uint64_t HashContactCache( uint64_t hash, const ReplaySolverContactCacheSample& cache )
+{
+    hash = HashInt64( hash, cache.key );
+    hash = HashFloat( hash, cache.accN );
+    hash = HashFloat( hash, cache.accT1 );
+    hash = HashFloat( hash, cache.accT2 );
+    return hash;
+}
+
+uint64_t HashSolverStats( uint64_t hash, const ReplaySolverStatsSample& stats )
+{
+    hash = HashInt( hash, stats.rowCount );
+    hash = HashInt( hash, stats.cachePreviousRows );
+    hash = HashInt( hash, stats.cacheHits );
+    hash = HashInt( hash, stats.cacheMisses );
+    hash = HashInt( hash, stats.warmStartedRows );
+    hash = HashInt( hash, stats.positionCorrectionRows );
+    hash = HashInt( hash, stats.solverIterations );
+    hash = HashFloat( hash, stats.positionCorrectionTotal );
+    hash = HashFloat( hash, stats.positionCorrectionMax );
+    return hash;
+}
+
+uint64_t HashPhysicsDebugContact( uint64_t hash, const PhysicsDebugContact& contact )
+{
+    hash = HashInt( hash, contact.bodyA );
+    hash = HashInt( hash, contact.bodyB );
+    hash = HashUint32( hash, contact.featureId );
+    hash = HashVector( hash, contact.point );
+    hash = HashVector( hash, contact.normal );
+    hash = HashVector( hash, contact.tangent1 );
+    hash = HashVector( hash, contact.tangent2 );
+    hash = HashFloat( hash, contact.penetration );
+    hash = HashFloat( hash, contact.normalImpulse );
+    return hash;
+}
+
+uint64_t HashPhysicsPipelineRecord( uint64_t hash, const Physics::PhysicsPipelineRecord& record )
+{
+    hash = HashInt( hash, static_cast<int>( record.stage ) );
+    hash = HashInt( hash, record.bodyA );
+    hash = HashInt( hash, record.bodyB );
+    hash = HashInt( hash, record.iteration );
+    hash = HashUint32( hash, record.featureId );
+    hash = HashVector( hash, record.point );
+    hash = HashVector( hash, record.normal );
+    hash = HashFloat( hash, record.scalarA );
+    hash = HashFloat( hash, record.scalarB );
+    hash = HashFloat( hash, record.scalarC );
+    return hash;
+}
+
+uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot& snapshot )
+{
+    hash = HashUint32( hash, snapshot.version );
+    hash = HashInt( hash, snapshot.modelCount );
+    hash = HashInt( hash, snapshot.nextSleepIslandVisualId );
+    hash = HashBool( hash, snapshot.sleepEnabled );
+    hash = HashBool( hash, snapshot.collisionVisualFrameActive );
+    hash = HashTornadoConfig( hash, snapshot.tornadoConfig );
+    hash = HashFloatVector( hash, snapshot.timeRemaining );
+    hash = HashUint8Vector( hash, snapshot.sleepSupportedThisFrame );
+    hash = HashUint8Vector( hash, snapshot.sleepInhibitedThisFrame );
+    hash = HashUint8Vector( hash, snapshot.sleepState );
+    hash = HashUint8Vector( hash, snapshot.sleepCounter );
+    hash = HashUint8Vector( hash, snapshot.underwaterSleepLocked );
+    hash = HashFloatVector( hash, snapshot.tornadoCaptureSeconds );
+    hash = HashFloatVector( hash, snapshot.tornadoEjectCooldownSeconds );
+    hash = HashUint8Vector( hash, snapshot.collisionVisualContacts );
+    hash = HashIntVector( hash, snapshot.sleepIslandVisualId );
+    hash = HashIntVector( hash, snapshot.sleepIslandAssignedVisualId );
+    hash = HashPairVector( hash, snapshot.sleepSupportEdges );
+    hash = HashIntVector( hash, snapshot.sleepIslandParent );
+    hash = HashUint8Vector( hash, snapshot.sleepIslandRank );
+    hash = HashUint8Vector( hash, snapshot.sleepIslandHasAwake );
+    hash = HashUint8Vector( hash, snapshot.sleepIslandHasSupportAnchor );
+    hash = HashUint8Vector( hash, snapshot.sleepIslandEligible );
+    hash = HashUint8Vector( hash, snapshot.sleepIslandCanSleep );
+
+    hash = HashSize( hash, snapshot.persistentContacts.size() );
+    for ( const ReplaySolverPersistentContactSample& contact : snapshot.persistentContacts )
+    {
+        hash = HashPersistentContact( hash, contact );
+    }
+
+    hash = HashSize( hash, snapshot.persistentContactCache.size() );
+    for ( const ReplaySolverContactCacheSample& cache : snapshot.persistentContactCache )
+    {
+        hash = HashContactCache( hash, cache );
+    }
+
+    hash = HashSolverStats( hash, snapshot.solverStats );
+    hash = HashUint16Vector( hash, snapshot.persistentContactCounts );
+    hash = HashUint16Vector( hash, snapshot.persistentRestingContactCounts );
+
+    hash = HashSize( hash, snapshot.debugContacts.size() );
+    for ( const PhysicsDebugContact& contact : snapshot.debugContacts )
+    {
+        hash = HashPhysicsDebugContact( hash, contact );
+    }
+
+    hash = HashSize( hash, snapshot.pipelineTrace.size() );
+    for ( const Physics::PhysicsPipelineRecord& record : snapshot.pipelineTrace )
+    {
+        hash = HashPhysicsPipelineRecord( hash, record );
+    }
+
+    hash = HashInt64Vector( hash, snapshot.collisionCellKeys );
     return hash;
 }
 } // namespace
@@ -629,6 +902,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.world.terrainHidden = input.terrainHidden;
     sample.contactCount = 0;
     sample.pipelineRecordCount = 0;
+    sample.launcherVisual = input.launcherVisual ? *input.launcherVisual : ReplayLauncherVisualSample();
     sample.checkpointBoundary = ( sample.frameIndex == 0 ) ||
                                 ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
 
@@ -675,6 +949,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
+    models.CaptureReplaySolverWorldSnapshot( sample.worldSnapshot );
 
     const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
     const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();
@@ -693,6 +968,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     solverHash = HashInt( solverHash, static_cast<int>( modelCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
+    solverHash = HashLauncherVisual( solverHash, sample.launcherVisual );
+    solverHash = HashSolverWorldSnapshot( solverHash, sample.worldSnapshot );
 
     for ( std::size_t i = 0; i < modelCount; ++i )
     {

@@ -131,7 +131,11 @@ The watched folder defaults to `Agentic\style-harness\` and contains:
 
 ## Replay Capture And Scrub
 
-Replay capture keeps the last 30 seconds of presentation samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag the thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. Drag the thumb back to the live end to resume simulation. The scrubber's inline save-icon button writes the retained buffer to `replays\replay_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. This is visual/presentation scrubbing, not authoritative solver rollback or branching.
+Replay capture keeps the last 30 seconds of presentation and solver samples in memory by default for generated and interactive runs. Scene/suite automation leaves replay off unless the command line opts in with `--replay on`, `--replay-seconds`, or `--replay-hashes`. With the in-game UI minimized and editor mode off, move the mouse near the bottom edge to reveal the scrubber. Click-hold or drag the thumb left to inspect earlier retained frames; physics pauses while a historical frame is selected. Drag the thumb back to the live end to resume simulation.
+
+The top row is the presentation track: it previews camera/body presentation samples for inspection only. The lower `SOLVER` row records body state plus the hidden sleep, contact-cache, persistent-contact, tornado, and launcher visual state needed to restore that retained fixed tick. While the solver row is paused on an old frame, press `Enter` to restore that solver sample as the new live branch. Bodies created after the selected frame, such as later launcher projectiles, are removed; existing projectile bodies and laser/raycast visuals from the selected sample are restored. The current implementation restores directly from retained per-frame in-memory solver snapshots. It does not yet restore from saved replay files, sparse checkpoints, or an event-stream replay.
+
+The scrubber's inline save-icon button writes the retained buffer to `replays\replay_####.skreplay` or `replays\solver_replay_####.skreplay`, incrementing like `Scenes\snapshot_####.scene.json` and `Screenshots\screenshot_####.bmp`. Solver replay exports include compact authoritative snapshot and launcher-visual summaries instead of dumping full persistent-contact rows.
 
 Use hash logging when a fixed-step scene needs cheap frame hashes:
 
@@ -139,7 +143,7 @@ Use hash logging when a fixed-step scene needs cheap frame hashes:
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\physics_regression_solver.scene.json --fixed-step --frames 240 --replay on --replay-hashes TestOutput\replay_hashes.csv
 ```
 
-The recorder stores the configured recent window in memory and writes hash rows only when `--replay-hashes` is supplied. Samples are captured after committed physics ticks and include scene-local replay body IDs, transforms, velocities, sleep/contact flags, camera pose, world presentation state, and a 64-bit presentation hash. During scrub preview, runtime rendering temporarily applies the selected sample's camera/body presentation state for the draw and restores live model transforms afterward. Checkpoint summaries are boundary markers for future restore work; they are not authoritative solver checkpoints yet.
+The recorder stores the configured recent window in memory and writes hash rows only when `--replay-hashes` is supplied. Samples are captured after committed physics ticks and include scene-local replay body IDs, transforms, velocities, sleep/contact flags, camera pose, world presentation state, and a 64-bit presentation hash. Solver samples also hash the authoritative snapshot payload. During scrub preview, runtime rendering temporarily applies the selected sample's camera/body state, hides live bodies that did not exist in that sample, applies solver-sample launcher visuals for the draw, and restores live render state afterward.
 
 Debug builds include a focused SkullScope replay scrub probe:
 
@@ -188,7 +192,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | N | Toggle launcher mode. Free camera with live simulation. |
 | M | In launcher mode, cycle between laser ray impulse and small projectile modes. |
 | Left Click | In launcher mode, fire the selected launcher action from the camera. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
-| Enter | In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. |
+| Enter | In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. While the replay scrubber is paused on the solver row, restore that solver sample as the new live branch instead. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |

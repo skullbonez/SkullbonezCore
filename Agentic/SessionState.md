@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/retire-repo-orchestrator` in worktree `C:\SkullbonezCore` |
+| Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
 | Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
-| Active objective | Retire the repository-owned orchestrator control plane and promote `Agentic/Skills/orchestrator/SKILL.md` as the active coordination contract. |
-| Pending work | None for the retirement branch; open a PR or merge only if explicitly requested. |
+| Active objective | Implement solver replay authoritative rollback as the substrate for future awake-frontier path/contact visualization. |
+| Pending work | Commit and push the rollback branch; visualizer work should be a follow-up commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | `tools\validate_fast.bat` passed for the orchestrator retirement scope on 2026-06-21. |
+| Validation | `tools\validate_full.bat` passed for the rollback branch on 2026-06-21. |
 
 ## Active Notes
 

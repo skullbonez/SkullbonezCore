@@ -522,8 +522,12 @@ void SkullbonezRun::ResetReplayTimelineForActiveScene()
 void SkullbonezRun::ResetReplayScrubber()
 {
     const bool leftWasDown = m_replayScrubber.leftWasDown;
+    const bool restoreWasDown = m_replayScrubber.restoreWasDown;
+    const bool restoreConsumedThisFrame = m_replayScrubber.restoreConsumedThisFrame;
     m_replayScrubber = RunReplayScrubberState{};
     m_replayScrubber.leftWasDown = leftWasDown;
+    m_replayScrubber.restoreWasDown = restoreWasDown;
+    m_replayScrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
 }
 
 
@@ -629,6 +633,133 @@ bool SkullbonezRun::SaveReplayBufferFromScrubber( RunReplayTrack track )
     m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     m_replayScrubber.visible = true;
     return saved;
+}
+
+
+void SkullbonezRun::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
+{
+    m_rayCastTest.lines = {};
+    const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
+    for ( std::size_t i = 0; i < lineCount; ++i )
+    {
+        RunRayCastTestLine& line = m_rayCastTest.lines[i];
+        line.start = sample.rayLines[i].start;
+        line.end = sample.rayLines[i].end;
+        line.ageSeconds = sample.rayLines[i].ageSeconds;
+        line.active = sample.rayLines[i].active;
+        line.hit = sample.rayLines[i].hit;
+    }
+    m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
+    if ( m_rayCastTest.nextLine < 0 )
+    {
+        m_rayCastTest.nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
+    }
+    m_rayCastTest.fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile ? RunLauncherFireMode::Projectile : RunLauncherFireMode::Laser;
+    m_rayCastTest.visualizeRays = sample.visualizeRays;
+    m_rayCastTest.impulseStrength = sample.impulseStrength;
+    m_rayCastTest.projectileSpeed = sample.projectileSpeed;
+    m_launcherLaser.RestoreShots( sample.laserShots, sample.nextLaserShot );
+}
+
+
+bool SkullbonezRun::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
+{
+    auto writeReason = [outReason, reasonSize]( const char* message )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+        }
+    };
+
+    if ( sample.worldSnapshot.version != 1 )
+    {
+        writeReason( "unsupported snapshot version" );
+        return false;
+    }
+
+    if ( sample.worldSnapshot.modelCount != static_cast<int>( sample.bodies.size() ) )
+    {
+        writeReason( "snapshot body count mismatch" );
+        return false;
+    }
+
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    if ( sample.bodies.size() > models.size() )
+    {
+        writeReason( "selected frame needs unavailable bodies" );
+        return false;
+    }
+
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            writeReason( "selected frame has invalid body index" );
+            return false;
+        }
+
+        const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            writeReason( "selected frame body ids no longer match" );
+            return false;
+        }
+    }
+
+    RestoreReplayPresentationRenderPose();
+    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
+    if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
+    {
+        writeReason( "failed to trim live model list" );
+        return false;
+    }
+
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        model.SetFixed( body.fixed );
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+        model.SetLinearVelocity( body.linearVelocity );
+        model.SetAngularVelocity( body.angularVelocity );
+    }
+
+    if ( !m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( sample.worldSnapshot ) )
+    {
+        writeReason( "failed to restore solver world snapshot" );
+        return false;
+    }
+
+    m_cWorldEnvironment.SetGravity( sample.world.gravity );
+    m_cWorldEnvironment.SetFluidSurfaceHeight( sample.world.fluidHeight );
+    m_cWorldEnvironment.SetFluidDensity( sample.world.fluidDensity );
+    m_debug.isWaterHidden = sample.world.waterHidden;
+    m_debug.isTerrainHidden = sample.world.terrainHidden;
+    SceneState().isFixedStep = sample.world.fixedStep;
+    SceneState().isScenePhysics = sample.world.scenePhysicsEnabled;
+    SceneState().isSceneText = sample.world.sceneTextEnabled;
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+    m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
+    m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
+
+    if ( m_systems.cameras )
+    {
+        m_systems.cameras->CancelTween();
+        m_systems.cameras->SetPrimaryPosition( sample.camera.eye );
+        m_systems.cameras->SetViewCoordinates( sample.camera.view );
+        m_systems.cameras->SetCamera();
+    }
+
+    RestoreReplayLauncherVisualSample( sample.launcherVisual );
+    ResetReplayTimelineForActiveScene();
+    writeReason( "restored" );
+    return true;
 }
 
 
