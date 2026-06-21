@@ -26,6 +26,7 @@ Related:
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
@@ -158,9 +159,9 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
+void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
-    GameModelRenderer::RenderModels( *this, view, proj, lightPos, cinematic, shadow, materialAlpha );
+    GameModelRenderer::RenderModels( *this, view, proj, lightPos, cinematic, shadow, materialAlpha, modelMask, drawMaskedModels );
 }
 
 
@@ -246,6 +247,45 @@ std::vector<GameModel>& GameModelCollection::PhysicsModels()
 const std::vector<GameModel>& GameModelCollection::PhysicsModels() const
 {
     return m_gameModels;
+}
+
+
+bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
+{
+    if ( modelCount < 0 || modelCount > static_cast<int>( m_gameModels.size() ) )
+    {
+        return false;
+    }
+
+    const std::size_t targetCount = static_cast<std::size_t>( modelCount );
+    if ( targetCount < m_gameModels.size() )
+    {
+        m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
+    }
+    m_nextReplayBodyId = 1;
+    for ( const GameModel& model : m_gameModels )
+    {
+        m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, model.GetReplayBodyId() + 1u );
+    }
+    InvalidateSoA();
+    return true;
+}
+
+
+void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
+{
+    m_physicsWorld.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
+}
+
+
+bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
+{
+    const bool restored = m_physicsWorld.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
+    if ( restored )
+    {
+        InvalidateSoA();
+    }
+    return restored;
 }
 
 
@@ -431,5 +471,11 @@ void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_physicsWorld.SetPhysicsDiagnosticsRunId( runId );
+}
+
+
+bool GameModelCollection::SetPhysicsDiagnosticsSuppressed( bool suppressed )
+{
+    return m_physicsWorld.SetDiagnosticsSuppressed( suppressed );
 }
 #endif

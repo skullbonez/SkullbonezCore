@@ -335,18 +335,150 @@ struct RunReplayScrubberState
     bool visible = false;
     bool dragging = false;
     bool paused = false;
+    bool simulationPaused = false;
+    bool pauseHovered = false;
+    bool pauseRestoreFlyMode = false;
+    bool pauseRestoreLauncherMode = false;
+    bool inspectionCameraActive = false;
+    bool inspectionRestoreFlyMode = false;
+    bool inspectionRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
+    bool restoreWasDown = false;
+    bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
+    uint32_t inspectionRestoreCameraHash = CAMERA_FREE;
     bool leftWasDown = false;
     float position = 1.0f; // 0 = oldest retained sample, 1 = live edge.
+    float presentationPosition = 1.0f;
+    float solverPosition = 1.0f;
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
+};
+
+struct RunReplayPathTraceNode
+{
+    ReplayBodyId id;
+    ReplayBodyId parentId;
+    ReplayFrameIndex firstFrame = 0;
+    Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
+    int depth = 0;
+};
+
+struct RunReplayPathTarget
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+};
+
+static constexpr int REPLAY_CAUSE_TREE_MAX_ROWS = 65;
+
+struct RunReplayCauseTreeRow
+{
+    ReplayBodyId id;
+    ReplayBodyId parentId;
+    ReplayFrameIndex firstFrame = 0;
+    int depth = 0;
+    int modelIndex = -1;
+    bool prediction = false;
+    char name[64] = {};
+};
+
+struct RunReplayCauseTreeState
+{
+    std::array<RunReplayCauseTreeRow, REPLAY_CAUSE_TREE_MAX_ROWS> rows = {};
+    int rowCount = 0;
+    int hoveredRow = -1;
+    ReplayBodyId focusedId;
+    bool leftWasDown = false;
+};
+
+struct RunReplayPathVisualizerState
+{
+    bool hasTarget = false;
+    ReplayBodyId targetId;
+    int targetModelIndex = -1;
+    char targetName[64] = {};
+    std::vector<RunReplayPathTraceNode> futureNodes;
+    std::vector<RunReplayPathTarget> targets;
+};
+
+struct RunReplayPredictionBodyBackup
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float fixedContactHighlightSeconds = 0.0f;
+    bool fixed = false;
+};
+
+struct RunReplayPredictionBodySample
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+};
+
+struct RunReplayPredictionFrame
+{
+    ReplayFrameIndex frameIndex = 0;
+    std::vector<RunReplayPredictionBodySample> bodies;
+    std::vector<Physics::PhysicsDebugContact> debugContacts;
+};
+
+struct RunReplayPredictionState
+{
+    bool enabled = false;
+    bool checkboxHovered = false;
+    bool decreaseHovered = false;
+    bool increaseHovered = false;
+    bool horizonHovered = false;
+    bool horizonDragging = false;
+    bool dirty = true;
+    bool building = false;
+    bool complete = false;
+    float horizonSeconds = 10.0f;
+    int targetModelIndex = -1;
+    int nextTick = 1;
+    int targetTickCount = 0;
+    ReplayBodyId targetId;
+    ReplayFrameIndex sourceFrameIndex = 0;
+    uint64_t sourceSolverHash = 0;
+    double lastBuildTime = 0.0;
+    ReplaySolverWorldSnapshot predictionWorld;
+    ReplaySolverWorldSnapshot liveRestoreWorld;
+    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
+    std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
+    std::vector<RunReplayPredictionFrame> frames;
+    std::vector<RunReplayPathTraceNode> futureNodes;
+};
+
+struct RunReplayVelocityEditState
+{
+    bool enabled = false;
+    bool toggleHovered = false;
+    bool keyboardAltWasDown = false;
+    bool dragging = false;
+    bool draggingAngular = false;
+    bool mouseCaptured = false;
+    bool leftWasDown = false;
+    int hotLinearAxis = -1;
+    int hotAngularAxis = -1;
+    int activeAxis = -1;
+    float dragStartAxisT = 0.0f;
+    float dragStartAngle = 0.0f;
+    Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
 };
 
 struct RunReplayPoseBackup
@@ -426,8 +558,13 @@ class RunEditorTracer
     void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
     void AddPlacementGhost( int objectType, const Math::Vector::Vector3& center, const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale, const Math::Orientation::Quaternion& orientation );
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
+    void AddReplayPathSegment( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r, float g, float b );
+    void AddReplayContactMarker( const Math::Vector::Vector3& point, const Math::Vector::Vector3& normal, float r, float g, float b );
+    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
+    void AddReplayTargetMarker( const GameObjects::GameModel& model );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis, bool activeRotation, bool scaleMode, bool activeScale );
+    void AddReplayVelocityGizmo( const GameObjects::GameModel& model, int hotLinearAxis, int hotAngularAxis, int activeAxis, bool activeAngular );
     void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
@@ -536,6 +673,8 @@ class SkullbonezRun
         bool collisionStateColorsVisible;       // Route bodies through collision-state visualization instead of materials.
         float collisionVisualizerAlphaOverride; // -1 keeps visualizer defaults; otherwise overrides debug alpha.
         float bodyAlpha;                        // 1 for opaque bodies; debug alpha for the transparent object pass.
+        const std::vector<uint8_t>* modelMask;  // Optional replay focus mask for split opaque/faded body rendering.
+        bool drawMaskedModels;                  // True draws only masked bodies; false draws everything outside the mask.
     };
 
     struct TerrainPassInputs
@@ -958,7 +1097,14 @@ class SkullbonezRun
     ReplayRecorder m_replay;              // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;  // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
+    RunReplayPathVisualizerState m_replayPathVisualizer; // Mouse-selected cause/effect trace over retained solver replay samples.
+    RunReplayPredictionState m_replayPrediction;         // Optional live solver lookahead for the selected replay path target.
+    RunReplayCauseTreeState m_replayCauseTree;           // Right-side object hierarchy for the active replay cause/effect chain.
+    RunReplayVelocityEditState m_replayVelocityEdit;     // Alt-enabled live velocity handles feeding the prediction cache.
+    std::vector<uint8_t> m_replayFocusModelMask;         // Render-only body mask for selected replay prediction chains.
     std::vector<RunReplayPoseBackup> m_replayPoseBackups;
+    ReplayLauncherVisualSample m_replayLauncherVisualBackup;
+    bool m_replayLauncherVisualBackupActive = false;
     uint32_t m_solverReplayMismatchReports = 0;
     bool m_solverReplayMismatchSuppressed = false;
     RunScreenshotState m_screenshot;      // Screenshot trigger and capture state
@@ -1056,6 +1202,7 @@ class SkullbonezRun
     void ApplyUIModelCountOverride( int count );                                                                                           // Rebuilds the active generated model pool from the UI slider
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                                // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                     // Live world/fluid scalar override from UI controls.
+    void ApplyConfiguredWorldEnvironment();                                                                                                // Restores engine.cfg world/fluid defaults for a fresh scene load.
     void ApplyNoWaterOverride();                                                                                                           // Pushes fluid surface below the active terrain when requested
     void ApplyTornadoDefaultsForActiveScene();                                                                                             // Centers the tornado around the active inner-water/basin region
     void SyncTornadoFieldToPhysics();                                                                                                      // Sends live tornado state to the physics collection
@@ -1073,7 +1220,41 @@ class SkullbonezRun
     void ResetReplayTimelineForActiveScene(); // Scene/model rebuilds start a fresh in-memory replay branch.
     void CaptureReplayPhysicsStep();          // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
+    void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
+    void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
+    void ClearReplayPathVisualizer();
+    bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
+    void MarkReplayPredictionDirty();
+    void ClearReplayPredictionCache();
+    void CancelReplayPredictionJob( bool clearSamples );
+    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t sourceSolverHash );
+    bool StepReplayPredictionJob( double budgetMilliseconds );
+    bool CaptureReplayPredictionBodyState( std::vector<RunReplayPredictionBodyBackup>& outBodies );
+    bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
+    void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
+    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
+    void RenderReplayPathVisualizer( RunEditorTracer& tracer );
+    bool BuildReplayFocusModelMask();
+    bool BuildReplayCauseTreeRows();
+    bool TickReplayCauseTreeInput( bool uiBlocksMouse );
+    bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Math::Vector::Vector3& outPosition ) const;
+    bool FocusReplayCauseTreeBody( ReplayBodyId id );
+    void RenderReplayCauseTreeOverlay();
+    void SetReplayVelocityEditEnabled( bool enabled );
+    bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
+    int ResolveReplayVelocityEditModelIndex() const;
+    int HitReplayVelocityLinearAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;
+    int HitReplayVelocityAngularAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection ) const;
+    bool TryReplayVelocityAxisRayParameter( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAxisT ) const;
+    bool TryReplayVelocityAngularRayAngle( int axis, const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection, float& outAngle ) const;
+    void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection );
+    void ApplyReplayVelocityEditToModel( int modelIndex, const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity );
+    void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ResetReplayScrubber();
+    void SetReplaySimulationPaused( bool paused );
+    void EnterReplayInspectionCamera();
+    void ExitReplayInspectionCamera();
+    void UpdateReplayInspectionCamera();
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;
@@ -1084,6 +1265,9 @@ class SkullbonezRun
     bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
     bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
     void RestoreReplayPresentationRenderPose();
+    void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
+    void RestoreReplayLauncherVisualForRender();
+    bool RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickPhysics( double dt ); // Physics dispatch: fixed-step and variable-step accumulator

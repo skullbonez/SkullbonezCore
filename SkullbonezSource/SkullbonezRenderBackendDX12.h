@@ -494,6 +494,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool IsDepthTestEnabled() const override;
     bool IsDepthWriteEnabled() const override;
     bool IsBlendEnabled() const override;
+    bool IsCullFaceEnabled() const override;
     void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const override;
     const char* GetRendererName() const override
     {

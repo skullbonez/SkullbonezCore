@@ -265,6 +265,18 @@ float GameModel::GetFixedContactHighlightAlpha() const
 }
 
 
+float GameModel::GetFixedContactHighlightSeconds() const
+{
+    return m_fixedContactHighlightSeconds;
+}
+
+
+void GameModel::SetFixedContactHighlightSeconds( float seconds )
+{
+    m_fixedContactHighlightSeconds = (std::max)( 0.0f, seconds );
+}
+
+
 void GameModel::SetImpulseForce( const Vector3& vForce,
                                  const Vector3& vApplicationPoint )
 {
@@ -597,6 +609,12 @@ const Vector3& GameModel::GetVelocity()
 }
 
 
+const Vector3& GameModel::GetVelocity() const
+{
+    return m_physicsInfo.GetVelocity();
+}
+
+
 void GameModel::UpdateModelInfo()
 {
     CalculateVolume();
@@ -729,6 +747,12 @@ float GameModel::GetInvertedMass()
 
 
 const Vector3& GameModel::GetAngularVelocity()
+{
+    return m_physicsInfo.GetAngularVelocity();
+}
+
+
+const Vector3& GameModel::GetAngularVelocity() const
 {
     return m_physicsInfo.GetAngularVelocity();
 }

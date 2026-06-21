@@ -75,7 +75,7 @@ class GameModelCollection
     void AddGameModel( GameModel gameModel );
     void Clear();
     void RunPhysics( float fChangeInTime );
-    void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );
+    void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f, const std::vector<uint8_t>* modelMask = nullptr, bool drawMaskedModels = true );
     void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches );
     void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );
     void RenderShadowCasters( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );
@@ -88,6 +88,9 @@ class GameModelCollection
     const std::vector<GameModel>& Models() const;
     std::vector<GameModel>& PhysicsModels();
     const std::vector<GameModel>& PhysicsModels() const;
+    bool TrimModelsForReplayRestore( int modelCount );
+    void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
+    bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
     GameModel& GetModelAtIndex( int index );
@@ -149,6 +152,7 @@ class GameModelCollection
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    bool SetPhysicsDiagnosticsSuppressed( bool suppressed );
 #endif
 };
 } // namespace GameObjects

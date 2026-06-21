@@ -915,7 +915,9 @@ void SkullbonezRun::ObjectPass::Render( const ObjectPassInputs& inputs )
                                                    inputs.frame.lightPosition,
                                                    inputs.cinematic,
                                                    inputs.shadow,
-                                                   inputs.bodyAlpha );
+                                                   inputs.bodyAlpha,
+                                                   inputs.modelMask,
+                                                   inputs.drawMaskedModels );
     }
 
     PROFILE_GPU_END( "Frame/Render/Balls" );

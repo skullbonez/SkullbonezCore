@@ -194,18 +194,22 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 {
     if ( IsReplayScrubPaused() )
     {
+        PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
+        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
         return;
     }
 
+    const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
+    const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
-        SceneState().timeScale,
+        replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
         SceneState().isSceneMode,
         SceneState().isScenePhysics,
         SceneState().isFixedStep,
-        m_camera.isFlyMode,
+        m_camera.isFlyMode || replaySimulationPaused,
         m_camera.isLauncherMode,
-        Input::IsKeyDown( VK_SPACE ),
+        stepRequested,
         &m_cGameModelCollection,
         ( m_replay.IsEnabled() || m_solverReplay.IsEnabled() ) ? &SkullbonezRun::CaptureReplayPhysicsStepThunk : nullptr,
         this } );
@@ -232,6 +236,9 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
 {
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+        ReplayLauncherVisualSample launcherVisual;
+        BuildReplayLauncherVisualSample( launcherVisual );
+
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
@@ -244,6 +251,7 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
         input.cameras = m_systems.cameras;
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
+        input.launcherVisual = &launcherVisual;
         m_replay.CaptureFrame( input );
         m_solverReplay.CaptureFrame( input );
         CompareLatestReplaySamples();
@@ -251,6 +259,29 @@ void SkullbonezRun::CaptureReplayPhysicsStep()
 #ifdef _DEBUG
     TickReplayScrubProbe();
 #endif
+}
+
+
+void SkullbonezRun::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
+{
+    outSample = ReplayLauncherVisualSample();
+    outSample.nextRayLine = m_rayCastTest.nextLine;
+    outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile : ReplayLauncherFireMode::Laser;
+    outSample.visualizeRays = m_rayCastTest.visualizeRays;
+    outSample.impulseStrength = m_rayCastTest.impulseStrength;
+    outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
+    outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        ReplayRayCastLineSample sample;
+        sample.start = line.start;
+        sample.end = line.end;
+        sample.ageSeconds = line.ageSeconds;
+        sample.active = line.active;
+        sample.hit = line.hit;
+        outSample.rayLines.push_back( sample );
+    }
+    m_launcherLaser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
 }
 
 

@@ -412,6 +412,12 @@ const Vector3& RigidBody::GetAngularVelocity()
 }
 
 
+const Vector3& RigidBody::GetAngularVelocity() const
+{
+    return m_angularVelocity;
+}
+
+
 void RigidBody::SetMass( float fMass )
 {
     if ( fMass <= 0.0f )
@@ -471,6 +477,12 @@ const Vector3& RigidBody::GetPosition() const
 
 
 const Vector3& RigidBody::GetVelocity()
+{
+    return m_linearVelocity;
+}
+
+
+const Vector3& RigidBody::GetVelocity() const
 {
     return m_linearVelocity;
 }

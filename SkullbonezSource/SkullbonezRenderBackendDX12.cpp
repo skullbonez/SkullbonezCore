@@ -1939,6 +1939,12 @@ bool RenderBackendDX12::IsBlendEnabled() const
 }
 
 
+bool RenderBackendDX12::IsCullFaceEnabled() const
+{
+    return m_cullEnabled;
+}
+
+
 void RenderBackendDX12::GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const
 {
     outSrc = m_blendSrc;

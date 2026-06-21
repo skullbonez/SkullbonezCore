@@ -113,9 +113,11 @@ class RigidBody
     float GetInvertedMass();
     float GetVolume();
     const Math::Vector::Vector3& GetVelocity();
+    const Math::Vector::Vector3& GetVelocity() const;
     const Math::Vector::Vector3& GetPosition();
     const Math::Vector::Vector3& GetPosition() const; // Const center read for Catto-style contact-arm setup
     const Math::Vector::Vector3& GetAngularVelocity();
+    const Math::Vector::Vector3& GetAngularVelocity() const;
     const Math::Vector::Vector3& GetRotationalInertia();
     float GetDensity(); // Density assumes mass and volume caches are already current.
     void SetLinearVelocity( const Math::Vector::Vector3& vLinear );

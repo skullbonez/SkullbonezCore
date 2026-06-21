@@ -647,11 +647,26 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 {
     m_systems.cameras = CameraCollection::Instance();
 
+    bool hasFreeCamera = false;
+    Vector3 firstPosition( 900.0f, 110.0f, 900.0f );
+    Vector3 firstView( 313.0f, 31.0f, 282.0f );
+    Vector3 firstUp( 0.0f, 1.0f, 0.0f );
     for ( int i = 0; i < scene.GetCameraCount(); ++i )
     {
         const SceneCamera& cam = scene.GetCamera( i );
         uint32_t hash = HashStr( cam.name );
+        if ( i == 0 )
+        {
+            firstPosition = cam.m_position;
+            firstView = cam.view;
+            firstUp = cam.up;
+        }
+        hasFreeCamera = hasFreeCamera || hash == CAMERA_FREE;
         m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
+    }
+    if ( !hasFreeCamera )
+    {
+        m_systems.cameras->AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
     }
 
     m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
@@ -1335,6 +1350,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         UseDefaultTerrain();
+        ApplyConfiguredWorldEnvironment();
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
         {
@@ -1588,6 +1604,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             UseDefaultTerrain();
         }
 
+        ApplyConfiguredWorldEnvironment();
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
@@ -2531,6 +2548,14 @@ void SkullbonezRun::ApplyUIWorldOverride( float gravity, float fluidHeight, floa
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
     m_cWorldEnvironment.SetFluidDensity( fluidDensity );
+}
+
+
+void SkullbonezRun::ApplyConfiguredWorldEnvironment()
+{
+    const SkullbonezConfig& cfg = Cfg();
+    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    UpdateWorldTerrainBounds();
 }
 
 

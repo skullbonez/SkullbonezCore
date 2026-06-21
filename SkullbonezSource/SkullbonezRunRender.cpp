@@ -338,7 +338,8 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
 {
     std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
     m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( (std::min)( sample.bodies.size(), models.size() ) );
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
@@ -358,6 +359,7 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
         backup.position = model.GetPosition();
         backup.orientation = model.GetOrientation();
         m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
 
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
@@ -366,6 +368,22 @@ bool SkullbonezRun::ApplyReplayPresentationSampleForRender( const ReplayPresenta
         orientation.Normalise();
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
     }
 
     if ( !m_replayPoseBackups.empty() )
@@ -380,7 +398,8 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
 {
     std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
     m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( (std::min)( sample.bodies.size(), models.size() ) );
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
@@ -400,6 +419,7 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
         backup.position = model.GetPosition();
         backup.orientation = model.GetOrientation();
         m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
 
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
@@ -408,6 +428,22 @@ bool SkullbonezRun::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSam
         orientation.Normalise();
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
     }
 
     if ( !m_replayPoseBackups.empty() )
@@ -439,6 +475,32 @@ void SkullbonezRun::RestoreReplayPresentationRenderPose()
     }
     m_replayPoseBackups.clear();
     m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
+void SkullbonezRun::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
+{
+    if ( m_replayLauncherVisualBackupActive )
+    {
+        return;
+    }
+
+    BuildReplayLauncherVisualSample( m_replayLauncherVisualBackup );
+    m_replayLauncherVisualBackupActive = true;
+    RestoreReplayLauncherVisualSample( sample );
+}
+
+
+void SkullbonezRun::RestoreReplayLauncherVisualForRender()
+{
+    if ( !m_replayLauncherVisualBackupActive )
+    {
+        return;
+    }
+
+    RestoreReplayLauncherVisualSample( m_replayLauncherVisualBackup );
+    m_replayLauncherVisualBackup = ReplayLauncherVisualSample();
+    m_replayLauncherVisualBackupActive = false;
 }
 
 
@@ -497,23 +559,19 @@ void SkullbonezRun::Render()
 
     if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
     {
-        m_systems.cameras->OverrideRenderCameraForFrame( replaySample->camera.eye,
-                                                         replaySample->camera.view,
-                                                         replaySample->camera.up );
         ApplyReplayPresentationSampleForRender( *replaySample );
     }
     else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
     {
-        m_systems.cameras->OverrideRenderCameraForFrame( solverSample->camera.eye,
-                                                         solverSample->camera.view,
-                                                         solverSample->camera.up );
         ApplyReplaySolverSampleForRender( *solverSample );
+        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
     }
 
     // DrawPrimitives is now the frame story: it chooses the optional cinematic
     // target, then runs named passes in the same order the image is produced.
     DrawPrimitives();
     RestoreReplayPresentationRenderPose();
+    RestoreReplayLauncherVisualForRender();
 }
 
 
@@ -588,9 +646,14 @@ void SkullbonezRun::DrawPrimitives()
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
     const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
-    const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
-    const float bodyRenderAlpha = transparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
-    const float collisionVisualizerAlphaOverride = transparentBodyPass ? bodyRenderAlpha : -1.0f;
+    const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
+    const bool replayFocusFadeActive = !collisionStateColorsVisible &&
+                                       !debugTransparentBodyPass &&
+                                       BuildReplayFocusModelMask();
+    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &m_replayFocusModelMask : nullptr;
+    const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
+    const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
+    const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     // Lifetime: reflection is produced before water decides whether to draw.
     // Keeping the target alive here avoids coupling debug water visibility to
     // GPU resource lifetime or resize behavior.
@@ -613,7 +676,7 @@ void SkullbonezRun::DrawPrimitives()
                                                                  activeCinematic,
                                                                  objectShadowFrame,
                                                                  collisionStateColorsVisible,
-                                                                 transparentBodyPass,
+                                                                 debugTransparentBodyPass,
                                                                  collisionVisualizerAlphaOverride,
                                                                  bodyRenderAlpha },
                                                                m_skyPass );
@@ -625,7 +688,7 @@ void SkullbonezRun::DrawPrimitives()
 
     // Opaque bodies render before terrain/water unless debug transparency asks
     // for a late transparent body pass.
-    if ( !transparentBodyPass )
+    if ( !debugTransparentBodyPass )
     {
         m_objectPass.Render( { frame,
                                ObjectPassMode::Opaque,
@@ -633,7 +696,9 @@ void SkullbonezRun::DrawPrimitives()
                                objectShadowFrame,
                                collisionStateColorsVisible,
                                collisionVisualizerAlphaOverride,
-                               1.0f } );
+                               1.0f,
+                               replayFocusModelMask,
+                               true } );
     }
 
     // Terrain receives the broad shadow frame and provides the main world depth
@@ -651,7 +716,7 @@ void SkullbonezRun::DrawPrimitives()
                           m_debug.isWaterFreezeDebug,
                           m_debug.frozenWaterTime } );
 
-    if ( transparentBodyPass )
+    if ( debugTransparentBodyPass )
     {
         m_objectPass.Render( { frame,
                                ObjectPassMode::Transparent,
@@ -659,7 +724,21 @@ void SkullbonezRun::DrawPrimitives()
                                objectShadowFrame,
                                collisionStateColorsVisible,
                                collisionVisualizerAlphaOverride,
-                               bodyRenderAlpha } );
+                               bodyRenderAlpha,
+                               nullptr,
+                               true } );
+    }
+    else if ( replayFocusFadeActive )
+    {
+        m_objectPass.Render( { frame,
+                               ObjectPassMode::Transparent,
+                               activeCinematic,
+                               objectShadowFrame,
+                               collisionStateColorsVisible,
+                               collisionVisualizerAlphaOverride,
+                               0.5f,
+                               replayFocusModelMask,
+                               false } );
     }
 
     m_debugOverlayPass.Render( { frame } );
@@ -759,6 +838,15 @@ void SkullbonezRun::RebuildRegisteredRenderResources()
 
 void SkullbonezRun::SetViewingOrientation()
 {
+    if ( m_replayScrubber.inspectionCameraActive )
+    {
+        PROFILE_SCOPED( "Frame/Replay/InspectionCamera" );
+        m_camera.cameraTime = 0.0f;
+        m_timers.cameraTimer.StopTimer();
+        m_timers.cameraTimer.StartTimer();
+        return;
+    }
+
     // In scene mode, use the first camera without cycling.
     // If ball-tracking is active, keep the camera locked onto the selected ball.
     if ( SceneState().isSceneMode )

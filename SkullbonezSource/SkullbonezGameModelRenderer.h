@@ -22,6 +22,9 @@ Related:
 #include "SkullbonezShadow.h"
 #include "SkullbonezVector3.h"
 
+#include <cstdint>
+#include <vector>
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -36,7 +39,7 @@ class GameModelCollection;
 class GameModelRenderer
 {
   public:
-    static void RenderModels( GameModelCollection& collection, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic, const Rendering::ShadowFrameData* shadow, float materialAlpha );
+    static void RenderModels( GameModelCollection& collection, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic, const Rendering::ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask = nullptr, bool drawMaskedModels = true );
     static void BuildShadowCasterBatches( GameModelCollection& collection, Rendering::ShadowCasterBatches& outBatches );
     static void SubmitShadowCasterBatches( const Rendering::ShadowCasterBatches& batches, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic );
     static void RenderShadowCasters( GameModelCollection& collection, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic );

@@ -24,6 +24,7 @@ Invariants:
   - textureMode preserves old tint.a material-mode semantics inside material0.w
     so legacy scenes and generated objects keep their visual branch.
   - material2.w carries the material-kind row sampled from the fixed t4 table.
+  - material3.x carries per-object alpha; pass alpha multiplies it in the lit shader.
 
 Related:
   - Agentic/Reference/shader-inventory.md
@@ -249,11 +250,13 @@ inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
 // material0 = base rgb plus legacy material mode in w.
 // material1 = roughness, metallic, specular, emissive strength.
 // material2 = emissive rgb plus t4 material-table row in w.
+// material3 = per-object alpha plus room for later material controls.
 struct RenderMaterialInstancePayload
 {
     float material0[4];
     float material1[4];
     float material2[4];
+    float material3[4];
 };
 
 // Packs CPU render intent into the exact per-instance float layout declared by
@@ -276,6 +279,11 @@ inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const Re
     payload.material2[1] = material.emissiveColor[1];
     payload.material2[2] = material.emissiveColor[2];
     payload.material2[3] = static_cast<float>( RenderMaterialKindIndex( material.kind ) );
+
+    payload.material3[0] = material.baseColor[3];
+    payload.material3[1] = material.transmission;
+    payload.material3[2] = static_cast<float>( material.flags );
+    payload.material3[3] = 0.0f;
     return payload;
 }
 

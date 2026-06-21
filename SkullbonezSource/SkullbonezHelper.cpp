@@ -60,7 +60,7 @@ int SkullbonezHelper::pineVertexCount = 0;
 std::vector<float> SkullbonezHelper::pineInstanceData;
 
 static constexpr int INSTANCE_MATRIX_FLOATS = 16;
-static constexpr int INSTANCE_MATERIAL_FLOAT4_COUNT = 3;
+static constexpr int INSTANCE_MATERIAL_FLOAT4_COUNT = 4;
 static constexpr int INSTANCE_MATERIAL_FLOATS = INSTANCE_MATERIAL_FLOAT4_COUNT * 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_MATERIAL_FLOATS;
 static constexpr int HULL_MAX_TRIANGLE_VERTICES = ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3;
@@ -173,7 +173,7 @@ static void EnsureMaterialTableTexture()
 static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
 {
     // Contract: every primitive batch uses the same instance stream layout:
-    // model matrix columns followed by material0/material1/material2. The DX12
+    // model matrix columns followed by material0/material1/material2/material3. The DX12
     // input layout and both instanced shaders must stay in lockstep with this
     // packing order.
     const float* md = model.Data();
@@ -182,6 +182,7 @@ static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix
     out.insert( out.end(), payload.material0, payload.material0 + 4 );
     out.insert( out.end(), payload.material1, payload.material1 + 4 );
     out.insert( out.end(), payload.material2, payload.material2 + 4 );
+    out.insert( out.end(), payload.material3, payload.material3 + 4 );
 }
 
 static std::array<float, INSTANCE_FLOATS> BuildSingleMaterialInstancePayload( const Matrix4& model, const RenderMaterial& material )
@@ -193,6 +194,7 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMaterialInstancePayload( co
     std::copy( payload.material0, payload.material0 + 4, out.begin() + INSTANCE_MATRIX_FLOATS );
     std::copy( payload.material1, payload.material1 + 4, out.begin() + INSTANCE_MATRIX_FLOATS + 4 );
     std::copy( payload.material2, payload.material2 + 4, out.begin() + INSTANCE_MATRIX_FLOATS + 8 );
+    std::copy( payload.material3, payload.material3 + 4, out.begin() + INSTANCE_MATRIX_FLOATS + 12 );
     return out;
 }
 
@@ -211,8 +213,8 @@ static void EnsureConvexHullDynamicVB()
         return;
     }
 
-    int attribs[] = { 3, 3, 2, 4, 4, 4, 4, 4, 4, 4 };
-    sConvexHullDynamicVB = Gfx().CreateDynamicVB( attribs, 10, HULL_MAX_TRIANGLE_VERTICES );
+    int attribs[] = { 3, 3, 2, 4, 4, 4, 4, 4, 4, 4, 4 };
+    sConvexHullDynamicVB = Gfx().CreateDynamicVB( attribs, 11, HULL_MAX_TRIANGLE_VERTICES );
 }
 
 static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull, const std::array<float, INSTANCE_FLOATS>& instancePayload )
@@ -505,8 +507,8 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
     // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
-    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
+    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 8, staticAttribSizes, 3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -523,8 +525,8 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
     lowPolySphereVertexCount = PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks );
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
-    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), lowPolySphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
+    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), lowPolySphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 8, staticAttribSizes, 3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -689,8 +691,8 @@ void SkullbonezHelper::BuildBoxMesh()
     boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
-    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
+    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 8, staticAttribSizes, 3 );
 
     boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -866,8 +868,8 @@ void SkullbonezHelper::BuildPineMesh()
     pineVertexCount = PrimitiveMeshes::PineTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
-    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(), pineVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
+    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(), pineVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 8, staticAttribSizes, 3 );
 
     pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }

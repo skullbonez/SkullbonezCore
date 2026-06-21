@@ -160,6 +160,7 @@ class IRenderBackend : public IRenderCaptureBackend
     virtual bool IsDepthTestEnabled() const = 0;
     virtual bool IsDepthWriteEnabled() const = 0;
     virtual bool IsBlendEnabled() const = 0;
+    virtual bool IsCullFaceEnabled() const = 0;
     virtual void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const = 0;
 
 

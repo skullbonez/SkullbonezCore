@@ -87,14 +87,32 @@ inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT = 118.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 76.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 760.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 82.0f;
+inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 520.0f;
+inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
+inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 348.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
+inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
+inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
+inline constexpr float REPLAY_PREDICTION_STEP_SECONDS = 1.0f;
+inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
+inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
+inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
+inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
+inline constexpr float REPLAY_CAUSE_TREE_ROW_HEIGHT = 22.0f;
+inline constexpr float REPLAY_CAUSE_TREE_HEADER_HEIGHT = 42.0f;
 #ifdef _DEBUG
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
@@ -118,7 +136,7 @@ inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTr
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
-    constexpr float rightInset = 70.0f;
+    constexpr float rightInset = 70.0f + REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH;
     return { panel.x + leftInset,
              ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
              (std::max)( 80.0f, panel.w - leftInset - rightInset ),
@@ -135,6 +153,74 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
 }
 
+inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
+{
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH,
+             panel.y + 13.0f,
+             REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH,
+             22.0f };
+}
+
+inline UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect pause = ReplayScrubberPauseButtonRect( screenW, screenH );
+    return { pause.x + pause.w + 10.0f,
+             pause.y,
+             REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH,
+             pause.h };
+}
+
+inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
+{
+    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    return { panel.x + panel.w - REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH - 8.0f,
+             panel.y + 49.0f,
+             REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH,
+             22.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+    return { velocity.x + velocity.w + 10.0f,
+             velocity.y,
+             REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH,
+             velocity.h };
+}
+
+inline UI::UIRect ReplayScrubberPredictDecreaseRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x, control.y + 4.0f, 16.0f, 14.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictIncreaseRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { control.x + control.w - 54.0f, control.y + 4.0f, 16.0f, 14.0f };
+}
+
+inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
+{
+    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
+    const UI::UIRect increase = ReplayScrubberPredictIncreaseRect( screenW, screenH );
+    const float x = control.x + 26.0f;
+    return { x, control.y + 7.0f, (std::max)( 40.0f, increase.x - x - 10.0f ), 8.0f };
+}
+
+inline float ReplayPredictionHorizonT( float seconds )
+{
+    return std::clamp( ( seconds - REPLAY_PREDICTION_MIN_SECONDS ) / ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS ), 0.0f, 1.0f );
+}
+
+inline float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
+{
+    const float t = horizon.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - horizon.x ) / horizon.w, 0.0f, 1.0f ) : 1.0f;
+    const float seconds = REPLAY_PREDICTION_MIN_SECONDS + t * ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS );
+    return std::clamp( std::round( seconds ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+}
+
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
 {
     return { 0.0f,
@@ -143,10 +229,72 @@ inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
 }
 
+inline UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
+{
+    const UI::UIRect scrubber = ReplayScrubberPanelRect( screenW, screenH );
+    const float width = (std::min)( REPLAY_CAUSE_TREE_PANEL_WIDTH,
+                                    (std::max)( 220.0f, static_cast<float>( screenW ) - REPLAY_CAUSE_TREE_PANEL_MARGIN * 2.0f ) );
+    const float x = (std::max)( REPLAY_CAUSE_TREE_PANEL_MARGIN,
+                                static_cast<float>( screenW ) - width - REPLAY_CAUSE_TREE_PANEL_MARGIN );
+    const float y = REPLAY_CAUSE_TREE_PANEL_TOP;
+    const float maxHeight = (std::max)( 120.0f, scrubber.y - y - REPLAY_CAUSE_TREE_PANEL_MARGIN );
+    const float height = (std::min)( 420.0f, maxHeight );
+    return { x, y, width, height };
+}
+
+inline UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow )
+{
+    return { panel.x + 10.0f,
+             panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT + static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
+             panel.w - 20.0f,
+             REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
+}
+
+inline int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
+{
+    return (std::max)( 0, static_cast<int>( ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) / REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
+}
+
 inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
 {
     const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
     return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
+}
+
+inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
+{
+    return track == RunReplayTrack::Solver ? state.solverPosition : state.presentationPosition;
+}
+
+inline void ReplayScrubberSetTrackPosition( RunReplayScrubberState& state, RunReplayTrack track, float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    if ( track == RunReplayTrack::Solver )
+    {
+        state.solverPosition = clamped;
+    }
+    else
+    {
+        state.presentationPosition = clamped;
+    }
+
+    if ( state.activeTrack == track )
+    {
+        state.position = clamped;
+    }
+}
+
+inline void ReplayScrubberSyncActivePosition( RunReplayScrubberState& state )
+{
+    state.position = ReplayScrubberTrackPosition( state, state.activeTrack );
+}
+
+inline void ReplayScrubberSetAllTrackPositions( RunReplayScrubberState& state, float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    state.presentationPosition = clamped;
+    state.solverPosition = clamped;
+    state.position = clamped;
 }
 
 inline void DrawUITestPattern( int screenW, int screenH )

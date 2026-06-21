@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/retire-repo-orchestrator` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Completed plan archival, agent documentation alignment, and the former JSON/Python orchestrator experiment. |
-| Active objective | Retire the repository-owned orchestrator control plane and promote `Agentic/Skills/orchestrator/SKILL.md` as the active coordination contract. |
-| Pending work | None for the retirement branch; open a PR or merge only if explicitly requested. |
+| Branch | `nightrunner-21st-june-authoritative-rollback` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Replay prediction amortization is committed and pushed on the authoritative replay branch. |
+| Active objective | Replay inspection camera, focus fade, lit-shader alpha, and scrubber UI polish are implemented and validated. |
+| Pending work | Commit and push the replay inspection/focus polish follow-up. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | `tools\validate_fast.bat` passed for the orchestrator retirement scope on 2026-06-21. |
+| Validation | Replay inspection/focus polish passed targeted `tools\validate_build.bat Profile` (`TestOutput\codex_build_profile_replay_focus.log`, 98.9s), `tools\validate_full.bat` (`TestOutput\codex_validate_full_replay_focus.log`, 110.1s), a required platform-profiler marker smoke (`Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --scene SkullbonezData\scenes\ui_profiler_timeline.scene.json`, `TestOutput\codex_platform_profiler_markers.log`, 2.2s), and a live-style replay panel screenshot capture (`TestOutput\codex_replay_panel_capture\replay_panel.png`, 3.5s including PNG export) on 2026-06-21. Replay prediction amortization passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_prediction_amortized_build_profile_fix3.log`, 1.66s), `tools\validate_build.bat Debug` (`TestOutput\agent_logs\2026-06-21_replay_prediction_amortized_build_debug_fix.log`, 3.41s), a bounded Debug startup smoke after removing unsafe outside-frame profiler scopes (`TestOutput\agent_logs\2026-06-21_replay_prediction_amortized_debug_smoke_after_fix2.log`, 2.75s), a bounded Profile platform-profiler marker launch of `replay_velocity_four_ball.scene.json` (`TestOutput\agent_logs\2026-06-21_replay_prediction_amortized_platform_markers_after_fix.log`, 2.58s), and `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_prediction_amortized_validate_full.log`, 17.09s) on 2026-06-21. Scene world reset leak fix passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_scene_world_reset_build_profile.log`, 1.91s after stopping stale Profile PID 49028), a one-process four-ball-to-generated-demo smoke suite (`TestOutput\agent_logs\2026-06-21_scene_world_reset_repro_suite.log`, 3.17s), and `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_scene_world_reset_validate_full.log`, 40.39s) on 2026-06-21. Replay velocity edit passed targeted `tools\validate_build.bat Profile` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_build_profile_final.log`, 4.47s), `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_validate_full.log`, 60.29s), and a bounded platform-profiler marker launch of `replay_velocity_four_ball.scene.json` (`TestOutput\agent_logs\2026-06-21_replay_velocity_edit_platform_markers.log`, 1.93s) on 2026-06-21. |
 
 ## Active Notes
 

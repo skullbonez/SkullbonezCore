@@ -1,7 +1,7 @@
 # Authoritative Replay Rollback Plan
 
 Date: 2026-06-21
-Status: Proposed
+Status: In progress - retained solver rollback plus path/contact visualizer and live prediction v1 implemented
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -20,6 +20,13 @@ while inspecting it, resume from the live edge, and save the retained
 presentation buffer. Authoritative rollback means the user can choose a replay
 time, restore the actual solver state for that tick, and continue simulation
 from there as a new live branch.
+
+Implementation note, 2026-06-21: the first runtime implementation uses retained
+per-frame in-memory solver snapshots rather than sparse checkpoints plus an event
+stream. This is intentionally memory-heavier, but it makes scrub-to-branch
+correctness available now. Future work can replace the dense retained snapshot
+with checkpoint/event replay once restore hashes and visualization tooling are
+proven.
 
 The core rule remains:
 
@@ -49,14 +56,74 @@ physics ticks forward to the selected target tick.
 | Video-first replay | Video cannot branch, inspect contacts, or validate solver hashes. |
 | Lossy authoritative state | Compression is allowed only after deterministic restore tests prove the uncompressed schema. |
 
+## Visualizer V1
+
+The follow-up visualizer is now layered on the retained solver replay samples.
+Left-click selects a root body when world input is not already owned by UI,
+editor, or launcher firing; `Ctrl+Left Click` selects while launcher mode is
+active. The root draws a retained past path from red to white and a retained
+future path from white to green, using the current solver scrub sample as
+present. Future contact rows involving active traced bodies add child bodies to
+the trace; child bodies draw amber incoming paths and amber target rings before
+their first collision, then grey post-contact paths plus grey first-contact
+markers. `SkullbonezData/scenes/replay_path_pool.scene.json` provides a
+pool-table-style chain for manual/screenshot inspection.
+
+The right-side `CAUSE TREE` panel lists the active root and causal children as
+an indented hierarchy. Rows are sourced from the retained replay chain or, when
+prediction rows are available, from the predicted chain. Clicking a row pauses
+into inspection mode when needed and points the camera view target at that body.
+
+The scrubber now also exposes a `PREDICT` checkbox with compact `-`, `+`, and
+slider horizon controls, default off and defaulting to 10 seconds. The horizon
+clamps from 1 to 10 seconds. When a root body is selected and prediction is
+enabled, the runtime starts a sandboxed solver lookahead from the current live
+state and advances it as a cancellable drawing job capped at 5 ms of
+speculative work per frame. Each slice restores the live world before rendering,
+while the saved prediction cursor resumes on the next frame. Partial samples
+draw as soon as they are captured, so long horizons fill in over multiple
+frames instead of blocking the demo scene. Target, horizon, and velocity edits
+cancel the current job, clear the partial paths, and restart from the new live
+state. The predicted root path draws white-to-green from the live state; future
+bodies contacted by that path draw amber incoming traces and target rings before
+first impact, then grey post-contact traces and contact markers. Shift-click can
+add multiple retained history roots; the most recently selected root remains the
+prediction root. The scrubber also has a `PAUSE`/`PLAY` button for frozen live
+inspection with free-camera movement and right-mouse look. The new work is
+profiled under `Frame/Replay/Prediction/BeginJob`,
+`Frame/Replay/Prediction/Slice`, `Frame/Replay/Prediction/Steps`,
+`Frame/Replay/Prediction/StepPhysics`,
+`Frame/Replay/Prediction/ApplyJobState`,
+`Frame/Replay/Prediction/CaptureJobState`,
+`Frame/Replay/Prediction/RestoreLive`, `Frame/Replay/PathVisualizer/...`,
+`Frame/Replay/ScrubberInput`, `Frame/Replay/SimulationPause`,
+`Frame/Replay/ScrubberOverlay`, and the existing physics scopes, so PIX and the
+in-engine profiler can isolate the speculative lookahead and scrubber UI cost.
+
+Replay velocity edit is layered onto that same live prediction path. Outside
+editor mode, `Alt` or the scrubber `ALT VEL` toggle pauses into inspection,
+enables prediction, and shows a selected dynamic body's linear-axis handles plus
+angular velocity rings. Dragging linear handles or angular rings writes the live
+body's velocity, wakes it when needed, invalidates the retained physics streams,
+and cancels/restarts prediction so the future path and cause tree redraw from
+the new state. `SkullbonezData/scenes/replay_velocity_four_ball.scene.json`
+provides four resting balls in a line for manually ramping the cue ball and
+watching the downstream predicted children appear.
+
+Future work can add numeric velocity fields, explicit parent collision timing
+labels, and deeper tree controls.
+
 ## Current Starting Point
 
 | Area | Current behavior |
 |------|------------------|
 | Replay recording | `ReplayRecorder` stores a bounded 30-second presentation ring by default for generated/interactive runs. |
-| Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live. |
-| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`. |
-| Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output. |
+| Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
+| Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
+| Branch restore | Press `Enter` while paused on the solver row to restore the selected retained solver frame as the new live branch. |
+| Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts light child bodies before impact with amber incoming traces/rings, then continue with grey post-contact traces. The right-side cause tree lists the root/child hierarchy and focuses the camera on clicked rows. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. `ALT VEL` edits selected dynamic-body linear/angular velocity and rebuilds the predicted chain from the edited live state. |
+| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` with compact authoritative snapshot summaries. |
+| Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
 | Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. |
 
 ## Definitions
@@ -153,6 +220,7 @@ state.
 | Dragging scrubber | Use presentation samples only; no expensive solver restore while dragging. |
 | Holding on old frame | Keep visual/presentation pause as today. |
 | Commit restore | Add an explicit action later, or treat mouse release away from live as restore only after the user confirms the workflow. |
+| Commit restore, v1 | Press `Enter` while paused on the solver row. |
 | Dragging back to live | Keep current behavior: resume live simulation without restore. |
 | Save replay | Continue saving presentation buffer for now; future `.skreplay` v2 should include checkpoints and event chunks. |
 

@@ -40,6 +40,9 @@ void SkullbonezRun::UiTextPass::ReleaseGpuResources()
 
 void SkullbonezRun::RenderReplayScrubberOverlay()
 {
+    PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
+    RenderReplayCauseTreeOverlay();
+
     if ( !ShouldRenderReplayScrubber() )
     {
         return;
@@ -54,10 +57,11 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
         return;
     }
 
-    const float t = std::clamp( m_replayScrubber.position, 0.0f, 1.0f );
+    const RunReplayTrack activeTrack = m_replayScrubber.activeTrack;
+    const float t = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, activeTrack ), 0.0f, 1.0f );
     double selectedSeconds = 0.0;
     double latestSeconds = 0.0;
-    if ( m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    if ( activeTrack == RunReplayTrack::Solver )
     {
         const ReplaySolverFrameSample* selected = m_solverReplay.SampleAtNormalized( t );
         const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample();
@@ -93,18 +97,91 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     const double now = m_timers.simulationTimer.GetTotalTime();
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
-    draw.Text( panel.x + 16.0f, panel.y + 8.0f, 10.0f, 0.72f, 0.88f, 1.0f, "REPLAY" );
-    draw.Text( panel.x + 16.0f, panel.y + 36.0f, 10.0f, 0.78f, 0.82f, 0.86f, "SOLVER" );
+    draw.Text( panel.x + 16.0f,
+               panel.y + 8.0f,
+               10.0f,
+               activeTrack == RunReplayTrack::Presentation ? 0.72f : 0.48f,
+               activeTrack == RunReplayTrack::Presentation ? 0.88f : 0.56f,
+               activeTrack == RunReplayTrack::Presentation ? 1.0f : 0.62f,
+               "REPLAY" );
+    draw.Text( panel.x + 16.0f,
+               panel.y + 36.0f,
+               10.0f,
+               activeTrack == RunReplayTrack::Solver ? 0.54f : 0.48f,
+               activeTrack == RunReplayTrack::Solver ? 0.98f : 0.56f,
+               activeTrack == RunReplayTrack::Solver ? 0.80f : 0.62f,
+               "SOLVER" );
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
     draw.Text( panel.x + panel.w - labelW - 16.0f, panel.y + 15.0f, 11.0f, live ? 0.58f : 1.0f, live ? 0.96f : 0.86f, live ? 0.70f : 0.36f, timeLabel );
+
+    const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
+    const bool simulationPaused = m_replayScrubber.simulationPaused;
+    const bool pauseHover = m_replayScrubber.pauseHovered;
+    draw.RoundedRect( pauseButton.x,
+                      pauseButton.y,
+                      pauseButton.w,
+                      pauseButton.h,
+                      4.0f,
+                      simulationPaused ? 0.18f : 0.08f,
+                      simulationPaused ? 0.33f : 0.12f,
+                      simulationPaused ? 0.21f : 0.15f,
+                      pauseHover || simulationPaused ? 0.94f : 0.78f );
+    draw.Outline( pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h, 0.58f, 0.92f, 0.72f, pauseHover || simulationPaused ? 0.78f : 0.36f );
+    draw.Text( pauseButton.x + 9.0f,
+               pauseButton.y + 5.0f,
+               9.5f,
+               simulationPaused ? 0.72f : 0.60f,
+               simulationPaused ? 1.0f : 0.72f,
+               simulationPaused ? 0.78f : 0.76f,
+               simulationPaused ? "PLAY" : "PAUSE" );
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
+        const UI::UIRect velocityEdit = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
+        const bool velocityEditEnabled = m_replayVelocityEdit.enabled;
+        const bool velocityEditHover = m_replayVelocityEdit.toggleHovered;
+        draw.RoundedRect( velocityEdit.x,
+                          velocityEdit.y,
+                          velocityEdit.w,
+                          velocityEdit.h,
+                          4.0f,
+                          velocityEditEnabled ? 0.25f : 0.08f,
+                          velocityEditEnabled ? 0.19f : 0.12f,
+                          velocityEditEnabled ? 0.06f : 0.15f,
+                          velocityEditHover || velocityEditEnabled ? 0.94f : 0.78f );
+        draw.Outline( velocityEdit.x,
+                      velocityEdit.y,
+                      velocityEdit.w,
+                      velocityEdit.h,
+                      0.98f,
+                      0.82f,
+                      0.42f,
+                      velocityEditHover || velocityEditEnabled ? 0.78f : 0.34f );
+        const float checkX = velocityEdit.x + 7.0f;
+        const float checkY = velocityEdit.y + 5.0f;
+        draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.98f, 0.86f, 0.54f, 0.82f );
+        if ( velocityEditEnabled )
+        {
+            draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 1.0f, 0.62f, 0.16f, 0.95f );
+        }
+        draw.Text( velocityEdit.x + 23.0f,
+                   velocityEdit.y + 4.5f,
+                   9.5f,
+                   velocityEditEnabled ? 1.0f : 0.66f,
+                   velocityEditEnabled ? 0.86f : 0.72f,
+                   velocityEditEnabled ? 0.56f : 0.76f,
+                   "ALT VEL" );
+    }
 
     auto drawReplayRow = [&]( RunReplayTrack trackName, float fillR, float fillG, float fillB, float outlineR, float outlineG, float outlineB )
     {
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
         const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
-        const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * t );
-        const float knobX = track.x + track.w * t;
-        const bool active = m_replayScrubber.activeTrack == trackName;
+        const float rowT = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, trackName ), 0.0f, 1.0f );
+        const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
+        const float knobX = track.x + track.w * rowT;
+        const bool active = activeTrack == trackName;
+        const bool inactiveDuringScrub = ( m_replayScrubber.dragging || m_replayScrubber.paused ) && !active;
         const bool saveHover = m_replayScrubber.saveHovered && m_replayScrubber.saveHoveredTrack == trackName;
         const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' &&
                                   m_replayScrubber.saveMessageUntil >= now &&
@@ -114,10 +191,23 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
         const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
         const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
 
-        draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, 0.16f, 0.18f, 0.22f, 0.92f );
-        draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, fillR, fillG, fillB, live ? 0.64f : 0.94f );
-        draw.RoundedRect( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, 5.0f, active ? 0.98f : 0.74f, active ? 0.98f : 0.78f, active ? 1.0f : 0.82f, active ? 0.98f : 0.86f );
-        draw.Outline( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, outlineR, outlineG, outlineB, active ? 0.72f : 0.28f );
+        const float rowBack = inactiveDuringScrub ? 0.11f : 0.16f;
+        const float rowFillR = inactiveDuringScrub ? 0.30f : fillR;
+        const float rowFillG = inactiveDuringScrub ? 0.33f : fillG;
+        const float rowFillB = inactiveDuringScrub ? 0.36f : fillB;
+        const float rowFillA = inactiveDuringScrub ? 0.40f : ( live && active ? 0.64f : 0.94f );
+        draw.RoundedRect( track.x, track.y, track.w, track.h, track.h * 0.5f, rowBack, rowBack + 0.02f, rowBack + 0.05f, inactiveDuringScrub ? 0.74f : 0.92f );
+        draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, rowFillR, rowFillG, rowFillB, rowFillA );
+        draw.RoundedRect( knobX - 6.0f,
+                          track.y - 5.0f,
+                          12.0f,
+                          18.0f,
+                          5.0f,
+                          active ? 0.98f : 0.52f,
+                          active ? 0.98f : 0.56f,
+                          active ? 1.0f : 0.60f,
+                          active ? 0.98f : 0.70f );
+        draw.Outline( knobX - 6.0f, track.y - 5.0f, 12.0f, 18.0f, outlineR, outlineG, outlineB, active ? 0.72f : 0.22f );
 
         draw.RoundedRect( saveButton.x,
                           saveButton.y,
@@ -140,7 +230,263 @@ void SkullbonezRun::RenderReplayScrubberOverlay()
     };
 
     drawReplayRow( RunReplayTrack::Presentation, 0.20f, 0.70f, 0.96f, 0.54f, 0.78f, 0.90f );
-    drawReplayRow( RunReplayTrack::Solver, 0.70f, 0.76f, 0.82f, 0.72f, 0.78f, 0.84f );
+    drawReplayRow( RunReplayTrack::Solver, 0.30f, 0.93f, 0.72f, 0.48f, 0.86f, 0.74f );
+
+    const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
+    const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
+    const UI::UIRect predictDecrease = ReplayScrubberPredictDecreaseRect( screenW, screenH );
+    const UI::UIRect predictIncrease = ReplayScrubberPredictIncreaseRect( screenW, screenH );
+    const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
+    const bool predictHover = m_replayPrediction.decreaseHovered ||
+                              m_replayPrediction.increaseHovered ||
+                              m_replayPrediction.horizonHovered ||
+                              m_replayPrediction.horizonDragging;
+    const bool predictEnabled = m_replayPrediction.enabled;
+    const float predictSeconds = std::clamp( m_replayPrediction.horizonSeconds,
+                                             REPLAY_PREDICTION_MIN_SECONDS,
+                                             REPLAY_PREDICTION_MAX_SECONDS );
+    const float predictBackR = predictEnabled ? 0.08f : 0.055f;
+    const float predictBackG = predictEnabled ? 0.24f : 0.08f;
+    const float predictBackB = predictEnabled ? 0.16f : 0.105f;
+    draw.RoundedRect( predictToggle.x,
+                      predictToggle.y,
+                      predictToggle.w,
+                      predictToggle.h,
+                      4.0f,
+                      predictBackR + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackG + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackB + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      0.88f );
+    draw.Outline( predictToggle.x, predictToggle.y, predictToggle.w, predictToggle.h, 0.62f, 0.86f, 0.78f, m_replayPrediction.checkboxHovered || predictEnabled ? 0.72f : 0.34f );
+    const float checkX = predictToggle.x + 7.0f;
+    const float checkY = predictToggle.y + 5.0f;
+    draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
+    if ( predictEnabled )
+    {
+        draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 0.38f, 1.0f, 0.58f, 0.95f );
+    }
+    draw.Text( predictToggle.x + 23.0f,
+               predictToggle.y + 4.5f,
+               9.5f,
+               predictEnabled ? 0.70f : 0.60f,
+               predictEnabled ? 1.0f : 0.72f,
+               predictEnabled ? 0.78f : 0.76f,
+               "PREDICT" );
+    if ( !m_runtimeSettings.isVsyncEnabled )
+    {
+        draw.Text( predictToggle.x + predictToggle.w + 12.0f,
+                   predictToggle.y + 5.0f,
+                   9.0f,
+                   1.0f,
+                   0.18f,
+                   0.12f,
+                   "WARNING: VSYNC OFF" );
+    }
+
+    draw.RoundedRect( predict.x,
+                      predict.y,
+                      predict.w,
+                      predict.h,
+                      4.0f,
+                      predictBackR + ( predictHover ? 0.07f : 0.0f ),
+                      predictBackG + ( predictHover ? 0.07f : 0.0f ),
+                      predictBackB + ( predictHover ? 0.07f : 0.0f ),
+                      0.88f );
+    draw.Outline( predict.x, predict.y, predict.w, predict.h, 0.62f, 0.86f, 0.78f, predictHover || predictEnabled ? 0.72f : 0.34f );
+
+    auto drawPredictStep = [&]( const UI::UIRect& rect, bool hovered, const char* label, bool enabled )
+    {
+        draw.RoundedRect( rect.x,
+                          rect.y,
+                          rect.w,
+                          rect.h,
+                          3.0f,
+                          hovered && enabled ? 0.16f : 0.09f,
+                          hovered && enabled ? 0.35f : 0.17f,
+                          hovered && enabled ? 0.25f : 0.16f,
+                          enabled ? 0.90f : 0.42f );
+        draw.Outline( rect.x, rect.y, rect.w, rect.h, 0.60f, 0.86f, 0.74f, enabled ? ( hovered ? 0.76f : 0.42f ) : 0.22f );
+        const float labelW = Text2d::MeasureText( 9.0f, label );
+        draw.Text( rect.x + ( rect.w - labelW ) * 0.5f,
+                   rect.y + 2.0f,
+                   9.0f,
+                   enabled ? 0.82f : 0.42f,
+                   enabled ? 0.96f : 0.50f,
+                   enabled ? 0.88f : 0.52f,
+                   label );
+    };
+
+    const bool canDecrease = predictSeconds > REPLAY_PREDICTION_MIN_SECONDS + 0.01f;
+    const bool canIncrease = predictSeconds < REPLAY_PREDICTION_MAX_SECONDS - 0.01f;
+    drawPredictStep( predictDecrease, m_replayPrediction.decreaseHovered, "-", canDecrease );
+    drawPredictStep( predictIncrease, m_replayPrediction.increaseHovered, "+", canIncrease );
+
+    char predictSecondsLabel[16] = {};
+    sprintf_s( predictSecondsLabel, sizeof( predictSecondsLabel ), "%.0fs", static_cast<double>( predictSeconds ) );
+    const float horizonT = ReplayPredictionHorizonT( predictSeconds );
+    const float horizonFillW = (std::max)( 4.0f, predictHorizon.w * horizonT );
+    const float horizonKnobX = predictHorizon.x + predictHorizon.w * horizonT;
+    draw.RoundedRect( predictHorizon.x, predictHorizon.y, predictHorizon.w, predictHorizon.h, 4.0f, 0.10f, 0.14f, 0.15f, 0.86f );
+    draw.RoundedRect( predictHorizon.x, predictHorizon.y, horizonFillW, predictHorizon.h, 4.0f, 0.34f, 0.95f, 0.62f, predictEnabled ? 0.86f : 0.48f );
+    draw.RoundedRect( horizonKnobX - 4.0f,
+                      predictHorizon.y - 3.0f,
+                      8.0f,
+                      14.0f,
+                      3.0f,
+                      predictEnabled ? 0.88f : 0.56f,
+                      predictEnabled ? 1.0f : 0.62f,
+                      predictEnabled ? 0.82f : 0.64f,
+                      m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging ? 0.98f : 0.86f );
+    draw.Text( predictIncrease.x + predictIncrease.w + 8.0f,
+               predict.y + 4.5f,
+               8.5f,
+               predictEnabled ? 0.90f : 0.64f,
+               predictEnabled ? 1.0f : 0.74f,
+               predictEnabled ? 0.88f : 0.76f,
+               predictSecondsLabel );
+
+    Text2d::FlushQuads();
+    Text2d::FlushText();
+}
+
+
+void SkullbonezRun::RenderReplayCauseTreeOverlay()
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
+    if ( !m_UI.IsVisible() ||
+         !m_UI.IsMinimized() ||
+         WindowScreenWidth() <= 0 ||
+         WindowScreenHeight() <= 0 ||
+         !BuildReplayCauseTreeRows() )
+    {
+        return;
+    }
+
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    const UI::UIRect panel = ReplayCauseTreePanelRect( screenW, screenH );
+    const int visibleRows = (std::min)( m_replayCauseTree.rowCount, ReplayCauseTreeVisibleRowCapacity( panel ) );
+    if ( visibleRows <= 0 )
+    {
+        return;
+    }
+
+    const UI::UIDrawContext draw( screenW, screenH );
+    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.012f, 0.016f, 0.022f, 0.78f );
+    draw.Outline( panel.x, panel.y, panel.w, panel.h, 0.36f, 0.54f, 0.62f, 0.38f );
+    draw.Text( panel.x + 14.0f, panel.y + 12.0f, 11.0f, 0.82f, 0.94f, 1.0f, "CAUSE TREE" );
+
+    const bool predictionRows = m_replayCauseTree.rows[0].prediction;
+    const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
+    const float sourceW = Text2d::MeasureText( 8.5f, sourceLabel );
+    draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f,
+                      panel.y + 11.0f,
+                      sourceW + 14.0f,
+                      16.0f,
+                      4.0f,
+                      predictionRows ? 0.08f : 0.08f,
+                      predictionRows ? 0.30f : 0.18f,
+                      predictionRows ? 0.17f : 0.27f,
+                      0.70f );
+    draw.Text( panel.x + panel.w - sourceW - 19.0f,
+               panel.y + 14.0f,
+               8.5f,
+               predictionRows ? 0.62f : 0.62f,
+               predictionRows ? 1.0f : 0.86f,
+               predictionRows ? 0.72f : 1.0f,
+               sourceLabel );
+
+    const ReplaySolverFrameSample* scrubSample = CurrentReplaySolverScrubSample();
+    const ReplayFrameIndex presentFrame = scrubSample ? scrubSample->frameIndex : 0;
+
+    for ( int rowIndex = 0; rowIndex < visibleRows; ++rowIndex )
+    {
+        const RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )];
+        const UI::UIRect rowRect = ReplayCauseTreeRowRect( panel, rowIndex );
+        const bool hovered = rowIndex == m_replayCauseTree.hoveredRow;
+        const bool focused = row.id.value != 0 && row.id.value == m_replayCauseTree.focusedId.value;
+        if ( hovered || focused )
+        {
+            draw.RoundedRect( rowRect.x,
+                              rowRect.y,
+                              rowRect.w,
+                              rowRect.h,
+                              4.0f,
+                              focused ? 0.12f : 0.08f,
+                              focused ? 0.30f : 0.18f,
+                              focused ? 0.22f : 0.24f,
+                              hovered ? 0.82f : 0.56f );
+        }
+
+        const float indent = (std::min)( 118.0f, static_cast<float>( row.depth ) * 18.0f );
+        if ( row.depth > 0 )
+        {
+            const float lineX = rowRect.x + 9.0f + indent - 10.0f;
+            draw.Rect( lineX, rowRect.y + 4.0f, 1.0f, rowRect.h - 8.0f, 0.62f, 0.68f, 0.72f, 0.32f );
+            draw.Rect( lineX, rowRect.y + rowRect.h * 0.5f, 8.0f, 1.0f, 0.62f, 0.68f, 0.72f, 0.32f );
+        }
+
+        char clippedName[32] = {};
+        strncpy_s( clippedName, sizeof( clippedName ), row.name, _TRUNCATE );
+        if ( strlen( clippedName ) > 24 )
+        {
+            clippedName[21] = '.';
+            clippedName[22] = '.';
+            clippedName[23] = '.';
+            clippedName[24] = '\0';
+        }
+
+        char label[80] = {};
+        if ( row.depth == 0 )
+        {
+            sprintf_s( label, sizeof( label ), "ROOT  %s", clippedName );
+        }
+        else
+        {
+            double secondsToHit = 0.0;
+            if ( row.prediction )
+            {
+                secondsToHit = static_cast<double>( row.firstFrame ) * PHYSICS_FIXED_DT;
+            }
+            else if ( row.firstFrame > presentFrame )
+            {
+                secondsToHit = static_cast<double>( row.firstFrame - presentFrame ) * PHYSICS_FIXED_DT;
+            }
+            sprintf_s( label, sizeof( label ), "+%.2fs  %s", secondsToHit, clippedName );
+        }
+
+        const float markerX = rowRect.x + 8.0f + indent;
+        const float markerY = rowRect.y + rowRect.h * 0.5f - 2.0f;
+        if ( row.depth == 0 )
+        {
+            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.94f, 1.0f, 0.74f, 0.92f );
+        }
+        else
+        {
+            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.92f, 0.56f, 0.20f, 0.86f );
+        }
+        draw.Text( markerX + 11.0f,
+                   rowRect.y + 4.0f,
+                   9.5f,
+                   row.depth == 0 ? 0.88f : 0.76f,
+                   row.depth == 0 ? 1.0f : 0.82f,
+                   row.depth == 0 ? 0.86f : 0.78f,
+                   label );
+    }
+
+    const int hiddenRows = m_replayCauseTree.rowCount - visibleRows;
+    if ( hiddenRows > 0 )
+    {
+        char moreLabel[32] = {};
+        sprintf_s( moreLabel, sizeof( moreLabel ), "+%d more", hiddenRows );
+        draw.Text( panel.x + 14.0f,
+                   panel.y + panel.h - 18.0f,
+                   8.5f,
+                   0.58f,
+                   0.66f,
+                   0.72f,
+                   moreLabel );
+    }
 
     Text2d::FlushQuads();
     Text2d::FlushText();

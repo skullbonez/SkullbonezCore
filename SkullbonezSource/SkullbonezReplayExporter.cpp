@@ -7,6 +7,7 @@ Purpose:
 
 #include "SkullbonezRuntimeFileWriter.h"
 
+#include <algorithm>
 #include <cstdio>
 
 #pragma warning( push, 0 )
@@ -126,6 +127,61 @@ Json CameraJson( const ReplayCameraSample& camera )
     return result;
 }
 
+const char* LauncherFireModeName( ReplayLauncherFireMode mode )
+{
+    switch ( mode )
+    {
+    case ReplayLauncherFireMode::Projectile:
+        return "projectile";
+    case ReplayLauncherFireMode::Laser:
+    default:
+        return "laser";
+    }
+}
+
+Json LauncherVisualSummaryJson( const ReplayLauncherVisualSample& visual )
+{
+    Json result;
+    result["fireMode"] = LauncherFireModeName( visual.fireMode );
+    result["visualizeRays"] = visual.visualizeRays;
+    result["rayLineCount"] = visual.rayLines.size();
+    result["laserShotCount"] = visual.laserShots.size();
+    result["activeRayLineCount"] = static_cast<int>( std::count_if( visual.rayLines.begin(),
+                                                                    visual.rayLines.end(),
+                                                                    []( const ReplayRayCastLineSample& line )
+                                                                    {
+                                                                        return line.active;
+                                                                    } ) );
+    result["activeLaserShotCount"] = static_cast<int>( std::count_if( visual.laserShots.begin(),
+                                                                      visual.laserShots.end(),
+                                                                      []( const LauncherLaserShotSnapshot& shot )
+                                                                      {
+                                                                          return shot.active;
+                                                                      } ) );
+    return result;
+}
+
+Json SolverWorldSnapshotSummaryJson( const ReplaySolverWorldSnapshot& snapshot )
+{
+    Json result;
+    result["version"] = snapshot.version;
+    result["modelCount"] = snapshot.modelCount;
+    result["sleepEnabled"] = snapshot.sleepEnabled;
+    result["sleepingBodyCount"] = static_cast<int>( std::count_if( snapshot.sleepState.begin(),
+                                                                   snapshot.sleepState.end(),
+                                                                   []( uint8_t value )
+                                                                   {
+                                                                       return value != 0;
+                                                                   } ) );
+    result["persistentContactCount"] = snapshot.persistentContacts.size();
+    result["persistentContactCacheCount"] = snapshot.persistentContactCache.size();
+    result["debugContactCount"] = snapshot.debugContacts.size();
+    result["pipelineRecordCount"] = snapshot.pipelineTrace.size();
+    result["collisionCellKeyCount"] = snapshot.collisionCellKeys.size();
+    result["tornadoEnabled"] = snapshot.tornadoConfig.enabled;
+    return result;
+}
+
 Json FrameJson( const ReplayPresentationSample& sample )
 {
     char hashBuffer[24] = {};
@@ -164,6 +220,8 @@ Json FrameJson( const ReplaySolverFrameSample& sample )
     frame["checkpointBoundary"] = sample.checkpointBoundary;
     frame["world"] = WorldJson( sample.world );
     frame["camera"] = CameraJson( sample.camera );
+    frame["launcherVisual"] = LauncherVisualSummaryJson( sample.launcherVisual );
+    frame["authoritativeSnapshot"] = SolverWorldSnapshotSummaryJson( sample.worldSnapshot );
     frame["bodies"] = Json::array();
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {

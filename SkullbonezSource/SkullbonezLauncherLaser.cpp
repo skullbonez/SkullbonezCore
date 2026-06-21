@@ -147,6 +147,52 @@ void LauncherLaser::Update( float dt )
     }
 }
 
+
+void LauncherLaser::CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const
+{
+    outShots.clear();
+    outShots.reserve( MAX_SHOTS );
+    for ( const Shot& shot : m_shots )
+    {
+        LauncherLaserShotSnapshot snapshot;
+        snapshot.start = shot.start;
+        snapshot.end = shot.end;
+        snapshot.cameraRight = shot.cameraRight;
+        snapshot.cameraUp = shot.cameraUp;
+        snapshot.ageSeconds = shot.ageSeconds;
+        snapshot.lifetimeSeconds = shot.lifetimeSeconds;
+        snapshot.active = shot.active;
+        snapshot.hit = shot.hit;
+        outShots.push_back( snapshot );
+    }
+    outNextShot = m_nextShot;
+}
+
+
+void LauncherLaser::RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot )
+{
+    m_shots = {};
+    const std::size_t copyCount = (std::min)( shots.size(), MAX_SHOTS );
+    for ( std::size_t i = 0; i < copyCount; ++i )
+    {
+        Shot& shot = m_shots[i];
+        shot.start = shots[i].start;
+        shot.end = shots[i].end;
+        shot.cameraRight = shots[i].cameraRight;
+        shot.cameraUp = shots[i].cameraUp;
+        shot.ageSeconds = shots[i].ageSeconds;
+        shot.lifetimeSeconds = shots[i].lifetimeSeconds;
+        shot.active = shots[i].active;
+        shot.hit = shots[i].hit;
+    }
+    m_nextShot = nextShot % static_cast<int>( MAX_SHOTS );
+    if ( m_nextShot < 0 )
+    {
+        m_nextShot += static_cast<int>( MAX_SHOTS );
+    }
+}
+
+
 void LauncherLaser::EmitVertex( const Vector3& p, float r, float g, float b, float a )
 {
     m_vertices.insert( m_vertices.end(), { p.x, p.y, p.z, r, g, b, a } );
@@ -295,6 +341,7 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
     const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
     const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
     const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
     Gfx().GetBlendFunc( blendSrc, blendDst );
@@ -303,11 +350,13 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( true );
     Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
+    Gfx().SetCullFace( false );
 
     m_shader->Use();
     m_shader->SetMat4( "uViewProj", viewProjection );
     Gfx().UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
 
+    Gfx().SetCullFace( cullWasEnabled );
     Gfx().SetBlendFunc( blendSrc, blendDst );
     Gfx().SetBlend( blendWasEnabled );
     Gfx().SetDepthWrite( depthWriteWasEnabled );

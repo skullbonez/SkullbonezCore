@@ -69,7 +69,7 @@ Related:
 #endif
 
 // Array-sizing counts (must remain compile-time)
-constexpr int TOTAL_CAMERA_COUNT = 3;
+constexpr int TOTAL_CAMERA_COUNT = 8;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
 constexpr int DEFAULT_GAME_MODEL_CAPACITY = 1024;
 constexpr int MAX_GAME_MODELS = 8192;
