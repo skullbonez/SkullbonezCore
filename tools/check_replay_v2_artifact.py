@@ -98,7 +98,12 @@ def generate_artifact():
     ]
     print("  Artifact command:")
     print("    " + " ".join(command))
-    run_checked(command, REPO)
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Save probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Save probe loaded" in line for line in probe_lines):
+        raise RuntimeError("runtime save probe did not report v2 load/seek proof")
     if not ARTIFACT.exists():
         raise RuntimeError(f"replay artifact was not produced: {ARTIFACT}")
 

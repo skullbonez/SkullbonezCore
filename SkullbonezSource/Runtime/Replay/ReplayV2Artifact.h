@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include "ReplayRecorder.h"
 
@@ -37,11 +38,23 @@ struct ReplayV2SaveResult
     std::size_t fileBytes = 0;
 };
 
+struct ReplayV2LoadResult
+{
+    std::size_t sampleCount = 0;
+    std::size_t bodyDictionaryCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
 class ReplayV2Artifact
 {
   public:
     static bool
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
+    static bool LoadPresentation( const char* path,
+                                  std::vector<ReplayPresentationSample>& outSamples,
+                                  ReplayV2LoadResult* result = nullptr );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

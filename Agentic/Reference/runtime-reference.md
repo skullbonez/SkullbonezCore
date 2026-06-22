@@ -160,7 +160,7 @@ tools\validate_replay_scrub.bat
 
 The scrub gate builds Debug, launches `physics_roll.scene.json` with `--replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`, then runs `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`. The query passes only when the selected replay sample is older than the live edge, the selected/live hashes differ, the chosen body moved, and the logged replay positions match the corresponding SkullScope body rows.
 
-The v2 artifact gate builds Debug, launches `physics_roll.scene.json` with `--replay-save-probe TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag TestOutput\validation\replay_v2\replay_save_probe_runtime.physicsdiag.ndjson`, then uses `tools\replay_query.bat` to query `summary`, `frame`, `body`, and `export-skullscope`. The exported bounded NDJSON slice is imported with `tools\physics_query.bat ... summary` so binary replay files stay inspectable without loading raw artifacts into the model.
+The v2 artifact gate builds Debug, launches `physics_roll.scene.json` with `--replay-save-probe TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag TestOutput\validation\replay_v2\replay_save_probe_runtime.physicsdiag.ndjson`, then reloads the saved file through the C++ v2 reader and proves an older loaded pose can be applied/restored. It also uses `tools\replay_query.bat` to query `summary`, `frame`, `body`, and `export-skullscope`. The exported bounded NDJSON slice is imported with `tools\physics_query.bat ... summary` so binary replay files stay inspectable without loading raw artifacts into the model.
 
 ## Runtime Facades And Streams
 

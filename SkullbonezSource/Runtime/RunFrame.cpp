@@ -22,6 +22,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 
 #include <stdexcept>
+#include <vector>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -504,6 +505,12 @@ void Run::TickReplayScrubProbe()
 
 void Run::TickReplaySaveProbe()
 {
+    auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
+    {
+        const Math::Vector::Vector3 delta = a - b;
+        return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+    };
+
     if ( !m_replaySaveProbe.enabled || m_replaySaveProbe.completed )
     {
         return;
@@ -521,12 +528,103 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
     }
 
+    std::vector<ReplayPresentationSample> loadedSamples;
+    ReplayV2LoadResult loadResult;
+    if ( !ReplayV2Artifact::LoadPresentation( m_replaySaveProbe.path, loadedSamples, &loadResult ) )
+    {
+        throw std::runtime_error( "replay save probe failed to reload v2 presentation artifact" );
+    }
+    if ( loadedSamples.size() < 2 )
+    {
+        throw std::runtime_error( "replay save probe loaded too few v2 presentation samples" );
+    }
+
+    const std::size_t selectedIndex = (std::min)( loadedSamples.size() / 4, loadedSamples.size() - 2 );
+    const ReplayPresentationSample& selected = loadedSamples[selectedIndex];
+    const ReplayPresentationSample& live = loadedSamples.back();
+    if ( selected.frameIndex >= live.frameIndex )
+    {
+        throw std::runtime_error( "replay save probe could not seek to an older loaded v2 sample" );
+    }
+
+    const ReplayBodyPresentationSample* selectedBody = nullptr;
+    const ReplayBodyPresentationSample* liveBody = nullptr;
+    float bestDistanceSquared = 0.0f;
+    for ( const ReplayBodyPresentationSample& candidate : selected.bodies )
+    {
+        for ( const ReplayBodyPresentationSample& liveCandidate : live.bodies )
+        {
+            if ( liveCandidate.id.value != candidate.id.value )
+            {
+                continue;
+            }
+
+            const float candidateDistanceSquared = distanceSquared( liveCandidate.position, candidate.position );
+            if ( candidateDistanceSquared > bestDistanceSquared )
+            {
+                bestDistanceSquared = candidateDistanceSquared;
+                selectedBody = &candidate;
+                liveBody = &liveCandidate;
+            }
+            break;
+        }
+    }
+    if ( !selectedBody || !liveBody || bestDistanceSquared < 0.0001f )
+    {
+        throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
+    }
+
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    {
+        throw std::runtime_error( "replay save probe loaded an invalid live model index" );
+    }
+
+    SkullbonezCore::GameObjects::GameModel& probedModel =
+        physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
+    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
+    if ( preLiveDeltaSquared > 0.0001f )
+    {
+        throw std::runtime_error( "replay save probe live model did not match the loaded v2 live sample" );
+    }
+
+    const bool applied = ApplyReplayPresentationSampleForRender( selected );
+    if ( !applied )
+    {
+        throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
+    if ( appliedDeltaSquared > 0.0001f )
+    {
+        RestoreReplayPresentationRenderPose();
+        throw std::runtime_error( "replay save probe did not move the live model to the loaded v2 sample" );
+    }
+
+    RestoreReplayPresentationRenderPose();
+    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
+    if ( restoredDeltaSquared > 0.0001f )
+    {
+        throw std::runtime_error( "replay save probe did not restore after applying the loaded v2 sample" );
+    }
+
     m_replaySaveProbe.completed = true;
     printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu bytes=%llu\n",
             m_replaySaveProbe.path,
             static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
             static_cast<unsigned long long>( result.fileBytes ) );
+    printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
+            "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
+            static_cast<unsigned long long>( loadResult.sampleCount ),
+            static_cast<unsigned long long>( loadResult.bodyDictionaryCount ),
+            static_cast<unsigned long long>( loadResult.firstFrame ),
+            static_cast<unsigned long long>( selected.frameIndex ),
+            static_cast<unsigned long long>( live.frameIndex ),
+            selectedBody->id.value,
+            bestDistanceSquared );
     PostQuitMessage( 0 );
 }
 #endif
