@@ -83,6 +83,7 @@ class CameraCollection
     void SetViewCoordinates( const Math::Vector::Vector3& vView ); // Keeps primary camera focused on a tracked world point.
     void
     SetPrimaryPosition( const Math::Vector::Vector3& vPos );       // Tracking cameras can bypass movement-buffer translation.
+    void SetPrimaryUp( const Math::Vector::Vector3& vUp );         // Replay/debug camera restore can preserve the full pose.
     void SetTweenSpeed( float fTweenSpeed );
     void SetCamera();                                              // Call once per frame after camera updates to refresh render pose and view matrix.
     void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position,

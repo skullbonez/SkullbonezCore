@@ -26,9 +26,12 @@ Related:
 #include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cfloat>
+#include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Basics;
@@ -324,6 +327,101 @@ ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame
         }
     }
     return id;
+}
+
+Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
+{
+    const float magSq = VectorMagSquared( value );
+    if ( magSq <= TOLERANCE * TOLERANCE )
+    {
+        return fallback;
+    }
+    value /= sqrtf( magSq );
+    return value;
+}
+
+const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
+{
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex == modelIndex )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+{
+    return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
+}
+
+int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+{
+    if ( contact.bodyA == modelIndex )
+    {
+        return contact.bodyB;
+    }
+    if ( contact.bodyB == modelIndex )
+    {
+        return contact.bodyA;
+    }
+    return -1;
+}
+
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplaySolverPersistentContactSample& contact )
+{
+    if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
+    {
+        return bodyA->position + contact.rA;
+    }
+    if ( const ReplaySolverBodySample* bodyB = FindReplayBodyByModelIndex( sample, contact.bodyB ) )
+    {
+        return bodyB->position + contact.rB;
+    }
+    return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+}
+
+Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+{
+    Vector3 normal = contact.normal;
+    if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
+    {
+        normal = contact.terrainNormal;
+    }
+    if ( contact.bodyB == modelIndex && !contact.isTerrain )
+    {
+        normal = normal * -1.0f;
+    }
+    return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+}
+
+Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+{
+    const Vector3 rowImpulse =
+        contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
+    if ( contact.bodyB == modelIndex && !contact.isTerrain )
+    {
+        return rowImpulse;
+    }
+    return rowImpulse * -1.0f;
+}
+
+int ReplayFindPipelineIndexForContact( const ReplaySolverWorldSnapshot& snapshot,
+                                       const ReplaySolverPersistentContactSample& contact )
+{
+    for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
+    {
+        const PhysicsPipelineRecord& record = snapshot.pipelineTrace[static_cast<std::size_t>( i )];
+        if ( record.featureId == contact.featureId &&
+             ( ( record.bodyA == contact.bodyA && record.bodyB == contact.bodyB ) ||
+               ( record.bodyA == contact.bodyB && record.bodyB == contact.bodyA ) ) )
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 float ReplayPathFrameT( ReplayFrameIndex frame, ReplayFrameIndex start, ReplayFrameIndex end )
@@ -816,6 +914,7 @@ void Run::SetReplaySimulationPaused( bool paused )
     }
 
     m_replayScrubber.simulationPaused = false;
+    m_replayCamera.ownsSimulationPause = false;
     UpdateReplayInspectionCamera();
 }
 
@@ -827,20 +926,24 @@ void Run::EnterReplayInspectionCamera()
         return;
     }
 
-    const bool enteringInspectionCamera = !m_replayScrubber.inspectionCameraActive;
-    if ( !m_replayScrubber.inspectionCameraActive )
+    const bool enteringInspectionCamera = !m_replayCamera.active;
+    if ( !m_replayCamera.active )
     {
-        m_replayScrubber.inspectionRestoreFlyMode = m_camera.isFlyMode;
-        m_replayScrubber.inspectionRestoreLauncherMode = m_camera.isLauncherMode;
-        m_replayScrubber.inspectionRestoreCameraHash = m_systems.cameras->GetSelectedCameraName();
+        m_replayCamera.restoreFlyMode = m_camera.isFlyMode;
+        m_replayCamera.restoreLauncherMode = m_camera.isLauncherMode;
+        m_replayCamera.restoreCameraHash = m_systems.cameras->GetSelectedCameraName();
 
         const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
         const Vector3 view = m_systems.cameras->GetRenderCameraView();
+        m_replayCamera.restoreEye = eye;
+        m_replayCamera.restoreView = view;
+        m_replayCamera.restoreUp = m_systems.cameras->GetRenderCameraUp();
+        m_replayCamera.hasRestorePose = true;
         m_systems.cameras->CancelTween();
         m_systems.cameras->SelectCamera( CAMERA_FREE, false );
         m_systems.cameras->SetPrimaryPosition( eye );
         m_systems.cameras->SetViewCoordinates( view );
-        m_replayScrubber.inspectionCameraActive = true;
+        m_replayCamera.active = true;
     }
 
     XZBounds unbounded;
@@ -862,18 +965,24 @@ void Run::EnterReplayInspectionCamera()
 
 void Run::ExitReplayInspectionCamera()
 {
-    if ( !m_replayScrubber.inspectionCameraActive )
+    if ( !m_replayCamera.active )
     {
         return;
     }
 
-    m_replayScrubber.inspectionCameraActive = false;
-    m_camera.isLauncherMode = m_replayScrubber.inspectionRestoreLauncherMode;
-    m_camera.isFlyMode = m_replayScrubber.inspectionRestoreFlyMode || m_camera.isLauncherMode;
+    m_replayCamera.active = false;
+    m_camera.isLauncherMode = m_replayCamera.restoreLauncherMode;
+    m_camera.isFlyMode = m_replayCamera.restoreFlyMode || m_camera.isLauncherMode;
     if ( m_systems.cameras )
     {
         m_systems.cameras->CancelTween();
-        m_systems.cameras->SelectCamera( m_replayScrubber.inspectionRestoreCameraHash, false );
+        m_systems.cameras->SelectCamera( m_replayCamera.restoreCameraHash, false );
+        if ( m_replayCamera.hasRestorePose )
+        {
+            m_systems.cameras->SetPrimaryPosition( m_replayCamera.restoreEye );
+            m_systems.cameras->SetViewCoordinates( m_replayCamera.restoreView );
+            m_systems.cameras->SetPrimaryUp( m_replayCamera.restoreUp );
+        }
         if ( m_systems.terrain )
         {
             const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
@@ -892,6 +1001,10 @@ void Run::ExitReplayInspectionCamera()
             }
         }
     }
+    m_replayCamera.focusKind = RunReplayCameraFocusKind::None;
+    m_replayCamera.focusedRow = -1;
+    m_replayCamera.hasRestorePose = false;
+    m_replayCamera.ownsSimulationPause = false;
     Input::SetSystemCursorVisible( true );
     InputController::ResetMouseLook( m_camera );
 }
@@ -899,7 +1012,8 @@ void Run::ExitReplayInspectionCamera()
 
 void Run::UpdateReplayInspectionCamera()
 {
-    if ( m_replayScrubber.paused || m_replayScrubber.simulationPaused )
+    if ( m_replayScrubber.paused || m_replayScrubber.simulationPaused ||
+         m_replayCamera.focusKind != RunReplayCameraFocusKind::None )
     {
         EnterReplayInspectionCamera();
     }
@@ -1184,12 +1298,17 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
 void Run::ClearReplayPathVisualizer()
 {
+    ClearReplayCameraFocus( true );
     m_replayPathVisualizer.hasTarget = false;
     m_replayPathVisualizer.targetId = ReplayBodyId{};
     m_replayPathVisualizer.targetModelIndex = -1;
     m_replayPathVisualizer.targetName[0] = '\0';
     m_replayPathVisualizer.futureNodes.clear();
     m_replayPathVisualizer.targets.clear();
+    m_replayCauseTree.rows.clear();
+    m_replayCauseTree.hoveredRow = -1;
+    m_replayCauseTree.selectedRow = -1;
+    m_replayCauseTree.scrollY = 0.0f;
     ClearReplayPredictionCache();
     MarkReplayPredictionDirty();
 }
@@ -1215,7 +1334,7 @@ void Run::ClearReplayPredictionCache()
 bool Run::BuildReplayCauseTreeRows()
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
-    m_replayCauseTree.rowCount = 0;
+    m_replayCauseTree.rows.clear();
 
     if ( !m_replayPathVisualizer.hasTarget || m_replayPathVisualizer.targetId.value == 0 )
     {
@@ -1227,6 +1346,14 @@ bool Run::BuildReplayCauseTreeRows()
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_replayPrediction.futureNodes : m_replayPathVisualizer.futureNodes;
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample();
+    const std::size_t solverContactCount =
+        solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
+    const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
+    if ( m_replayCauseTree.rows.capacity() < estimatedRows )
+    {
+        m_replayCauseTree.rows.reserve( estimatedRows );
+    }
 
     auto modelIndexForId = [&]( ReplayBodyId id ) -> int
     {
@@ -1238,6 +1365,28 @@ bool Run::BuildReplayCauseTreeRows()
             }
         }
         return -1;
+    };
+
+    auto idForModelIndex = [&]( int modelIndex ) -> ReplayBodyId
+    {
+        ReplayBodyId id;
+        if ( modelIndex < 0 )
+        {
+            return id;
+        }
+        if ( solverSample )
+        {
+            id = ReplayBodyIdForModelIndex( *solverSample, modelIndex );
+            if ( id.value != 0 )
+            {
+                return id;
+            }
+        }
+        if ( modelIndex < static_cast<int>( models.size() ) )
+        {
+            id.value = models[static_cast<std::size_t>( modelIndex )].GetReplayBodyId();
+        }
+        return id;
     };
 
     auto writeName =
@@ -1272,20 +1421,229 @@ bool Run::BuildReplayCauseTreeRows()
         sprintf_s( out, outSize, "body_%u", id.value );
     };
 
-    auto addRow = [&]( ReplayBodyId id,
-                       ReplayBodyId parentId,
-                       ReplayFrameIndex firstFrame,
-                       int depth,
-                       int modelIndex,
-                       const char* fallbackName ) -> bool
+    auto appendSolverRowsForBody = [&]( RunReplayCauseTreeRow bodyRow ) -> void
     {
-        if ( id.value == 0 || m_replayCauseTree.rowCount >= REPLAY_CAUSE_TREE_MAX_ROWS )
+        if ( usePrediction )
+        {
+            for ( int i = 0; i < static_cast<int>( nodes.size() ); ++i )
+            {
+                const RunReplayPathTraceNode& node = nodes[static_cast<std::size_t>( i )];
+                if ( node.id.value != bodyRow.id.value )
+                {
+                    continue;
+                }
+                RunReplayCauseTreeRow contactRow;
+                contactRow.kind = RunReplayCauseTreeRowKind::PredictionContact;
+                contactRow.id = bodyRow.id;
+                contactRow.parentId = node.parentId;
+                contactRow.firstFrame = node.firstFrame;
+                contactRow.depth = bodyRow.depth + 1;
+                contactRow.modelIndex = bodyRow.modelIndex;
+                contactRow.contactIndex = i;
+                contactRow.prediction = true;
+                contactRow.point = node.contactPoint;
+                contactRow.normal = ReplayNormalizeOr( node.contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
+                sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
+                sprintf_s( contactRow.detail,
+                           sizeof( contactRow.detail ),
+                           "first frame %llu  normal %.2f %.2f %.2f",
+                           static_cast<unsigned long long>( node.firstFrame ),
+                           contactRow.normal.x,
+                           contactRow.normal.y,
+                           contactRow.normal.z );
+                m_replayCauseTree.rows.push_back( contactRow );
+            }
+            return;
+        }
+
+        if ( !solverSample || bodyRow.modelIndex < 0 )
+        {
+            return;
+        }
+
+        struct ManifoldGroup
+        {
+            int otherModelIndex = -1;
+            bool terrain = false;
+        };
+        std::vector<ManifoldGroup> groups;
+        groups.reserve( solverSample->worldSnapshot.persistentContacts.size() );
+        for ( const ReplaySolverPersistentContactSample& contact : solverSample->worldSnapshot.persistentContacts )
+        {
+            if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+            {
+                continue;
+            }
+            const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+            const bool terrain = contact.isTerrain || otherModelIndex < 0;
+            bool exists = false;
+            for ( const ManifoldGroup& group : groups )
+            {
+                if ( group.otherModelIndex == otherModelIndex && group.terrain == terrain )
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if ( !exists )
+            {
+                groups.push_back( { otherModelIndex, terrain } );
+            }
+        }
+
+        for ( const ManifoldGroup& group : groups )
+        {
+            Vector3 centroid = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            Vector3 normalSum = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            float maxPenetration = 0.0f;
+            int pointCount = 0;
+            int firstContactIndex = -1;
+            uint32_t firstFeatureId = 0;
+            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
+            {
+                const ReplaySolverPersistentContactSample& contact =
+                    solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
+                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+                {
+                    continue;
+                }
+                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+                const bool terrain = contact.isTerrain || otherModelIndex < 0;
+                if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
+                {
+                    continue;
+                }
+                const Vector3 point = ReplayContactPoint( *solverSample, contact );
+                centroid += point;
+                normalSum += ReplayContactNormalForModel( contact, bodyRow.modelIndex );
+                maxPenetration = (std::max)( maxPenetration, contact.penetration );
+                pointCount += 1;
+                if ( firstContactIndex < 0 )
+                {
+                    firstContactIndex = i;
+                    firstFeatureId = contact.featureId;
+                }
+            }
+            if ( pointCount <= 0 )
+            {
+                continue;
+            }
+            centroid /= static_cast<float>( pointCount );
+            const ReplayBodyId otherId = idForModelIndex( group.otherModelIndex );
+
+            char otherName[64] = {};
+            if ( group.terrain )
+            {
+                strncpy_s( otherName, sizeof( otherName ), "terrain", _TRUNCATE );
+            }
+            else
+            {
+                writeName( otherId, group.otherModelIndex, nullptr, otherName, sizeof( otherName ) );
+            }
+
+            RunReplayCauseTreeRow manifoldRow;
+            manifoldRow.kind = RunReplayCauseTreeRowKind::Manifold;
+            manifoldRow.id = bodyRow.id;
+            manifoldRow.parentId = bodyRow.parentId;
+            manifoldRow.counterpartId = otherId;
+            manifoldRow.depth = bodyRow.depth + 1;
+            manifoldRow.modelIndex = bodyRow.modelIndex;
+            manifoldRow.counterpartModelIndex = group.otherModelIndex;
+            manifoldRow.contactIndex = firstContactIndex;
+            manifoldRow.featureId = static_cast<int>( firstFeatureId );
+            manifoldRow.manifoldPointCount = pointCount;
+            manifoldRow.penetration = maxPenetration;
+            manifoldRow.point = centroid;
+            manifoldRow.normal = ReplayNormalizeOr( normalSum, Vector3( 0.0f, 1.0f, 0.0f ) );
+            manifoldRow.terrain = group.terrain;
+            sprintf_s( manifoldRow.name, sizeof( manifoldRow.name ), "Manifold vs %s", otherName );
+            sprintf_s( manifoldRow.detail,
+                       sizeof( manifoldRow.detail ),
+                       "%d point%s  max pen %.3f",
+                       pointCount,
+                       pointCount == 1 ? "" : "s",
+                       maxPenetration );
+            m_replayCauseTree.rows.push_back( manifoldRow );
+
+            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
+            {
+                const ReplaySolverPersistentContactSample& contact =
+                    solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
+                if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
+                {
+                    continue;
+                }
+                const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
+                const bool terrain = contact.isTerrain || otherModelIndex < 0;
+                if ( otherModelIndex != group.otherModelIndex || terrain != group.terrain )
+                {
+                    continue;
+                }
+
+                RunReplayCauseTreeRow solverRow;
+                solverRow.kind = RunReplayCauseTreeRowKind::SolverRow;
+                solverRow.id = bodyRow.id;
+                solverRow.parentId = bodyRow.parentId;
+                solverRow.counterpartId = otherId;
+                solverRow.depth = bodyRow.depth + 2;
+                solverRow.modelIndex = bodyRow.modelIndex;
+                solverRow.counterpartModelIndex = group.otherModelIndex;
+                solverRow.contactIndex = i;
+                solverRow.solverRowIndex = i;
+                solverRow.pipelineIndex = ReplayFindPipelineIndexForContact( solverSample->worldSnapshot, contact );
+                solverRow.featureId = static_cast<int>( contact.featureId );
+                solverRow.manifoldPointCount = contact.manifoldPointCount;
+                solverRow.penetration = contact.penetration;
+                solverRow.normalImpulse = contact.accN;
+                solverRow.tangentImpulse = sqrtf( contact.accT1 * contact.accT1 + contact.accT2 * contact.accT2 );
+                solverRow.warmStartImpulse = contact.terrainWarmStart;
+                solverRow.bias = contact.bias;
+                solverRow.effectiveMass = contact.normalMass;
+                solverRow.frictionLimit = contact.frictionLimit;
+                solverRow.point = ReplayContactPoint( *solverSample, contact );
+                solverRow.normal = ReplayContactNormalForModel( contact, bodyRow.modelIndex );
+                solverRow.impulse = ReplayContactImpulseForModel( contact, bodyRow.modelIndex );
+                solverRow.terrain = terrain;
+                solverRow.warmStarted = contact.warmStarted;
+                sprintf_s( solverRow.name, sizeof( solverRow.name ), "Solver row %d", i );
+                const char* traceStage = "";
+                if ( solverRow.pipelineIndex >= 0 )
+                {
+                    const PhysicsPipelineRecord& record =
+                        solverSample->worldSnapshot.pipelineTrace[static_cast<std::size_t>( solverRow.pipelineIndex )];
+                    traceStage = PhysicsPipelineStageName( record.stage );
+                }
+                sprintf_s( solverRow.detail,
+                           sizeof( solverRow.detail ),
+                           "feature %u  n %.3f  t %.3f  bias %.3f  mass %.3f  limit %.3f  %s%s%s",
+                           contact.featureId,
+                           solverRow.normalImpulse,
+                           solverRow.tangentImpulse,
+                           solverRow.bias,
+                           solverRow.effectiveMass,
+                           solverRow.frictionLimit,
+                           contact.warmStarted ? "warm" : "cold",
+                           solverRow.pipelineIndex >= 0 ? "  " : "",
+                           traceStage );
+                m_replayCauseTree.rows.push_back( solverRow );
+            }
+        }
+    };
+
+    auto addBodyRow = [&]( ReplayBodyId id,
+                           ReplayBodyId parentId,
+                           ReplayFrameIndex firstFrame,
+                           int depth,
+                           int modelIndex,
+                           const char* fallbackName ) -> bool
+    {
+        if ( id.value == 0 )
         {
             return false;
         }
 
-        RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( m_replayCauseTree.rowCount++ )];
-        row = RunReplayCauseTreeRow{};
+        RunReplayCauseTreeRow row;
+        row.kind = RunReplayCauseTreeRowKind::Body;
         row.id = id;
         row.parentId = parentId;
         row.firstFrame = firstFrame;
@@ -1293,15 +1651,36 @@ bool Run::BuildReplayCauseTreeRows()
         row.modelIndex = modelIndex >= 0 ? modelIndex : modelIndexForId( id );
         row.prediction = usePrediction;
         writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
+        if ( row.modelIndex >= 0 && solverSample )
+        {
+            if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelIndex ) )
+            {
+                sprintf_s( row.detail,
+                           sizeof( row.detail ),
+                           "contacts %u  max pen %.3f  impulse %.3f",
+                           static_cast<unsigned int>( body->contactCount ),
+                           body->maxPenetration,
+                           body->normalImpulseSum );
+            }
+        }
+        else if ( firstFrame > 0 )
+        {
+            sprintf_s( row.detail,
+                       sizeof( row.detail ),
+                       "first affected frame %llu",
+                       static_cast<unsigned long long>( firstFrame ) );
+        }
+        m_replayCauseTree.rows.push_back( row );
+        appendSolverRowsForBody( m_replayCauseTree.rows.back() );
         return true;
     };
 
-    addRow( m_replayPathVisualizer.targetId,
-            ReplayBodyId{},
-            0,
-            0,
-            m_replayPathVisualizer.targetModelIndex,
-            m_replayPathVisualizer.targetName );
+    addBodyRow( m_replayPathVisualizer.targetId,
+                ReplayBodyId{},
+                0,
+                0,
+                m_replayPathVisualizer.targetModelIndex,
+                m_replayPathVisualizer.targetName );
 
     auto addChildren = [&]( auto&& self, ReplayBodyId parentId, int fallbackDepth ) -> void
     {
@@ -1312,7 +1691,7 @@ bool Run::BuildReplayCauseTreeRows()
                 continue;
             }
             const int depth = node.depth > 0 ? node.depth : fallbackDepth;
-            if ( addRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id ), nullptr ) )
+            if ( addBodyRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id ), nullptr ) )
             {
                 self( self, node.id, depth + 1 );
             }
@@ -1320,15 +1699,50 @@ bool Run::BuildReplayCauseTreeRows()
     };
     addChildren( addChildren, m_replayPathVisualizer.targetId, 1 );
 
-    return m_replayCauseTree.rowCount > 0;
+    m_replayCauseTree.selectedRow = -1;
+    if ( m_replayCamera.focusKind != RunReplayCameraFocusKind::None )
+    {
+        for ( int i = 0; i < static_cast<int>( m_replayCauseTree.rows.size() ); ++i )
+        {
+            const RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( i )];
+            if ( row.kind != m_replayCamera.focusRowKind || row.id.value != m_replayCamera.focusedId.value ||
+                 row.modelIndex != m_replayCamera.focusModelIndex || row.terrain != m_replayCamera.focusTerrain )
+            {
+                continue;
+            }
+            if ( row.kind == RunReplayCauseTreeRowKind::Body ||
+                 ( row.counterpartId.value == m_replayCamera.counterpartId.value &&
+                   row.counterpartModelIndex == m_replayCamera.focusCounterpartModelIndex &&
+                   ( row.kind != RunReplayCauseTreeRowKind::SolverRow ||
+                     ( row.featureId == m_replayCamera.focusFeatureId &&
+                       row.solverRowIndex == m_replayCamera.focusSolverRowIndex ) ) ) )
+            {
+                m_replayCauseTree.selectedRow = i;
+                m_replayCamera.focusedRow = i;
+                break;
+            }
+        }
+    }
+    if ( m_replayCauseTree.selectedRow >= static_cast<int>( m_replayCauseTree.rows.size() ) )
+    {
+        m_replayCauseTree.selectedRow = -1;
+    }
+    m_replayCauseTree.scrollY =
+        std::clamp( m_replayCauseTree.scrollY, 0.0f, ReplayCauseWindowMaxScroll( m_replayCauseTree ) );
+    return !m_replayCauseTree.rows.empty();
 }
 
 
-bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPosition ) const
+bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPosition, float* outRadius ) const
 {
     if ( id.value == 0 )
     {
         return false;
+    }
+
+    if ( outRadius )
+    {
+        *outRadius = 1.0f;
     }
 
     if ( m_replayPrediction.enabled && !m_replayPrediction.frames.empty() &&
@@ -1338,6 +1752,12 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
                  FindReplayPredictionBodyById( m_replayPrediction.frames.front(), id ) )
         {
             outPosition = body->position;
+            if ( outRadius && body->modelIndex >= 0 &&
+                 body->modelIndex < static_cast<int>( m_cGameModelCollection.Models().size() ) )
+            {
+                *outRadius =
+                    EditorModelRadius( m_cGameModelCollection.Models()[static_cast<std::size_t>( body->modelIndex )] );
+            }
             return true;
         }
     }
@@ -1347,6 +1767,12 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
         if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
         {
             outPosition = body->position;
+            if ( outRadius && body->modelIndex >= 0 &&
+                 body->modelIndex < static_cast<int>( m_cGameModelCollection.Models().size() ) )
+            {
+                *outRadius =
+                    EditorModelRadius( m_cGameModelCollection.Models()[static_cast<std::size_t>( body->modelIndex )] );
+            }
             return true;
         }
     }
@@ -1357,6 +1783,10 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
         if ( model.GetReplayBodyId() == id.value )
         {
             outPosition = model.GetPosition();
+            if ( outRadius )
+            {
+                *outRadius = EditorModelRadius( model );
+            }
             return true;
         }
     }
@@ -1366,64 +1796,246 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
 
 bool Run::FocusReplayCauseTreeBody( ReplayBodyId id )
 {
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
-    Vector3 targetPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    if ( !TryResolveReplayCauseTreeBodyPosition( id, targetPosition ) )
-    {
-        return false;
-    }
-
-    EnterInteractiveSceneRun();
-    if ( !m_replayScrubber.simulationPaused )
-    {
-        SetReplaySimulationPaused( true );
-    }
-    if ( m_systems.cameras )
-    {
-        m_systems.cameras->CancelTween();
-        m_systems.cameras->SetViewCoordinates( targetPosition );
-        m_systems.cameras->ResetRelativity();
-    }
-    m_replayCauseTree.focusedId = id;
-    InputController::ResetMouseLook( m_camera );
-    Input::SetSystemCursorVisible( true );
-    return true;
+    RunReplayCauseTreeRow row;
+    row.kind = RunReplayCauseTreeRowKind::Body;
+    row.id = id;
+    ActivateReplayCameraForCauseRow( row, -1 );
+    return m_replayCamera.focusKind != RunReplayCameraFocusKind::None;
 }
 
 
-bool Run::TickReplayCauseTreeInput( bool uiBlocksMouse )
+void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex )
+{
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
+    Vector3 targetPosition = row.point;
+    float targetRadius = 2.0f;
+    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
+    switch ( row.kind )
+    {
+    case RunReplayCauseTreeRowKind::Body:
+        if ( !TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius ) )
+        {
+            return;
+        }
+        focusKind = RunReplayCameraFocusKind::Body;
+        break;
+    case RunReplayCauseTreeRowKind::Manifold:
+        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
+        focusKind = RunReplayCameraFocusKind::Manifold;
+        break;
+    case RunReplayCauseTreeRowKind::SolverRow:
+        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+        focusKind = RunReplayCameraFocusKind::SolverRow;
+        break;
+    case RunReplayCauseTreeRowKind::PredictionContact:
+        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        targetPosition = row.point;
+        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+        focusKind = RunReplayCameraFocusKind::PredictionContact;
+        break;
+    default:
+        return;
+    }
+
+    if ( VectorMagSquared( targetPosition ) <= TOLERANCE * TOLERANCE && row.kind != RunReplayCauseTreeRowKind::Body )
+    {
+        return;
+    }
+
+    EnterInteractiveSceneRun();
+    const bool hadReplayCameraFocus = m_replayCamera.focusKind != RunReplayCameraFocusKind::None;
+    if ( !m_replayScrubber.simulationPaused )
+    {
+        SetReplaySimulationPaused( true );
+        m_replayCamera.ownsSimulationPause = true;
+    }
+    else if ( !hadReplayCameraFocus )
+    {
+        m_replayCamera.ownsSimulationPause = false;
+    }
+    EnterReplayInspectionCamera();
+
+    m_replayCamera.focusKind = focusKind;
+    m_replayCamera.focusedId = row.id;
+    m_replayCamera.counterpartId = row.counterpartId;
+    m_replayCamera.focusedRow = rowIndex;
+    m_replayCamera.focusRowKind = row.kind;
+    m_replayCamera.focusModelIndex = row.modelIndex;
+    m_replayCamera.focusCounterpartModelIndex = row.counterpartModelIndex;
+    m_replayCamera.focusContactIndex = row.contactIndex;
+    m_replayCamera.focusSolverRowIndex = row.solverRowIndex;
+    m_replayCamera.focusFeatureId = row.featureId;
+    m_replayCamera.focusTerrain = row.terrain;
+    m_replayCamera.targetPoint = targetPosition;
+    m_replayCamera.targetNormal = ReplayNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+    m_replayCamera.impulseVector = row.impulse;
+    m_replayCamera.targetRadius = targetRadius;
+    m_replayCauseTree.focusedId = row.id;
+    m_replayCauseTree.selectedRow = rowIndex;
+
+    if ( m_systems.cameras )
+    {
+        const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+        Vector3 direction = ReplayNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
+        direction = ReplayNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
+        const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
+        const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
+        m_systems.cameras->CancelTween();
+        m_systems.cameras->SetPrimaryPosition( newEye );
+        m_systems.cameras->SetViewCoordinates( targetPosition );
+        m_systems.cameras->ResetRelativity();
+    }
+    InputController::ResetMouseLook( m_camera );
+    Input::SetSystemCursorVisible( true );
+}
+
+
+void Run::ClearReplayCameraFocus( bool restoreCamera )
+{
+    m_replayCamera.focusKind = RunReplayCameraFocusKind::None;
+    m_replayCamera.focusedId = ReplayBodyId{};
+    m_replayCamera.counterpartId = ReplayBodyId{};
+    m_replayCamera.focusedRow = -1;
+    m_replayCamera.focusRowKind = RunReplayCauseTreeRowKind::Body;
+    m_replayCamera.focusModelIndex = -1;
+    m_replayCamera.focusCounterpartModelIndex = -1;
+    m_replayCamera.focusContactIndex = -1;
+    m_replayCamera.focusSolverRowIndex = -1;
+    m_replayCamera.focusFeatureId = 0;
+    m_replayCamera.focusTerrain = false;
+    m_replayCamera.targetPoint = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    m_replayCamera.targetNormal = Vector3( 0.0f, 1.0f, 0.0f );
+    m_replayCamera.impulseVector = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    m_replayCauseTree.focusedId = ReplayBodyId{};
+    m_replayCauseTree.selectedRow = -1;
+
+    if ( restoreCamera )
+    {
+        if ( m_replayCamera.ownsSimulationPause && m_replayScrubber.simulationPaused && !m_replayScrubber.paused )
+        {
+            m_replayScrubber.simulationPaused = false;
+        }
+        m_replayCamera.ownsSimulationPause = false;
+        ExitReplayInspectionCamera();
+    }
+    else
+    {
+        UpdateReplayInspectionCamera();
+    }
+}
+
+
+bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
     const bool leftDown = Input::IsLeftMouseDown();
     const bool leftPressed = leftDown && !m_replayCauseTree.leftWasDown;
+    const bool leftReleased = !leftDown && m_replayCauseTree.leftWasDown;
     m_replayCauseTree.leftWasDown = leftDown;
     m_replayCauseTree.hoveredRow = -1;
 
-    if ( uiBlocksMouse || m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() ||
-         WindowScreenWidth() <= 0 || WindowScreenHeight() <= 0 || !BuildReplayCauseTreeRows() )
+    const int screenW = WindowScreenWidth();
+    const int screenH = WindowScreenHeight();
+    if ( m_editor.editorModeEnabled || screenW <= 0 || screenH <= 0 || !BuildReplayCauseTreeRows() )
     {
+        if ( leftReleased && ( m_replayCauseTree.draggingWindow || m_replayCauseTree.resizingWindow ) )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayCauseTree.draggingWindow = false;
+            m_replayCauseTree.resizingWindow = false;
+        }
         return false;
     }
 
+    EnsureReplayCauseWindowPlacement( m_replayCauseTree, screenW, screenH );
     const POINT mouse = Input::GetClientMouseCoordinates();
-    const UI::UIRect panel = ReplayCauseTreePanelRect( WindowScreenWidth(), WindowScreenHeight() );
-    if ( !panel.Contains( mouse.x, mouse.y ) )
+    const UI::UIRect panel = ReplayCauseWindowRect( m_replayCauseTree );
+    const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayCauseTree );
+    const UI::UIRect content = ReplayCauseWindowContentRect( m_replayCauseTree );
+    const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayCauseTree );
+
+    if ( m_replayCauseTree.draggingWindow )
+    {
+        m_replayCauseTree.x = mouse.x - m_replayCauseTree.dragOffsetX;
+        m_replayCauseTree.y = mouse.y - m_replayCauseTree.dragOffsetY;
+        ClampReplayCauseWindow( m_replayCauseTree, screenW, screenH );
+        if ( leftReleased )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayCauseTree.draggingWindow = false;
+        }
+        return true;
+    }
+
+    if ( m_replayCauseTree.resizingWindow )
+    {
+        m_replayCauseTree.width =
+            m_replayCauseTree.resizeStartWidth + ( mouse.x - m_replayCauseTree.resizeStartMouseX );
+        m_replayCauseTree.height =
+            m_replayCauseTree.resizeStartHeight + ( mouse.y - m_replayCauseTree.resizeStartMouseY );
+        ClampReplayCauseWindow( m_replayCauseTree, screenW, screenH );
+        if ( leftReleased )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayCauseTree.resizingWindow = false;
+        }
+        return true;
+    }
+
+    const bool insidePanel = panel.Contains( mouse.x, mouse.y );
+    if ( uiBlocksMouse || !insidePanel )
     {
         return false;
     }
 
-    const int visibleRows = (std::min)( m_replayCauseTree.rowCount, ReplayCauseTreeVisibleRowCapacity( panel ) );
-    for ( int rowIndex = 0; rowIndex < visibleRows; ++rowIndex )
+    if ( wheelDelta != 0 )
     {
-        const UI::UIRect rowRect = ReplayCauseTreeRowRect( panel, rowIndex );
-        if ( rowRect.Contains( mouse.x, mouse.y ) )
+        const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
+        m_replayCauseTree.scrollY -= wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f;
+        ClampReplayCauseWindow( m_replayCauseTree, screenW, screenH );
+        return true;
+    }
+
+    if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
+    {
+        m_replayCauseTree.resizingWindow = true;
+        m_replayCauseTree.resizeStartMouseX = mouse.x;
+        m_replayCauseTree.resizeStartMouseY = mouse.y;
+        m_replayCauseTree.resizeStartWidth = m_replayCauseTree.width;
+        m_replayCauseTree.resizeStartHeight = m_replayCauseTree.height;
+        UI::InputControl::BeginMouseCapture( hwnd );
+        return true;
+    }
+
+    if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
+    {
+        m_replayCauseTree.draggingWindow = true;
+        m_replayCauseTree.dragOffsetX = mouse.x - m_replayCauseTree.x;
+        m_replayCauseTree.dragOffsetY = mouse.y - m_replayCauseTree.y;
+        UI::InputControl::BeginMouseCapture( hwnd );
+        return true;
+    }
+
+    if ( content.Contains( mouse.x, mouse.y ) )
+    {
+        const float localY = static_cast<float>( mouse.y ) - content.y + m_replayCauseTree.scrollY;
+        const int rowIndex = static_cast<int>( floorf( localY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) );
+        if ( rowIndex >= 0 && rowIndex < static_cast<int>( m_replayCauseTree.rows.size() ) )
         {
             m_replayCauseTree.hoveredRow = rowIndex;
             if ( leftPressed )
             {
-                FocusReplayCauseTreeBody( m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )].id );
+                ActivateReplayCameraForCauseRow( m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )],
+                                                 rowIndex );
             }
-            break;
+        }
+        else if ( leftPressed )
+        {
+            ClearReplayPathVisualizer();
         }
     }
 
@@ -2615,5 +3227,82 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
                 tracer.AddReplayTargetMarker( models[static_cast<std::size_t>( markerIndex )] );
             }
         }
+    }
+}
+
+
+void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
+{
+    if ( m_replayCamera.focusKind == RunReplayCameraFocusKind::None )
+    {
+        return;
+    }
+
+    if ( m_replayCamera.focusKind == RunReplayCameraFocusKind::Body )
+    {
+        const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+        for ( const GameModel& model : models )
+        {
+            if ( model.GetReplayBodyId() == m_replayCamera.focusedId.value )
+            {
+                tracer.AddReplayTargetMarker( model );
+                return;
+            }
+        }
+    }
+
+    if ( m_replayCamera.focusKind == RunReplayCameraFocusKind::Manifold ||
+         m_replayCamera.focusKind == RunReplayCameraFocusKind::PredictionContact )
+    {
+        if ( m_replayCamera.focusKind == RunReplayCameraFocusKind::Manifold )
+        {
+            const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+            if ( sample )
+            {
+                const ReplaySolverBodySample* focusedBody = FindReplayBodyById( *sample, m_replayCamera.focusedId );
+                const ReplaySolverBodySample* counterpartBody =
+                    FindReplayBodyById( *sample, m_replayCamera.counterpartId );
+                if ( focusedBody )
+                {
+                    bool drewContact = false;
+                    for ( const ReplaySolverPersistentContactSample& contact :
+                          sample->worldSnapshot.persistentContacts )
+                    {
+                        if ( !ReplayContactHasModelIndex( contact, focusedBody->modelIndex ) )
+                        {
+                            continue;
+                        }
+                        const int otherModelIndex = ReplayContactOtherModelIndex( contact, focusedBody->modelIndex );
+                        const bool terrain = contact.isTerrain || otherModelIndex < 0;
+                        if ( m_replayCamera.focusTerrain != terrain )
+                        {
+                            continue;
+                        }
+                        if ( !terrain && ( !counterpartBody || counterpartBody->modelIndex != otherModelIndex ) )
+                        {
+                            continue;
+                        }
+                        tracer.AddReplayContactMarker( ReplayContactPoint( *sample, contact ),
+                                                       ReplayContactNormalForModel( contact, focusedBody->modelIndex ),
+                                                       0.1f,
+                                                       0.95f,
+                                                       1.0f );
+                        drewContact = true;
+                    }
+                    if ( drewContact )
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+        tracer.AddReplayContactMarker( m_replayCamera.targetPoint, m_replayCamera.targetNormal, 0.1f, 0.95f, 1.0f );
+        return;
+    }
+
+    if ( m_replayCamera.focusKind == RunReplayCameraFocusKind::SolverRow )
+    {
+        tracer.AddReplayContactMarker( m_replayCamera.targetPoint, m_replayCamera.targetNormal, 0.2f, 0.85f, 1.0f );
+        tracer.AddReplayImpulseVector( m_replayCamera.targetPoint, m_replayCamera.impulseVector, 1.0f, 0.32f, 0.12f );
     }
 }

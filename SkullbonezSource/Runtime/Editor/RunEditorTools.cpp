@@ -29,6 +29,7 @@ Related:
 
 #include <chrono>
 #include <cfloat>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 
@@ -1932,6 +1933,22 @@ void RunEditorTracer::AddReplayContactMarker( const Vector3& point, const Vector
 }
 
 
+void RunEditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& impulse, float r, float g, float b )
+{
+    const float magSq = VectorMagSquared( impulse );
+    if ( magSq <= TOLERANCE * TOLERANCE )
+    {
+        return;
+    }
+
+    Vector3 direction = impulse;
+    const float magnitude = sqrtf( magSq );
+    direction /= magnitude;
+    const float length = std::clamp( sqrtf( magnitude ) * 3.0f, 1.8f, 12.0f );
+    EmitArrow( point, point + direction * length, r, g, b );
+}
+
+
 void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& center, float radius, int depth )
 {
     const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
@@ -2775,6 +2792,7 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                  m_editor.gizmoDragIsScale );
     }
     RenderReplayPathVisualizer( m_editorTracer );
+    RenderReplayCauseFocusOverlay( m_editorTracer );
     RenderReplayVelocityEditOverlay( m_editorTracer );
     m_editorTracer.Render( viewProjection );
     m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );

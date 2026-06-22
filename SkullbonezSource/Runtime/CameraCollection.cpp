@@ -227,6 +227,13 @@ void CameraCollection::SetPrimaryPosition( const Vector3& vPos )
 }
 
 
+void CameraCollection::SetPrimaryUp( const Vector3& vUp )
+{
+    m_cameraArray[m_selectedCamera].m_upVector = vUp;
+    m_cameraArray[m_selectedCamera].m_upVector.Normalise();
+}
+
+
 void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuantity )
 {
     // make sure a camera exists to update

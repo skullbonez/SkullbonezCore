@@ -581,9 +581,9 @@ void Run::RebuildRegisteredRenderResources()
 
 void Run::SetViewingOrientation()
 {
-    if ( m_replayScrubber.inspectionCameraActive )
+    if ( m_replayCamera.active )
     {
-        PROFILE_SCOPED( "Frame/Replay/InspectionCamera" );
+        PROFILE_SCOPED( "Frame/Replay/Camera" );
         m_camera.cameraTime = 0.0f;
         m_timers.cameraTimer.StopTimer();
         m_timers.cameraTimer.StartTimer();

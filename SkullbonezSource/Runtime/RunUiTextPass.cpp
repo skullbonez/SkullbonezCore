@@ -419,31 +419,31 @@ void Run::RenderReplayScrubberOverlay()
 void Run::RenderReplayCauseTreeOverlay()
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
-    if ( !m_UI.IsVisible() || !m_UI.IsMinimized() || WindowScreenWidth() <= 0 || WindowScreenHeight() <= 0 ||
-         !BuildReplayCauseTreeRows() )
-    {
-        return;
-    }
-
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    const UI::UIRect panel = ReplayCauseTreePanelRect( screenW, screenH );
-    const int visibleRows = (std::min)( m_replayCauseTree.rowCount, ReplayCauseTreeVisibleRowCapacity( panel ) );
-    if ( visibleRows <= 0 )
+    if ( screenW <= 0 || screenH <= 0 || !BuildReplayCauseTreeRows() )
     {
         return;
     }
 
-    const UI::UIDrawContext draw( screenW, screenH );
-    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.012f, 0.016f, 0.022f, 0.78f );
-    draw.Outline( panel.x, panel.y, panel.w, panel.h, 0.36f, 0.54f, 0.62f, 0.38f );
-    draw.Text( panel.x + 14.0f, panel.y + 12.0f, 11.0f, 0.82f, 0.94f, 1.0f, "CAUSE TREE" );
+    EnsureReplayCauseWindowPlacement( m_replayCauseTree, screenW, screenH );
+    const UI::UIRect panel = ReplayCauseWindowRect( m_replayCauseTree );
+    const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayCauseTree );
+    const UI::UIRect content = ReplayCauseWindowContentRect( m_replayCauseTree );
+    const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayCauseTree );
 
-    const bool predictionRows = m_replayCauseTree.rows[0].prediction;
+    const UI::UIDrawContext draw( screenW, screenH );
+    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 7.0f, 0.014f, 0.018f, 0.024f, 0.88f );
+    draw.Outline( panel.x, panel.y, panel.w, panel.h, 0.36f, 0.54f, 0.62f, 0.50f );
+    draw.Rect( title.x, title.y + title.h - 1.0f, title.w, 1.0f, 0.36f, 0.54f, 0.62f, 0.35f );
+    draw.Text( panel.x + 12.0f, panel.y + 9.0f, 10.5f, 0.82f, 0.94f, 1.0f, "REPLAY CAMERA" );
+    draw.Text( panel.x + 114.0f, panel.y + 10.0f, 8.5f, 0.58f, 0.70f, 0.78f, "CAUSE" );
+
+    const bool predictionRows = !m_replayCauseTree.rows.empty() && m_replayCauseTree.rows.front().prediction;
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
     const float sourceW = Text2d::MeasureText( 8.5f, sourceLabel );
     draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f,
-                      panel.y + 11.0f,
+                      panel.y + 8.0f,
                       sourceW + 14.0f,
                       16.0f,
                       4.0f,
@@ -452,98 +452,179 @@ void Run::RenderReplayCauseTreeOverlay()
                       predictionRows ? 0.17f : 0.27f,
                       0.70f );
     draw.Text( panel.x + panel.w - sourceW - 19.0f,
-               panel.y + 14.0f,
+               panel.y + 11.0f,
                8.5f,
                predictionRows ? 0.62f : 0.62f,
                predictionRows ? 1.0f : 0.86f,
                predictionRows ? 0.72f : 1.0f,
                sourceLabel );
 
+    draw.Rect( content.x, content.y, content.w, content.h, 0.02f, 0.026f, 0.034f, 0.36f );
+
     const ReplaySolverFrameSample* scrubSample = CurrentReplaySolverScrubSample();
     const ReplayFrameIndex presentFrame = scrubSample ? scrubSample->frameIndex : 0;
 
-    for ( int rowIndex = 0; rowIndex < visibleRows; ++rowIndex )
+    auto truncateText = []( const char* src, char* dst, std::size_t dstSize, int maxChars ) -> void
+    {
+        if ( dstSize == 0 )
+        {
+            return;
+        }
+        dst[0] = '\0';
+        if ( !src )
+        {
+            return;
+        }
+        maxChars = (std::max)( 4, maxChars );
+        strncpy_s( dst, dstSize, src, _TRUNCATE );
+        if ( static_cast<int>( strlen( dst ) ) > maxChars )
+        {
+            const int end = (std::min)( maxChars, static_cast<int>( dstSize ) - 1 );
+            if ( end >= 4 )
+            {
+                dst[end - 3] = '.';
+                dst[end - 2] = '.';
+                dst[end - 1] = '.';
+                dst[end] = '\0';
+            }
+        }
+    };
+
+    const float rowAreaW = content.w - 12.0f;
+    const int firstRow =
+        (std::max)( 0, static_cast<int>( floorf( m_replayCauseTree.scrollY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
+    const int rowCount = static_cast<int>( m_replayCauseTree.rows.size() );
+    for ( int rowIndex = firstRow; rowIndex < rowCount; ++rowIndex )
     {
         const RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )];
-        const UI::UIRect rowRect = ReplayCauseTreeRowRect( panel, rowIndex );
+        const float rowY =
+            content.y + static_cast<float>( rowIndex ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT - m_replayCauseTree.scrollY;
+        if ( rowY + REPLAY_CAUSE_WINDOW_ROW_HEIGHT < content.y )
+        {
+            continue;
+        }
+        if ( rowY + REPLAY_CAUSE_WINDOW_ROW_HEIGHT > content.y + content.h )
+        {
+            break;
+        }
+
+        const UI::UIRect rowRect = { content.x + 2.0f, rowY, rowAreaW, REPLAY_CAUSE_WINDOW_ROW_HEIGHT - 2.0f };
         const bool hovered = rowIndex == m_replayCauseTree.hoveredRow;
-        const bool focused = row.id.value != 0 && row.id.value == m_replayCauseTree.focusedId.value;
-        if ( hovered || focused )
+        const bool selected = rowIndex == m_replayCauseTree.selectedRow;
+        if ( hovered || selected )
         {
             draw.RoundedRect( rowRect.x,
                               rowRect.y,
                               rowRect.w,
                               rowRect.h,
                               4.0f,
-                              focused ? 0.12f : 0.08f,
-                              focused ? 0.30f : 0.18f,
-                              focused ? 0.22f : 0.24f,
+                              selected ? 0.12f : 0.08f,
+                              selected ? 0.30f : 0.18f,
+                              selected ? 0.22f : 0.24f,
                               hovered ? 0.82f : 0.56f );
         }
 
-        const float indent = (std::min)( 118.0f, static_cast<float>( row.depth ) * 18.0f );
+        const float indent = (std::min)( rowRect.w * 0.40f, static_cast<float>( row.depth ) * 16.0f );
         if ( row.depth > 0 )
         {
-            const float lineX = rowRect.x + 9.0f + indent - 10.0f;
+            const float lineX = rowRect.x + 8.0f + indent - 9.0f;
             draw.Rect( lineX, rowRect.y + 4.0f, 1.0f, rowRect.h - 8.0f, 0.62f, 0.68f, 0.72f, 0.32f );
             draw.Rect( lineX, rowRect.y + rowRect.h * 0.5f, 8.0f, 1.0f, 0.62f, 0.68f, 0.72f, 0.32f );
         }
 
-        char clippedName[32] = {};
-        strncpy_s( clippedName, sizeof( clippedName ), row.name, _TRUNCATE );
-        if ( strlen( clippedName ) > 24 )
+        char prefix[32] = {};
+        switch ( row.kind )
         {
-            clippedName[21] = '.';
-            clippedName[22] = '.';
-            clippedName[23] = '.';
-            clippedName[24] = '\0';
+        case RunReplayCauseTreeRowKind::Body:
+            if ( row.depth == 0 )
+            {
+                strncpy_s( prefix, sizeof( prefix ), "ROOT", _TRUNCATE );
+            }
+            else
+            {
+                double secondsToHit = 0.0;
+                if ( row.prediction )
+                {
+                    secondsToHit = static_cast<double>( row.firstFrame ) * PHYSICS_FIXED_DT;
+                }
+                else if ( row.firstFrame > presentFrame )
+                {
+                    secondsToHit = static_cast<double>( row.firstFrame - presentFrame ) * PHYSICS_FIXED_DT;
+                }
+                sprintf_s( prefix, sizeof( prefix ), "+%.2fs", secondsToHit );
+            }
+            break;
+        case RunReplayCauseTreeRowKind::Manifold:
+            strncpy_s( prefix, sizeof( prefix ), "MANIFOLD", _TRUNCATE );
+            break;
+        case RunReplayCauseTreeRowKind::SolverRow:
+            strncpy_s( prefix, sizeof( prefix ), "ROW", _TRUNCATE );
+            break;
+        case RunReplayCauseTreeRowKind::PredictionContact:
+            strncpy_s( prefix, sizeof( prefix ), "CONTACT", _TRUNCATE );
+            break;
         }
 
-        char label[80] = {};
-        if ( row.depth == 0 )
+        char label[144] = {};
+        sprintf_s( label, sizeof( label ), "%s  %s", prefix, row.name );
+        char clippedLabel[144] = {};
+        const int labelChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 6.2f );
+        truncateText( label, clippedLabel, sizeof( clippedLabel ), labelChars );
+        char clippedDetail[160] = {};
+        const int detailChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 5.4f );
+        truncateText( row.detail, clippedDetail, sizeof( clippedDetail ), detailChars );
+
+        float markerR = 0.94f;
+        float markerG = 1.0f;
+        float markerB = 0.74f;
+        if ( row.kind == RunReplayCauseTreeRowKind::Manifold )
         {
-            sprintf_s( label, sizeof( label ), "ROOT  %s", clippedName );
+            markerR = 0.20f;
+            markerG = 0.90f;
+            markerB = 1.0f;
         }
-        else
+        else if ( row.kind == RunReplayCauseTreeRowKind::SolverRow )
         {
-            double secondsToHit = 0.0;
-            if ( row.prediction )
-            {
-                secondsToHit = static_cast<double>( row.firstFrame ) * PHYSICS_FIXED_DT;
-            }
-            else if ( row.firstFrame > presentFrame )
-            {
-                secondsToHit = static_cast<double>( row.firstFrame - presentFrame ) * PHYSICS_FIXED_DT;
-            }
-            sprintf_s( label, sizeof( label ), "+%.2fs  %s", secondsToHit, clippedName );
+            markerR = 1.0f;
+            markerG = 0.42f;
+            markerB = 0.18f;
+        }
+        else if ( row.kind == RunReplayCauseTreeRowKind::PredictionContact )
+        {
+            markerR = 0.38f;
+            markerG = 1.0f;
+            markerB = 0.58f;
         }
 
         const float markerX = rowRect.x + 8.0f + indent;
-        const float markerY = rowRect.y + rowRect.h * 0.5f - 2.0f;
-        if ( row.depth == 0 )
-        {
-            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.94f, 1.0f, 0.74f, 0.92f );
-        }
-        else
-        {
-            draw.Rect( markerX, markerY, 5.0f, 5.0f, 0.92f, 0.56f, 0.20f, 0.86f );
-        }
+        const float markerY = rowRect.y + 6.0f;
+        draw.Rect( markerX, markerY, 5.0f, 5.0f, markerR, markerG, markerB, 0.92f );
         draw.Text( markerX + 11.0f,
-                   rowRect.y + 4.0f,
-                   9.5f,
-                   row.depth == 0 ? 0.88f : 0.76f,
-                   row.depth == 0 ? 1.0f : 0.82f,
-                   row.depth == 0 ? 0.86f : 0.78f,
-                   label );
+                   rowRect.y + 2.0f,
+                   8.7f,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? 0.88f : 0.78f,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? 1.0f : 0.86f,
+                   row.kind == RunReplayCauseTreeRowKind::Body ? 0.86f : 0.82f,
+                   clippedLabel );
+        if ( clippedDetail[0] != '\0' )
+        {
+            draw.Text( markerX + 11.0f, rowRect.y + 13.0f, 7.2f, 0.56f, 0.66f, 0.72f, clippedDetail );
+        }
     }
 
-    const int hiddenRows = m_replayCauseTree.rowCount - visibleRows;
-    if ( hiddenRows > 0 )
+    const float maxScroll = ReplayCauseWindowMaxScroll( m_replayCauseTree );
+    if ( maxScroll > 0.0f )
     {
-        char moreLabel[32] = {};
-        sprintf_s( moreLabel, sizeof( moreLabel ), "+%d more", hiddenRows );
-        draw.Text( panel.x + 14.0f, panel.y + panel.h - 18.0f, 8.5f, 0.58f, 0.66f, 0.72f, moreLabel );
+        const float trackX = content.x + content.w - 5.0f;
+        draw.Rect( trackX, content.y + 3.0f, 3.0f, content.h - 6.0f, 0.16f, 0.22f, 0.28f, 0.72f );
+        const float contentHeight = ReplayCauseWindowContentHeight( m_replayCauseTree );
+        const float knobH = (std::max)( 24.0f, ( content.h / contentHeight ) * ( content.h - 6.0f ) );
+        const float knobY = content.y + 3.0f + ( m_replayCauseTree.scrollY / maxScroll ) * ( content.h - 6.0f - knobH );
+        draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, 0.42f, 0.60f, 0.68f, 0.78f );
     }
+
+    draw.Rect( resize.x + 4.0f, resize.y + resize.h - 5.0f, resize.w - 7.0f, 1.0f, 0.56f, 0.70f, 0.76f, 0.68f );
+    draw.Rect( resize.x + resize.w - 5.0f, resize.y + 4.0f, 1.0f, resize.h - 7.0f, 0.56f, 0.70f, 0.76f, 0.68f );
 
     Text2d::FlushQuads();
     Text2d::FlushText();
@@ -554,7 +635,7 @@ bool Run::UiTextPass::ShouldRender() const
 {
     return m_run.m_debug.isTextOnly || !m_run.SceneState().isSceneMode || m_run.SceneState().isSceneText ||
            m_run.m_debug.overlayMode != OverlayMode::None || m_run.m_UI.IsVisible() ||
-           m_run.ShouldRenderReplayScrubber();
+           m_run.ShouldRenderReplayScrubber() || m_run.m_replayPathVisualizer.hasTarget;
 }
 
 

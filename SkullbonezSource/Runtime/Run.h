@@ -336,9 +336,6 @@ struct RunReplayScrubberState
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
-    bool inspectionCameraActive = false;
-    bool inspectionRestoreFlyMode = false;
-    bool inspectionRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
     bool restoreWasDown = false;
@@ -346,7 +343,6 @@ struct RunReplayScrubberState
     RunReplayTrack activeTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
     RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
-    uint32_t inspectionRestoreCameraHash = CAMERA_FREE;
     bool leftWasDown = false;
     float position = 1.0f;                                                       // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;
@@ -375,26 +371,104 @@ struct RunReplayPathTarget
     char name[64] = {};
 };
 
-static constexpr int REPLAY_CAUSE_TREE_MAX_ROWS = 65;
+enum class RunReplayCameraFocusKind
+{
+    None,
+    Body,
+    Manifold,
+    SolverRow,
+    PredictionContact
+};
+
+enum class RunReplayCauseTreeRowKind
+{
+    Body,
+    Manifold,
+    SolverRow,
+    PredictionContact
+};
+
+struct RunReplayCameraState
+{
+    bool active = false;
+    bool restoreFlyMode = false;
+    bool restoreLauncherMode = false;
+    bool hasRestorePose = false;
+    bool ownsSimulationPause = false;
+    uint32_t restoreCameraHash = CAMERA_FREE;
+    Math::Vector::Vector3 restoreEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 restoreView = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 restoreUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
+    ReplayBodyId focusedId;
+    ReplayBodyId counterpartId;
+    int focusedRow = -1;
+    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 impulseVector = Math::Vector::ZERO_VECTOR;
+    float targetRadius = 1.0f;
+    RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
+    int focusModelIndex = -1;
+    int focusCounterpartModelIndex = -1;
+    int focusContactIndex = -1;
+    int focusSolverRowIndex = -1;
+    int focusFeatureId = 0;
+    bool focusTerrain = false;
+};
 
 struct RunReplayCauseTreeRow
 {
+    RunReplayCauseTreeRowKind kind = RunReplayCauseTreeRowKind::Body;
     ReplayBodyId id;
     ReplayBodyId parentId;
+    ReplayBodyId counterpartId;
     ReplayFrameIndex firstFrame = 0;
     int depth = 0;
     int modelIndex = -1;
+    int counterpartModelIndex = -1;
+    int contactIndex = -1;
+    int solverRowIndex = -1;
+    int pipelineIndex = -1;
+    int featureId = 0;
+    int manifoldPointCount = 0;
+    float penetration = 0.0f;
+    float normalImpulse = 0.0f;
+    float tangentImpulse = 0.0f;
+    float warmStartImpulse = 0.0f;
+    float bias = 0.0f;
+    float effectiveMass = 0.0f;
+    float frictionLimit = 0.0f;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 normal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 impulse = Math::Vector::ZERO_VECTOR;
     bool prediction = false;
+    bool terrain = false;
+    bool warmStarted = false;
     char name[64] = {};
+    char detail[160] = {};
 };
 
 struct RunReplayCauseTreeState
 {
-    std::array<RunReplayCauseTreeRow, REPLAY_CAUSE_TREE_MAX_ROWS> rows = {};
-    int rowCount = 0;
+    std::vector<RunReplayCauseTreeRow> rows;
     int hoveredRow = -1;
+    int selectedRow = -1;
     ReplayBodyId focusedId;
+    bool hasWindowPlacement = false;
+    int x = 0;
+    int y = 0;
+    int width = 460;
+    int height = 420;
+    float scrollY = 0.0f;
+    bool draggingWindow = false;
+    bool resizingWindow = false;
     bool leftWasDown = false;
+    int dragOffsetX = 0;
+    int dragOffsetY = 0;
+    int resizeStartMouseX = 0;
+    int resizeStartMouseY = 0;
+    int resizeStartWidth = 0;
+    int resizeStartHeight = 0;
 };
 
 struct RunReplayPathVisualizerState
@@ -573,6 +647,11 @@ class RunEditorTracer
                                float b );
     void AddReplayContactMarker( const Math::Vector::Vector3& point,
                                  const Math::Vector::Vector3& normal,
+                                 float r,
+                                 float g,
+                                 float b );
+    void AddReplayImpulseVector( const Math::Vector::Vector3& point,
+                                 const Math::Vector::Vector3& impulse,
                                  float r,
                                  float g,
                                  float b );
@@ -1139,6 +1218,7 @@ class Run
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
+    RunReplayCameraState m_replayCamera;                                         // Runtime Replay Camera focus/restore state for scrub and Cause inspection.
     RunReplayPathVisualizerState
         m_replayPathVisualizer;                                                  // Mouse-selected cause/effect trace over retained solver replay samples.
     RunReplayPredictionState m_replayPrediction;                                 // Optional live solver lookahead for the selected replay path target.
@@ -1325,9 +1405,14 @@ class Run
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool BuildReplayFocusModelMask();
     bool BuildReplayCauseTreeRows();
-    bool TickReplayCauseTreeInput( bool uiBlocksMouse );
-    bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Math::Vector::Vector3& outPosition ) const;
+    bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
+    bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
+                                                Math::Vector::Vector3& outPosition,
+                                                float* outRadius = nullptr ) const;
     bool FocusReplayCauseTreeBody( ReplayBodyId id );
+    void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );
+    void ClearReplayCameraFocus( bool restoreCamera );
+    void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
     void RenderReplayCauseTreeOverlay();
     void SetReplayVelocityEditEnabled( bool enabled );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );

@@ -264,6 +264,80 @@ inline int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
                                          REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
 }
 
+inline constexpr float REPLAY_CAUSE_WINDOW_TITLE_HEIGHT = 30.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_ROW_HEIGHT = 25.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_PADDING = 10.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_RESIZE_SIZE = 18.0f;
+inline constexpr int REPLAY_CAUSE_WINDOW_MIN_W = 340;
+inline constexpr int REPLAY_CAUSE_WINDOW_MIN_H = 180;
+
+inline UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
+{
+    return { static_cast<float>( state.x ),
+             static_cast<float>( state.y ),
+             static_cast<float>( state.width ),
+             static_cast<float>( state.height ) };
+}
+
+inline UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    return { panel.x, panel.y, panel.w, REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
+}
+
+inline UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    return { panel.x + REPLAY_CAUSE_WINDOW_PADDING,
+             panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 6.0f,
+             panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f,
+             panel.h - REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - REPLAY_CAUSE_WINDOW_PADDING - 6.0f };
+}
+
+inline UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect panel = ReplayCauseWindowRect( state );
+    return { panel.x + panel.w - REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
+             panel.y + panel.h - REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
+             REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
+             REPLAY_CAUSE_WINDOW_RESIZE_SIZE };
+}
+
+inline float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state )
+{
+    return static_cast<float>( state.rows.size() ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
+}
+
+inline float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
+{
+    const UI::UIRect content = ReplayCauseWindowContentRect( state );
+    return (std::max)( 0.0f, ReplayCauseWindowContentHeight( state ) - content.h );
+}
+
+inline void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
+{
+    state.width = (std::max)( REPLAY_CAUSE_WINDOW_MIN_W,
+                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
+    state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,
+                               (std::min)( state.height, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 16 ) ) );
+    state.x = std::clamp( state.x, 8, (std::max)( 8, screenW - state.width - 8 ) );
+    state.y = std::clamp( state.y, 8, (std::max)( 8, screenH - state.height - 8 ) );
+    state.scrollY = std::clamp( state.scrollY, 0.0f, ReplayCauseWindowMaxScroll( state ) );
+}
+
+inline void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
+{
+    if ( !state.hasWindowPlacement )
+    {
+        state.width = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
+        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 160 ) );
+        state.x = (std::max)( 12, screenW - state.width - 24 );
+        state.y = 72;
+        state.hasWindowPlacement = true;
+    }
+    ClampReplayCauseWindow( state, screenW, screenH );
+}
+
 inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
 {
     const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );

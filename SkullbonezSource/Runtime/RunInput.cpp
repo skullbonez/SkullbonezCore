@@ -125,7 +125,7 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 
 bool Run::ReplayInspectionActive() const
 {
-    return m_replayScrubber.inspectionCameraActive || m_replayScrubber.paused || m_replayScrubber.simulationPaused;
+    return m_replayCamera.active || m_replayScrubber.paused || m_replayScrubber.simulationPaused;
 }
 
 
@@ -254,6 +254,12 @@ void Run::TakeInput()
         {
             UI::InputControl::EndMouseCapture();
             m_replayVelocityEdit.mouseCaptured = false;
+        }
+        if ( m_replayCauseTree.draggingWindow || m_replayCauseTree.resizingWindow )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayCauseTree.draggingWindow = false;
+            m_replayCauseTree.resizingWindow = false;
         }
         ResetEditorUnfocusedInputState();
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
@@ -613,7 +619,9 @@ void Run::TakeInput()
         const bool replayScrubberOwnsMouse =
             TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
         const bool replayCauseTreeOwnsMouse =
-            TickReplayCauseTreeInput( m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse );
+            TickReplayCauseTreeInput( m_systems.window->m_sWindow,
+                                      m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse,
+                                      editorUnhandledWheelDelta );
         const bool replayVelocityEditOwnsMouse = TickReplayVelocityEditInput(
             m_systems.window->m_sWindow,
             m_UI.BlocksCameraMouse() || replayScrubberOwnsMouse || replayCauseTreeOwnsMouse );
