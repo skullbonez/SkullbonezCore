@@ -21,14 +21,19 @@
 import json
 import os
 from pathlib import Path
+import shutil
+import struct
 import subprocess
 import sys
+
+from replay_query import EVENT_RECORD, ReplayV2
 
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 OUT_DIR = REPO / "TestOutput" / "validation" / "replay_v2"
 ARTIFACT = OUT_DIR / "replay_save_probe.skreplay"
 TOPOLOGY_ARTIFACT = OUT_DIR / "replay_generated_topology_probe.skreplay"
+MUTATION_ARTIFACT = OUT_DIR / "replay_timeline_mutation_probe.skreplay"
 TRACE = OUT_DIR / "replay_save_probe.physicsdiag.ndjson"
 RUNTIME_TRACE = OUT_DIR / "replay_save_probe_runtime.physicsdiag.ndjson"
 TOPOLOGY_RUNTIME_TRACE = OUT_DIR / "replay_generated_topology_runtime.physicsdiag.ndjson"
@@ -74,6 +79,7 @@ def generate_artifact():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     remove_if_exists(ARTIFACT)
     remove_if_exists(TOPOLOGY_ARTIFACT)
+    remove_if_exists(MUTATION_ARTIFACT)
     remove_if_exists(TRACE)
     remove_if_exists(TRACE.with_suffix(".sqlite"))
     remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
@@ -341,6 +347,109 @@ def probe_restore_failure_row():
     if not restore.get("failed"):
         raise RuntimeError(f"restore failure row was not marked failed: {restore}")
     return len(runtime_stdout.encode("utf-8")), len(restore_stdout.encode("utf-8"))
+
+
+def make_timeline_mutation_artifact():
+    shutil.copy2(ARTIFACT, MUTATION_ARTIFACT)
+    replay = ReplayV2(MUTATION_ARTIFACT)
+    target = next((sample for sample in reversed(replay.solver_hashes) if not sample.checkpoint_boundary), None)
+    if target is None:
+        raise RuntimeError("timeline mutation probe needs a non-checkpoint target hash")
+
+    checkpoint = None
+    for sample in replay.solver_checkpoints:
+        if sample.frame_index <= target.frame_index and (
+            checkpoint is None or sample.frame_index > checkpoint.frame_index
+        ):
+            checkpoint = sample
+    if checkpoint is None:
+        raise RuntimeError("timeline mutation probe needs a checkpoint before the target")
+
+    checkpoint_branch_id = 0
+    for branch in replay.branches:
+        if branch.first_retained_frame <= checkpoint.frame_index <= branch.last_retained_frame:
+            checkpoint_branch_id = branch.branch_id
+            break
+    if checkpoint_branch_id == 0:
+        raise RuntimeError("timeline mutation probe could not resolve the checkpoint branch")
+
+    mutation_index = None
+    mutation_event = None
+    for index, event in enumerate(replay.events):
+        if (
+            event.branch_id == checkpoint_branch_id
+            and event.frame_index > checkpoint.frame_index
+            and event.frame_index <= target.frame_index
+            and event.sequence >= checkpoint.event_cursor
+        ):
+            mutation_index = index
+            mutation_event = event
+            break
+    if mutation_index is None or mutation_event is None:
+        raise RuntimeError("timeline mutation probe could not find an event inside the checkpoint replay window")
+
+    event_chunk = replay.chunks.get("EVNT")
+    if event_chunk is None:
+        raise RuntimeError("timeline mutation probe requires an EVNT chunk")
+
+    data = bytearray(MUTATION_ARTIFACT.read_bytes())
+    record_offset = event_chunk.offset + 4 + mutation_index * EVENT_RECORD.size
+    struct.pack_into("<H", data, record_offset + 20, 2)
+    struct.pack_into("<I", data, record_offset + 24, 0)
+    struct.pack_into("<i", data, record_offset + 28, 4)
+    struct.pack_into("<iii", data, record_offset + 32, -1, 0, 0)
+    struct.pack_into("<Q", data, record_offset + 44, 0)
+    text = b"CreateScene"
+    data[record_offset + 68 : record_offset + 68 + 128] = text + b"\0" * (128 - len(text))
+    MUTATION_ARTIFACT.write_bytes(data)
+    return mutation_event, checkpoint, target, checkpoint_branch_id
+
+
+def probe_timeline_mutation_rejection():
+    mutation_event, checkpoint, target, checkpoint_branch_id = make_timeline_mutation_artifact()
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-target-file-probe",
+        str(MUTATION_ARTIFACT),
+    ]
+    print("  Timeline mutation rejection probe command:")
+    print("    " + " ".join(command))
+    result = subprocess.run(
+        command,
+        cwd=str(REPO),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    combined = result.stdout + result.stderr
+    probe_lines = [
+        line
+        for line in combined.splitlines()
+        if "[replay]" in line or "replay restore target probe failed" in line or "unsupported runtime" in line
+    ]
+    for line in probe_lines[:12]:
+        print(f"  {line}")
+    if result.returncode == 0:
+        raise RuntimeError("timeline mutation rejection probe unexpectedly restored a mutated artifact")
+    if "unsupported runtime timeline mutation event" not in combined:
+        raise RuntimeError(f"timeline mutation rejection probe missing expected reason: {combined}")
+    if "replay restore target probe failed to apply event sequence" not in combined:
+        raise RuntimeError(f"timeline mutation rejection probe did not fail at event replay: {combined}")
+    print(
+        "  Timeline mutation rejection passed: "
+        f"mutated_sequence={mutation_event.sequence} original_kind={mutation_event.kind_name} "
+        f"checkpoint_frame={checkpoint.frame_index} target_frame={target.frame_index} branch={checkpoint_branch_id} "
+        f"exit_code={result.returncode}"
+    )
+    return len(combined.encode("utf-8"))
 
 
 def query_artifact():
@@ -625,6 +734,8 @@ def main():
         restore_branch_probe_bytes = probe_restored_branch()
         print("  Probing saved solver restore failure SkullScope row...")
         restore_failure_probe_bytes, restore_failure_query_bytes = probe_restore_failure_row()
+        print("  Probing saved solver timeline mutation rejection...")
+        timeline_mutation_probe_bytes = probe_timeline_mutation_rejection()
         print("  Generating broader generated-scene topology artifact...")
         topology_save_probe_bytes = generate_topology_artifact()
         print("  Probing generated-scene topology restore from mismatched live scene...")
@@ -658,6 +769,7 @@ def main():
         print(f"  Restore branch probe output bytes: {restore_branch_probe_bytes}")
         print(f"  Restore failure probe output bytes: {restore_failure_probe_bytes}")
         print(f"  Restore failure query output bytes: {restore_failure_query_bytes}")
+        print(f"  Timeline mutation rejection probe output bytes: {timeline_mutation_probe_bytes}")
         print(f"  Generated topology artifact bytes: {TOPOLOGY_ARTIFACT.stat().st_size}")
         print(f"  Generated topology runtime trace bytes: {TOPOLOGY_RUNTIME_TRACE.stat().st_size}")
         print(f"  Generated topology save probe output bytes: {topology_save_probe_bytes}")
