@@ -1488,6 +1488,10 @@ class Run
     static void ApplyMousePickupPhysicsStepThunk( void* userData );
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
+    bool ApplyReplayEventForRestoreTarget(
+        const ReplayEventSample& event,
+        char* outReason,
+        std::size_t reasonSize );                                                // Applies loaded v2 event payloads without recording new replay rows.
     void ClearReplayPathVisualizer();
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     void MarkReplayPredictionDirty();
@@ -1585,13 +1589,14 @@ class Run
                                 float maxDistance,
                                 float& outT ) const;                             // Finds the nearest terrain crossing along a launcher ray.
     void FireRayCastTest();                                                      // Dispatches the selected launcher-mode fire action.
+    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            const Math::Vector::Vector3& cameraUp );             // Casts a runtime test ray, draws the laser, and
+                                                                     // applies impulse to the first dynamic hit.
     void
-    FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
-                       const Math::Vector::Vector3& rayDirection );              // Casts a runtime test ray, draws the laser, and
-                                                                    // applies impulse to the first dynamic hit.
-    void FireLauncherProjectile(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection );                             // Shoots a small dynamic sphere from the camera.
+    FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            const Math::Vector::Vector3& cameraUp );             // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                                   // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement(
@@ -1721,6 +1726,8 @@ class Run
     void VerifyLoadedReplayPresentationProbe( float normalized );                // Validate runtime scrubbing from a loaded v2 file.
     void VerifyReplaySolverCheckpointFileProbe(
         const char* path );                                                      // Validate hash-gated restore from a v2 solver checkpoint.
+    void VerifyReplaySolverTargetFileProbe(
+        const char* path );                                                      // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
 #endif
 };
 } // namespace Basics

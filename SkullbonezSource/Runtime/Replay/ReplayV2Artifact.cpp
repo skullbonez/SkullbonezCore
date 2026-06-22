@@ -919,6 +919,50 @@ bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes,
                                                                                    REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES;
 }
 
+bool ParseEventRecords( const std::vector<uint8_t>& fileBytes,
+                        const ChunkTableEntry& chunk,
+                        std::vector<ReplayEventSample>& outEvents )
+{
+    outEvents.clear();
+
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+
+    uint32_t eventCount = 0;
+    if ( !ReadPod( cursor, eventCount ) || eventCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    outEvents.reserve( eventCount );
+    for ( uint32_t i = 0; i < eventCount; ++i )
+    {
+        ReplayEventSample event;
+        uint16_t kind = 0;
+        uint32_t reserved = 0;
+        if ( !ReadPod( cursor, event.frameIndex ) || !ReadPod( cursor, event.sequence ) ||
+             !ReadPod( cursor, event.branch.branchId ) || !ReadPod( cursor, event.branch.parentBranchId ) ||
+             !ReadPod( cursor, kind ) || !ReadPod( cursor, event.payloadVersion ) || !ReadPod( cursor, event.flags ) ||
+             !ReadPod( cursor, event.value0 ) || !ReadPod( cursor, event.value1 ) || !ReadPod( cursor, event.value2 ) ||
+             !ReadPod( cursor, event.value3 ) || !ReadPod( cursor, event.data0 ) ||
+             !ReadPod( cursor, event.branch.sourceFrame ) || !ReadPod( cursor, event.branch.sourceSolverHash ) ||
+             !ReadBytes( cursor, event.text, sizeof( event.text ) ) || !ReadPod( cursor, reserved ) )
+        {
+            return false;
+        }
+        event.kind = static_cast<ReplayEventKind>( kind );
+        event.text[sizeof( event.text ) - 1] = '\0';
+        (void)reserved;
+        outEvents.push_back( event );
+    }
+
+    return cursor.offset == cursor.size &&
+           cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( eventCount ) * REPLAY_V2_EVENT_ENTRY_BYTES;
+}
+
 ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, ReplayFrameIndex frameIndex )
 {
     for ( const BranchRecord& record : branches )
@@ -1509,6 +1553,49 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
         outCheckpoints.push_back( std::move( sample ) );
     }
     return cursor.offset == cursor.size;
+}
+
+bool ParseSolverHashRecords( const std::vector<uint8_t>& fileBytes,
+                             const ChunkTableEntry& chunk,
+                             std::vector<ReplayV2SolverHashSample>& outHashes )
+{
+    outHashes.clear();
+
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+
+    uint32_t hashCount = 0;
+    if ( !ReadPod( cursor, hashCount ) || hashCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    outHashes.reserve( hashCount );
+    for ( uint32_t i = 0; i < hashCount; ++i )
+    {
+        ReplayV2SolverHashSample sample;
+        int32_t sceneFrame = 0;
+        uint8_t checkpointBoundary = 0;
+        uint8_t reserved[3] = {};
+        if ( !ReadPod( cursor, sample.frameIndex ) || !ReadPod( cursor, sceneFrame ) ||
+             !ReadPod( cursor, sample.simulationSeconds ) || !ReadPod( cursor, sample.presentationHash ) ||
+             !ReadPod( cursor, sample.solverHash ) || !ReadPod( cursor, sample.bodyCount ) ||
+             !ReadPod( cursor, sample.contactCount ) || !ReadPod( cursor, sample.pipelineRecordCount ) ||
+             !ReadPod( cursor, checkpointBoundary ) || !ReadBytes( cursor, reserved, sizeof( reserved ) ) )
+        {
+            return false;
+        }
+
+        sample.sceneFrame = sceneFrame;
+        sample.checkpointBoundary = checkpointBoundary != 0;
+        outHashes.push_back( sample );
+    }
+
+    return cursor.offset == cursor.size &&
+           cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( hashCount ) * REPLAY_V2_HASH_ENTRY_BYTES;
 }
 
 Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t recordCount )
@@ -2250,4 +2337,90 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
         }
     }
     return !outCheckpoints.empty();
+}
+
+bool ReplayV2Artifact::LoadEvents( const char* path,
+                                   std::vector<ReplayEventSample>& outEvents,
+                                   ReplayV2EventLoadResult* result )
+{
+    outEvents.clear();
+
+    std::vector<uint8_t> fileBytes;
+    if ( !LoadBinaryFile( path, fileBytes ) )
+    {
+        return false;
+    }
+
+    std::vector<ChunkTableEntry> chunkTable;
+    if ( !ReadChunkTable( fileBytes, chunkTable ) )
+    {
+        return false;
+    }
+
+    const ChunkTableEntry* eventChunk = FindChunk( chunkTable, "EVNT" );
+    if ( !eventChunk )
+    {
+        return false;
+    }
+
+    if ( !ParseEventRecords( fileBytes, *eventChunk, outEvents ) )
+    {
+        outEvents.clear();
+        return false;
+    }
+
+    if ( result )
+    {
+        result->eventCount = outEvents.size();
+        result->fileBytes = fileBytes.size();
+        if ( !outEvents.empty() )
+        {
+            result->firstFrame = outEvents.front().frameIndex;
+            result->lastFrame = outEvents.back().frameIndex;
+        }
+    }
+    return !outEvents.empty();
+}
+
+bool ReplayV2Artifact::LoadSolverHashes( const char* path,
+                                         std::vector<ReplayV2SolverHashSample>& outHashes,
+                                         ReplayV2SolverHashLoadResult* result )
+{
+    outHashes.clear();
+
+    std::vector<uint8_t> fileBytes;
+    if ( !LoadBinaryFile( path, fileBytes ) )
+    {
+        return false;
+    }
+
+    std::vector<ChunkTableEntry> chunkTable;
+    if ( !ReadChunkTable( fileBytes, chunkTable ) )
+    {
+        return false;
+    }
+
+    const ChunkTableEntry* hashChunk = FindChunk( chunkTable, "HASH" );
+    if ( !hashChunk )
+    {
+        return false;
+    }
+
+    if ( !ParseSolverHashRecords( fileBytes, *hashChunk, outHashes ) )
+    {
+        outHashes.clear();
+        return false;
+    }
+
+    if ( result )
+    {
+        result->hashCount = outHashes.size();
+        result->fileBytes = fileBytes.size();
+        if ( !outHashes.empty() )
+        {
+            result->firstFrame = outHashes.front().frameIndex;
+            result->lastFrame = outHashes.back().frameIndex;
+        }
+    }
+    return !outHashes.empty();
 }

@@ -1198,6 +1198,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.SetOrientation( orientation );
         model.SetLinearVelocity( body.linearVelocity );
         model.SetAngularVelocity( body.angularVelocity );
+        model.ClearImpulseForce();
     }
 
     if ( !m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( sample.worldSnapshot ) )

@@ -250,6 +250,14 @@ uint64_t HashLauncherVisual( uint64_t hash, const ReplayLauncherVisualSample& vi
     return hash;
 }
 
+uint64_t HashLauncherControlState( uint64_t hash, const ReplayLauncherVisualSample& visual )
+{
+    hash = HashInt( hash, static_cast<int>( visual.fireMode ) );
+    hash = HashFloat( hash, visual.impulseStrength );
+    hash = HashFloat( hash, visual.projectileSpeed );
+    return hash;
+}
+
 ReplayBodyShapeKind ShapeKindForModel( const GameModel& model )
 {
     if ( model.IsSphere() )
@@ -999,7 +1007,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     solverHash = HashInt( solverHash, static_cast<int>( modelCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
-    solverHash = HashLauncherVisual( solverHash, sample.launcherVisual );
+    solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
     solverHash = HashSolverWorldSnapshot( solverHash, sample.worldSnapshot );
 
     for ( std::size_t i = 0; i < modelCount; ++i )

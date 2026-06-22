@@ -21,6 +21,8 @@ Related:
 #include "CaptureSystem.h"
 #include "Replay/ReplayV2Artifact.h"
 
+#include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 
@@ -30,6 +32,134 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Math::Vector::Vector3;
+
+namespace
+{
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+
+float ReplayEventFloatFromBits( int32_t signedBits )
+{
+    uint32_t bits = 0;
+    float value = 0.0f;
+    static_assert( sizeof( bits ) == sizeof( signedBits ), "Replay event float bits must be 32-bit." );
+    static_assert( sizeof( bits ) == sizeof( value ), "Replay event float payloads assume 32-bit floats." );
+    std::memcpy( &bits, &signedBits, sizeof( bits ) );
+    std::memcpy( &value, &bits, sizeof( value ) );
+    return value;
+}
+
+int ReplayHexNibble( char value )
+{
+    if ( value >= '0' && value <= '9' )
+    {
+        return value - '0';
+    }
+    if ( value >= 'a' && value <= 'f' )
+    {
+        return value - 'a' + 10;
+    }
+    if ( value >= 'A' && value <= 'F' )
+    {
+        return value - 'A' + 10;
+    }
+    return -1;
+}
+
+bool ReadReplayHexFloat( const char*& cursor, float& outValue )
+{
+    uint32_t bits = 0;
+    for ( int i = 0; i < 8; ++i )
+    {
+        const int nibble = ReplayHexNibble( cursor[i] );
+        if ( nibble < 0 )
+        {
+            return false;
+        }
+        bits = ( bits << 4 ) | static_cast<uint32_t>( nibble );
+    }
+    cursor += 8;
+    std::memcpy( &outValue, &bits, sizeof( outValue ) );
+    return true;
+}
+
+bool DecodeReplayRay9Payload( const ReplayEventSample& event,
+                              Vector3& outOrigin,
+                              Vector3& outDirection,
+                              Vector3& outCameraUp )
+{
+    constexpr char prefix[] = "ray9:";
+    if ( std::strncmp( event.text, prefix, sizeof( prefix ) - 1 ) != 0 )
+    {
+        return false;
+    }
+
+    const char* cursor = event.text + sizeof( prefix ) - 1;
+    float values[9] = {};
+    for ( float& value : values )
+    {
+        if ( !ReadReplayHexFloat( cursor, value ) )
+        {
+            return false;
+        }
+    }
+
+    outOrigin = Vector3( values[0], values[1], values[2] );
+    outDirection = Vector3( values[3], values[4], values[5] );
+    outCameraUp = Vector3( values[6], values[7], values[8] );
+    return true;
+}
+
+const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<ReplayV2SolverHashSample>& hashes,
+                                                              ReplayFrameIndex frameIndex )
+{
+    for ( const ReplayV2SolverHashSample& hash : hashes )
+    {
+        if ( hash.frameIndex == frameIndex )
+        {
+            return &hash;
+        }
+    }
+    return nullptr;
+}
+
+const ReplayPresentationSample* FindReplayPresentationForFrame( const std::vector<ReplayPresentationSample>& samples,
+                                                                ReplayFrameIndex frameIndex )
+{
+    for ( const ReplayPresentationSample& sample : samples )
+    {
+        if ( sample.frameIndex == frameIndex )
+        {
+            return &sample;
+        }
+    }
+    return nullptr;
+}
+
+void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char* reason )
+{
+    if ( outReason && reasonSize > 0 )
+    {
+        sprintf_s( outReason, reasonSize, "%s", reason ? reason : "event replay failed" );
+    }
+}
+
+class ScopedReplayProbeProfilerFrame
+{
+  public:
+    ScopedReplayProbeProfilerFrame()
+    {
+        PROFILE_FRAME_BEGIN();
+    }
+    ~ScopedReplayProbeProfilerFrame()
+    {
+        PROFILE_FRAME_END();
+    }
+};
+} // namespace
 
 void Run::Execute()
 {
@@ -337,6 +467,75 @@ void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample
         outSample.rayLines.push_back( sample );
     }
     m_launcherLaser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
+}
+
+bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
+{
+    if ( event.payloadVersion != 1 )
+    {
+        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event payload version" );
+        return false;
+    }
+
+    switch ( event.kind )
+    {
+    case ReplayEventKind::TimelineStart:
+        WriteReplayProbeReason( outReason, reasonSize, "ignored" );
+        return true;
+    case ReplayEventKind::RuntimeCommand:
+    case ReplayEventKind::BranchRestore:
+        WriteReplayProbeReason( outReason, reasonSize, "unsupported timeline mutation event" );
+        return false;
+    case ReplayEventKind::WorldOverride:
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
+        {
+            m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
+        }
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
+        {
+            m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
+        }
+        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
+        {
+            m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
+        }
+        WriteReplayProbeReason( outReason, reasonSize, "applied world override" );
+        return true;
+    case ReplayEventKind::LauncherConfig:
+        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value0 );
+        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+        WriteReplayProbeReason( outReason, reasonSize, "applied launcher config" );
+        return true;
+    case ReplayEventKind::LauncherFire:
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        Vector3 cameraUp;
+        if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "invalid launcher fire payload" );
+            return false;
+        }
+        m_rayCastTest.fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                     ? RunLauncherFireMode::Projectile
+                                     : RunLauncherFireMode::Laser;
+        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value1 );
+        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+        if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+        {
+            FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
+        }
+        else
+        {
+            FireLauncherLaser( rayOrigin, rayDirection, cameraUp );
+        }
+        WriteReplayProbeReason( outReason, reasonSize, "applied launcher fire" );
+        return true;
+    }
+    default:
+        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
+        return false;
+    }
 }
 
 
@@ -856,6 +1055,297 @@ void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
             static_cast<unsigned long long>( checkpoint.bodies.size() ),
             static_cast<unsigned long long>( checkpoint.solverHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+}
+
+void Run::VerifyReplaySolverTargetFileProbe( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        throw std::runtime_error( "replay restore target probe requires a v2 artifact path" );
+    }
+
+    std::vector<ReplaySolverFrameSample> checkpoints;
+    ReplayV2SolverCheckpointLoadResult checkpointResult;
+    if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, checkpoints, &checkpointResult ) )
+    {
+        throw std::runtime_error( "replay restore target probe failed to load v2 solver checkpoints" );
+    }
+
+    std::vector<ReplayV2SolverHashSample> hashes;
+    ReplayV2SolverHashLoadResult hashResult;
+    if ( !ReplayV2Artifact::LoadSolverHashes( path, hashes, &hashResult ) )
+    {
+        throw std::runtime_error( "replay restore target probe failed to load v2 solver hashes" );
+    }
+
+    std::vector<ReplayEventSample> events;
+    ReplayV2EventLoadResult eventResult;
+    if ( !ReplayV2Artifact::LoadEvents( path, events, &eventResult ) )
+    {
+        throw std::runtime_error( "replay restore target probe failed to load v2 events" );
+    }
+
+    std::vector<ReplayPresentationSample> presentationSamples;
+    ReplayV2LoadResult presentationResult;
+    if ( !ReplayV2Artifact::LoadPresentation( path, presentationSamples, &presentationResult ) )
+    {
+        throw std::runtime_error( "replay restore target probe failed to load v2 presentation frames" );
+    }
+
+    const ReplayV2SolverHashSample* target = nullptr;
+    for ( auto it = hashes.rbegin(); it != hashes.rend(); ++it )
+    {
+        if ( !it->checkpointBoundary )
+        {
+            target = &*it;
+            break;
+        }
+    }
+    if ( !target )
+    {
+        throw std::runtime_error( "replay restore target probe found no non-checkpoint target hash" );
+    }
+
+    const ReplaySolverFrameSample* checkpoint = nullptr;
+    for ( const ReplaySolverFrameSample& candidate : checkpoints )
+    {
+        if ( candidate.frameIndex <= target->frameIndex &&
+             ( !checkpoint || candidate.frameIndex > checkpoint->frameIndex ) )
+        {
+            checkpoint = &candidate;
+        }
+    }
+    if ( !checkpoint )
+    {
+        throw std::runtime_error( "replay restore target probe found no checkpoint before target hash" );
+    }
+    if ( checkpoint->frameIndex >= target->frameIndex )
+    {
+        throw std::runtime_error( "replay restore target probe did not select a later target frame" );
+    }
+    if ( checkpoint->eventCursor == 0 )
+    {
+        throw std::runtime_error( "replay restore target probe loaded a checkpoint without an event cursor" );
+    }
+    if ( target->frameIndex - checkpoint->frameIndex >
+         static_cast<ReplayFrameIndex>( hashes.size() + events.size() + 1u ) )
+    {
+        throw std::runtime_error( "replay restore target probe selected an implausibly distant target frame" );
+    }
+
+    char reason[192] = {};
+    if ( !ApplyReplaySolverSampleState( *checkpoint, reason, sizeof( reason ) ) )
+    {
+        char message[288] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore target probe failed to apply checkpoint: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
+        throw std::runtime_error( message );
+    }
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+
+    ReplayFrameIndex currentFrame = checkpoint->frameIndex;
+    int currentSceneFrame = checkpoint->sceneFrame;
+    uint32_t eventCursor = checkpoint->eventCursor;
+    std::size_t eventsApplied = 0;
+    std::size_t unsupportedEvents = 0;
+    SceneState().currentFrame = currentSceneFrame;
+
+    {
+        ScopedReplayProbeProfilerFrame profilerFrame;
+        while ( currentFrame < target->frameIndex )
+        {
+            const ReplayFrameIndex nextFrame = currentFrame + 1u;
+
+            for ( const ReplayEventSample& event : events )
+            {
+                if ( event.frameIndex != nextFrame || event.sequence < eventCursor )
+                {
+                    continue;
+                }
+                if ( event.branch.branchId != checkpoint->branch.branchId )
+                {
+                    ++unsupportedEvents;
+                    continue;
+                }
+
+                char eventReason[160] = {};
+                if ( !ApplyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
+                {
+                    char message[320] = {};
+                    sprintf_s( message,
+                               sizeof( message ),
+                               "replay restore target probe failed to apply event sequence %u at frame %llu: %s",
+                               event.sequence,
+                               static_cast<unsigned long long>( event.frameIndex ),
+                               eventReason[0] != '\0' ? eventReason : "unknown event replay failure" );
+                    throw std::runtime_error( message );
+                }
+                eventCursor = (std::max)( eventCursor, event.sequence + 1u );
+                ++eventsApplied;
+            }
+
+            TickRayCastTestLines( PHYSICS_FIXED_DT );
+            m_launcherLaser.Update( PHYSICS_FIXED_DT );
+            m_cGameModelCollection.EndCollisionVisualFrame();
+            ++currentSceneFrame;
+            SceneState().currentFrame = currentSceneFrame;
+            m_cGameModelCollection.BeginCollisionVisualFrame();
+
+            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            currentFrame = nextFrame;
+
+            const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
+            if ( !expectedHash )
+            {
+                throw std::runtime_error( "replay restore target probe could not find stepped hash metadata" );
+            }
+
+            ReplaySolverFrameSample stepReference;
+            stepReference.frameIndex = expectedHash->frameIndex;
+            stepReference.branch = checkpoint->branch;
+            stepReference.eventCursor = eventCursor;
+            stepReference.sceneFrame = expectedHash->sceneFrame;
+            stepReference.simulationSeconds = expectedHash->simulationSeconds;
+            stepReference.physicsDt = PHYSICS_FIXED_DT;
+
+            uint64_t stepSolverHash = 0;
+            uint64_t stepPresentationHash = 0;
+            std::size_t stepBodyCount = 0;
+            if ( !CaptureCurrentReplaySolverHash( stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
+            {
+                throw std::runtime_error( "replay restore target probe failed to capture stepped hash" );
+            }
+            if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
+            {
+                char message[1024] = {};
+                const ReplayPresentationSample* expectedPresentation =
+                    FindReplayPresentationForFrame( presentationSamples, currentFrame );
+                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModels();
+                if ( expectedPresentation && !expectedPresentation->bodies.empty() && !restoredModels.empty() )
+                {
+                    const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
+                    const GameModel& restoredModel = restoredModels[0];
+                    const Vector3& restoredPosition = restoredModel.GetPosition();
+                    const Vector3& restoredVelocity = restoredModel.GetVelocity();
+                    float restoredQx = 0.0f;
+                    float restoredQy = 0.0f;
+                    float restoredQz = 0.0f;
+                    float restoredQw = 1.0f;
+                    restoredModel.GetOrientation().GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
+
+                    sprintf_s( message,
+                               sizeof( message ),
+                               "replay restore target probe diverged at frame %llu: restored=0x%016llX "
+                               "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
+                               "restored_pos=(%.6f,%.6f,%.6f) expected_pos=(%.6f,%.6f,%.6f) "
+                               "restored_vel=(%.6f,%.6f,%.6f) restored_q=(%.6f,%.6f,%.6f,%.6f) "
+                               "expected_q=(%.6f,%.6f,%.6f,%.6f) restored_body_id=%u expected_body_id=%u "
+                               "events_applied=%llu",
+                               static_cast<unsigned long long>( currentFrame ),
+                               static_cast<unsigned long long>( stepSolverHash ),
+                               static_cast<unsigned long long>( expectedHash->solverHash ),
+                               static_cast<unsigned long long>( stepPresentationHash ),
+                               static_cast<unsigned long long>( expectedHash->presentationHash ),
+                               restoredPosition.x,
+                               restoredPosition.y,
+                               restoredPosition.z,
+                               expectedBody.position.x,
+                               expectedBody.position.y,
+                               expectedBody.position.z,
+                               restoredVelocity.x,
+                               restoredVelocity.y,
+                               restoredVelocity.z,
+                               restoredQx,
+                               restoredQy,
+                               restoredQz,
+                               restoredQw,
+                               expectedBody.orientation[0],
+                               expectedBody.orientation[1],
+                               expectedBody.orientation[2],
+                               expectedBody.orientation[3],
+                               restoredModel.GetReplayBodyId(),
+                               expectedBody.id.value,
+                               static_cast<unsigned long long>( eventsApplied ) );
+                }
+                else
+                {
+                    sprintf_s( message,
+                               sizeof( message ),
+                               "replay restore target probe diverged at frame %llu: restored=0x%016llX "
+                               "expected=0x%016llX restored_presentation=0x%016llX expected_presentation=0x%016llX "
+                               "restored_bodies=%llu expected_bodies=%u events_applied=%llu",
+                               static_cast<unsigned long long>( currentFrame ),
+                               static_cast<unsigned long long>( stepSolverHash ),
+                               static_cast<unsigned long long>( expectedHash->solverHash ),
+                               static_cast<unsigned long long>( stepPresentationHash ),
+                               static_cast<unsigned long long>( expectedHash->presentationHash ),
+                               static_cast<unsigned long long>( stepBodyCount ),
+                               expectedHash->bodyCount,
+                               static_cast<unsigned long long>( eventsApplied ) );
+                }
+                throw std::runtime_error( message );
+            }
+        }
+    }
+
+    if ( unsupportedEvents != 0 )
+    {
+        throw std::runtime_error( "replay restore target probe encountered unsupported branch events before target" );
+    }
+
+    ReplaySolverFrameSample reference;
+    reference.frameIndex = target->frameIndex;
+    reference.branch = checkpoint->branch;
+    reference.eventCursor = eventCursor;
+    reference.sceneFrame = target->sceneFrame;
+    reference.simulationSeconds = target->simulationSeconds;
+    reference.physicsDt = PHYSICS_FIXED_DT;
+
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    if ( !CaptureCurrentReplaySolverHash( reference, restoredSolverHash, restoredPresentationHash, restoredBodyCount ) )
+    {
+        throw std::runtime_error( "replay restore target probe failed to capture target hash" );
+    }
+    if ( restoredBodyCount != target->bodyCount )
+    {
+        char message[256] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore target probe body count mismatch: restored=%llu expected=%u",
+                   static_cast<unsigned long long>( restoredBodyCount ),
+                   target->bodyCount );
+        throw std::runtime_error( message );
+    }
+    if ( restoredSolverHash != target->solverHash )
+    {
+        char message[320] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore target probe solver hash mismatch: restored=0x%016llX expected=0x%016llX",
+                   static_cast<unsigned long long>( restoredSolverHash ),
+                   static_cast<unsigned long long>( target->solverHash ) );
+        throw std::runtime_error( message );
+    }
+
+    printf( "[replay] Restore target probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
+            "checkpoint_frame=%llu target_frame=%llu event_cursor=%u events_applied=%llu bodies=%llu "
+            "solver_hash=0x%016llX presentation_hash=0x%016llX bytes=%llu\n",
+            path,
+            static_cast<unsigned long long>( checkpointResult.checkpointCount ),
+            static_cast<unsigned long long>( eventResult.eventCount ),
+            static_cast<unsigned long long>( hashResult.hashCount ),
+            static_cast<unsigned long long>( checkpoint->frameIndex ),
+            static_cast<unsigned long long>( target->frameIndex ),
+            eventCursor,
+            static_cast<unsigned long long>( eventsApplied ),
+            static_cast<unsigned long long>( restoredBodyCount ),
+            static_cast<unsigned long long>( restoredSolverHash ),
+            static_cast<unsigned long long>( restoredPresentationHash ),
+            static_cast<unsigned long long>( hashResult.fileBytes ) );
 }
 #endif
 

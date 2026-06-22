@@ -235,6 +235,7 @@ class GameModel
     void SetImpulseForce( const Math::Vector::Vector3& vForce,
                           const Math::Vector::Vector3&
                               vApplicationPoint );                          // Stages a one-shot impulse at a world-space application point.
+    void ClearImpulseForce();                                               // Clears consumed one-shot impulse state during replay restore.
     void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetWorldForce(
         const Math::Vector::Vector3& vWorldForce,

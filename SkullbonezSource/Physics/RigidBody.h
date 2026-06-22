@@ -134,6 +134,7 @@ class RigidBody
     void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
     void SetOrientation( const Math::Orientation::Quaternion& q );
     void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint );
+    void ClearImpulseForce();                         // Clears any pending one-shot impulse and marks it consumed.
     // Continuous environment force/torque consumed by ApplyWorldForce().
     void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );
     // fTime=0 reads current pose; nonzero extrapolates from angular velocity.

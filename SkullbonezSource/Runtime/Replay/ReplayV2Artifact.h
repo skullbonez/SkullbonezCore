@@ -30,6 +30,7 @@ Related:
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "ReplayRecorder.h"
@@ -67,6 +68,35 @@ struct ReplayV2SolverCheckpointLoadResult
     ReplayFrameIndex lastFrame = 0;
 };
 
+struct ReplayV2EventLoadResult
+{
+    std::size_t eventCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
+struct ReplayV2SolverHashSample
+{
+    ReplayFrameIndex frameIndex = 0;
+    int sceneFrame = 0;
+    double simulationSeconds = 0.0;
+    uint64_t presentationHash = 0;
+    uint64_t solverHash = 0;
+    uint32_t bodyCount = 0;
+    uint16_t contactCount = 0;
+    uint16_t pipelineRecordCount = 0;
+    bool checkpointBoundary = false;
+};
+
+struct ReplayV2SolverHashLoadResult
+{
+    std::size_t hashCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
 class ReplayV2Artifact
 {
   public:
@@ -87,6 +117,12 @@ class ReplayV2Artifact
     static bool LoadSolverCheckpoints( const char* path,
                                        std::vector<ReplaySolverFrameSample>& outCheckpoints,
                                        ReplayV2SolverCheckpointLoadResult* result = nullptr );
+    static bool LoadEvents( const char* path,
+                            std::vector<ReplayEventSample>& outEvents,
+                            ReplayV2EventLoadResult* result = nullptr );
+    static bool LoadSolverHashes( const char* path,
+                                  std::vector<ReplayV2SolverHashSample>& outHashes,
+                                  ReplayV2SolverHashLoadResult* result = nullptr );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

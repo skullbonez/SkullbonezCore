@@ -163,6 +163,33 @@ def probe_restored_checkpoint():
     return len(runtime_stdout.encode("utf-8"))
 
 
+def probe_restored_target():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-target-file-probe",
+        str(ARTIFACT),
+    ]
+    print("  Restore target probe command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Restore target probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Restore target probe passed" in line for line in probe_lines):
+        raise RuntimeError("runtime restore target probe did not report checkpoint-plus-event target proof")
+    if not any("events_applied=" in line and "events_applied=0" not in line for line in probe_lines):
+        raise RuntimeError("runtime restore target probe did not apply saved v2 events")
+    return len(runtime_stdout.encode("utf-8"))
+
+
 def query_artifact():
     summary_command = [str(REPLAY_QUERY_BAT), str(ARTIFACT), "summary"]
     print("  Summary command:")
@@ -411,6 +438,8 @@ def main():
         load_probe_bytes = probe_loaded_artifact()
         print("  Probing saved solver checkpoint restore...")
         restore_probe_bytes = probe_restored_checkpoint()
+        print("  Probing saved solver target restore...")
+        restore_target_probe_bytes = probe_restored_target()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
@@ -430,6 +459,7 @@ def main():
         print(f"  SQLite bytes: {sqlite_path.stat().st_size if sqlite_path.exists() else 0}")
         print(f"  Load probe output bytes: {load_probe_bytes}")
         print(f"  Restore file probe output bytes: {restore_probe_bytes}")
+        print(f"  Restore target probe output bytes: {restore_target_probe_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
         print(f"  Query output bytes total: {sum(query_bytes.values())}")
         return 0
