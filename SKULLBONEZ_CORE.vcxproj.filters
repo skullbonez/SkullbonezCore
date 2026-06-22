@@ -130,6 +130,9 @@
     <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -157,7 +160,13 @@
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
@@ -331,6 +340,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\IRenderBackend.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
@@ -497,6 +509,9 @@
     <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
@@ -539,10 +554,16 @@
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h">
@@ -699,6 +720,9 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h">

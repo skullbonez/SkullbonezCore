@@ -134,7 +134,7 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_soaCache.Clear();
-    m_physicsWorld.Clear();
+    m_physicsScene.Clear();
     m_nextReplayBodyId = 1;
 }
 
@@ -309,14 +309,14 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
 
 void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
 {
-    m_physicsWorld.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
+    m_physicsScene.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
 }
 
 
 bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
 {
     const bool restored =
-        m_physicsWorld.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
+        m_physicsScene.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
     if ( restored )
     {
         InvalidateSoA();
@@ -334,6 +334,27 @@ GameModelBodyStream GameModelCollection::GetBodyStream()
 GameModelRenderStream GameModelCollection::GetRenderStream()
 {
     return GameModelStreamProvider::GetRenderStream( m_soaCache, m_gameModels );
+}
+
+
+const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
+{
+    m_physicsScene.RefreshBodyStore( *this );
+    return m_physicsScene.BodyStore();
+}
+
+
+const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
+{
+    m_physicsScene.RefreshColliderStore( *this );
+    return m_physicsScene.Colliders();
+}
+
+
+const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
+{
+    m_physicsScene.RefreshRenderStore( *this );
+    return m_physicsScene.RenderInstances();
 }
 
 
@@ -437,79 +458,79 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    m_physicsWorld.RunPhysics( *this, fChangeInTime );
+    m_physicsScene.RunPhysics( *this, fChangeInTime );
 }
 
 
 void GameModelCollection::WakeModel( int index )
 {
-    m_physicsWorld.WakeModel( *this, index );
+    m_physicsScene.WakeModel( *this, index );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    m_physicsWorld.SeedModelAsleep( *this, index );
+    m_physicsScene.SeedModelAsleep( *this, index );
 }
 
 
 void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 {
-    m_physicsWorld.SetPhysicsSleepEnabled( enabled );
+    m_physicsScene.SetPhysicsSleepEnabled( enabled );
 }
 
 
 void GameModelCollection::BeginCollisionVisualFrame()
 {
-    m_physicsWorld.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );
+    m_physicsScene.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );
 }
 
 
 void GameModelCollection::EndCollisionVisualFrame()
 {
-    m_physicsWorld.EndCollisionVisualFrame();
+    m_physicsScene.EndCollisionVisualFrame();
 }
 
 
 void GameModelCollection::SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config )
 {
-    m_physicsWorld.SetTornadoFieldConfig( config );
+    m_physicsScene.SetTornadoFieldConfig( config );
 }
 
 
 void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
 {
-    m_physicsWorld.RenderTornadoFieldVectors( viewProj );
+    m_physicsScene.RenderTornadoFieldVectors( viewProj );
 }
 
 
 #ifdef _DEBUG
 void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 {
-    m_physicsWorld.SetPhysicsRegressionLogPath( path );
+    m_physicsScene.SetPhysicsRegressionLogPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsCollisionTimeLogPath( const char* path )
 {
-    m_physicsWorld.SetPhysicsCollisionTimeLogPath( path );
+    m_physicsScene.SetPhysicsCollisionTimeLogPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
-    m_physicsWorld.SetPhysicsDiagnosticsPath( path );
+    m_physicsScene.SetPhysicsDiagnosticsPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
 {
-    m_physicsWorld.SetPhysicsDiagnosticsRunId( runId );
+    m_physicsScene.SetPhysicsDiagnosticsRunId( runId );
 }
 
 
 bool GameModelCollection::SetPhysicsDiagnosticsSuppressed( bool suppressed )
 {
-    return m_physicsWorld.SetDiagnosticsSuppressed( suppressed );
+    return m_physicsScene.SetDiagnosticsSuppressed( suppressed );
 }
 #endif

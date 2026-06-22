@@ -29,7 +29,7 @@ Related:
 #include "GameModel.h"
 #include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
-#include "../Physics/PhysicsWorld.h"
+#include "../Physics/PhysicsScene.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
 
@@ -49,9 +49,10 @@ class SceneSnapshotWriter;
 --------------------------------------------------------------------------------------------------------------------------------------
 
     Owns the scene's GameModel storage and exposes stable model-facing calls.
-    Physics, rendering, hot SoA streams, and scene serialization live behind
-    dedicated collaborators so this class stays a container/facade instead of a
-    solver, renderer, serializer, and diagnostics hub all at once.
+    During the store migration this class remains a compatibility facade:
+    physics, rendering, hot SoA streams, and scene serialization sit behind
+    dedicated collaborators, while older runtime tools still use model-indexed
+    accessors until their APIs are moved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection
 {
@@ -64,7 +65,7 @@ class GameModelCollection
 
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
-    Physics::PhysicsWorld m_physicsWorld;
+    Physics::PhysicsScene m_physicsScene;
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
@@ -124,6 +125,9 @@ class GameModelCollection
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
+    const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
+    const Physics::ColliderStore& GetColliderStore();
+    const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
     void InvalidatePhysicsStreams();
@@ -140,45 +144,45 @@ class GameModelCollection
     void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );
     const Physics::TornadoFieldConfig& GetTornadoFieldConfig() const
     {
-        return m_physicsWorld.GetTornadoFieldConfig();
+        return m_physicsScene.GetTornadoFieldConfig();
     }
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {
-        return m_physicsWorld.GetSpatialGrid();
+        return m_physicsScene.GetSpatialGrid();
     }
     const std::vector<int64_t>& GetCollisionCellKeys() const
     {
-        return m_physicsWorld.GetCollisionCellKeys();
+        return m_physicsScene.GetCollisionCellKeys();
     }
     const std::vector<uint8_t>& GetCollisionVisualContacts() const
     {
-        return m_physicsWorld.GetCollisionVisualContacts();
+        return m_physicsScene.GetCollisionVisualContacts();
     }
     const std::vector<uint8_t>& GetSleepStates() const
     {
-        return m_physicsWorld.GetSleepStates();
+        return m_physicsScene.GetSleepStates();
     }
     const std::vector<int>& GetSleepIslandVisualIds() const
     {
-        return m_physicsWorld.GetSleepIslandVisualIds();
+        return m_physicsScene.GetSleepIslandVisualIds();
     }
     const std::vector<uint8_t>& GetSleepSupportedStates() const
     {
-        return m_physicsWorld.GetSleepSupportedStates();
+        return m_physicsScene.GetSleepSupportedStates();
     }
     const std::vector<uint8_t>& GetSleepInhibitedStates() const
     {
-        return m_physicsWorld.GetSleepInhibitedStates();
+        return m_physicsScene.GetSleepInhibitedStates();
     }
     const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
     {
-        return m_physicsWorld.GetPhysicsDebugContacts();
+        return m_physicsScene.GetPhysicsDebugContacts();
     }
     const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
     {
-        return m_physicsWorld.GetPhysicsPipelineTrace();
+        return m_physicsScene.GetPhysicsPipelineTrace();
     }
 
 #ifdef _DEBUG

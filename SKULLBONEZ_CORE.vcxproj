@@ -140,6 +140,7 @@
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\BoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
@@ -157,7 +158,9 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
@@ -240,6 +243,7 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\IRenderBackend.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
@@ -262,6 +266,7 @@
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
     <ClInclude Include="SkullbonezSource\Physics\BoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
@@ -285,8 +290,10 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
@@ -365,6 +372,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\IMesh.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
