@@ -1,7 +1,10 @@
 # Authoritative Replay Rollback Plan
 
 Date: 2026-06-21
-Status: In progress - retained solver rollback plus path/contact visualizer and live prediction v1 implemented
+Status: In progress - smooth backwards presentation scrubbing is now the
+primary goal; retained in-memory solver restore plus path/contact visualizer and
+live prediction v1 are implemented, while sparse checkpoint/event rollback and
+saved `.skreplay` v2 artifacts are not implemented.
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -27,6 +30,13 @@ stream. This is intentionally memory-heavier, but it makes scrub-to-branch
 correctness available now. Future work can replace the dense retained snapshot
 with checkpoint/event replay once restore hashes and visualization tooling are
 proven.
+
+Audit note, 2026-06-22: the current saved `solver_replay_####.skreplay`
+artifact is not v2. It is version 1 JSON debug/inspection output with dense
+per-frame body samples and compact authoritative snapshot summaries. It does not
+serialize full persistent-contact rows, event streams, seek indexes, or a
+reloadable authoritative checkpoint format. Current restore works only from the
+retained in-memory `ReplaySolverFrameSample` chain.
 
 The core rule remains:
 
@@ -113,6 +123,23 @@ watching the downstream predicted children appear.
 Future work can add numeric velocity fields, explicit parent collision timing
 labels, and deeper tree controls.
 
+## Priority Update, 2026-06-22
+
+The immediate user priority is smooth backwards scrubbing, not full
+authoritative branch-from-file. That changes the next useful slice:
+
+1. Preserve smooth visual reverse scrub as a dense presentation track.
+2. Do not promise saved authoritative restore until `.skreplay` v2 actually
+   contains solver checkpoint/event/hash chunks and a loader/verifier.
+3. Keep authoritative solver restore as a separate track layered behind the
+   scrub UI.
+
+Smooth scrub means previewing retained or saved presentation samples in reverse.
+It does not mean running physics backward. If the user later commits to a
+historical tick, authoritative restore is still a discrete operation: restore a
+solver checkpoint, replay deterministic fixed ticks/events forward, compare the
+solver hash, and only then make the state live.
+
 ## Current Starting Point
 
 | Area | Current behavior |
@@ -120,11 +147,34 @@ labels, and deeper tree controls.
 | Replay recording | `ReplayRecorder` stores a bounded 30-second presentation ring by default for generated/interactive runs. |
 | Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
 | Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
-| Branch restore | Press `Enter` while paused on the solver row to restore the selected retained solver frame as the new live branch. |
+| Branch restore | Press `Enter` while paused on the solver row to directly restore the selected retained in-memory solver frame as the new live branch. This does not yet restore a sparse checkpoint, replay events forward, or hash-gate the restored tick before going live. |
 | Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts light child bodies before impact with amber incoming traces/rings, then continue with grey post-contact traces. The right-side cause tree lists the root/child hierarchy and focuses the camera on clicked rows. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. `ALT VEL` edits selected dynamic-body linear/angular velocity and rebuilds the predicted chain from the edited live state. |
-| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` with compact authoritative snapshot summaries. |
+| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries. These files are not reloadable authoritative replay artifacts. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
-| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. |
+| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. There is no restore-to-tick hash-match gate or saved-artifact restore test yet. |
+
+## Implementation Status Audit, 2026-06-22
+
+| Plan phase | Status | Current evidence and gap |
+|------------|--------|--------------------------|
+| Phase 1: State inventory and hash contract | Partial | Solver hashes include body fields and `ReplaySolverWorldSnapshot`, but there is no standalone authoritative-state inventory report and no restore hash gate. |
+| Phase 2: In-memory solver checkpoint ring | Partial shortcut | Dense per-frame `ReplaySolverFrameSample` storage exists. `m_checkpoints` stores `ReplayCheckpointSummary` only, not full restorable checkpoints. |
+| Phase 3: Event stream | Missing | No typed `ReplayEventStream`, event cursors, or deterministic event replay for launcher, reset/load, world edits, editor commits, or generated-scene rebuilds. |
+| Phase 4: Restore to tick without branch resume | Missing | Current restore applies the selected retained in-memory sample directly. It does not restore the nearest checkpoint, replay ticks/events to the target, compare hashes, or emit `replay_restore`. |
+| Phase 5: Branch and resume | Partial | `Enter` on the solver row makes the selected retained sample live and resets the replay timeline, but there is no branch id or parent-branch metadata. |
+| Phase 6: Saved authoritative replay artifacts | Missing | Current `.skreplay` files are version 1 JSON. They are inspection/debug artifacts, not chunked v2 files with solver checkpoints, event stream chunks, hashes, seek index, loader, or verifier. |
+
+Observed local artifact sizing during the 2026-06-22 audit:
+
+| Artifact | Shape | Size |
+|----------|-------|------|
+| `replays\solver_replay_0001.skreplay` | v1 JSON, 1,751 frames, 3 bodies after frame 256, 30 checkpoint markers | 5.27 MB |
+| `replays\solver_replay_0000.skreplay` | v1 JSON, 537 frames, roughly 300 bodies | 118.7 MB |
+| `replays\replay_0000.skreplay` | v1 JSON presentation export at similar scale | 133.3 MB |
+
+The current JSON shape repeats body metadata and text numbers per frame. For a
+300-body scene it is roughly in the tens of MB per second and is not acceptable
+as the normal saved scrub format.
 
 ## Definitions
 
@@ -230,11 +280,13 @@ to expose with hashes and SkullScope.
 
 ## File Format Direction
 
-The current `.skreplay` artifact is JSON and presentation-oriented. A future
-authoritative format should become chunked:
+The current `.skreplay` artifact is JSON and presentation-oriented. A future v2
+format should be binary, chunked, seekable, and explicitly split by track:
 
 ```text
 header
+small manifest
+chunk table
 body dictionary
 presentation chunks
 solver checkpoint chunks
@@ -243,9 +295,57 @@ per-tick hash chunks
 seek index
 ```
 
+For the smooth-scrub priority, the v2 presentation track should come first:
+
+| Track | Frequency | Contents | Purpose |
+|-------|-----------|----------|---------|
+| Presentation | 60 or 120 Hz | Body id/index stream, position, orientation, optional visibility, optional camera/world presentation state | Smooth backwards/forwards scrub preview. |
+| Solver checkpoint | Sparse, e.g. every 60 fixed ticks | Full authoritative solver/runtime checkpoint | Restore source for branch/replay. |
+| Event stream | Every mutating action | Versioned commands with target fixed tick | Deterministic forward replay between checkpoints. |
+| Hashes | Every fixed tick | Presentation and solver hashes | Cheap divergence detection and restore proof. |
+| Diagnostics | Optional/sliced | Contact/sleep/island summaries or references to SkullScope traces | Debugging without inflating every file. |
+
+Rough uncompressed dense presentation sizing target:
+
+```text
+300 bodies * 32 bytes/body/frame * 120 fps * 30 sec = about 34.5 MB
+300 bodies * 32 bytes/body/frame *  60 fps * 30 sec = about 17.3 MB
+```
+
+That assumes body metadata is deduplicated and dense samples are binary, not
+JSON. Compression and delta encoding can come later, after the uncompressed
+format and query path are correct.
+
 Short-term export can remain JSON for inspectability. Once deterministic restore
 is proven, add binary chunks and optional compression. File-size work should not
 come before correctness.
+
+### SkullScope And Agent Queryability
+
+Binary v2 files must not become opaque to debugging. The required companion is a
+focused query bridge:
+
+```bat
+tools\replay_query.bat replays\sample.skreplay summary
+tools\replay_query.bat replays\sample.skreplay frame 1240
+tools\replay_query.bat replays\sample.skreplay body 7 --frames 1200:1260
+tools\replay_query.bat replays\sample.skreplay contacts --frames 1200:1260
+tools\replay_query.bat replays\sample.skreplay export-skullscope --frames 1200:1260 --out Debug\sample_slice.physicsdiag.ndjson
+```
+
+Implementation options:
+
+1. Add `tools\replay_query.py/.bat` that decodes v2 chunk tables and exposes
+   bounded JSON answers for agents and humans.
+2. Reuse the existing `physics_query.py` cache style by importing selected v2
+   chunks into SQLite tables.
+3. Provide `export-skullscope` for selected frame windows so existing
+   `tools\physics_query.bat` workflows can inspect replay slices without loading
+   huge raw artifacts into the model.
+
+The rule for future saved replay debugging is the same as SkullScope: query
+small windows and selected bodies/contacts, never paste or ingest whole replay
+files.
 
 ## Implementation Phases
 
