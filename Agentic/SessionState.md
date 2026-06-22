@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `major-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `5d0250f7` split RunInput tool logic into runtime/editor/replay translation units and pushed it to `origin/major-refactor`. |
-| Active objective | Complete `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md` through the orchestrator skill. |
-| Pending work | Finish the physical source-folder layout commit, then continue the runtime, physics, render snapshot, tool-boundary, and final cleanup phases. |
+| Last committed milestone | `cbad6bd7` completed the source comment pass for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md` and pushed it to `origin/major-refactor`. |
+| Active objective | None for the physics playground refactor plan; the plan has been completed on `major-refactor`. |
+| Pending work | None for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md`. Continue unrelated active plans separately. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | The physical-layout slice passed `tools\format_fix.bat`, `tools\validate_project_filters.bat`, `tools\validate_format.bat`, a targeted Profile build, `tools\validate_fast.bat`, `tools\validate_scene_parser_tests.bat`, `tools\validate_dx12_arch_tests.bat`, and final `tools\validate_full.bat` (`TestOutput\agent_logs\2026-06-22_physical_layout_validate_full.log`, 22.58s). |
+| Validation | Final plan gate passed `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-22_phase_f_comment_pass_validate_full.log`: Profile and Debug builds succeeded with 0 warnings and 0 errors, DX12 validation reported 0 errors, DX12 captures matched baselines, and physics regression matched byte-exactly. |
 
 ## Active Notes
 
@@ -49,6 +49,7 @@ audits when it is still useful.
 | Material system v1 object slice | Done | Archived in `Agentic/Plans/Done/material-system-v1-implementation-plan.md`; named material assets and terrain/water/post unification should be new focused work. |
 | Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and agent-orchestration guidance are now centralized. |
 | Agent orchestrator skill | Active | The old JSON/Python control plane is retired. `Agentic/Skills/orchestrator/SKILL.md` is the active coordinator contract for plan queues, fresh worker agents, rubber-duck review agents, validation, commits, pushes, and handoffs. |
+| Physics playground refactor and prefix cleanup | Done | Completed on `major-refactor` through `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md`; source prefix cleanup, module folders, runtime/physics/render/editor boundaries, dead-code audit, and full comment pass are committed and pushed. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |
