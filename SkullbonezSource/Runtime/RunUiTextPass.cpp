@@ -99,6 +99,9 @@ void Run::RenderReplayScrubberOverlay()
     const bool live = !loadedPresentation && t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
+    const bool branchEnabled =
+        m_replayScrubber.paused && ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
+                                     ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
     draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, sourceLabel );
@@ -110,6 +113,35 @@ void Run::RenderReplayScrubberOverlay()
                live ? 0.96f : 0.86f,
                live ? 0.70f : 0.36f,
                timeLabel );
+
+    {
+        const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
+        const bool branchHover = branchEnabled && m_replayScrubber.branchHovered;
+        draw.RoundedRect( branchButton.x,
+                          branchButton.y,
+                          branchButton.w,
+                          branchButton.h,
+                          4.0f,
+                          branchEnabled ? ( branchHover ? 0.20f : 0.10f ) : 0.06f,
+                          branchEnabled ? ( branchHover ? 0.36f : 0.18f ) : 0.07f,
+                          branchEnabled ? ( branchHover ? 0.54f : 0.24f ) : 0.09f,
+                          branchEnabled ? 0.94f : 0.42f );
+        draw.Outline( branchButton.x,
+                      branchButton.y,
+                      branchButton.w,
+                      branchButton.h,
+                      0.56f,
+                      0.78f,
+                      1.0f,
+                      branchEnabled ? ( branchHover ? 0.84f : 0.42f ) : 0.18f );
+        draw.Text( branchButton.x + 12.0f,
+                   branchButton.y + 4.5f,
+                   9.5f,
+                   branchEnabled ? 0.78f : 0.42f,
+                   branchEnabled ? 0.92f : 0.48f,
+                   branchEnabled ? 1.0f : 0.56f,
+                   "BRANCH" );
+    }
 
     if ( !loadedPresentation )
     {

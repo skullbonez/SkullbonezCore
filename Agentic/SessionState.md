@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `4f4cd599` verifies saved v2 checkpoint-plus-event restore to a non-checkpoint target; the current slice adds live branch-from-file from loaded v2 artifacts. |
+| Last committed milestone | `a4f2bd65` adds live branch-from-file from loaded v2 artifacts after saved checkpoint/event/hash verification; the current slice adds the explicit scrubber `BRANCH` action. |
 | Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
-| Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed world-override/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, and live branch-from-file wiring for loaded v2 artifacts. Remaining plan gaps include broader editor/generated-scene event coverage, explicit UI affordance beyond `Enter`, saved-file restore SkullScope failure rows, and in-app replay file loading/picking. |
+| Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed world-override/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, live branch-from-file wiring for loaded v2 artifacts, and an explicit scrubber `BRANCH` action shared with `Enter`. Remaining plan gaps include broader editor/generated-scene event coverage, saved-file restore SkullScope failure rows, and in-app replay file loading/picking. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Current branch-from-file slice passed targeted Debug build in `TestOutput\agent_logs\2026-06-23_replay_branch_from_file_build_debug.log`, replay v2 artifact gate in `TestOutput\agent_logs\2026-06-23_validate_replay_v2_branch_from_file.log`, and full gate in `TestOutput\agent_logs\2026-06-23_validate_full_replay_branch_from_file.log` before commit. |
+| Validation | Current branch-button slice passed targeted Debug build in `TestOutput\agent_logs\2026-06-23_replay_branch_button_build_debug.log`, final replay v2 artifact gate in `TestOutput\agent_logs\2026-06-23_validate_replay_v2_branch_button_final.log`, and final full gate in `TestOutput\agent_logs\2026-06-23_validate_full_replay_branch_button_final.log` before commit. |
 
 ## Active Notes
 

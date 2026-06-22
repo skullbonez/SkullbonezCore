@@ -1482,14 +1482,20 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
 
 void Run::VerifyReplaySolverBranchFileProbe( const char* path )
 {
+    if ( !LoadReplayPresentationArtifact( path, true ) )
+    {
+        throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
+    }
+    m_replayScrubber.paused = true;
+    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, 1.0f );
+
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
-    if ( !RestoreReplayV2ArtifactTargetState( path,
-                                              ( std::numeric_limits<ReplayFrameIndex>::max )(),
-                                              true,
-                                              result,
-                                              reason,
-                                              sizeof( reason ) ) )
+    if ( !RestoreReplayScrubberSelectionAsLive( m_timers.simulationTimer.GetTotalTime(),
+                                                &result,
+                                                reason,
+                                                sizeof( reason ) ) )
     {
         char message[384] = {};
         sprintf_s( message,
@@ -1497,6 +1503,10 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
                    "replay restore branch probe failed: %s",
                    reason[0] != '\0' ? reason : "unknown restore failure" );
         throw std::runtime_error( message );
+    }
+    if ( !result.madeLiveBranch || result.branchId == 0 )
+    {
+        throw std::runtime_error( "replay restore branch probe did not create a scrubber live branch" );
     }
 
     printf( "[replay] Restore branch probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "

@@ -356,6 +356,7 @@ struct RunReplayScrubberState
     bool dragging = false;
     bool paused = false;
     bool simulationPaused = false;
+    bool branchHovered = false;
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
@@ -1567,6 +1568,10 @@ class Run
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;
     bool IsReplayScrubPaused() const;
+    bool RestoreReplayScrubberSelectionAsLive( double now,
+                                               RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                                               char* outReason = nullptr,
+                                               std::size_t reasonSize = 0 );
     const ReplayPresentationSample* CurrentReplayScrubSample() const;
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
     void RenderReplayScrubberOverlay();

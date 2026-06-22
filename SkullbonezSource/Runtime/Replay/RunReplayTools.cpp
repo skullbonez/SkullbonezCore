@@ -1047,6 +1047,85 @@ void Run::UpdateReplayInspectionCamera()
 }
 
 
+bool Run::RestoreReplayScrubberSelectionAsLive( double now,
+                                                RunReplayV2TargetRestoreResult* outV2Result,
+                                                char* outReason,
+                                                std::size_t reasonSize )
+{
+    if ( outV2Result )
+    {
+        *outV2Result = RunReplayV2TargetRestoreResult();
+    }
+
+    auto writeReason = [outReason, reasonSize]( const char* reason )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            sprintf_s( outReason, reasonSize, "%s", reason ? reason : "restore failed" );
+        }
+    };
+
+    char reason[160] = {};
+    bool restored = false;
+    RunReplayTrack messageTrack = m_replayScrubber.activeTrack;
+    if ( HasLoadedReplayPresentation() && m_replayScrubber.paused &&
+         m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        EnterInteractiveSceneRun();
+        RunReplayV2TargetRestoreResult result;
+        const ReplayPresentationSample* selected = CurrentReplayScrubSample();
+        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
+        restored = selected && RestoreReplayV2ArtifactTargetState( m_loadedPresentationReplay.path,
+                                                                   selectedFrame,
+                                                                   true,
+                                                                   result,
+                                                                   reason,
+                                                                   sizeof( reason ) );
+        if ( outV2Result )
+        {
+            *outV2Result = result;
+        }
+        messageTrack = RunReplayTrack::Presentation;
+        fprintf( stderr,
+                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
+                 restored ? "applied" : "failed",
+                 static_cast<unsigned long long>( selectedFrame ),
+                 restored ? result.branchId : 0,
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+    }
+    else if ( m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    {
+        EnterInteractiveSceneRun();
+        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+        restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
+        messageTrack = RunReplayTrack::Solver;
+        fprintf( stderr,
+                 "[replay] Solver restore %s%s%s\n",
+                 restored ? "applied" : "failed",
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+    }
+    else
+    {
+        sprintf_s( reason, sizeof( reason ), "no paused replay branch target selected" );
+        fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    }
+
+    m_replayScrubber.restoreConsumedThisFrame = true;
+    m_replayScrubber.saveMessageTrack = messageTrack;
+    sprintf_s( m_replayScrubber.saveMessage,
+               sizeof( m_replayScrubber.saveMessage ),
+               restored ? ( messageTrack == RunReplayTrack::Presentation ? "V2 FILE BRANCHED" : "SOLVER RESTORED" )
+                        : "RESTORE FAILED" );
+    m_replayScrubber.saveMessageUntil = now + 2.5;
+    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+    writeReason( reason );
+    return restored;
+}
+
+
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
@@ -1086,6 +1165,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayPrediction.horizonHovered = false;
         m_replayPrediction.horizonDragging = false;
         m_replayVelocityEdit.toggleHovered = false;
+        m_replayScrubber.branchHovered = false;
         m_replayScrubber.leftWasDown = leftDown;
         return false;
     }
@@ -1097,6 +1177,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
+    const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
     const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
     const UI::UIRect velocityEditToggle = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
     const UI::UIRect predictControl = ReplayScrubberPredictControlRect( screenW, screenH );
@@ -1107,6 +1188,13 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
+    const bool branchTargetAvailable =
+        m_replayScrubber.paused &&
+        ( ( loadedPresentation && m_replayScrubber.activeTrack == RunReplayTrack::Presentation &&
+            CurrentReplayScrubSample() != nullptr ) ||
+          ( solverToolsEnabled && m_replayScrubber.activeTrack == RunReplayTrack::Solver &&
+            CurrentReplaySolverScrubSample() != nullptr ) );
+    const bool overBranchButton = branchButton.Contains( mouse.x, mouse.y );
     const bool overPauseButton = solverToolsEnabled && pauseButton.Contains( mouse.x, mouse.y );
     const bool overVelocityEditToggle = solverToolsEnabled && velocityEditToggle.Contains( mouse.x, mouse.y );
     const bool overPredictControl = solverToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
@@ -1120,8 +1208,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging || m_replayPrediction.horizonDragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
-    if ( inHotZone || overPanel || overSaveButton || overPauseButton || overVelocityEditToggle || overPredictUi ||
-         m_replayScrubber.dragging || m_replayPrediction.horizonDragging || m_replayScrubber.paused ||
+    if ( inHotZone || overPanel || overSaveButton || overBranchButton || overPauseButton || overVelocityEditToggle ||
+         overPredictUi || m_replayScrubber.dragging || m_replayPrediction.horizonDragging || m_replayScrubber.paused ||
          m_replayScrubber.simulationPaused )
     {
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
@@ -1129,6 +1217,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     m_replayScrubber.saveHovered = overSaveButton && ( m_replayScrubber.visibleUntil >= now ||
                                                        m_replayScrubber.dragging || m_replayScrubber.paused );
     m_replayScrubber.saveHoveredTrack = hoveredTrack;
+    const bool branchControlVisible = m_replayScrubber.visibleUntil >= now || m_replayScrubber.dragging ||
+                                      m_replayScrubber.paused || m_replayScrubber.simulationPaused;
+    m_replayScrubber.branchHovered = branchTargetAvailable && overBranchButton && branchControlVisible;
     const bool predictionControlVisible =
         solverToolsEnabled &&
         ( m_replayScrubber.visibleUntil >= now || m_replayScrubber.dragging || m_replayPrediction.horizonDragging ||
@@ -1143,61 +1234,14 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     bool consumesMouse =
         canTakeMouse &&
         ( m_replayScrubber.dragging || m_replayPrediction.horizonDragging ||
-          ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overPanel || overSaveButton || overPauseButton ||
-                                                      overVelocityEditToggle || overPredictUi ) ) );
+          ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overPanel || overSaveButton || overBranchButton ||
+                                                      overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
 
-    if ( loadedPresentation && restorePressed && m_replayScrubber.paused &&
-         m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    if ( branchTargetAvailable &&
+         ( restorePressed || ( leftPressed && canTakeMouse && overBranchButton && branchControlVisible ) ) )
     {
-        EnterInteractiveSceneRun();
-        char reason[160] = {};
-        RunReplayV2TargetRestoreResult result;
-        const ReplayPresentationSample* selected = CurrentReplayScrubSample();
-        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
-        const bool restored = selected && RestoreReplayV2ArtifactTargetState( m_loadedPresentationReplay.path,
-                                                                              selectedFrame,
-                                                                              true,
-                                                                              result,
-                                                                              reason,
-                                                                              sizeof( reason ) );
-        m_replayScrubber.restoreConsumedThisFrame = true;
-        m_replayScrubber.saveMessageTrack = RunReplayTrack::Presentation;
-        sprintf_s( m_replayScrubber.saveMessage,
-                   sizeof( m_replayScrubber.saveMessage ),
-                   restored ? "V2 FILE BRANCHED" : "RESTORE FAILED" );
-        m_replayScrubber.saveMessageUntil = now + 2.5;
-        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_replayScrubber.visible = true;
-        fprintf( stderr,
-                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
-                 restored ? "applied" : "failed",
-                 static_cast<unsigned long long>( selectedFrame ),
-                 restored ? result.branchId : 0,
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
-        return true;
-    }
-
-    if ( solverToolsEnabled && restorePressed && m_replayScrubber.paused &&
-         m_replayScrubber.activeTrack == RunReplayTrack::Solver )
-    {
-        EnterInteractiveSceneRun();
-        char reason[96] = {};
-        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
-        const bool restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
-        m_replayScrubber.restoreConsumedThisFrame = true;
-        m_replayScrubber.saveMessageTrack = RunReplayTrack::Solver;
-        sprintf_s( m_replayScrubber.saveMessage,
-                   sizeof( m_replayScrubber.saveMessage ),
-                   restored ? "SOLVER RESTORED" : "RESTORE FAILED" );
-        m_replayScrubber.saveMessageUntil = now + 2.5;
-        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_replayScrubber.visible = true;
-        fprintf( stderr,
-                 "[replay] Solver restore %s%s%s\n",
-                 restored ? "applied" : "failed",
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
+        RestoreReplayScrubberSelectionAsLive( now );
+        consumesMouse = true;
         return true;
     }
 
@@ -1267,7 +1311,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         SaveReplayBufferFromScrubber( RunReplayTrack::Solver );
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && !overPauseButton && !overPredictUi &&
+    else if ( leftPressed && canTakeMouse && !overBranchButton && !overPauseButton && !overPredictUi &&
               ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
