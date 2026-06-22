@@ -43,10 +43,26 @@ class UIComboBox
     bool IsOpen() const;
     void SetOpen( bool open );
     void SetDropUp( bool dropUp );
+    void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
-    void Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
-    void Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw,
+               const char* label,
+               const char* const* options,
+               int optionCount,
+               int selectedIndex,
+               int mouseX,
+               int mouseY,
+               uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw,
+               const char* label,
+               const char* selectedText,
+               const char* const* options,
+               int optionCount,
+               int selectedIndex,
+               int mouseX,
+               int mouseY,
+               uint32_t disabledOptionMask = 0 ) const;
 
   private:
     UIRect FieldRect() const;
@@ -55,6 +71,7 @@ class UIComboBox
     UIRect m_bounds;
     bool m_isOpen = false;
     bool m_dropUp = false;
+    bool m_labelVisible = true;
 };
 
 } // namespace UI

@@ -31,18 +31,18 @@ set "REPO=%~dp0.."
 
 call "%~dp0find_clang_format.bat"
 if errorlevel 1 exit /b 99
-call "%~dp0find_python.bat"
-if errorlevel 1 exit /b 99
 
-REM Run the parameter collapse script first (matches pipeline Step 1).
-"%PYTHON_EXE%" "%REPO%\Agentic\Skills\collapse_params.py"
-if errorlevel 1 exit /b 99
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 98
 
 set COUNT=0
-for %%f in ("%REPO%\SkullbonezSource\*.cpp" "%REPO%\SkullbonezSource\*.h") do (
+for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
     "%CLANG_FMT%" -i "%%f"
     set /a COUNT+=1
 )
 
-echo Formatted %COUNT% files.
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --write
+if errorlevel 1 exit /b 1
+
+echo Formatted %COUNT% C++ files and aligned header inline comments.
 exit /b 0

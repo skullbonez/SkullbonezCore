@@ -55,9 +55,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="SceneParserUnitTests.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\SkullbonezTestScene.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\SkullbonezTestSceneParser.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\SkullbonezVector3.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingBox.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingSphere.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\Config.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\ConvexHullShape.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Rendering\IRenderBackend.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Matrix4.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Quaternion.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\RotationMatrix.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Scene\TestScene.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Scene\TestSceneParser.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Vector3.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

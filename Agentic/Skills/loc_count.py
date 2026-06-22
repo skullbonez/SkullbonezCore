@@ -1,23 +1,25 @@
 """
-loc_count.py — Count logical lines of code in SkullbonezSource/.
+loc_count.py - Count logical lines of code in SkullbonezSource/.
+
 Excludes:
   - Blank lines (whitespace only)
-  - Single-line comments  (// ...)
-  - Block comment lines   (/* ... */ — any line that is purely inside or opening/closing a block comment)
-  - Preprocessor lines are counted (they are executable intent, e.g. #include, #define)
+  - Single-line comments (// ...)
+  - Block comment lines (/* ... */ - any line that is purely inside or
+    opening/closing a block comment)
+  - Preprocessor lines are counted because they carry executable intent.
+
 Prints per-file counts and a grand total.
 """
 
-import os
-import re
 import sys
-import glob
+from pathlib import Path
 
-def count_loc(path: str) -> int:
+
+def count_loc(path: Path) -> int:
     loc = 0
     in_block = False
 
-    with open(path, encoding='utf-8-sig', errors='replace') as fh:
+    with path.open(encoding="utf-8-sig", errors="replace") as fh:
         for raw in fh:
             line = raw.strip()
 
@@ -25,31 +27,28 @@ def count_loc(path: str) -> int:
                 continue
 
             if in_block:
-                if '*/' in line:
+                if "*/" in line:
                     in_block = False
-                    remainder = line[line.index('*/') + 2:].strip()
-                    if remainder and not remainder.startswith('//'):
+                    remainder = line[line.index("*/") + 2 :].strip()
+                    if remainder and not remainder.startswith("//"):
                         loc += 1
-                # still inside block comment — don't count
                 continue
 
-            # Does this line open a block comment?
-            if '/*' in line:
-                before = line[:line.index('/*')].strip()
-                after_open = line[line.index('/*') + 2:]
-                if '*/' in after_open:
-                    # Inline block comment: /* ... */ on same line — count if there's real code outside
-                    outer = before + ' ' + after_open[after_open.index('*/') + 2:]
+            if "/*" in line:
+                before = line[: line.index("/*")].strip()
+                after_open = line[line.index("/*") + 2 :]
+                if "*/" in after_open:
+                    outer = before + " " + after_open[after_open.index("*/") + 2 :]
                     outer = outer.strip()
-                    if outer and not outer.startswith('//'):
+                    if outer and not outer.startswith("//"):
                         loc += 1
                 else:
                     in_block = True
-                    if before and not before.startswith('//'):
+                    if before and not before.startswith("//"):
                         loc += 1
                 continue
 
-            if line.startswith('//'):
+            if line.startswith("//"):
                 continue
 
             loc += 1
@@ -57,36 +56,45 @@ def count_loc(path: str) -> int:
     return loc
 
 
-def main():
-    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    src_dir = os.path.join(repo, 'SkullbonezSource')  # first-party only; ThirdPtySource is excluded
-
-    files = sorted(
-        glob.glob(os.path.join(src_dir, '*.h')) +
-        glob.glob(os.path.join(src_dir, '*.cpp'))
+def source_files(src_dir: Path) -> list[Path]:
+    extensions = {".cpp", ".h"}
+    return sorted(
+        (
+            path
+            for path in src_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in extensions
+        ),
+        key=lambda path: str(path.relative_to(src_dir)).lower(),
     )
 
+
+def main() -> int:
+    repo = Path(__file__).resolve().parents[2]
+    src_dir = repo / "SkullbonezSource"
+    files = source_files(src_dir)
+
     if not files:
-        print(f'No source files found in {src_dir}')
-        sys.exit(1)
+        print(f"No source files found in {src_dir}")
+        return 1
 
     results = []
-    for f in files:
-        n = count_loc(f)
-        results.append((os.path.basename(f), n))
+    for source_file in files:
+        loc = count_loc(source_file)
+        results.append((str(source_file.relative_to(src_dir)), loc))
 
-    results.sort(key=lambda x: -x[1])
-    total = sum(n for _, n in results)
+    results.sort(key=lambda item: (-item[1], item[0].lower()))
+    total = sum(loc for _, loc in results)
 
-    name_w = max(len(r[0]) for r in results)
+    name_w = max(len(name) for name, _ in results)
     print(f'\n{"File":<{name_w}}  LOC')
-    print('-' * (name_w + 6))
-    for name, n in results:
-        print(f'{name:<{name_w}}  {n:>4}')
-    print('-' * (name_w + 6))
+    print("-" * (name_w + 6))
+    for name, loc in results:
+        print(f"{name:<{name_w}}  {loc:>4}")
+    print("-" * (name_w + 6))
     print(f'{"TOTAL":<{name_w}}  {total:>4}')
     print()
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

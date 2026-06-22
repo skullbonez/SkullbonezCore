@@ -63,7 +63,11 @@ bool HandleContentClick( UIOptionsTabState& state,
                          float contentW,
                          int modelCapacity );
 
-bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, int modelCapacity, InGameUIInputResult& result );
+bool UpdateActiveSlider( UIOptionsTabState& state,
+                         int activeSlider,
+                         int mouseX,
+                         int modelCapacity,
+                         InGameUIInputResult& result );
 bool CommitActiveSlider( UIOptionsTabState& state, int activeSlider, InGameUIInputResult& result );
 
 void Draw( UIOptionsTabState& state,

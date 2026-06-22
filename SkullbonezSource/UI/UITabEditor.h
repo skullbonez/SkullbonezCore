@@ -14,7 +14,7 @@ Glossary:
 
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
-  - SkullbonezSource/SkullbonezRunInput.cpp
+  - SkullbonezSource/Runtime/RunInput.cpp
 */
 #pragma once
 
@@ -61,7 +61,9 @@ constexpr int OBJECT_TREE_SMALL_ROOTED = 24;
 constexpr int OBJECT_TREE_BIG_ROOTED = 25;
 constexpr int OBJECT_TREE_CEDAR_ROOTED = 26;
 constexpr int OBJECT_TREE_PINE_SHEDDING = 27;
-constexpr int OBJECT_TYPE_COUNT = 28;
+constexpr int OBJECT_RAGDOLL = 28;
+constexpr int OBJECT_RAGDOLL_SLEEP = 29;
+constexpr int OBJECT_TYPE_COUNT = 30;
 
 struct UIEditorTabState
 {

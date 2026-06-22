@@ -21,7 +21,7 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - SkullbonezSource/SkullbonezTestSceneParser.cpp
+@rem   - SkullbonezSource/Scene/TestSceneParser.cpp
 @rem
 @echo off
 setlocal enabledelayedexpansion

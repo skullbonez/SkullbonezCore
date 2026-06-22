@@ -1,0 +1,109 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -32.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": true
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "cameras": [
+    {
+      "name": "ragdolls",
+      "position": [
+        500,
+        58,
+        565
+      ],
+      "view": [
+        500,
+        13,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ragdoll",
+      "name": "awake_rag",
+      "position": [
+        490,
+        0,
+        500
+      ],
+      "scale": 1.0,
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "sleeping_rag",
+      "position": [
+        515,
+        0,
+        500
+      ],
+      "scale": 1.0,
+      "sleeping": true
+    },
+    {
+      "type": "ball",
+      "name": "wake_ball",
+      "position": [
+        515,
+        28,
+        492
+      ],
+      "radius": 2.5,
+      "mass": 6.0,
+      "moment": 15.0,
+      "restitution": 0.55,
+      "force": [
+        0,
+        0,
+        120
+      ],
+      "forcePosition": [
+        515,
+        28,
+        492
+      ],
+      "fixed": false
+    }
+  ]
+}

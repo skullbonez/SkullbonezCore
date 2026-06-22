@@ -30,8 +30,7 @@ namespace SkullbonezCore
 namespace UI
 {
 
-UICacheState::UICacheState()
-    : m_drawList( std::make_unique<UIDrawList>() )
+UICacheState::UICacheState() : m_drawList( std::make_unique<UIDrawList>() )
 {
 }
 
@@ -40,7 +39,8 @@ void UICacheState::Reset()
 {
     m_drawList->Clear();
     m_lastKey = {};
-    m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT | UI_DIRTY_BLUR_SOURCE;
+    m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT |
+                   UI_DIRTY_BLUR_SOURCE;
     m_hasFrame = false;
 }
 
@@ -50,7 +50,8 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
     uint32_t flags = UI_DIRTY_NONE;
     if ( !m_hasFrame )
     {
-        flags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT | UI_DIRTY_BLUR_SOURCE;
+        flags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT |
+                UI_DIRTY_BLUR_SOURCE;
     }
     else
     {
@@ -70,7 +71,8 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
                 flags |= UI_DIRTY_BLUR_SOURCE;
             }
         }
-        if ( key.activeTab != m_lastKey.activeTab || !SameFloat( key.scrollY, m_lastKey.scrollY ) || key.contentSignature != m_lastKey.contentSignature )
+        if ( key.activeTab != m_lastKey.activeTab || !SameFloat( key.scrollY, m_lastKey.scrollY ) ||
+             key.contentSignature != m_lastKey.contentSignature )
         {
             flags |= UI_DIRTY_CONTENT;
         }
@@ -95,17 +97,11 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
 
 bool UICacheState::CanReplayPositionOnly( const UICacheFrameKey& key ) const
 {
-    return m_hasFrame &&
-           !m_drawList->Empty() &&
-           m_dirtyFlags == UI_DIRTY_POSITION &&
-           key.screenW == m_lastKey.screenW &&
-           key.screenH == m_lastKey.screenH &&
-           SameSize( key.windowBounds, m_lastKey.windowBounds ) &&
-           key.activeTab == m_lastKey.activeTab &&
-           SameFloat( key.scrollY, m_lastKey.scrollY ) &&
-           key.blurEnabled == m_lastKey.blurEnabled &&
-           key.contentSignature == m_lastKey.contentSignature &&
-           key.styleSignature == m_lastKey.styleSignature &&
+    return m_hasFrame && !m_drawList->Empty() && m_dirtyFlags == UI_DIRTY_POSITION &&
+           key.screenW == m_lastKey.screenW && key.screenH == m_lastKey.screenH &&
+           SameSize( key.windowBounds, m_lastKey.windowBounds ) && key.activeTab == m_lastKey.activeTab &&
+           SameFloat( key.scrollY, m_lastKey.scrollY ) && key.blurEnabled == m_lastKey.blurEnabled &&
+           key.contentSignature == m_lastKey.contentSignature && key.styleSignature == m_lastKey.styleSignature &&
            key.interactionSignature == m_lastKey.interactionSignature;
 }
 

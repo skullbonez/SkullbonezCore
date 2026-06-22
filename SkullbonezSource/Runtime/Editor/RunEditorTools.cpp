@@ -1,0 +1,3310 @@
+/*
+File: SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+Purpose:
+  Owns runtime editor placement, selection, gizmos, and overlay tracing.
+
+Mental model:
+  Input asks for editor actions. This file performs editor math, picking,
+  placement, gizmos, and line visualization.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
+#include "../RunInternal.h"
+#include "EditorTools.h"
+#include "EditorHullAssets.h"
+#include "../InputController.h"
+#include "../../Physics/PhysicsMass.h"
+#include "../../Physics/Ragdoll.h"
+#include "../RuntimeFileWriter.h"
+#include "../../Core/WorkerPool.h"
+#include "../../UI/UIInput.h"
+#include "../../UI/UILayout.h"
+
+#include <chrono>
+#include <cfloat>
+#include <cmath>
+#include <cstddef>
+#include <cstring>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::UI::Layout;
+using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
+using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
+using SkullbonezCore::Assets::EditorHullAsset;
+using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
+using SkullbonezCore::Assets::EditorHullAssetPath;
+using SkullbonezCore::Assets::EditorHullAssetToken;
+
+namespace
+{
+bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
+{
+    const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y +
+                         inverseViewProjection.m[8] * z + inverseViewProjection.m[12];
+    const float worldY = inverseViewProjection.m[1] * x + inverseViewProjection.m[5] * y +
+                         inverseViewProjection.m[9] * z + inverseViewProjection.m[13];
+    const float worldZ = inverseViewProjection.m[2] * x + inverseViewProjection.m[6] * y +
+                         inverseViewProjection.m[10] * z + inverseViewProjection.m[14];
+    const float worldW = inverseViewProjection.m[3] * x + inverseViewProjection.m[7] * y +
+                         inverseViewProjection.m[11] * z + inverseViewProjection.m[15];
+    if ( fabsf( worldW ) < 1e-6f )
+    {
+        return false;
+    }
+
+    const float invW = 1.0f / worldW;
+    outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
+    return true;
+}
+
+Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
+{
+    return hull.GetPosition() + hull.GetAuthoredCenterOfMass();
+}
+
+
+float HullAuthoredBottomOffset( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
+    }
+    return minY == FLT_MAX ? 0.0f : -minY;
+}
+
+
+float HullVerticalSize( const ConvexHullShape& hull )
+{
+    float minY = FLT_MAX;
+    float maxY = -FLT_MAX;
+    for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
+    {
+        const float y = hull.GetVertex( i ).y;
+        minY = (std::min)( minY, y );
+        maxY = (std::max)( maxY, y );
+    }
+    return minY == FLT_MAX ? 1.0f : (std::max)( 1.0f, maxY - minY );
+}
+
+
+constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
+
+
+void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObject )
+{
+    if ( fixedObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
+    }
+    else if ( boxObject )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
+    }
+    else
+    {
+        model.SetRenderTint( 0.42f, 0.50f, 1.0f, -1.0f );
+    }
+}
+
+
+constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
+constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
+struct EditorTreePartDefinition
+{
+    EditorHullAsset hullAsset;
+    const char* suffix;
+    float offsetX;
+    float offsetY;
+    float offsetZ;
+    float restitution;
+    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
+    const char* materialName;
+    float colorR;
+    float colorG;
+    float colorB;
+    float roughness;
+    float specular;
+    float stylization;
+    bool startsFixed = false;
+    bool contactReleaseOnImpact = false;
+    float contactReleaseImpulseThreshold = 1.0f;
+};
+
+
+struct EditorTreeDefinition
+{
+    const char* label;
+    const EditorTreePartDefinition* parts;
+    int partCount;
+    bool alignToTerrainNormal = false;
+    bool forceFixed = false;
+    bool seedAsleep = false;
+};
+
+
+constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset,
+                                                       const char* suffix,
+                                                       float offsetX,
+                                                       float offsetY,
+                                                       float offsetZ,
+                                                       float restitution,
+                                                       SkullbonezCore::Rendering::RenderMaterialKind materialKind,
+                                                       const char* materialName,
+                                                       float colorR,
+                                                       float colorG,
+                                                       float colorB,
+                                                       float roughness,
+                                                       float specular,
+                                                       float stylization,
+                                                       bool startsFixed = false,
+                                                       bool contactReleaseOnImpact = false,
+                                                       float contactReleaseImpulseThreshold = 1.0f )
+{
+    return { hullAsset,
+             suffix,
+             offsetX,
+             offsetY,
+             offsetZ,
+             restitution,
+             materialKind,
+             materialName,
+             colorR,
+             colorG,
+             colorB,
+             roughness,
+             specular,
+             stylization,
+             startsFixed,
+             contactReleaseOnImpact || EditorHullAssetDefaultsToContactRelease( hullAsset ),
+             contactReleaseImpulseThreshold };
+}
+
+
+constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition part, float liftY )
+{
+    part.offsetY += liftY;
+    return part;
+}
+
+
+constexpr EditorTreePartDefinition SmallRootPart()
+{
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_SMALL,
+                               "root",
+                               0.0f,
+                               0.55f,
+                               0.0f,
+                               0.04f,
+                               SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                               "editor_small_root",
+                               0.24f,
+                               0.12f,
+                               0.055f,
+                               0.96f,
+                               0.05f,
+                               0.50f );
+}
+
+
+constexpr EditorTreePartDefinition LargeRootPart()
+{
+    return MakeEditorTreePart( EditorHullAsset::TREE_ROOT_LARGE,
+                               "root",
+                               0.0f,
+                               0.75f,
+                               0.0f,
+                               0.04f,
+                               SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                               "editor_large_root",
+                               0.23f,
+                               0.115f,
+                               0.052f,
+                               0.96f,
+                               0.05f,
+                               0.50f );
+}
+
+
+constexpr EditorTreePartDefinition
+PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ, float shade )
+{
+    return MakeEditorTreePart( EditorHullAsset::PINE_NEEDLE_CLUSTER,
+                               suffix,
+                               offsetX,
+                               offsetY,
+                               offsetZ,
+                               0.04f,
+                               SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                               "editor_pine_loose_needles",
+                               0.035f + shade * 0.025f,
+                               0.18f + shade * 0.11f,
+                               0.052f + shade * 0.045f,
+                               0.90f,
+                               0.06f,
+                               0.94f,
+                               true,
+                               true,
+                               1.25f );
+}
+
+
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_SMALL_FACETED,
+                        "trunk",
+                        0.0f,
+                        6.5f,
+                        0.0f,
+                        0.06f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                        "editor_small_bark",
+                        0.30f,
+                        0.14f,
+                        0.055f,
+                        0.94f,
+                        0.06f,
+                        0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_LOW,
+                        "low",
+                        0.0f,
+                        20.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_small_needles_low",
+                        0.055f,
+                        0.24f,
+                        0.12f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_MID,
+                        "mid",
+                        0.0f,
+                        28.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_small_needles_mid",
+                        0.075f,
+                        0.30f,
+                        0.15f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP,
+                        "top",
+                        0.0f,
+                        35.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_small_needles_top",
+                        0.10f,
+                        0.36f,
+                        0.18f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+};
+constexpr int EDITOR_TREE_SMALL_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) / sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small",
+                                                     EDITOR_TREE_SMALL_PARTS,
+                                                     EDITOR_TREE_SMALL_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope",
+                                                           EDITOR_TREE_SMALL_PARTS,
+                                                           EDITOR_TREE_SMALL_PART_COUNT,
+                                                           true,
+                                                           false };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP =
+    { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED,
+                        "trunk",
+                        0.0f,
+                        9.0f,
+                        0.0f,
+                        0.06f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                        "editor_big_bark",
+                        0.31f,
+                        0.16f,
+                        0.07f,
+                        0.94f,
+                        0.06f,
+                        0.48f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_LARGE,
+                        "low",
+                        0.0f,
+                        24.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_big_needles_low",
+                        0.045f,
+                        0.20f,
+                        0.055f,
+                        0.88f,
+                        0.08f,
+                        0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_MID,
+                        "mid",
+                        0.0f,
+                        34.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_big_needles_mid",
+                        0.06f,
+                        0.25f,
+                        0.075f,
+                        0.88f,
+                        0.08f,
+                        0.88f ),
+    MakeEditorTreePart( EditorHullAsset::PINE_TIER_TOP,
+                        "top",
+                        0.0f,
+                        43.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_big_needles_top",
+                        0.09f,
+                        0.31f,
+                        0.10f,
+                        0.88f,
+                        0.08f,
+                        0.88f ),
+};
+constexpr int EDITOR_TREE_BIG_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) / sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope",
+                                                         EDITOR_TREE_BIG_PARTS,
+                                                         EDITOR_TREE_BIG_PART_COUNT,
+                                                         true,
+                                                         false };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP =
+    { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
+    MakeEditorTreePart( EditorHullAsset::TREE_TRUNK_FACETED,
+                        "trunk",
+                        0.0f,
+                        9.0f,
+                        0.0f,
+                        0.06f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                        "editor_cedar_bark",
+                        0.28f,
+                        0.13f,
+                        0.055f,
+                        0.94f,
+                        0.06f,
+                        0.50f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_LOW,
+                        "low",
+                        0.0f,
+                        25.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_cedar_needles_low",
+                        0.055f,
+                        0.24f,
+                        0.12f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TALL_MID,
+                        "mid",
+                        0.0f,
+                        38.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_cedar_needles_mid",
+                        0.075f,
+                        0.30f,
+                        0.15f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+    MakeEditorTreePart( EditorHullAsset::CEDAR_TIER_TOP,
+                        "top",
+                        0.0f,
+                        48.0f,
+                        0.0f,
+                        0.05f,
+                        SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                        "editor_cedar_needles_top",
+                        0.10f,
+                        0.36f,
+                        0.18f,
+                        0.89f,
+                        0.08f,
+                        0.90f ),
+};
+constexpr int EDITOR_TREE_CEDAR_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) / sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar",
+                                                     EDITOR_TREE_CEDAR_PARTS,
+                                                     EDITOR_TREE_CEDAR_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope",
+                                                           EDITOR_TREE_CEDAR_PARTS,
+                                                           EDITOR_TREE_CEDAR_PART_COUNT,
+                                                           true,
+                                                           false };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLEEP =
+    { "tree_cedar_sleep", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, false, false, true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = {
+    SmallRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0],
+                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1],
+                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2],
+                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3],
+                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) / sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted",
+                                                            EDITOR_TREE_SMALL_ROOTED_PARTS,
+                                                            EDITOR_TREE_SMALL_ROOTED_PART_COUNT,
+                                                            true,
+                                                            true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) / sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted",
+                                                          EDITOR_TREE_BIG_ROOTED_PARTS,
+                                                          EDITOR_TREE_BIG_ROOTED_PART_COUNT,
+                                                          true,
+                                                          true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0],
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1],
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2],
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3],
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) / sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted",
+                                                            EDITOR_TREE_CEDAR_ROOTED_PARTS,
+                                                            EDITOR_TREE_CEDAR_ROOTED_PART_COUNT,
+                                                            true,
+                                                            true };
+
+constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
+    LargeRootPart(),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_BIG_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_00", -12.0f, 22.0f, -12.0f, 0.10f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_01", -4.0f, 21.5f, -16.0f, 0.18f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_02", 6.0f, 22.5f, -15.0f, 0.30f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_03", 14.0f, 23.0f, -7.0f, 0.24f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_04", 15.0f, 23.5f, 5.0f, 0.14f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_05", 8.0f, 22.0f, 14.0f, 0.34f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_06", -4.0f, 22.5f, 16.0f, 0.22f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_07", -15.0f, 23.0f, 7.0f, 0.28f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_08", -9.0f, 31.0f, -10.0f, 0.38f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_09", 1.0f, 31.5f, -12.0f, 0.26f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_10", 10.0f, 32.0f, -5.0f, 0.16f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_11", 11.0f, 32.5f, 6.0f, 0.32f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_12", 2.0f, 31.0f, 12.0f, 0.20f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_13", -10.0f, 32.0f, 4.0f, 0.36f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_14", -6.0f, 40.0f, -6.0f, 0.18f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_15", 4.0f, 40.5f, -7.0f, 0.28f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_16", 7.0f, 41.0f, 3.0f, 0.12f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( PineNeedlePart( "needle_17", -3.0f, 41.0f, 7.0f, 0.34f ),
+                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+};
+constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) / sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
+constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding",
+                                                             EDITOR_TREE_PINE_SHEDDING_PARTS,
+                                                             EDITOR_TREE_PINE_SHEDDING_PART_COUNT,
+                                                             true,
+                                                             true };
+
+
+const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL:
+        return &EDITOR_TREE_SMALL;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG:
+        return &EDITOR_TREE_BIG;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR:
+        return &EDITOR_TREE_CEDAR;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+        return &EDITOR_TREE_SMALL_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+        return &EDITOR_TREE_BIG_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+        return &EDITOR_TREE_CEDAR_SLOPE;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+        return &EDITOR_TREE_SMALL_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+        return &EDITOR_TREE_BIG_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+        return &EDITOR_TREE_CEDAR_SLEEP;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+        return &EDITOR_TREE_SMALL_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+        return &EDITOR_TREE_BIG_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+        return &EDITOR_TREE_CEDAR_ROOTED;
+    case SkullbonezCore::UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+        return &EDITOR_TREE_PINE_SHEDDING;
+    default:
+        return nullptr;
+    }
+}
+
+
+bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    if ( autoTerrainAlign )
+    {
+        return true;
+    }
+    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
+    {
+        return tree->alignToTerrainNormal;
+    }
+    return type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL ||
+           type == SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE;
+}
+
+
+Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
+{
+    if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
+    {
+        return IDENTITY_QUATERNION;
+    }
+
+    const float normalMag = VectorMag( terrainNormal );
+    if ( normalMag <= TOLERANCE )
+    {
+        return IDENTITY_QUATERNION;
+    }
+    terrainNormal /= normalMag;
+
+    const Vector3 up( 0.0f, 1.0f, 0.0f );
+    const float dot = std::clamp( up * terrainNormal, -1.0f, 1.0f );
+    Quaternion orientation = IDENTITY_QUATERNION;
+    if ( dot > 0.9995f )
+    {
+        return orientation;
+    }
+    if ( dot < -0.9995f )
+    {
+        orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), _PI );
+        return orientation;
+    }
+
+    Vector3 axis = CrossProduct( up, terrainNormal );
+    const float axisMag = VectorMag( axis );
+    if ( axisMag <= TOLERANCE )
+    {
+        return orientation;
+    }
+    axis /= axisMag;
+    orientation.RotateAboutAxis( axis, acosf( dot ) );
+    return orientation;
+}
+
+
+const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
+{
+    const char* path = EditorHullAssetPath( asset );
+    if ( !path )
+    {
+        return nullptr;
+    }
+
+    static std::array<ConvexHullShape, EDITOR_HULL_ASSET_COUNT> hulls = {};
+    static std::array<bool, EDITOR_HULL_ASSET_COUNT> loaded = {};
+    for ( std::size_t i = 0; i < EDITOR_HULL_ASSET_COUNT; ++i )
+    {
+        if ( EDITOR_HULL_ASSETS[i].asset != asset )
+        {
+            continue;
+        }
+        if ( !loaded[i] )
+        {
+            hulls[i] = ConvexHullShape::LoadFromFile( path );
+            loaded[i] = true;
+        }
+        return &hulls[i];
+    }
+    return nullptr;
+}
+
+
+const ConvexHullShape* CachedEditorHullForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    return CachedEditorHullForAsset( EditorHullAssetForType( type ) );
+}
+
+
+bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
+{
+    outMinY = FLT_MAX;
+    outMaxY = -FLT_MAX;
+    for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
+    {
+        const EditorTreePartDefinition& part = tree.parts[partIndex];
+        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        if ( !hull )
+        {
+            return false;
+        }
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+        {
+            const Vector3 authoredOffset = HullAuthoredLocalOffset( *hull );
+            const float y = part.offsetY + authoredOffset.y + hull->GetVertex( vertexIndex ).y;
+            outMinY = (std::min)( outMinY, y );
+            outMaxY = (std::max)( outMaxY, y );
+        }
+    }
+    return outMinY != FLT_MAX && outMaxY != -FLT_MAX;
+}
+
+
+bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree,
+                                      const Vector3& terrainPoint,
+                                      const RotationMatrix& orientation,
+                                      Vector3& outMin,
+                                      Vector3& outMax )
+{
+    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
+    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    const Vector3 surfaceLift = orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+    for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
+    {
+        const EditorTreePartDefinition& part = tree.parts[partIndex];
+        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        if ( !hull )
+        {
+            return false;
+        }
+
+        const Vector3 localBase =
+            Vector3( part.offsetX, part.offsetY, part.offsetZ ) + HullAuthoredLocalOffset( *hull );
+        for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+        {
+            const Vector3 world =
+                terrainPoint + surfaceLift + orientation * ( localBase + hull->GetVertex( vertexIndex ) );
+            outMin.x = (std::min)( outMin.x, world.x );
+            outMin.y = (std::min)( outMin.y, world.y );
+            outMin.z = (std::min)( outMin.z, world.z );
+            outMax.x = (std::max)( outMax.x, world.x );
+            outMax.y = (std::max)( outMax.y, world.y );
+            outMax.z = (std::max)( outMax.z, world.z );
+        }
+    }
+    return outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
+}
+
+
+float EditorTreeVerticalSize( int objectType )
+{
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
+    if ( !tree )
+    {
+        return 1.0f;
+    }
+    float minY = 0.0f;
+    float maxY = 1.0f;
+    return TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
+}
+
+
+SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
+{
+    SkullbonezCore::Rendering::RenderMaterial material =
+        SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR,
+                                                                     part.colorG,
+                                                                     part.colorB,
+                                                                     static_cast<float>( part.materialKind ) );
+    strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
+    material.roughness = part.roughness;
+    material.specular = part.specular;
+    material.stylization = part.stylization;
+    return material;
+}
+
+
+bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::RenderMaterial& outMaterial )
+{
+    const char* name = nullptr;
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+    float roughness = 0.96f;
+    float specular = 0.08f;
+    float stylization = 0.66f;
+
+    switch ( asset )
+    {
+    case EditorHullAsset::ROCK_SLAB_FLAT:
+        name = "editor_cool_blue_stone";
+        r = 0.34f;
+        g = 0.42f;
+        b = 0.58f;
+        stylization = 0.72f;
+        break;
+    case EditorHullAsset::ROCK_LUMP_LARGE:
+        name = "editor_moss_grey_stone";
+        r = 0.31f;
+        g = 0.39f;
+        b = 0.35f;
+        roughness = 0.98f;
+        specular = 0.07f;
+        break;
+    case EditorHullAsset::ROCK_SHARD_TALL:
+        name = "editor_violet_granite";
+        r = 0.44f;
+        g = 0.38f;
+        b = 0.55f;
+        specular = 0.11f;
+        stylization = 0.70f;
+        break;
+    case EditorHullAsset::ROCK_CHIPPED_BLOCK:
+        name = "editor_warm_chipped_stone";
+        r = 0.52f;
+        g = 0.45f;
+        b = 0.40f;
+        roughness = 0.97f;
+        stylization = 0.62f;
+        break;
+    default:
+        return false;
+    }
+
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
+        r,
+        g,
+        b,
+        static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
+    strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
+    outMaterial.roughness = roughness;
+    outMaterial.specular = specular;
+    outMaterial.stylization = stylization;
+    return true;
+}
+
+
+bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::RenderMaterial& outMaterial )
+{
+    const bool smallRoot = asset == EditorHullAsset::TREE_ROOT_SMALL;
+    const bool largeRoot = asset == EditorHullAsset::TREE_ROOT_LARGE;
+    if ( !smallRoot && !largeRoot )
+    {
+        return false;
+    }
+
+    const char* name = smallRoot ? "editor_small_root" : "editor_large_root";
+    const float r = smallRoot ? 0.24f : 0.23f;
+    const float g = smallRoot ? 0.12f : 0.115f;
+    const float b = smallRoot ? 0.055f : 0.052f;
+    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
+        r,
+        g,
+        b,
+        static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
+    strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
+    outMaterial.roughness = 0.96f;
+    outMaterial.specular = 0.05f;
+    outMaterial.stylization = 0.50f;
+    return true;
+}
+
+bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementScale, ConvexHullShape& outHull )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const ConvexHullShape* baseHull = CachedEditorHullForType( type );
+    if ( !baseHull )
+    {
+        return false;
+    }
+
+    const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    outHull = *baseHull;
+    outHull.ScaleAxis( 0, scale.x );
+    outHull.ScaleAxis( 1, scale.y );
+    outHull.ScaleAxis( 2, scale.z );
+    return true;
+}
+
+
+float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementScale )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
+        return scale.y * 2.0f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
+    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
+        return scale.x * 2.0f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        return scale.x * 18.5f;
+    default:
+    {
+        if ( EditorTreeDefinitionForType( type ) )
+        {
+            return EditorTreeVerticalSize( type );
+        }
+        ConvexHullShape hull;
+        return TryBuildScaledEditorHullForType( type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
+    }
+    }
+}
+
+
+Vector3 EditorAxisVector( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    default:
+        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    }
+}
+
+
+float EditorModelRadius( const GameModel& model )
+{
+    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
+{
+    if ( axis < 0 || axis > 2 )
+    {
+        return 1.0f;
+    }
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        return (std::max)( sphere->GetRadius(), 0.25f );
+    }
+
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& halfExtents = box->GetHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3& halfExtents = hull->GetInertiaHalfExtents();
+        if ( axis == 0 )
+        {
+            return (std::max)( halfExtents.x, 0.25f );
+        }
+        if ( axis == 1 )
+        {
+            return (std::max)( halfExtents.y, 0.25f );
+        }
+        return (std::max)( halfExtents.z, 0.25f );
+    }
+
+    return 1.0f;
+}
+
+
+float EditorGizmoAxisLength( float modelRadius )
+{
+    return (std::max)( 14.0f, modelRadius + 12.0f );
+}
+
+
+float EditorGizmoRotationRadius( float modelRadius )
+{
+    return (std::max)( 12.0f, modelRadius + 7.0f );
+}
+
+
+float ReplayVelocityLinearBaseLength( float modelRadius )
+{
+    return (std::max)( 10.0f, modelRadius + 7.0f );
+}
+
+
+float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent )
+{
+    const float sign = velocityComponent < 0.0f ? -1.0f : 1.0f;
+    const float t = std::clamp( fabsf( velocityComponent ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
+    return sign * ( ReplayVelocityLinearBaseLength( modelRadius ) + t * REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
+}
+
+
+float ReplayVelocityLinearUnitsPerWorld()
+{
+    return REPLAY_VELOCITY_EDIT_LINEAR_MAX / REPLAY_VELOCITY_EDIT_LINEAR_EXTRA;
+}
+
+
+float ReplayVelocityAngularBaseRadius( float modelRadius )
+{
+    return (std::max)( 11.0f, modelRadius + 6.0f );
+}
+
+
+float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent )
+{
+    const float t = std::clamp( fabsf( angularComponent ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
+    return ReplayVelocityAngularBaseRadius( modelRadius ) + t * (std::max)( 5.0f, modelRadius * 0.85f );
+}
+
+
+float ReplayVelocityAxisComponent( const Vector3& value, int axis )
+{
+    if ( axis == 0 )
+    {
+        return value.x;
+    }
+    if ( axis == 1 )
+    {
+        return value.y;
+    }
+    return value.z;
+}
+
+
+void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
+{
+    if ( axis == 0 )
+    {
+        value.x = component;
+    }
+    else if ( axis == 1 )
+    {
+        value.y = component;
+    }
+    else
+    {
+        value.z = component;
+    }
+}
+
+
+void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float& r, float& g, float& b )
+{
+    r = axis == 0 ? 1.0f : 0.10f;
+    g = axis == 1 ? 0.95f : 0.16f;
+    b = axis == 2 ? 1.0f : 0.14f;
+    r = std::clamp( r + heat * 0.46f, 0.0f, 1.0f );
+    g = std::clamp( g + heat * 0.22f, 0.0f, 1.0f );
+    b = std::clamp( b - heat * 0.34f, 0.05f, 1.0f );
+    if ( hot || active )
+    {
+        r = (std::min)( 1.0f, r + 0.34f );
+        g = (std::min)( 1.0f, g + 0.34f );
+        b = (std::min)( 1.0f, b + 0.20f );
+    }
+    if ( active )
+    {
+        r = 1.0f;
+        g = 0.96f;
+        b = 0.18f;
+    }
+}
+
+
+Vector3 EditorRotationRingBasisA( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 2:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    default:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    }
+}
+
+
+Vector3 EditorRotationRingBasisB( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 1:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    default:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    }
+}
+
+
+float WrapEditorAngleDelta( float delta )
+{
+    while ( delta > _PI )
+    {
+        delta -= 2.0f * _PI;
+    }
+    while ( delta < -_PI )
+    {
+        delta += 2.0f * _PI;
+    }
+    return delta;
+}
+
+
+float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   const Vector3& segmentA,
+                                   const Vector3& segmentB )
+{
+    const Vector3 segment = segmentB - segmentA;
+    const float segmentLenSq = segment * segment;
+    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
+    {
+        const Vector3 toPoint = segmentA - rayOrigin;
+        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
+    }
+
+    const Vector3 w0 = rayOrigin - segmentA;
+    const float a = rayDirection * rayDirection;
+    const float b = rayDirection * segment;
+    const float c = segmentLenSq;
+    const float d = rayDirection * w0;
+    const float e = segment * w0;
+    const float denom = a * c - b * b;
+
+    float rayT = 0.0f;
+    float segmentT = 0.0f;
+    if ( fabsf( denom ) > 1e-5f )
+    {
+        rayT = ( b * e - c * d ) / denom;
+        segmentT = ( a * e - b * d ) / denom;
+    }
+
+    if ( rayT < 0.0f )
+    {
+        rayT = 0.0f;
+        segmentT = std::clamp( e / c, 0.0f, 1.0f );
+    }
+    else if ( segmentT < 0.0f )
+    {
+        segmentT = 0.0f;
+        rayT = (std::max)( 0.0f, -d / a );
+    }
+    else if ( segmentT > 1.0f )
+    {
+        segmentT = 1.0f;
+        rayT = (std::max)( 0.0f, ( b - d ) / a );
+    }
+
+    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
+    const Vector3 segmentPoint = segmentA + segment * segmentT;
+    return VectorMagSquared( rayPoint - segmentPoint );
+}
+
+
+bool IntersectRaySphere( const Vector3& rayOrigin,
+                         const Vector3& rayDirection,
+                         const Vector3& center,
+                         float radius,
+                         float& outT )
+{
+    const Vector3 m = rayOrigin - center;
+    const float b = m * rayDirection;
+    const float c = ( m * m ) - radius * radius;
+    if ( c > 0.0f && b > 0.0f )
+    {
+        return false;
+    }
+
+    const float discriminant = b * b - c;
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+
+    outT = -b - sqrtf( discriminant );
+    if ( outT < 0.0f )
+    {
+        outT = 0.0f;
+    }
+    return true;
+}
+
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
+constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
+constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
+constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+constexpr float MOUSE_PICKUP_RAY_PADDING = 1.0f;
+constexpr float MOUSE_PICKUP_DEAD_ZONE = 0.04f;
+constexpr float MOUSE_PICKUP_STIFFNESS = 18.0f;
+constexpr float MOUSE_PICKUP_DAMPING = 1.35f;
+constexpr float MOUSE_PICKUP_MAX_IMPULSE = 260.0f;
+
+} // namespace
+
+void Run::ResetEditorUnfocusedInputState()
+{
+    m_editor.viewportLookActive = false;
+    m_editor.altShortcutWasDown = false;
+    m_editor.tabShortcutWasDown = false;
+    m_editor.tildeShortcutWasDown = false;
+    m_editor.placementScaleActive = false;
+    m_editor.placementScaleWheelSteps = 0;
+    m_editor.gizmoDragActive = false;
+    m_editor.gizmoDragIsRotation = false;
+    m_editor.gizmoDragIsScale = false;
+    m_editor.activeGizmoAxis = -1;
+    m_editor.gizmoDragStartAxisT = 0.0f;
+    m_editor.gizmoDragStartRotationAngle = 0.0f;
+    m_editor.gizmoDragStartPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    m_editor.gizmoDragStartOrientation = IDENTITY_QUATERNION;
+}
+
+
+void Run::ClearEditorManipulationState()
+{
+    m_editor.placementPreviewVisible = false;
+    m_editor.placementScaleActive = false;
+    m_editor.placementScaleWheelSteps = 0;
+    m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
+    m_editor.placementScaleStart = m_editor.placementScale;
+    m_editor.gizmoDragActive = false;
+    m_editor.gizmoDragIsRotation = false;
+    m_editor.gizmoDragIsScale = false;
+    m_editor.activeGizmoAxis = -1;
+    m_editor.placementAltitudeSteps = 0;
+}
+
+
+void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
+{
+    EnterInteractiveSceneRun();
+    m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+    m_editor.viewportLookActive = false;
+    ClearEditorManipulationState();
+    ReleaseMouseToUI();
+    ApplyCursorOwnership();
+    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+}
+
+
+void Run::HandleEditorKeyboardShortcuts()
+{
+    m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
+    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditorTool, VK_MENU ) )
+    {
+        ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );
+    }
+}
+
+
+void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands, bool keyboardToggleEditorMode )
+{
+    if ( uiCommands.editor.requestedObjectType >= 0 )
+    {
+        const int requestedObjectType =
+            std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+        if ( requestedObjectType != m_editor.objectType )
+        {
+            m_editor.objectType = requestedObjectType;
+            ClearEditorManipulationState();
+        }
+        else if ( uiCommands.editor.enterPlacementMode )
+        {
+            ClearEditorManipulationState();
+        }
+        if ( uiCommands.editor.enterPlacementMode && m_editor.editorModeEnabled )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.placementModeEnabled = true;
+            m_editor.viewportLookActive = false;
+            ReleaseMouseToUI();
+            ApplyCursorOwnership();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
+        }
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType, RuntimeInputActionSource::UI );
+    }
+    if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
+    {
+        EnterInteractiveSceneRun();
+        const RuntimeInputActionSource toggleEditorSource =
+            keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI;
+        m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
+        if ( m_editor.editorModeEnabled )
+        {
+            const bool wasFlyMode = m_camera.isFlyMode;
+            m_editor.placementModeEnabled = true;
+            m_editor.viewportLookActive = false;
+            ClearEditorManipulationState();
+            m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
+            m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
+            m_editor.restoreCameraModeAfterEditor = m_camera.mode;
+            CancelMousePickup();
+            m_camera.mode = RunCameraMode::Free;
+            SyncLegacyCameraModeFlags();
+            if ( !wasFlyMode )
+            {
+                EnterFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        else
+        {
+            const bool wasFlyMode = m_camera.isFlyMode;
+            m_editor.viewportLookActive = false;
+            m_editor.placementPreviewVisible = false;
+            m_editor.placementModeEnabled = false;
+            m_editor.gizmoDragActive = false;
+            m_editor.gizmoDragIsRotation = false;
+            m_editor.gizmoDragIsScale = false;
+            m_editor.activeGizmoAxis = -1;
+            m_editor.placementScaleActive = false;
+            m_editor.placementScaleWheelSteps = 0;
+            m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
+            m_editor.placementScaleStart = m_editor.placementScale;
+            m_editor.placementAltitudeSteps = 0;
+            m_camera.mode = m_editor.restoreCameraModeAfterEditor;
+            SyncLegacyCameraModeFlags();
+            m_editor.restoreFlyModeAfterEditor = false;
+            m_editor.restoreRayTestModeAfterEditor = false;
+            m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
+            if ( wasFlyMode && !m_camera.isFlyMode )
+            {
+                ExitFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, toggleEditorSource );
+    }
+    if ( uiCommands.editor.togglePlacementMode )
+    {
+        ToggleEditorPlacementMode( RuntimeInputActionSource::UI );
+    }
+    if ( uiCommands.editor.togglePlaceStatic )
+    {
+        EnterInteractiveSceneRun();
+        m_editor.placeStaticObject = !m_editor.placeStaticObject;
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                           RuntimeInputActionSource::UI );
+    }
+    if ( uiCommands.editor.toggleTerrainAlign )
+    {
+        EnterInteractiveSceneRun();
+        m_editor.autoTerrainAlign = !m_editor.autoTerrainAlign;
+        m_editor.placementPreviewVisible = false;
+        m_editor.placementScaleActive = false;
+        m_editor.placementScaleWheelSteps = 0;
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign, RuntimeInputActionSource::UI );
+    }
+}
+
+
+void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
+{
+    const bool editorViewportLookNow =
+        m_editor.editorModeEnabled && Input::IsRightMouseDown() && !m_UI.BlocksCameraMouse();
+    if ( editorViewportLookNow != m_editor.viewportLookActive )
+    {
+        InputController::ResetMouseLook( m_camera );
+    }
+    m_editor.viewportLookActive = editorViewportLookNow;
+    if ( editorViewportLookNow != ( m_runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook ) )
+    {
+        UpdateRuntimeInputModeAfterAction( editorViewportLookNow ? RuntimeInputAction::BeginEditorViewportLook
+                                                                 : RuntimeInputAction::EndEditorViewportLook,
+                                           RuntimeInputActionSource::Mouse );
+    }
+
+    const int placementWheelSteps = EditorMouseWheelSteps( unhandledWheelDelta );
+    const bool placementLeftMouseNow = Input::IsLeftMouseDown();
+    if ( m_editor.placementScaleActive && placementLeftMouseNow && !m_editor.viewportLookActive &&
+         !m_UI.BlocksCameraMouse() )
+    {
+        if ( placementWheelSteps != 0 )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.placementScaleWheelSteps += placementWheelSteps;
+        }
+
+        const POINT currentClient = Input::GetClientMouseCoordinates();
+        const float dragPixelsX = static_cast<float>( currentClient.x - m_editor.placementScaleStartClient.x );
+        const float dragPixelsY = static_cast<float>( currentClient.y - m_editor.placementScaleStartClient.y );
+        m_editor.placementScale = EditorPlacementScaleFromGesture( m_editor.objectType,
+                                                                   m_editor.placementScaleStart,
+                                                                   dragPixelsX,
+                                                                   dragPixelsY,
+                                                                   m_editor.placementScaleWheelSteps );
+    }
+    else if ( placementWheelSteps != 0 && m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
+              !m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() )
+    {
+        const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
+        if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
+        {
+            EnterInteractiveSceneRun();
+            m_editor.placementAltitudeSteps = nextAltitudeSteps;
+        }
+    }
+    ApplyCursorOwnership();
+}
+
+
+bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+{
+    UpdateEditorInteractionPreview();
+
+    const bool leftMouseNow = mouseEdges.leftDown;
+    const bool leftPressed = mouseEdges.leftPressed;
+    const bool leftReleased = mouseEdges.leftReleased;
+    bool consumedWorldClick = false;
+
+    if ( m_editor.placementScaleActive )
+    {
+        consumedWorldClick = true;
+        if ( leftReleased || suppressWorldActionThisFrame )
+        {
+            if ( leftReleased && !suppressWorldActionThisFrame && m_editor.placementPreviewVisible )
+            {
+                const int previousModelCount = m_cGameModelCollection.GetModelCount();
+                PlaceEditorObjectAtTerrainPoint( m_editor.objectType,
+                                                 m_editor.placeStaticObject,
+                                                 m_editor.placementTerrainPoint );
+                if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                {
+                    m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                }
+            }
+            m_editor.placementScaleActive = false;
+            m_editor.placementScaleWheelSteps = 0;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale,
+                                               RuntimeInputActionSource::Mouse );
+        }
+    }
+
+    if ( !consumedWorldClick && m_editor.gizmoDragActive )
+    {
+        consumedWorldClick = true;
+        if ( leftMouseNow && !suppressWorldActionThisFrame )
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+            {
+                if ( m_editor.gizmoDragIsScale )
+                {
+                    ScaleSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                }
+                else if ( m_editor.gizmoDragIsRotation )
+                {
+                    RotateSelectedEditorObjectAroundAxis( rayOrigin, rayDirection );
+                }
+                else
+                {
+                    MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
+                }
+            }
+        }
+        if ( leftReleased || suppressWorldActionThisFrame )
+        {
+            m_editor.gizmoDragActive = false;
+            m_editor.gizmoDragIsRotation = false;
+            m_editor.gizmoDragIsScale = false;
+            m_editor.activeGizmoAxis = -1;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
+                                               RuntimeInputActionSource::Mouse );
+        }
+    }
+
+    if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
+    {
+        const bool editorScaleMode =
+            m_editor.editorModeEnabled && !m_editor.placementModeEnabled && Input::IsKeyDown( VK_CONTROL );
+        if ( editorScaleMode && m_editor.selectedModelIndex >= 0 &&
+             m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() && m_editor.hotGizmoAxis >= 0 )
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            float axisT = 0.0f;
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                 TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+            {
+                EnterInteractiveSceneRun();
+                GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
+                m_editor.gizmoDragActive = true;
+                m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = true;
+                m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                m_editor.gizmoDragStartAxisT = axisT;
+                m_editor.gizmoDragStartShape = model.GetCollisionShape();
+                consumedWorldClick = true;
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
+                                                   RuntimeInputActionSource::Mouse );
+            }
+        }
+
+        if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
+             m_editor.selectedModelIndex >= 0 && m_editor.hotRotationAxis >= 0 )
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            float startAngle = 0.0f;
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                 TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.gizmoDragActive = true;
+                m_editor.gizmoDragIsRotation = true;
+                m_editor.gizmoDragIsScale = false;
+                m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
+                m_editor.gizmoDragStartRotationAngle = startAngle;
+                m_editor.gizmoDragStartOrientation =
+                    m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )]
+                        .GetOrientation();
+                consumedWorldClick = true;
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
+                                                   RuntimeInputActionSource::Mouse );
+            }
+        }
+
+        if ( !consumedWorldClick && m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
+             m_editor.selectedModelIndex >= 0 && m_editor.hotGizmoAxis >= 0 )
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            float axisT = 0.0f;
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                 TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
+            {
+                EnterInteractiveSceneRun();
+                m_editor.gizmoDragActive = true;
+                m_editor.gizmoDragIsRotation = false;
+                m_editor.gizmoDragIsScale = false;
+                m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
+                m_editor.gizmoDragStartAxisT = axisT;
+                m_editor.gizmoDragStartPosition =
+                    m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+                consumedWorldClick = true;
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
+                                                   RuntimeInputActionSource::Mouse );
+            }
+        }
+
+        if ( !consumedWorldClick && m_editor.editorModeEnabled )
+        {
+            if ( m_editor.placementModeEnabled )
+            {
+                if ( m_editor.placementPreviewVisible )
+                {
+                    m_editor.placementScaleActive = true;
+                    m_editor.placementScaleWheelSteps = 0;
+                    m_editor.placementScaleStart =
+                        EditorClampPlacementScale( m_editor.objectType, m_editor.placementScale );
+                    m_editor.placementScale = m_editor.placementScaleStart;
+                    m_editor.placementScaleStartClient = Input::GetClientMouseCoordinates();
+                    m_editor.placementScaleTerrainPoint = m_editor.placementTerrainPoint;
+                    m_editor.placementScaleRayOrigin = m_editor.placementRayOrigin;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale,
+                                                       RuntimeInputActionSource::Mouse );
+                }
+            }
+            else
+            {
+                Vector3 rayOrigin;
+                Vector3 rayDirection;
+                int pickedIndex = -1;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                     TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                {
+                    m_editor.selectedModelIndex = pickedIndex;
+                }
+                else
+                {
+                    m_editor.selectedModelIndex = -1;
+                }
+            }
+            consumedWorldClick = true;
+        }
+    }
+
+    return consumedWorldClick;
+}
+
+
+void Run::HandleEditorSaveHotkeys()
+{
+    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
+    {
+        static int sSnapshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Scenes",
+                                                  "snapshot_",
+                                                  ".scene.json",
+                                                  sSnapshotSeq,
+                                                  100 ) )
+        {
+            m_cGameModelCollection.SaveSceneSnapshot( path,
+                                                      SceneState().isScenePhysics,
+                                                      SceneState().isSceneText,
+                                                      m_cWorldEnvironment,
+                                                      m_systems.cameras->GetCameraTranslation(),
+                                                      m_systems.cameras->GetCameraView(),
+                                                      m_systems.cameras->GetCameraUp() );
+        }
+    }
+
+    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
+    {
+        static int sScreenshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Screenshots",
+                                                  "screenshot_",
+                                                  ".bmp",
+                                                  sScreenshotSeq,
+                                                  100 ) )
+        {
+            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
+            command.text = path;
+            m_runtimeCommands.Push( std::move( command ) );
+        }
+    }
+}
+
+
+RunEditorTracer::RunEditorTracer()
+{
+    m_lineData.reserve( 4096 );
+}
+
+
+void RunEditorTracer::Clear()
+{
+    m_lineData.clear();
+}
+
+
+void RunEditorTracer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
+}
+
+
+void RunEditorTracer::EmitArrow( const Vector3& a, const Vector3& b, float r, float g, float bl )
+{
+    EmitLine( a, b, r, g, bl );
+
+    Vector3 dir = b - a;
+    const float len = VectorMag( dir );
+    if ( len <= TOLERANCE )
+    {
+        return;
+    }
+    dir /= len;
+
+    Vector3 side = fabsf( dir.y ) < 0.8f ? CrossProduct( dir, Vector3( 0.0f, 1.0f, 0.0f ) )
+                                         : CrossProduct( dir, Vector3( 1.0f, 0.0f, 0.0f ) );
+    const float sideLen = VectorMag( side );
+    if ( sideLen <= TOLERANCE )
+    {
+        return;
+    }
+    side /= sideLen;
+
+    const float head = (std::min)( len * 0.25f, 2.0f );
+    const Vector3 base = b - dir * head;
+    EmitLine( b, base + side * ( head * 0.45f ), r, g, bl );
+    EmitLine( b, base - side * ( head * 0.45f ), r, g, bl );
+}
+
+
+void RunEditorTracer::EmitRing( const Vector3& center, int axis, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 64;
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    Vector3 previous = center + basisA * radius;
+    for ( int i = 1; i <= segments; ++i )
+    {
+        const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+        const Vector3 next = center + basisA * ( cosf( theta ) * radius ) + basisB * ( sinf( theta ) * radius );
+        EmitLine( previous, next, r, g, bl );
+        previous = next;
+    }
+}
+
+
+void RunEditorTracer::EmitSphere( const Vector3& center, float radius, float r, float g, float bl )
+{
+    constexpr int segments = 32;
+    for ( int plane = 0; plane < 3; ++plane )
+    {
+        Vector3 previous;
+        for ( int i = 0; i <= segments; ++i )
+        {
+            const float theta = static_cast<float>( i ) * ( 2.0f * _PI / static_cast<float>( segments ) );
+            const float c = cosf( theta ) * radius;
+            const float s = sinf( theta ) * radius;
+            Vector3 next = center;
+            if ( plane == 0 )
+            {
+                next.x += c;
+                next.z += s;
+            }
+            else if ( plane == 1 )
+            {
+                next.x += c;
+                next.y += s;
+            }
+            else
+            {
+                next.y += c;
+                next.z += s;
+            }
+
+            if ( i > 0 )
+            {
+                EmitLine( previous, next, r, g, bl );
+            }
+            previous = next;
+        }
+    }
+}
+
+
+void RunEditorTracer::EmitBox( const Vector3& center,
+                               const Vector3& xAxis,
+                               const Vector3& yAxis,
+                               const Vector3& zAxis,
+                               float r,
+                               float g,
+                               float bl )
+{
+    const Vector3 corners[8] = {
+        center - xAxis - yAxis - zAxis,
+        center + xAxis - yAxis - zAxis,
+        center + xAxis + yAxis - zAxis,
+        center - xAxis + yAxis - zAxis,
+        center - xAxis - yAxis + zAxis,
+        center + xAxis - yAxis + zAxis,
+        center + xAxis + yAxis + zAxis,
+        center - xAxis + yAxis + zAxis,
+    };
+
+    static constexpr int kEdges[12][2] = {
+        { 0, 1 },
+        { 1, 2 },
+        { 2, 3 },
+        { 3, 0 },
+        { 4, 5 },
+        { 5, 6 },
+        { 6, 7 },
+        { 7, 4 },
+        { 0, 4 },
+        { 1, 5 },
+        { 2, 6 },
+        { 3, 7 },
+    };
+    for ( const auto& edge : kEdges )
+    {
+        EmitLine( corners[edge[0]], corners[edge[1]], r, g, bl );
+    }
+}
+
+
+void RunEditorTracer::AddPlacementRay( const Vector3& rayOrigin, const Vector3& hitPoint )
+{
+    EmitLine( rayOrigin, hitPoint, 0.25f, 0.80f, 1.0f );
+}
+
+
+void RunEditorTracer::AddPlacementGhost( int objectType,
+                                         const Vector3& center,
+                                         const Vector3& terrainPoint,
+                                         const Vector3& placementScale,
+                                         const Quaternion& orientation )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    Quaternion orientationCopy = orientation;
+    const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+    constexpr float ghostR = 0.25f;
+    constexpr float ghostG = 1.0f;
+    constexpr float ghostB = 0.85f;
+
+    if ( const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type ) )
+    {
+        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = tree->parts[partIndex];
+            const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !hull )
+            {
+                continue;
+            }
+            const Vector3 hullCenter = base + rotation * ( Vector3( part.offsetX, part.offsetY, part.offsetZ ) +
+                                                           HullAuthoredLocalOffset( *hull ) );
+            for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+            {
+                const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+                EmitLine( hullCenter + rotation * hull->GetVertex( edge.vertexA ),
+                          hullCenter + rotation * hull->GetVertex( edge.vertexB ),
+                          ghostR,
+                          ghostG,
+                          ghostB );
+            }
+        }
+        return;
+    }
+
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
+        EmitBox( center,
+                 rotation * Vector3( scale.x, 0.0f, 0.0f ),
+                 rotation * Vector3( 0.0f, scale.y, 0.0f ),
+                 rotation * Vector3( 0.0f, 0.0f, scale.z ),
+                 ghostR,
+                 ghostG,
+                 ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
+        EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
+        EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
+        break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        Ragdoll::AddPreviewLines( m_lineData, terrainPoint, scale.x, orientation, ghostR, ghostG, ghostB );
+        break;
+    default:
+    {
+        ConvexHullShape hull;
+        if ( !TryBuildScaledEditorHullForType( type, scale, hull ) )
+        {
+            return;
+        }
+        const Vector3 hullCenter = center + rotation * hull.GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull.GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull.GetEdge( edgeIndex );
+            EmitLine( hullCenter + rotation * hull.GetVertex( edge.vertexA ),
+                      hullCenter + rotation * hull.GetVertex( edge.vertexB ),
+                      ghostR,
+                      ghostG,
+                      ghostB );
+        }
+        break;
+    }
+    }
+}
+
+
+void RunEditorTracer::AddRayCastTestLine( const Vector3& start, const Vector3& end, float alpha, bool hit )
+{
+    alpha = std::clamp( alpha, 0.0f, 1.0f );
+    if ( alpha <= 0.0f )
+    {
+        return;
+    }
+
+    const float r = hit ? 1.0f : 0.35f;
+    const float g = hit ? 0.34f : 0.72f;
+    const float b = hit ? 0.12f : 1.0f;
+    EmitLine( start, end, r * alpha, g * alpha, b * alpha );
+}
+
+void RunEditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
+{
+    EmitLine( start, end, r, g, b );
+}
+
+
+void RunEditorTracer::AddReplayContactMarker( const Vector3& point, const Vector3& normal, float r, float g, float b )
+{
+    constexpr float crossSize = 0.55f;
+    EmitLine( point - Vector3( crossSize, 0.0f, 0.0f ), point + Vector3( crossSize, 0.0f, 0.0f ), r, g, b );
+    EmitLine( point - Vector3( 0.0f, crossSize, 0.0f ), point + Vector3( 0.0f, crossSize, 0.0f ), r, g, b );
+    EmitLine( point - Vector3( 0.0f, 0.0f, crossSize ), point + Vector3( 0.0f, 0.0f, crossSize ), r, g, b );
+    if ( VectorMagSquared( normal ) > TOLERANCE * TOLERANCE )
+    {
+        EmitArrow( point, point + normal * 1.8f, r, g, b );
+    }
+}
+
+
+void RunEditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& impulse, float r, float g, float b )
+{
+    const float magSq = VectorMagSquared( impulse );
+    if ( magSq <= TOLERANCE * TOLERANCE )
+    {
+        return;
+    }
+
+    Vector3 direction = impulse;
+    const float magnitude = sqrtf( magSq );
+    direction /= magnitude;
+    const float length = std::clamp( sqrtf( magnitude ) * 3.0f, 1.8f, 12.0f );
+    EmitArrow( point, point + direction * length, r, g, b );
+}
+
+
+void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& center, float radius, int depth )
+{
+    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
+    const float r = std::clamp( 0.98f - depthFade * 0.55f, 0.52f, 1.0f );
+    const float g = std::clamp( 0.72f - depthFade * 0.22f, 0.42f, 0.82f );
+    const float b = std::clamp( 0.22f - depthFade * 0.12f, 0.10f, 0.32f );
+    radius = (std::max)( 0.75f, radius );
+    EmitRing( center, 1, radius, r, g, b );
+    EmitRing( center, 0, radius * 0.72f, r * 0.84f, g * 0.88f, b );
+}
+
+
+void RunEditorTracer::AddReplayTargetMarker( const GameModel& model )
+{
+    AddSelectionOutline( model );
+    EmitRing( model.GetPosition(), 1, (std::max)( 1.0f, EditorModelRadius( model ) * 1.18f ), 1.0f, 1.0f, 1.0f );
+}
+
+
+void RunEditorTracer::AddSelectionOutline( const GameModel& model )
+{
+    Quaternion orientation = model.GetOrientation();
+    const RotationMatrix rot = orientation.GetOrientationMatrix();
+    constexpr float outlineR = 1.0f;
+    constexpr float outlineG = 1.0f;
+    constexpr float outlineB = 0.55f;
+
+    const CollisionShape& shape = model.GetCollisionShape();
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        EmitSphere( model.GetPosition() + rot * sphere->GetPosition(),
+                    sphere->GetBoundingRadius(),
+                    outlineR,
+                    outlineG,
+                    outlineB );
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = model.GetPosition() + rot * box->GetPosition();
+        EmitBox( center,
+                 rot * Vector3( he.x, 0.0f, 0.0f ),
+                 rot * Vector3( 0.0f, he.y, 0.0f ),
+                 rot * Vector3( 0.0f, 0.0f, he.z ),
+                 outlineR,
+                 outlineG,
+                 outlineB );
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = model.GetPosition() + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ),
+                      hullCenter + rot * hull->GetVertex( edge.vertexB ),
+                      outlineR,
+                      outlineG,
+                      outlineB );
+        }
+    }
+}
+
+
+void RunEditorTracer::AddGizmo( const Vector3& origin,
+                                float radius,
+                                int hotTranslateAxis,
+                                int hotRotationAxis,
+                                int activeAxis,
+                                bool activeRotation,
+                                bool scaleMode,
+                                bool activeScale )
+{
+    const float length = EditorGizmoAxisLength( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( ( activeScale || ( !scaleMode && !activeRotation ) ) && activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotTranslateAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const Vector3 endpoint = origin + axisVector * length;
+        if ( scaleMode || activeScale )
+        {
+            const float handle = (std::max)( 0.75f, length * 0.045f );
+            EmitLine( origin, endpoint, r, g, b );
+            EmitBox( endpoint,
+                     Vector3( handle, 0.0f, 0.0f ),
+                     Vector3( 0.0f, handle, 0.0f ),
+                     Vector3( 0.0f, 0.0f, handle ),
+                     r,
+                     g,
+                     b );
+        }
+        else
+        {
+            EmitArrow( origin, endpoint, r, g, b );
+        }
+    }
+
+    if ( scaleMode || activeScale )
+    {
+        return;
+    }
+
+    const float ringRadius = EditorGizmoRotationRadius( radius );
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        float r = axis == 0 ? 1.0f : 0.08f;
+        float g = axis == 1 ? 0.95f : 0.10f;
+        float b = axis == 2 ? 1.0f : 0.08f;
+        if ( activeRotation && activeAxis == axis )
+        {
+            r = 1.0f;
+            g = 1.0f;
+            b = 0.15f;
+        }
+        else if ( hotRotationAxis == axis )
+        {
+            r = (std::min)( 1.0f, r + 0.45f );
+            g = (std::min)( 1.0f, g + 0.45f );
+            b = (std::min)( 1.0f, b + 0.45f );
+        }
+        EmitRing( origin, axis, ringRadius, r, g, b );
+    }
+}
+
+
+void RunEditorTracer::AddReplayVelocityGizmo( const GameModel& model,
+                                              int hotLinearAxis,
+                                              int hotAngularAxis,
+                                              int activeAxis,
+                                              bool activeAngular )
+{
+    AddSelectionOutline( model );
+
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const Vector3 linearVelocity = model.GetVelocity();
+    const Vector3 angularVelocity = model.GetAngularVelocity();
+    const float baseLength = ReplayVelocityLinearBaseLength( radius );
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float component = ReplayVelocityAxisComponent( linearVelocity, axis );
+        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
+        const bool hot = hotLinearAxis == axis;
+        const bool active = !activeAngular && activeAxis == axis;
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
+
+        const float axisT = ReplayVelocityLinearVisualAxisT( radius, component );
+        const Vector3 endpoint = origin + axisVector * axisT;
+        EmitLine( origin - axisVector * ( baseLength * 0.24f ),
+                  origin + axisVector * ( baseLength * 0.24f ),
+                  r * 0.34f,
+                  g * 0.34f,
+                  b * 0.34f );
+        EmitArrow( origin, endpoint, r, g, b );
+    }
+
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const float component = ReplayVelocityAxisComponent( angularVelocity, axis );
+        const float heat = std::clamp( fabsf( component ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
+        const bool hot = hotAngularAxis == axis;
+        const bool active = activeAngular && activeAxis == axis;
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+        ReplayVelocityAxisColor( axis, heat, hot, active, r, g, b );
+        EmitRing( origin, axis, ReplayVelocityAngularVisualRadius( radius, component ), r, g, b );
+    }
+}
+
+
+void RunEditorTracer::Render( const Matrix4& viewProjection )
+{
+    if ( m_lineData.empty() || !IsGfxReady() )
+    {
+        return;
+    }
+    Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
+}
+
+
+bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection ) const
+{
+    if ( !m_systems.window || !m_systems.cameras )
+    {
+        return false;
+    }
+
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
+    const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    if ( mouse.x < 0 || mouse.y < 0 || mouse.x >= screenW || mouse.y >= screenH )
+    {
+        return false;
+    }
+
+    const float ndcX = ( static_cast<float>( mouse.x ) / static_cast<float>( screenW ) ) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - ( static_cast<float>( mouse.y ) / static_cast<float>( screenH ) ) * 2.0f;
+
+    const Vector3 eye = m_systems.cameras->GetCameraTranslation();
+    const Vector3 view = m_systems.cameras->GetCameraView();
+    const Vector3 up = m_systems.cameras->GetCameraUp();
+    const Matrix4 viewMatrix = Matrix4::LookAt( eye, view, up );
+    const Matrix4 inverseViewProjection = ( m_systems.window->GetProjectionMatrix() * viewMatrix ).Inverse();
+
+    Vector3 rayNear;
+    Vector3 rayFar;
+    if ( !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 0.0f, rayNear ) ||
+         !TransformClipPointToWorld( inverseViewProjection, ndcX, ndcY, 1.0f, rayFar ) )
+    {
+        return false;
+    }
+
+    Vector3 rayDirection = rayFar - rayNear;
+    const float dirLenSq = VectorMagSquared( rayDirection );
+    if ( dirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    outOrigin = rayNear;
+    outDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    return true;
+}
+
+
+bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
+{
+    return TryGetMouseTerrainPlacement( outPosition, nullptr, nullptr );
+}
+
+
+bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrigin, Vector3* outRayDirection ) const
+{
+    if ( !m_systems.terrain )
+    {
+        return false;
+    }
+
+    Vector3 rayNear;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayNear, rayDirection ) )
+    {
+        return false;
+    }
+    if ( outRayOrigin )
+    {
+        *outRayOrigin = rayNear;
+    }
+    if ( outRayDirection )
+    {
+        *outRayDirection = rayDirection;
+    }
+
+    constexpr float MAX_RAY_DISTANCE = 5000.0f;
+    constexpr int RAY_STEPS = 192;
+    bool hasPrevious = false;
+    float previousT = 0.0f;
+    float previousDiff = 0.0f;
+
+    for ( int step = 0; step <= RAY_STEPS; ++step )
+    {
+        const float t = MAX_RAY_DISTANCE * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
+        const Vector3 sample = rayNear + rayDirection * t;
+        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        {
+            continue;
+        }
+
+        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float diff = sample.y - terrainY;
+        if ( fabsf( diff ) <= 0.01f )
+        {
+            outPosition = Vector3( sample.x, terrainY, sample.z );
+            return true;
+        }
+
+        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
+        {
+            float lowT = previousT;
+            float highT = t;
+            Vector3 hit = sample;
+            float hitY = terrainY;
+            for ( int refine = 0; refine < 12; ++refine )
+            {
+                const float midT = ( lowT + highT ) * 0.5f;
+                const Vector3 mid = rayNear + rayDirection * midT;
+                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                {
+                    lowT = midT;
+                    continue;
+                }
+                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midDiff = mid.y - midTerrainY;
+                hit = mid;
+                hitY = midTerrainY;
+                if ( midDiff > 0.0f )
+                {
+                    lowT = midT;
+                }
+                else
+                {
+                    highT = midT;
+                }
+            }
+            outPosition = Vector3( hit.x, hitY, hit.z );
+            return true;
+        }
+
+        hasPrevious = true;
+        previousT = t;
+        previousDiff = diff;
+    }
+
+    return false;
+}
+
+
+bool Run::TryComputeEditorObjectCenter( int objectType,
+                                        const Vector3& terrainPoint,
+                                        const Vector3& placementScale,
+                                        const Quaternion& orientation,
+                                        Vector3& outCenter ) const
+{
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const Vector3 scale = EditorClampPlacementScale( type, placementScale );
+    Quaternion orientationCopy = orientation;
+    const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+    switch ( type )
+    {
+    case UI::EditorTab::OBJECT_BOX:
+        outCenter = terrainPoint + rotation * Vector3( 0.0f, scale.y + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        return true;
+    case UI::EditorTab::OBJECT_BALL:
+    case UI::EditorTab::OBJECT_SPHERE:
+        outCenter =
+            Vector3( terrainPoint.x, terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::OBJECT_RAGDOLL:
+    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        outCenter = Ragdoll::DefaultPreviewCenter( terrainPoint, scale.x, orientation );
+        return true;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+    case UI::EditorTab::OBJECT_TREE_BIG:
+    case UI::EditorTab::OBJECT_TREE_CEDAR:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+    {
+        const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+        Vector3 minV;
+        Vector3 maxV;
+        if ( !tree || !TryComputeEditorTreeWorldBounds( *tree, terrainPoint, rotation, minV, maxV ) )
+        {
+            return false;
+        }
+        outCenter = ( minV + maxV ) * 0.5f;
+        return true;
+    }
+    default:
+    {
+        ConvexHullShape hull;
+        if ( !TryBuildScaledEditorHullForType( type, scale, hull ) )
+        {
+            return false;
+        }
+        const Vector3 authoredOrigin =
+            terrainPoint +
+            rotation * Vector3( 0.0f, HullAuthoredBottomOffset( hull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        outCenter = authoredOrigin + rotation * hull.GetAuthoredCenterOfMass();
+        return true;
+    }
+    }
+}
+
+
+bool Run::TryComputeEditorPlacementPreview( int objectType )
+{
+    Vector3 terrainPoint;
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    bool terrainAlreadyIncludesAltitude = false;
+    if ( m_editor.placementScaleActive )
+    {
+        terrainPoint = m_editor.placementScaleTerrainPoint;
+        rayOrigin = m_editor.placementScaleRayOrigin;
+        terrainAlreadyIncludesAltitude = true;
+    }
+    else
+    {
+        if ( !TryGetMouseTerrainPlacement( terrainPoint, &rayOrigin, &rayDirection ) )
+        {
+            return false;
+        }
+
+        if ( m_systems.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
+        {
+            const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+            const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
+            if ( m_systems.terrain->IsInBounds( snappedX, snappedZ ) )
+            {
+                terrainPoint.x = snappedX;
+                terrainPoint.z = snappedZ;
+                terrainPoint.y = m_systems.terrain->GetTerrainHeightAt( snappedX, snappedZ );
+            }
+        }
+    }
+
+    if ( !terrainAlreadyIncludesAltitude )
+    {
+        terrainPoint.y += static_cast<float>( m_editor.placementAltitudeSteps ) *
+                          EditorPlacementAltitudeStepSize( objectType, m_editor.placementScale );
+    }
+
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    {
+        float ignoredHeight = 0.0f;
+        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+    }
+    const Quaternion placementOrientation =
+        EditorOrientationFromTerrainNormal( objectType, terrainNormal, m_editor.autoTerrainAlign );
+
+    Vector3 center;
+    if ( !TryComputeEditorObjectCenter( objectType,
+                                        terrainPoint,
+                                        m_editor.placementScale,
+                                        placementOrientation,
+                                        center ) )
+    {
+        return false;
+    }
+
+    m_editor.placementTerrainPoint = terrainPoint;
+    m_editor.placementCenter = center;
+    m_editor.placementOrientation = placementOrientation;
+    m_editor.placementRayOrigin = rayOrigin;
+    m_editor.placementRayHit = terrainPoint;
+    return true;
+}
+
+
+bool Run::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirection, int& outIndex ) const
+{
+    outIndex = -1;
+    float bestT = FLT_MAX;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[i];
+        const float radius = EditorModelRadius( model ) + 1.0f;
+        const Vector3 toCenter = model.GetPosition() - rayOrigin;
+        const float rayT = toCenter * rayDirection;
+        if ( rayT < 0.0f || rayT >= bestT )
+        {
+            continue;
+        }
+
+        const Vector3 closest = rayOrigin + rayDirection * rayT;
+        if ( VectorMagSquared( model.GetPosition() - closest ) <= radius * radius )
+        {
+            bestT = rayT;
+            outIndex = i;
+        }
+    }
+    return outIndex >= 0;
+}
+
+
+bool Run::TryPickMousePickupModel( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   int& outIndex,
+                                   float& outRayT ) const
+{
+    outIndex = -1;
+    outRayT = FLT_MAX;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[static_cast<size_t>( i )];
+        if ( model.IsFixed() )
+        {
+            continue;
+        }
+
+        float rayT = 0.0f;
+        const float radius = EditorModelRadius( model ) + MOUSE_PICKUP_RAY_PADDING;
+        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) && rayT < outRayT )
+        {
+            outRayT = rayT;
+            outIndex = i;
+        }
+    }
+    return outIndex >= 0;
+}
+
+
+void Run::CancelMousePickup()
+{
+    if ( m_mousePickup.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+    m_mousePickup = RunMousePickupState{};
+}
+
+
+bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+{
+    if ( !IsManipulatorCameraMode() || m_editor.editorModeEnabled || ReplayInspectionActive() )
+    {
+        CancelMousePickup();
+        return false;
+    }
+
+    const auto UpdatePickupTarget = [&]() -> bool
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        {
+            return false;
+        }
+
+        const float denom = rayDirection * m_mousePickup.planeNormal;
+        if ( fabsf( denom ) <= 1.0e-5f )
+        {
+            return false;
+        }
+
+        const float planeT = ( ( m_mousePickup.planePoint - rayOrigin ) * m_mousePickup.planeNormal ) / denom;
+        if ( planeT < 0.0f )
+        {
+            return false;
+        }
+
+        m_mousePickup.targetPoint = rayOrigin + rayDirection * planeT;
+        return true;
+    };
+
+    if ( m_mousePickup.active )
+    {
+        if ( mouseEdges.leftReleased || !mouseEdges.leftDown )
+        {
+            CancelMousePickup();
+            return true;
+        }
+        UpdatePickupTarget();
+        return true;
+    }
+
+    if ( !mouseEdges.leftPressed )
+    {
+        return false;
+    }
+    if ( suppressWorldActionThisFrame || m_UI.WantsNativeMouseCursor() )
+    {
+        return false;
+    }
+
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    {
+        return true;
+    }
+
+    int pickedIndex = -1;
+    float pickedT = 0.0f;
+    if ( !TryPickMousePickupModel( rayOrigin, rayDirection, pickedIndex, pickedT ) )
+    {
+        return true;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    if ( pickedIndex < 0 || pickedIndex >= static_cast<int>( models.size() ) )
+    {
+        return true;
+    }
+
+    const GameModel& picked = models[static_cast<size_t>( pickedIndex )];
+    Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+    const float normalLenSq = VectorMagSquared( cameraNormal );
+    if ( normalLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return true;
+    }
+    cameraNormal *= 1.0f / sqrtf( normalLenSq );
+
+    const Vector3 grabPoint = rayOrigin + rayDirection * pickedT;
+    m_mousePickup.active = true;
+    m_mousePickup.mouseCaptured = true;
+    m_mousePickup.modelIndex = pickedIndex;
+    m_mousePickup.planePoint = grabPoint;
+    m_mousePickup.planeNormal = cameraNormal;
+    m_mousePickup.grabOffset = grabPoint - picked.GetPosition();
+    m_mousePickup.targetPoint = grabPoint;
+    m_mousePickup.preservedAngularVelocity = picked.GetAngularVelocity();
+    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    UI::InputControl::BeginMouseCapture( hwnd );
+    EnterInteractiveSceneRun();
+    UpdatePickupTarget();
+    return true;
+}
+
+
+void Run::ApplyMousePickupPhysicsStep()
+{
+    if ( !m_mousePickup.active )
+    {
+        return;
+    }
+
+    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    if ( model.IsFixed() )
+    {
+        CancelMousePickup();
+        return;
+    }
+    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+
+    const Vector3 grabPoint = model.GetPosition() + m_mousePickup.grabOffset;
+    const Vector3 pull = m_mousePickup.targetPoint - grabPoint;
+    const float pullLenSq = VectorMagSquared( pull );
+    if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
+    {
+        m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        return;
+    }
+
+    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - model.GetVelocity() * MOUSE_PICKUP_DAMPING;
+    const float impulseLenSq = VectorMagSquared( impulse );
+    if ( impulseLenSq > MOUSE_PICKUP_MAX_IMPULSE * MOUSE_PICKUP_MAX_IMPULSE )
+    {
+        impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
+    }
+
+    model.SetImpulseForce( impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    m_cGameModelCollection.WakeModel( m_mousePickup.modelIndex );
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+    m_mousePickup.lastImpulse = impulse;
+}
+
+
+void Run::RestoreMousePickupAngularVelocity()
+{
+    if ( !m_mousePickup.active )
+    {
+        return;
+    }
+
+    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    if ( model.IsFixed() )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
+int Run::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float radius = EditorModelRadius( model );
+    const float length = EditorGizmoAxisLength( radius );
+    const float threshold = (std::max)( 1.25f, length * 0.06f );
+    const float thresholdSq = threshold * threshold;
+
+    int bestAxis = -1;
+    float bestDistanceSq = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 axisVector = EditorAxisVector( axis );
+        const float distanceSq =
+            DistanceRayToSegmentSquared( rayOrigin, rayDirection, origin, origin + axisVector * length );
+        if ( distanceSq <= thresholdSq && distanceSq < bestDistanceSq )
+        {
+            bestDistanceSq = distanceSq;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+int Run::HitEditorRotationGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+{
+    if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return -1;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
+    const Vector3 origin = model.GetPosition();
+    const float ringRadius = EditorGizmoRotationRadius( EditorModelRadius( model ) );
+    const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
+
+    int bestAxis = -1;
+    float bestDiff = FLT_MAX;
+    for ( int axis = 0; axis < 3; ++axis )
+    {
+        const Vector3 normal = EditorAxisVector( axis );
+        const float denom = normal * rayDirection;
+        if ( fabsf( denom ) <= 1e-4f )
+        {
+            continue;
+        }
+
+        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        if ( rayT < 0.0f )
+        {
+            continue;
+        }
+
+        const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
+        const Vector3 radial = hitPoint - origin;
+        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float diff = fabsf( radialDistance - ringRadius );
+        if ( diff <= threshold && diff < bestDiff )
+        {
+            bestDiff = diff;
+            bestAxis = axis;
+        }
+    }
+    return bestAxis;
+}
+
+
+bool Run::TryEditorAxisRayParameter( int axis,
+                                     const Vector3& rayOrigin,
+                                     const Vector3& rayDirection,
+                                     float& outAxisT ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 ||
+         m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 axisOrigin =
+        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 axisVector = EditorAxisVector( axis );
+    const Vector3 w = axisOrigin - rayOrigin;
+    const float b = axisVector * rayDirection;
+    const float d = axisVector * w;
+    const float e = rayDirection * w;
+    const float denom = 1.0f - b * b;
+    if ( fabsf( denom ) <= 1e-5f )
+    {
+        return false;
+    }
+
+    outAxisT = ( b * e - d ) / denom;
+    return true;
+}
+
+
+bool Run::TryEditorRotationRayAngle( int axis,
+                                     const Vector3& rayOrigin,
+                                     const Vector3& rayDirection,
+                                     float& outAngle ) const
+{
+    if ( axis < 0 || axis > 2 || m_editor.selectedModelIndex < 0 ||
+         m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        return false;
+    }
+
+    const Vector3 origin =
+        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    const Vector3 normal = EditorAxisVector( axis );
+    const float denom = normal * rayDirection;
+    if ( fabsf( denom ) <= 1e-4f )
+    {
+        return false;
+    }
+
+    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    if ( rayT < 0.0f )
+    {
+        return false;
+    }
+
+    Vector3 radial = rayOrigin + rayDirection * rayT - origin;
+    radial -= normal * ( radial * normal );
+    const float radialLenSq = radial * radial;
+    if ( radialLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    radial = radial * ( 1.0f / sqrtf( radialLenSq ) );
+
+    const Vector3 basisA = EditorRotationRingBasisA( axis );
+    const Vector3 basisB = EditorRotationRingBasisB( axis );
+    outAngle = atan2f( radial * basisB, radial * basisA );
+    return true;
+}
+
+
+void Run::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    const Vector3 axisVector = EditorAxisVector( m_editor.activeGizmoAxis );
+    const Vector3 newPosition = m_editor.gizmoDragStartPosition + axisVector * ( axisT - m_editor.gizmoDragStartAxisT );
+    model.SetPosition( newPosition );
+    model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( !model.IsFixed() )
+    {
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
+void Run::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsScale || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float axisT = 0.0f;
+    if ( !TryEditorAxisRayParameter( m_editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    const float startExtent = EditorShapeAxisExtent( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis );
+    const float targetExtent = (std::max)( 0.25f, startExtent + axisT - m_editor.gizmoDragStartAxisT );
+    const float factor = targetExtent / startExtent;
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    if ( model.ScaleCollisionShapeAxisFromBase( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis, factor ) )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        if ( !model.IsFixed() )
+        {
+            m_cGameModelCollection.WakeModel( index );
+        }
+    }
+}
+
+
+void Run::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const Vector3& rayDirection )
+{
+    if ( !m_editor.gizmoDragActive || !m_editor.gizmoDragIsRotation || m_editor.activeGizmoAxis < 0 )
+    {
+        return;
+    }
+
+    float currentAngle = 0.0f;
+    if ( !TryEditorRotationRayAngle( m_editor.activeGizmoAxis, rayOrigin, rayDirection, currentAngle ) )
+    {
+        return;
+    }
+
+    const int index = m_editor.selectedModelIndex;
+    if ( index < 0 || index >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.activeGizmoAxis = -1;
+        return;
+    }
+
+    Quaternion orientation = m_editor.gizmoDragStartOrientation;
+    orientation.RotateAboutAxis( EditorAxisVector( m_editor.activeGizmoAxis ),
+                                 WrapEditorAngleDelta( currentAngle - m_editor.gizmoDragStartRotationAngle ) );
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+    model.SetOrientation( orientation );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( !model.IsFixed() )
+    {
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        m_cGameModelCollection.WakeModel( index );
+    }
+}
+
+
+void Run::UpdateEditorInteractionPreview()
+{
+    m_editor.placementPreviewVisible = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+
+    if ( m_UI.BlocksCameraMouse() || m_editor.viewportLookActive )
+    {
+        return;
+    }
+
+    if ( !m_editor.editorModeEnabled )
+    {
+        return;
+    }
+
+    if ( m_editor.placementModeEnabled )
+    {
+        m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
+    }
+
+    if ( m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    {
+        m_editor.selectedModelIndex = -1;
+        m_editor.gizmoDragActive = false;
+        m_editor.gizmoDragIsRotation = false;
+        m_editor.gizmoDragIsScale = false;
+        m_editor.activeGizmoAxis = -1;
+    }
+
+    if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive && !m_editor.placementModeEnabled )
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        {
+            if ( Input::IsKeyDown( VK_CONTROL ) )
+            {
+                m_editor.hotGizmoAxis = HitEditorGizmoAxis( rayOrigin, rayDirection );
+            }
+            else
+            {
+                m_editor.hotRotationAxis = HitEditorRotationGizmoAxis( rayOrigin, rayDirection );
+                m_editor.hotGizmoAxis =
+                    m_editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( rayOrigin, rayDirection ) : -1;
+            }
+        }
+    }
+}
+
+
+void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
+{
+    m_editorTracer.Clear();
+    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    if ( rayLinger > 0.0f )
+    {
+        for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+        {
+            if ( line.active && line.ageSeconds < rayLinger )
+            {
+                m_editorTracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );
+            }
+        }
+    }
+
+    if ( m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible )
+    {
+        m_editorTracer.AddPlacementRay( m_editor.placementRayOrigin, m_editor.placementRayHit );
+        m_editorTracer.AddPlacementGhost( m_editor.objectType,
+                                          m_editor.placementCenter,
+                                          m_editor.placementTerrainPoint,
+                                          m_editor.placementScale,
+                                          m_editor.placementOrientation );
+    }
+
+    if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && m_editor.selectedModelIndex >= 0 &&
+         m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
+        const float radius = EditorModelRadius( selected );
+        const bool scaleMode = m_editor.gizmoDragIsScale || Input::IsKeyDown( VK_CONTROL );
+        m_editorTracer.AddSelectionOutline( selected );
+        m_editorTracer.AddGizmo( selected.GetPosition(),
+                                 radius,
+                                 m_editor.hotGizmoAxis,
+                                 m_editor.hotRotationAxis,
+                                 m_editor.activeGizmoAxis,
+                                 m_editor.gizmoDragIsRotation,
+                                 scaleMode,
+                                 m_editor.gizmoDragIsScale );
+    }
+    if ( m_mousePickup.active && m_mousePickup.modelIndex >= 0 &&
+         m_mousePickup.modelIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& grabbed = m_cGameModelCollection.Models()[static_cast<size_t>( m_mousePickup.modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + m_mousePickup.grabOffset;
+        m_editorTracer.AddSelectionOutline( grabbed );
+        m_editorTracer.AddReplayPathSegment( grabPoint, m_mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+        m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint,
+                                               m_mousePickup.planeNormal,
+                                               0.1f,
+                                               0.95f,
+                                               1.0f );
+        m_editorTracer.AddReplayImpulseVector( grabPoint, m_mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+    }
+    RenderReplayPathVisualizer( m_editorTracer );
+    RenderReplayCauseFocusOverlay( m_editorTracer );
+    RenderReplayVelocityEditOverlay( m_editorTracer );
+    m_editorTracer.Render( viewProjection );
+    m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
+}
+
+
+void Run::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
+{
+    Vector3 terrainPoint;
+    if ( !TryGetMouseTerrainPlacement( terrainPoint ) )
+    {
+        return;
+    }
+
+    PlaceEditorObjectAtTerrainPoint( objectType, fixedObject, terrainPoint );
+}
+
+
+void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
+{
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+    const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const int requiredModelCount = isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( tree ? tree->partCount : 1 );
+    if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
+    {
+        fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
+        return;
+    }
+
+    EnterInteractiveSceneRun();
+    const Vector3 placementScale = EditorClampPlacementScale( type, m_editor.placementScale );
+    const int serial = m_editor.placedObjectSerial++;
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    {
+        float ignoredHeight = 0.0f;
+        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+    }
+    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, m_editor.autoTerrainAlign );
+    const Quaternion placementOrientation =
+        EditorOrientationFromTerrainNormal( type, terrainNormal, m_editor.autoTerrainAlign );
+    Quaternion placementOrientationCopy = placementOrientation;
+    const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
+    const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
+    const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const char* modePrefix =
+        placementFixed ? "static" : ( ( tree && tree->seedAsleep ) || ragdollStartsAsleep ? "sleeping" : "dynamic" );
+
+    auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
+    {
+        model.SetFixed( modelFixed );
+        const int index = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( model ) );
+        if ( !modelFixed )
+        {
+            if ( modelStartsAsleep )
+            {
+                m_cGameModelCollection.SeedModelAsleep( index );
+            }
+            else
+            {
+                m_cGameModelCollection.WakeModel( index );
+            }
+        }
+    };
+
+    auto addSphere = [&]( const char* label, float radius, float restitution )
+    {
+        const float mass = CalculateSphereMass( radius );
+        const Vector3 inertia = CalculateSphereInertia( radius, mass );
+        const Vector3 center( terrainPoint.x,
+                              terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON,
+                              terrainPoint.z );
+        GameModel model( &m_cWorldEnvironment, center, inertia, mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( restitution );
+        model.AddBoundingSphere( radius );
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        model.SetName( name );
+        addModel( std::move( model ), placementFixed );
+    };
+
+    auto addBox = [&]()
+    {
+        const Vector3 halfExtents = placementScale;
+        const float mass = CalculateBoxMass( halfExtents );
+        Vector3 center;
+        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
+        {
+            return;
+        }
+        GameModel model( &m_cWorldEnvironment, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddBoundingBox( halfExtents );
+        if ( alignToTerrain )
+        {
+            model.SetOrientation( placementOrientation );
+        }
+        ApplyEditorSpawnMaterial( model, fixedObject, true );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
+        model.SetName( name );
+        addModel( std::move( model ), placementFixed );
+    };
+
+    auto addHull = [&]( EditorHullAsset asset )
+    {
+        const char* label = EditorHullAssetToken( asset );
+        const char* path = EditorHullAssetPath( asset );
+        if ( !path )
+        {
+            return;
+        }
+        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( path );
+        ConvexHullShape scaledHull = hull;
+        scaledHull.ScaleAxis( 0, placementScale.x );
+        scaledHull.ScaleAxis( 1, placementScale.y );
+        scaledHull.ScaleAxis( 2, placementScale.z );
+        const float mass = scaledHull.GetDefaultMass();
+        const bool alignHull = alignToTerrain;
+        const RotationMatrix hullRotation = alignHull ? placementRotation : IDENTITY_MATRIX;
+        const Quaternion hullOrientation = alignHull ? placementOrientation : IDENTITY_QUATERNION;
+        const Vector3 authoredOrigin =
+            terrainPoint +
+            hullRotation *
+                Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
+        GameModel model( &m_cWorldEnvironment, center, scaledHull.ComputeBoxApproxInertia( mass ), mass );
+        model.SetTerrain( m_systems.terrain.get() );
+        model.SetCoefficientRestitution( 0.25f );
+        model.AddConvexHull( scaledHull );
+        model.SetOrientation( hullOrientation );
+        SkullbonezCore::Rendering::RenderMaterial rockMaterial;
+        if ( TryEditorRockMaterial( asset, rockMaterial ) )
+        {
+            model.SetRenderMaterial( rockMaterial );
+        }
+        else if ( TryEditorRootMaterial( asset, rockMaterial ) )
+        {
+            model.SetRenderMaterial( rockMaterial );
+        }
+        else
+        {
+            ApplyEditorSpawnMaterial( model, fixedObject, false );
+        }
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
+        model.SetName( name );
+        addModel( std::move( model ), placementFixed );
+    };
+
+    auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+    {
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            if ( !CachedEditorHullForAsset( part.hullAsset ) )
+            {
+                fprintf( stderr,
+                         "[editor] Cannot place tree: missing hull asset %s.\n",
+                         EditorHullAssetToken( part.hullAsset ) );
+                return;
+            }
+        }
+
+        for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+        {
+            const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( part.hullAsset );
+            if ( !sourceHull )
+            {
+                continue;
+            }
+            ConvexHullShape hull = *sourceHull;
+            const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
+            const Vector3 authoredOrigin =
+                terrainPoint +
+                placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
+            const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
+            const float mass = hull.GetDefaultMass();
+            GameModel model( &m_cWorldEnvironment, center, hull.ComputeBoxApproxInertia( mass ), mass );
+            model.SetTerrain( m_systems.terrain.get() );
+            model.SetCoefficientRestitution( part.restitution );
+            model.AddConvexHull( hull );
+            model.SetOrientation( placementOrientation );
+            model.SetContactReleaseOnImpact( part.contactReleaseOnImpact, part.contactReleaseImpulseThreshold );
+            model.SetRenderMaterial( EditorTreePartMaterial( part ) );
+            char name[64];
+            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
+            model.SetName( name );
+            const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
+            addModel( std::move( model ), partFixed, treeDefinition.seedAsleep && !partFixed );
+        }
+    };
+
+    auto addRagdoll = [&]()
+    {
+        RagdollBuildOptions options;
+        char prefix[64];
+        sprintf_s( prefix, sizeof( prefix ), "%s_ragdoll_%03d", modePrefix, serial );
+        options.namePrefix = prefix;
+        options.terrainPoint = terrainPoint;
+        options.orientation = placementOrientation;
+        options.scale = placementScale.x;
+        options.fixed = placementFixed;
+        options.startsAsleep = ragdollStartsAsleep && !placementFixed;
+        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
+    };
+
+    switch ( type )
+    {
+    case UI::EditorTab::OBJECT_BOX:
+        addBox();
+        break;
+    case UI::EditorTab::OBJECT_BALL:
+        addSphere( "ball", placementScale.x, 0.45f );
+        break;
+    case UI::EditorTab::OBJECT_SPHERE:
+        addSphere( "sphere", placementScale.x, 0.35f );
+        break;
+    case UI::EditorTab::OBJECT_HULL_WEDGE:
+        addHull( EditorHullAsset::WEDGE );
+        break;
+    case UI::EditorTab::OBJECT_HULL_TRI_PRISM:
+        addHull( EditorHullAsset::TRI_PRISM );
+        break;
+    case UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
+        addHull( EditorHullAsset::TAPERED_BLOCK );
+        break;
+    case UI::EditorTab::OBJECT_HULL_PYRAMID:
+        addHull( EditorHullAsset::PYRAMID );
+        break;
+    case UI::EditorTab::OBJECT_HULL_HEX_PRISM:
+        addHull( EditorHullAsset::HEX_PRISM );
+        break;
+    case UI::EditorTab::OBJECT_HULL_DIAMOND:
+        addHull( EditorHullAsset::DIAMOND );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SLAB:
+        addHull( EditorHullAsset::ROCK_SLAB_FLAT );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_LUMP:
+        addHull( EditorHullAsset::ROCK_LUMP_LARGE );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_SHARD:
+        addHull( EditorHullAsset::ROCK_SHARD_TALL );
+        break;
+    case UI::EditorTab::OBJECT_ROCK_CHIPPED:
+        addHull( EditorHullAsset::ROCK_CHIPPED_BLOCK );
+        break;
+    case UI::EditorTab::OBJECT_ROOT_SMALL:
+        addHull( EditorHullAsset::TREE_ROOT_SMALL );
+        break;
+    case UI::EditorTab::OBJECT_ROOT_LARGE:
+        addHull( EditorHullAsset::TREE_ROOT_LARGE );
+        break;
+    case UI::EditorTab::OBJECT_TREE_SMALL:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
+        break;
+    case UI::EditorTab::OBJECT_TREE_BIG:
+    case UI::EditorTab::OBJECT_TREE_CEDAR:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLOPE:
+    case UI::EditorTab::OBJECT_TREE_SMALL_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_BIG_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_SLEEP:
+    case UI::EditorTab::OBJECT_TREE_SMALL_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
+    case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+        if ( tree )
+        {
+            addTree( *tree );
+        }
+        break;
+    case UI::EditorTab::OBJECT_RAGDOLL:
+    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        addRagdoll();
+        break;
+    default:
+        break;
+    }
+
+    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+}

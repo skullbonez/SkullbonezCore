@@ -37,7 +37,7 @@ emit a Debug diagnostic event.
 
 ## Shader Contract Implications
 
-`SkullbonezSource/SkullbonezShaderContracts.h` records high-risk runtime shader
+`SkullbonezSource/Rendering/ShaderContracts.h` records high-risk runtime shader
 contracts. Its resource `slot` values use the ABI above:
 
 - object and terrain base textures use `t0`;

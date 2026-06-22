@@ -16,6 +16,8 @@ Glossary:
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
+  Command struct: One-frame request packet emitted by UI code and consumed by
+  the run loop.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -155,7 +157,7 @@ enum class UIRenderParam
 struct UIOnlyCommands
 {
     // Commands are one-frame requests, not durable state. The UI sets them
-    // while handling input; SkullbonezRun consumes them and mutates the engine.
+    // while handling input; Run consumes them and mutates the engine.
     // This prevents UI widgets from directly owning renderer, scene, or physics
     // state.
     bool userInteracted = false;
@@ -164,18 +166,18 @@ struct UIOnlyCommands
 struct UIRendererCommands
 {
     bool toggleVsync = false;
-    int requestedRendererIndex = -1; // Retired compatibility field; DX12 is the only runtime renderer.
+    int requestedRendererIndex = -1;       // Retired compatibility field; DX12 is the only runtime renderer.
 };
 
 struct UISceneCommands
 {
-    bool resetScene = false;
-    bool resetSceneDefaults = false;
-    bool requestDemoScene = false;
-    bool saveSceneDefaults = false;
-    bool createScene = false;
+    bool resetScene = false;               // Rebuild current scene while preserving live runtime controls.
+    bool resetSceneDefaults = false;       // Discard live scene edits and reload authored defaults.
+    bool requestDemoScene = false;         // Switch to generated demo scene instead of a discovered scene file.
+    bool saveSceneDefaults = false;        // Persist editable-scene defaults back to disk.
+    bool createScene = false;              // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
-    int requestedSceneIndex = -1; // index into sceneOptions, -1=no request
+    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
 struct UIPhysicsCommands
@@ -246,6 +248,7 @@ struct UIWaterCommands
 
 struct UIRunCommands
 {
+    int requestedCameraMode = -1;
     int requestedSeed = -1;
     int requestedSolverBallCount = -1;
     int requestedSolverBoxCount = -1;
@@ -253,7 +256,7 @@ struct UIRunCommands
 
 struct UIProfilerCommands
 {
-    int requestedWorkerThreads = -2; // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
+    int requestedWorkerThreads = -2;       // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
 };
 
 struct UICinematicCommands

@@ -102,11 +102,17 @@ bool HandleContentClick( UIProfilerTabState& state,
                          int mouseY,
                          int currentWorkerThreads,
                          int maxWorkerThreads );
-bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX, int maxWorkerThreads, InGameUIInputResult& result );
+bool UpdateActiveSlider( UIProfilerTabState& state,
+                         int activeSlider,
+                         int mouseX,
+                         int maxWorkerThreads,
+                         InGameUIInputResult& result );
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result );
 
 void PushPerformanceHistogramSample( UIProfilerTabState& state, float cpuMs, float gpuMs );
-void DrawPerformanceHistogram( const UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data );
+void DrawPerformanceHistogram( const UIProfilerTabState& state,
+                               const UIDrawContext& draw,
+                               const InGameUIFrameData& data );
 
 void Draw( UIProfilerTabState& state,
            const UIDrawContext& draw,

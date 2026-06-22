@@ -23,9 +23,9 @@ Related:
 */
 #include "UIBackdropBlur.h"
 
-#include "../SkullbonezAssetSystem.h"
-#include "../SkullbonezIRenderBackend.h"
-#include "../SkullbonezMatrix4.h"
+#include "../Assets/AssetSystem.h"
+#include "../Rendering/IRenderBackend.h"
+#include "../Maths/Matrix4.h"
 
 #include <algorithm>
 #include <cmath>
@@ -121,8 +121,10 @@ void UIBackdropBlur::RefreshSourceTexture( const UIRect& bounds, int screenW, in
 
     const int cropX = std::clamp( static_cast<int>( std::floor( bounds.x ) ) - BLUR_PAD_PIXELS, 0, captureW - 1 );
     const int cropY = std::clamp( static_cast<int>( std::floor( bounds.y ) ) - BLUR_PAD_PIXELS, 0, captureH - 1 );
-    const int cropRight = std::clamp( static_cast<int>( std::ceil( bounds.x + bounds.w ) ) + BLUR_PAD_PIXELS, cropX + 1, captureW );
-    const int cropBottom = std::clamp( static_cast<int>( std::ceil( bounds.y + bounds.h ) ) + BLUR_PAD_PIXELS, cropY + 1, captureH );
+    const int cropRight =
+        std::clamp( static_cast<int>( std::ceil( bounds.x + bounds.w ) ) + BLUR_PAD_PIXELS, cropX + 1, captureW );
+    const int cropBottom =
+        std::clamp( static_cast<int>( std::ceil( bounds.y + bounds.h ) ) + BLUR_PAD_PIXELS, cropY + 1, captureH );
     const int cropW = cropRight - cropX;
     const int cropH = cropBottom - cropY;
 
@@ -150,7 +152,8 @@ void UIBackdropBlur::RefreshSourceTexture( const UIRect& bounds, int screenW, in
                 for ( int sx = 0; sx < scale; ++sx )
                 {
                     const int sourceX = std::clamp( cropX + ox * scale + sx, cropX, cropRight - 1 );
-                    const size_t srcIndex = static_cast<size_t>( captureRow ) * srcStride + static_cast<size_t>( sourceX ) * 3;
+                    const size_t srcIndex =
+                        static_cast<size_t>( captureRow ) * srcStride + static_cast<size_t>( sourceX ) * 3;
                     sumB += capture[srcIndex + 0];
                     sumG += capture[srcIndex + 1];
                     sumR += capture[srcIndex + 2];
@@ -185,21 +188,31 @@ void UIBackdropBlur::RefreshSourceTexture( const UIRect& bounds, int screenW, in
 }
 
 
-void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled )
+void UIBackdropBlur::Draw( const UIDrawContext& draw,
+                           const UIRect& bounds,
+                           int screenW,
+                           int screenH,
+                           int currentFrame,
+                           double now,
+                           bool enabled )
 {
     if ( !enabled || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
     {
         return;
     }
 
-    const int requestedX = std::clamp( static_cast<int>( std::floor( bounds.x ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenW - 1 ) );
-    const int requestedY = std::clamp( static_cast<int>( std::floor( bounds.y ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenH - 1 ) );
-    const int requestedRight = std::clamp( static_cast<int>( std::ceil( bounds.x + bounds.w ) ) + BLUR_PAD_PIXELS, requestedX + 1, screenW );
-    const int requestedBottom = std::clamp( static_cast<int>( std::ceil( bounds.y + bounds.h ) ) + BLUR_PAD_PIXELS, requestedY + 1, screenH );
+    const int requestedX =
+        std::clamp( static_cast<int>( std::floor( bounds.x ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenW - 1 ) );
+    const int requestedY =
+        std::clamp( static_cast<int>( std::floor( bounds.y ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenH - 1 ) );
+    const int requestedRight =
+        std::clamp( static_cast<int>( std::ceil( bounds.x + bounds.w ) ) + BLUR_PAD_PIXELS, requestedX + 1, screenW );
+    const int requestedBottom =
+        std::clamp( static_cast<int>( std::ceil( bounds.y + bounds.h ) ) + BLUR_PAD_PIXELS, requestedY + 1, screenH );
     const int requestedW = requestedRight - requestedX;
     const int requestedH = requestedBottom - requestedY;
-    const bool geometryChanged = requestedX != m_lastX || requestedY != m_lastY || requestedW != m_lastW || requestedH != m_lastH ||
-                                 screenW != m_lastScreenW || screenH != m_lastScreenH;
+    const bool geometryChanged = requestedX != m_lastX || requestedY != m_lastY || requestedW != m_lastW ||
+                                 requestedH != m_lastH || screenW != m_lastScreenW || screenH != m_lastScreenH;
     (void)currentFrame;
     (void)now;
 
@@ -243,30 +256,8 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     const float top = draw.TextY( drawY0 );
     const float bottom = draw.TextY( drawY1 );
     const float verts[] = {
-        left,
-        bottom,
-        uvLeft,
-        uvBottom,
-        right,
-        bottom,
-        uvRight,
-        uvBottom,
-        right,
-        top,
-        uvRight,
-        uvTop,
-        left,
-        bottom,
-        uvLeft,
-        uvBottom,
-        right,
-        top,
-        uvRight,
-        uvTop,
-        left,
-        top,
-        uvLeft,
-        uvTop,
+        left, bottom, uvLeft, uvBottom, right, bottom, uvRight, uvBottom, right, top, uvRight, uvTop,
+        left, bottom, uvLeft, uvBottom, right, top,    uvRight, uvTop,    left,  top, uvLeft,  uvTop,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
@@ -279,7 +270,11 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     m_shader->Use();
     m_shader->SetMat4( "uProjection", proj );
     m_shader->SetInt( "uTexture", 0 );
-    m_shader->SetVec4( "uTexelSize", 1.0f / static_cast<float>( m_textureW ), 1.0f / static_cast<float>( m_textureH ), 0.0f, 0.0f );
+    m_shader->SetVec4( "uTexelSize",
+                       1.0f / static_cast<float>( m_textureW ),
+                       1.0f / static_cast<float>( m_textureH ),
+                       0.0f,
+                       0.0f );
     Gfx().BindTexture( m_texture, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( "BackdropBlur" );

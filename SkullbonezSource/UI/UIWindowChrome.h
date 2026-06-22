@@ -61,8 +61,17 @@ bool IsResizeHotspot( const UIRect& windowBounds, int mouseX, int mouseY );
 
 void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds );
 void DrawMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const char* titleText );
-void DrawWindowFrame( const UIDrawContext& draw, const UIRect& bounds, float titleH, float tabH, bool blurEnabled, const char* titleText );
-void DrawTitleButtons( const UIDrawContext& draw, const TitleButtonRects& buttons, bool isMaximized, int mouseX, int mouseY );
+void DrawWindowFrame( const UIDrawContext& draw,
+                      const UIRect& bounds,
+                      float titleH,
+                      float tabH,
+                      bool blurEnabled,
+                      const char* titleText );
+void DrawTitleButtons( const UIDrawContext& draw,
+                       const TitleButtonRects& buttons,
+                       bool isMaximized,
+                       int mouseX,
+                       int mouseY );
 
 } // namespace Chrome
 } // namespace UI

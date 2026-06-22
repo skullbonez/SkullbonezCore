@@ -22,7 +22,7 @@ DX12 is explicit: GPU objects can outlive the CPU call that submitted work again
 
 ## Current Startup Order
 
-The active startup path lives in `SkullbonezRun::Initialise`.
+The active startup path lives in `Run::Initialise`.
 
 1. Acquire the window singleton and write the loading title.
 2. Create/bind `TextureCollection` to `RunSubsystemState::assets`.
@@ -42,11 +42,11 @@ Important split:
 - Source records are registered in `AssetSystem`.
 - GPU texture handles are rebuilt by `TextureCollection::RebuildTexturesFromSourceAssets`.
 - Shader source records are resolved through the active `AssetSystem` bridge, while GPU shader handles remain owned by their current systems.
-- Pass-specific frame targets remain owned by `SkullbonezRun::RunSubsystemState`.
+- Pass-specific frame targets remain owned by `Run::RunSubsystemState`.
 
 ## Current Shutdown Order
 
-The active shutdown path lives in `SkullbonezRun::~SkullbonezRun`, which calls the reusable `SkullbonezRun::ReleaseBackendOwnedRenderResources` table while the backend is still alive.
+The active shutdown path lives in `Run::~Run`, which calls the reusable `Run::ReleaseBackendOwnedRenderResources` table while the backend is still alive.
 
 1. End debug physics diagnostics.
 2. Close perf logging.
@@ -65,7 +65,7 @@ The two key rules are:
 
 ## Current Resize Order
 
-Window resize currently enters through `SkullbonezWindow::HandleScreenResize`.
+Window resize currently enters through `Window::HandleScreenResize`.
 
 1. Ignore minimized or pre-backend resize events.
 2. Call `Gfx().Resize(w, h)`.
@@ -105,7 +105,7 @@ Phase 3 update:
 | Terrain mesh/shaders | Terrain CPU height data, shader source records | `Terrain` | Terrain creation, terrain reset, backend reset | Mesh should not rebuild for pure window resize. |
 | Skybox meshes/shader | Sky bounds and cube texture source records | `SkyBox` | Startup/reset | Mesh should not rebuild for pure window resize. |
 | Water meshes/shaders | World/fluid config, shader source records | `WorldEnvironment` | Startup/reset/style changes | Reset can record GPU commands, so shutdown flushes after touching it. |
-| Object helper meshes/shaders | Built-in primitive mesh data, shader source records | `SkullbonezHelper` | Startup/reset | Shared across object rendering. |
+| Object helper meshes/shaders | Built-in primitive mesh data, shader source records | `Helper` | Startup/reset | Shared across object rendering. |
 | Game-model shadow resources | Shadow shader source and mesh data | `GameModelRenderer` | Startup/reset | Distinct from frame target lifetime. |
 | Text font atlas/shaders | Font name, generated glyph atlas | `Text2d` | Startup, shutdown, projection resize | Projection changes on resize; atlas does not need resize. |
 | UI blur resources | UI backdrop state and blur shader source | `UIBackdropBlur` | UI reset/resource reset | Cache reset is content/layout invalidation, not backend reset. |

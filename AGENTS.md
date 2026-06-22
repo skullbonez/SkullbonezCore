@@ -79,22 +79,22 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 | Files Changed | Required Pre-Commit/PR Script |
 |---------------|-----------------|
-| `SkullbonezRenderBackend*.cpp/h` | `validate_dx12_renderer` |
+| `RenderBackendDX12*.cpp/h`, `Rendering/DX12/*` | `validate_dx12_renderer` |
 | `SkullbonezData/shaders/*` | `validate_dx12_renderer` |
-| `SkullbonezRigidBody*` | `validate_physics` |
-| `SkullbonezGameModelCollection*` physics solver changes | `validate_physics` |
-| `SkullbonezBoundingSphere*` | `validate_physics` |
-| `SkullbonezDynamicsObject*` | `validate_physics` |
-| `SkullbonezWorldEnvironment*` | `validate_physics` |
-| `SkullbonezSpatialGrid*` | `validate_physics` + `validate_perf` |
-| `SkullbonezGameModelCollection*` | `validate_dx12_renderer` + `validate_perf` |
-| `SkullbonezConfig*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
+| `RigidBody*`, `PhysicsWorld*`, `SimulationSystem*` | `validate_physics` |
+| `GameModelCollection*` physics solver changes | `validate_physics` |
+| `BoundingSphere*`, `BoundingBox*`, `ConvexHullShape*`, `CollisionShape*` | `validate_physics` |
+| `GameModel*` physics body/state changes | `validate_physics` |
+| `WorldEnvironment*` | `validate_physics` |
+| `SpatialGrid*` | `validate_physics` + `validate_perf` |
+| `GameModelCollection*` render stream or hot-loop changes | `validate_dx12_renderer` + `validate_perf` |
+| `Config*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
 | `TestOutput/baselines/physics_regression_solver.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
-| `SkullbonezCommon.h` | `validate_full` |
-| `SkullbonezRun*` | `validate_full` |
-| `SkullbonezWindow*` | `validate_full` |
-| `SkullbonezInit*` | `validate_full` |
+| `Common.h` | `validate_full` |
+| `Run*`, `Runtime/*` | `validate_full` |
+| `Window*` | `validate_full` |
+| `Init*` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
 | `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script |

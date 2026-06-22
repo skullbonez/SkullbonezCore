@@ -46,7 +46,7 @@ Use this format at the top of `.cpp`, `.h`, `.hlsl`, and substantial tool files:
 
 ```cpp
 /*
-File: SkullbonezRenderBackendDX12.cpp
+File: RenderBackendDX12.cpp
 Purpose:
   Owns the DirectX 12 renderer backend: device setup, swap-chain targets,
   descriptor tables, command recording, and frame presentation.
@@ -69,7 +69,7 @@ Invariants:
   - Shader-visible SRV/UAV rows are frame-scoped unless registered as static.
 
 Related:
-  - SkullbonezRenderBackendDX12.h owns persistent DX12 state.
+  - RenderBackendDX12.h owns persistent DX12 state.
   - Agentic/Reference/skullbonez-core-class-structure.md diagrams ownership.
 */
 ```

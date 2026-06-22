@@ -25,7 +25,7 @@ Related:
 */
 #include "UITabScene.h"
 
-#include "SkullbonezUI.h"
+#include "UI.h"
 #include "UIButton.h"
 #include "UIComboBox.h"
 #include "UIDrawWidgets.h"
@@ -80,7 +80,8 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
     state.comboScroll = 0;
 }
 
-void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, SkullbonezCore::UI::InGameUIInputResult& result )
+void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
+                      SkullbonezCore::UI::InGameUIInputResult& result )
 {
     if ( state.filter[0] == '\0' )
     {
@@ -88,7 +89,10 @@ void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, Skul
     }
 
     result.commands.scene.createScene = true;
-    strncpy_s( result.commands.scene.requestedSceneName, sizeof( result.commands.scene.requestedSceneName ), state.filter, _TRUNCATE );
+    strncpy_s( result.commands.scene.requestedSceneName,
+               sizeof( result.commands.scene.requestedSceneName ),
+               state.filter,
+               _TRUNCATE );
     result.commands.ui.userInteracted = true;
 }
 
@@ -140,8 +144,7 @@ bool FilterMatches( const char* option, const char* filter )
     for ( int optionStart = 0; option[optionStart] != '\0'; ++optionStart )
     {
         int optionOffset = 0;
-        while ( filter[optionOffset] != '\0' &&
-                option[optionStart + optionOffset] != '\0' &&
+        while ( filter[optionOffset] != '\0' && option[optionStart + optionOffset] != '\0' &&
                 LowerAscii( option[optionStart + optionOffset] ) == LowerAscii( filter[optionOffset] ) )
         {
             ++optionOffset;
@@ -488,7 +491,13 @@ bool HandleOpenComboClick( UISceneTabState& state,
     const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
     const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( state.filter[0] != '\0' ? 1 : 0 );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, rowBase, contentW );
+    SetSceneHeaderBounds( combo,
+                          resetSceneButton,
+                          resetDefaultsButton,
+                          saveDefaultsButton,
+                          contentX,
+                          rowBase,
+                          contentW );
 
     const int option = combo.HitOption( mouseX, mouseY, sceneDrawOptions );
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
@@ -508,7 +517,8 @@ bool HandleOpenComboClick( UISceneTabState& state,
     }
     else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
     {
-        const int sceneIndex = FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, state.comboScroll + option );
+        const int sceneIndex =
+            FindFilteredOptionIndex( sceneOptions, sceneOptionCount, state.filter, state.comboScroll + option );
         if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
         {
             RequestNewScene( state, result );
@@ -547,7 +557,13 @@ bool HandleContentClick( UISceneTabState& state,
                          float rowBase,
                          float contentW )
 {
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, rowBase, contentW );
+    SetSceneHeaderBounds( combo,
+                          resetSceneButton,
+                          resetDefaultsButton,
+                          saveDefaultsButton,
+                          contentX,
+                          rowBase,
+                          contentW );
     if ( resetSceneButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.scene.resetScene = true;
@@ -571,7 +587,9 @@ bool HandleContentClick( UISceneTabState& state,
         ClearFilter( state );
         CaptureFilterKeyState( state );
         const int filteredSceneCount = CountFilteredOptions( sceneOptions, sceneOptionCount, state.filter );
-        state.comboScroll = SceneComboScrollForSelection( FilteredPositionForIndex( sceneOptions, sceneOptionCount, state.filter, selectedSceneOption ), filteredSceneCount );
+        state.comboScroll = SceneComboScrollForSelection(
+            FilteredPositionForIndex( sceneOptions, sceneOptionCount, state.filter, selectedSceneOption ),
+            filteredSceneCount );
         combo.SetOpen( true );
         return true;
     }
@@ -579,7 +597,8 @@ bool HandleContentClick( UISceneTabState& state,
     if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TIME_SCALE;
-        state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+        state.previewTimeScale =
+            state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
         result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
         return true;
     }
@@ -594,7 +613,8 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
         return false;
     }
 
-    state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+    state.previewTimeScale =
+        state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
     result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
     return true;
 }
@@ -633,19 +653,26 @@ void Draw( UISceneTabState& state,
     const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
     state.comboScroll = ClampSceneComboScroll( state.comboScroll, filteredSceneCount );
     const int sceneFirstOption = state.comboScroll;
-    const int selectedFilteredPosition = FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, state.filter, data.selectedSceneOption );
-    const int sceneSelectedInSlice = selectedFilteredPosition >= sceneFirstOption && selectedFilteredPosition < sceneFirstOption + sceneVisibleCount ? selectedFilteredPosition - sceneFirstOption : -1;
+    const int selectedFilteredPosition =
+        FilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, state.filter, data.selectedSceneOption );
+    const int sceneSelectedInSlice =
+        selectedFilteredPosition >= sceneFirstOption && selectedFilteredPosition < sceneFirstOption + sceneVisibleCount
+            ? selectedFilteredPosition - sceneFirstOption
+            : -1;
     const char* visibleSceneOptions[UI_SCENE_COMBO_VISIBLE_OPTIONS] = {};
     for ( int i = 0; i < sceneVisibleCount; ++i )
     {
-        const int sceneIndex = FindFilteredOptionIndex( data.sceneOptions, data.sceneOptionCount, state.filter, sceneFirstOption + i );
+        const int sceneIndex =
+            FindFilteredOptionIndex( data.sceneOptions, data.sceneOptionCount, state.filter, sceneFirstOption + i );
         if ( sceneIndex == NEW_SCENE_BROWSER_INDEX )
         {
             visibleSceneOptions[i] = NEW_SCENE_OPTION;
         }
         else
         {
-            visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX ? DEMO_SCENE_OPTION : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
+            visibleSceneOptions[i] = sceneIndex == DEMO_SCENE_BROWSER_INDEX
+                                         ? DEMO_SCENE_OPTION
+                                         : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
         }
     }
     int sceneDrawCount = sceneVisibleCount;
@@ -661,11 +688,19 @@ void Draw( UISceneTabState& state,
     }
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
-    SetSceneHeaderBounds( combo, resetSceneButton, resetDefaultsButton, saveDefaultsButton, contentX, scrolledY + 42.0f, contentW );
+    SetSceneHeaderBounds( combo,
+                          resetSceneButton,
+                          resetDefaultsButton,
+                          saveDefaultsButton,
+                          contentX,
+                          scrolledY + 42.0f,
+                          contentW );
 
     if ( data.targetFrameCount > 0 )
     {
-        const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
+        const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount )
+                                       ? data.targetFrameCount
+                                       : data.currentFrame;
         snprintf( buf, sizeof( buf ), "%d / %d", displayedFrame, data.targetFrameCount );
     }
     else
@@ -678,23 +713,91 @@ void Draw( UISceneTabState& state,
         const Style::UIPalette& palette = Style::Palette();
         const float displayTimeScale = state.previewTimeScale > 0.0f ? state.previewTimeScale : data.timeScale;
         char statusBuf[64] = {};
-        snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+        snprintf( statusBuf,
+                  sizeof( statusBuf ),
+                  "%s / fixed %s",
+                  data.testComplete ? "complete" : "running",
+                  data.fixedStep ? "on" : "off" );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          contentX,
+                          scrolledY + 82.0f,
+                          "Renderer",
+                          data.rendererName,
+                          palette.accentStrong.r,
+                          palette.accentStrong.g,
+                          palette.accentStrong.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          sceneCol2,
+                          scrolledY + 82.0f,
+                          "Status",
+                          statusBuf,
+                          palette.accent.r,
+                          palette.accent.g,
+                          palette.accent.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          contentX,
+                          scrolledY + 108.0f,
+                          "Frame",
+                          buf,
+                          palette.textPrimary.r,
+                          palette.textPrimary.g,
+                          palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          sceneCol2,
+                          scrolledY + 108.0f,
+                          "Frame rate",
+                          buf,
+                          palette.accentStrong.r,
+                          palette.accentStrong.g,
+                          palette.accentStrong.b );
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          contentX,
+                          scrolledY + 134.0f,
+                          "Scene index",
+                          buf,
+                          palette.textPrimary.r,
+                          palette.textPrimary.g,
+                          palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          sceneCol2,
+                          scrolledY + 134.0f,
+                          "Kinetic energy",
+                          buf,
+                          palette.warningAccent.r,
+                          palette.warningAccent.g,
+                          palette.warningAccent.b );
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+        DrawLabelValueAt( draw,
+                          contentY,
+                          contentH,
+                          contentX,
+                          scrolledY + 160.0f,
+                          "Model count",
+                          buf,
+                          palette.textPrimary.r,
+                          palette.textPrimary.g,
+                          palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
         state.timeScaleSlider.SetBounds( contentX, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, contentW, 34.0f );
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_TIME_SCALE_SLIDER_Y, 34.0f ) )
         {
-            state.timeScaleSlider.Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
+            state.timeScaleSlider
+                .Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
         }
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )

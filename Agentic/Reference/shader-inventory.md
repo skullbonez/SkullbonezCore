@@ -10,7 +10,7 @@ programs by base name through `RenderBackendDX12::CreateShader`, which resolves
 
 GLSL `.vert` and `.frag` files were removed with the retired OpenGL backend.
 DX11-only shader paths were removed with the retired DX11 backend. Future shader
-work should update the HLSL contract, `SkullbonezSource/SkullbonezShaderContracts.h`,
+work should update the HLSL contract, `SkullbonezSource/Rendering/ShaderContracts.h`,
 and `tools/shader_contracts.json`.
 
 The current ordinary raster binding ABI is documented in
@@ -20,7 +20,7 @@ contract table map directly to `BindTexture(handle, slot)`.
 
 ## Runtime Contract Diagnostics
 
-`SkullbonezSource/SkullbonezShaderContracts.h` is the runtime-facing contract
+`SkullbonezSource/Rendering/ShaderContracts.h` is the runtime-facing contract
 table for high-risk shaders. DX12 shader compilation looks up the table by
 shader base name, compares required uniforms against HLSL reflection, and in
 Debug logs bounded events when:
