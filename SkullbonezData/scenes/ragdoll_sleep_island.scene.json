@@ -1,0 +1,214 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -32.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "trackHeight": 90.0
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": true,
+      "sleep": true
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_sleep_island",
+      "position": [
+        500,
+        95,
+        585
+      ],
+      "view": [
+        500,
+        22,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "ragdoll_sleep_plate",
+      "position": [
+        500,
+        0.5,
+        500
+      ],
+      "halfExtents": [
+        18.0,
+        0.5,
+        18.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_sleep_wall_w",
+      "position": [
+        481,
+        8,
+        500
+      ],
+      "halfExtents": [
+        1.0,
+        8.0,
+        19.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_sleep_wall_e",
+      "position": [
+        519,
+        8,
+        500
+      ],
+      "halfExtents": [
+        1.0,
+        8.0,
+        19.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_sleep_wall_n",
+      "position": [
+        500,
+        8,
+        481
+      ],
+      "halfExtents": [
+        19.0,
+        8.0,
+        1.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_sleep_wall_s",
+      "position": [
+        500,
+        8,
+        519
+      ],
+      "halfExtents": [
+        19.0,
+        8.0,
+        1.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "fall_stack_0",
+      "position": [
+        500,
+        14,
+        500
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        0,
+        12
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "fall_stack_1",
+      "position": [
+        501,
+        31,
+        499
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        18,
+        -16
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "fall_stack_2",
+      "position": [
+        499,
+        48,
+        501
+      ],
+      "scale": 1.0,
+      "euler": [
+        8,
+        -22,
+        20
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "fall_stack_3",
+      "position": [
+        501,
+        65,
+        499
+      ],
+      "scale": 1.0,
+      "euler": [
+        -10,
+        35,
+        -24
+      ],
+      "sleeping": false
+    }
+  ]
+}

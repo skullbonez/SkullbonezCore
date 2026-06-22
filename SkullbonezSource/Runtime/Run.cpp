@@ -653,9 +653,8 @@ bool Run::ShouldRenderReplayScrubber() const
     }
 
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-    return solverReplayStats.sampleCount >= 2 &&
-           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
-             m_replayScrubber.simulationPaused );
+    return solverReplayStats.sampleCount >= 2 && ( m_replayScrubber.visible || m_replayScrubber.dragging ||
+                                                   m_replayScrubber.paused || m_replayScrubber.simulationPaused );
 }
 
 

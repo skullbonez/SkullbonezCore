@@ -1675,13 +1675,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             }
         }
 
-        // Physics regression log: current-solver per-frame CSV enabled only by command line.
-#ifdef _DEBUG
-        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
-        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
-            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
-#endif
-
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
         if ( scene.GetSeed() > 0 )
@@ -1752,6 +1745,17 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         {
             SetUpGameModelsFromScene( scene );
         }
+
+        // Physics regression log: current-solver per-frame CSV enabled only by command line.
+#ifdef _DEBUG
+        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
+            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
+        if ( m_diagnostics.PhysicsDiagnostics().isEnabled )
+        {
+            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics().path );
+        }
+#endif
 
         // Ball-tracking camera: enabled when scene specifies a positive track_height
         if ( scene.GetTrackHeight() > 0.0f )

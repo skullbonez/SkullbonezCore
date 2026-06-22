@@ -84,13 +84,7 @@ void Run::RenderReplayScrubberOverlay()
     const double now = m_timers.simulationTimer.GetTotalTime();
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
-    draw.Text( panel.x + 16.0f,
-               panel.y + 19.0f,
-               10.5f,
-               0.54f,
-               0.98f,
-               0.80f,
-               "SOLVER" );
+    draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, "SOLVER" );
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
     draw.Text( panel.x + panel.w - labelW - 16.0f,
                panel.y + 18.0f,

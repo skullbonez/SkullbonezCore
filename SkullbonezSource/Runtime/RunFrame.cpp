@@ -209,13 +209,20 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const bool manipulatorPhysics = m_camera.mode == RunCameraMode::Manipulator;
     const bool replayCapture = m_replay.IsEnabled() || m_solverReplay.IsEnabled();
+#ifdef _DEBUG
+    const bool physicsCapture = m_diagnostics.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
+                                m_diagnostics.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
+                                m_diagnostics.PhysicsDiagnostics().isEnabled;
+#else
+    constexpr bool physicsCapture = false;
+#endif
     const SimulationTickResult tick = m_simulation.Tick(
         SimulationTickInput{ secondsPerFrame,
                              replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
                              SceneState().isSceneMode,
                              SceneState().isScenePhysics,
                              SceneState().isFixedStep,
-                             m_camera.isFlyMode || replaySimulationPaused,
+                             ( m_camera.isFlyMode && !physicsCapture ) || replaySimulationPaused,
                              m_camera.isLauncherMode,
                              manipulatorPhysics,
                              stepRequested,

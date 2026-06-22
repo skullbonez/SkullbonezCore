@@ -3661,10 +3661,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
         }
-        m_window.minimizedWidth = data.editorModeEnabled
-                                      ? EditorMinimizedWidth( data, screenW )
-                                      : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
-                                                   MINIMIZED_RUN_MAX_W );
+        m_window.minimizedWidth =
+            data.editorModeEnabled
+                ? EditorMinimizedWidth( data, screenW )
+                : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ), MINIMIZED_RUN_MAX_W );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         if ( data.editorModeEnabled )
         {
