@@ -58,22 +58,22 @@ class BroadphaseVisualizer
 
     enum class CellState : uint8_t
     {
-        Empty,     // White — no objects
-        Entering,  // Yellow→Blue fade
-        Occupied,  // Blue (steady)
-        Colliding, // Red→Black (active collision heat)
-        Fading,    // Red/Black→Blue (collision ended, fading back)
+        Empty,                                    // White — no objects
+        Entering,                                 // Yellow→Blue fade
+        Occupied,                                 // Blue (steady)
+        Colliding,                                // Red→Black (active collision heat)
+        Fading,                                   // Red/Black→Blue (collision ended, fading back)
     };
 
     struct TrackedCell
     {
-        int64_t key; // Packed cell coordinate key
+        int64_t key;                              // Packed cell coordinate key
         int16_t ix, iy, iz;
         CellState state;
-        float timer;       // Time elapsed since state entered
-        int collisionHeat; // Accumulated collision count (for red→black gradient)
+        float timer;                              // Time elapsed since state entered
+        int collisionHeat;                        // Accumulated collision count (for red→black gradient)
         bool activeThisFrame;
-        bool collidedThisFrame; // Received a narrowphase collision this specific frame
+        bool collidedThisFrame;                   // Received a narrowphase collision this specific frame
     };
 
     TrackedCell m_cells[MAX_TRACKED_CELLS];

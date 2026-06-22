@@ -32,11 +32,17 @@ set "REPO=%~dp0.."
 call "%~dp0find_clang_format.bat"
 if errorlevel 1 exit /b 99
 
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 98
+
 set COUNT=0
 for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
     "%CLANG_FMT%" -i "%%f"
     set /a COUNT+=1
 )
 
-echo Formatted %COUNT% files.
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --write
+if errorlevel 1 exit /b 1
+
+echo Formatted %COUNT% C++ files and aligned header inline comments.
 exit /b 0

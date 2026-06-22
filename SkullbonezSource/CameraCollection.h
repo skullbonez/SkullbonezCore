@@ -41,28 +41,28 @@ class CameraCollection
 
   private:
     inline static CameraCollection* pInstance = nullptr;
-    Camera m_cameraArray[TOTAL_CAMERA_COUNT];    // Fixed camera slots keyed by m_cameraHashes.
-    Camera m_primaryStore;                       // Primary snapshot used to keep relative cameras coherent.
-    Camera m_tweenPath;                          // Source-to-destination pose delta for the active tween.
-    Camera m_tweenCamera;                        // Interpolated pose while tweening.
-    Camera m_tweenStart;                         // Primary pose at the start of the active tween.
-    Camera m_renderCamera;                       // Snapshot used to build m_currentViewMatrix this frame.
-    uint32_t m_cameraHashes[TOTAL_CAMERA_COUNT]; // Scene hash key for each camera slot.
-    int m_arrayPosition;                         // Current array m_position
-    int m_selectedCamera;                        // Current selected camera
-    float m_tweenSpeed;                          // Camera tweening speed
-    bool m_isTweening;                           // Render camera follows m_tweenCamera while this is true.
-    float m_tweenProgress;                       // Normalized tween progress through m_tweenPath.
-    Geometry::Terrain* m_terrain;                // Borrowed scene terrain used to keep tweened cameras collision-aware.
-    Math::Transformation::Matrix4 m_currentViewMatrix; // Current view matrix (updated each frame by SetCamera)
+    Camera m_cameraArray[TOTAL_CAMERA_COUNT];                      // Fixed camera slots keyed by m_cameraHashes.
+    Camera m_primaryStore;                                         // Primary snapshot used to keep relative cameras coherent.
+    Camera m_tweenPath;                                            // Source-to-destination pose delta for the active tween.
+    Camera m_tweenCamera;                                          // Interpolated pose while tweening.
+    Camera m_tweenStart;                                           // Primary pose at the start of the active tween.
+    Camera m_renderCamera;                                         // Snapshot used to build m_currentViewMatrix this frame.
+    uint32_t m_cameraHashes[TOTAL_CAMERA_COUNT];                   // Scene hash key for each camera slot.
+    int m_arrayPosition;                                           // Current array m_position
+    int m_selectedCamera;                                          // Current selected camera
+    float m_tweenSpeed;                                            // Camera tweening speed
+    bool m_isTweening;                                             // Render camera follows m_tweenCamera while this is true.
+    float m_tweenProgress;                                         // Normalized tween progress through m_tweenPath.
+    Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
+    Math::Transformation::Matrix4 m_currentViewMatrix;             // Current view matrix (updated each frame by SetCamera)
 
     CameraCollection();
     ~CameraCollection() = default;
-    void SetViewMatrix( const Camera& cCameraData ); // Frame view matrix comes from the pose selected for rendering.
-    int FindIndex( uint32_t hash );                  // Throws when the scene asks for an unregistered camera hash.
-    Camera GetCameraDelta();                         // Primary movement delta used to update relative cameras.
-    void UpdateTweenPath();                          // Retargets active tweens because the destination camera can move.
-    void SetTweenPath( int fromIndex, int toIndex ); // fromIndex=-1 starts from the current tween pose.
+    void SetViewMatrix( const Camera& cCameraData );               // Frame view matrix comes from the pose selected for rendering.
+    int FindIndex( uint32_t hash );                                // Throws when the scene asks for an unregistered camera hash.
+    Camera GetCameraDelta();                                       // Primary movement delta used to update relative cameras.
+    void UpdateTweenPath();                                        // Retargets active tweens because the destination camera can move.
+    void SetTweenPath( int fromIndex, int toIndex );               // fromIndex=-1 starts from the current tween pose.
 
   public:
     static CameraCollection* Instance();
@@ -71,25 +71,24 @@ class CameraCollection
     const Math::Vector::Vector3& GetCameraTranslation();
     const Math::Vector::Vector3& GetCameraUp();
     const Math::Vector::Vector3&
-    GetRenderCameraView() const; // Render pose may be the tween camera instead of the primary camera.
+    GetRenderCameraView() const;                                   // Render pose may be the tween camera instead of the primary camera.
     const Math::Vector::Vector3&
-    GetRenderCameraTranslation() const; // Render eye may be the tween camera instead of the primary camera.
+    GetRenderCameraTranslation() const;                            // Render eye may be the tween camera instead of the primary camera.
     const Math::Vector::Vector3& GetRenderCameraUp() const;
     const Math::Vector::Vector3& GetCameraTranslation( uint32_t hash );
+    void SetViewCoordinates( const Math::Vector::Vector3& vView ); // Keeps primary camera focused on a tracked world point.
     void
-    SetViewCoordinates( const Math::Vector::Vector3& vView ); // Keeps primary camera focused on a tracked world point.
-    void
-    SetPrimaryPosition( const Math::Vector::Vector3& vPos ); // Tracking cameras can bypass movement-buffer translation.
+    SetPrimaryPosition( const Math::Vector::Vector3& vPos );       // Tracking cameras can bypass movement-buffer translation.
     void SetTweenSpeed( float fTweenSpeed );
-    void SetCamera(); // Call once per frame after camera updates to refresh render pose and view matrix.
+    void SetCamera();                                              // Call once per frame after camera updates to refresh render pose and view matrix.
     void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position,
                                        const Math::Vector::Vector3& view,
                                        const Math::Vector::Vector3& up );
     bool IsPrimaryLocked();
     void SetLockedMode( bool fIsLocked );
-    void AmmendPrimaryY( float yCoordinate ); // Pins primary camera height to a world-space Y value.
+    void AmmendPrimaryY( float yCoordinate );                      // Pins primary camera height to a world-space Y value.
     void SetCameraXZBounds( const Geometry::XZBounds bounds );
-    void ResetRelativity(); // Call after camera updates so relative cameras use the new primary snapshot.
+    void ResetRelativity();                                        // Call after camera updates so relative cameras use the new primary snapshot.
     bool IsCameraTweening();
     const Math::Transformation::Matrix4& GetViewMatrix() const
     {
@@ -99,22 +98,22 @@ class CameraCollection
     bool IsCameraSelected( uint32_t hash );
     void ApplyPrimaryMovementBuffer();
     const Math::Vector::Vector3& GetPrimaryMovementBuffer();
-    void SetTerrain( Geometry::Terrain* cTerrain ); // Borrowed terrain pointer used for camera collision bounds.
+    void SetTerrain( Geometry::Terrain* cTerrain );                // Borrowed terrain pointer used for camera collision bounds.
     void RotatePrimary( float xMove, float yMove );
 
     void SetCameraXZBounds( uint32_t hash, const Geometry::XZBounds bounds );
     void RelativeUpdate( uint32_t hash,
                          float yMin,
-                         float yMax ); // Keeps a secondary camera offset from primary within its Y limits.
+                         float yMax );                             // Keeps a secondary camera offset from primary within its Y limits.
     void MovePrimary( Camera::TravelDirection enumDir, float fQuantity );
-    void SelectCamera( uint32_t hash, bool fTween ); // Optional tween preserves visual continuity between cameras.
-    void CancelTween();                              // Immediate cut to the selected camera.
+    void SelectCamera( uint32_t hash, bool fTween );               // Optional tween preserves visual continuity between cameras.
+    void CancelTween();                                            // Immediate cut to the selected camera.
 
     void AddCamera( const Math::Vector::Vector3& vPosition,
                     const Math::Vector::Vector3& vView,
                     const Math::Vector::Vector3& vUp,
                     uint32_t hash );
-    void Reset(); // Scene reload path; retains the singleton allocation.
+    void Reset();                                                  // Scene reload path; retains the singleton allocation.
 };
 } // namespace Environment
 } // namespace SkullbonezCore

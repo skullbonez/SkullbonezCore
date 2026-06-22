@@ -164,7 +164,7 @@ struct UIOnlyCommands
 struct UIRendererCommands
 {
     bool toggleVsync = false;
-    int requestedRendererIndex = -1; // Retired compatibility field; DX12 is the only runtime renderer.
+    int requestedRendererIndex = -1;       // Retired compatibility field; DX12 is the only runtime renderer.
 };
 
 struct UISceneCommands
@@ -175,7 +175,7 @@ struct UISceneCommands
     bool saveSceneDefaults = false;
     bool createScene = false;
     char requestedSceneName[64] = {};
-    int requestedSceneIndex = -1; // index into sceneOptions, -1=no request
+    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
 struct UIPhysicsCommands
@@ -253,7 +253,7 @@ struct UIRunCommands
 
 struct UIProfilerCommands
 {
-    int requestedWorkerThreads = -2; // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
+    int requestedWorkerThreads = -2;       // -2 = unchanged, -1 = auto, 0 = disabled, >0 = explicit worker count
 };
 
 struct UICinematicCommands

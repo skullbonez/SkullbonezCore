@@ -52,11 +52,11 @@ namespace Physics
 //   solver later turns each point in the report into one rule it can enforce.
 struct ObjectContactPoint
 {
-    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR; // World-space representative contact point.
-    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;    // Contact arm from body A center; Catto Equations 9-11.
-    Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;    // Contact arm from body B center; Catto Equations 9-11.
-    float penetration = 0.0f;                                // Positive overlap depth used by Baumgarte bias.
-    uint32_t featureId = 0;                                  // Stable local feature key for temporal coherence.
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;  // World-space representative contact point.
+    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;     // Contact arm from body A center; Catto Equations 9-11.
+    Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;     // Contact arm from body B center; Catto Equations 9-11.
+    float penetration = 0.0f;                                 // Positive overlap depth used by Baumgarte bias.
+    uint32_t featureId = 0;                                   // Stable local feature key for temporal coherence.
 };
 
 struct ObjectContactManifold

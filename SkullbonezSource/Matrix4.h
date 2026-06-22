@@ -56,49 +56,49 @@ class Matrix4
   public:
     float m[16];
 
-    Matrix4();                      // Identity matrix by default.
-    Matrix4( const float* values ); // Construct from 16-element column-major array
+    Matrix4();                                                                                      // Identity matrix by default.
+    Matrix4( const float* values );                                                                 // Construct from 16-element column-major array
 
     static Matrix4 Perspective( float fovDegrees,
                                 float aspect,
                                 float nearPlane,
-                                float farPlane ); // Perspective projection matrix with legacy [-1,1] depth
+                                float farPlane );                                                   // Perspective projection matrix with legacy [-1,1] depth
     static Matrix4 PerspectiveZeroToOne( float fovDegrees,
                                          float aspect,
                                          float nearPlane,
-                                         float farPlane ); // Perspective projection matrix (DX depth [0,1])
+                                         float farPlane );                                          // Perspective projection matrix (DX depth [0,1])
     static Matrix4 Ortho( float left,
                           float right,
                           float bottom,
                           float top,
                           float nearPlane,
-                          float farPlane ); // Orthographic projection matrix
+                          float farPlane );                                                         // Orthographic projection matrix
     static Matrix4 OrthoZeroToOne( float left,
                                    float right,
                                    float bottom,
                                    float top,
                                    float nearPlane,
-                                   float farPlane ); // Orthographic projection matrix (DX depth [0,1])
+                                   float farPlane );                                                // Orthographic projection matrix (DX depth [0,1])
     static Matrix4
     LookAt( const Vector::Vector3& eye, const Vector::Vector3& center, const Vector::Vector3& up ); // View matrix
-    static Matrix4 Translate( const Vector::Vector3& v );  // Translation matrix
-    static Matrix4 Translate( float x, float y, float z ); // Translation matrix (component form)
-    static Matrix4 Scale( const Vector::Vector3& v );      // Scale matrix
-    static Matrix4 Scale( float x, float y, float z );     // Scale matrix (component form)
-    static Matrix4 Scale( float uniform );                 // Uniform scale matrix
-    static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ ); // Axis-angle rotation matrix
-    static Matrix4 FromQuaternion( const Orientation::Quaternion& q ); // Rotation matrix from quaternion
+    static Matrix4 Translate( const Vector::Vector3& v );                                           // Translation matrix
+    static Matrix4 Translate( float x, float y, float z );                                          // Translation matrix (component form)
+    static Matrix4 Scale( const Vector::Vector3& v );                                               // Scale matrix
+    static Matrix4 Scale( float x, float y, float z );                                              // Scale matrix (component form)
+    static Matrix4 Scale( float uniform );                                                          // Uniform scale matrix
+    static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ );             // Axis-angle rotation matrix
+    static Matrix4 FromQuaternion( const Orientation::Quaternion& q );                              // Rotation matrix from quaternion
     static Matrix4 ShadowFromNormal(
         float tx,
         float ty,
         float tz,
         const Vector::Vector3& N,
-        float scale ); // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s); zero acosf/cosf/sinf, zero Matrix4 products
+        float scale );                                                                              // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s); zero acosf/cosf/sinf, zero Matrix4 products
 
-    Matrix4 operator*( const Matrix4& rhs ) const; // Matrix multiplication
-    Matrix4& operator*=( const Matrix4& rhs );     // In-place matrix multiplication
+    Matrix4 operator*( const Matrix4& rhs ) const;                                                  // Matrix multiplication
+    Matrix4& operator*=( const Matrix4& rhs );                                                      // In-place matrix multiplication
     Matrix4 Inverse() const;
-    const float* Data() const; // Pointer to column-major data for shader uploads
+    const float* Data() const;                                                                      // Pointer to column-major data for shader uploads
 };
 } // namespace Transformation
 } // namespace Math

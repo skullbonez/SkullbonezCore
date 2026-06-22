@@ -65,7 +65,7 @@ struct SceneBall
     float restitution;
     float forceX, forceY, forceZ;
     float forcePosX, forcePosY, forcePosZ;
-    float eulerX, eulerY, eulerZ; // Initial orientation in degrees (optional, default 0)
+    float eulerX, eulerY, eulerZ;                             // Initial orientation in degrees (optional, default 0)
     bool hasInitOrient;
     bool isFixed;
 };
@@ -115,11 +115,11 @@ struct SceneBox
 {
     char name[64];
     float posX, posY, posZ;
-    float halfX, halfY, halfZ; // Half-extents
+    float halfX, halfY, halfZ;                                // Half-extents
     float mass;
     float restitution;
-    float eulerX, eulerY, eulerZ; // Initial orientation in degrees (optional, default 0)
-    float velX, velY, velZ;       // Initial linear velocity (optional, default 0)
+    float eulerX, eulerY, eulerZ;                             // Initial orientation in degrees (optional, default 0)
+    float velX, velY, velZ;                                   // Initial linear velocity (optional, default 0)
     bool hasInitOrient;
     bool hasInitVelocity;
     bool isFixed;
@@ -240,68 +240,68 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
-    int frameCount = -1;      // -1 = unlimited
-    unsigned int seed = 0;    // RNG seed (0 = use time-based default)
-    int solverBallCount = 0;  // exact impulse-solver balls to spawn (0 = not set)
-    int solverBoxCount = 0;   // exact impulse-solver boxes to spawn (0 = not set)
-    int modelCapacity = -1;   // active game-model capacity (-1 = use startup/config capacity)
-    int workerThreads = -2;   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
-    float timeScale = 1.0f;   // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false; // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
+    int frameCount = -1;                                      // -1 = unlimited
+    unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
+    int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
+    int modelCapacity = -1;                                   // active game-model capacity (-1 = use startup/config capacity)
+    int workerThreads = -2;                                   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
+    float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
-    bool physicsDebugTransparent = false;       // Translucent collision volumes while physics debug is visible.
-    float physicsDebugAlpha = 0.28f;            // Alpha for translucent debug collision volumes
-    float physicsDebugContactLinger = 0.45f;    // Seconds to keep contact manifold debug rows visible
-    float trackHeight = -1.0f;                  // Height above tracked ball for camera (-1 = no tracking)
-    float autoCycleInterval = -1.0f;            // Seconds between per-ball screenshots (-1 = disabled)
-    bool screenshotAndExit = false;             // Capture first frame as SCENENAME.bmp then exit
-    bool exitOnComplete = false;                // Exit automatically when targetFrameCount is reached
-    bool collisionVisualizer = false;           // Solid collision/sleep debug colours.
-    bool broadphaseOverlay = false;             // Spatial broadphase debug overlay.
-    bool waterFreezeDebug = false;              // Freeze water animation at load time
-    bool waterFlatDebug = false;                // Flat water mesh for debug captures.
-    int waterReflectionMode = 0;                // 0=FBO, 1=DXR, 2=None
-    bool waterHidden = false;                   // Suppress water rendering (for clean texture comparison)
-    bool terrainHidden = false;                 // Suppress terrain rendering
-    bool editableScene = false;                 // Scene-tab starter scene; Save Defaults persists live object state
-    bool hasCinematicRenderingOverride = false; // Scene explicitly toggles cinematic HDR/post rendering
-    bool cinematicRendering = false;            // Cinematic HDR/post rendering scene override
-    bool hasCinematicExposure = false;          // Scene explicitly sets tonemap exposure
-    float cinematicExposure = 1.0f;             // Scene tonemap exposure
-    bool hasCinematicGamma = false;             // Scene explicitly sets output gamma
-    float cinematicGamma = 2.2f;                // Scene output gamma
-    uint64_t cinematicOverrideMask = 0;         // Per-field overrides from cinematic JSON fields
-    CinematicRenderConfig cinematicRender;      // Scene-authored cinematic values for overridden fields
+    bool physicsDebugTransparent = false;                     // Translucent collision volumes while physics debug is visible.
+    float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
+    float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible
+    float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
+    bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
+    bool collisionVisualizer = false;                         // Solid collision/sleep debug colours.
+    bool broadphaseOverlay = false;                           // Spatial broadphase debug overlay.
+    bool waterFreezeDebug = false;                            // Freeze water animation at load time
+    bool waterFlatDebug = false;                              // Flat water mesh for debug captures.
+    int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
+    bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;                               // Suppress terrain rendering
+    bool editableScene = false;                               // Scene-tab starter scene; Save Defaults persists live object state
+    bool hasCinematicRenderingOverride = false;               // Scene explicitly toggles cinematic HDR/post rendering
+    bool cinematicRendering = false;                          // Cinematic HDR/post rendering scene override
+    bool hasCinematicExposure = false;                        // Scene explicitly sets tonemap exposure
+    float cinematicExposure = 1.0f;                           // Scene tonemap exposure
+    bool hasCinematicGamma = false;                           // Scene explicitly sets output gamma
+    float cinematicGamma = 2.2f;                              // Scene output gamma
+    uint64_t cinematicOverrideMask = 0;                       // Per-field overrides from cinematic JSON fields
+    CinematicRenderConfig cinematicRender;                    // Scene-authored cinematic values for overridden fields
 };
 
 struct SceneCaptureOptions
 {
-    char screenshotPath[256] = {}; // output path for screenshot (empty = none)
-    int screenshotFrame = -1;      // trigger on frame N (-1 = unused)
-    int screenshotMs = -1;         // trigger at N ms elapsed (-1 = unused)
-    int screenshotInterval = -1;   // save screenshot every N frames (-1 = disabled)
-    char screenshotDir[256] = {};  // output directory for interval captures
+    char screenshotPath[256] = {};                            // output path for screenshot (empty = none)
+    int screenshotFrame = -1;                                 // trigger on frame N (-1 = unused)
+    int screenshotMs = -1;                                    // trigger at N ms elapsed (-1 = unused)
+    int screenshotInterval = -1;                              // save screenshot every N frames (-1 = disabled)
+    char screenshotDir[256] = {};                             // output directory for interval captures
 };
 
 struct SceneLoggingOptions
 {
-    char perfLogPath[256] = {};   // output path for perf CSV (empty = none)
-    bool isPerfLogFlush = false;  // Force flush after each perf-log write
-    int perfLogFlushInterval = 0; // Flush perf log every N writes (0 = only at close)
+    char perfLogPath[256] = {};                               // output path for perf CSV (empty = none)
+    bool isPerfLogFlush = false;                              // Force flush after each perf-log write
+    int perfLogFlushInterval = 0;                             // Flush perf log every N writes (0 = only at close)
 };
 
 struct SceneRuntimeOverrides
 {
-    bool hasVsyncOverride = false;        // Scene-level override present for vsync
-    bool isVsyncEnabled = true;           // V-Sync policy for scene when override is present
-    bool hasPipelineSyncOverride = false; // Scene-level pipeline-sync override present
-    bool isPipelineSyncEnabled = false;   // Pipeline-sync policy for scene when override is present
+    bool hasVsyncOverride = false;                            // Scene-level override present for vsync
+    bool isVsyncEnabled = true;                               // V-Sync policy for scene when override is present
+    bool hasPipelineSyncOverride = false;                     // Scene-level pipeline-sync override present
+    bool isPipelineSyncEnabled = false;                       // Pipeline-sync policy for scene when override is present
 };
 
 struct SceneTerrainOverride
 {
-    bool hasFlatSlope = false; // True when scene overrides terrain with analytic flat slope
-    float flatBaseY = 0.0f;    // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
+    bool hasFlatSlope = false;                                // True when scene overrides terrain with analytic flat slope
+    float flatBaseY = 0.0f;                                   // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
     float flatSlopeX = 0.0f;
     float flatSlopeZ = 0.0f;
 };
@@ -322,7 +322,7 @@ struct SceneUIOptions
     bool hasMinimized = false;
     bool isMinimized = false;
     bool hasActiveTab = false;
-    int activeTab = 0; // InGameUITab ordinal.
+    int activeTab = 0;                                        // InGameUITab ordinal.
     bool hasWindowRect = false;
     int windowX = 34;
     int windowY = 56;
@@ -429,10 +429,10 @@ class TestScene
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
     float GetPhysicsDebugContactLinger() const;
-    float GetTrackHeight() const;       // Tracking camera height above ball; -1 disables.
-    float GetAutoCycleInterval() const; // Per-ball screenshot interval in seconds; -1 disables.
-    bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit
-    bool IsExitOnComplete() const;      // True if scene should exit automatically when frame count is reached
+    float GetTrackHeight() const;                             // Tracking camera height above ball; -1 disables.
+    float GetAutoCycleInterval() const;                       // Per-ball screenshot interval in seconds; -1 disables.
+    bool IsScreenshotAndExit() const;                         // True if scene should capture first frame then exit
+    bool IsExitOnComplete() const;                            // True if scene should exit automatically when frame count is reached
     bool IsCollisionVisualizerEnabled() const;
     bool IsBroadphaseOverlayEnabled() const;
     bool IsWaterFreezeDebugEnabled() const;
@@ -449,7 +449,7 @@ class TestScene
     float GetCinematicGamma() const;
     uint64_t GetCinematicOverrideMask() const;
     const CinematicRenderConfig& GetCinematicRenderConfig() const;
-    bool HasFlatSlope() const; // True when scene specifies flat analytic slope terrain
+    bool HasFlatSlope() const;                                // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;

@@ -55,24 +55,24 @@ class RigidBody
 {
 
   private:
-    bool m_isForceApplied; // True once the one-shot impulse has been consumed.
-    float m_mass;          // Units: kg.
-    float m_invertedMass;  // 1 / mass; zero for immovable bodies.
+    bool m_isForceApplied;                            // True once the one-shot impulse has been consumed.
+    float m_mass;                                     // Units: kg.
+    float m_invertedMass;                             // 1 / mass; zero for immovable bodies.
     float m_coefficientRestitution;
     float m_frictionCoefficient;
-    float m_volume; // Units: m^3.
+    float m_volume;                                   // Units: m^3.
 
-    Math::Vector::Vector3 m_position;              // Units: world point.
-    Math::Vector::Vector3 m_linearVelocity;        // Units: m/s.
-    Math::Vector::Vector3 m_linearAcceleration;    // Units: m/s^2.
-    Math::Vector::Vector3 m_appliedForce;          // Units: N.
-    Math::Vector::Vector3 m_worldForce;            // Units: N.
-    Math::Vector::Vector3 m_worldTorque;           // Units: Nm.
-    Math::Vector::Vector3 m_forceApplicationPoint; // Units: world point.
-    Math::Vector::Vector3 m_angularVelocity;       // Units: radians/s.
-    Math::Vector::Vector3 m_angularAcceleration;   // Units: radians/s^2.
-    Math::Vector::Vector3 m_rotationalInertia;     // Diagonal inertia tensor, units: kg*m^2.
-    Math::Vector::Vector3 m_torque;                // Units: Nm.
+    Math::Vector::Vector3 m_position;                 // Units: world point.
+    Math::Vector::Vector3 m_linearVelocity;           // Units: m/s.
+    Math::Vector::Vector3 m_linearAcceleration;       // Units: m/s^2.
+    Math::Vector::Vector3 m_appliedForce;             // Units: N.
+    Math::Vector::Vector3 m_worldForce;               // Units: N.
+    Math::Vector::Vector3 m_worldTorque;              // Units: Nm.
+    Math::Vector::Vector3 m_forceApplicationPoint;    // Units: world point.
+    Math::Vector::Vector3 m_angularVelocity;          // Units: radians/s.
+    Math::Vector::Vector3 m_angularAcceleration;      // Units: radians/s^2.
+    Math::Vector::Vector3 m_rotationalInertia;        // Diagonal inertia tensor, units: kg*m^2.
+    Math::Vector::Vector3 m_torque;                   // Units: Nm.
     /* m_changeInAngularVelocity / m_changeInLinearVelocity are DEFERRED IMPULSE BUFFERS.
        During collision resolution, both objects' velocity changes are computed first and
        stored here, then applied simultaneously via ApplyChange*Velocity(). This prevents
@@ -84,22 +84,22 @@ class RigidBody
     Math::Vector::Vector3 m_changeInLinearVelocity;
     Math::Orientation::Quaternion m_orientation;
 
-    void ApplyWorldForce(); // Continuous world forces, such as gravity, update velocity through a = F/m.
+    void ApplyWorldForce();                           // Continuous world forces, such as gravity, update velocity through a = F/m.
     /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
        (instantaneous velocity changes) rather than continuous forces. The impulse is
        consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */
-    void ApplyLinearForce();  // Consumes the one-shot linear impulse as an immediate velocity delta.
-    void ApplyAngularForce(); // One-shot off-center impulse changes angular velocity through its torque arm.
+    void ApplyLinearForce();                          // Consumes the one-shot linear impulse as an immediate velocity delta.
+    void ApplyAngularForce();                         // One-shot off-center impulse changes angular velocity through its torque arm.
     // Rolling contribution derived from angular velocity around the contact normal.
     Math::Vector::Vector3 GetRollVelocity();
 
   public:
     RigidBody();
     ~RigidBody();
-    void ApplyForces(); // Integrates accumulated world forces and one-shot impulses for one physics tick.
-    void UpdatePosition( float changeInTime ); // changeInTime is seconds; advances pose from the current velocities.
+    void ApplyForces();                               // Integrates accumulated world forces and one-shot impulses for one physics tick.
+    void UpdatePosition( float changeInTime );        // changeInTime is seconds; advances pose from the current velocities.
     void ApplyImpulseForce();
-    void ZeroForce(); // End-of-tick cleanup after world forces and solver impulses are consumed.
+    void ZeroForce();                                 // End-of-tick cleanup after world forces and solver impulses are consumed.
     const Math::Orientation::Quaternion& GetOrientation() const;
     void SetMass( float fMass );
     void SetFrictionCoefficient( float fFriction );
@@ -111,9 +111,9 @@ class RigidBody
     void SetChangeInAngularVelocity( const Math::Vector::Vector3& vAngularVelocity );
     // Stages solver linear delta until simultaneous pair response is ready.
     void SetChangeInLinearVelocity( const Math::Vector::Vector3& vLinearVelocity );
-    void ApplyChangeInAngularVelocity(); // Consumes the staged angular delta after all pair rows solve.
-    void ThrottleAngularVelocity();      // Caps spin to avoid destabilizing collision rows.
-    void ApplyChangeInLinearVelocity();  // Consumes the staged linear delta after all pair rows solve.
+    void ApplyChangeInAngularVelocity();              // Consumes the staged angular delta after all pair rows solve.
+    void ThrottleAngularVelocity();                   // Caps spin to avoid destabilizing collision rows.
+    void ApplyChangeInLinearVelocity();               // Consumes the staged linear delta after all pair rows solve.
     float GetCoefficientRestitution();
     float GetFrictionCoefficient();
     float GetMass();
@@ -126,7 +126,7 @@ class RigidBody
     const Math::Vector::Vector3& GetAngularVelocity();
     const Math::Vector::Vector3& GetAngularVelocity() const;
     const Math::Vector::Vector3& GetRotationalInertia();
-    float GetDensity(); // Density assumes mass and volume caches are already current.
+    float GetDensity();                               // Density assumes mass and volume caches are already current.
     void SetLinearVelocity( const Math::Vector::Vector3& vLinear );
     void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
     void SetOrientation( const Math::Orientation::Quaternion& q );

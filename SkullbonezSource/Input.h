@@ -69,7 +69,7 @@ struct InputState
         KEY_COUNT
     };
 
-    uint32_t keys = 0; // Packed bit field for all boolean key states
+    uint32_t keys = 0;                                               // Packed bit field for all boolean key states
     long xMove = 0, yMove = 0;
 
     bool Get( Key k ) const
@@ -97,25 +97,24 @@ struct InputState
 class Input
 {
   public:
-    static bool IsAppFocused();                         // True when the game window owns foreground input
-    static void SetSystemCursorVisible( bool visible ); // Shows or hides the Win32 cursor display counter
-    static bool IsSystemCursorVisibleRequested();       // Last requested native cursor ownership state
-    static bool IsKeyDown( int virtualKey );            // Returns true if specified key is pressed (use upper case)
-    static bool IsKeyToggled( int virtualKey );         // Returns true if specified key is toggled (use upper case)
-    static bool RegisterRawMouseInput( HWND window );   // Registers the window for relative mouse movement messages
-    static void
-    AccumulateRawMouseDelta( HRAWINPUT rawInput ); // Adds mouse movement from WM_INPUT to the per-frame queue
-    static bool ConsumeRawMouseDelta( long& xMove, long& yMove ); // Returns and clears accumulated raw mouse movement
-    static void ResetMouseLookDeltas();       // Clears queued raw mouse movement and absolute tracking state
-    static POINT GetMouseCoordinates();       // Returns the coordinates of the mouse cursor
-    static POINT GetClientMouseCoordinates(); // Returns mouse coordinates relative to the app client area
+    static bool IsAppFocused();                                      // True when the game window owns foreground input
+    static void SetSystemCursorVisible( bool visible );              // Shows or hides the Win32 cursor display counter
+    static bool IsSystemCursorVisibleRequested();                    // Last requested native cursor ownership state
+    static bool IsKeyDown( int virtualKey );                         // Returns true if specified key is pressed (use upper case)
+    static bool IsKeyToggled( int virtualKey );                      // Returns true if specified key is toggled (use upper case)
+    static bool RegisterRawMouseInput( HWND window );                // Registers the window for relative mouse movement messages
+    static void AccumulateRawMouseDelta( HRAWINPUT rawInput );       // Adds mouse movement from WM_INPUT to the per-frame queue
+    static bool ConsumeRawMouseDelta( long& xMove, long& yMove );    // Returns and clears accumulated raw mouse movement
+    static void ResetMouseLookDeltas();                              // Clears queued raw mouse movement and absolute tracking state
+    static POINT GetMouseCoordinates();                              // Returns the coordinates of the mouse cursor
+    static POINT GetClientMouseCoordinates();                        // Returns mouse coordinates relative to the app client area
     static void SetMouseCoordinates( const POINT& pNewCoordinates ); // Sets the mouse coordinates
-    static void CentreMouseCoordinates(); // Sets the mouse cursor to the centre of the screen
-    static bool IsLeftMouseDown();        // Returns true if the left mouse button is pressed
-    static bool IsRightMouseDown();       // Returns true if the right mouse button is pressed
-    static bool IsMiddleMouseDown();      // Returns true if the middle mouse button is pressed
-    static int ConsumeMouseWheelDelta();  // Returns and clears accumulated wheel delta from Win32 messages
-    static void AccumulateMouseWheelDelta( int delta ); // Adds a Win32 wheel delta to the per-frame queue
+    static void CentreMouseCoordinates();                            // Sets the mouse cursor to the centre of the screen
+    static bool IsLeftMouseDown();                                   // Returns true if the left mouse button is pressed
+    static bool IsRightMouseDown();                                  // Returns true if the right mouse button is pressed
+    static bool IsMiddleMouseDown();                                 // Returns true if the middle mouse button is pressed
+    static int ConsumeMouseWheelDelta();                             // Returns and clears accumulated wheel delta from Win32 messages
+    static void AccumulateMouseWheelDelta( int delta );              // Adds a Win32 wheel delta to the per-frame queue
 };
 } // namespace Hardware
 } // namespace SkullbonezCore

@@ -44,11 +44,11 @@ class SkyBox
 
   private:
     inline static SkyBox* pInstance = nullptr;
-    Box m_boundaries;                                              // Boundaries of sky box
-    Textures::TextureCollection* m_textures;                       // Textures of the sky box
-    std::unique_ptr<Rendering::IShader> m_shader;                  // Unlit textured m_shader
-    std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // VBO mesh per face
-    std::array<uint32_t, 6> m_faceTextures;                        // Texture hash per face
+    Box m_boundaries;                                                                      // Boundaries of sky box
+    Textures::TextureCollection* m_textures;                                               // Textures of the sky box
+    std::unique_ptr<Rendering::IShader> m_shader;                                          // Unlit textured m_shader
+    std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes;                         // VBO mesh per face
+    std::array<uint32_t, 6> m_faceTextures;                                                // Texture hash per face
 
     SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
     ~SkyBox() = default;
@@ -56,11 +56,10 @@ class SkyBox
     void BuildMeshes();
 
   public:
-    static SkyBox*
-    Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
+    static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
     static void Destroy();
     void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
-    void ResetRenderResources(); // Rebuild meshes/shader after renderer reset/switch
+    void ResetRenderResources();                                                           // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

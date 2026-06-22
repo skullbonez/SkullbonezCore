@@ -34,35 +34,35 @@ class Vector3
 {
 
   public:
-    float x, y, z; // Vector components
+    float x, y, z;                                            // Vector components
 
     Vector3();
     Vector3( const Vector3& v );
     Vector3( float fX, float fY, float fZ );
     void Zero();
-    void Normalise();           // Normalise the vector
-    void Absolute();            // Component-wise absolute value; mutates this vector.
-    bool IsCloseToZero() const; // Tolerance check for float noise near zero.
-    void Simplify();            // Components within the engine epsilon snap to 0.0f.
+    void Normalise();                                         // Normalise the vector
+    void Absolute();                                          // Component-wise absolute value; mutates this vector.
+    bool IsCloseToZero() const;                               // Tolerance check for float noise near zero.
+    void Simplify();                                          // Components within the engine epsilon snap to 0.0f.
     void SetAll( float nx, float ny, float nz );
-    Vector3& operator=( const Vector3& v );      // Vector assignment
-    Vector3& operator+=( const Vector3& v );     // += Overload
-    Vector3& operator-=( const Vector3& v );     // -= Overload
-    Vector3& operator*=( float f );              // *= Overload
-    Vector3& operator/=( float f );              // /= Overload
-    Vector3& operator/=( const Vector3& );       // /= Overload
-    Vector3 operator-() const;                   // Unary minus returns the negative of the vector
-    Vector3 operator+( const Vector3& v ) const; // Binary add vectors
-    Vector3 operator-( const Vector3& v ) const; // Binary subtract vectors
-    Vector3 operator*( float f ) const;          // Multiplication by scalar
-    Vector3 operator/( float f ) const;          // Division by scalar
-    Vector3 operator/( const Vector3& v ) const; // Division by vector (individual component division)
+    Vector3& operator=( const Vector3& v );                   // Vector assignment
+    Vector3& operator+=( const Vector3& v );                  // += Overload
+    Vector3& operator-=( const Vector3& v );                  // -= Overload
+    Vector3& operator*=( float f );                           // *= Overload
+    Vector3& operator/=( float f );                           // /= Overload
+    Vector3& operator/=( const Vector3& );                    // /= Overload
+    Vector3 operator-() const;                                // Unary minus returns the negative of the vector
+    Vector3 operator+( const Vector3& v ) const;              // Binary add vectors
+    Vector3 operator-( const Vector3& v ) const;              // Binary subtract vectors
+    Vector3 operator*( float f ) const;                       // Multiplication by scalar
+    Vector3 operator/( float f ) const;                       // Division by scalar
+    Vector3 operator/( const Vector3& v ) const;              // Division by vector (individual component division)
     bool operator==( const Vector3& v ) const;
     bool operator!=( const Vector3& v ) const;
-    float operator*( const Vector3& v ) const; // Vector dot product
+    float operator*( const Vector3& v ) const;                // Vector dot product
 };
 
-const Vector3 ZERO_VECTOR = Vector3( 0.0f, 0.0f, 0.0f ); // Zero vector
+const Vector3 ZERO_VECTOR = Vector3( 0.0f, 0.0f, 0.0f );      // Zero vector
 
 // Reflect incident vector about normal vector (arguments must be normalised)
 inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )

@@ -68,7 +68,7 @@ class CollisionVisualizer
   private:
     struct TrackedModel
     {
-        float collisionAmount = 0.0f; // 1=red, 0=green; decays over FADE_DURATION when contact stops
+        float collisionAmount = 0.0f;          // 1=red, 0=green; decays over FADE_DURATION when contact stops
     };
 
     struct Color

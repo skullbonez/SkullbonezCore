@@ -34,9 +34,12 @@ set BAD_COUNT=0
 call "%~dp0find_clang_format.bat"
 if errorlevel 1 exit /b 99
 
-echo Checking formatting...
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 98
 
-for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
+echo Checking C++ implementation formatting...
+
+for /r "%REPO%\SkullbonezSource" %%f in (*.cpp) do (
     "%CLANG_FMT%" --dry-run -Werror "%%f" >nul 2>&1
     if errorlevel 1 (
         echo   FAIL: %%f
@@ -46,6 +49,13 @@ for /r "%REPO%\SkullbonezSource" %%f in (*.cpp *.h) do (
 
 if %BAD_COUNT% GTR 0 (
     echo FAIL: %BAD_COUNT% files need formatting.
+    echo       Run: tools\format_fix.bat
+    exit /b 1
+)
+
+"%PYTHON_EXE%" "%~dp0align_header_inline_comments.py" --repo "%REPO%" --check-pipeline --clang-format "%CLANG_FMT%"
+if errorlevel 1 (
+    echo FAIL: Header formatting pipeline is not clean.
     echo       Run: tools\format_fix.bat
     exit /b 1
 )

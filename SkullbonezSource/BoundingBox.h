@@ -42,7 +42,7 @@ namespace Math
 {
 namespace CollisionDetection
 {
-class BoundingSphere; // Forward declaration
+class BoundingSphere;              // Forward declaration
 class ConvexHullShape;
 /* -- BoundingBox
 ----------------------------------------------------------------------------------------------------------------------------------------------------

@@ -113,19 +113,19 @@ class WorldEnvironment
 {
 
   public:
-    WorldEnvironment(); // Default constructor
+    WorldEnvironment();                                                            // Default constructor
     WorldEnvironment( float fFluidSurfaceHeight,
                       float fFluidDensity,
                       float fGasDensity,
-                      float fGravity );                                   // Overloaded constructor
-    ~WorldEnvironment();                                                  // Default destructor
-    WorldEnvironment( WorldEnvironment&& ) noexcept = default;            // Move constructor
-    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default; // Move assignment
+                      float fGravity );                                            // Overloaded constructor
+    ~WorldEnvironment();                                                           // Default destructor
+    WorldEnvironment( WorldEnvironment&& ) noexcept = default;                     // Move constructor
+    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;          // Move assignment
 
     void SetTerrainBounds( float xMin,
                            float xMax,
                            float zMin,
-                           float zMax ); // Must be called before first render; drives calm/ocean mesh split
+                           float zMax );                                           // Must be called before first render; drives calm/ocean mesh split
     void
     RenderFluid( const Math::Transformation::Matrix4& view,
                  const Math::Transformation::Matrix4& proj,
@@ -135,31 +135,31 @@ class WorldEnvironment
                  bool flatWater = false,
                  bool cinematic = false,
                  const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
-    void ResetRenderResources();                // Rebuilds GPU resources after renderer reset/switch
-    float GetFluidSurfaceHeight();              // Returns the fluid surface height
-    void SetFluidSurfaceHeight( float height ); // Sets the fluid surface height
-    float GetGravity() const;                   // Returns the gravity value (m/s^2)
-    void SetGravity( float gravity );           // Sets the gravity value (m/s^2)
-    float GetFluidDensity() const;              // Returns the fluid density (kg/m^3)
-    void SetFluidDensity( float density );      // Sets the fluid density (kg/m^3)
+    void ResetRenderResources();                                                   // Rebuilds GPU resources after renderer reset/switch
+    float GetFluidSurfaceHeight();                                                 // Returns the fluid surface height
+    void SetFluidSurfaceHeight( float height );                                    // Sets the fluid surface height
+    float GetGravity() const;                                                      // Returns the gravity value (m/s^2)
+    void SetGravity( float gravity );                                              // Sets the gravity value (m/s^2)
+    float GetFluidDensity() const;                                                 // Returns the fluid density (kg/m^3)
+    void SetFluidDensity( float density );                                         // Sets the fluid density (kg/m^3)
     void AddWorldForces( GameObjects::GameModel& target,
-                         float changeInTime ); // Adds world forces to the referenced game model
+                         float changeInTime );                                     // Adds world forces to the referenced game model
 
   private:
-    float m_fluidSurfaceHeight; // World-space Y of the fluid surface (m).  Objects below this are submerged
-    float m_fluidDensity;       // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
-    float m_gasDensity;         // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
-    float m_gravity;            // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
-    float m_terrainXMin = 0.0f; // terrain footprint — calm mesh bounds
+    float m_fluidSurfaceHeight;                                                    // World-space Y of the fluid surface (m).  Objects below this are submerged
+    float m_fluidDensity;                                                          // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
+    float m_gasDensity;                                                            // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
+    float m_gravity;                                                               // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
+    float m_terrainXMin = 0.0f;                                                    // terrain footprint — calm mesh bounds
     float m_terrainXMax = 0.0f;
     float m_terrainZMin = 0.0f;
     float m_terrainZMax = 0.0f;
-    std::unique_ptr<Rendering::IMesh> m_calmMesh; // Inner water: flat, reflective
+    std::unique_ptr<Rendering::IMesh> m_calmMesh;                                  // Inner water: flat, reflective
     std::unique_ptr<Rendering::IShader> m_calmShader;
-    std::unique_ptr<Rendering::IMesh> m_oceanMesh; // Outer water: waves + perturbation
+    std::unique_ptr<Rendering::IMesh> m_oceanMesh;                                 // Outer water: waves + perturbation
     std::unique_ptr<Rendering::IShader> m_oceanShader;
 
-    void BuildFluidMesh(); // Builds calm and ocean meshes
+    void BuildFluidMesh();                                                         // Builds calm and ocean meshes
     WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     void BindCommonWaterStyle( Rendering::IShader& shader,
@@ -170,14 +170,14 @@ class WorldEnvironment
     void
     BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
 
-    float CalculateGravity( float objectMass ); // F_g = m * g  (returns negative Y Newtons = downward)
+    float CalculateGravity( float objectMass );                                    // F_g = m * g  (returns negative Y Newtons = downward)
     float CalculateBuoyancy(
-        float submergedObjectVolume ); // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
+        float submergedObjectVolume );                                             // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
     Math::Vector::Vector3
     CalculateViscousDrag( Math::Vector::Vector3 velocityVector,
                           float submergedVolumePercent,
                           float dragCoefficient,
-                          float projectedSurfaceArea ); // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A  (opposes motion)
+                          float projectedSurfaceArea );                            // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A  (opposes motion)
 };
 } // namespace Environment
 } // namespace SkullbonezCore

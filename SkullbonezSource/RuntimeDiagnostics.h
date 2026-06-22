@@ -41,13 +41,13 @@ struct RunSceneState;
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;            // Performance logging mode
-    bool perfHeaderWritten = false;     // CSV header written for current perf run
-    char perfLogPath[256] = {};         // Output path for perf CSV (empty = none)
-    FILE* perfLogFile = nullptr;        // Open handle for perf CSV
-    bool isPerfLogFlushEnabled = false; // Flush perf CSV on each write (diagnostic mode)
-    int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
-    int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
+    bool isPerfTest = false;                        // Performance logging mode
+    bool perfHeaderWritten = false;                 // CSV header written for current perf run
+    char perfLogPath[256] = {};                     // Output path for perf CSV (empty = none)
+    FILE* perfLogFile = nullptr;                    // Open handle for perf CSV
+    bool isPerfLogFlushEnabled = false;             // Flush perf CSV on each write (diagnostic mode)
+    int perfLogFlushInterval = 0;                   // Flush perf CSV every N writes (0 = flush on close only)
+    int perfLogWritesSinceFlush = 0;                // Buffered perf-log write count since last flush
 #ifdef _DEBUG
     char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
     char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
@@ -57,12 +57,12 @@ struct RunPerfLogState
 #ifdef _DEBUG
 struct RunPhysicsDiagnosticsState
 {
-    char path[256] = {};                       // CLI --physics-diag path (empty = disabled)
-    char currentRunId[32] = {};                // Stable per-load id written into NDJSON rows
-    bool isEnabled = false;                    // True when a diagnostics path was provided
-    bool isRunActive = false;                  // True after a run row and before the matching end row
-    bool fixedStepForcedByDiagnostics = false; // True when --physics-diag forced fixed-step mode
-    int runSequence = 0;                       // Incremented on every scene/generated load
+    char path[256] = {};                            // CLI --physics-diag path (empty = disabled)
+    char currentRunId[32] = {};                     // Stable per-load id written into NDJSON rows
+    bool isEnabled = false;                         // True when a diagnostics path was provided
+    bool isRunActive = false;                       // True after a run row and before the matching end row
+    bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
+    int runSequence = 0;                            // Incremented on every scene/generated load
 };
 #endif
 

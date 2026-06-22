@@ -61,21 +61,21 @@ class RenderHelper
     static std::unique_ptr<Rendering::IShader> shadowDepthShader; // Shared instanced directional shadow depth shader
     static uint32_t sphereInstMesh;                               // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                 // Per-sphere vertex count
-    static std::vector<float> sphereInstanceData; // Staging buffer for model matrices + material payload
-    static uint32_t lowPolySphereInstMesh;        // Faceted sphere mesh for low-poly cinematic styles
-    static int lowPolySphereVertexCount;          // Per-low-poly-sphere vertex count
-    static uint32_t activeSphereInstMesh;         // Mesh selected for the current sphere batch
-    static int activeSphereVertexCount;           // Vertex count selected for the current sphere batch
-    static uint32_t boxInstMesh;                  // Instanced mesh handle for box
-    static int boxVertexCount;                    // Per-box vertex count
-    static std::vector<float> boxInstanceData;    // Staging buffer for box model matrices + material payload
-    static uint32_t pineInstMesh;                 // Instanced mesh handle for low-poly pine foliage tiers
-    static int pineVertexCount;                   // Per-pine-tier vertex count
-    static std::vector<float> pineInstanceData;   // Staging buffer for pine model matrices + material payload
+    static std::vector<float> sphereInstanceData;                 // Staging buffer for model matrices + material payload
+    static uint32_t lowPolySphereInstMesh;                        // Faceted sphere mesh for low-poly cinematic styles
+    static int lowPolySphereVertexCount;                          // Per-low-poly-sphere vertex count
+    static uint32_t activeSphereInstMesh;                         // Mesh selected for the current sphere batch
+    static int activeSphereVertexCount;                           // Vertex count selected for the current sphere batch
+    static uint32_t boxInstMesh;                                  // Instanced mesh handle for box
+    static int boxVertexCount;                                    // Per-box vertex count
+    static std::vector<float> boxInstanceData;                    // Staging buffer for box model matrices + material payload
+    static uint32_t pineInstMesh;                                 // Instanced mesh handle for low-poly pine foliage tiers
+    static int pineVertexCount;                                   // Per-pine-tier vertex count
+    static std::vector<float> pineInstanceData;                   // Staging buffer for pine model matrices + material payload
     inline static float sClipPlane[4] = { 0.0f,
                                           1.0f,
                                           0.0f,
-                                          1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
+                                          1.0e9f };               // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
     static void EnsureSphereShader();
     static void EnsureShadowDepthShader();
@@ -85,7 +85,7 @@ class RenderHelper
     static void BuildPineMesh();                                  // Generate unit low-poly pine tier mesh
 
   public:
-    static void StateSetup(); // Extension point for helper-level setup after renderer init
+    static void StateSetup();                                     // Extension point for helper-level setup after renderer init
     static void SetClipPlane( float x, float y, float z, float w );
     static const float* GetClipPlane();
     static void DrawSphereBatchBegin( const Math::Transformation::Matrix4& view,
@@ -97,13 +97,13 @@ class RenderHelper
                                       float materialAlpha = 1.0f );
     static void DrawSphereBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material ); // Append model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material );              // Append model matrix and material payload to instance buffer
     static void
     DrawSphereBatchModel( const Math::Transformation::Matrix4& model,
                           float tintR = 1.0f,
                           float tintG = 1.0f,
                           float tintB = 1.0f,
-                          float colorOverride = 0.0f ); // Compatibility bridge for old tint/override callers
+                          float colorOverride = 0.0f );           // Compatibility bridge for old tint/override callers
     static void DrawSphereBatchEnd();
     static void DrawBoxBatchBegin( const Math::Transformation::Matrix4& view,
                                    const Math::Transformation::Matrix4& proj,
@@ -114,12 +114,12 @@ class RenderHelper
                                    float materialAlpha = 1.0f );
     static void DrawBoxBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material ); // Append box model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material );              // Append box model matrix and material payload to instance buffer
     static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model,
                                    float tintR = 1.0f,
                                    float tintG = 1.0f,
                                    float tintB = 1.0f,
-                                   float colorOverride = 0.0f ); // Compatibility bridge for old tint/override callers
+                                   float colorOverride = 0.0f );  // Compatibility bridge for old tint/override callers
     static void DrawBoxBatchEnd();
     static void DrawConvexHullModel( const Math::CollisionDetection::ConvexHullShape& hull,
                                      const Math::Transformation::Matrix4& model,
@@ -140,7 +140,7 @@ class RenderHelper
                                     float materialAlpha = 1.0f );
     static void DrawPineBatchModel(
         const Math::Transformation::Matrix4& model,
-        const Rendering::RenderMaterial& material ); // Append pine model matrix and material payload to instance buffer
+        const Rendering::RenderMaterial& material );              // Append pine model matrix and material payload to instance buffer
     static void DrawPineBatchModel( const Math::Transformation::Matrix4& model,
                                     float tintR = 1.0f,
                                     float tintG = 1.0f,
@@ -164,8 +164,8 @@ class RenderHelper
                                                const Math::Transformation::Matrix4& proj );
     static void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
     static void DrawShadowDepthPineBatchEnd();
-    static void ResetRenderResources(); // Invalidate cached backend-owned meshes and shaders
-    static void EnsureSphereMesh(); // Create the shared sphere mesh before DXR BLAS construction needs its vertex data.
+    static void ResetRenderResources();                           // Invalidate cached backend-owned meshes and shaders
+    static void EnsureSphereMesh();                               // Create the shared sphere mesh before DXR BLAS construction needs its vertex data.
 
     // DXR reflection reuses the same sphere vertex buffer as raster rendering.
     // The backend asks for the instanced mesh handle so it can find the static

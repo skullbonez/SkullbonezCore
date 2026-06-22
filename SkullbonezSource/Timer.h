@@ -35,20 +35,20 @@ class Timer
 {
 
   private:
-    int m_frameCountCurrentSecond; // Stores the total amount of rendered frames for the current second
-    int m_currentFPSValue;         // Stores the last calculated FPS value
-    double m_frameTimer;           // Assists in working out FPS
-    double m_initialTime;          // Stores the time of when the class was created
-    double m_startTime;            // Stores the time of the call to StartTimer()
-    double m_endTime;              // Stores the time of the call to StopTimer()
-    double m_performanceFrequency; // Stores the performance frequency of the high resolution counter (this is specific
+    int m_frameCountCurrentSecond;       // Stores the total amount of rendered frames for the current second
+    int m_currentFPSValue;               // Stores the last calculated FPS value
+    double m_frameTimer;                 // Assists in working out FPS
+    double m_initialTime;                // Stores the time of when the class was created
+    double m_startTime;                  // Stores the time of the call to StartTimer()
+    double m_endTime;                    // Stores the time of the call to StopTimer()
+    double m_performanceFrequency;       // Stores the performance frequency of the high resolution counter (this is specific
                                    // to the CPU).
 
-    double GetCurrentTimeInSeconds();   // Returns the current time
-    void NoPerformanceCounterSupport(); // Throws an exception when called
+    double GetCurrentTimeInSeconds();    // Returns the current time
+    void NoPerformanceCounterSupport();  // Throws an exception when called
 
   public:
-    Timer(); // Default constructor
+    Timer();                             // Default constructor
     ~Timer() = default;
     void StartTimer();                   // Begins timing
     void StopTimer();                    // Ends timing

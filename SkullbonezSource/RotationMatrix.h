@@ -40,7 +40,7 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix(); // Default constructor
+    RotationMatrix();                                                                         // Default constructor
     RotationMatrix( float f11,
                     float f12,
                     float f13,
@@ -49,13 +49,13 @@ class RotationMatrix
                     float f23,
                     float f31,
                     float f32,
-                    float f33 ); // Overloaded constructor
+                    float f33 );                                                              // Overloaded constructor
     ~RotationMatrix() = default;
-    void Identity();                                              // Sets the matrix back to the identity value
-    Vector::Vector3 operator*( const Vector::Vector3& v ) const;  // Rotation matrix multiplied by vector
-    Vector::Vector3 operator*=( const Vector::Vector3& v ) const; // *= overload
+    void Identity();                                                                          // Sets the matrix back to the identity value
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;                              // Rotation matrix multiplied by vector
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                             // *= overload
     Vector::Vector3
-    TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
+    TransposeMultiply( const Vector::Vector3& v ) const;                                      // R^T * v (inverse rotation for orthogonal matrices)
 
     // Returns dot(abs(row_Y), v) — the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
@@ -80,7 +80,7 @@ class RotationMatrix
 #endif
 
   private:
-    float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Nine float matrix elements
+    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                                        // Nine float matrix elements
 };
 
 const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Identity matrix

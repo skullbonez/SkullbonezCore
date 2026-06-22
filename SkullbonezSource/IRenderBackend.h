@@ -96,7 +96,7 @@ class IRenderBackend : public IRenderCaptureBackend
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
     virtual void Finish() = 0;
-    virtual void FlushGPU() = 0; // Block until all submitted GPU work completes (required before resource destruction)
+    virtual void FlushGPU() = 0;                                              // Block until all submitted GPU work completes (required before resource destruction)
     virtual void Resize( int width, int height ) = 0;
 
 
@@ -231,10 +231,9 @@ class IRenderBackend : public IRenderCaptureBackend
                                          uint32_t skyBackHandle ) = 0;
     virtual void
     BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
-    virtual uint32_t GetReflectionUAVTexture() const = 0; // Returns texture handle for water shader binding
+    virtual uint32_t GetReflectionUAVTexture() const = 0;                     // Returns texture handle for water shader binding
     virtual void ShutdownDXR() = 0;
-    virtual uint64_t
-    GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU VA of instanced mesh's static VB
+    virtual uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU VA of instanced mesh's static VB
     virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
 
 
