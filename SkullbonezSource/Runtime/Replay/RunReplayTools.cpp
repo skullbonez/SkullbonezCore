@@ -931,6 +931,7 @@ void Run::EnterReplayInspectionCamera()
     {
         m_replayCamera.restoreFlyMode = m_camera.isFlyMode;
         m_replayCamera.restoreLauncherMode = m_camera.isLauncherMode;
+        m_replayCamera.restoreCameraMode = m_camera.mode;
         m_replayCamera.restoreCameraHash = m_systems.cameras->GetSelectedCameraName();
 
         const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
@@ -953,8 +954,9 @@ void Run::EnterReplayInspectionCamera()
     unbounded.m_zMax = 99999.9f;
     m_systems.cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
     m_camera.cameraTime = 0.0f;
-    m_camera.isFlyMode = true;
-    m_camera.isLauncherMode = false;
+    CancelMousePickup();
+    m_camera.mode = RunCameraMode::Free;
+    SyncLegacyCameraModeFlags();
     if ( enteringInspectionCamera )
     {
         Input::SetSystemCursorVisible( true );
@@ -971,8 +973,8 @@ void Run::ExitReplayInspectionCamera()
     }
 
     m_replayCamera.active = false;
-    m_camera.isLauncherMode = m_replayCamera.restoreLauncherMode;
-    m_camera.isFlyMode = m_replayCamera.restoreFlyMode || m_camera.isLauncherMode;
+    m_camera.mode = m_replayCamera.restoreCameraMode;
+    SyncLegacyCameraModeFlags();
     if ( m_systems.cameras )
     {
         m_systems.cameras->CancelTween();
@@ -1005,6 +1007,7 @@ void Run::ExitReplayInspectionCamera()
     m_replayCamera.focusedRow = -1;
     m_replayCamera.hasRestorePose = false;
     m_replayCamera.ownsSimulationPause = false;
+    m_replayCamera.restoreCameraMode = RunCameraMode::Demo;
     Input::SetSystemCursorVisible( true );
     InputController::ResetMouseLook( m_camera );
 }

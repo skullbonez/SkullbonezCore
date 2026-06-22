@@ -848,7 +848,9 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         UIData.waterNoReflect = m_run.m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_run.m_debug.isWaterRTReflect;
         const RuntimeInputMode runtimeInputMode = m_run.m_runtimeInput.CurrentMode();
-        UIData.runtimeInputModeLabel = InputController::DescribeMode( runtimeInputMode );
+        UIData.cameraModeIndex = static_cast<int>( m_run.m_camera.mode );
+        UIData.cameraModeEnabledMask = m_run.CameraModeEnabledMask();
+        UIData.runtimeInputModeLabel = m_run.CameraModeLabel( m_run.m_camera.mode );
         UIData.cameraMouseActive =
             ( runtimeInputMode == RuntimeInputMode::FlyCamera || runtimeInputMode == RuntimeInputMode::Launcher ||
               runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&

@@ -1217,6 +1217,11 @@ constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+constexpr float MOUSE_PICKUP_RAY_PADDING = 1.0f;
+constexpr float MOUSE_PICKUP_DEAD_ZONE = 0.04f;
+constexpr float MOUSE_PICKUP_STIFFNESS = 18.0f;
+constexpr float MOUSE_PICKUP_DAMPING = 1.35f;
+constexpr float MOUSE_PICKUP_MAX_IMPULSE = 260.0f;
 
 } // namespace
 
@@ -1268,32 +1273,10 @@ void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
 
 void Run::HandleEditorKeyboardShortcuts()
 {
-    m_camera.isFlyMode = true;
-    m_camera.isLauncherMode = false;
     m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
     if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditorTool, VK_MENU ) )
     {
         ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );
-    }
-    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                      RuntimeInputAction::CycleEditorPlacementType,
-                                                      VK_TAB ) )
-    {
-        if ( Input::IsKeyDown( VK_CONTROL ) )
-        {
-            EnterInteractiveSceneRun();
-            m_editor.placeStaticObject = !m_editor.placeStaticObject;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
-                                               RuntimeInputActionSource::Keyboard );
-        }
-        else
-        {
-            EnterInteractiveSceneRun();
-            m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-            ClearEditorManipulationState();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
-                                               RuntimeInputActionSource::Keyboard );
-        }
     }
 }
 
@@ -1338,8 +1321,10 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             ClearEditorManipulationState();
             m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
             m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
-            m_camera.isFlyMode = true;
-            m_camera.isLauncherMode = false;
+            m_editor.restoreCameraModeAfterEditor = m_camera.mode;
+            CancelMousePickup();
+            m_camera.mode = RunCameraMode::Free;
+            SyncLegacyCameraModeFlags();
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -1365,10 +1350,11 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
-            m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
-            m_camera.isLauncherMode = m_editor.restoreRayTestModeAfterEditor;
+            m_camera.mode = m_editor.restoreCameraModeAfterEditor;
+            SyncLegacyCameraModeFlags();
             m_editor.restoreFlyModeAfterEditor = false;
             m_editor.restoreRayTestModeAfterEditor = false;
+            m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
             if ( wasFlyMode && !m_camera.isFlyMode )
             {
                 ExitFlyModeCamera();
@@ -1377,6 +1363,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             {
                 InputController::ResetMouseLook( m_camera );
             }
+            ApplyCursorOwnership();
         }
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, toggleEditorSource );
     }
@@ -2454,6 +2441,214 @@ bool Run::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirect
 }
 
 
+bool Run::TryPickMousePickupModel( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   int& outIndex,
+                                   float& outRayT ) const
+{
+    outIndex = -1;
+    outRayT = FLT_MAX;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& model = models[static_cast<size_t>( i )];
+        if ( model.IsFixed() )
+        {
+            continue;
+        }
+
+        float rayT = 0.0f;
+        const float radius = EditorModelRadius( model ) + MOUSE_PICKUP_RAY_PADDING;
+        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) && rayT < outRayT )
+        {
+            outRayT = rayT;
+            outIndex = i;
+        }
+    }
+    return outIndex >= 0;
+}
+
+
+void Run::CancelMousePickup()
+{
+    if ( m_mousePickup.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+    m_mousePickup = RunMousePickupState{};
+}
+
+
+bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+{
+    if ( !IsManipulatorCameraMode() || m_editor.editorModeEnabled || ReplayInspectionActive() )
+    {
+        CancelMousePickup();
+        return false;
+    }
+
+    const auto UpdatePickupTarget = [&]() -> bool
+    {
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        {
+            return false;
+        }
+
+        const float denom = rayDirection * m_mousePickup.planeNormal;
+        if ( fabsf( denom ) <= 1.0e-5f )
+        {
+            return false;
+        }
+
+        const float planeT = ( ( m_mousePickup.planePoint - rayOrigin ) * m_mousePickup.planeNormal ) / denom;
+        if ( planeT < 0.0f )
+        {
+            return false;
+        }
+
+        m_mousePickup.targetPoint = rayOrigin + rayDirection * planeT;
+        return true;
+    };
+
+    if ( m_mousePickup.active )
+    {
+        if ( mouseEdges.leftReleased || !mouseEdges.leftDown )
+        {
+            CancelMousePickup();
+            return true;
+        }
+        UpdatePickupTarget();
+        return true;
+    }
+
+    if ( !mouseEdges.leftPressed )
+    {
+        return false;
+    }
+    if ( suppressWorldActionThisFrame || m_UI.WantsNativeMouseCursor() )
+    {
+        return false;
+    }
+
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    {
+        return true;
+    }
+
+    int pickedIndex = -1;
+    float pickedT = 0.0f;
+    if ( !TryPickMousePickupModel( rayOrigin, rayDirection, pickedIndex, pickedT ) )
+    {
+        return true;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    if ( pickedIndex < 0 || pickedIndex >= static_cast<int>( models.size() ) )
+    {
+        return true;
+    }
+
+    const GameModel& picked = models[static_cast<size_t>( pickedIndex )];
+    Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+    const float normalLenSq = VectorMagSquared( cameraNormal );
+    if ( normalLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return true;
+    }
+    cameraNormal *= 1.0f / sqrtf( normalLenSq );
+
+    const Vector3 grabPoint = rayOrigin + rayDirection * pickedT;
+    m_mousePickup.active = true;
+    m_mousePickup.mouseCaptured = true;
+    m_mousePickup.modelIndex = pickedIndex;
+    m_mousePickup.planePoint = grabPoint;
+    m_mousePickup.planeNormal = cameraNormal;
+    m_mousePickup.grabOffset = grabPoint - picked.GetPosition();
+    m_mousePickup.targetPoint = grabPoint;
+    m_mousePickup.preservedAngularVelocity = picked.GetAngularVelocity();
+    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    UI::InputControl::BeginMouseCapture( hwnd );
+    EnterInteractiveSceneRun();
+    UpdatePickupTarget();
+    return true;
+}
+
+
+void Run::ApplyMousePickupPhysicsStep()
+{
+    if ( !m_mousePickup.active )
+    {
+        return;
+    }
+
+    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    if ( model.IsFixed() )
+    {
+        CancelMousePickup();
+        return;
+    }
+    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+
+    const Vector3 grabPoint = model.GetPosition() + m_mousePickup.grabOffset;
+    const Vector3 pull = m_mousePickup.targetPoint - grabPoint;
+    const float pullLenSq = VectorMagSquared( pull );
+    if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
+    {
+        m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        return;
+    }
+
+    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - model.GetVelocity() * MOUSE_PICKUP_DAMPING;
+    const float impulseLenSq = VectorMagSquared( impulse );
+    if ( impulseLenSq > MOUSE_PICKUP_MAX_IMPULSE * MOUSE_PICKUP_MAX_IMPULSE )
+    {
+        impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
+    }
+
+    model.SetImpulseForce( impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    m_cGameModelCollection.WakeModel( m_mousePickup.modelIndex );
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+    m_mousePickup.lastImpulse = impulse;
+}
+
+
+void Run::RestoreMousePickupAngularVelocity()
+{
+    if ( !m_mousePickup.active )
+    {
+        return;
+    }
+
+    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    if ( model.IsFixed() )
+    {
+        CancelMousePickup();
+        return;
+    }
+
+    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+    m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
 int Run::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
 {
     if ( m_editor.selectedModelIndex < 0 || m_editor.selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
@@ -2803,6 +2998,20 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                  scaleMode,
                                  m_editor.gizmoDragIsScale );
     }
+    if ( m_mousePickup.active && m_mousePickup.modelIndex >= 0 &&
+         m_mousePickup.modelIndex < m_cGameModelCollection.GetModelCount() )
+    {
+        const GameModel& grabbed = m_cGameModelCollection.Models()[static_cast<size_t>( m_mousePickup.modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + m_mousePickup.grabOffset;
+        m_editorTracer.AddSelectionOutline( grabbed );
+        m_editorTracer.AddReplayPathSegment( grabPoint, m_mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+        m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint,
+                                               m_mousePickup.planeNormal,
+                                               0.1f,
+                                               0.95f,
+                                               1.0f );
+        m_editorTracer.AddReplayImpulseVector( grabPoint, m_mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+    }
     RenderReplayPathVisualizer( m_editorTracer );
     RenderReplayCauseFocusOverlay( m_editorTracer );
     RenderReplayVelocityEditOverlay( m_editorTracer );
@@ -2828,8 +3037,7 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     const int modelCount = m_cGameModelCollection.GetModelCount();
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
-    const bool isRagdollType =
-        type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
     const int requiredModelCount = isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( tree ? tree->partCount : 1 );
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
@@ -2853,7 +3061,8 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
     const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
-    const char* modePrefix = placementFixed ? "static" : ( ( tree && tree->seedAsleep ) || ragdollStartsAsleep ? "sleeping" : "dynamic" );
+    const char* modePrefix =
+        placementFixed ? "static" : ( ( tree && tree->seedAsleep ) || ragdollStartsAsleep ? "sleeping" : "dynamic" );
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {

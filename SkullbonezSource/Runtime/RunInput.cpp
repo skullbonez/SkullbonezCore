@@ -41,6 +41,7 @@ RuntimeInputModeState BuildRuntimeInputModeState( const RunCameraState& camera, 
     RuntimeInputModeState state;
     state.flyCamera = camera.isFlyMode;
     state.launcher = camera.isLauncherMode;
+    state.manipulator = camera.mode == RunCameraMode::Manipulator;
     state.editor = editor.editorModeEnabled;
     state.editorPlacement = editor.placementModeEnabled;
     state.editorViewportLook = editor.viewportLookActive;
@@ -61,9 +62,9 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
 {
     static const RuntimeInputKeyBinding kBindings[] = { { RuntimeInputAction::ToggleFlyCamera, 'F' },
                                                         { RuntimeInputAction::ToggleLauncher, 'N' },
+                                                        { RuntimeInputAction::CycleCameraMode, VK_TAB },
                                                         { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
                                                         { RuntimeInputAction::ToggleEditorTool, VK_MENU },
-                                                        { RuntimeInputAction::CycleEditorPlacementType, VK_TAB },
                                                         { RuntimeInputAction::CycleLauncherFireMode, 'M' },
                                                         { RuntimeInputAction::WriteLauncherReproSnapshot, VK_RETURN },
                                                         { RuntimeInputAction::ToggleWaterFreeze, '1' },
@@ -123,6 +124,141 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 }
 
 
+const char* Run::CameraModeLabel( RunCameraMode mode ) const
+{
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+        return "Demo";
+    case RunCameraMode::Free:
+        return "Free";
+    case RunCameraMode::Launcher:
+        return "Launcher";
+    case RunCameraMode::Manipulator:
+        return "Manipulator";
+    default:
+        return "Unknown";
+    }
+}
+
+
+bool Run::IsDemoCameraModeAvailable() const
+{
+    return m_cGameModelCollection.GetModelCount() > 0;
+}
+
+
+bool Run::IsManipulatorCameraMode() const
+{
+    return m_camera.mode == RunCameraMode::Manipulator;
+}
+
+
+uint32_t Run::CameraModeEnabledMask() const
+{
+    uint32_t mask = 0;
+    if ( IsDemoCameraModeAvailable() )
+    {
+        mask |= 1u << static_cast<int>( RunCameraMode::Demo );
+    }
+    mask |= 1u << static_cast<int>( RunCameraMode::Free );
+    mask |= 1u << static_cast<int>( RunCameraMode::Launcher );
+    mask |= 1u << static_cast<int>( RunCameraMode::Manipulator );
+    return mask;
+}
+
+
+void Run::SyncLegacyCameraModeFlags()
+{
+    m_camera.isLauncherMode = m_camera.mode == RunCameraMode::Launcher;
+    m_camera.isFlyMode = m_camera.mode == RunCameraMode::Free || m_camera.mode == RunCameraMode::Launcher ||
+                         m_camera.mode == RunCameraMode::Manipulator;
+}
+
+
+void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
+{
+    const int modeIndex = static_cast<int>( mode );
+    if ( modeIndex < 0 || modeIndex >= static_cast<int>( RunCameraMode::Count ) )
+    {
+        return;
+    }
+
+    if ( mode == RunCameraMode::Demo )
+    {
+        if ( !IsDemoCameraModeAvailable() )
+        {
+            mode = RunCameraMode::Free;
+        }
+        else
+        {
+            const int modelCount = m_cGameModelCollection.GetModelCount();
+            if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
+            {
+                m_camera.trackBallIndex = 0;
+            }
+            if ( m_camera.trackHeight <= 0.0f )
+            {
+                m_camera.trackHeight = 300.0f;
+            }
+        }
+    }
+
+    const bool wasFlyMode = m_camera.isFlyMode;
+    m_camera.mode = mode;
+    if ( m_editor.editorModeEnabled )
+    {
+        m_editor.restoreCameraModeAfterEditor = mode;
+    }
+    SyncLegacyCameraModeFlags();
+    if ( mode != RunCameraMode::Manipulator )
+    {
+        CancelMousePickup();
+    }
+
+    if ( wasFlyMode != m_camera.isFlyMode )
+    {
+        if ( m_camera.isFlyMode )
+        {
+            EnterFlyModeCamera();
+        }
+        else
+        {
+            ExitFlyModeCamera();
+        }
+    }
+    else
+    {
+        InputController::ResetMouseLook( m_camera );
+        ApplyCursorOwnership();
+    }
+    UpdateRuntimeInputModeAfterAction( source == RuntimeInputActionSource::UI ? RuntimeInputAction::SetCameraMode
+                                                                              : RuntimeInputAction::CycleCameraMode,
+                                       source );
+}
+
+
+void Run::CycleCameraMode()
+{
+    const uint32_t enabledMask = CameraModeEnabledMask();
+    int current = static_cast<int>( m_camera.mode );
+    if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
+    {
+        current = static_cast<int>( RunCameraMode::Demo );
+    }
+
+    for ( int step = 1; step <= static_cast<int>( RunCameraMode::Count ); ++step )
+    {
+        const int next = ( current + step ) % static_cast<int>( RunCameraMode::Count );
+        if ( ( enabledMask & ( 1u << next ) ) != 0 )
+        {
+            ApplyCameraMode( static_cast<RunCameraMode>( next ), RuntimeInputActionSource::Keyboard );
+            return;
+        }
+    }
+}
+
+
 bool Run::ReplayInspectionActive() const
 {
     return m_replayCamera.active || m_replayScrubber.paused || m_replayScrubber.simulationPaused;
@@ -153,7 +289,7 @@ bool Run::MouseLookOwnsCursor() const
         return ReplayInspectionMouseLookActive();
     }
 
-    return m_camera.isFlyMode;
+    return m_camera.isFlyMode && m_camera.mode != RunCameraMode::Manipulator;
 }
 
 
@@ -255,6 +391,7 @@ void Run::TakeInput()
             UI::InputControl::EndMouseCapture();
             m_replayVelocityEdit.mouseCaptured = false;
         }
+        CancelMousePickup();
         if ( m_replayCauseTree.draggingWindow || m_replayCauseTree.resizingWindow )
         {
             UI::InputControl::EndMouseCapture();
@@ -288,29 +425,29 @@ void Run::TakeInput()
         keyboardToggleEditorMode =
             InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditor, VK_OEM_3 );
 
-        // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
-        bool prevFlyMode = m_camera.isFlyMode;
-        bool keyboardModeAction = false;
-        RuntimeInputAction keyboardModeActionName = RuntimeInputAction::None;
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::CycleCameraMode,
+                                                          VK_TAB ) )
         {
-            m_camera.isFlyMode = !m_camera.isFlyMode;
-            m_camera.isLauncherMode = false; // F-key fly never implies launcher mode.
-            keyboardModeAction = true;
-            keyboardModeActionName = RuntimeInputAction::ToggleFlyCamera;
+            CycleCameraMode();
         }
 
-        // N key: toggle launcher mode with live simulation (edge-detected).
-        // Entering also enters fly mode; exiting also exits fly mode.
+        // Compatibility shortcut: F enters Free, or returns to Demo when already free.
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
+        {
+            ApplyCameraMode( m_camera.mode == RunCameraMode::Free ? RunCameraMode::Demo : RunCameraMode::Free,
+                             RuntimeInputActionSource::Keyboard );
+        }
+
+        // Compatibility shortcut: N toggles launcher view with live simulation.
         {
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                               RuntimeInputAction::ToggleLauncher,
                                                               'N' ) )
             {
-                m_camera.isLauncherMode = !m_camera.isLauncherMode;
-                m_camera.isFlyMode = m_camera.isLauncherMode;
-                keyboardModeAction = true;
-                keyboardModeActionName = RuntimeInputAction::ToggleLauncher;
+                ApplyCameraMode(
+                    m_camera.mode == RunCameraMode::Launcher ? RunCameraMode::Free : RunCameraMode::Launcher,
+                    RuntimeInputActionSource::Keyboard );
             }
         }
 
@@ -351,25 +488,9 @@ void Run::TakeInput()
             }
             m_replayVelocityEdit.keyboardAltWasDown = altDown;
             m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
-            m_runtimeInput.SetActionDown( RuntimeInputAction::CycleEditorPlacementType, Input::IsKeyDown( VK_TAB ) );
+            m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
             m_editor.altShortcutWasDown = altDown;
             m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-        }
-
-        if ( m_camera.isFlyMode != prevFlyMode )
-        {
-            if ( m_camera.isFlyMode )
-            {
-                EnterFlyModeCamera();
-            }
-            else
-            {
-                ExitFlyModeCamera();
-            }
-        }
-        if ( keyboardModeAction )
-        {
-            UpdateRuntimeInputModeAfterAction( keyboardModeActionName, RuntimeInputActionSource::Keyboard );
         }
 
         // Water m_shader debug toggles
@@ -605,6 +726,8 @@ void Run::TakeInput()
                               m_editor.placeStaticObject,
                               m_editor.autoTerrainAlign,
                               m_editor.objectType,
+                              static_cast<int>( m_camera.mode ),
+                              CameraModeEnabledMask(),
                               m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                               static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                               selectedSceneBrowserIndex );
@@ -664,6 +787,12 @@ void Run::TakeInput()
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.run.requestedCameraMode >= 0 &&
+             uiCommands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
+        {
+            ApplyCameraMode( static_cast<RunCameraMode>( uiCommands.run.requestedCameraMode ),
+                             RuntimeInputActionSource::UI );
         }
         ApplyEditorUICommands( uiCommands, keyboardToggleEditorMode );
         if ( uiCommands.physics.toggleCollisionVisualizer )
@@ -1044,6 +1173,12 @@ void Run::TakeInput()
             m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
         const bool leftPressed = mouseEdges.leftPressed;
         bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldActionThisFrame );
+        if ( !consumedWorldClick )
+        {
+            consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
+                                                       mouseEdges,
+                                                       suppressWorldActionThisFrame );
+        }
         if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame && !m_editor.editorModeEnabled &&
              !m_UI.WantsNativeMouseCursor() && ( Input::IsKeyDown( VK_CONTROL ) || !m_camera.isLauncherMode ) )
         {
@@ -1092,9 +1227,10 @@ void Run::TakeInput()
         }
     }
 
-    const bool cameraMouseLookActive = ( !m_editor.editorModeEnabled && m_camera.isFlyMode &&
-                                         ( !ReplayInspectionActive() || ReplayInspectionMouseLookActive() ) ) ||
-                                       m_editor.viewportLookActive;
+    const bool cameraMouseLookActive =
+        ( !m_editor.editorModeEnabled && m_camera.isFlyMode && m_camera.mode != RunCameraMode::Manipulator &&
+          ( !ReplayInspectionActive() || ReplayInspectionMouseLookActive() ) ) ||
+        m_editor.viewportLookActive;
     const bool cameraKeyboardControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
     if ( cameraMouseLookActive )
     {

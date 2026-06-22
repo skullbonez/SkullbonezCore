@@ -236,6 +236,10 @@ RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& stat
         return RuntimeInputMode::EditorGizmo;
     }
 
+    if ( state.manipulator )
+    {
+        return RuntimeInputMode::Manipulator;
+    }
     if ( state.launcher )
     {
         return RuntimeInputMode::Launcher;
@@ -257,6 +261,8 @@ const char* InputController::DescribeMode( RuntimeInputMode mode )
         return "Fly Camera";
     case RuntimeInputMode::Launcher:
         return "Launcher";
+    case RuntimeInputMode::Manipulator:
+        return "Manipulator";
     case RuntimeInputMode::EditorPlace:
         return "Editor Place";
     case RuntimeInputMode::EditorGizmo:
@@ -286,6 +292,10 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleFlyCamera";
     case RuntimeInputAction::ToggleLauncher:
         return "ToggleLauncher";
+    case RuntimeInputAction::CycleCameraMode:
+        return "CycleCameraMode";
+    case RuntimeInputAction::SetCameraMode:
+        return "SetCameraMode";
     case RuntimeInputAction::ToggleEditor:
         return "ToggleEditor";
     case RuntimeInputAction::ToggleEditorTool:

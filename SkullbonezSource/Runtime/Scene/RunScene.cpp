@@ -934,7 +934,10 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         joint.bodyB = findModelByName( sceneJoint.bodyB );
         if ( joint.bodyA < 0 || joint.bodyB < 0 )
         {
-            fprintf( stderr, "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n", sceneJoint.bodyA, sceneJoint.bodyB );
+            fprintf( stderr,
+                     "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n",
+                     sceneJoint.bodyA,
+                     sceneJoint.bodyB );
             continue;
         }
         joint.localAnchorA = sceneJoint.localAnchorA;
@@ -1353,8 +1356,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
 
-    m_camera.isFlyMode = false;
-    m_camera.isLauncherMode = false;
+    CancelMousePickup();
+    m_camera.mode = RunCameraMode::Demo;
+    SyncLegacyCameraModeFlags();
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1751,7 +1755,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_camera.isFlyMode = true;
+            m_camera.mode = RunCameraMode::Free;
+            SyncLegacyCameraModeFlags();
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;

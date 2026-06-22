@@ -41,6 +41,7 @@ enum class RuntimeInputMode
     Scene,
     FlyCamera,
     Launcher,
+    Manipulator,
     EditorPlace,
     EditorGizmo,
     EditorViewportLook,
@@ -55,6 +56,8 @@ enum class RuntimeInputAction
     None,
     ToggleFlyCamera,
     ToggleLauncher,
+    CycleCameraMode,
+    SetCameraMode,
     ToggleEditor,
     ToggleEditorTool,
     CycleEditorPlacementType,
@@ -142,6 +145,7 @@ struct RuntimeInputModeState
 {
     bool flyCamera = false;
     bool launcher = false;
+    bool manipulator = false;
     bool editor = false;
     bool editorPlacement = false;
     bool editorViewportLook = false;

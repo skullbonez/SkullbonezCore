@@ -207,18 +207,23 @@ void Run::TickPhysics( double secondsPerFrame )
 
     const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
-    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
-        secondsPerFrame,
-        replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
-        SceneState().isSceneMode,
-        SceneState().isScenePhysics,
-        SceneState().isFixedStep,
-        m_camera.isFlyMode || replaySimulationPaused,
-        m_camera.isLauncherMode,
-        stepRequested,
-        &m_cGameModelCollection,
-        ( m_replay.IsEnabled() || m_solverReplay.IsEnabled() ) ? &Run::CaptureReplayPhysicsStepThunk : nullptr,
-        this } );
+    const bool manipulatorPhysics = m_camera.mode == RunCameraMode::Manipulator;
+    const bool replayCapture = m_replay.IsEnabled() || m_solverReplay.IsEnabled();
+    const SimulationTickResult tick = m_simulation.Tick(
+        SimulationTickInput{ secondsPerFrame,
+                             replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
+                             SceneState().isSceneMode,
+                             SceneState().isScenePhysics,
+                             SceneState().isFixedStep,
+                             m_camera.isFlyMode || replaySimulationPaused,
+                             m_camera.isLauncherMode,
+                             manipulatorPhysics,
+                             stepRequested,
+                             &m_cGameModelCollection,
+                             manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
+                             this,
+                             ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
+                             this } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_launcherLaser.Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
@@ -234,6 +239,36 @@ void Run::CaptureReplayPhysicsStepThunk( void* userData )
     if ( run )
     {
         run->CaptureReplayPhysicsStep();
+    }
+}
+
+
+void Run::AfterPhysicsStepThunk( void* userData )
+{
+    Run* run = static_cast<Run*>( userData );
+    if ( run )
+    {
+        run->AfterPhysicsStep();
+    }
+}
+
+
+void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
+{
+    Run* run = static_cast<Run*>( userData );
+    if ( run )
+    {
+        run->ApplyMousePickupPhysicsStep();
+    }
+}
+
+
+void Run::AfterPhysicsStep()
+{
+    RestoreMousePickupAngularVelocity();
+    if ( m_replay.IsEnabled() || m_solverReplay.IsEnabled() )
+    {
+        CaptureReplayPhysicsStep();
     }
 }
 

@@ -87,6 +87,7 @@ PHYSICS_PREFIXES = (
     "PhysicsBodyStore",
     "PhysicsDiagnosticsSink",
     "PhysicsMass",
+    "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",
     "ResponseInformation",

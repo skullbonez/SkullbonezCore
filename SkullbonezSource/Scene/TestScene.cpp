@@ -507,8 +507,7 @@ const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index )
 {
     if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
     {
-        throw std::runtime_error(
-            "PointJointConstraint index out of range.  (TestScene::GetPointJointConstraint)" );
+        throw std::runtime_error( "PointJointConstraint index out of range.  (TestScene::GetPointJointConstraint)" );
     }
 
     return m_pointJointConstraints[index];

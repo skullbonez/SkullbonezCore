@@ -155,6 +155,8 @@ struct InGameUIFrameData
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
+    int cameraModeIndex = 0;
+    uint32_t cameraModeEnabledMask = 0xFu;
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -207,6 +209,8 @@ class InGameUI
                                      bool editorPlaceStatic = true,
                                      bool editorTerrainAlign = false,
                                      int editorObjectType = EditorTab::OBJECT_BOX,
+                                     int cameraModeIndex = 0,
+                                     uint32_t cameraModeEnabledMask = 0xFu,
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
                                      int selectedSceneOption = -1 );
@@ -233,6 +237,7 @@ class InGameUI
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
     UIComboBox m_renderTargetCombo;
+    UIComboBox m_cameraModeCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_renderShadowToggle;
     UIButton m_saveRenderDefaultsButton;

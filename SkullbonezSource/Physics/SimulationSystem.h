@@ -40,8 +40,11 @@ struct SimulationTickInput
     bool isFixedStep = false;
     bool isFlyMode = false;
     bool isLauncherMode = false;
+    bool isManipulatorMode = false;
     bool isStepRequested = false;
     GameObjects::GameModelCollection* models = nullptr;
+    PhysicsStepCallback beforePhysicsStep = nullptr;
+    void* beforePhysicsStepUserData = nullptr;
     PhysicsStepCallback afterPhysicsStep = nullptr;
     void* afterPhysicsStepUserData = nullptr;
 };

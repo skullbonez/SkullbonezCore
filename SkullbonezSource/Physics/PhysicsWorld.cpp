@@ -998,8 +998,8 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
     const int modelCount = static_cast<int>( models.size() );
     auto wakeBody = [&]( int index )
     {
-        if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) || !m_sleepState[index] ||
-             models[index].IsFixed() )
+        if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) ||
+             !m_sleepState[index] || models[index].IsFixed() )
         {
             return;
         }

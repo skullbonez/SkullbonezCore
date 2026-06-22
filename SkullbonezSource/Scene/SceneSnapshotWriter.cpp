@@ -240,7 +240,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         }
     }
 
-    const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints = collection.GetPointJointConstraints();
+    const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints =
+        collection.GetPointJointConstraints();
     if ( !pointJoints.empty() )
     {
         scene["ragdollJoints"] = Json::array();

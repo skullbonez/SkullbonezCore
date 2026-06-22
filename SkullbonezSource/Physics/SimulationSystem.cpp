@@ -50,7 +50,8 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     result.shouldUpdateLogic = true;
     result.cameraDt = static_cast<float>( input.secondsPerFrame );
 
-    const bool shouldStepPhysics = !input.isFlyMode || input.isLauncherMode || input.isStepRequested;
+    const bool shouldStepPhysics =
+        !input.isFlyMode || input.isLauncherMode || input.isManipulatorMode || input.isStepRequested;
     if ( input.isFixedStep )
     {
         // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
@@ -66,6 +67,10 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             for ( int tick = 0; tick < ticksThisFrame; ++tick )
             {
                 PROFILE_SCOPED( "Frame/Physics/Step" );
+                if ( input.beforePhysicsStep )
+                {
+                    input.beforePhysicsStep( input.beforePhysicsStepUserData );
+                }
                 input.models->RunPhysics( PHYSICS_FIXED_DT );
                 ++result.committedPhysicsTicks;
                 if ( input.afterPhysicsStep )
@@ -93,6 +98,10 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         while ( m_physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
+            if ( input.beforePhysicsStep )
+            {
+                input.beforePhysicsStep( input.beforePhysicsStepUserData );
+            }
             input.models->RunPhysics( PHYSICS_FIXED_DT );
             ++result.committedPhysicsTicks;
             if ( input.afterPhysicsStep )

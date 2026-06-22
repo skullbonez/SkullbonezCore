@@ -222,11 +222,21 @@ struct RunSubsystemState
     Geometry::SkyBox* skyBox = nullptr;
 };
 
+enum class RunCameraMode
+{
+    Demo = 0,
+    Free,
+    Launcher,
+    Manipulator,
+    Count
+};
+
 struct RunCameraState
 {
     Hardware::InputState input = {};                                             // Snapshot consumed by camera controls for this frame.
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
+    RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
     bool isFlyMode = false;                                                      // Free-fly camera mode active (toggle with F)
     bool isLauncherMode = false;                                                 // Launcher camera mode (toggle with N): free camera plus left-click firing
     bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
@@ -321,6 +331,19 @@ struct RunRayCastTestState
     float projectileSpeed = 160.0f;
 };
 
+struct RunMousePickupState
+{
+    bool active = false;
+    bool mouseCaptured = false;
+    int modelIndex = -1;
+    Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
+};
+
 enum class RunReplayTrack
 {
     Presentation,
@@ -393,6 +416,7 @@ struct RunReplayCameraState
     bool active = false;
     bool restoreFlyMode = false;
     bool restoreLauncherMode = false;
+    RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     bool hasRestorePose = false;
     bool ownsSimulationPause = false;
     uint32_t restoreCameraHash = CAMERA_FREE;
@@ -578,6 +602,7 @@ struct RunEditorPlacementState
     bool autoTerrainAlign = false;
     bool restoreFlyModeAfterEditor = false;
     bool restoreRayTestModeAfterEditor = false;
+    RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
     bool placementScaleActive = false;
@@ -1235,6 +1260,7 @@ class Run
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles
     RunRayCastTestState m_rayCastTest;                                           // Launcher-mode firing state and fading debug lines
+    RunMousePickupState m_mousePickup;                                           // Manipulator-mode click-drag physics pickup state.
     RunEditorPlacementState m_editor;                                            // Object placement and selection editor state
     RunEditorTracer m_editorTracer;                                              // Render-only ray tests, ghost previews, and editor gizmo lines
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
@@ -1286,6 +1312,14 @@ class Run
     void ReleaseMouseToUI();                                                     // Gives mouse focus back to Win32/UI when tools stop owning it.
     void EnterFlyModeCamera();                                                   // Switches camera state into free-flight controls.
     void ExitFlyModeCamera();                                                    // Restores terrain camera bounds and leaves launcher mode.
+    const char* CameraModeLabel( RunCameraMode mode ) const;                     // Compact name for UI and transition diagnostics.
+    uint32_t CameraModeEnabledMask() const;                                      // One bit per camera mode; disabled modes remain visible in UI.
+    bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
+    bool IsManipulatorCameraMode() const;                                        // True when mouse pickup owns world left-drag semantics.
+    void SyncLegacyCameraModeFlags();                                            // Mirrors RunCameraMode into fly/launcher flags used by older code.
+    void ApplyCameraMode( RunCameraMode mode,
+                          RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
+    void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void SetUpCamerasFromScene(
         const TestScene& scene );                                                // Applies authored camera records without disturbing scene automation gates.
@@ -1389,6 +1423,11 @@ class Run
     void ResetReplayTimelineForActiveScene();                                    // Scene/model rebuilds start a fresh in-memory replay branch.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
+    void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.
+    static void AfterPhysicsStepThunk( void* userData );
+    void ApplyMousePickupPhysicsStep();                                          // Manipulator spring impulse before one fixed physics step.
+    void RestoreMousePickupAngularVelocity();                                    // Holds grabbed body angular velocity stable during drag.
+    static void ApplyMousePickupPhysicsStepThunk( void* userData );
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     void ClearReplayPathVisualizer();
@@ -1517,6 +1556,15 @@ class Run
     bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin,
                              const Math::Vector::Vector3& rayDirection,
                              int& outIndex ) const;                              // Ray-picks editable objects
+    bool TryPickMousePickupModel( const Math::Vector::Vector3& rayOrigin,
+                                  const Math::Vector::Vector3& rayDirection,
+                                  int& outIndex,
+                                  float& outRayT ) const;                        // Ray-picks movable manipulator objects.
+    void CancelMousePickup();                                                    // Releases manipulator drag/capture state.
+    bool TickMousePickupInput(
+        HWND hwnd,
+        const RuntimeMouseEdges& mouseEdges,
+        bool suppressWorldActionThisFrame );                                     // Handles manipulator left-click pickup and target updates.
     int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection )
         const;                                                                   // Hovered gizmo axis, or -1 when none is hit.
     int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection )

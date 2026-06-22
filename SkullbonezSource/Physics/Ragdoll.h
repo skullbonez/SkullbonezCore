@@ -71,10 +71,9 @@ class Ragdoll
     static constexpr int SIMPLE_PART_COUNT = 10;
 
     static float DefaultEditorScale();
-    static Math::Vector::Vector3 DefaultPreviewCenter(
-        const Math::Vector::Vector3& terrainPoint,
-        float scale,
-        const Math::Orientation::Quaternion& orientation );
+    static Math::Vector::Vector3 DefaultPreviewCenter( const Math::Vector::Vector3& terrainPoint,
+                                                       float scale,
+                                                       const Math::Orientation::Quaternion& orientation );
     static void AddPreviewLines( std::vector<float>& lineData,
                                  const Math::Vector::Vector3& terrainPoint,
                                  float scale,

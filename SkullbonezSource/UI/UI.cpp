@@ -99,6 +99,32 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
 }
 
+constexpr int CAMERA_MODE_OPTION_COUNT = 4;
+const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Free", "Launcher", "Manipulator" };
+constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 154.0f;
+constexpr float MINIMIZED_CAMERA_MODE_GAP = 10.0f;
+constexpr float MINIMIZED_RESTORE_W = 42.0f;
+
+UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
+{
+    return { minimized.x + minimized.w - MINIMIZED_RESTORE_W - MINIMIZED_CAMERA_MODE_COMBO_W,
+             minimized.y + 6.0f,
+             MINIMIZED_CAMERA_MODE_COMBO_W,
+             24.0f };
+}
+
+float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
+{
+    constexpr float margin = 14.0f;
+    constexpr float textSize = 12.5f;
+    constexpr float titleLeft = 32.0f;
+    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float titleW = Text2d::MeasureText( textSize, title ? title : "" );
+    const float desiredW =
+        titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
+    return std::clamp( desiredW, 154.0f, maxW );
+}
+
 uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData& data )
 {
     const int count = std::clamp( data.renderTargetPreviewCount, 0, UI_RENDER_TARGET_PREVIEW_MAX );
@@ -194,6 +220,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
     hash = HashTextValue( hash, data.runtimeInputModeLabel );
+    hash = HashInt( hash, data.cameraModeIndex );
+    hash = HashInt( hash, static_cast<int>( data.cameraModeEnabledMask ) );
     hash = HashBool( hash, data.editorModeEnabled );
     hash = HashBool( hash, data.editorPlacementMode );
     hash = HashBool( hash, data.editorPlaceStatic );
@@ -308,6 +336,7 @@ uint32_t BuildUIInteractionSignature( int mouseX,
                                       bool cineSceneOpen,
                                       bool editorObjectOpen,
                                       bool renderTargetOpen,
+                                      bool cameraModeOpen,
                                       int selectedRenderTarget,
                                       int activeSlider )
 {
@@ -320,6 +349,7 @@ uint32_t BuildUIInteractionSignature( int mouseX,
     hash = HashBool( hash, cineSceneOpen );
     hash = HashBool( hash, editorObjectOpen );
     hash = HashBool( hash, renderTargetOpen );
+    hash = HashBool( hash, cameraModeOpen );
     hash = HashInt( hash, selectedRenderTarget );
     hash = HashInt( hash, activeSlider );
     return hash;
@@ -2141,6 +2171,7 @@ void InGameUI::SetVisible( bool visible, double now )
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
+        m_cameraModeCombo.Close();
     }
 }
 
@@ -2190,11 +2221,13 @@ void InGameUI::SetMinimized( bool minimized, double now )
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
+        m_cameraModeCombo.Close();
         m_activeSlider = 0;
     }
     else
     {
         m_window.isMinimized = false;
+        m_cameraModeCombo.Close();
         Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );
         m_scrollbarVisibleUntil = now + 1.2;
     }
@@ -2236,6 +2269,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_editorTab.objectCombo.Close();
     CinematicTab::CloseCombo( m_cinematicTab );
     m_renderTargetCombo.Close();
+    m_cameraModeCombo.Close();
     m_activeSlider = 0;
     SceneTab::ResetPreviewState( m_sceneTab );
     OptionsTab::ResetPreviewState( m_optionsTab );
@@ -2265,6 +2299,7 @@ void InGameUI::CancelInputCapture()
     ControlsTab::ResetPreviewState( m_controlsTab );
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
+    m_cameraModeCombo.Close();
     CancelEditorMiniPaletteInteraction();
 }
 
@@ -2329,6 +2364,7 @@ void InGameUI::SetRendererComboOpen( bool open )
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
+        m_cameraModeCombo.Close();
     }
 }
 
@@ -2342,6 +2378,7 @@ void InGameUI::SetWaterComboOpen( bool open )
         CloseSceneCombo();
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
+        m_cameraModeCombo.Close();
     }
 }
 
@@ -2355,6 +2392,7 @@ void InGameUI::SetSceneComboOpen( bool open )
         m_reflectionCombo.Close();
         CinematicTab::CloseCombo( m_cinematicTab );
         m_renderTargetCombo.Close();
+        m_cameraModeCombo.Close();
         SceneTab::CaptureFilterKeyState( m_sceneTab );
     }
     else
@@ -2619,6 +2657,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                            bool editorPlaceStatic,
                                            bool editorTerrainAlign,
                                            int editorObjectType,
+                                           int cameraModeIndex,
+                                           uint32_t cameraModeEnabledMask,
                                            const char* const* sceneOptions,
                                            int sceneOptionCount,
                                            int selectedSceneOption )
@@ -2627,6 +2667,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     InGameUIInputResult result;
     editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
     (void)editorObjectType;
+    cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
+    cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
     m_interaction.blocksCameraMouse = false;
     const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown,
                                                                                m_hasMouseOverride,
@@ -2669,6 +2711,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
         const bool showEditorMiniPalette = editorModeEnabled;
+        const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
+        m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
+                                     cameraModeComboBounds.y,
+                                     cameraModeComboBounds.w,
+                                     cameraModeComboBounds.h );
+        m_cameraModeCombo.SetDropUp( true );
+        bool cameraModeComboHandled = false;
+        bool insideCameraModeCombo = false;
+        const uint32_t cameraModeDisabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) & ~cameraModeEnabledMask;
         if ( !showEditorMiniPalette )
         {
             if ( m_editorMiniPalettePressActive )
@@ -2676,6 +2727,54 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                 InputControl::EndMouseCapture();
             }
             CancelEditorMiniPaletteInteraction();
+
+            const bool comboOptionHit =
+                m_cameraModeCombo.IsOpen() &&
+                m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT ) >= 0;
+            const bool comboDropdownHit =
+                m_cameraModeCombo.IsOpen() &&
+                m_cameraModeCombo.DropdownBounds( CAMERA_MODE_OPTION_COUNT ).Contains( m_mouseX, m_mouseY );
+            insideCameraModeCombo =
+                m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) || comboOptionHit || comboDropdownHit;
+            if ( input.leftPressed && m_cameraModeCombo.IsOpen() )
+            {
+                const int option = m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT );
+                const bool optionDisabled =
+                    option >= 0 && option < 32 && ( cameraModeDisabledMask & ( 1u << option ) ) != 0;
+                if ( option >= 0 && option < CAMERA_MODE_OPTION_COUNT && !optionDisabled )
+                {
+                    result.commands.run.requestedCameraMode = option;
+                    result.commands.ui.userInteracted = true;
+                    m_cameraModeCombo.Close();
+                    m_cache.Reset();
+                    cameraModeComboHandled = true;
+                }
+                else if ( m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) )
+                {
+                    m_cameraModeCombo.ToggleOpen();
+                    result.commands.ui.userInteracted = true;
+                    m_cache.Reset();
+                    cameraModeComboHandled = true;
+                }
+                else if ( option < 0 )
+                {
+                    m_cameraModeCombo.Close();
+                    result.commands.ui.userInteracted = true;
+                    m_cache.Reset();
+                    cameraModeComboHandled = true;
+                }
+            }
+            else if ( input.leftPressed && m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) )
+            {
+                m_cameraModeCombo.ToggleOpen();
+                result.commands.ui.userInteracted = true;
+                m_cache.Reset();
+                cameraModeComboHandled = true;
+            }
+        }
+        else
+        {
+            m_cameraModeCombo.Close();
         }
 
         EditorMiniPaletteLayout editorMiniPalette;
@@ -2810,19 +2909,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             }
         }
 
-        if ( insideMinimized || insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
-             m_editorMiniPalettePressActive )
+        if ( insideMinimized || insideCameraModeCombo || cameraModeComboHandled || insideEditorMiniPalette ||
+             insideEditorMinimizedStatusControl || m_editorMiniPalettePressActive )
         {
             result.unhandledWheelDelta = 0;
         }
-        if ( input.leftPressed && insideMinimized && !editorMiniPaletteHandled && !editorMinimizedStatusHandled )
+        if ( input.leftPressed && insideMinimized && !cameraModeComboHandled && !editorMiniPaletteHandled &&
+             !editorMinimizedStatusHandled )
         {
             SetMinimized( false, now );
             result.commands.ui.userInteracted = true;
         }
         m_interaction.leftWasDown = leftNow;
-        m_interaction.blocksCameraMouse = insideMinimized || insideEditorMiniPalette ||
-                                          insideEditorMinimizedStatusControl || m_editorMiniPalettePressActive;
+        m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
+                                          insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
+                                          m_editorMiniPalettePressActive;
         return result;
     }
 
@@ -3532,7 +3633,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         char titleText[192] = {};
         Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
         m_window.minimizedWidth = data.editorModeEnabled ? EditorMinimizedWidth( data, screenW )
-                                                         : MinimizedWidthForTitle( titleText, screenW );
+                                                         : MinimizedWidthWithCameraModeCombo( titleText, screenW );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         if ( data.editorModeEnabled )
         {
@@ -3556,8 +3657,28 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         else
         {
-            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
+            const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
+            m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
+                                         cameraModeComboBounds.y,
+                                         cameraModeComboBounds.w,
+                                         cameraModeComboBounds.h );
+            m_cameraModeCombo.SetDropUp( true );
+            const float titleMaxW =
+                (std::max)( 40.0f, cameraModeComboBounds.x - ( minimized.x + 32.0f ) - MINIMIZED_CAMERA_MODE_GAP );
+            Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
             Chrome::DrawMinimizedWindow( draw, minimized, titleText );
+            const int cameraModeIndex = std::clamp( data.cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
+            const uint32_t cameraModeDisabledMask =
+                ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
+                ~( data.cameraModeEnabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
+            m_cameraModeCombo.Draw( draw,
+                                    "Mode",
+                                    kCameraModeOptions,
+                                    CAMERA_MODE_OPTION_COUNT,
+                                    cameraModeIndex,
+                                    m_mouseX,
+                                    m_mouseY,
+                                    cameraModeDisabledMask );
         }
         if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
         {
@@ -3617,6 +3738,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                                                  CinematicTab::IsComboOpen( m_cinematicTab ),
                                                                  m_editorTab.objectCombo.IsOpen(),
                                                                  m_renderTargetCombo.IsOpen(),
+                                                                 m_cameraModeCombo.IsOpen(),
                                                                  m_selectedRenderTargetPreview,
                                                                  m_activeSlider );
     m_cache.BeginFrame( cacheKey );

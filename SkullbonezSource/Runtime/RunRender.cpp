@@ -594,8 +594,17 @@ void Run::SetViewingOrientation()
     // If ball-tracking is active, keep the camera locked onto the selected ball.
     if ( SceneState().isSceneMode )
     {
-        if ( m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < m_cGameModelCollection.GetModelCount() )
+        if ( m_camera.mode == RunCameraMode::Demo && m_camera.trackBallIndex >= 0 &&
+             m_cGameModelCollection.GetModelCount() > 0 )
         {
+            if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= m_cGameModelCollection.GetModelCount() )
+            {
+                m_camera.trackBallIndex = 0;
+            }
+            if ( m_camera.trackHeight <= 0.0f )
+            {
+                m_camera.trackHeight = 300.0f;
+            }
             Vector3 ballPos = m_cGameModelCollection.GetModelPosition( m_camera.trackBallIndex );
             m_systems.cameras->SetPrimaryPosition( Vector3( ballPos.x, ballPos.y + m_camera.trackHeight, ballPos.z ) );
             m_systems.cameras->SetViewCoordinates( ballPos );

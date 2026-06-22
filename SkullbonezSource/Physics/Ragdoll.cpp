@@ -123,22 +123,25 @@ const SimpleJointDef* SimpleJoints( int& outCount )
         { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
         { PART_LEFT_UPPER_ARM, PART_LEFT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f },
         { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
-        { PART_RIGHT_UPPER_ARM, PART_RIGHT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f },
+        { PART_RIGHT_UPPER_ARM,
+          PART_RIGHT_LOWER_ARM,
+          Vector3( 0.0f, -2.2f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.30f },
         { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
         { PART_LEFT_UPPER_LEG, PART_LEFT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f },
         { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
-        { PART_RIGHT_UPPER_LEG, PART_RIGHT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f },
+        { PART_RIGHT_UPPER_LEG,
+          PART_RIGHT_LOWER_LEG,
+          Vector3( 0.0f, -2.4f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.30f },
     };
     outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
     return joints;
 }
 
-void AppendPreviewLine( std::vector<float>& lineData,
-                        const Vector3& a,
-                        const Vector3& b,
-                        float r,
-                        float g,
-                        float bl )
+void AppendPreviewLine( std::vector<float>& lineData, const Vector3& a, const Vector3& b, float r, float g, float bl )
 {
     lineData.insert( lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
@@ -420,9 +423,8 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
             const Vector3 velB = b.GetVelocity() + CrossProduct( b.GetAngularVelocity(), rB );
             const float relVel = ( velB - velA ) * axis;
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
-            const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt,
-                                                0.0f,
-                                                RAGDOLL_JOINT_MAX_BIAS_SPEED );
+            const float biasSpeed =
+                std::clamp( distanceError * constraint.stiffness * invDt, 0.0f, RAGDOLL_JOINT_MAX_BIAS_SPEED );
             const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
                                                      -RAGDOLL_JOINT_MAX_BIAS_SPEED,
                                                      RAGDOLL_JOINT_MAX_BIAS_SPEED );

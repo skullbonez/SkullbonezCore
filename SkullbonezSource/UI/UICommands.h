@@ -248,6 +248,7 @@ struct UIWaterCommands
 
 struct UIRunCommands
 {
+    int requestedCameraMode = -1;
     int requestedSeed = -1;
     int requestedSolverBallCount = -1;
     int requestedSolverBoxCount = -1;
