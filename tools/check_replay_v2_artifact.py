@@ -420,6 +420,16 @@ def query_artifact():
             "launcherFire",
         ) and not sample.get("decoded"):
             raise RuntimeError(f"expected decoded payload for {sample.get('kind')}: {sample}")
+    editor_transform_samples = [sample for sample in event_samples if sample.get("kind") == "editorTransform"]
+    if not any(
+        (sample.get("decoded") or {}).get("translated")
+        and (sample.get("decoded") or {}).get("rotated")
+        and (sample.get("decoded") or {}).get("scaled")
+        and (sample.get("decoded") or {}).get("scaleAxis") == 0
+        and (sample.get("decoded") or {}).get("scaleFactor") is not None
+        for sample in editor_transform_samples
+    ):
+        raise RuntimeError(f"expected decoded editorTransform translate/rotate/scale sample, found {editor_transform_samples}")
 
     cursor_command = [
         str(REPLAY_QUERY_BAT),

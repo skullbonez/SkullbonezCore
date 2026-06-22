@@ -21,6 +21,7 @@ Related:
 #include "CaptureSystem.h"
 #include "Replay/ReplayV2Artifact.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -45,8 +46,9 @@ constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
-    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE;
+    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
@@ -144,19 +146,37 @@ bool DecodeReplayPlace6Payload( const ReplayEventSample& event, Vector3& outTerr
 }
 
 
-bool DecodeReplayTransform7Payload( const ReplayEventSample& event, Vector3& outPosition, Quaternion& outOrientation )
+bool DecodeReplayTransformPayload( const ReplayEventSample& event,
+                                   Vector3& outPosition,
+                                   Quaternion& outOrientation,
+                                   float& outScaleFactor,
+                                   bool& outHasScaleFactor )
 {
-    constexpr char prefix[] = "xform7:";
-    if ( std::strncmp( event.text, prefix, sizeof( prefix ) - 1 ) != 0 )
+    constexpr char prefix7[] = "xform7:";
+    constexpr char prefix8[] = "xform8:";
+    int valueCount = 0;
+    const char* cursor = nullptr;
+    if ( std::strncmp( event.text, prefix7, sizeof( prefix7 ) - 1 ) == 0 )
+    {
+        valueCount = 7;
+        cursor = event.text + sizeof( prefix7 ) - 1;
+        outHasScaleFactor = false;
+    }
+    else if ( std::strncmp( event.text, prefix8, sizeof( prefix8 ) - 1 ) == 0 )
+    {
+        valueCount = 8;
+        cursor = event.text + sizeof( prefix8 ) - 1;
+        outHasScaleFactor = true;
+    }
+    else
     {
         return false;
     }
 
-    const char* cursor = event.text + sizeof( prefix ) - 1;
-    float values[7] = {};
-    for ( float& value : values )
+    float values[8] = {};
+    for ( int i = 0; i < valueCount; ++i )
     {
-        if ( !ReadReplayHexFloat( cursor, value ) )
+        if ( !ReadReplayHexFloat( cursor, values[i] ) )
         {
             return false;
         }
@@ -165,6 +185,7 @@ bool DecodeReplayTransform7Payload( const ReplayEventSample& event, Vector3& out
     outPosition = Vector3( values[0], values[1], values[2] );
     outOrientation = Quaternion( values[3], values[4], values[5], values[6] );
     outOrientation.Normalise();
+    outScaleFactor = outHasScaleFactor ? values[7] : 1.0f;
     return true;
 }
 
@@ -643,9 +664,18 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
 
         Vector3 position;
         Quaternion orientation;
-        if ( !DecodeReplayTransform7Payload( event, position, orientation ) )
+        float scaleFactor = 1.0f;
+        bool hasScaleFactor = false;
+        if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
         {
             WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform payload" );
+            return false;
+        }
+        if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
+             ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
+               scaleFactor <= 0.0f ) )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform scale payload" );
             return false;
         }
 
@@ -674,6 +704,15 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
         {
             model.SetOrientation( orientation );
+        }
+        if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
+        {
+            const CollisionShape baseShape = model.GetCollisionShape();
+            if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
+            {
+                WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor transform scale" );
+                return false;
+            }
         }
         model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
         model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -939,12 +978,24 @@ void Run::TickReplaySaveProbe()
             Quaternion placedOrientation = placedModel.GetOrientation();
             placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
             placedModel.SetOrientation( placedOrientation );
+            const CollisionShape placedShapeBeforeScale = placedModel.GetCollisionShape();
+            constexpr int PROBE_SCALE_AXIS = 0;
+            constexpr float PROBE_SCALE_FACTOR = 1.5f;
+            if ( !placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale,
+                                                               PROBE_SCALE_AXIS,
+                                                               PROBE_SCALE_FACTOR ) )
+            {
+                throw std::runtime_error( "replay save probe failed to apply editor transform scale" );
+            }
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
-            RecordReplayEditorTransformEvent( modelCountBeforePlace,
-                                              REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE,
-                                              placedModel );
+            RecordReplayEditorTransformEvent(
+                modelCountBeforePlace,
+                REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
+                placedModel,
+                PROBE_SCALE_AXIS,
+                PROBE_SCALE_FACTOR );
         }
         m_rayCastTest.projectileSpeed += 1.0f;
         RecordReplayLauncherConfigEvent( 2u );

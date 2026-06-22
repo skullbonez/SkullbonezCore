@@ -32,6 +32,7 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -53,6 +54,7 @@ constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -1030,18 +1032,32 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
 }
 
 
-void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlags, const GameModel& model )
+void Run::RecordReplayEditorTransformEvent( int modelIndex,
+                                            uint32_t changedFlags,
+                                            const GameModel& model,
+                                            int scaleAxis,
+                                            float scaleFactor )
 {
-    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE;
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
     if ( changedFlags == 0 )
     {
         return;
     }
+    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
+    {
+        scaleAxis = -1;
+        scaleFactor = 1.0f;
+    }
+    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
+    {
+        return;
+    }
 
-    char payload[80] = {};
+    char payload[96] = {};
     char* cursor = payload;
     std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "xform7:" );
+    const int prefixWritten =
+        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
     if ( prefixWritten > 0 )
     {
         const std::size_t consumed =
@@ -1051,6 +1067,10 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlag
     }
     AppendReplayVectorHex( cursor, remaining, model.GetPosition() );
     AppendReplayQuaternionHex( cursor, remaining, model.GetOrientation() );
+    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
+    {
+        AppendReplayFloatHex( cursor, remaining, scaleFactor );
+    }
 
     float qx = 0.0f;
     float qy = 0.0f;
@@ -1063,6 +1083,7 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlag
     HashReplayInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
     HashReplayInt( hash, m_cGameModelCollection.GetModelCount() );
     HashReplayInt( hash, static_cast<int32_t>( changedFlags ) );
+    HashReplayInt( hash, scaleAxis );
     HashReplayFloat( hash, model.GetPosition().x );
     HashReplayFloat( hash, model.GetPosition().y );
     HashReplayFloat( hash, model.GetPosition().z );
@@ -1070,6 +1091,7 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlag
     HashReplayFloat( hash, qy );
     HashReplayFloat( hash, qz );
     HashReplayFloat( hash, qw );
+    HashReplayFloat( hash, scaleFactor );
 
     RecordReplayEvent( ReplayEventKind::EditorTransform,
                        NextReplayEventFrameIndex(),
@@ -1077,7 +1099,7 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlag
                        modelIndex,
                        static_cast<int32_t>( model.GetReplayBodyId() ),
                        m_cGameModelCollection.GetModelCount(),
-                       0,
+                       scaleAxis,
                        hash,
                        payload );
 }

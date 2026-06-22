@@ -52,6 +52,7 @@ namespace
 {
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
@@ -1024,6 +1025,23 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 }
 
 
+bool TryEditorScaleFactorFromShapes( const CollisionShape& startShape,
+                                     const CollisionShape& currentShape,
+                                     int axis,
+                                     float& outFactor )
+{
+    const float startExtent = EditorShapeAxisExtent( startShape, axis );
+    if ( startExtent <= 0.0f )
+    {
+        return false;
+    }
+
+    const float currentExtent = EditorShapeAxisExtent( currentShape, axis );
+    outFactor = currentExtent / startExtent;
+    return std::isfinite( outFactor ) && fabsf( outFactor - 1.0f ) > 1.0e-4f;
+}
+
+
 float EditorGizmoAxisLength( float modelRadius )
 {
     return (std::max)( 14.0f, modelRadius + 12.0f );
@@ -1533,13 +1551,24 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         }
         if ( leftReleased || suppressWorldActionThisFrame )
         {
-            if ( leftReleased && !suppressWorldActionThisFrame && !m_editor.gizmoDragIsScale &&
-                 m_editor.selectedModelIndex >= 0 &&
+            if ( leftReleased && !suppressWorldActionThisFrame && m_editor.selectedModelIndex >= 0 &&
                  m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
             {
                 const GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
                 uint32_t changedFlags = 0;
-                if ( m_editor.gizmoDragIsRotation )
+                int scaleAxis = -1;
+                float scaleFactor = 1.0f;
+                if ( m_editor.gizmoDragIsScale )
+                {
+                    scaleAxis = m_editor.activeGizmoAxis;
+                    changedFlags |= TryEditorScaleFactorFromShapes( m_editor.gizmoDragStartShape,
+                                                                    model.GetCollisionShape(),
+                                                                    scaleAxis,
+                                                                    scaleFactor )
+                                        ? REPLAY_EDITOR_TRANSFORM_SCALE
+                                        : 0u;
+                }
+                else if ( m_editor.gizmoDragIsRotation )
                 {
                     changedFlags |=
                         EditorOrientationsDiffer( model.GetOrientation(), m_editor.gizmoDragStartOrientation )
@@ -1552,7 +1581,11 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                         ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
                                         : 0u;
                 }
-                RecordReplayEditorTransformEvent( m_editor.selectedModelIndex, changedFlags, model );
+                RecordReplayEditorTransformEvent( m_editor.selectedModelIndex,
+                                                  changedFlags,
+                                                  model,
+                                                  scaleAxis,
+                                                  scaleFactor );
             }
             m_editor.gizmoDragActive = false;
             m_editor.gizmoDragIsRotation = false;

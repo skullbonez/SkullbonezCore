@@ -247,10 +247,19 @@ def decode_place6_payload(text: str) -> dict[str, object] | None:
     }
 
 
-def decode_transform7_payload(text: str) -> dict[str, object] | None:
-    prefix = "xform7:"
-    payload = text[len(prefix) :] if text.startswith(prefix) else ""
-    if len(payload) != 56:
+def decode_transform_payload(text: str) -> dict[str, object] | None:
+    prefix7 = "xform7:"
+    prefix8 = "xform8:"
+    value_count = 0
+    if text.startswith(prefix7):
+        payload = text[len(prefix7) :]
+        value_count = 7
+    elif text.startswith(prefix8):
+        payload = text[len(prefix8) :]
+        value_count = 8
+    else:
+        payload = ""
+    if len(payload) != value_count * 8:
         return None
     try:
         floats = [
@@ -262,6 +271,7 @@ def decode_transform7_payload(text: str) -> dict[str, object] | None:
     return {
         "position": [round_float(v) for v in floats[0:3]],
         "orientation": [round_float(v) for v in floats[3:7]],
+        "scaleFactor": round_float(floats[7]) if value_count == 8 else None,
     }
 
 
@@ -321,14 +331,16 @@ def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
         )
         return decoded
     if row.kind == 9:
-        decoded = decode_transform7_payload(row.text) or {}
+        decoded = decode_transform_payload(row.text) or {}
         decoded.update(
             {
                 "modelIndex": row.values[0],
                 "replayBodyId": row.values[1],
                 "modelCountAtCommit": row.values[2],
+                "scaleAxis": row.values[3] if row.flags & 4 else None,
                 "translated": bool(row.flags & 1),
                 "rotated": bool(row.flags & 2),
+                "scaled": bool(row.flags & 4),
             }
         )
         return decoded
