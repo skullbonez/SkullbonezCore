@@ -733,7 +733,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( m_run.m_camera.isLauncherMode )
+    if ( m_run.IsLauncherCameraMode() )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;

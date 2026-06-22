@@ -1380,8 +1380,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
-    m_camera.mode = RunCameraMode::Demo;
-    SyncLegacyCameraModeFlags();
+    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1764,12 +1763,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_camera.trackBallIndex = 0;
             m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
-        if ( m_camera.mode == RunCameraMode::Demo && !IsDemoCameraModeAvailable() )
-        {
-            m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
-        }
-
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
@@ -1788,7 +1781,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         if ( shouldPauseSnapshotState )
         {
             m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;

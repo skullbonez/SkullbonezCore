@@ -1369,16 +1369,13 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
         if ( m_editor.editorModeEnabled )
         {
-            const bool wasFlyMode = m_camera.isFlyMode;
+            const bool wasFlyMode = IsFlyCameraMode();
             m_editor.placementModeEnabled = true;
             m_editor.viewportLookActive = false;
             ClearEditorManipulationState();
-            m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
-            m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
-            m_editor.restoreCameraModeAfterEditor = m_camera.mode;
+            m_editor.restoreCameraModeAfterEditor = NormalizeCameraModeForCurrentScene( m_camera.mode );
             CancelMousePickup();
             m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -1391,7 +1388,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         }
         else
         {
-            const bool wasFlyMode = m_camera.isFlyMode;
+            const bool wasFlyMode = IsFlyCameraMode();
             m_editor.viewportLookActive = false;
             m_editor.placementPreviewVisible = false;
             m_editor.placementModeEnabled = false;
@@ -1404,12 +1401,9 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
-            m_camera.mode = m_editor.restoreCameraModeAfterEditor;
-            SyncLegacyCameraModeFlags();
-            m_editor.restoreFlyModeAfterEditor = false;
-            m_editor.restoreRayTestModeAfterEditor = false;
+            m_camera.mode = NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
             m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
-            if ( wasFlyMode && !m_camera.isFlyMode )
+            if ( wasFlyMode && !IsFlyCameraMode() )
             {
                 ExitFlyModeCamera();
             }

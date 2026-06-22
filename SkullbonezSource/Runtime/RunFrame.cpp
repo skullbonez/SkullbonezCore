@@ -436,8 +436,8 @@ void Run::TickPhysics( double secondsPerFrame )
                              SceneState().isSceneMode,
                              SceneState().isScenePhysics,
                              SceneState().isFixedStep,
-                             ( m_camera.isFlyMode && !physicsCapture ) || replaySimulationPaused,
-                             m_camera.isLauncherMode,
+                             ( IsFlyCameraMode() && !physicsCapture ) || replaySimulationPaused,
+                             IsLauncherCameraMode(),
                              manipulatorPhysics,
                              stepRequested,
                              &m_cGameModelCollection,
@@ -2314,7 +2314,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !SceneState().isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    if ( !SceneState().isSceneMode && !IsFlyCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         LoadScene( SceneState().currentSceneIndex,
                    SceneState().isInteractiveRun,

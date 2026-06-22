@@ -931,9 +931,7 @@ void Run::EnterReplayInspectionCamera()
     const bool enteringInspectionCamera = !m_replayCamera.active;
     if ( !m_replayCamera.active )
     {
-        m_replayCamera.restoreFlyMode = m_camera.isFlyMode;
-        m_replayCamera.restoreLauncherMode = m_camera.isLauncherMode;
-        m_replayCamera.restoreCameraMode = m_camera.mode;
+        m_replayCamera.restoreCameraMode = NormalizeCameraModeForCurrentScene( m_camera.mode );
         m_replayCamera.restoreCameraHash = m_systems.cameras->GetSelectedCameraName();
 
         auto magnitudeSquared = []( const Vector3& value ) -> float
@@ -978,7 +976,6 @@ void Run::EnterReplayInspectionCamera()
     m_camera.cameraTime = 0.0f;
     CancelMousePickup();
     m_camera.mode = RunCameraMode::Free;
-    SyncLegacyCameraModeFlags();
     if ( enteringInspectionCamera )
     {
         Input::SetSystemCursorVisible( true );
@@ -995,8 +992,7 @@ void Run::ExitReplayInspectionCamera()
     }
 
     m_replayCamera.active = false;
-    m_camera.mode = m_replayCamera.restoreCameraMode;
-    SyncLegacyCameraModeFlags();
+    m_camera.mode = NormalizeCameraModeForCurrentScene( m_replayCamera.restoreCameraMode );
     if ( m_systems.cameras )
     {
         m_systems.cameras->CancelTween();
@@ -1010,7 +1006,7 @@ void Run::ExitReplayInspectionCamera()
         if ( m_systems.terrain )
         {
             const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
-            if ( m_camera.isFlyMode )
+            if ( IsFlyCameraMode() )
             {
                 XZBounds unbounded;
                 unbounded.m_xMin = -99999.9f;

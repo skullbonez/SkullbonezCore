@@ -225,6 +225,7 @@ struct RunSubsystemState
 enum class RunCameraMode
 {
     Demo = 0,
+    Scene,
     Free,
     Launcher,
     Manipulator,
@@ -237,8 +238,6 @@ struct RunCameraState
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
-    bool isFlyMode = false;                                                      // Free-fly camera mode active (toggle with F)
-    bool isLauncherMode = false;                                                 // Launcher camera mode (toggle with N): free camera plus left-click firing
     bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -416,8 +415,6 @@ enum class RunReplayCauseTreeRowKind
 struct RunReplayCameraState
 {
     bool active = false;
-    bool restoreFlyMode = false;
-    bool restoreLauncherMode = false;
     RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     bool hasRestorePose = false;
     bool ownsSimulationPause = false;
@@ -650,8 +647,6 @@ struct RunEditorPlacementState
     bool placementModeEnabled = false;
     bool placeStaticObject = false;
     bool autoTerrainAlign = false;
-    bool restoreFlyModeAfterEditor = false;
-    bool restoreRayTestModeAfterEditor = false;
     RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
@@ -1371,8 +1366,11 @@ class Run
     const char* CameraModeLabel( RunCameraMode mode ) const;                     // Compact name for UI and transition diagnostics.
     uint32_t CameraModeEnabledMask() const;                                      // One bit per camera mode; disabled modes remain visible in UI.
     bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
+    RunCameraMode NormalizeCameraModeForCurrentScene(
+        RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
+    bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
+    bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.
     bool IsManipulatorCameraMode() const;                                        // True when mouse pickup owns world left-drag semantics.
-    void SyncLegacyCameraModeFlags();                                            // Mirrors RunCameraMode into fly/launcher flags used by older code.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
