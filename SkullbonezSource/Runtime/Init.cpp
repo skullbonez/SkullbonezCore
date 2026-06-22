@@ -40,6 +40,7 @@ Related:
 #include <cstdarg>
 #include <cstdint>
 #include <fstream>
+#include <stdexcept>
 #include <vector>
 #include <string>
 #include <io.h>
@@ -592,6 +593,9 @@ struct ParsedArgs
     float replayScrubProbeNormalized = 0.25f;
     bool replaySaveProbe = false;
     char replaySaveProbePath[260] = {};
+    bool replayLoad = false;
+    bool replayLoadProbe = false;
+    char replayLoadPath[260] = {};
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
@@ -1539,6 +1543,39 @@ bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
     return true;
 }
 
+bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-load expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayLoadPath ) )
+    {
+        return FailCommandLineParse( "--replay-load path is too long." );
+    }
+
+    strcpy_s( args.replayLoadPath, sizeof( args.replayLoadPath ), value );
+    args.replayLoad = true;
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Load artifact: %s\n", args.replayLoadPath );
+    return true;
+}
+
+bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
+{
+    if ( !ApplyReplayLoadPath( value, args ) )
+    {
+        return false;
+    }
+
+    args.replayLoadProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Load probe input: %s\n", args.replayLoadPath );
+    return true;
+}
+
 
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
@@ -1623,6 +1660,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           } },
         { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
         { "--replay-save-test", "--replay_save_test", ApplyReplaySaveProbePath },
+        { "--replay-load", "--replay_load", ApplyReplayLoadPath },
+        { "--replay-play", "--replay_play", ApplyReplayLoadPath },
+        { "--replay-load-probe", "--replay_load_probe", ApplyReplayLoadProbePath },
         { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
         { "--ui-stress",
           "--ui_stress",
@@ -1786,6 +1826,21 @@ bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 #endif
 }
 
+// Guards the replay v2 load probe against use in non-Debug builds.
+bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-load-probe" ) && !HasOption( commandLine, "--replay_load_probe" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-load-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
@@ -1879,6 +1934,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
     if ( !ValidateReplaySaveProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayLoadProbe( commandLine ) )
     {
         return false;
     }
@@ -2158,6 +2217,21 @@ int RunApp( Window* window, ParsedArgs& args )
         try
         {
             cRun->Initialise();
+            bool skipExecute = false;
+            if ( args.replayLoad )
+            {
+                if ( !cRun->LoadReplayPresentationArtifact( args.replayLoadPath, true ) )
+                {
+                    throw std::runtime_error( "failed to load replay v2 presentation artifact" );
+                }
+            }
+#ifdef _DEBUG
+            if ( args.replayLoadProbe )
+            {
+                cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                skipExecute = true;
+            }
+#endif
             if ( args.dumpAssets )
             {
                 cRun->DumpTextureAssets( stdout );
@@ -2166,7 +2240,7 @@ int RunApp( Window* window, ParsedArgs& args )
             {
                 cRun->RunSceneLoadOnly( args.sceneSnapshotOutPath[0] != '\0' ? args.sceneSnapshotOutPath : nullptr );
             }
-            else
+            else if ( !skipExecute )
             {
                 cRun->Execute();
             }

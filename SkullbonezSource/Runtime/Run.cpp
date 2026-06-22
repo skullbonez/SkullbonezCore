@@ -58,6 +58,20 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
     }
     return presentationPath + ".solver";
 }
+
+const ReplayPresentationSample*
+LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
+{
+    if ( samples.empty() )
+    {
+        return nullptr;
+    }
+
+    const float t = std::clamp( normalized, 0.0f, 1.0f );
+    const std::size_t maxOffset = samples.size() - 1;
+    const std::size_t offset = (std::min)( maxOffset, static_cast<std::size_t>( t * maxOffset + 0.5f ) );
+    return &samples[offset];
+}
 } // namespace
 
 
@@ -608,6 +622,45 @@ void Run::SetReplaySaveProbe( const char* path )
 }
 #endif
 
+bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubber )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
+    m_loadedPresentationReplay.samples.swap( samples );
+    m_loadedPresentationReplay.enabled = true;
+    m_loadedPresentationReplay.bodyDictionaryCount = result.bodyDictionaryCount;
+    m_loadedPresentationReplay.fileBytes = result.fileBytes;
+    m_loadedPresentationReplay.firstFrame = result.firstFrame;
+    m_loadedPresentationReplay.lastFrame = result.lastFrame;
+    strncpy_s( m_loadedPresentationReplay.path, sizeof( m_loadedPresentationReplay.path ), path, _TRUNCATE );
+
+    if ( activateScrubber )
+    {
+        ArmLoadedReplayPresentationScrubber( 0.25f );
+    }
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentationReplay.path,
+            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.fileBytes ) );
+    return true;
+}
+
 
 void Run::ResetReplayTimelineForActiveScene()
 {
@@ -616,6 +669,7 @@ void Run::ResetReplayTimelineForActiveScene()
         SetReplaySimulationPaused( false );
     }
     ResetReplayScrubber();
+    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
     ClearReplayPathVisualizer();
     if ( m_replayVelocityEdit.mouseCaptured )
     {
@@ -633,6 +687,61 @@ void Run::ResetReplayTimelineForActiveScene()
     m_solverReplay.ResetTimeline( sceneLabel );
     m_solverReplayMismatchReports = 0;
     m_solverReplayMismatchSuppressed = false;
+}
+
+
+bool Run::HasLoadedReplayPresentation() const
+{
+    return m_loadedPresentationReplay.enabled && m_loadedPresentationReplay.samples.size() >= 2;
+}
+
+
+const ReplayPresentationSample* Run::LoadedReplayPresentationSampleAtNormalized( float normalized ) const
+{
+    if ( !HasLoadedReplayPresentation() )
+    {
+        return nullptr;
+    }
+
+    return LoadedPresentationSampleAtNormalized( m_loadedPresentationReplay.samples, normalized );
+}
+
+
+const ReplayPresentationSample* Run::LoadedReplayPresentationLatestSample() const
+{
+    return HasLoadedReplayPresentation() ? &m_loadedPresentationReplay.samples.back() : nullptr;
+}
+
+
+void Run::ArmLoadedReplayPresentationScrubber( float normalized )
+{
+    if ( !HasLoadedReplayPresentation() )
+    {
+        return;
+    }
+
+    if ( m_replayScrubber.simulationPaused )
+    {
+        SetReplaySimulationPaused( false );
+    }
+    if ( m_replayVelocityEdit.mouseCaptured || m_replayScrubber.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+
+    ClearReplayPathVisualizer();
+    m_replayPrediction.enabled = false;
+    m_replayPrediction.horizonDragging = false;
+    m_replayVelocityEdit = RunReplayVelocityEditState{};
+    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, normalized );
+    m_replayScrubber.solverPosition = 1.0f;
+    m_replayScrubber.dragging = false;
+    m_replayScrubber.paused = true;
+    m_replayScrubber.mouseCaptured = false;
+    m_replayScrubber.visible = true;
+    m_replayScrubber.visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    UpdateReplayInspectionCamera();
 }
 
 
@@ -661,14 +770,17 @@ void Run::ResetReplayScrubber()
 
 bool Run::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_solverReplay.IsEnabled() )
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
     {
         return false;
     }
 
+    const bool loadedPresentation = HasLoadedReplayPresentation();
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-    return solverReplayStats.sampleCount >= 2 && ( m_replayScrubber.visible || m_replayScrubber.dragging ||
-                                                   m_replayScrubber.paused || m_replayScrubber.simulationPaused );
+    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+    return ( loadedPresentation || solverReplayAvailable ) &&
+           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
+             m_replayScrubber.simulationPaused );
 }
 
 
@@ -679,10 +791,21 @@ bool Run::IsReplayScrubPaused() const
         return false;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
+    {
+        return LoadedReplayPresentationSampleAtNormalized(
+                   ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) ) != nullptr;
+    }
+
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
     if ( position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
     {
         return false;
+    }
+
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
     }
 
     return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized( position ) != nullptr;
@@ -691,12 +814,20 @@ bool Run::IsReplayScrubPaused() const
 
 const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 {
-    if ( !IsReplayScrubPaused() )
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
     }
 
-    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
+    if ( HasLoadedReplayPresentation() )
+    {
+        return m_replayScrubber.paused
+                   ? LoadedReplayPresentationSampleAtNormalized(
+                         ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) )
+                   : nullptr;
+    }
+
+    if ( !IsReplayScrubPaused() )
     {
         return nullptr;
     }
@@ -707,7 +838,7 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 
 const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
 {
-    if ( !IsReplayScrubPaused() )
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
     {
         return nullptr;
     }

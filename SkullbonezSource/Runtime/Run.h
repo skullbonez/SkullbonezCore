@@ -583,6 +583,17 @@ struct RunReplayPoseBackup
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
+struct RunLoadedReplayPresentationState
+{
+    bool enabled = false;
+    std::vector<ReplayPresentationSample> samples;
+    std::size_t bodyDictionaryCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    char path[260] = {};
+};
+
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
 {
@@ -1251,6 +1262,8 @@ class Run
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
+    RunLoadedReplayPresentationState
+        m_loadedPresentationReplay;                                              // Optional v2 file-backed presentation samples for smooth scrub playback.
     RunReplayScrubberState m_replayScrubber;
     RunReplayCameraState m_replayCamera;                                         // Runtime Replay Camera focus/restore state for scrub and Cause inspection.
     RunReplayPathVisualizerState
@@ -1483,6 +1496,10 @@ class Run
                                          const Math::Vector::Vector3& linearVelocity,
                                          const Math::Vector::Vector3& angularVelocity );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
+    bool HasLoadedReplayPresentation() const;
+    const ReplayPresentationSample* LoadedReplayPresentationSampleAtNormalized( float normalized ) const;
+    const ReplayPresentationSample* LoadedReplayPresentationLatestSample() const;
+    void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
     void SetReplaySimulationPaused( bool paused );
     void EnterReplayInspectionCamera();
@@ -1638,6 +1655,8 @@ class Run
     void SetReplayRecording( bool enabled,
                              int retentionSeconds,
                              const char* hashLogPath );                          // Enable bounded replay capture from CLI.
+    bool LoadReplayPresentationArtifact( const char* path,
+                                         bool activateScrubber );                // Load a v2 presentation artifact as a scrub source.
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );
@@ -1656,6 +1675,7 @@ class Run
         bool fixedStepForcedByDiagnostics );                                     // Enable queryable physics diagnostics (CLI --physics-diag)
     void SetReplayScrubProbe( float normalized );                                // Enable CLI-only replay scrub SkullScope probe.
     void SetReplaySaveProbe( const char* path );                                 // Enable CLI-only v2 replay save probe.
+    void VerifyLoadedReplayPresentationProbe( float normalized );                // Validate runtime scrubbing from a loaded v2 file.
 #endif
 };
 } // namespace Basics

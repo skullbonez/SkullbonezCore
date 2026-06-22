@@ -627,6 +627,101 @@ void Run::TickReplaySaveProbe()
             bestDistanceSquared );
     PostQuitMessage( 0 );
 }
+
+void Run::VerifyLoadedReplayPresentationProbe( float normalized )
+{
+    auto distanceSquared = []( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b ) -> float
+    {
+        const Math::Vector::Vector3 delta = a - b;
+        return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+    };
+
+    if ( !HasLoadedReplayPresentation() )
+    {
+        throw std::runtime_error( "replay load probe requires a loaded v2 presentation artifact" );
+    }
+
+    ArmLoadedReplayPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ) );
+    const ReplayPresentationSample* selected = CurrentReplayScrubSample();
+    const ReplayPresentationSample* latest = LoadedReplayPresentationLatestSample();
+    if ( !selected || !latest )
+    {
+        throw std::runtime_error( "replay load probe could not select a loaded presentation sample" );
+    }
+    if ( selected->frameIndex >= latest->frameIndex )
+    {
+        throw std::runtime_error( "replay load probe did not select an older v2 presentation sample" );
+    }
+
+    const ReplayBodyPresentationSample* selectedBody = nullptr;
+    const ReplayBodyPresentationSample* latestBody = nullptr;
+    float bestDistanceSquared = 0.0f;
+    for ( const ReplayBodyPresentationSample& candidate : selected->bodies )
+    {
+        for ( const ReplayBodyPresentationSample& latestCandidate : latest->bodies )
+        {
+            if ( latestCandidate.id.value != candidate.id.value )
+            {
+                continue;
+            }
+
+            const float candidateDistanceSquared = distanceSquared( latestCandidate.position, candidate.position );
+            if ( candidateDistanceSquared > bestDistanceSquared )
+            {
+                bestDistanceSquared = candidateDistanceSquared;
+                selectedBody = &candidate;
+                latestBody = &latestCandidate;
+            }
+            break;
+        }
+    }
+    if ( !selectedBody || !latestBody || bestDistanceSquared < 0.0001f )
+    {
+        throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
+    }
+
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    if ( selectedBody->modelIndex < 0 || selectedBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    {
+        throw std::runtime_error( "replay load probe loaded an invalid model index" );
+    }
+
+    SkullbonezCore::GameObjects::GameModel& probedModel =
+        physicsModels[static_cast<std::size_t>( selectedBody->modelIndex )];
+    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    if ( !applied )
+    {
+        throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
+    }
+
+    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
+    if ( appliedDeltaSquared > 0.0001f )
+    {
+        RestoreReplayPresentationRenderPose();
+        throw std::runtime_error( "replay load probe did not move the model to the selected loaded v2 sample" );
+    }
+
+    RestoreReplayPresentationRenderPose();
+    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
+    if ( restoredDeltaSquared > 0.0001f )
+    {
+        throw std::runtime_error( "replay load probe did not restore after applying the selected loaded v2 sample" );
+    }
+
+    printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
+            "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
+            m_loadedPresentationReplay.path,
+            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
+            static_cast<unsigned long long>( selected->frameIndex ),
+            static_cast<unsigned long long>( latest->frameIndex ),
+            selectedBody->id.value,
+            bestDistanceSquared );
+}
 #endif
 
 

@@ -108,6 +108,35 @@ def generate_artifact():
         raise RuntimeError(f"replay artifact was not produced: {ARTIFACT}")
 
 
+def probe_loaded_artifact():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-load-probe",
+        str(ARTIFACT),
+    ]
+    print("  Load probe command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [
+        line
+        for line in runtime_stdout.splitlines()
+        if "[replay] Loaded v2 presentation artifact" in line or "[replay] Load probe" in line
+    ]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Load probe passed" in line for line in probe_lines):
+        raise RuntimeError("runtime load probe did not report loaded-file scrub proof")
+    return len(runtime_stdout.encode("utf-8"))
+
+
 def query_artifact():
     summary_command = [str(REPLAY_QUERY_BAT), str(ARTIFACT), "summary"]
     print("  Summary command:")
@@ -195,6 +224,8 @@ def main():
     try:
         print("  Generating replay v2 artifact...")
         generate_artifact()
+        print("  Probing loaded replay v2 artifact...")
+        load_probe_bytes = probe_loaded_artifact()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
@@ -203,6 +234,7 @@ def main():
         print(f"  Runtime trace bytes: {RUNTIME_TRACE.stat().st_size if RUNTIME_TRACE.exists() else 0}")
         print(f"  Trace bytes: {TRACE.stat().st_size}")
         print(f"  SQLite bytes: {sqlite_path.stat().st_size if sqlite_path.exists() else 0}")
+        print(f"  Load probe output bytes: {load_probe_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
         print(f"  Query output bytes total: {sum(query_bytes.values())}")
         return 0
