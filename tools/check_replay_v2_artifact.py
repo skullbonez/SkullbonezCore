@@ -28,10 +28,13 @@ import sys
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 OUT_DIR = REPO / "TestOutput" / "validation" / "replay_v2"
 ARTIFACT = OUT_DIR / "replay_save_probe.skreplay"
+TOPOLOGY_ARTIFACT = OUT_DIR / "replay_generated_topology_probe.skreplay"
 TRACE = OUT_DIR / "replay_save_probe.physicsdiag.ndjson"
 RUNTIME_TRACE = OUT_DIR / "replay_save_probe_runtime.physicsdiag.ndjson"
+TOPOLOGY_RUNTIME_TRACE = OUT_DIR / "replay_generated_topology_runtime.physicsdiag.ndjson"
 RESTORE_FAILURE_TRACE = OUT_DIR / "replay_restore_failure.physicsdiag.ndjson"
 SCENE_ARG = "SkullbonezData/scenes/replay_v2_solver_one.scene.json"
+TOPOLOGY_SCENE_ARG = "SkullbonezData/scenes/replay_v2_generated_topology.scene.json"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 REPLAY_QUERY_BAT = REPO / "tools" / "replay_query.bat"
 PHYSICS_QUERY_BAT = REPO / "tools" / "physics_query.bat"
@@ -70,12 +73,16 @@ def generate_artifact():
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     remove_if_exists(ARTIFACT)
+    remove_if_exists(TOPOLOGY_ARTIFACT)
     remove_if_exists(TRACE)
     remove_if_exists(TRACE.with_suffix(".sqlite"))
     remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
     remove_if_exists(RUNTIME_TRACE)
     remove_if_exists(RUNTIME_TRACE.with_suffix(".sqlite"))
     remove_if_exists(RUNTIME_TRACE.with_suffix(".sqlite.lock"))
+    remove_if_exists(TOPOLOGY_RUNTIME_TRACE)
+    remove_if_exists(TOPOLOGY_RUNTIME_TRACE.with_suffix(".sqlite"))
+    remove_if_exists(TOPOLOGY_RUNTIME_TRACE.with_suffix(".sqlite.lock"))
     remove_if_exists(RESTORE_FAILURE_TRACE)
     remove_if_exists(RESTORE_FAILURE_TRACE.with_suffix(".sqlite"))
     remove_if_exists(RESTORE_FAILURE_TRACE.with_suffix(".sqlite.lock"))
@@ -111,6 +118,41 @@ def generate_artifact():
         raise RuntimeError("runtime save probe did not report v2 load/seek proof")
     if not ARTIFACT.exists():
         raise RuntimeError(f"replay artifact was not produced: {ARTIFACT}")
+
+
+def generate_topology_artifact():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        TOPOLOGY_SCENE_ARG,
+        "--frames",
+        "120",
+        "--replay",
+        "on",
+        "--replay-seconds",
+        "1",
+        "--replay-save-probe",
+        str(TOPOLOGY_ARTIFACT),
+        "--physics-diag",
+        str(TOPOLOGY_RUNTIME_TRACE),
+    ]
+    print("  Generated topology artifact command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Save probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Save probe loaded" in line for line in probe_lines):
+        raise RuntimeError("generated topology save probe did not report v2 load/seek proof")
+    if not TOPOLOGY_ARTIFACT.exists():
+        raise RuntimeError(f"generated topology replay artifact was not produced: {TOPOLOGY_ARTIFACT}")
+    return len(runtime_stdout.encode("utf-8"))
 
 
 def probe_loaded_artifact():
@@ -220,6 +262,37 @@ def probe_restored_branch():
         raise RuntimeError("runtime restore branch probe did not apply saved v2 events")
     if not any("branch_id=" in line and "branch_id=0" not in line for line in probe_lines):
         raise RuntimeError("runtime restore branch probe did not create a live branch")
+    return len(runtime_stdout.encode("utf-8"))
+
+
+def probe_generated_topology_restore():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-target-file-probe",
+        str(TOPOLOGY_ARTIFACT),
+    ]
+    print("  Generated topology restore command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Restore target probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Restore target probe passed" in line for line in probe_lines):
+        raise RuntimeError("generated topology restore probe did not report target restore proof")
+    if not any("generated_topology_rebuilt=1" in line for line in probe_lines):
+        raise RuntimeError("generated topology restore probe did not rebuild topology from the v2 event stream")
+    if not any("bodies=" in line and "bodies=6" in line for line in probe_lines):
+        raise RuntimeError("generated topology restore probe did not restore the expected multi-body target")
+    if not any("events_applied=" in line and "events_applied=0" not in line for line in probe_lines):
+        raise RuntimeError("generated topology restore probe did not apply saved v2 events")
     return len(runtime_stdout.encode("utf-8"))
 
 
@@ -548,6 +621,10 @@ def main():
         restore_branch_probe_bytes = probe_restored_branch()
         print("  Probing saved solver restore failure SkullScope row...")
         restore_failure_probe_bytes, restore_failure_query_bytes = probe_restore_failure_row()
+        print("  Generating broader generated-scene topology artifact...")
+        topology_save_probe_bytes = generate_topology_artifact()
+        print("  Probing generated-scene topology restore from mismatched live scene...")
+        topology_restore_probe_bytes = probe_generated_topology_restore()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
@@ -577,6 +654,10 @@ def main():
         print(f"  Restore branch probe output bytes: {restore_branch_probe_bytes}")
         print(f"  Restore failure probe output bytes: {restore_failure_probe_bytes}")
         print(f"  Restore failure query output bytes: {restore_failure_query_bytes}")
+        print(f"  Generated topology artifact bytes: {TOPOLOGY_ARTIFACT.stat().st_size}")
+        print(f"  Generated topology runtime trace bytes: {TOPOLOGY_RUNTIME_TRACE.stat().st_size}")
+        print(f"  Generated topology save probe output bytes: {topology_save_probe_bytes}")
+        print(f"  Generated topology restore probe output bytes: {topology_restore_probe_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
         print(f"  Query output bytes total: {sum(query_bytes.values()) + restore_failure_query_bytes}")
         return 0

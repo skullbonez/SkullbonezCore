@@ -49,6 +49,11 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
+constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
@@ -1476,6 +1481,116 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     }
     bool stateMutated = false;
 
+    auto checkpointTopologyMatchesLive = [&]() -> bool
+    {
+        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+        if ( checkpoint->bodies.size() > models.size() )
+        {
+            return false;
+        }
+        for ( const ReplaySolverBodySample& body : checkpoint->bodies )
+        {
+            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            {
+                return false;
+            }
+            if ( models[static_cast<std::size_t>( body.modelIndex )].GetReplayBodyId() != body.id.value )
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    auto latestGeneratedSceneConfigBeforeCheckpoint = [&]() -> const ReplayEventSample*
+    {
+        const ReplayEventSample* generatedConfig = nullptr;
+        for ( const ReplayEventSample& event : events )
+        {
+            if ( event.kind != ReplayEventKind::GeneratedSceneConfig || event.frameIndex > checkpoint->frameIndex ||
+                 event.sequence >= checkpoint->eventCursor )
+            {
+                continue;
+            }
+            if ( event.branch.branchId != checkpoint->branch.branchId )
+            {
+                continue;
+            }
+            generatedConfig = &event;
+        }
+        return generatedConfig;
+    };
+
+    auto rebuildGeneratedSceneTopology =
+        [&]( const ReplayEventSample& event, char* rebuildReason, std::size_t rebuildReasonSize ) -> bool
+    {
+        if ( event.value0 < 0 || event.value1 < 0 || event.value2 < 0 || event.value3 <= 0 )
+        {
+            WriteReplayProbeReason( rebuildReason,
+                                    rebuildReasonSize,
+                                    "generated scene config contains invalid counts" );
+            return false;
+        }
+
+        const uint32_t overrideBits =
+            ( event.flags & REPLAY_GENERATED_SCENE_OVERRIDE_MASK ) >> REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
+        if ( overrideBits > static_cast<uint32_t>( GeneratedObjectTypeOverride::AllBoxes ) )
+        {
+            WriteReplayProbeReason( rebuildReason,
+                                    rebuildReasonSize,
+                                    "generated scene config has invalid override bits" );
+            return false;
+        }
+
+        const bool exactSolverCounts = ( event.flags & REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS ) != 0;
+        const bool uiSolverCounts = ( event.flags & REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS ) != 0;
+        const bool uiModelCount = ( event.flags & REPLAY_GENERATED_SCENE_UI_MODEL_COUNT ) != 0;
+        if ( exactSolverCounts && event.value1 + event.value2 != event.value0 )
+        {
+            WriteReplayProbeReason( rebuildReason,
+                                    rebuildReasonSize,
+                                    "generated solver counts do not match model count" );
+            return false;
+        }
+        if ( event.value0 > ActiveGameModelCapacity() )
+        {
+            WriteReplayProbeReason( rebuildReason,
+                                    rebuildReasonSize,
+                                    "generated scene model count exceeds active capacity" );
+            return false;
+        }
+
+        m_cGameModelCollection.Clear();
+        ClearRayCastTestLines();
+        m_simulation.Reset();
+        SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
+        SceneState().rngState = static_cast<unsigned int>( event.value3 );
+        m_generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
+        m_UIModelCountOverride = uiModelCount ? event.value0 : -1;
+        m_UISolverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+        m_UISolverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+
+        if ( exactSolverCounts || uiSolverCounts )
+        {
+            SetUpSolverObjects( event.value1, event.value2 );
+        }
+        else
+        {
+            SetUpGameModels( event.value0 );
+        }
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+
+        if ( !checkpointTopologyMatchesLive() )
+        {
+            WriteReplayProbeReason( rebuildReason,
+                                    rebuildReasonSize,
+                                    "rebuilt generated topology still mismatches checkpoint" );
+            return false;
+        }
+        WriteReplayProbeReason( rebuildReason, rebuildReasonSize, "rebuilt generated topology" );
+        return true;
+    };
+
     auto failAfterMutation = [&]( const char* message,
                                   const ReplayV2SolverHashSample* diagnosticTarget,
                                   uint64_t restoredSolverHash = 0,
@@ -1502,6 +1617,30 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                    stateMutated && hasLiveBackup,
                                    fallbackRestored );
     };
+
+    bool generatedTopologyRebuilt = false;
+    if ( !checkpointTopologyMatchesLive() )
+    {
+        const ReplayEventSample* generatedConfig = latestGeneratedSceneConfigBeforeCheckpoint();
+        if ( !generatedConfig )
+        {
+            return failAfterMutation( "checkpoint topology does not match live scene and no generated config was saved",
+                                      target );
+        }
+
+        char rebuildReason[160] = {};
+        stateMutated = true;
+        if ( !rebuildGeneratedSceneTopology( *generatedConfig, rebuildReason, sizeof( rebuildReason ) ) )
+        {
+            char message[320] = {};
+            sprintf_s( message,
+                       sizeof( message ),
+                       "failed to rebuild generated scene topology: %s",
+                       rebuildReason[0] != '\0' ? rebuildReason : "unknown rebuild failure" );
+            return failAfterMutation( message, target );
+        }
+        generatedTopologyRebuilt = true;
+    }
 
     char reason[192] = {};
     if ( !ApplyReplaySolverSampleState( *checkpoint, reason, sizeof( reason ) ) )
@@ -1728,6 +1867,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     outResult.eventCursor = eventCursor;
     outResult.solverHash = restoredSolverHash;
     outResult.presentationHash = restoredPresentationHash;
+    outResult.generatedTopologyRebuilt = generatedTopologyRebuilt;
 
     logRestoreDiagnostic( "",
                           target,
@@ -1793,6 +1933,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
 
     printf( "[replay] Restore target probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
             "checkpoint_frame=%llu target_frame=%llu event_cursor=%u events_applied=%llu bodies=%llu "
+            "generated_topology_rebuilt=%d "
             "solver_hash=0x%016llX presentation_hash=0x%016llX bytes=%llu\n",
             path,
             static_cast<unsigned long long>( result.checkpointCount ),
@@ -1803,6 +1944,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             result.eventCursor,
             static_cast<unsigned long long>( result.eventsApplied ),
             static_cast<unsigned long long>( result.bodyCount ),
+            result.generatedTopologyRebuilt ? 1 : 0,
             static_cast<unsigned long long>( result.solverHash ),
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
@@ -1864,6 +2006,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
 
     printf( "[replay] Restore branch probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
             "checkpoint_frame=%llu target_frame=%llu event_cursor=%u events_applied=%llu bodies=%llu "
+            "generated_topology_rebuilt=%d "
             "branch_id=%u parent_branch_id=%u solver_hash=0x%016llX presentation_hash=0x%016llX bytes=%llu\n",
             path,
             static_cast<unsigned long long>( result.checkpointCount ),
@@ -1874,6 +2017,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
             result.eventCursor,
             static_cast<unsigned long long>( result.eventsApplied ),
             static_cast<unsigned long long>( result.bodyCount ),
+            result.generatedTopologyRebuilt ? 1 : 0,
             result.branchId,
             result.parentBranchId,
             static_cast<unsigned long long>( result.solverHash ),

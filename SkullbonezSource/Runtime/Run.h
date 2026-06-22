@@ -611,6 +611,7 @@ struct RunReplayV2TargetRestoreResult
     uint32_t parentBranchId = 0;
     uint64_t solverHash = 0;
     uint64_t presentationHash = 0;
+    bool generatedTopologyRebuilt = false;
     bool madeLiveBranch = false;
 };
 
