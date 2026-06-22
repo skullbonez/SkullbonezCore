@@ -1,13 +1,14 @@
 #
 # File: tools/check_replay_v2_artifact.py
 # Purpose:
-#   Validates runtime-written replay v2 artifacts and bounded query export.
+#   Validates runtime-written replay v2 artifacts, saved checkpoint restore,
+#   and bounded query export.
 #
 # Mental model:
-#   The runtime owns replay capture and artifact writing. This script drives the
-#   Debug executable through the CLI save probe, then asks replay_query and
-#   physics_query small questions instead of reading the whole binary artifact
-#   into the model.
+#   The runtime owns replay capture, artifact writing, and checkpoint restore.
+#   This script drives the Debug executable through the CLI save/load/restore
+#   probes, then asks replay_query and physics_query small questions instead of
+#   reading the whole binary artifact into the model.
 #
 # Glossary:
 #   Replay v2: Chunked binary presentation .skreplay artifact.
@@ -134,6 +135,31 @@ def probe_loaded_artifact():
         print(f"  {line}")
     if not any("Load probe passed" in line for line in probe_lines):
         raise RuntimeError("runtime load probe did not report loaded-file scrub proof")
+    return len(runtime_stdout.encode("utf-8"))
+
+
+def probe_restored_checkpoint():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-file-probe",
+        str(ARTIFACT),
+    ]
+    print("  Restore file probe command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Restore file probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Restore file probe passed" in line for line in probe_lines):
+        raise RuntimeError("runtime restore file probe did not report saved checkpoint restore proof")
     return len(runtime_stdout.encode("utf-8"))
 
 
@@ -293,6 +319,8 @@ def main():
         generate_artifact()
         print("  Probing loaded replay v2 artifact...")
         load_probe_bytes = probe_loaded_artifact()
+        print("  Probing saved solver checkpoint restore...")
+        restore_probe_bytes = probe_restored_checkpoint()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
@@ -308,6 +336,7 @@ def main():
         print(f"  Trace bytes: {TRACE.stat().st_size}")
         print(f"  SQLite bytes: {sqlite_path.stat().st_size if sqlite_path.exists() else 0}")
         print(f"  Load probe output bytes: {load_probe_bytes}")
+        print(f"  Restore file probe output bytes: {restore_probe_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
         print(f"  Query output bytes total: {sum(query_bytes.values())}")
         return 0

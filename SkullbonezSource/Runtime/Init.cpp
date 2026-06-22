@@ -598,6 +598,8 @@ struct ParsedArgs
     bool replayLoad = false;
     bool replayLoadProbe = false;
     char replayLoadPath[260] = {};
+    bool replayRestoreFileProbe = false;
+    char replayRestoreFileProbePath[260] = {};
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
@@ -1591,6 +1593,25 @@ bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
     return true;
 }
 
+bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-file-probe path is too long." );
+    }
+
+    strcpy_s( args.replayRestoreFileProbePath, sizeof( args.replayRestoreFileProbePath ), value );
+    args.replayRestoreFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore file probe input: %s\n", args.replayRestoreFileProbePath );
+    return true;
+}
+
 
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
@@ -1700,6 +1721,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--replay-load", "--replay_load", ApplyReplayLoadPath },
         { "--replay-play", "--replay_play", ApplyReplayLoadPath },
         { "--replay-load-probe", "--replay_load_probe", ApplyReplayLoadProbePath },
+        { "--replay-restore-file-probe", "--replay_restore_file_probe", ApplyReplayRestoreFileProbePath },
         { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
         { "--ui-stress",
           "--ui_stress",
@@ -1895,6 +1917,22 @@ bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
 #endif
 }
 
+// Guards the saved replay checkpoint restore probe against use in non-Debug builds.
+bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_file_probe" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-file-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
@@ -1996,6 +2034,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
     if ( !ValidateReplayLoadProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreFileProbe( commandLine ) )
     {
         return false;
     }
@@ -2291,6 +2333,11 @@ int RunApp( Window* window, ParsedArgs& args )
             if ( args.replayLoadProbe )
             {
                 cRun->VerifyLoadedReplayPresentationProbe( 0.25f );
+                skipExecute = true;
+            }
+            if ( args.replayRestoreFileProbe )
+            {
+                cRun->VerifyReplaySolverCheckpointFileProbe( args.replayRestoreFileProbePath );
                 skipExecute = true;
             }
 #endif

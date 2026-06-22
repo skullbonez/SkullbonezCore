@@ -53,6 +53,15 @@ struct ReplayV2LoadResult
     ReplayFrameIndex lastFrame = 0;
 };
 
+struct ReplayV2SolverCheckpointLoadResult
+{
+    std::size_t checkpointCount = 0;
+    std::size_t bodyDictionaryCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+};
+
 class ReplayV2Artifact
 {
   public:
@@ -65,6 +74,9 @@ class ReplayV2Artifact
     static bool LoadPresentation( const char* path,
                                   std::vector<ReplayPresentationSample>& outSamples,
                                   ReplayV2LoadResult* result = nullptr );
+    static bool LoadSolverCheckpoints( const char* path,
+                                       std::vector<ReplaySolverFrameSample>& outCheckpoints,
+                                       ReplayV2SolverCheckpointLoadResult* result = nullptr );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

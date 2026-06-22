@@ -935,6 +935,435 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
     return true;
 }
 
+template <typename T> bool ReadCountedPodVector( ByteCursor& cursor, std::vector<T>& outValues )
+{
+    outValues.clear();
+    uint32_t count = 0;
+    if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    outValues.resize( count );
+    for ( T& value : outValues )
+    {
+        if ( !ReadPod( cursor, value ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ReadCountedIntVector( ByteCursor& cursor, std::vector<int>& outValues )
+{
+    outValues.clear();
+    uint32_t count = 0;
+    if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    outValues.resize( count );
+    for ( int& value : outValues )
+    {
+        int32_t stored = 0;
+        if ( !ReadPod( cursor, stored ) )
+        {
+            return false;
+        }
+        value = stored;
+    }
+    return true;
+}
+
+bool ReadCountedPairVector( ByteCursor& cursor, std::vector<std::pair<int, int>>& outValues )
+{
+    outValues.clear();
+    uint32_t count = 0;
+    if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    outValues.resize( count );
+    for ( std::pair<int, int>& value : outValues )
+    {
+        int32_t first = 0;
+        int32_t second = 0;
+        if ( !ReadPod( cursor, first ) || !ReadPod( cursor, second ) )
+        {
+            return false;
+        }
+        value.first = first;
+        value.second = second;
+    }
+    return true;
+}
+
+template <typename T, typename ReadFunc>
+bool ReadCountedStructVector( ByteCursor& cursor, std::vector<T>& outValues, ReadFunc readFunc )
+{
+    outValues.clear();
+    uint32_t count = 0;
+    if ( !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+
+    outValues.resize( count );
+    for ( T& value : outValues )
+    {
+        if ( !readFunc( cursor, value ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoFieldConfig& outConfig )
+{
+    uint8_t enabled = 0;
+    uint8_t visualizeVelocityField = 0;
+    if ( !ReadPod( cursor, enabled ) || !ReadPod( cursor, visualizeVelocityField ) || !SkipBytes( cursor, 2 ) ||
+         !ReadVec3( cursor, outConfig.center ) || !ReadPod( cursor, outConfig.radius ) ||
+         !ReadPod( cursor, outConfig.height ) || !ReadPod( cursor, outConfig.inwardAcceleration ) ||
+         !ReadPod( cursor, outConfig.swirlAcceleration ) || !ReadPod( cursor, outConfig.liftAcceleration ) ||
+         !ReadPod( cursor, outConfig.ejectAcceleration ) || !ReadPod( cursor, outConfig.ejectUpAcceleration ) ||
+         !ReadPod( cursor, outConfig.ejectBand ) || !ReadPod( cursor, outConfig.minCaptureSeconds ) ||
+         !ReadPod( cursor, outConfig.ejectCooldownSeconds ) || !ReadPod( cursor, outConfig.maxDeltaVelocity ) )
+    {
+        return false;
+    }
+
+    outConfig.enabled = enabled != 0;
+    outConfig.visualizeVelocityField = visualizeVelocityField != 0;
+    return true;
+}
+
+bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
+{
+    int32_t rowCount = 0;
+    int32_t cachePreviousRows = 0;
+    int32_t cacheHits = 0;
+    int32_t cacheMisses = 0;
+    int32_t warmStartedRows = 0;
+    int32_t positionCorrectionRows = 0;
+    int32_t solverIterations = 0;
+    if ( !ReadPod( cursor, rowCount ) || !ReadPod( cursor, cachePreviousRows ) || !ReadPod( cursor, cacheHits ) ||
+         !ReadPod( cursor, cacheMisses ) || !ReadPod( cursor, warmStartedRows ) ||
+         !ReadPod( cursor, positionCorrectionRows ) || !ReadPod( cursor, solverIterations ) ||
+         !ReadPod( cursor, outStats.positionCorrectionTotal ) || !ReadPod( cursor, outStats.positionCorrectionMax ) )
+    {
+        return false;
+    }
+
+    outStats.rowCount = rowCount;
+    outStats.cachePreviousRows = cachePreviousRows;
+    outStats.cacheHits = cacheHits;
+    outStats.cacheMisses = cacheMisses;
+    outStats.warmStartedRows = warmStartedRows;
+    outStats.positionCorrectionRows = positionCorrectionRows;
+    outStats.solverIterations = solverIterations;
+    return true;
+}
+
+bool ReadPersistentContact( ByteCursor& cursor, ReplaySolverPersistentContactSample& outContact )
+{
+    int32_t bodyA = 0;
+    int32_t bodyB = 0;
+    uint8_t warmStarted = 0;
+    uint8_t isTerrain = 0;
+    uint8_t supportsRestingPolicy = 0;
+    uint8_t allowsTangentFriction = 0;
+    uint8_t normalCoupledFriction = 0;
+    uint8_t inhibitsSleep = 0;
+    uint8_t reserved = 0;
+    if ( !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) || !ReadPod( cursor, outContact.featureId ) ||
+         !ReadPod( cursor, outContact.key ) || !ReadVec3( cursor, outContact.normal ) ||
+         !ReadVec3( cursor, outContact.tangent1 ) || !ReadVec3( cursor, outContact.tangent2 ) ||
+         !ReadVec3( cursor, outContact.rA ) || !ReadVec3( cursor, outContact.rB ) ||
+         !ReadPod( cursor, outContact.penetration ) || !ReadPod( cursor, outContact.normalMass ) ||
+         !ReadPod( cursor, outContact.tangentMass1 ) || !ReadPod( cursor, outContact.tangentMass2 ) ||
+         !ReadPod( cursor, outContact.bias ) || !ReadPod( cursor, outContact.frictionLimit ) ||
+         !ReadPod( cursor, outContact.accN ) || !ReadPod( cursor, outContact.accT1 ) ||
+         !ReadPod( cursor, outContact.accT2 ) || !ReadPod( cursor, warmStarted ) || !ReadPod( cursor, isTerrain ) ||
+         !ReadPod( cursor, supportsRestingPolicy ) || !ReadPod( cursor, allowsTangentFriction ) ||
+         !ReadPod( cursor, normalCoupledFriction ) || !ReadPod( cursor, inhibitsSleep ) ||
+         !ReadPod( cursor, outContact.manifoldPointCount ) || !ReadPod( cursor, reserved ) ||
+         !ReadVec3( cursor, outContact.terrainNormal ) || !ReadPod( cursor, outContact.terrainWarmStart ) )
+    {
+        return false;
+    }
+
+    outContact.bodyA = bodyA;
+    outContact.bodyB = bodyB;
+    outContact.warmStarted = warmStarted != 0;
+    outContact.isTerrain = isTerrain != 0;
+    outContact.supportsRestingPolicy = supportsRestingPolicy != 0;
+    outContact.allowsTangentFriction = allowsTangentFriction != 0;
+    outContact.normalCoupledFriction = normalCoupledFriction != 0;
+    outContact.inhibitsSleep = inhibitsSleep != 0;
+    (void)reserved;
+    return true;
+}
+
+bool ReadContactCache( ByteCursor& cursor, ReplaySolverContactCacheSample& outCache )
+{
+    return ReadPod( cursor, outCache.key ) && ReadPod( cursor, outCache.accN ) && ReadPod( cursor, outCache.accT1 ) &&
+           ReadPod( cursor, outCache.accT2 );
+}
+
+bool ReadPhysicsDebugContact( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsDebugContact& outContact )
+{
+    int32_t bodyA = 0;
+    int32_t bodyB = 0;
+    if ( !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) || !ReadPod( cursor, outContact.featureId ) ||
+         !ReadVec3( cursor, outContact.point ) || !ReadVec3( cursor, outContact.normal ) ||
+         !ReadVec3( cursor, outContact.tangent1 ) || !ReadVec3( cursor, outContact.tangent2 ) ||
+         !ReadPod( cursor, outContact.penetration ) || !ReadPod( cursor, outContact.normalImpulse ) )
+    {
+        return false;
+    }
+
+    outContact.bodyA = bodyA;
+    outContact.bodyB = bodyB;
+    return true;
+}
+
+bool ReadPipelineRecord( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsPipelineRecord& outRecord )
+{
+    int32_t stage = 0;
+    int32_t bodyA = 0;
+    int32_t bodyB = 0;
+    int32_t iteration = 0;
+    if ( !ReadPod( cursor, stage ) || !ReadPod( cursor, bodyA ) || !ReadPod( cursor, bodyB ) ||
+         !ReadPod( cursor, iteration ) || !ReadPod( cursor, outRecord.featureId ) ||
+         !ReadVec3( cursor, outRecord.point ) || !ReadVec3( cursor, outRecord.normal ) ||
+         !ReadPod( cursor, outRecord.scalarA ) || !ReadPod( cursor, outRecord.scalarB ) ||
+         !ReadPod( cursor, outRecord.scalarC ) )
+    {
+        return false;
+    }
+
+    outRecord.stage = static_cast<SkullbonezCore::Physics::PhysicsPipelineStage>( stage );
+    outRecord.bodyA = bodyA;
+    outRecord.bodyB = bodyB;
+    outRecord.iteration = iteration;
+    return true;
+}
+
+bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnapshot )
+{
+    outSnapshot = ReplaySolverWorldSnapshot();
+    int32_t modelCount = 0;
+    int32_t nextSleepIslandVisualId = 0;
+    uint8_t sleepEnabled = 0;
+    uint8_t collisionVisualFrameActive = 0;
+    if ( !ReadPod( cursor, outSnapshot.version ) || !ReadPod( cursor, modelCount ) ||
+         !ReadPod( cursor, nextSleepIslandVisualId ) || !ReadPod( cursor, sleepEnabled ) ||
+         !ReadPod( cursor, collisionVisualFrameActive ) || !SkipBytes( cursor, 2 ) ||
+         !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.timeRemaining ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepSupportedThisFrame ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepInhibitedThisFrame ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepState ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepCounter ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.underwaterSleepLocked ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.tornadoCaptureSeconds ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.tornadoEjectCooldownSeconds ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.collisionVisualContacts ) ||
+         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandVisualId ) ||
+         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandAssignedVisualId ) ||
+         !ReadCountedPairVector( cursor, outSnapshot.sleepSupportEdges ) ||
+         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandParent ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandRank ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandHasAwake ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandHasSupportAnchor ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandEligible ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandCanSleep ) ||
+         !ReadCountedStructVector( cursor, outSnapshot.persistentContacts, ReadPersistentContact ) ||
+         !ReadCountedStructVector( cursor, outSnapshot.persistentContactCache, ReadContactCache ) ||
+         !ReadSolverStats( cursor, outSnapshot.solverStats ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.persistentContactCounts ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.persistentRestingContactCounts ) ||
+         !ReadCountedStructVector( cursor, outSnapshot.debugContacts, ReadPhysicsDebugContact ) ||
+         !ReadCountedStructVector( cursor, outSnapshot.pipelineTrace, ReadPipelineRecord ) ||
+         !ReadCountedPodVector( cursor, outSnapshot.collisionCellKeys ) )
+    {
+        return false;
+    }
+
+    outSnapshot.modelCount = modelCount;
+    outSnapshot.nextSleepIslandVisualId = nextSleepIslandVisualId;
+    outSnapshot.sleepEnabled = sleepEnabled != 0;
+    outSnapshot.collisionVisualFrameActive = collisionVisualFrameActive != 0;
+    return true;
+}
+
+bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLauncher )
+{
+    outLauncher = ReplayLauncherVisualSample();
+    int32_t nextRayLine = 0;
+    int32_t nextLaserShot = 0;
+    uint8_t fireMode = 0;
+    uint8_t visualizeRays = 0;
+    if ( !ReadPod( cursor, nextRayLine ) || !ReadPod( cursor, nextLaserShot ) || !ReadPod( cursor, fireMode ) ||
+         !ReadPod( cursor, visualizeRays ) || !SkipBytes( cursor, 2 ) ||
+         !ReadPod( cursor, outLauncher.impulseStrength ) || !ReadPod( cursor, outLauncher.projectileSpeed ) )
+    {
+        return false;
+    }
+    outLauncher.nextRayLine = nextRayLine;
+    outLauncher.nextLaserShot = nextLaserShot;
+    outLauncher.fireMode = fireMode == static_cast<uint8_t>( ReplayLauncherFireMode::Projectile )
+                               ? ReplayLauncherFireMode::Projectile
+                               : ReplayLauncherFireMode::Laser;
+    outLauncher.visualizeRays = visualizeRays != 0;
+
+    uint32_t rayLineCount = 0;
+    if ( !ReadPod( cursor, rayLineCount ) )
+    {
+        return false;
+    }
+    outLauncher.rayLines.resize( rayLineCount );
+    for ( ReplayRayCastLineSample& line : outLauncher.rayLines )
+    {
+        uint8_t active = 0;
+        uint8_t hit = 0;
+        if ( !ReadVec3( cursor, line.start ) || !ReadVec3( cursor, line.end ) || !ReadPod( cursor, line.ageSeconds ) ||
+             !ReadPod( cursor, active ) || !ReadPod( cursor, hit ) || !SkipBytes( cursor, 2 ) )
+        {
+            return false;
+        }
+        line.active = active != 0;
+        line.hit = hit != 0;
+    }
+
+    uint32_t laserShotCount = 0;
+    if ( !ReadPod( cursor, laserShotCount ) )
+    {
+        return false;
+    }
+    outLauncher.laserShots.resize( laserShotCount );
+    for ( LauncherLaserShotSnapshot& shot : outLauncher.laserShots )
+    {
+        uint8_t active = 0;
+        uint8_t hit = 0;
+        if ( !ReadVec3( cursor, shot.start ) || !ReadVec3( cursor, shot.end ) ||
+             !ReadVec3( cursor, shot.cameraRight ) || !ReadVec3( cursor, shot.cameraUp ) ||
+             !ReadPod( cursor, shot.ageSeconds ) || !ReadPod( cursor, shot.lifetimeSeconds ) ||
+             !ReadPod( cursor, active ) || !ReadPod( cursor, hit ) || !SkipBytes( cursor, 2 ) )
+        {
+            return false;
+        }
+        shot.active = active != 0;
+        shot.hit = hit != 0;
+    }
+    return true;
+}
+
+bool ReadSolverBody( ByteCursor& cursor,
+                     const std::vector<BodyDictionaryEntry>& dictionary,
+                     ReplaySolverBodySample& outBody )
+{
+    outBody = ReplaySolverBodySample();
+    uint32_t dictionaryIndex = 0;
+    uint8_t fixed = 0;
+    uint8_t sleeping = 0;
+    uint8_t sleepSupported = 0;
+    uint8_t sleepInhibited = 0;
+    uint8_t collisionContact = 0;
+    int32_t sleepIslandVisualId = 0;
+    uint16_t reserved16 = 0;
+    if ( !ReadPod( cursor, dictionaryIndex ) || dictionaryIndex >= dictionary.size() ||
+         !ReadVec3( cursor, outBody.position ) || !ReadVec3( cursor, outBody.linearVelocity ) ||
+         !ReadVec3( cursor, outBody.angularVelocity ) || !ReadOrientation( cursor, outBody.orientation ) ||
+         !ReadPod( cursor, outBody.mass ) || !ReadPod( cursor, outBody.inverseMass ) ||
+         !ReadVec3( cursor, outBody.rotationalInertia ) || !ReadVec3( cursor, outBody.inverseRotationalInertia ) ||
+         !ReadPod( cursor, fixed ) || !ReadPod( cursor, sleeping ) || !ReadPod( cursor, sleepSupported ) ||
+         !ReadPod( cursor, sleepInhibited ) || !ReadPod( cursor, collisionContact ) || !SkipBytes( cursor, 3 ) ||
+         !ReadPod( cursor, sleepIslandVisualId ) || !ReadPod( cursor, outBody.contactCount ) ||
+         !ReadPod( cursor, reserved16 ) || !ReadPod( cursor, outBody.maxPenetration ) ||
+         !ReadPod( cursor, outBody.normalImpulseSum ) )
+    {
+        return false;
+    }
+
+    const BodyDictionaryEntry& entry = dictionary[dictionaryIndex];
+    outBody.id.value = entry.id;
+    outBody.modelIndex = entry.modelIndex;
+    outBody.shapeKind = entry.shapeKind;
+    std::memcpy( outBody.name, entry.name, sizeof( outBody.name ) );
+    outBody.fixed = fixed != 0;
+    outBody.sleeping = sleeping != 0;
+    outBody.sleepSupported = sleepSupported != 0;
+    outBody.sleepInhibited = sleepInhibited != 0;
+    outBody.collisionContact = collisionContact != 0;
+    outBody.sleepIslandVisualId = sleepIslandVisualId;
+    (void)reserved16;
+    return true;
+}
+
+bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes,
+                             const ChunkTableEntry& chunk,
+                             const std::vector<BodyDictionaryEntry>& dictionary,
+                             std::vector<ReplaySolverFrameSample>& outCheckpoints )
+{
+    outCheckpoints.clear();
+
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+
+    uint32_t checkpointCount = 0;
+    if ( !ReadPod( cursor, checkpointCount ) || checkpointCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    outCheckpoints.reserve( checkpointCount );
+    for ( uint32_t i = 0; i < checkpointCount; ++i )
+    {
+        ReplaySolverFrameSample sample;
+        int32_t sceneFrame = 0;
+        uint8_t checkpointBoundary = 0;
+        uint8_t worldFlags = 0;
+        uint16_t reserved = 0;
+        uint32_t bodyCount = 0;
+        if ( !ReadPod( cursor, sample.frameIndex ) || !ReadPod( cursor, sceneFrame ) ||
+             !ReadPod( cursor, sample.simulationSeconds ) || !ReadPod( cursor, sample.physicsDt ) ||
+             !ReadPod( cursor, sample.presentationHash ) || !ReadPod( cursor, sample.solverHash ) ||
+             !ReadPod( cursor, sample.contactCount ) || !ReadPod( cursor, sample.pipelineRecordCount ) ||
+             !ReadPod( cursor, checkpointBoundary ) || !ReadPod( cursor, worldFlags ) || !ReadPod( cursor, reserved ) ||
+             !ReadPod( cursor, sample.world.gravity ) || !ReadPod( cursor, sample.world.fluidHeight ) ||
+             !ReadPod( cursor, sample.world.fluidDensity ) || !ReadVec3( cursor, sample.camera.eye ) ||
+             !ReadVec3( cursor, sample.camera.view ) || !ReadVec3( cursor, sample.camera.up ) ||
+             !ReadLauncherVisual( cursor, sample.launcherVisual ) ||
+             !ReadSolverSnapshot( cursor, sample.worldSnapshot ) || !ReadPod( cursor, bodyCount ) )
+        {
+            return false;
+        }
+        (void)reserved;
+        sample.sceneFrame = sceneFrame;
+        sample.checkpointBoundary = checkpointBoundary != 0;
+        ApplyWorldFlags( worldFlags, sample.world );
+        sample.bodies.resize( bodyCount );
+        for ( ReplaySolverBodySample& body : sample.bodies )
+        {
+            if ( !ReadSolverBody( cursor, dictionary, body ) )
+            {
+                return false;
+            }
+        }
+        outCheckpoints.push_back( std::move( sample ) );
+    }
+    return cursor.offset == cursor.size;
+}
+
 Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t recordCount )
 {
     Chunk chunk;
@@ -989,8 +1418,7 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["authoritative"] = false;
     manifest["notes"] = solverCheckpointCount > 0
                             ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
-                              "sparse solver checkpoint payloads; event chunks and saved restore verification are not "
-                              "present."
+                              "sparse solver checkpoint payloads; event chunks and branch-from-file are not present."
                         : solverHashCount > 0
                             ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes; "
                               "checkpoint/event chunks are not present."
@@ -1391,4 +1819,54 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
         }
     }
     return !outSamples.empty();
+}
+
+bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
+                                              std::vector<ReplaySolverFrameSample>& outCheckpoints,
+                                              ReplayV2SolverCheckpointLoadResult* result )
+{
+    outCheckpoints.clear();
+
+    std::vector<uint8_t> fileBytes;
+    if ( !LoadBinaryFile( path, fileBytes ) )
+    {
+        return false;
+    }
+
+    std::vector<ChunkTableEntry> chunkTable;
+    if ( !ReadChunkTable( fileBytes, chunkTable ) )
+    {
+        return false;
+    }
+
+    const ChunkTableEntry* bodyChunk = FindChunk( chunkTable, "BODY" );
+    const ChunkTableEntry* checkpointChunk = FindChunk( chunkTable, "SCHK" );
+    if ( !bodyChunk || !checkpointChunk )
+    {
+        return false;
+    }
+
+    std::vector<BodyDictionaryEntry> dictionary;
+    if ( !ParseBodyDictionary( fileBytes, *bodyChunk, dictionary ) )
+    {
+        return false;
+    }
+    if ( !ParseSolverCheckpoints( fileBytes, *checkpointChunk, dictionary, outCheckpoints ) )
+    {
+        outCheckpoints.clear();
+        return false;
+    }
+
+    if ( result )
+    {
+        result->checkpointCount = outCheckpoints.size();
+        result->bodyDictionaryCount = dictionary.size();
+        result->fileBytes = fileBytes.size();
+        if ( !outCheckpoints.empty() )
+        {
+            result->firstFrame = outCheckpoints.front().frameIndex;
+            result->lastFrame = outCheckpoints.back().frameIndex;
+        }
+    }
+    return !outCheckpoints.empty();
 }

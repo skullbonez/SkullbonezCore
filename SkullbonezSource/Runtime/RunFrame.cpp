@@ -786,6 +786,47 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
             selectedBody->id.value,
             bestDistanceSquared );
 }
+
+void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        throw std::runtime_error( "replay restore file probe requires a v2 artifact path" );
+    }
+
+    std::vector<ReplaySolverFrameSample> checkpoints;
+    ReplayV2SolverCheckpointLoadResult result;
+    if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, checkpoints, &result ) )
+    {
+        throw std::runtime_error( "replay restore file probe failed to load v2 solver checkpoints" );
+    }
+    if ( checkpoints.empty() )
+    {
+        throw std::runtime_error( "replay restore file probe found no v2 solver checkpoints" );
+    }
+
+    const ReplaySolverFrameSample& checkpoint = checkpoints.front();
+    char reason[160] = {};
+    if ( !RestoreReplaySolverSampleAsLive( checkpoint, reason, sizeof( reason ) ) )
+    {
+        char message[256] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore file probe failed: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
+        throw std::runtime_error( message );
+    }
+
+    printf( "[replay] Restore file probe passed: path=%s checkpoints=%llu first_frame=%llu target_frame=%llu "
+            "bodies=%llu solver_hash=0x%016llX bytes=%llu\n",
+            path,
+            static_cast<unsigned long long>( result.checkpointCount ),
+            static_cast<unsigned long long>( result.firstFrame ),
+            static_cast<unsigned long long>( checkpoint.frameIndex ),
+            static_cast<unsigned long long>( checkpoint.bodies.size() ),
+            static_cast<unsigned long long>( checkpoint.solverHash ),
+            static_cast<unsigned long long>( result.fileBytes ) );
+}
 #endif
 
 

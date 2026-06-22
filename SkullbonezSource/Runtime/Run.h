@@ -1692,6 +1692,8 @@ class Run
     void SetReplayRestoreProbe( float normalized );                              // Enable CLI-only replay restore hash probe.
     void SetReplaySaveProbe( const char* path );                                 // Enable CLI-only v2 replay save probe.
     void VerifyLoadedReplayPresentationProbe( float normalized );                // Validate runtime scrubbing from a loaded v2 file.
+    void VerifyReplaySolverCheckpointFileProbe(
+        const char* path );                                                      // Validate hash-gated restore from a v2 solver checkpoint.
 #endif
 };
 } // namespace Basics

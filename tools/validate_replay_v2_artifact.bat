@@ -1,12 +1,13 @@
 @rem
 @rem File: tools/validate_replay_v2_artifact.bat
 @rem Purpose:
-@rem   Runs the focused replay v2 save/query artifact validation.
+@rem   Runs the focused replay v2 save/load/restore/query artifact validation.
 @rem
 @rem Mental model:
 @rem   This gate proves the executable can write a real v2 presentation
-@rem   .skreplay file, and that the bounded query bridge can inspect it and
-@rem   export a SkullScope-compatible slice.
+@rem   .skreplay file, reload presentation data, restore a saved solver
+@rem   checkpoint, and expose bounded query output plus a SkullScope-compatible
+@rem   slice.
 @rem
 @rem Glossary:
 @rem   Replay v2 artifact: Chunked binary presentation .skreplay file.
