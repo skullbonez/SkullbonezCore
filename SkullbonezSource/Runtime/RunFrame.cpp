@@ -569,6 +569,18 @@ void Run::TickReplaySaveProbe()
     }
 
     const ReplayRecorderStats stats = m_replay.GetStats();
+    if ( !m_replaySaveProbe.eventCoverageInjected && stats.sampleCount >= 4 )
+    {
+        m_replaySaveProbe.eventCoverageInjected = true;
+        const float currentGravity = m_cWorldEnvironment.GetGravity();
+        const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
+        ApplyUIWorldOverride( probeGravity,
+                              m_cWorldEnvironment.GetFluidSurfaceHeight(),
+                              m_cWorldEnvironment.GetFluidDensity() );
+        m_rayCastTest.projectileSpeed += 1.0f;
+        RecordReplayLauncherConfigEvent( 2u );
+        FireRayCastTest();
+    }
     if ( stats.sampleCount < static_cast<std::size_t>( m_replaySaveProbe.minSampleCount ) )
     {
         return;

@@ -32,6 +32,8 @@ Related:
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
 
+#include <cstdio>
+#include <cstring>
 #include <stdexcept>
 
 using namespace SkullbonezCore::Basics;
@@ -43,6 +45,64 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
+constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
+
+uint32_t ReplayFloatBits( float value )
+{
+    uint32_t bits = 0;
+    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    return bits;
+}
+
+int32_t ReplayFloatBitsSigned( float value )
+{
+    const uint32_t bits = ReplayFloatBits( value );
+    int32_t signedBits = 0;
+    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
+    return signedBits;
+}
+
+void HashReplayFloat( uint64_t& hash, float value )
+{
+    const uint32_t bits = ReplayFloatBits( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
+}
+
+void AppendReplayFloatHex( char*& cursor, std::size_t& remaining, float value )
+{
+    if ( remaining == 0 )
+    {
+        return;
+    }
+
+    const int written = std::snprintf( cursor, remaining, "%08X", ReplayFloatBits( value ) );
+    if ( written < 0 )
+    {
+        cursor[0] = '\0';
+        return;
+    }
+    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
+    cursor += consumed;
+    remaining -= consumed;
+}
+
+void AppendReplayVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
+{
+    AppendReplayFloatHex( cursor, remaining, value.x );
+    AppendReplayFloatHex( cursor, remaining, value.y );
+    AppendReplayFloatHex( cursor, remaining, value.z );
+}
+
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
     if ( presentationPath.empty() )
@@ -746,6 +806,106 @@ void Run::RecordReplayEvent( ReplayEventKind kind,
     input.data0 = data0;
     input.text = text;
     m_replayEvents.RecordEvent( input );
+}
+
+
+void Run::RecordReplayWorldOverrideEvent( float previousGravity,
+                                          float previousFluidHeight,
+                                          float previousFluidDensity,
+                                          float gravity,
+                                          float fluidHeight,
+                                          float fluidDensity )
+{
+    uint32_t flags = 0;
+    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
+    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
+    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
+    if ( flags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, gravity );
+    HashReplayFloat( hash, fluidHeight );
+    HashReplayFloat( hash, fluidDensity );
+
+    RecordReplayEvent( ReplayEventKind::WorldOverride,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       ReplayFloatBitsSigned( gravity ),
+                       ReplayFloatBitsSigned( fluidHeight ),
+                       ReplayFloatBitsSigned( fluidDensity ),
+                       0,
+                       hash,
+                       "world_override" );
+}
+
+
+void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
+{
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, m_rayCastTest.impulseStrength );
+    HashReplayFloat( hash, m_rayCastTest.projectileSpeed );
+
+    RecordReplayEvent( ReplayEventKind::LauncherConfig,
+                       NextReplayEventFrameIndex(),
+                       changedFlags,
+                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
+                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       0,
+                       0,
+                       hash,
+                       "launcher_config" );
+}
+
+
+void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
+                                         const Vector3& rayDirection,
+                                         const Vector3& cameraUp )
+{
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, rayOrigin );
+    AppendReplayVectorHex( cursor, remaining, rayDirection );
+    AppendReplayVectorHex( cursor, remaining, cameraUp );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, rayOrigin.x );
+    HashReplayFloat( hash, rayOrigin.y );
+    HashReplayFloat( hash, rayOrigin.z );
+    HashReplayFloat( hash, rayDirection.x );
+    HashReplayFloat( hash, rayDirection.y );
+    HashReplayFloat( hash, rayDirection.z );
+    HashReplayFloat( hash, cameraUp.x );
+    HashReplayFloat( hash, cameraUp.y );
+    HashReplayFloat( hash, cameraUp.z );
+
+    const bool projectile = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile;
+    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
+    RecordReplayEvent( ReplayEventKind::LauncherFire,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       projectile ? 1 : 0,
+                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
+                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       m_cGameModelCollection.GetModelCount(),
+                       hash,
+                       payload );
 }
 
 

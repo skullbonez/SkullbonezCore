@@ -1061,17 +1061,21 @@ void Run::TakeInput()
         }
         if ( uiCommands.physics.requestRayCastImpulseStrength )
         {
+            const float previousImpulse = m_rayCastTest.impulseStrength;
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength,
                                                         UI_RAY_IMPULSE_MIN,
                                                         UI_RAY_IMPULSE_MAX );
+            RecordReplayLauncherConfigEvent( previousImpulse != m_rayCastTest.impulseStrength ? 1u : 0u );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength,
                                                RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestLauncherProjectileSpeed )
         {
+            const float previousProjectileSpeed = m_rayCastTest.projectileSpeed;
             m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed,
                                                         UI_LAUNCHER_PROJECTILE_SPEED_MIN,
                                                         UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+            RecordReplayLauncherConfigEvent( previousProjectileSpeed != m_rayCastTest.projectileSpeed ? 2u : 0u );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }

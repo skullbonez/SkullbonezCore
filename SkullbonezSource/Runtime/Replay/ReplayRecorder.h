@@ -214,7 +214,10 @@ enum class ReplayEventKind : uint16_t
     Unknown = 0,
     TimelineStart = 1,
     RuntimeCommand = 2,
-    BranchRestore = 3
+    BranchRestore = 3,
+    WorldOverride = 4,
+    LauncherConfig = 5,
+    LauncherFire = 6
 };
 
 struct ReplayEventSample

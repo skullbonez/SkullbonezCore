@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Checkpoint event cursor work stores/query-validates v2 `ECUR` rows for saved solver checkpoints; previous event-stream milestone was `e2429a2f`. |
+| Last committed milestone | `f9801259` stores/query-validates v2 `ECUR` rows for saved solver checkpoints; the current slice adds typed world/launcher event coverage. |
 | Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
-| Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, and saved checkpoint-frame restore verification. Remaining plan gaps include deterministic event replay, broader solver-mutating event coverage, arbitrary target checkpoint-plus-event restore, branch-from-file, and in-app file loading/picking. |
+| Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed world-override/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, and saved checkpoint-frame restore verification. Remaining plan gaps include deterministic event replay, editor/generated-scene event coverage, arbitrary target checkpoint-plus-event restore, branch-from-file, and in-app file loading/picking. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Checkpoint event-cursor slice gates passed: targeted `tools\validate_build.bat Debug`, `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_cursors_validate_replay_v2.log`, `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_cursors_validate_fast.log`, and `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_cursors_validate_full.log`. |
+| Validation | Event coverage slice gates passed: targeted `tools\validate_build.bat Debug` in `TestOutput\agent_logs\2026-06-23_replay_event_coverage_build_debug.log`, `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_coverage_validate_replay_v2.log`, `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_coverage_validate_fast.log`, and `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-23_replay_event_coverage_validate_full.log`. |
 
 ## Active Notes
 

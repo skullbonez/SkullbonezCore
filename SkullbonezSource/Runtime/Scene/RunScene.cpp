@@ -2685,9 +2685,18 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
 
 void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
 {
+    const float previousGravity = m_cWorldEnvironment.GetGravity();
+    const float previousFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    const float previousFluidDensity = m_cWorldEnvironment.GetFluidDensity();
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
     m_cWorldEnvironment.SetFluidDensity( fluidDensity );
+    RecordReplayWorldOverrideEvent( previousGravity,
+                                    previousFluidHeight,
+                                    previousFluidDensity,
+                                    gravity,
+                                    fluidHeight,
+                                    fluidDensity );
 }
 
 

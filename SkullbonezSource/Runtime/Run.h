@@ -616,6 +616,7 @@ struct RunReplaySaveProbeState
 {
     bool enabled = false;
     bool completed = false;
+    bool eventCoverageInjected = false;
     int minSampleCount = 24;
     char path[260] = {};
 };
@@ -1465,6 +1466,19 @@ class Run
                             int32_t value3,
                             uint64_t data0,
                             const char* text );                                  // Appends a bounded v2 event-stream row when replay is active.
+    void RecordReplayWorldOverrideEvent(
+        float previousGravity,
+        float previousFluidHeight,
+        float previousFluidDensity,
+        float gravity,
+        float fluidHeight,
+        float fluidDensity );                                                    // Records exact world scalar payloads for future event replay.
+    void RecordReplayLauncherConfigEvent(
+        uint32_t changedFlags );                                                 // Records launcher settings that affect future fire events.
+    void RecordReplayLauncherFireEvent(
+        const Math::Vector::Vector3& rayOrigin,
+        const Math::Vector::Vector3& rayDirection,
+        const Math::Vector::Vector3& cameraUp );                                 // Records camera-derived launcher fire payloads.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.

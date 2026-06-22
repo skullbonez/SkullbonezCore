@@ -230,6 +230,8 @@ void Run::FireRayCastTest()
         return;
     }
     rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    const Vector3 cameraUp = m_systems.cameras->GetCameraUp();
+    RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
 
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {

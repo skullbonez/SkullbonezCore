@@ -292,6 +292,13 @@ def query_artifact():
         raise RuntimeError("replay event query did not return any event samples")
     if event_samples[0].get("kind") != "timelineStart":
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
+    event_kinds = {sample.get("kind") for sample in event_samples}
+    for expected_kind in ("worldOverride", "launcherConfig", "launcherFire"):
+        if expected_kind not in event_kinds:
+            raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
+    for sample in event_samples:
+        if sample.get("kind") in ("worldOverride", "launcherConfig", "launcherFire") and not sample.get("decoded"):
+            raise RuntimeError(f"expected decoded payload for {sample.get('kind')}: {sample}")
 
     cursor_command = [
         str(REPLAY_QUERY_BAT),

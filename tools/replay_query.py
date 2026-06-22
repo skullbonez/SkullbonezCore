@@ -133,6 +133,9 @@ class EventInfo:
             1: "timelineStart",
             2: "runtimeCommand",
             3: "branchRestore",
+            4: "worldOverride",
+            5: "launcherConfig",
+            6: "launcherFire",
         }.get(self.kind, "unknown")
 
 
@@ -198,6 +201,64 @@ def clean_name(raw: bytes) -> str:
 
 def hash_text(value: int) -> str:
     return f"0x{value:016X}"
+
+
+def float_from_i32_bits(value: int) -> float:
+    return struct.unpack("<f", struct.pack("<I", value & 0xFFFFFFFF))[0]
+
+
+def decode_ray9_payload(text: str) -> dict[str, object] | None:
+    prefix = "ray9:"
+    payload = text[len(prefix) :] if text.startswith(prefix) else ""
+    if len(payload) != 72:
+        return None
+    try:
+        floats = [
+            struct.unpack("<f", struct.pack("<I", int(payload[i : i + 8], 16)))[0]
+            for i in range(0, len(payload), 8)
+        ]
+    except ValueError:
+        return None
+    return {
+        "origin": [round_float(v) for v in floats[0:3]],
+        "direction": [round_float(v) for v in floats[3:6]],
+        "cameraUp": [round_float(v) for v in floats[6:9]],
+    }
+
+
+def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
+    if row.kind == 4:
+        return {
+            "gravity": round_float(float_from_i32_bits(row.values[0])),
+            "fluidHeight": round_float(float_from_i32_bits(row.values[1])),
+            "fluidDensity": round_float(float_from_i32_bits(row.values[2])),
+            "changed": {
+                "gravity": bool(row.flags & 1),
+                "fluidHeight": bool(row.flags & 2),
+                "fluidDensity": bool(row.flags & 4),
+            },
+        }
+    if row.kind == 5:
+        return {
+            "impulseStrength": round_float(float_from_i32_bits(row.values[0])),
+            "projectileSpeed": round_float(float_from_i32_bits(row.values[1])),
+            "changed": {
+                "impulseStrength": bool(row.flags & 1),
+                "projectileSpeed": bool(row.flags & 2),
+            },
+        }
+    if row.kind == 6:
+        decoded = decode_ray9_payload(row.text) or {}
+        decoded.update(
+            {
+                "mode": "projectile" if row.values[0] else "laser",
+                "impulseStrength": round_float(float_from_i32_bits(row.values[1])),
+                "projectileSpeed": round_float(float_from_i32_bits(row.values[2])),
+                "modelCountBeforeFire": row.values[3],
+            }
+        )
+        return decoded
+    return None
 
 
 def read_exact_range(data: bytes, offset: int, size: int, label: str) -> bytes:
@@ -925,6 +986,7 @@ class ReplayV2:
         for row in self.selected_events(frames):
             if len(samples) >= limit:
                 break
+            decoded = decoded_event_payload(row)
             samples.append(
                 {
                     "frameIndex": row.frame_index,
@@ -940,6 +1002,7 @@ class ReplayV2:
                     "sourceFrame": row.source_frame,
                     "sourceSolverHash": hash_text(row.source_solver_hash),
                     "text": row.text,
+                    "decoded": decoded,
                 }
             )
         return samples
