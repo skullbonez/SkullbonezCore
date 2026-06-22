@@ -244,6 +244,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTools.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -278,6 +281,9 @@
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunStress.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp">
@@ -602,6 +608,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\EngineContext.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -636,6 +645,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">

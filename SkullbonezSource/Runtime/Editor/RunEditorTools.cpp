@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "EditorTools.h"
 #include "EditorHullAssets.h"
 #include "../InputController.h"
 #include "../../Physics/PhysicsMass.h"
@@ -121,10 +122,6 @@ void ApplyEditorSpawnMaterial( GameModel& model, bool fixedObject, bool boxObjec
 
 constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
 constexpr float EDITOR_PLACEMENT_SNAP = 2.0f;
-constexpr float EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT = 16.0f;
-constexpr float EDITOR_PLACEMENT_SCALE_WHEEL_UNIT = 1.0f;
-constexpr float EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT = 160.0f;
-constexpr float EDITOR_PLACEMENT_HULL_SCALE_WHEEL_UNIT = 0.05f;
 constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
 constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
 constexpr float LAUNCHER_PROJECTILE_RADIUS = 0.85f;
@@ -681,40 +678,6 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
 }
 
 
-EditorHullAsset EditorHullAssetForType( int objectType )
-{
-    switch ( objectType )
-    {
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_WEDGE:
-        return EditorHullAsset::WEDGE;
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TRI_PRISM:
-        return EditorHullAsset::TRI_PRISM;
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_TAPERED_BLOCK:
-        return EditorHullAsset::TAPERED_BLOCK;
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_PYRAMID:
-        return EditorHullAsset::PYRAMID;
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_HEX_PRISM:
-        return EditorHullAsset::HEX_PRISM;
-    case SkullbonezCore::UI::EditorTab::OBJECT_HULL_DIAMOND:
-        return EditorHullAsset::DIAMOND;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SLAB:
-        return EditorHullAsset::ROCK_SLAB_FLAT;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_LUMP:
-        return EditorHullAsset::ROCK_LUMP_LARGE;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_SHARD:
-        return EditorHullAsset::ROCK_SHARD_TALL;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROCK_CHIPPED:
-        return EditorHullAsset::ROCK_CHIPPED_BLOCK;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROOT_SMALL:
-        return EditorHullAsset::TREE_ROOT_SMALL;
-    case SkullbonezCore::UI::EditorTab::OBJECT_ROOT_LARGE:
-        return EditorHullAsset::TREE_ROOT_LARGE;
-    default:
-        return EditorHullAsset::UNKNOWN;
-    }
-}
-
-
 const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
     const char* path = EditorHullAssetPath( asset );
@@ -921,107 +884,6 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     outMaterial.stylization = 0.50f;
     return true;
 }
-
-
-int EditorMouseWheelSteps( int wheelDelta )
-{
-    if ( wheelDelta == 0 )
-    {
-        return 0;
-    }
-    return wheelDelta / WHEEL_DELTA;
-}
-
-
-bool EditorPlacementUsesUniformScale( int objectType )
-{
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    return type == SkullbonezCore::UI::EditorTab::OBJECT_BALL || type == SkullbonezCore::UI::EditorTab::OBJECT_SPHERE;
-}
-
-
-bool EditorPlacementUsesHullScaleFactors( int objectType )
-{
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    return EditorHullAssetForType( type ) != EditorHullAsset::UNKNOWN;
-}
-
-
-Vector3 EditorDefaultPlacementScale( int objectType )
-{
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    switch ( type )
-    {
-    case SkullbonezCore::UI::EditorTab::OBJECT_BOX:
-        return Vector3( 6.0f, 6.0f, 6.0f );
-    case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
-        return Vector3( 4.0f, 4.0f, 4.0f );
-    case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
-        return Vector3( 8.0f, 8.0f, 8.0f );
-    default:
-        return Vector3( 1.0f, 1.0f, 1.0f );
-    }
-}
-
-
-Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
-{
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    if ( EditorTreeDefinitionForType( type ) )
-    {
-        return Vector3( 1.0f, 1.0f, 1.0f );
-    }
-
-    if ( EditorPlacementUsesUniformScale( type ) )
-    {
-        const float radius = std::clamp( scale.x, 0.25f, 200.0f );
-        return Vector3( radius, radius, radius );
-    }
-
-    if ( EditorPlacementUsesHullScaleFactors( type ) )
-    {
-        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ),
-                        std::clamp( scale.y, 0.05f, 20.0f ),
-                        std::clamp( scale.z, 0.05f, 20.0f ) );
-    }
-
-    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ),
-                    std::clamp( scale.y, 0.25f, 200.0f ),
-                    std::clamp( scale.z, 0.25f, 200.0f ) );
-}
-
-
-Vector3 EditorPlacementScaleFromGesture( int objectType,
-                                         const Vector3& startScale,
-                                         float dragPixelsX,
-                                         float dragPixelsY,
-                                         int wheelSteps )
-{
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    if ( EditorPlacementUsesUniformScale( type ) )
-    {
-        const float dragUnits = ( dragPixelsX + dragPixelsY ) / ( EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT * 2.0f );
-        const float radius =
-            startScale.x + dragUnits + static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
-        return EditorClampPlacementScale( type, Vector3( radius, radius, radius ) );
-    }
-
-    if ( EditorPlacementUsesHullScaleFactors( type ) )
-    {
-        Vector3 scale = startScale;
-        scale.x += dragPixelsX / EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT;
-        scale.z += dragPixelsY / EDITOR_PLACEMENT_HULL_SCALE_PIXELS_PER_UNIT;
-        scale.y += static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_HULL_SCALE_WHEEL_UNIT;
-        return EditorClampPlacementScale( type, scale );
-    }
-
-    Vector3 scale = startScale;
-    scale.x += dragPixelsX / EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT;
-    scale.z += dragPixelsY / EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT;
-    scale.y += static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
-    return EditorClampPlacementScale( type, scale );
-}
-
 
 bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementScale, ConvexHullShape& outHull )
 {

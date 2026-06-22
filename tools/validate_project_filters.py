@@ -171,6 +171,7 @@ RUNTIME_PREFIXES = (
     "RuntimeCommandQueue",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
+    "RuntimeTuning",
     "RuntimeViewModel",
     "SimulationController",
     "Window",
@@ -190,6 +191,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_EDITOR_PREFIXES = (
+    "EditorTools",
     "EditorHullAssets",
     "LauncherLaser",
     "RunEditorTools",
