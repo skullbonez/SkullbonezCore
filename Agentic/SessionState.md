@@ -8,7 +8,7 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `a7bf2506` records v2 editor translate/rotate transform events with query/checker coverage and final replay v2 validation. |
+| Last committed milestone | `f0fe9163` records v2 editor translate/rotate/scale transform events with query/checker coverage and final replay v2 validation. |
 | Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
 | Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed generated-scene-config/world-override/editor-place/editor-transform/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, live branch-from-file wiring for loaded v2 artifacts, in-app v2 replay save/load controls, an explicit scrubber `BRANCH` action shared with `Enter`, and saved-file restore failure SkullScope rows/query validation. Editor-transform coverage currently includes committed translate/rotate/scale gizmo changes; broader generated-scene restore coverage and broader runtime mutation coverage remain open. |
 | Blockers | None known. |
