@@ -11,12 +11,20 @@ Mental model:
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  BGR (Blue, Green, Red): Capture byte order used by BMP files.
+  BMP (Bitmap): Simple image file format used by validation backbuffer captures.
   Render device: Engine-facing object that owns the active GPU backend and its
   resources.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  HWND (Window Handle): Win32 identifier for the native application window.
+  HDC (Handle to Device Context): Win32 drawing context paired with an HWND.
+  UAV (Unordered Access View): Descriptor row used when shaders write to a GPU
+  resource such as the raytraced reflection texture.
+  GPU VA (GPU Virtual Address): Device address used by DXR geometry records.
+  VB (Vertex Buffer): GPU buffer containing vertex attributes for a mesh.
 
 Related:
   - SkullbonezSource/IRenderBackend.cpp
@@ -65,7 +73,8 @@ class IRenderCaptureBackend
 
     virtual RenderCapabilities GetCapabilities() const = 0;
 
-    // Returns BGR pixel data, bottom-up for BMP compatibility.
+    // Capture data is BGR and bottom-up so validation artifacts can be written
+    // straight to BMP without a second image-layout conversion.
     virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
 };
 
@@ -96,7 +105,7 @@ class IRenderBackend : public IRenderCaptureBackend
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
     virtual void Finish() = 0;
-    virtual void FlushGPU() = 0;                                              // Block until all submitted GPU work completes (required before resource destruction)
+    virtual void FlushGPU() = 0;                             // Block until all submitted GPU work completes (required before resource destruction)
     virtual void Resize( int width, int height ) = 0;
 
 
@@ -231,9 +240,11 @@ class IRenderBackend : public IRenderCaptureBackend
                                          uint32_t skyBackHandle ) = 0;
     virtual void
     BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
-    virtual uint32_t GetReflectionUAVTexture() const = 0;                     // Returns texture handle for water shader binding
+    virtual uint32_t
+    GetReflectionUAVTexture() const = 0;                     // Engine texture handle for sampling the completed water reflection.
     virtual void ShutdownDXR() = 0;
-    virtual uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU VA of instanced mesh's static VB
+    virtual uint64_t
+    GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU virtual address of the static vertex buffer.
     virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
 
 
@@ -284,7 +295,8 @@ class IRenderBackend : public IRenderCaptureBackend
 
 
     // --- Debug Line Rendering ---
-    // Draws per-vertex colored line segments. data is interleaved [x,y,z,r,g,b] per vertex.
+    // Debug lines are immediate diagnostic geometry: interleaved [x,y,z,r,g,b]
+    // vertices are consumed directly by the backend for overlays and broadphase views.
     // vertCount is the total number of vertices (2 per line segment).
     virtual void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
     {

@@ -13,7 +13,9 @@ Glossary:
   XZ bounds: Horizontal world-space rectangle that prevents camera movement
     outside the playable terrain.
   View vector: Stored look target for the camera; older camera code keeps it as
-    a point paired with the eye position.
+  a point paired with the eye position.
+  Locked orbit: Camera mode where movement preserves the authored view target
+  and adjusts only the eye position.
 
 Invariants:
   - Bounded movement must go through PrepareTranslation and FinishTranslation
@@ -83,7 +85,7 @@ class Camera
     void MoveCamera( const TravelDirection enumDir,
                      float fQuantity );            // fQuantity is world-space travel along camera-local axes.
     void ApplyDelta( const Camera& delta );        // Relative cameras add the primary-camera pose delta through this helper.
-    void RotateCamera( float xMove, float yMove ); // Offers an arbitrary rotation suitable for mouse input
+    void RotateCamera( float xMove, float yMove ); // Mouse-look delta path; clamps pitch before mutating the view target.
 
     Camera& operator=( const Camera& target );
     Camera& operator+=( const Camera& target );

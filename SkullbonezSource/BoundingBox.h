@@ -13,6 +13,8 @@ Glossary:
   cheap broadphase overlap tests.
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
+  Half-extents: Positive distance from the box center to one face along each
+  local axis; full box dimensions are twice these values.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -78,8 +80,8 @@ class BoundingBox
 {
 
   private:
-    Vector::Vector3 m_position;    // Local-space offset (usually zero)
-    Vector::Vector3 m_halfExtents; // Half-size along each local axis (x, y, z)
+    Vector::Vector3 m_position;    // Local-space shape offset from the owning rigid-body origin.
+    Vector::Vector3 m_halfExtents; // Half-size along each local axis; feeds volume, inertia, and support points.
 
   public:
     BoundingBox();
@@ -99,11 +101,11 @@ class BoundingBox
     const Vector::Vector3& GetHalfExtents() const;
 
     // --- Collision tests ---
-    // Sphere-box: sphere sweeps against this box (returns collision time [0,1] or NO_COLLISION)
+    // Sphere-box sweep: broadphase-style time query; manifold generation owns exact resting contacts.
     float
     TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 
-    // Box-sphere: this box sweeps against a sphere
+    // Box/object sweeps keep the same visitor surface as BoundingSphere for CollisionShape dispatch.
     float
     TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
     float

@@ -11,6 +11,9 @@ Mental model:
 Glossary:
   Win32: Windows desktop API used for the app window, messages, and process
   integration.
+  HWND (Window Handle): Win32 identifier for the native application window.
+  HRAWINPUT: Win32 handle for one raw-input packet received through WM_INPUT.
+  WM_INPUT: Win32 message carrying high-resolution mouse movement.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -36,7 +39,8 @@ requirements.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct InputState
 {
-    // Bit indices for the key-state bitmask
+    // InputState is copied through the run loop, so the per-frame booleans live
+    // in one compact mask instead of a scattered set of mutable fields.
     enum Key : uint32_t
     {
         Up = 0,
@@ -69,7 +73,7 @@ struct InputState
         KEY_COUNT
     };
 
-    uint32_t keys = 0;                                               // Packed bit field for all boolean key states
+    uint32_t keys = 0;                                         // One bit per Key enum entry; copied into frame-local camera/UI state.
     long xMove = 0, yMove = 0;
 
     bool Get( Key k ) const
@@ -97,24 +101,26 @@ struct InputState
 class Input
 {
   public:
-    static bool IsAppFocused();                                      // True when the game window owns foreground input
-    static void SetSystemCursorVisible( bool visible );              // Shows or hides the Win32 cursor display counter
-    static bool IsSystemCursorVisibleRequested();                    // Last requested native cursor ownership state
-    static bool IsKeyDown( int virtualKey );                         // Returns true if specified key is pressed (use upper case)
-    static bool IsKeyToggled( int virtualKey );                      // Returns true if specified key is toggled (use upper case)
-    static bool RegisterRawMouseInput( HWND window );                // Registers the window for relative mouse movement messages
-    static void AccumulateRawMouseDelta( HRAWINPUT rawInput );       // Adds mouse movement from WM_INPUT to the per-frame queue
-    static bool ConsumeRawMouseDelta( long& xMove, long& yMove );    // Returns and clears accumulated raw mouse movement
-    static void ResetMouseLookDeltas();                              // Clears queued raw mouse movement and absolute tracking state
-    static POINT GetMouseCoordinates();                              // Returns the coordinates of the mouse cursor
-    static POINT GetClientMouseCoordinates();                        // Returns mouse coordinates relative to the app client area
-    static void SetMouseCoordinates( const POINT& pNewCoordinates ); // Sets the mouse coordinates
-    static void CentreMouseCoordinates();                            // Sets the mouse cursor to the centre of the screen
-    static bool IsLeftMouseDown();                                   // Returns true if the left mouse button is pressed
-    static bool IsRightMouseDown();                                  // Returns true if the right mouse button is pressed
-    static bool IsMiddleMouseDown();                                 // Returns true if the middle mouse button is pressed
-    static int ConsumeMouseWheelDelta();                             // Returns and clears accumulated wheel delta from Win32 messages
-    static void AccumulateMouseWheelDelta( int delta );              // Adds a Win32 wheel delta to the per-frame queue
+    static bool IsAppFocused();                                // True when the game window owns foreground input
+    static void SetSystemCursorVisible( bool visible );        // Shows or hides the Win32 cursor display counter
+    static bool IsSystemCursorVisibleRequested();              // Last requested native cursor ownership state
+    static bool IsKeyDown( int virtualKey );                   // Polls Win32 virtual-key state; alphabetic callers pass uppercase codes.
+    static bool IsKeyToggled( int virtualKey );                // Reads Win32 toggle state for latch-style keys such as Caps Lock.
+    static bool RegisterRawMouseInput( HWND window );          // Registers the window for relative mouse movement messages
+    static void AccumulateRawMouseDelta( HRAWINPUT rawInput ); // Adds mouse movement from WM_INPUT to the per-frame queue
+    static bool ConsumeRawMouseDelta( long& xMove,
+                                      long& yMove );           // Moves queued raw deltas into caller outputs once per frame.
+    static void ResetMouseLookDeltas();                        // Clears queued raw mouse movement and absolute tracking state
+    static POINT GetMouseCoordinates();                        // Screen-space cursor position for compatibility paths.
+    static POINT GetClientMouseCoordinates();                  // Cursor position translated into the game window client area.
+    static void SetMouseCoordinates(
+        const POINT& pNewCoordinates );                        // Warps the OS cursor; used only by camera-control recentering.
+    static void CentreMouseCoordinates();                      // Recenters the cursor in the current game window.
+    static bool IsLeftMouseDown();                             // Polls left-button state without consuming it.
+    static bool IsRightMouseDown();                            // Polls right-button state without consuming it.
+    static bool IsMiddleMouseDown();                           // Polls middle-button state without consuming it.
+    static int ConsumeMouseWheelDelta();                       // Moves queued wheel clicks into the caller and resets the frame accumulator.
+    static void AccumulateMouseWheelDelta( int delta );        // Adds a Win32 wheel delta to the per-frame queue
 };
 } // namespace Hardware
 } // namespace SkullbonezCore

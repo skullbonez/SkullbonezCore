@@ -27,6 +27,12 @@ Glossary:
   shaders write textures or buffers.
   CBV (Constant Buffer View): Descriptor row used when shaders read a packed
   block of constants.
+  Descriptor heap: DX12 table of descriptor rows; shader-visible heaps can be
+  indexed by GPU commands.
+  Fence: GPU/CPU synchronization counter used to prove submitted command work
+  has completed before memory is reused.
+  Root signature: DX12 binding contract that declares which descriptor tables
+  and constants shaders may access.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
 
@@ -265,7 +271,7 @@ class RenderBackendDX12 : public IRenderBackend
     ID3D12GraphicsCommandList* m_commandList = nullptr;
     ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
     bool m_commandListOpen = false;
-    int m_platformProfilerGpuDepth = 0;
+    int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
 
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT m_frameIndex = 0;

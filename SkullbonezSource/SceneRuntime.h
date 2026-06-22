@@ -43,7 +43,7 @@ struct RunSceneState
     bool isScenePhysics = true;                 // Physics enabled in scene mode
     bool isSceneText = true;                    // Text overlay enabled in scene mode
     int targetFrameCount = -1;                  // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;                       // Current frame counter for the loaded scene/generated run
+    int currentFrame = 0;                       // Per-load frame counter used by scene completion gates.
     int modelCount = 0;                         // Number of models in the active scene
     int solverBallCount = 0;                    // Exact solver ball count when generated through solver_balls
     int solverBoxCount = 0;                     // Exact solver box count when generated through solver_boxes

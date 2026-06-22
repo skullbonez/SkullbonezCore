@@ -11,6 +11,11 @@ Mental model:
 Glossary:
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
+  QPC (QueryPerformanceCounter): Windows high-resolution CPU timer used for
+  wall-clock marker spans.
+  GPU timestamp: Backend query pair that measures elapsed GPU execution without
+  blocking the CPU until the readback is ready.
+  Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -54,12 +59,12 @@ namespace Basics
 class Profiler
 {
   public:
-    static constexpr int MAX_MARKERS = 192;
-    static constexpr int MAX_WORKER_CORES = 128;
-    static constexpr int MAX_DEPTH = 16;
-    static constexpr int RING_SIZE = 600;     // ~10 s @ 60 fps
-    static constexpr int GPU_QUERY_DEPTH = 4; // pending query ring depth (non-blocking readback)
-    static constexpr int WARMUP_FRAMES = 30;  // frames excluded from ring-buffer stats at session/pass start
+    static constexpr int MAX_MARKERS = 192;      // Registry capacity; overflow is a profiling contract bug.
+    static constexpr int MAX_WORKER_CORES = 128; // Worker overlay capacity, not a thread-spawn request.
+    static constexpr int MAX_DEPTH = 16;         // Nested marker stack depth before begin/end mismatch becomes unsafe.
+    static constexpr int RING_SIZE = 600;        // ~10 s @ 60 fps
+    static constexpr int GPU_QUERY_DEPTH = 4;    // pending query ring depth (non-blocking readback)
+    static constexpr int WARMUP_FRAMES = 30;     // frames excluded from ring-buffer stats at session/pass start
 
     // 20-colour palette for visual bar segments. Assigned round-robin to leaf markers.
     static constexpr int BAR_PALETTE_SIZE = 20;
@@ -68,66 +73,66 @@ class Profiler
         float r, g, b;
     };
     static constexpr BarColor BAR_PALETTE[BAR_PALETTE_SIZE] = {
-        { 0.90f, 0.30f, 0.30f },              // red
-        { 0.30f, 0.75f, 0.93f },              // sky blue
-        { 0.40f, 0.85f, 0.40f },              // green
-        { 0.95f, 0.70f, 0.20f },              // amber
-        { 0.70f, 0.40f, 0.90f },              // purple
-        { 0.20f, 0.90f, 0.80f },              // teal
-        { 0.95f, 0.50f, 0.70f },              // pink
-        { 0.55f, 0.80f, 0.25f },              // lime
-        { 0.30f, 0.50f, 0.95f },              // blue
-        { 0.95f, 0.85f, 0.30f },              // yellow
-        { 0.85f, 0.45f, 0.20f },              // orange
-        { 0.50f, 0.90f, 0.60f },              // mint
-        { 0.80f, 0.30f, 0.70f },              // magenta
-        { 0.60f, 0.70f, 0.85f },              // steel
-        { 0.90f, 0.60f, 0.40f },              // peach
-        { 0.35f, 0.65f, 0.55f },              // sage
-        { 0.75f, 0.55f, 0.85f },              // lavender
-        { 0.65f, 0.85f, 0.75f },              // seafoam
-        { 0.85f, 0.75f, 0.55f },              // tan
-        { 0.45f, 0.45f, 0.80f },              // indigo
+        { 0.90f, 0.30f, 0.30f },                 // red
+        { 0.30f, 0.75f, 0.93f },                 // sky blue
+        { 0.40f, 0.85f, 0.40f },                 // green
+        { 0.95f, 0.70f, 0.20f },                 // amber
+        { 0.70f, 0.40f, 0.90f },                 // purple
+        { 0.20f, 0.90f, 0.80f },                 // teal
+        { 0.95f, 0.50f, 0.70f },                 // pink
+        { 0.55f, 0.80f, 0.25f },                 // lime
+        { 0.30f, 0.50f, 0.95f },                 // blue
+        { 0.95f, 0.85f, 0.30f },                 // yellow
+        { 0.85f, 0.45f, 0.20f },                 // orange
+        { 0.50f, 0.90f, 0.60f },                 // mint
+        { 0.80f, 0.30f, 0.70f },                 // magenta
+        { 0.60f, 0.70f, 0.85f },                 // steel
+        { 0.90f, 0.60f, 0.40f },                 // peach
+        { 0.35f, 0.65f, 0.55f },                 // sage
+        { 0.75f, 0.55f, 0.85f },                 // lavender
+        { 0.65f, 0.85f, 0.75f },                 // seafoam
+        { 0.85f, 0.75f, 0.55f },                 // tan
+        { 0.45f, 0.45f, 0.80f },                 // indigo
     };
 
     struct Marker
     {
-        const char* name;                     // full path literal, e.g. "Render/Skybox"
-        const char* leafName;                 // pointer into name after last '/'
-        uint32_t hash;                        // FNV-1a of full path
-        int parentIndex;                      // -1 if top-level (parent of "Render/Skybox" is "Render")
-        int depth;                            // count of '/' characters (0 = top)
-        int colorIndex;                       // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
-        int openCount;                        // recursion guard (must be 0 at frame end)
-        int64_t openStartTicks;               // QPC ticks at most recent Begin
+        const char* name;                        // full path literal, e.g. "Render/Skybox"
+        const char* leafName;                    // pointer into name after last '/'
+        uint32_t hash;                           // FNV-1a of full path
+        int parentIndex;                         // -1 if top-level (parent of "Render/Skybox" is "Render")
+        int depth;                               // count of '/' characters (0 = top)
+        int colorIndex;                          // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
+        int openCount;                           // recursion guard (must be 0 at frame end)
+        int64_t openStartTicks;                  // QPC ticks at most recent Begin
         double accumSecondsThisFrame;
         double firstStartSecondsThisFrame;
         double lastEndSecondsThisFrame;
         bool spanWrittenThisFrame;
-        float ringMs[RING_SIZE];              // last RING_SIZE finished-frame totals
-        int ringFilled;                       // number of valid samples (saturates at RING_SIZE)
-        int ringHead;                         // next write index
-        float lastFrameMs;                    // most recent finished-frame total
-        float lastSelfMs;                     // most recent finished-frame direct time after direct child totals
-        float lastFrameStartMs;               // first Begin point within the most recent frame
-        float lastFrameEndMs;                 // final End point within the most recent frame
-        float avgMs;                          // moving average refreshed every 500 ms
-        float selfAvgMs;                      // moving average of direct time after direct child totals
-        float p50Ms;                          // recomputed every frame
-        float p99Ms;                          // recomputed every frame
-        float p99_9Ms;                        // recomputed every frame (for perf CSV)
-        float minMs;                          // session-wide minimum
-        float maxMs;                          // session-wide maximum
+        float ringMs[RING_SIZE];                 // last RING_SIZE finished-frame totals
+        int ringFilled;                          // number of valid samples (saturates at RING_SIZE)
+        int ringHead;                            // next write index
+        float lastFrameMs;                       // most recent finished-frame total
+        float lastSelfMs;                        // most recent finished-frame direct time after direct child totals
+        float lastFrameStartMs;                  // first Begin point within the most recent frame
+        float lastFrameEndMs;                    // final End point within the most recent frame
+        float avgMs;                             // moving average refreshed every 500 ms
+        float selfAvgMs;                         // moving average of direct time after direct child totals
+        float p50Ms;                             // recomputed every frame
+        float p99Ms;                             // recomputed every frame
+        float p99_9Ms;                           // recomputed every frame (for perf CSV)
+        float minMs;                             // session-wide minimum
+        float maxMs;                             // session-wide maximum
         float selfRingMs[RING_SIZE];
         int selfRingFilled;
         int selfRingHead;
 
         // GPU timestamp query state
-        bool hasGpu;                          // true if this marker uses GPU timing
-        bool gpuWrittenThisFrame;             // set by GpuBegin, cleared at FrameEnd
-        float gpuLastFrameMs;                 // most recent GPU sample
-        float gpuAvgMs;                       // GPU moving average
-        float gpuRingMs[RING_SIZE];           // GPU ring buffer
+        bool hasGpu;                             // true if this marker uses GPU timing
+        bool gpuWrittenThisFrame;                // set by GpuBegin, cleared at FrameEnd
+        float gpuLastFrameMs;                    // most recent GPU sample
+        float gpuAvgMs;                          // GPU moving average
+        float gpuRingMs[RING_SIZE];              // GPU ring buffer
         int gpuRingFilled;
         int gpuRingHead;
     };
@@ -156,7 +161,7 @@ class Profiler
     void GpuEnd( const char* fullPath, uint32_t hash );
 
     void FrameBegin();
-    void FrameEnd();                          // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
+    void FrameEnd();                             // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 
     // Call when the renderer device is destroyed/recreated to invalidate GPU query state.
     void InvalidateGpuQueries();
@@ -242,16 +247,16 @@ class Profiler
     WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
     int m_workerCoreSampleCount;
 
-    int m_stackIndices[MAX_DEPTH];            // marker indices currently open (top of stack at [m_stackTop-1])
+    int m_stackIndices[MAX_DEPTH];               // marker indices currently open (top of stack at [m_stackTop-1])
     int m_stackTop;
 
     int64_t m_qpcFrequency;
     int64_t m_frameStartTicks;
     int64_t m_lastAvgTicks;
     bool m_inFrame;
-    int m_warmupFrames;                       // frames remaining in warmup window; ring-buffer stats not recorded when > 0
-    bool m_resetPending;                      // set by ScheduleReset(); applied at the next FrameBegin()
-    int m_nextColorIndex;                     // round-robin colour assignment for leaf markers
+    int m_warmupFrames;                          // frames remaining in warmup window; ring-buffer stats not recorded when > 0
+    bool m_resetPending;                         // set by ScheduleReset(); applied at the next FrameBegin()
+    int m_nextColorIndex;                        // round-robin colour assignment for leaf markers
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     mutable std::mutex m_workerSampleMutex;
 #endif

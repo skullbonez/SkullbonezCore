@@ -11,6 +11,10 @@ Glossary:
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.
+  RGBA (Red, Green, Blue, Alpha): Four-channel color payload used by HUD quads.
+  UV (Texture Coordinates): Font-atlas coordinates used to sample glyphs.
+  FOV (Field of View): Camera/projection angle that defines legacy text space.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -55,15 +59,14 @@ class Text2d
     inline static float s_halfW = 0.0f;                                  // current ortho half-width  (right edge X)
     inline static float s_halfH = 0.0f;                                  // current ortho half-height (top edge Y)
 
-    // NOTES: positioning is relational to centre of client rect
-    //		  xPosition and yPosition should be (< 0.5f) and (> - 0.5f)
-    //		  fSize should be between 0 and 1
-    //		  pass additional arguments to render variables (just like printf)
+    // Text coordinates are centered on the client rect in legacy frustum units:
+    // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
+    // string accepts printf-style arguments.
     static void Render2dText( float xPosition,
                               float yPosition,
                               float fSize,
                               const char* cRawText,
-                              ... );                                     // Accumulates white text into the batch
+                              ... );                                     // Queues white SDF text for this frame's text batch.
     static void Render2dTextColor( float xPosition,
                                    float yPosition,
                                    float fSize,
@@ -71,8 +74,8 @@ class Text2d
                                    float g,
                                    float b,
                                    const char* cRawText,
-                                   ... );                                // Accumulates colored text into the batch
-    static void FlushText();                                             // Uploads and draws all accumulated text in one call
+                                   ... );                                // Queues colored SDF text for this frame's text batch.
+    static void FlushText();                                             // Uploads queued text once so HUD strings stay one draw call.
     static void Render2dQuad( float x0,
                               float y0,
                               float x1,
@@ -80,7 +83,7 @@ class Text2d
                               float r,
                               float g,
                               float b,
-                              float a );                                 // Renders a flat-coloured 2D HUD quad (immediate, separate draw)
+                              float a );                                 // Immediate HUD quad path for legacy call sites.
     static void BatchQuad( float x0,
                            float y0,
                            float x1,
@@ -88,7 +91,7 @@ class Text2d
                            float r,
                            float g,
                            float b,
-                           float a );                                    // Accumulates a coloured quad into the batch
+                           float a );                                    // Queues a colored quad for the shared HUD batch.
     static void BatchTriangle( float x0,
                                float y0,
                                float x1,
@@ -98,23 +101,22 @@ class Text2d
                                float r,
                                float g,
                                float b,
-                               float a );                                // Accumulates a coloured triangle into the same batch
-    static void FlushQuads();                                            // Uploads and draws all accumulated quads/triangles in one call
-    static void BuildFont( const char* cFontName );                      // Loads (or generates) SDF atlas, builds GPU resources
-    static bool
-    GenerateSdfAtlasToFile( const char* cFontName,
-                            const char* cOutPath );                      // Generates SDF atlas to binary file (also usable via --gen-atlas)
-    static void DeleteFont();                                            // Releases GPU font resources
+                               float a );                                // Queues a colored triangle in the shared HUD batch.
+    static void FlushQuads();                                            // Uploads queued quads/triangles once for the frame.
+    static void BuildFont( const char* cFontName );                      // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile( const char* cFontName,
+                                        const char* cOutPath );          // Offline SDF atlas writer used by --gen-atlas tooling.
+    static void DeleteFont();                                            // Releases GPU font resources before backend teardown.
     static void RebuildProjection( int w, int h );                       // Recomputes ortho projection after a window resize
     static float HalfW()
     {
         return s_halfW;
-    } // Right edge X in text space (varies with aspect ratio)
+    } // Right edge X in text space; varies with aspect ratio.
     static float HalfH()
     {
         return s_halfH;
-    } // Top edge Y in text space (fixed; depends only on FOV)
-    static float MeasureText( float fSize, const char* text );           // Returns the rendered width of a pre-formatted string
+    } // Top edge Y in text space; fixed by the text projection FOV.
+    static float MeasureText( float fSize, const char* text );           // Width in text-space units for already-formatted strings.
 };
 } // namespace Text
 } // namespace SkullbonezCore

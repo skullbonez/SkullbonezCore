@@ -9,6 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Primary camera: Camera slot controlled directly by player/debug input.
+  Relative camera: Secondary camera that preserves an authored offset from the
+  primary camera.
+  Tween: Time-based interpolation between camera poses for non-jarring cuts.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -48,13 +52,13 @@ class CameraCollection
     Camera m_tweenStart;                                           // Primary pose at the start of the active tween.
     Camera m_renderCamera;                                         // Snapshot used to build m_currentViewMatrix this frame.
     uint32_t m_cameraHashes[TOTAL_CAMERA_COUNT];                   // Scene hash key for each camera slot.
-    int m_arrayPosition;                                           // Current array m_position
-    int m_selectedCamera;                                          // Current selected camera
-    float m_tweenSpeed;                                            // Camera tweening speed
+    int m_arrayPosition;                                           // Active camera array index after hash lookup.
+    int m_selectedCamera;                                          // Selected camera slot used by UI/debug cycling.
+    float m_tweenSpeed;                                            // Camera interpolation speed in normalized tween units.
     bool m_isTweening;                                             // Render camera follows m_tweenCamera while this is true.
     float m_tweenProgress;                                         // Normalized tween progress through m_tweenPath.
     Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
-    Math::Transformation::Matrix4 m_currentViewMatrix;             // Current view matrix (updated each frame by SetCamera)
+    Math::Transformation::Matrix4 m_currentViewMatrix;             // Render-facing view matrix refreshed once per frame.
 
     CameraCollection();
     ~CameraCollection() = default;

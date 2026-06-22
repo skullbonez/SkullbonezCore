@@ -16,6 +16,8 @@ Glossary:
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
+  Command struct: One-frame request packet emitted by UI code and consumed by
+  the run loop.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -169,11 +171,11 @@ struct UIRendererCommands
 
 struct UISceneCommands
 {
-    bool resetScene = false;
-    bool resetSceneDefaults = false;
-    bool requestDemoScene = false;
-    bool saveSceneDefaults = false;
-    bool createScene = false;
+    bool resetScene = false;               // Rebuild current scene while preserving live runtime controls.
+    bool resetSceneDefaults = false;       // Discard live scene edits and reload authored defaults.
+    bool requestDemoScene = false;         // Switch to generated demo scene instead of a discovered scene file.
+    bool saveSceneDefaults = false;        // Persist editable-scene defaults back to disk.
+    bool createScene = false;              // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };

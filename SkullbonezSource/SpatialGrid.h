@@ -91,7 +91,7 @@ class SpatialGrid
     struct Bucket
     {
         int64_t key;         // Packed/hashable grid coordinate identity.
-        uint32_t generation; // Current frame stamp; old stamps behave as empty.
+        uint32_t generation; // Frame stamp; mismatched stamps make stale buckets behave as empty.
         int head;            // Linked-list head in entries[], -1 = empty.
         int count;           // Number of object entries in this cell.
         int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)

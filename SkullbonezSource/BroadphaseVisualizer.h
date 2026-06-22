@@ -4,13 +4,16 @@ Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
 Mental model:
-  This module is one piece of the engine contract. Read the glossary and
-  invariants first, then follow ownership and call direction through the
-  related files.
+  The broadphase grid is a visibility/debug view into candidate-pair generation.
+  It should explain why objects are considered near each other without changing
+  physics state.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Heat: Per-cell collision count used only to darken the debug color.
 
 Related:
   - SkullbonezSource/BroadphaseVisualizer.cpp
@@ -54,7 +57,7 @@ class BroadphaseVisualizer
   private:
     static constexpr int MAX_TRACKED_CELLS = 2048;
     static constexpr float FADE_DURATION = 0.5f;
-    static constexpr int MAX_COLLISION_HEAT = 10; // Collision count that maps to full black
+    static constexpr int MAX_COLLISION_HEAT = 10; // Collision count that saturates the black heat color.
 
     enum class CellState : uint8_t
     {
@@ -67,11 +70,11 @@ class BroadphaseVisualizer
 
     struct TrackedCell
     {
-        int64_t key;                              // Packed cell coordinate key
+        int64_t key;                              // Packed cell coordinate key, stable across frames.
         int16_t ix, iy, iz;
         CellState state;
-        float timer;                              // Time elapsed since state entered
-        int collisionHeat;                        // Accumulated collision count (for red→black gradient)
+        float timer;                              // Seconds since the current visual state began.
+        int collisionHeat;                        // Collision count driving the red-to-black gradient.
         bool activeThisFrame;
         bool collidedThisFrame;                   // Received a narrowphase collision this specific frame
     };

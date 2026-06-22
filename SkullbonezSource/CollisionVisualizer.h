@@ -14,6 +14,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Sleep group: Connected set of bodies that can stop simulating together once
+  the solver decides motion is stable.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -68,7 +70,7 @@ class CollisionVisualizer
   private:
     struct TrackedModel
     {
-        float collisionAmount = 0.0f;          // 1=red, 0=green; decays over FADE_DURATION when contact stops
+        float collisionAmount = 0.0f;          // 1=red contact highlight, 0=green idle; decays after contact stops.
     };
 
     struct Color
@@ -91,9 +93,9 @@ class CollisionVisualizer
     int m_boxVertexCount = 0;
 
     std::vector<TrackedModel> m_models;
-    std::vector<int> m_sleepGroupSizes;
-    std::vector<float> m_sphereInstanceData;
-    std::vector<float> m_boxInstanceData;
+    std::vector<int> m_sleepGroupSizes;        // Per-island body counts used to color sleep/debug groups.
+    std::vector<float> m_sphereInstanceData;   // CPU staging buffer for sphere instance matrices and colors.
+    std::vector<float> m_boxInstanceData;      // CPU staging buffer for box instance matrices and colors.
 
     void BuildSphereMesh();
     void BuildBoxMesh();

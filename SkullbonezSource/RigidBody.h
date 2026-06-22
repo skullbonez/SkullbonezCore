@@ -14,6 +14,9 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Impulse: Instant velocity change used by collisions and one-shot forces.
+  Restitution: Bounce coefficient used by the solver normal row.
+  Friction: Tangential resistance coefficient used by contact rows.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -58,8 +61,8 @@ class RigidBody
     bool m_isForceApplied;                            // True once the one-shot impulse has been consumed.
     float m_mass;                                     // Units: kg.
     float m_invertedMass;                             // 1 / mass; zero for immovable bodies.
-    float m_coefficientRestitution;
-    float m_frictionCoefficient;
+    float m_coefficientRestitution;                   // Bounce response; solver reads it during contact setup.
+    float m_frictionCoefficient;                      // Tangential contact resistance shared by terrain/object contacts.
     float m_volume;                                   // Units: m^3.
 
     Math::Vector::Vector3 m_position;                 // Units: world point.

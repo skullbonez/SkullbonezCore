@@ -13,8 +13,14 @@ Glossary:
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
+  Instance buffer: CPU-built per-object payload uploaded so one mesh can draw
+  many objects with different transforms/materials.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
+
+Invariants:
+  - Helper-owned meshes and shaders are backend resources; reset paths must
+  drop them before the renderer device is destroyed.
 
 Related:
   - SkullbonezSource/Helper.cpp
@@ -61,17 +67,17 @@ class RenderHelper
     static std::unique_ptr<Rendering::IShader> shadowDepthShader; // Shared instanced directional shadow depth shader
     static uint32_t sphereInstMesh;                               // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                 // Per-sphere vertex count
-    static std::vector<float> sphereInstanceData;                 // Staging buffer for model matrices + material payload
+    static std::vector<float> sphereInstanceData;                 // Per-frame sphere transforms/materials queued between BatchBegin/End.
     static uint32_t lowPolySphereInstMesh;                        // Faceted sphere mesh for low-poly cinematic styles
     static int lowPolySphereVertexCount;                          // Per-low-poly-sphere vertex count
     static uint32_t activeSphereInstMesh;                         // Mesh selected for the current sphere batch
     static int activeSphereVertexCount;                           // Vertex count selected for the current sphere batch
     static uint32_t boxInstMesh;                                  // Instanced mesh handle for box
     static int boxVertexCount;                                    // Per-box vertex count
-    static std::vector<float> boxInstanceData;                    // Staging buffer for box model matrices + material payload
+    static std::vector<float> boxInstanceData;                    // Per-frame box transforms/materials queued between BatchBegin/End.
     static uint32_t pineInstMesh;                                 // Instanced mesh handle for low-poly pine foliage tiers
     static int pineVertexCount;                                   // Per-pine-tier vertex count
-    static std::vector<float> pineInstanceData;                   // Staging buffer for pine model matrices + material payload
+    static std::vector<float> pineInstanceData;                   // Per-frame foliage transforms/materials queued between BatchBegin/End.
     inline static float sClipPlane[4] = { 0.0f,
                                           1.0f,
                                           0.0f,

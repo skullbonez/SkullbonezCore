@@ -63,7 +63,7 @@ struct TerrainContactPoint
 struct TerrainContactManifold
 {
     int bodyA = -1;
-    int bodyB = -1;                                                         // Static terrain sentinel.
+    int bodyB = -1;                                                         // -1 marks terrain, which is static and not stored in the body array.
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 tangent1 = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
@@ -96,33 +96,34 @@ class GameModel
         // stores the hot scalar properties for both spheres and boxes. For boxes,
         // radius means conservative bounding radius: the distance from center to
         // the farthest corner, used for cheap broadphase checks.
-        float radius;                                                       // Sphere radius
-        float radiusSq;                                                     // Sphere radius squared
-        float volume;                                                       // Sphere volume
-        float invVolume;                                                    // 1 / sphere volume
-        float projectedSurfaceArea;                                         // Cached circle area used by drag
-        float dragCoefficient;                                              // Cached sphere drag coefficient
-        float mass;                                                         // Immutable ball mass
-        float invMass;                                                      // 1 / mass
-        Math::Vector::Vector3 rotationalInertia;                            // Immutable inertia tensor diagonal
-        Math::Vector::Vector3 invRotationalInertia;                         // Component-wise 1 / inertia
+        float radius;                                                       // Conservative bounding radius in meters for broadphase and terrain support.
+        float radiusSq;                                                     // Squared radius avoids sqrt in hot distance checks.
+        float volume;                                                       // Collision volume in cubic meters, used for buoyancy scaling.
+        float invVolume;                                                    // Reciprocal volume; cache builders require nonzero shape volume.
+        float projectedSurfaceArea;                                         // Drag-facing area in square meters.
+        float dragCoefficient;                                              // Shape drag coefficient cached before force integration.
+        float mass;                                                         // Authoring mass in kilograms; fixed bodies still keep this for reports.
+        float invMass;                                                      // Solver inverse mass; fixed bodies use zero.
+        Math::Vector::Vector3 rotationalInertia;                            // Local-space inertia tensor diagonal for principal axes.
+        Math::Vector::Vector3 invRotationalInertia;                         // Component-wise reciprocal used by angular solver rows.
     };
 
     // Authoritative collision shape. Broadphase may use cached radii for speed,
     // but narrowphase and solver-row setup come back to this variant so boxes,
     // spheres, and future shapes can each provide their real contact geometry.
-    Math::CollisionDetection::CollisionShape m_boundingVolume;              // Bounding volume (variant, inline)
-    BallPhysicsCache m_ballPhysics;                                         // Immutable per-ball physics cache for hot loops
-    Physics::RigidBody m_physicsInfo;                                       // Physics information for the game object
-    Environment::WorldEnvironment* m_worldEnvironment;                      // Pointer to the world environment settings
-    Geometry::Terrain* m_terrain;                                           // Pointer to the world m_terrain
+    Math::CollisionDetection::CollisionShape
+        m_boundingVolume;                                                   // Inline shape variant; narrowphase dispatch owns exact geometry here.
+    BallPhysicsCache m_ballPhysics;                                         // Immutable scalar cache read by broadphase, buoyancy, and drag loops.
+    Physics::RigidBody m_physicsInfo;                                       // Integrator state: position, velocity, orientation, forces, and impulses.
+    Environment::WorldEnvironment* m_worldEnvironment;                      // Borrowed world force/fluid settings; owning scene keeps it alive.
+    Geometry::Terrain* m_terrain;                                           // Borrowed terrain used for height samples and terrain contacts.
     // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
     // when a terrain hit happened; BuildTerrainContactManifold reads it and
     // converts it into solver-neutral contact points. It is not the solver.
     Physics::ResponseInformation
-        m_responseInformation;                                              // Information regarding a collision response that needs to be reacted to
-    float m_projectedSurfaceArea;                                           // 2d surface area approximation based on dynamics object list
-    float m_dragCoefficient;                                                // Calculated based on the average drag coefficient of all dynamics objects
+        m_responseInformation;                                              // Legacy terrain-response mailbox consumed before shared manifold solving.
+    float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
+    float m_dragCoefficient;                                                // Effective drag coefficient averaged from attached dynamics data.
     float m_fixedContactHighlightSeconds;                                   // Seconds remaining for fixed-body red contact feedback
     float m_renderTintR;                                                    // Per-instance render tint red channel
     float m_renderTintG;                                                    // Per-instance render tint green channel
@@ -162,7 +163,7 @@ class GameModel
                                       float& outTerrainHeight,
                                       Geometry::Plane& outPlane,
                                       float& outGap );
-    void ClampToTerrainSurface();                                           // Keep residual terrain penetration from leaking past integration
+    void ClampToTerrainSurface();                                           // Corrects tiny post-solve terrain overlap before it accumulates visibly.
 
   public:
     struct BuoyancySample
@@ -215,7 +216,7 @@ class GameModel
     float GetProjectedSurfaceArea();
     float GetDragCoefficient();
     const Math::Vector::Vector3& GetPosition();
-    const Math::Vector::Vector3& GetPosition() const;                       // Const read for manifold row rA/rB setup
+    const Math::Vector::Vector3& GetPosition() const;                       // Const position access for manifold lever-arm setup.
     const Math::Vector::Vector3& GetVelocity();
     const Math::Vector::Vector3& GetVelocity() const;
     const Math::Vector::Vector3& GetAngularVelocity();
@@ -225,12 +226,12 @@ class GameModel
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
     float CollisionDetectTerrain(
         float changeInTime );                                               // Swept terrain query that fills the response mailbox but applies no impulse.
-    bool
-    BuildTerrainContactManifold( int bodyIndex,
-                                 float timeOfImpact,
-                                 float availableTime,
-                                 Physics::TerrainContactManifold& out );    // Shared solver-row geometry from the terrain
-                                                                         // mailbox; false when no contact is ready.
+    bool BuildTerrainContactManifold(
+        int bodyIndex,
+        float timeOfImpact,
+        float availableTime,
+        Physics::TerrainContactManifold& out );                             // Emits solver-row terrain geometry from the terrain
+                                                // mailbox; false when mailbox has no hit.
     void SetImpulseForce( const Math::Vector::Vector3& vForce,
                           const Math::Vector::Vector3&
                               vApplicationPoint );                          // Stages a one-shot impulse at a world-space application point.
@@ -290,7 +291,7 @@ class GameModel
     const Math::Vector::Vector3& GetInvertedRotationalInertia();            // Component-wise inverse inertia cache for solver rows.
     float GetCoefficientRestitution();
     const Math::CollisionDetection::CollisionShape&
-    GetCollisionShape() const;                                              // Const shape variant for narrowphase manifold dispatch
+    GetCollisionShape() const;                                              // Authoritative shape variant for narrowphase manifold dispatch.
     void SetLinearVelocity( const Math::Vector::Vector3& v );
     void SetAngularVelocity( const Math::Vector::Vector3& v );
     void SetPosition( const Math::Vector::Vector3& pos );                   // Teleports the model; bypasses force accumulation.

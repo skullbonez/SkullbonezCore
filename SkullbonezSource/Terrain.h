@@ -15,6 +15,8 @@ Glossary:
   mesh's triangles.
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author
   coarse physics posts and denser render-only samples.
+  Terrain post: Physics-authoritative height sample on the coarse collision
+  grid.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -169,7 +171,9 @@ class Terrain
     void ConfigureRenderStepSize();                             // Chooses a safe render-only terrain step size
     void BuildTerrain();                                        // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                                 // Precomputes per-quad triangle planes + normals for physics queries
-    int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
+    int GetQuadCacheIndex( float xPosition,
+                           float zPosition,
+                           bool& isTriangleA );                 // Maps world X/Z to cached terrain quad and triangle half.
     void QueryCollisionData( float xPosition,
                              float zPosition,
                              float& outHeight,

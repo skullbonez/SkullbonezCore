@@ -16,6 +16,10 @@ Glossary:
   SkullScope: Queryable physics diagnostics trace workflow used instead of
   loading raw traces into model context.
 
+Invariants:
+  - Diagnostic artifacts are side-channel output; enabling them must not change
+  physics state except for explicitly forced fixed-step diagnostics.
+
 Related:
   - SkullbonezSource/RuntimeDiagnostics.cpp
   - Agentic/Reference/comment-style-guide.md
@@ -41,13 +45,13 @@ struct RunSceneState;
 
 struct RunPerfLogState
 {
-    bool isPerfTest = false;                        // Performance logging mode
-    bool perfHeaderWritten = false;                 // CSV header written for current perf run
-    char perfLogPath[256] = {};                     // Output path for perf CSV (empty = none)
-    FILE* perfLogFile = nullptr;                    // Open handle for perf CSV
-    bool isPerfLogFlushEnabled = false;             // Flush perf CSV on each write (diagnostic mode)
-    int perfLogFlushInterval = 0;                   // Flush perf CSV every N writes (0 = flush on close only)
-    int perfLogWritesSinceFlush = 0;                // Buffered perf-log write count since last flush
+    bool isPerfTest = false;                        // Perf-suite mode; runtime writes pass/frame rows while scene advances.
+    bool perfHeaderWritten = false;                 // Prevents duplicate CSV headers across passes in one run.
+    char perfLogPath[256] = {};                     // Output path for perf CSV; empty disables file logging.
+    FILE* perfLogFile = nullptr;                    // Open perf CSV handle owned by RuntimeDiagnostics until ClosePerfLog.
+    bool isPerfLogFlushEnabled = false;             // Diagnostic mode: force flush after every perf write.
+    int perfLogFlushInterval = 0;                   // Flush every N writes; 0 means flush only at close.
+    int perfLogWritesSinceFlush = 0;                // Buffered perf-log rows since last explicit flush.
 #ifdef _DEBUG
     char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
     char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)

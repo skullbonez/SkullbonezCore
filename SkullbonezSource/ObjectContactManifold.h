@@ -16,6 +16,10 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Feature ID: Deterministic contact key used to match rows across frames for
+  warm starting.
+  Baumgarte bias: Positional correction term that turns penetration depth into
+  a solver velocity target.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -61,8 +65,8 @@ struct ObjectContactPoint
 
 struct ObjectContactManifold
 {
-    int bodyA = -1;
-    int bodyB = -1;
+    int bodyA = -1;                                           // Solver index for body A; -1 means the row is not populated.
+    int bodyB = -1;                                           // Solver index for body B; object manifolds require two live bodies.
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR; // Points from body A toward body B.
     ObjectContactPoint points[4];                             // Up to four face contacts, matching box face clipping.
     uint8_t pointCount = 0;

@@ -17,6 +17,8 @@ Glossary:
   regression output.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
+  Override mask: Bitfield that records which optional JSON fields were authored
+  so unspecified values keep engine.cfg defaults.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
@@ -52,7 +54,7 @@ struct SceneCamera
     Math::Vector::Vector3 view;
     Math::Vector::Vector3 up;
 
-    char name[64];
+    char name[64];                                            // Stable authoring name used by diagnostics and camera selection.
 };
 
 struct SceneBall
@@ -66,8 +68,8 @@ struct SceneBall
     float forceX, forceY, forceZ;
     float forcePosX, forcePosY, forcePosZ;
     float eulerX, eulerY, eulerZ;                             // Initial orientation in degrees (optional, default 0)
-    bool hasInitOrient;
-    bool isFixed;
+    bool hasInitOrient;                                       // False means use default identity orientation.
+    bool isFixed;                                             // Fixed bodies participate in contacts but do not integrate.
 };
 
 struct SceneBallState

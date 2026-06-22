@@ -79,17 +79,17 @@ class BoundingSphere
 {
 
   private:
-    Vector::Vector3 m_position;                 // Local-space offset of sphere centre relative to model
-    float m_radius;                             // Radius of sphere
+    Vector::Vector3 m_position;                 // Local-space collision offset from owning body origin, in meters.
+    float m_radius;                             // Collision radius in meters; also the conservative broadphase radius.
 
     float CollisionDetect( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay )
-        const;                                  // Swept sphere-sphere test; returns earliest collision time t ∈ [0,1] or NO_COLLISION
+        const;                                  // Swept sphere-sphere helper; returns earliest quadratic root or NO_COLLISION.
 
   public:
-    BoundingSphere();                           // Default constructor (zero radius, origin)
+    BoundingSphere();                           // Creates an empty sphere at the local origin for staged shape setup.
     BoundingSphere(
         float fRadius,
-        const Vector::Vector3& vPosition );     // fRadius = sphere radius (m), vPosition = local-space centre offset
+        const Vector::Vector3& vPosition );     // fRadius is meters; vPosition is the owning body's local-space offset.
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation )
         const;                                  // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
     float GetVolume() const;                    // V = (4/3) * π * r³
@@ -97,9 +97,9 @@ class BoundingSphere
         const;                                  // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
     float GetDragCoefficient() const;           // C_d ≈ 0.47  (smooth sphere)
     float GetProjectedSurfaceArea() const;      // A = π * r²  (circular cross-section)
-    float GetRadius() const;                    // Returns radius r
-    float GetBoundingRadius() const;            // Returns r  (bounding radius == radius for spheres)
-    const Vector::Vector3& GetPosition() const; // Returns local-space centre offset (m_position)
+    float GetRadius() const;                    // Collision radius in meters.
+    float GetBoundingRadius() const;            // Conservative broadphase radius; identical to radius for spheres.
+    const Vector::Vector3& GetPosition() const; // Local-space centre offset used by model transforms and collision queries.
     float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay )
         const;                                  // Public swept sphere-sphere test (delegates to CollisionDetect)
     float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay )

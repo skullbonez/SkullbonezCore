@@ -9,6 +9,9 @@ Mental model:
   when that state changes.
 
 Glossary:
+  HWND (Window Handle): Win32 identifier for the native application window.
+  HDC (Handle to Device Context): Win32 drawing context associated with the
+  window.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -38,33 +41,33 @@ class Window
   private:
     inline static Window* pInstance = nullptr;
 
-    Window();                                                    // Default constructor
-    ~Window();                                                   // Default destructor
+    Window();                                                    // Private singleton construction; use Instance().
+    ~Window();                                                   // Static singleton lifetime; destructor currently has no native teardown.
 
   public:
-    HWND m_sWindow;                                              // Handle to window
-    HDC m_sDevice;                                               // Handle to device context
-    POINT m_sWindowDimensions;                                   // Window m_width and m_height
-    bool m_fIsFullScreenMode;                                    // Flag for fullscreen mode
+    HWND m_sWindow;                                              // Native Win32 window handle used by renderer and input code.
+    HDC m_sDevice;                                               // Native device context paired with m_sWindow.
+    POINT m_sWindowDimensions;                                   // Client width/height cached for projection and recentering.
+    bool m_fIsFullScreenMode;                                    // Window-mode policy chosen at creation time.
 
-    Math::Transformation::Matrix4 projectionMatrix;              // Current perspective projection matrix
+    Math::Transformation::Matrix4 projectionMatrix;              // Perspective projection rebuilt after client-size changes.
 
-    static Window* Instance();                                   // Call to request a pointer to the singleton instance
-    static void Destroy();                                       // Call to destroy the singleton instance
+    static Window* Instance();                                   // Lazy singleton access for legacy runtime systems.
+    static void Destroy();                                       // Clears the singleton pointer; static Window storage remains alive.
     void HandleScreenResize();                                   // Resize the active renderer and projection when the client area changes
-    void SetTitleText( const char* cText );                      // Draws text to title bar of window
+    void SetTitleText( const char* cText );                      // Updates the native title bar without touching renderer text.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
-    } // Returns the current perspective projection matrix
-    void SetWindowDimensions( const RECT dimensions );           // Sets window dimensions by RECT struct
-    void SetWindowDimensions( int width, int height );           // Sets window dimensions by integer values
+    } // Projection matrix currently used by render passes.
+    void SetWindowDimensions( const RECT dimensions );           // Caches dimensions from a Win32 RECT.
+    void SetWindowDimensions( int width, int height );           // Caches dimensions from explicit client width/height.
     void CreateAppWindow( HINSTANCE hInstance,
-                          bool isFullScreenMode );               // Creates our application window, returns a handle to it
-    void ChangeToFullScreen( int xResolution, int yResolution ); // Changes screeen to full screen mode
+                          bool isFullScreenMode );               // Creates the native window and stores the HWND/HDC pair.
+    void ChangeToFullScreen( int xResolution, int yResolution ); // Applies fullscreen display mode dimensions.
     int MsgBox( const char* cMsgBoxText,
                 const char* cMsgBoxTitle,
-                const UINT iMsgBoxType );                        // Draws a message box to the screen
+                const UINT iMsgBoxType );                        // Native modal message box for startup/validation failures.
 };
 } // namespace Basics
 } // namespace SkullbonezCore

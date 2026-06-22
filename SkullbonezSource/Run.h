@@ -219,7 +219,7 @@ struct RunSubsystemState
 
 struct RunCameraState
 {
-    Hardware::InputState input = {};                                             // Current frame input state
+    Hardware::InputState input = {};                                             // Snapshot consumed by camera controls for this frame.
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
     bool isFlyMode = false;                                                      // Free-fly camera mode active (toggle with F)
@@ -1208,11 +1208,10 @@ class Run
     bool RequiredSceneBroadphaseXCellsComplete()
         const;                                                                   // True when there are no gates or all X-cell ranges have been activated
     void RegisterBuiltInAssets();                                                // Seeds source asset records before renderer-owned resources are rebuilt.
-    std::string
-    ResolveSourceAssetPath( Assets::AssetKind kind,
-                            const char* logicalName,
-                            const std::string& relativePath );                   // Returns the resolved data path while preserving source
-                                                               // asset identity for rebuilds.
+    std::string ResolveSourceAssetPath( Assets::AssetKind kind,
+                                        const char* logicalName,
+                                        const std::string& relativePath );       // Resolves DATA_ROOT path while preserving
+                                                                           // source asset identity for rebuilds.
     void DrawPrimitives();                                                       // Orders terrain, object, helper, water, post, and overlay passes for one frame.
     RenderFrameContext BuildRenderFrameContext(
         bool cinematicRender,
@@ -1228,8 +1227,8 @@ class Run
     Textures::TextureCollection& Textures();                                     // Runtime texture registry accessor used by render passes
     uint32_t TextureHandle( uint32_t textureHash );                              // Resolves a runtime texture hash to a renderer handle
     void SelectRenderTexture( uint32_t textureHash );                            // Runtime texture hash selected for the default draw texture slot.
-    int WindowScreenWidth() const;                                               // Current window width, or config fallback before window init
-    int WindowScreenHeight() const;                                              // Current window height, or config fallback before window init
+    int WindowScreenWidth() const;                                               // Client width, falling back to config before window init.
+    int WindowScreenHeight() const;                                              // Client height, falling back to config before window init.
     void SetViewingOrientation();                                                // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                     // Backbuffer capture path; current encoder writes BMP files.
     bool SaveReplayBufferFromScrubber( RunReplayTrack track );                   // Writes one retained in-memory replay track to replays/.
@@ -1237,7 +1236,7 @@ class Run
     bool SaveCurrentEditableSceneSnapshot();                                     // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                   // Ordinary Render-tab values persisted to engine.cfg.
     void RefreshSceneBrowserList();                                              // Discovers scene files available to the in-game scene dropdown
-    int CurrentSceneBrowserIndex() const;                                        // Current scene index within the discovered scene dropdown list.
+    int CurrentSceneBrowserIndex() const;                                        // Selected discovered-scene dropdown index.
     bool CreateSceneFromUI( const char* requestedName );                         // Creates and loads a flat starter scene from the Scene tab.
     void LoadSceneFromBrowserIndex( int index );                                 // In-game scene dropdown selection loader.
     void LoadDemoSceneFromUI();                                                  // Scene-tab entry point for the generated demo scene.
@@ -1251,7 +1250,7 @@ class Run
     void HoldCompletedInteractiveScene();                                        // Keep the current scene alive after interactive automation completes
     bool HasSceneQueueEntry( int index ) const;                                  // True when index points at a queued scene/demo entry
     bool HasCurrentSceneQueueEntry() const;                                      // True when currentSceneIndex points at a queued entry
-    const std::string* CurrentSceneQueuePath() const;                            // Current queued scene path, or nullptr if no current entry
+    const std::string* CurrentSceneQueuePath() const;                            // Queued scene path; nullptr means no current entry.
     RunInternal::SceneRuntimeResetSnapshot
     CaptureSceneRuntimeResetSnapshot();                                          // Captures live runtime controls before a scene reset rebuilds objects
     void RestoreSceneRuntimeResetSnapshot(

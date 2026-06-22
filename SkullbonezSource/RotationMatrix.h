@@ -40,7 +40,7 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix();                                                                         // Default constructor
+    RotationMatrix();                                                        // Initializes to identity rotation.
     RotationMatrix( float f11,
                     float f12,
                     float f13,
@@ -49,15 +49,15 @@ class RotationMatrix
                     float f23,
                     float f31,
                     float f32,
-                    float f33 );                                                              // Overloaded constructor
+                    float f33 );                                             // Explicit row-major component construction.
     ~RotationMatrix() = default;
-    void Identity();                                                                          // Sets the matrix back to the identity value
-    Vector::Vector3 operator*( const Vector::Vector3& v ) const;                              // Rotation matrix multiplied by vector
-    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                             // *= overload
+    void Identity();                                                         // Resets to no-rotation matrix.
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;             // Applies this rotation to v.
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;            // Legacy spelling for applying this rotation to v.
     Vector::Vector3
-    TransposeMultiply( const Vector::Vector3& v ) const;                                      // R^T * v (inverse rotation for orthogonal matrices)
+    TransposeMultiply( const Vector::Vector3& v ) const;                     // R^T * v (inverse rotation for orthogonal matrices)
 
-    // Returns dot(abs(row_Y), v) — the maximum downward extent of an OBB with half-extents v.
+    // dot(abs(row_Y), v) is the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
     float SupportExtentY( const Vector::Vector3& halfExtents ) const
     {
@@ -80,17 +80,18 @@ class RotationMatrix
 #endif
 
   private:
-    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                                        // Nine float matrix elements
+    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                       // Row-major 3x3 basis vectors.
 };
 
-const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Identity matrix
+const RotationMatrix
+    IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Shared no-rotation matrix.
 
-// Returns the rotated point (vPoint AFTER rotation) rotated about the arbitrary axis defined by vAxis, by quantity
-// fRadians
+// Rotate vPoint around normalized arbitrary axis vAxis by fRadians.
 inline Vector::Vector3
 RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis, const Vector::Vector3& vPoint )
 {
-    // temp vector to store rotated view vector
+    // Keep the intermediate named so the derivation below maps back to the old
+    // formula comments and debugger watches.
     Vector::Vector3 vResult;
 
     // break rotation amount into vertical and horizontal components to
