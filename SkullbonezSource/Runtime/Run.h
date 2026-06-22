@@ -1501,6 +1501,13 @@ class Run
         const Math::Vector::Vector3& rayDirection,
         const Math::Vector::Vector3& cameraUp );                                 // Records camera-derived launcher fire payloads.
     void RecordReplayGeneratedSceneConfigEvent();                                // Records generated-scene object counts and seed metadata.
+    void RecordReplayEditorPlaceEvent(
+        int objectType,
+        bool fixedObject,
+        bool terrainAlign,
+        int modelCountBefore,
+        const Math::Vector::Vector3& terrainPoint,
+        const Math::Vector::Vector3& placementScale );                           // Records editor placement commits for saved v2 replay.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.
@@ -1696,10 +1703,11 @@ class Run
         const Math::Vector::Vector3& cameraUp );                                 // Placement ghost, launcher laser, and object gizmo overlays.
     void PlaceEditorObjectAtMouse( int objectType,
                                    bool fixedObject );                           // Place a UI-selected object on the terrain under the mouse
-    void PlaceEditorObjectAtTerrainPoint(
+    bool PlaceEditorObjectAtTerrainPoint(
         int objectType,
         bool fixedObject,
-        const Math::Vector::Vector3& terrainPoint );                             // Places an object at an already-resolved terrain hit
+        const Math::Vector::Vector3& terrainPoint,
+        bool recordReplayEvent = true );                                         // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );

@@ -400,13 +400,14 @@ def query_artifact():
     if event_samples[0].get("kind") != "timelineStart":
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
     event_kinds = {sample.get("kind") for sample in event_samples}
-    for expected_kind in ("generatedSceneConfig", "worldOverride", "launcherConfig", "launcherFire"):
+    for expected_kind in ("generatedSceneConfig", "worldOverride", "editorPlace", "launcherConfig", "launcherFire"):
         if expected_kind not in event_kinds:
             raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
     for sample in event_samples:
         if sample.get("kind") in (
             "generatedSceneConfig",
             "worldOverride",
+            "editorPlace",
             "launcherConfig",
             "launcherFire",
         ) and not sample.get("decoded"):

@@ -49,6 +49,8 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -960,6 +962,55 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
                        static_cast<int32_t>( SceneState().rngSeed ),
                        hash,
                        "generated_scene_config" );
+}
+
+
+void Run::RecordReplayEditorPlaceEvent( int objectType,
+                                        bool fixedObject,
+                                        bool terrainAlign,
+                                        int modelCountBefore,
+                                        const Vector3& terrainPoint,
+                                        const Vector3& placementScale )
+{
+    char payload[64] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "place6:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, terrainPoint );
+    AppendReplayVectorHex( cursor, remaining, placementScale );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, objectType );
+    HashReplayInt( hash, fixedObject ? 1 : 0 );
+    HashReplayInt( hash, terrainAlign ? 1 : 0 );
+    HashReplayInt( hash, modelCountBefore );
+    HashReplayFloat( hash, terrainPoint.x );
+    HashReplayFloat( hash, terrainPoint.y );
+    HashReplayFloat( hash, terrainPoint.z );
+    HashReplayFloat( hash, placementScale.x );
+    HashReplayFloat( hash, placementScale.y );
+    HashReplayFloat( hash, placementScale.z );
+
+    uint32_t flags = 0;
+    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
+    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
+
+    RecordReplayEvent( ReplayEventKind::EditorPlace,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       objectType,
+                       fixedObject ? 1 : 0,
+                       terrainAlign ? 1 : 0,
+                       modelCountBefore,
+                       hash,
+                       payload );
 }
 
 

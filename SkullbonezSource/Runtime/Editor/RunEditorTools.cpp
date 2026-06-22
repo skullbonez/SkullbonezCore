@@ -3032,7 +3032,10 @@ void Run::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
 }
 
 
-void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
+bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
+                                           bool fixedObject,
+                                           const Vector3& terrainPoint,
+                                           bool recordReplayEvent )
 {
     const int modelCount = m_cGameModelCollection.GetModelCount();
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
@@ -3042,7 +3045,7 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
-        return;
+        return false;
     }
 
     EnterInteractiveSceneRun();
@@ -3307,4 +3310,15 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     }
 
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+    const bool placed = SceneState().modelCount > modelCount;
+    if ( placed && recordReplayEvent )
+    {
+        RecordReplayEditorPlaceEvent( type,
+                                      fixedObject,
+                                      m_editor.autoTerrainAlign,
+                                      modelCount,
+                                      terrainPoint,
+                                      placementScale );
+    }
+    return placed;
 }

@@ -137,6 +137,7 @@ class EventInfo:
             5: "launcherConfig",
             6: "launcherFire",
             7: "generatedSceneConfig",
+            8: "editorPlace",
         }.get(self.kind, "unknown")
 
 
@@ -227,6 +228,24 @@ def decode_ray9_payload(text: str) -> dict[str, object] | None:
     }
 
 
+def decode_place6_payload(text: str) -> dict[str, object] | None:
+    prefix = "place6:"
+    payload = text[len(prefix) :] if text.startswith(prefix) else ""
+    if len(payload) != 48:
+        return None
+    try:
+        floats = [
+            struct.unpack("<f", struct.pack("<I", int(payload[i : i + 8], 16)))[0]
+            for i in range(0, len(payload), 8)
+        ]
+    except ValueError:
+        return None
+    return {
+        "terrainPoint": [round_float(v) for v in floats[0:3]],
+        "placementScale": [round_float(v) for v in floats[3:6]],
+    }
+
+
 def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
     if row.kind == 4:
         return {
@@ -271,6 +290,17 @@ def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
             "uiSolverCountOverride": bool(row.flags & 4),
             "objectTypeOverride": {0: "mixed", 1: "allBalls", 2: "allBoxes"}.get(override_id, "unknown"),
         }
+    if row.kind == 8:
+        decoded = decode_place6_payload(row.text) or {}
+        decoded.update(
+            {
+                "objectType": row.values[0],
+                "fixed": bool(row.flags & 1),
+                "terrainAlign": bool(row.flags & 2),
+                "modelCountBeforePlace": row.values[3],
+            }
+        )
+        return decoded
     return None
 
 

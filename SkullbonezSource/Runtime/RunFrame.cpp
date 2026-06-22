@@ -41,6 +41,8 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
@@ -111,6 +113,29 @@ bool DecodeReplayRay9Payload( const ReplayEventSample& event,
     outOrigin = Vector3( values[0], values[1], values[2] );
     outDirection = Vector3( values[3], values[4], values[5] );
     outCameraUp = Vector3( values[6], values[7], values[8] );
+    return true;
+}
+
+bool DecodeReplayPlace6Payload( const ReplayEventSample& event, Vector3& outTerrainPoint, Vector3& outPlacementScale )
+{
+    constexpr char prefix[] = "place6:";
+    if ( std::strncmp( event.text, prefix, sizeof( prefix ) - 1 ) != 0 )
+    {
+        return false;
+    }
+
+    const char* cursor = event.text + sizeof( prefix ) - 1;
+    float values[6] = {};
+    for ( float& value : values )
+    {
+        if ( !ReadReplayHexFloat( cursor, value ) )
+        {
+            return false;
+        }
+    }
+
+    outTerrainPoint = Vector3( values[0], values[1], values[2] );
+    outPlacementScale = Vector3( values[3], values[4], values[5] );
     return true;
 }
 
@@ -543,6 +568,41 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         }
         WriteReplayProbeReason( outReason, reasonSize, "verified generated scene config" );
         return true;
+    case ReplayEventKind::EditorPlace:
+    {
+        Vector3 terrainPoint;
+        Vector3 placementScale;
+        if ( !DecodeReplayPlace6Payload( event, terrainPoint, placementScale ) )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "invalid editor placement payload" );
+            return false;
+        }
+
+        const int modelCountBefore = m_cGameModelCollection.GetModelCount();
+        if ( event.value3 != modelCountBefore )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "editor placement model count precondition mismatch" );
+            return false;
+        }
+
+        const Vector3 previousPlacementScale = m_editor.placementScale;
+        const bool previousTerrainAlign = m_editor.autoTerrainAlign;
+        m_editor.placementScale = placementScale;
+        m_editor.autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+        const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
+                                                             ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
+                                                             terrainPoint,
+                                                             false );
+        m_editor.placementScale = previousPlacementScale;
+        m_editor.autoTerrainAlign = previousTerrainAlign;
+        if ( !placed )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );
+            return false;
+        }
+        WriteReplayProbeReason( outReason, reasonSize, "applied editor placement" );
+        return true;
+    }
     default:
         WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
         return false;
@@ -787,6 +847,9 @@ void Run::TickReplaySaveProbe()
         ApplyUIWorldOverride( probeGravity,
                               m_cWorldEnvironment.GetFluidSurfaceHeight(),
                               m_cWorldEnvironment.GetFluidDensity() );
+        m_editor.placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+        m_editor.autoTerrainAlign = false;
+        PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) );
         m_rayCastTest.projectileSpeed += 1.0f;
         RecordReplayLauncherConfigEvent( 2u );
         FireRayCastTest();
