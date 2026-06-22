@@ -181,6 +181,10 @@ def query_artifact():
         raise RuntimeError(f"expected 64-byte branch rows, found {summary.get('branchEntryBytes')}")
     if int(summary.get("branchCount") or 0) <= 0:
         raise RuntimeError("expected at least one replay branch provenance row")
+    if int(summary.get("eventEntryBytes") or 0) != 200:
+        raise RuntimeError(f"expected 200-byte event rows, found {summary.get('eventEntryBytes')}")
+    if int(summary.get("eventCount") or 0) <= 0:
+        raise RuntimeError("expected at least one replay event row")
     if int(summary.get("solverHashBytes") or 0) != 48:
         raise RuntimeError(f"expected 48-byte solver hash rows, found {summary.get('solverHashBytes')}")
     if int(summary.get("solverBodyBytes") or 0) != 112:
@@ -259,6 +263,29 @@ def query_artifact():
     if int(first_branch.get("branchId") or 0) != 1 or int(first_branch.get("parentBranchId") or 0) != 0:
         raise RuntimeError(f"expected root branch provenance, found {first_branch}")
 
+    event_command = [
+        str(REPLAY_QUERY_BAT),
+        str(ARTIFACT),
+        "events",
+        "--frames",
+        f"{first_frame}:{last_frame}",
+        "--limit",
+        "8",
+    ]
+    print("  Event command:")
+    print(
+        "    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay "
+        f"events --frames {first_frame}:{last_frame} --limit 8"
+    )
+    event_stdout, events = run_json(event_command, REPO)
+    if int(events.get("eventCount") or 0) != int(summary.get("eventCount") or 0):
+        raise RuntimeError("replay event query did not report the full event track")
+    event_samples = events.get("samples") or []
+    if not event_samples:
+        raise RuntimeError("replay event query did not return any event samples")
+    if event_samples[0].get("kind") != "timelineStart":
+        raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
+
     checkpoint_command = [
         str(REPLAY_QUERY_BAT),
         str(ARTIFACT),
@@ -327,6 +354,7 @@ def query_artifact():
         "replay_body": len(body_stdout.encode("utf-8")),
         "replay_hashes": len(hash_stdout.encode("utf-8")),
         "replay_branches": len(branch_stdout.encode("utf-8")),
+        "replay_events": len(event_stdout.encode("utf-8")),
         "replay_checkpoints": len(checkpoint_stdout.encode("utf-8")),
         "replay_export": len(export_stdout.encode("utf-8")),
         "physics_summary": len(physics_stdout.encode("utf-8")),
@@ -346,10 +374,11 @@ def main():
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
         print(
-            "  PASS: replay v2 artifact frames={frames} bodies={bodies} branches={branches} checkpoints={checkpoints}".format(
+            "  PASS: replay v2 artifact frames={frames} bodies={bodies} branches={branches} events={events} checkpoints={checkpoints}".format(
                 frames=summary.get("frameCount"),
                 bodies=summary.get("bodyDictionaryCount"),
                 branches=summary.get("branchCount"),
+                events=summary.get("eventCount"),
                 checkpoints=summary.get("solverCheckpointCount"),
             )
         )

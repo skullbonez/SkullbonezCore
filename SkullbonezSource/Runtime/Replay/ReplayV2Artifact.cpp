@@ -14,6 +14,7 @@ Glossary:
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
   BRAN: Branch provenance records for saved timeline ancestry.
+  EVNT: Bounded timeline/runtime intent records needed for authoritative rollback.
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
   INDX: Frame seek index into the presentation chunk.
@@ -37,6 +38,7 @@ Related:
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -61,6 +63,7 @@ constexpr uint32_t REPLAY_V2_INDEX_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
 constexpr uint32_t REPLAY_V2_HASH_ENTRY_BYTES = 48;
 constexpr uint32_t REPLAY_V2_BRANCH_ENTRY_BYTES = 64;
+constexpr uint32_t REPLAY_V2_EVENT_ENTRY_BYTES = 200;
 constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
@@ -1507,9 +1510,38 @@ std::vector<uint8_t> BuildBranchChunk( const std::vector<BranchRecord>& records 
     return bytes;
 }
 
+std::vector<uint8_t> BuildEventChunk( const std::vector<ReplayEventSample>& events )
+{
+    std::vector<uint8_t> bytes;
+    AppendPod( bytes, CheckedU32( events.size() ) );
+    for ( const ReplayEventSample& event : events )
+    {
+        const uint16_t kind = static_cast<uint16_t>( event.kind );
+        const uint32_t reserved = 0;
+        AppendPod( bytes, event.frameIndex );
+        AppendPod( bytes, event.sequence );
+        AppendPod( bytes, event.branch.branchId );
+        AppendPod( bytes, event.branch.parentBranchId );
+        AppendPod( bytes, kind );
+        AppendPod( bytes, event.payloadVersion );
+        AppendPod( bytes, event.flags );
+        AppendPod( bytes, event.value0 );
+        AppendPod( bytes, event.value1 );
+        AppendPod( bytes, event.value2 );
+        AppendPod( bytes, event.value3 );
+        AppendPod( bytes, event.data0 );
+        AppendPod( bytes, event.branch.sourceFrame );
+        AppendPod( bytes, event.branch.sourceSolverHash );
+        AppendBytes( bytes, event.text, sizeof( event.text ) );
+        AppendPod( bytes, reserved );
+    }
+    return bytes;
+}
+
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
                                     const std::vector<BodyDictionaryEntry>& dictionary,
                                     std::size_t branchCount,
+                                    std::size_t eventCount,
                                     std::size_t solverHashCount,
                                     std::size_t solverCheckpointCount )
 {
@@ -1517,15 +1549,24 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     const ReplayPresentationSample& last = samples.back();
     Json chunks = Json::array( { "MANI", "BODY", "PRES", "BRAN" } );
     Json tracks = Json::array( { "presentation", "branchProvenance" } );
+    std::string schema = "presentation-v2+branch-provenance";
+    if ( eventCount > 0 )
+    {
+        chunks.push_back( "EVNT" );
+        tracks.push_back( "events" );
+        schema += "+events";
+    }
     if ( solverHashCount > 0 )
     {
         chunks.push_back( "HASH" );
         tracks.push_back( "solverHashes" );
+        schema += "+solver-hashes";
     }
     if ( solverCheckpointCount > 0 )
     {
         chunks.push_back( "SCHK" );
         tracks.push_back( "solverCheckpoints" );
+        schema += "+solver-checkpoints";
     }
     chunks.push_back( "INDX" );
 
@@ -1535,13 +1576,11 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["track"] = "presentation";
     manifest["tracks"] = tracks;
     manifest["encoding"] = "little-endian chunked binary";
-    manifest["schema"] = solverCheckpointCount > 0
-                             ? "presentation-v2+branch-provenance+solver-hashes+solver-checkpoints"
-                             : ( solverHashCount > 0 ? "presentation-v2+branch-provenance+solver-hashes"
-                                                     : "presentation-v2+branch-provenance" );
+    manifest["schema"] = schema;
     manifest["frameCount"] = samples.size();
     manifest["bodyDictionaryCount"] = dictionary.size();
     manifest["branchCount"] = branchCount;
+    manifest["eventCount"] = eventCount;
     manifest["solverHashCount"] = solverHashCount;
     manifest["solverCheckpointCount"] = solverCheckpointCount;
     manifest["firstFrame"] = first.frameIndex;
@@ -1550,19 +1589,25 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["lastTimeSeconds"] = last.simulationSeconds;
     manifest["bodyPoseBytes"] = REPLAY_V2_BODY_POSE_BYTES;
     manifest["branchEntryBytes"] = REPLAY_V2_BRANCH_ENTRY_BYTES;
+    manifest["eventEntryBytes"] = eventCount > 0 ? REPLAY_V2_EVENT_ENTRY_BYTES : 0u;
     manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
     manifest["solverBodyBytes"] = solverCheckpointCount > 0 ? REPLAY_V2_SOLVER_BODY_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
-    manifest["notes"] = solverCheckpointCount > 0
-                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
-                              "sparse solver checkpoint payloads plus branch provenance; event chunks and "
-                              "branch-from-file are not present."
-                        : solverHashCount > 0
-                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
-                              "branch provenance; checkpoint/event chunks are not present."
-                            : "Presentation v2 supports smooth visual scrub; solver checkpoint/event chunks are not "
-                              "present, but branch provenance is recorded.";
+    manifest["notes"] =
+        eventCount > 0
+            ? "Presentation v2 supports smooth visual scrub and carries branch provenance, bounded runtime events, "
+              "per-tick solver hashes, and sparse solver checkpoint payloads. Arbitrary event replay and "
+              "branch-from-file are not complete yet."
+        : solverCheckpointCount > 0
+            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus sparse "
+              "solver checkpoint payloads plus branch provenance; event chunks and branch-from-file are not "
+              "present."
+        : solverHashCount > 0
+            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus branch "
+              "provenance; checkpoint/event chunks are not present."
+            : "Presentation v2 supports smooth visual scrub; solver checkpoint/event chunks are not present, "
+              "but branch provenance is recorded.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -1664,6 +1709,7 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
 
 bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                   const std::vector<ReplaySolverFrameSample>* solverSamples,
+                  const std::vector<ReplayEventSample>* eventSamples,
                   std::vector<Chunk>& outChunks )
 {
     if ( samples.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
@@ -1671,6 +1717,10 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
         return false;
     }
     if ( solverSamples && solverSamples->size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
+    {
+        return false;
+    }
+    if ( eventSamples && eventSamples->size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
     }
@@ -1706,13 +1756,19 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     }
 
     const std::size_t solverHashCount = solverSamples ? solverSamples->size() : 0u;
-    outChunks.push_back(
-        MakeChunk( "MANI",
-                   BuildManifest( samples, dictionary, branchRecords.size(), solverHashCount, solverCheckpointCount ),
-                   1u ) );
+    const std::size_t eventCount = eventSamples ? eventSamples->size() : 0u;
+    outChunks.push_back( MakeChunk(
+        "MANI",
+        BuildManifest( samples, dictionary, branchRecords.size(), eventCount, solverHashCount, solverCheckpointCount ),
+        1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
     outChunks.push_back( MakeChunk( "BRAN", BuildBranchChunk( branchRecords ), CheckedU32( branchRecords.size() ) ) );
+    if ( eventSamples && !eventSamples->empty() )
+    {
+        outChunks.push_back(
+            MakeChunk( "EVNT", BuildEventChunk( *eventSamples ), CheckedU32( eventSamples->size() ) ) );
+    }
     if ( solverSamples && !solverSamples->empty() )
     {
         outChunks.push_back(
@@ -1790,7 +1846,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
     }
 
     std::vector<Chunk> chunks;
-    if ( !BuildChunks( samples, nullptr, chunks ) )
+    if ( !BuildChunks( samples, nullptr, nullptr, chunks ) )
     {
         return false;
     }
@@ -1835,15 +1891,19 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         result->bodyDictionaryCount = bodyChunk.recordCount;
         result->solverHashCount = 0;
         result->solverCheckpointCount = 0;
+        result->eventCount = 0;
         result->fileBytes = fileBytes.size();
     }
     return true;
 }
 
-bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
-                                                         const ReplaySolverRecorder& solverRecorder,
-                                                         const char* path,
-                                                         ReplayV2SaveResult* result )
+namespace
+{
+bool SavePresentationWithTracks( const ReplayRecorder& recorder,
+                                 const ReplaySolverRecorder& solverRecorder,
+                                 const ReplayEventRecorder* eventRecorder,
+                                 const char* path,
+                                 ReplayV2SaveResult* result )
 {
     std::vector<ReplayPresentationSample> samples;
     recorder.CopySamplesChronological( samples );
@@ -1855,8 +1915,14 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
     std::vector<ReplaySolverFrameSample> solverSamples;
     solverRecorder.CopySamplesChronological( solverSamples );
 
+    std::vector<ReplayEventSample> eventSamples;
+    if ( eventRecorder )
+    {
+        eventRecorder->CopyEventsChronological( eventSamples );
+    }
+
     std::vector<Chunk> chunks;
-    if ( !BuildChunks( samples, &solverSamples, chunks ) )
+    if ( !BuildChunks( samples, &solverSamples, &eventSamples, chunks ) )
     {
         return false;
     }
@@ -1901,9 +1967,28 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
         result->bodyDictionaryCount = bodyChunk.recordCount;
         result->solverHashCount = solverSamples.size();
         result->solverCheckpointCount = CountSolverCheckpoints( solverSamples );
+        result->eventCount = eventSamples.size();
         result->fileBytes = fileBytes.size();
     }
     return true;
+}
+} // namespace
+
+bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                         const ReplaySolverRecorder& solverRecorder,
+                                                         const char* path,
+                                                         ReplayV2SaveResult* result )
+{
+    return SavePresentationWithTracks( recorder, solverRecorder, nullptr, path, result );
+}
+
+bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                         const ReplaySolverRecorder& solverRecorder,
+                                                         const ReplayEventRecorder& eventRecorder,
+                                                         const char* path,
+                                                         ReplayV2SaveResult* result )
+{
+    return SavePresentationWithTracks( recorder, solverRecorder, &eventRecorder, path, result );
 }
 
 bool ReplayV2Artifact::LoadPresentation( const char* path,

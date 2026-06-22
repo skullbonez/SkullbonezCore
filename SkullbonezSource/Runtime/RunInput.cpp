@@ -24,6 +24,7 @@ Related:
 #include "../UI/UILayout.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -50,6 +51,43 @@ RuntimeInputModeState BuildRuntimeInputModeState( const RunCameraState& camera, 
     state.editorGizmoRotation = editor.gizmoDragIsRotation;
     state.editorGizmoScale = editor.gizmoDragIsScale;
     return state;
+}
+
+const char* ReplayRuntimeCommandName( RuntimeCommandType type )
+{
+    switch ( type )
+    {
+    case RuntimeCommandType::LoadSceneIndex:
+        return "LoadSceneIndex";
+    case RuntimeCommandType::LoadDemoScene:
+        return "LoadDemoScene";
+    case RuntimeCommandType::ResetCurrentScene:
+        return "ResetCurrentScene";
+    case RuntimeCommandType::CreateScene:
+        return "CreateScene";
+    case RuntimeCommandType::SaveScreenshot:
+        return "SaveScreenshot";
+    case RuntimeCommandType::SaveSceneDefaults:
+        return "SaveSceneDefaults";
+    case RuntimeCommandType::SaveRenderDefaults:
+        return "SaveRenderDefaults";
+    case RuntimeCommandType::AdvanceScene:
+        return "AdvanceScene";
+    case RuntimeCommandType::Quit:
+        return "Quit";
+    case RuntimeCommandType::None:
+    default:
+        return "None";
+    }
+}
+
+uint32_t ReplayRuntimeCommandFlags( const RuntimeCommand& command )
+{
+    uint32_t flags = 0;
+    flags |= command.preserveUIState ? 1u : 0u;
+    flags |= command.suppressExitOnComplete ? 2u : 0u;
+    flags |= command.preserveRuntimeState ? 4u : 0u;
+    return flags;
 }
 
 struct RuntimeInputKeyBinding
@@ -1361,6 +1399,18 @@ bool Run::DrainRuntimeCommands()
             break;
         case RuntimeCommandType::None:
             break;
+        }
+        if ( command.type != RuntimeCommandType::None )
+        {
+            RecordReplayEvent( ReplayEventKind::RuntimeCommand,
+                               NextReplayEventFrameIndex(),
+                               ReplayRuntimeCommandFlags( command ),
+                               static_cast<int32_t>( command.type ),
+                               command.index,
+                               0,
+                               0,
+                               0,
+                               command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
         }
     }
 

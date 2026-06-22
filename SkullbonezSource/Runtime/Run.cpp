@@ -579,18 +579,21 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
     solverReplayConfig.checkpointIntervalFrames = 60;
     solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
     m_solverReplay.Configure( solverReplayConfig );
+    m_replayEvents.Configure( replayConfig );
     ResetReplayScrubber();
     if ( m_replay.IsEnabled() )
     {
         const ReplayRecorderStats replayStats = m_replay.GetStats();
         const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+        const ReplayEventRecorderStats eventReplayStats = m_replayEvents.GetStats();
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
-                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d%s%s%s%s\n",
+                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
                 replayConfig.retentionSeconds,
                 static_cast<unsigned long long>( replayStats.sampleCapacity ),
                 replayConfig.checkpointIntervalFrames,
                 static_cast<unsigned long long>( solverReplayStats.sampleCapacity ),
                 solverReplayConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( eventReplayStats.eventCapacity ),
                 replayConfig.hashLogPath.empty() ? "" : " hash_log=",
                 replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str(),
                 solverReplayConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
@@ -697,8 +700,52 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replay.ResetTimeline( sceneLabel );
     m_solverReplay.ResetTimeline( sceneLabel );
+    m_replayEvents.ResetTimeline( sceneLabel );
+    RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     m_solverReplayMismatchReports = 0;
     m_solverReplayMismatchSuppressed = false;
+}
+
+ReplayFrameIndex Run::NextReplayEventFrameIndex() const
+{
+    const ReplayRecorderStats solverStats = m_solverReplay.GetStats();
+    if ( solverStats.enabled )
+    {
+        return solverStats.nextFrameIndex;
+    }
+
+    const ReplayRecorderStats presentationStats = m_replay.GetStats();
+    return presentationStats.nextFrameIndex;
+}
+
+
+void Run::RecordReplayEvent( ReplayEventKind kind,
+                             ReplayFrameIndex frameIndex,
+                             uint32_t flags,
+                             int32_t value0,
+                             int32_t value1,
+                             int32_t value2,
+                             int32_t value3,
+                             uint64_t data0,
+                             const char* text )
+{
+    if ( !m_replayEvents.IsEnabled() )
+    {
+        return;
+    }
+
+    ReplayEventInput input;
+    input.frameIndex = frameIndex;
+    input.branch = m_replayBranch;
+    input.kind = kind;
+    input.flags = flags;
+    input.value0 = value0;
+    input.value1 = value1;
+    input.value2 = value2;
+    input.value3 = value3;
+    input.data0 = data0;
+    input.text = text;
+    m_replayEvents.RecordEvent( input );
 }
 
 
@@ -869,9 +916,10 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved = track == RunReplayTrack::Solver
-                    ? ReplayExporter::Save( m_solverReplay, path )
-                    : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, path );
+        saved =
+            track == RunReplayTrack::Solver
+                ? ReplayExporter::Save( m_solverReplay, path )
+                : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, m_replayEvents, path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
@@ -1150,6 +1198,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     restoredBranch.sourceSolverHash = sample.solverHash;
     m_replayBranch = restoredBranch;
     ResetReplayTimelineForActiveScene( true );
+    RecordReplayEvent( ReplayEventKind::BranchRestore,
+                       0,
+                       0,
+                       static_cast<int32_t>( parentBranchId ),
+                       sample.sceneFrame,
+                       0,
+                       0,
+                       sample.solverHash,
+                       "hash-verified solver restore" );
     writeReason( "restored hash match" );
     return true;
 }

@@ -1271,6 +1271,7 @@ class Run
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
+    ReplayEventRecorder m_replayEvents;                                          // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_replayBranch;                                             // Current live replay branch provenance.
     RunLoadedReplayPresentationState
         m_loadedPresentationReplay;                                              // Optional v2 file-backed presentation samples for smooth scrub playback.
@@ -1454,6 +1455,16 @@ class Run
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                                   // Scene/model rebuilds start a fresh in-memory replay branch.
+    ReplayFrameIndex NextReplayEventFrameIndex() const;                          // Event frame cursor matching the next captured physics tick.
+    void RecordReplayEvent( ReplayEventKind kind,
+                            ReplayFrameIndex frameIndex,
+                            uint32_t flags,
+                            int32_t value0,
+                            int32_t value1,
+                            int32_t value2,
+                            int32_t value3,
+                            uint64_t data0,
+                            const char* text );                                  // Appends a bounded v2 event-stream row when replay is active.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.

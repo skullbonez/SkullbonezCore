@@ -27,6 +27,7 @@ BODY_RECORD = struct.Struct("<IiB3s64s")
 FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
 BODY_POSE = struct.Struct("<Ifffffff")
 BRANCH_RECORD = struct.Struct("<IIQQQQQIIQ")
+EVENT_RECORD = struct.Struct("<QIIIHHIiiiiQQQ128sI")
 HASH_RECORD = struct.Struct("<QidQQIHHB3s")
 CHECKPOINT_HEADER = struct.Struct("<QidfQQHHBBH")
 LAUNCHER_HEADER = struct.Struct("<iiBB2sff")
@@ -111,6 +112,30 @@ class BranchInfo:
 
 
 @dataclass
+class EventInfo:
+    frame_index: int
+    sequence: int
+    branch_id: int
+    parent_branch_id: int
+    kind: int
+    payload_version: int
+    flags: int
+    values: tuple[int, int, int, int]
+    data0: int
+    source_frame: int
+    source_solver_hash: int
+    text: str
+
+    @property
+    def kind_name(self) -> str:
+        return {
+            1: "timelineStart",
+            2: "runtimeCommand",
+            3: "branchRestore",
+        }.get(self.kind, "unknown")
+
+
+@dataclass
 class SolverCheckpointInfo:
     frame_index: int
     scene_frame: int
@@ -183,6 +208,7 @@ class ReplayV2:
         self.bodies: list[BodyInfo] = []
         self.frames: list[FrameIndex] = []
         self.branches: list[BranchInfo] = []
+        self.events: list[EventInfo] = []
         self.solver_hashes: list[SolverHashInfo] = []
         self.solver_checkpoints: list[SolverCheckpointInfo] = []
         self._parse_header()
@@ -190,6 +216,7 @@ class ReplayV2:
         self._parse_bodies()
         self._parse_index()
         self._parse_branches()
+        self._parse_events()
         self._parse_solver_hashes()
         self._parse_solver_checkpoints()
 
@@ -365,6 +392,61 @@ class ReplayV2:
         if cursor != len(raw):
             raise ReplayQueryError("BRAN chunk has trailing bytes")
         self.branches = branches
+
+    def _parse_events(self) -> None:
+        chunk = self.chunks.get("EVNT")
+        if not chunk:
+            self.events = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "EVNT")
+        if len(raw) < 4:
+            raise ReplayQueryError("EVNT chunk is too small")
+        event_count = struct.unpack_from("<I", raw, 0)[0]
+        if event_count != chunk.record_count:
+            raise ReplayQueryError("EVNT chunk count does not match chunk table")
+        cursor = 4
+        events: list[EventInfo] = []
+        for _ in range(event_count):
+            if cursor + EVENT_RECORD.size > len(raw):
+                raise ReplayQueryError("EVNT chunk ended mid-record")
+            (
+                frame_index,
+                sequence,
+                branch_id,
+                parent_branch_id,
+                kind,
+                payload_version,
+                flags,
+                value0,
+                value1,
+                value2,
+                value3,
+                data0,
+                source_frame,
+                source_solver_hash,
+                text_raw,
+                _reserved,
+            ) = EVENT_RECORD.unpack_from(raw, cursor)
+            cursor += EVENT_RECORD.size
+            events.append(
+                EventInfo(
+                    frame_index=int(frame_index),
+                    sequence=int(sequence),
+                    branch_id=int(branch_id),
+                    parent_branch_id=int(parent_branch_id),
+                    kind=int(kind),
+                    payload_version=int(payload_version),
+                    flags=int(flags),
+                    values=(int(value0), int(value1), int(value2), int(value3)),
+                    data0=int(data0),
+                    source_frame=int(source_frame),
+                    source_solver_hash=int(source_solver_hash),
+                    text=clean_name(text_raw),
+                )
+            )
+        if cursor != len(raw):
+            raise ReplayQueryError("EVNT chunk has trailing bytes")
+        self.events = events
 
     @staticmethod
     def _skip_counted(reader: ChunkReader, item: struct.Struct) -> int:
@@ -552,6 +634,7 @@ class ReplayV2:
             "frameCount": len(self.frames),
             "bodyDictionaryCount": len(self.bodies),
             "branchCount": len(self.branches),
+            "eventCount": len(self.events),
             "solverHashCount": len(self.solver_hashes),
             "solverCheckpointCount": len(self.solver_checkpoints),
             "firstBranchId": self.branches[0].branch_id if self.branches else None,
@@ -566,6 +649,7 @@ class ReplayV2:
             "fileBytes": self.file_size,
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
             "branchEntryBytes": self.manifest.get("branchEntryBytes", 0),
+            "eventEntryBytes": self.manifest.get("eventEntryBytes", 0),
             "solverHashBytes": self.manifest.get("solverHashBytes", 0),
             "solverBodyBytes": self.manifest.get("solverBodyBytes", 0),
             "chunks": chunks,
@@ -595,6 +679,12 @@ class ReplayV2:
             return list(self.solver_checkpoints)
         start, end = parse_frame_range(frame_range)
         return [row for row in self.solver_checkpoints if start <= row.frame_index <= end]
+
+    def selected_events(self, frame_range: str | None) -> list[EventInfo]:
+        if not frame_range:
+            return list(self.events)
+        start, end = parse_frame_range(frame_range)
+        return [row for row in self.events if start <= row.frame_index <= end]
 
     def find_frame(self, frame_index: int) -> FrameIndex:
         for frame in self.frames:
@@ -773,6 +863,30 @@ class ReplayV2:
             )
         return samples
 
+    def event_samples(self, frames: str | None, limit: int) -> list[dict[str, object]]:
+        samples: list[dict[str, object]] = []
+        for row in self.selected_events(frames):
+            if len(samples) >= limit:
+                break
+            samples.append(
+                {
+                    "frameIndex": row.frame_index,
+                    "sequence": row.sequence,
+                    "branchId": row.branch_id,
+                    "parentBranchId": row.parent_branch_id,
+                    "kind": row.kind_name,
+                    "kindId": row.kind,
+                    "payloadVersion": row.payload_version,
+                    "flags": row.flags,
+                    "values": list(row.values),
+                    "data0": hash_text(row.data0),
+                    "sourceFrame": row.source_frame,
+                    "sourceSolverHash": hash_text(row.source_solver_hash),
+                    "text": row.text,
+                }
+            )
+        return samples
+
     def checkpoint_samples(self, frames: str | None, limit: int, body_limit: int) -> list[dict[str, object]]:
         samples: list[dict[str, object]] = []
         for row in self.selected_checkpoints(frames):
@@ -931,6 +1045,18 @@ def cmd_branches(replay: ReplayV2, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_events(replay: ReplayV2, args: argparse.Namespace) -> None:
+    samples = replay.event_samples(args.frames, args.limit)
+    print_json(
+        {
+            "eventCount": len(replay.events),
+            "samplesReturned": len(samples),
+            "samples": samples,
+            "note": None if replay.events else "This v2 artifact does not include replay event chunks.",
+        }
+    )
+
+
 def cmd_checkpoints(replay: ReplayV2, args: argparse.Namespace) -> None:
     samples = replay.checkpoint_samples(args.frames, args.limit, args.body_limit)
     print_json(
@@ -998,6 +1124,11 @@ def build_parser() -> argparse.ArgumentParser:
     branches = subparsers.add_parser("branches", help="Print saved branch provenance records")
     branches.add_argument("--limit", type=int, default=20)
     branches.set_defaults(func=cmd_branches)
+
+    events = subparsers.add_parser("events", help="Print saved timeline/runtime event records")
+    events.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
+    events.add_argument("--limit", type=int, default=20)
+    events.set_defaults(func=cmd_events)
 
     checkpoints = subparsers.add_parser("checkpoints", help="Print sparse solver checkpoint summaries")
     checkpoints.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")

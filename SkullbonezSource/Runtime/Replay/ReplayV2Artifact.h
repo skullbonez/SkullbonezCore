@@ -44,6 +44,7 @@ struct ReplayV2SaveResult
     std::size_t bodyDictionaryCount = 0;
     std::size_t solverHashCount = 0;
     std::size_t solverCheckpointCount = 0;
+    std::size_t eventCount = 0;
     std::size_t fileBytes = 0;
 };
 
@@ -72,6 +73,11 @@ class ReplayV2Artifact
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                   const ReplaySolverRecorder& solverRecorder,
+                                                  const char* path,
+                                                  ReplayV2SaveResult* result = nullptr );
+    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                  const ReplaySolverRecorder& solverRecorder,
+                                                  const ReplayEventRecorder& eventRecorder,
                                                   const char* path,
                                                   ReplayV2SaveResult* result = nullptr );
     static bool LoadPresentation( const char* path,
