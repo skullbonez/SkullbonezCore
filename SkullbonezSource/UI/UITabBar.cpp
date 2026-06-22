@@ -23,7 +23,7 @@ Related:
 */
 #include "UITabBar.h"
 
-#include "../Text.h"
+#include "../Rendering/Text.h"
 #include "UIStyle.h"
 
 #include <algorithm>

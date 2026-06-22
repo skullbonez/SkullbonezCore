@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIInput.h"
-#include "../Input.h"
+#include "../Runtime/Input.h"
 
 namespace SkullbonezCore
 {

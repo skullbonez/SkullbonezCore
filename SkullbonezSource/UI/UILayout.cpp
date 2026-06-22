@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UILayout.h"
-#include "../Text.h"
+#include "../Rendering/Text.h"
 
 #include <algorithm>
 

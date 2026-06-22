@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIDrawWidgets.h"
-#include "../Text.h"
+#include "../Rendering/Text.h"
 #include "UICheckBox.h"
 #include "UIStyle.h"
 

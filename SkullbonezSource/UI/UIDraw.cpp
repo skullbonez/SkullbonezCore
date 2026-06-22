@@ -23,7 +23,7 @@ Related:
 */
 #include "UIDraw.h"
 
-#include "../Text.h"
+#include "../Rendering/Text.h"
 #include "UIDrawList.h"
 #include "UIStyle.h"
 

@@ -23,9 +23,9 @@ Related:
 */
 #pragma once
 
-#include "../Common.h"
-#include "../Config.h"
-#include "../IShader.h"
+#include "../Core/Common.h"
+#include "../Core/Config.h"
+#include "../Rendering/IShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"

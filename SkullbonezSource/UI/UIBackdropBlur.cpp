@@ -23,9 +23,9 @@ Related:
 */
 #include "UIBackdropBlur.h"
 
-#include "../AssetSystem.h"
-#include "../IRenderBackend.h"
-#include "../Matrix4.h"
+#include "../Assets/AssetSystem.h"
+#include "../Rendering/IRenderBackend.h"
+#include "../Maths/Matrix4.h"
 
 #include <algorithm>
 #include <cmath>

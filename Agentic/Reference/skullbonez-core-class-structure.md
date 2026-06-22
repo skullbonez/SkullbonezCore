@@ -21,14 +21,14 @@ Validation: none required. This is a documentation-only reference.
 
 ```mermaid
 flowchart TB
-    App["SkullbonezRun\nmain runtime harness"]
+    App["Run\nmain runtime harness"]
 
     subgraph Runtime["Runtime shell"]
-        Window["SkullbonezWindow"]
+        Window["Window"]
         Input["Input / InputState"]
         InputController["InputController"]
         Timers["Timer / RunTimerState"]
-        Config["SkullbonezConfig\nWindowConfig / render flags / cinematic config"]
+        Config["Config\nWindowConfig / render flags / cinematic config"]
         Capture["CaptureSystem"]
         RuntimeDiagnostics["RuntimeDiagnostics"]
         Text["Text2d"]
@@ -158,7 +158,7 @@ flowchart TB
 
 ## Runtime Harness
 
-`SkullbonezRun` is the orchestration class. It owns the long-lived runtime
+`Run` is the orchestration class. It owns the long-lived runtime
 state, loads scenes, initializes DX12, runs physics ticks, renders frames,
 drives the UI, captures screenshots, and coordinates validation/test modes.
 
@@ -166,7 +166,7 @@ drives the UI, captures screenshots, and coordinates validation/test modes.
 classDiagram
 direction TB
 
-class SkullbonezRun {
+class Run {
   +Initialise()
   +RunSceneLoadOnly()
   +Run()
@@ -194,7 +194,7 @@ class AssetSystem
 class Terrain
 class TextureCollection
 class SkyBox
-class SkullbonezWindow
+class Window
 class GameModelCollection
 class GameModelStreamProvider
 class WorldEnvironment
@@ -203,36 +203,36 @@ class BroadphaseVisualizer
 class CollisionVisualizer
 class PhysicsDebugVisualizer
 
-SkullbonezRun *-- RunPerfLogState
-SkullbonezRun *-- RunPhysicsDiagnosticsState
-SkullbonezRun *-- RunRuntimeSettings
-SkullbonezRun *-- RunTimerState
-SkullbonezRun *-- RunSubsystemState
-SkullbonezRun *-- RunCameraState
-SkullbonezRun *-- SceneRuntime
-SkullbonezRun *-- SimulationSystem
-SkullbonezRun ..> RuntimeDiagnostics
-SkullbonezRun ..> InputController
+Run *-- RunPerfLogState
+Run *-- RunPhysicsDiagnosticsState
+Run *-- RunRuntimeSettings
+Run *-- RunTimerState
+Run *-- RunSubsystemState
+Run *-- RunCameraState
+Run *-- SceneRuntime
+Run *-- SimulationSystem
+Run ..> RuntimeDiagnostics
+Run ..> InputController
 SceneRuntime *-- RunSceneState
-SkullbonezRun *-- RunScreenshotState
-SkullbonezRun *-- RunLiveStyleControlState
-SkullbonezRun *-- RunDebugState
-SkullbonezRun *-- RunFireState
-SkullbonezRun *-- RunUIStressState
-SkullbonezRun ..> SceneRuntimeResetSnapshot
+Run *-- RunScreenshotState
+Run *-- RunLiveStyleControlState
+Run *-- RunDebugState
+Run *-- RunFireState
+Run *-- RunUIStressState
+Run ..> SceneRuntimeResetSnapshot
 
 RunSubsystemState *-- AssetSystem
 RunSubsystemState o-- Terrain
 RunSubsystemState o-- TextureCollection
 RunSubsystemState o-- SkyBox
-RunSubsystemState o-- SkullbonezWindow
-SkullbonezRun *-- GameModelCollection
+RunSubsystemState o-- Window
+Run *-- GameModelCollection
 GameModelCollection ..> GameModelStreamProvider
-SkullbonezRun *-- WorldEnvironment
-SkullbonezRun *-- InGameUI
-SkullbonezRun *-- BroadphaseVisualizer
-SkullbonezRun *-- CollisionVisualizer
-SkullbonezRun *-- PhysicsDebugVisualizer
+Run *-- WorldEnvironment
+Run *-- InGameUI
+Run *-- BroadphaseVisualizer
+Run *-- CollisionVisualizer
+Run *-- PhysicsDebugVisualizer
 ```
 
 `SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
@@ -240,7 +240,7 @@ SkullbonezRun *-- PhysicsDebugVisualizer
 accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
 BMP backbuffer readback plus scene screenshot/autocycle policy. `RuntimeDiagnostics`
 owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController`
-owns runtime key-edge capture plus mouse-look reset/delta policy. `SkullbonezRun`
+owns runtime key-edge capture plus mouse-look reset/delta policy. `Run`
 still applies input commands and capture completion actions such as scene
 advance, quit, or interactive hold, then coordinates the heavier load/reset side
 effects around that state, including object construction, terrain, cameras, UI
@@ -651,7 +651,7 @@ subsystem rather than by dependency edge.
 
 ### Runtime, Window, Input, Config, Profiling
 
-- `SkullbonezRun`
+- `Run`
 - `RunPerfLogState`
 - `RunPhysicsDiagnosticsState`
 - `RunRuntimeSettings`
@@ -669,7 +669,7 @@ subsystem rather than by dependency edge.
 - `RuntimePerfTickContext`
 - `GeneratedObjectTypeOverride`
 - `OverlayMode`
-- `SkullbonezWindow`
+- `Window`
 - `InputState`
 - `Input`
 - `InputController`
@@ -679,7 +679,7 @@ subsystem rather than by dependency edge.
 - `RuntimeCaptureSceneContext`
 - `RuntimeCaptureResult`
 - `RuntimeCaptureSink`
-- `SkullbonezConfig`
+- `Config`
 - `WindowConfig`
 - `RuntimeRenderFlags`
 - `SceneLightConfig`
@@ -688,8 +688,8 @@ subsystem rather than by dependency edge.
 - `ProfilerScope`
 - `GpuProfilerScope`
 - `PlatformProfiler`
-- `SkullbonezLog`
-- `SkullbonezHelper`
+- `Log`
+- `Helper`
 - `ResponseInformation`
 
 ### Rendering Interfaces And Render Types
@@ -885,9 +885,9 @@ subsystem rather than by dependency edge.
 - `Gfx()` hides the active DX12 implementation behind `IRenderBackend`; runtime
   renderer switching has been retired.
 - `RenderBackendDX12` is split across multiple `.cpp` files but remains one
-  class in `SkullbonezRenderBackendDX12.h`.
+  class in `RenderBackendDX12.h`.
 - `RenderGraph` owns the access vocabulary and DX12 graph-owned barrier helper
-  path. Pass command recording still runs through `SkullbonezRun` pass classes.
+  path. Pass command recording still runs through `Run` pass classes.
 - Many nested solver/UI structs are intentionally plain data. They are listed
   because they are part of the runtime architecture even though they are not
   polymorphic classes.

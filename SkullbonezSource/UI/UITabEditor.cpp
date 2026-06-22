@@ -14,7 +14,7 @@ Glossary:
 
 Related:
   - SkullbonezSource/UI/UITabEditor.h
-  - SkullbonezSource/RunInput.cpp
+  - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "UITabEditor.h"
 

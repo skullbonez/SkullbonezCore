@@ -22,12 +22,12 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
-#include "../AssetSystem.h"
-#include "../IRenderBackend.h"
-#include "../Matrix4.h"
-#include "../PhysicsDebugVisualizer.h"
-#include "../Profiler.h"
-#include "../Text.h"
+#include "../Assets/AssetSystem.h"
+#include "../Rendering/IRenderBackend.h"
+#include "../Maths/Matrix4.h"
+#include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Core/Profiler.h"
+#include "../Rendering/Text.h"
 #include "UIDraw.h"
 #include "UIDrawList.h"
 #include "UIDrawWidgets.h"

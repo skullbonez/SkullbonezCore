@@ -23,9 +23,9 @@ Related:
 */
 #include "UITabProfiler.h"
 
-#include "../Common.h"
-#include "../IRenderBackend.h"
-#include "../Profiler.h"
+#include "../Core/Common.h"
+#include "../Rendering/IRenderBackend.h"
+#include "../Core/Profiler.h"
 #include "UI.h"
 #include "UIDraw.h"
 #include "UIIconButton.h"

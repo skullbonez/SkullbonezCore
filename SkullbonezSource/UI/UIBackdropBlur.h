@@ -24,7 +24,7 @@ Related:
 #pragma once
 
 #include "UIDraw.h"
-#include "../IShader.h"
+#include "../Rendering/IShader.h"
 #include <cstdint>
 #include <memory>
 #include <vector>

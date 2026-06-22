@@ -55,9 +55,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Dx12ArchUnitTests.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\RenderDeviceDX12.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\RenderGraph.cpp" />
-    <ClCompile Include="..\..\..\SkullbonezSource\Dx12RenderGraphExecutor.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Rendering\RenderGraph.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

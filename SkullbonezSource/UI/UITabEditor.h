@@ -14,7 +14,7 @@ Glossary:
 
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
-  - SkullbonezSource/RunInput.cpp
+  - SkullbonezSource/Runtime/RunInput.cpp
 */
 #pragma once
 

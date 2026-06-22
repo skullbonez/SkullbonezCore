@@ -23,7 +23,7 @@ Related:
 */
 #include "UITabPhysics.h"
 
-#include "../PhysicsDebugVisualizer.h"
+#include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"

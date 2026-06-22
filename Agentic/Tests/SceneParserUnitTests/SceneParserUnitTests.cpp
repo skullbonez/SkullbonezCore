@@ -15,11 +15,11 @@ Glossary:
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
 
 Related:
-  - SkullbonezSource/TestScene.h
-  - SkullbonezSource/TestSceneParser.cpp
+  - SkullbonezSource/Scene/TestScene.h
+  - SkullbonezSource/Scene/TestSceneParser.cpp
   - SkullbonezData/styles/material_authoring_contract.style.json
 */
-#include "TestScene.h"
+#include "Scene/TestScene.h"
 
 #include <cmath>
 #include <cstring>

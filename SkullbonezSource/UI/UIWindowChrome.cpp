@@ -22,7 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UIWindowChrome.h"
-#include "../Text.h"
+#include "../Rendering/Text.h"
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
