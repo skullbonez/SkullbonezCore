@@ -245,6 +245,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\IRenderBackend.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
@@ -374,6 +375,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneView.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />

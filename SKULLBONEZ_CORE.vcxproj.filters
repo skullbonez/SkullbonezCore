@@ -346,6 +346,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -726,6 +729,15 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderSceneView.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h">

@@ -75,6 +75,7 @@ Related:
 #include "../World/WorldEnvironment.h"
 #include "../Rendering/IFramebuffer.h"
 #include "../Rendering/IShader.h"
+#include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Scene/TestScene.h"
 #include "../Physics/Debug/BroadphaseVisualizer.h"
@@ -685,6 +686,11 @@ class Run
         // the pointer as an opt-in contract, not as ownership.
         bool cinematicEnabled = false;
         const CinematicRenderConfig* cinematic = nullptr;
+
+        // Renderer-facing scene adapter for model draws, shadow casters, DXR
+        // transforms, and debug scene overlays. The adapter is owned by Run;
+        // passes borrow it only for this frame.
+        Rendering::IRenderSceneView* scene = nullptr;
     };
 
     struct ObjectPassInputs
@@ -885,12 +891,14 @@ class Run
                                                           const Math::Vector::Vector3& lightDirectionWorld ) const;
         Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic,
                                                          const Math::Vector::Vector3& lightDirectionWorld,
-                                                         const Math::Vector::Vector3& focusHint );
+                                                         const Math::Vector::Vector3& focusHint,
+                                                         Rendering::IRenderSceneView& scene );
         void RenderShadowMap( Rendering::IFramebuffer& target,
                               const Rendering::ShadowFrameData& shadowFrame,
                               const CinematicRenderConfig& cinematic,
                               bool renderTerrain,
                               bool renderObjects,
+                              Rendering::IRenderSceneView& scene,
                               const Rendering::ShadowCasterBatches* objectCasters );
 
         Run& m_run;

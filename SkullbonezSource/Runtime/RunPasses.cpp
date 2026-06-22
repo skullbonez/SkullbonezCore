@@ -501,7 +501,8 @@ Run::ShadowPass::BuildTerrainFrameData( const CinematicRenderConfig& cinematic,
 SkullbonezCore::Rendering::ShadowFrameData
 Run::ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
                                        const Math::Vector::Vector3& lightDirectionWorld,
-                                       const Math::Vector::Vector3& focusHint )
+                                       const Math::Vector::Vector3& focusHint,
+                                       Rendering::IRenderSceneView& scene )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
@@ -516,8 +517,7 @@ Run::ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadowMaxDistance * 0.15f, 180.0f, 320.0f );
-    if ( !m_run.m_cGameModelCollection
-              .GetObjectShadowBounds( focusHint, objectSearchDistance, focus, shadowRadius, heightRange ) )
+    if ( !scene.GetObjectShadowBounds( focusHint, objectSearchDistance, focus, shadowRadius, heightRange ) )
     {
         return shadowFrame;
     }
@@ -555,6 +555,7 @@ void Run::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                        const CinematicRenderConfig& cinematic,
                                        bool renderTerrain,
                                        bool renderObjects,
+                                       Rendering::IRenderSceneView& scene,
                                        const Rendering::ShadowCasterBatches* objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
@@ -614,20 +615,18 @@ void Run::ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
-        // collection keeps separate instanced batches so each caster shape uses
+        // scene view keeps separate instanced batches so each caster shape uses
         // the same mesh silhouette as the visible forward pass.
         if ( objectCasters )
         {
-            m_run.m_cGameModelCollection.RenderShadowCasterBatches( *objectCasters,
-                                                                    shadowFrame.lightView,
-                                                                    shadowFrame.lightProjection,
-                                                                    &cinematic );
+            scene.RenderShadowCasterBatches( *objectCasters,
+                                             shadowFrame.lightView,
+                                             shadowFrame.lightProjection,
+                                             &cinematic );
         }
         else
         {
-            m_run.m_cGameModelCollection.RenderShadowCasters( shadowFrame.lightView,
-                                                              shadowFrame.lightProjection,
-                                                              &cinematic );
+            scene.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
         }
     }
 
@@ -651,6 +650,11 @@ Run::ShadowPassOutput Run::ShadowPass::Render( const ShadowPassInputs& inputs )
     shadows.objectCasterBatches.Clear();
     if ( inputs.cinematic )
     {
+        if ( !inputs.frame.scene )
+        {
+            return ShadowPassOutput();
+        }
+
         // Build shadow maps before any receiver pass. Terrain receives the broad
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
@@ -668,7 +672,7 @@ Run::ShadowPassOutput Run::ShadowPass::Render( const ShadowPassInputs& inputs )
                 inputs.cinematic->shadowObjectsCast && !m_run.m_debug.isCollisionVisualizer;
             if ( shouldBuildObjectCasters )
             {
-                m_run.m_cGameModelCollection.BuildShadowCasterBatches( objectCasters );
+                inputs.frame.scene->BuildShadowCasterBatches( objectCasters );
             }
             shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
             if ( shadows.terrainTarget )
@@ -678,9 +682,11 @@ Run::ShadowPassOutput Run::ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.cinematic,
                                  true,
                                  true,
+                                 *inputs.frame.scene,
                                  &objectCasters );
             }
-            shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
+            shadows.objectFrame =
+                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye, *inputs.frame.scene );
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
@@ -688,6 +694,7 @@ Run::ShadowPassOutput Run::ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.cinematic,
                                  false,
                                  true,
+                                 *inputs.frame.scene,
                                  &objectCasters );
             }
         }
@@ -794,14 +801,12 @@ Run::ReflectionPassOutput Run::ReflectionPass::Render( const ReflectionPassInput
     if ( useDxrReflection )
     {
         // Lifetime: the DX12 backend owns the raytracing acceleration
-        // structures. The runtime only streams current per-model transforms into
+        // structures. The scene view streams current per-model transforms into
         // the TLAS before dispatching one reflection ray per texture pixel.
-        int ballCount = m_run.m_cGameModelCollection.GetModelCount();
-        for ( int i = 0; i < ballCount; ++i )
-        {
-            Matrix4 mdlMat = m_run.m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
-            memcpy( m_run.m_dxrReflectionTransforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
-        }
+        const int ballCount = inputs.frame.scene ? inputs.frame.scene->CopyDxrModelMatrices(
+                                                       m_run.m_dxrReflectionTransforms.data(),
+                                                       static_cast<int>( m_run.m_dxrReflectionTransforms.size() / 16 ) )
+                                                 : 0;
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
@@ -871,12 +876,14 @@ Run::ReflectionPassOutput Run::ReflectionPass::Render( const ReflectionPassInput
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
             ClearAllRenderTextureSlots();
-            m_run.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_run.m_collisionVisualizer.Render( m_run.m_cGameModelCollection,
-                                                inputs.frame.reflectionView,
-                                                inputs.frame.projection,
-                                                inputs.frame.lightPosition );
-            m_run.m_collisionVisualizer.SetAlphaOverride( -1.0f );
+            if ( inputs.frame.scene )
+            {
+                inputs.frame.scene->RenderCollisionStateSolids( m_run.m_collisionVisualizer,
+                                                                inputs.frame.reflectionView,
+                                                                inputs.frame.projection,
+                                                                inputs.frame.lightPosition,
+                                                                inputs.collisionVisualizerAlphaOverride );
+            }
         }
         else
         {
@@ -886,12 +893,15 @@ Run::ReflectionPassOutput Run::ReflectionPass::Render( const ReflectionPassInput
                 RENDER_TEXTURE_SLOT_0 |
                 ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-            m_run.m_cGameModelCollection.RenderModels( inputs.frame.reflectionView,
-                                                       inputs.frame.projection,
-                                                       inputs.frame.lightPosition,
-                                                       inputs.cinematic,
-                                                       inputs.objectShadow,
-                                                       inputs.bodyAlpha );
+            if ( inputs.frame.scene )
+            {
+                inputs.frame.scene->RenderModels( inputs.frame.reflectionView,
+                                                  inputs.frame.projection,
+                                                  inputs.frame.lightPosition,
+                                                  inputs.cinematic,
+                                                  inputs.objectShadow,
+                                                  inputs.bodyAlpha );
+            }
         }
         Gfx().SetClipPlane( 0, false );
         RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
@@ -918,12 +928,14 @@ void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
         ClearAllRenderTextureSlots();
-        m_run.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-        m_run.m_collisionVisualizer.Render( m_run.m_cGameModelCollection,
-                                            inputs.frame.baseView,
-                                            inputs.frame.projection,
-                                            inputs.frame.lightPosition );
-        m_run.m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        if ( inputs.frame.scene )
+        {
+            inputs.frame.scene->RenderCollisionStateSolids( m_run.m_collisionVisualizer,
+                                                            inputs.frame.baseView,
+                                                            inputs.frame.projection,
+                                                            inputs.frame.lightPosition,
+                                                            inputs.collisionVisualizerAlphaOverride );
+        }
     }
     else
     {
@@ -932,14 +944,17 @@ void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
         ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 |
                                        ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-        m_run.m_cGameModelCollection.RenderModels( inputs.frame.baseView,
-                                                   inputs.frame.projection,
-                                                   inputs.frame.lightPosition,
-                                                   inputs.cinematic,
-                                                   inputs.shadow,
-                                                   inputs.bodyAlpha,
-                                                   inputs.modelMask,
-                                                   inputs.drawMaskedModels );
+        if ( inputs.frame.scene )
+        {
+            inputs.frame.scene->RenderModels( inputs.frame.baseView,
+                                              inputs.frame.projection,
+                                              inputs.frame.lightPosition,
+                                              inputs.cinematic,
+                                              inputs.shadow,
+                                              inputs.bodyAlpha,
+                                              inputs.modelMask,
+                                              inputs.drawMaskedModels );
+        }
     }
 
     PROFILE_GPU_END( "Frame/Render/Balls" );
@@ -948,8 +963,8 @@ void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
 
 void Run::ObjectPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
 {
-    // Object mesh/shader resources are owned by GameModelCollection; this pass
-    // owns the draw contract and texture-slot hygiene, not the model cache.
+    // Object mesh/shader resources live behind the scene view; this pass owns
+    // the draw contract and texture-slot hygiene, not the model cache.
 }
 
 
@@ -1081,7 +1096,10 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField )
     {
         DRAW_CALL_TRACE_SCOPE( "TornadoField" );
-        m_run.m_cGameModelCollection.RenderTornadoFieldVectors( inputs.frame.viewProjection );
+        if ( inputs.frame.scene )
+        {
+            inputs.frame.scene->RenderTornadoFieldVectors( inputs.frame.viewProjection );
+        }
     }
 
     m_run.RenderEditorOverlay( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up );
@@ -1091,9 +1109,12 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
         m_run.m_physicsDebugVisualizer.SetFlags( m_run.m_debug.physicsDebugFlags );
         m_run.m_physicsDebugVisualizer.SetPipelineStageCursor( m_run.m_debug.physicsDebugPipelineStageCursor );
-        m_run.m_physicsDebugVisualizer.Render( m_run.m_cGameModelCollection,
-                                               inputs.frame.viewProjection,
-                                               m_run.m_systems.terrain.get() );
+        if ( inputs.frame.scene )
+        {
+            inputs.frame.scene->RenderPhysicsDebug( m_run.m_physicsDebugVisualizer,
+                                                    inputs.frame.viewProjection,
+                                                    m_run.m_systems.terrain.get() );
+        }
     }
 }
 

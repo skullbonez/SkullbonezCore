@@ -30,6 +30,7 @@ Related:
 #include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsScene.h"
+#include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
 
@@ -54,7 +55,7 @@ class SceneSnapshotWriter;
     dedicated collaborators, while older runtime tools still use model-indexed
     accessors until their APIs are moved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection
+class GameModelCollection : public Rendering::IRenderSceneView
 {
   private:
     friend class SkullScope;
@@ -77,6 +78,8 @@ class GameModelCollection
     void AddGameModel( GameModel gameModel );
     void Clear();
     void RunPhysics( float fChangeInTime );
+    int GetRenderModelCount() const override;
+    int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
     void RenderModels( const Math::Transformation::Matrix4& view,
                        const Math::Transformation::Matrix4& proj,
                        const float lightPos[4],
@@ -84,21 +87,21 @@ class GameModelCollection
                        const Rendering::ShadowFrameData* shadow = nullptr,
                        float materialAlpha = 1.0f,
                        const std::vector<uint8_t>* modelMask = nullptr,
-                       bool drawMaskedModels = true );
-    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches );
+                       bool drawMaskedModels = true ) override;
+    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches ) override;
     void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
                                     const Math::Transformation::Matrix4& view,
                                     const Math::Transformation::Matrix4& proj,
-                                    const Basics::CinematicRenderConfig* cinematic = nullptr );
+                                    const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
     void RenderShadowCasters( const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
-                              const Basics::CinematicRenderConfig* cinematic = nullptr );
+                              const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
     void PrepareRenderStreams();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                 float maxDistance,
                                 Math::Vector::Vector3& outCenter,
                                 float& outRadius,
-                                float& outHeightRange );
+                                float& outHeightRange ) override;
     void ResetRenderResources();
     bool SaveSceneSnapshot( const char* path,
                             bool physicsOn,
@@ -146,7 +149,15 @@ class GameModelCollection
     {
         return m_physicsScene.GetTornadoFieldConfig();
     }
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                     const Math::Transformation::Matrix4& view,
+                                     const Math::Transformation::Matrix4& proj,
+                                     const float lightPos[4],
+                                     float alphaOverride ) override;
+    void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
+                             const Math::Transformation::Matrix4& viewProjection,
+                             Geometry::Terrain* terrain ) override;
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj ) override;
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {

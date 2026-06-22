@@ -21,6 +21,8 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "../Physics/Debug/CollisionVisualizer.h"
+#include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Rendering/GameModelRenderer.h"
 #include "../Scene/SceneSnapshotWriter.h"
 
@@ -154,6 +156,29 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
+int GameModelCollection::GetRenderModelCount() const
+{
+    return GetModelCount();
+}
+
+
+int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
+{
+    if ( !outMatrixFloats || maxModelCount <= 0 )
+    {
+        return 0;
+    }
+
+    const int modelCount = (std::min)( GetModelCount(), maxModelCount );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const Matrix4 modelMatrix = m_gameModels[static_cast<std::size_t>( i )].GetModelMatrix();
+        memcpy( outMatrixFloats + static_cast<std::size_t>( i ) * 16u, modelMatrix.Data(), 16u * sizeof( float ) );
+    }
+    return modelCount;
+}
+
+
 void GameModelCollection::RenderModels( const Matrix4& view,
                                         const Matrix4& proj,
                                         const float lightPos[4],
@@ -195,6 +220,26 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view,
                                                const CinematicRenderConfig* cinematic )
 {
     GameModelRenderer::RenderShadowCasters( *this, view, proj, cinematic );
+}
+
+
+void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                                      const Matrix4& view,
+                                                      const Matrix4& proj,
+                                                      const float lightPos[4],
+                                                      float alphaOverride )
+{
+    visualizer.SetAlphaOverride( alphaOverride );
+    visualizer.Render( *this, view, proj, lightPos );
+    visualizer.SetAlphaOverride( -1.0f );
+}
+
+
+void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
+                                              const Matrix4& viewProjection,
+                                              Geometry::Terrain* terrain )
+{
+    visualizer.Render( *this, viewProjection, terrain );
 }
 
 
