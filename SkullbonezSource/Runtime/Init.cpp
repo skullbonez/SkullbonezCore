@@ -604,6 +604,8 @@ struct ParsedArgs
     char replayRestoreTargetFileProbePath[260] = {};
     bool replayRestoreBranchFileProbe = false;
     char replayRestoreBranchFileProbePath[260] = {};
+    bool replayRestoreFailureFileProbe = false;
+    char replayRestoreFailureFileProbePath[260] = {};
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
@@ -1654,6 +1656,25 @@ bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args 
     return true;
 }
 
+bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-restore-failure-file-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replayRestoreFailureFileProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-restore-failure-file-probe path is too long." );
+    }
+
+    strcpy_s( args.replayRestoreFailureFileProbePath, sizeof( args.replayRestoreFailureFileProbePath ), value );
+    args.replayRestoreFailureFileProbe = true;
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Restore failure probe input: %s\n", args.replayRestoreFailureFileProbePath );
+    return true;
+}
+
 
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
@@ -1770,6 +1791,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--replay-restore-branch-file-probe",
           "--replay_restore_branch_file_probe",
           ApplyReplayRestoreBranchFileProbePath },
+        { "--replay-restore-failure-file-probe",
+          "--replay_restore_failure_file_probe",
+          ApplyReplayRestoreFailureFileProbePath },
         { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
         { "--ui-stress",
           "--ui_stress",
@@ -2013,6 +2037,27 @@ bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
 #endif
 }
 
+// Guards the saved replay expected-failure probe against use without SkullScope diagnostics.
+bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-failure-file-probe" ) &&
+         !HasOption( commandLine, "--replay_restore_failure_file_probe" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-restore-failure-file-probe is only supported in Debug builds." );
+#else
+    if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
+    {
+        return FailCommandLineParse(
+            "--replay-restore-failure-file-probe requires --physics-diag so SkullScope can query the failure row." );
+    }
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
@@ -2126,6 +2171,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
     if ( !ValidateReplayRestoreBranchFileProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreFailureFileProbe( commandLine ) )
     {
         return false;
     }
@@ -2436,6 +2485,11 @@ int RunApp( Window* window, ParsedArgs& args )
             if ( args.replayRestoreBranchFileProbe )
             {
                 cRun->VerifyReplaySolverBranchFileProbe( args.replayRestoreBranchFileProbePath );
+                skipExecute = true;
+            }
+            if ( args.replayRestoreFailureFileProbe )
+            {
+                cRun->VerifyReplaySolverFailureFileProbe( args.replayRestoreFailureFileProbePath );
                 skipExecute = true;
             }
 #endif

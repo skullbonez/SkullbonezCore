@@ -1762,6 +1762,8 @@ class Run
         const char* path );                                                      // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
     void VerifyReplaySolverBranchFileProbe(
         const char* path );                                                      // Validate checkpoint-plus-event replay can become a live branch.
+    void VerifyReplaySolverFailureFileProbe(
+        const char* path );                                                      // Validate saved-file restore failures emit SkullScope diagnostics.
 #endif
 };
 } // namespace Basics

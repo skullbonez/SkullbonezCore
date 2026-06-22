@@ -41,7 +41,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -366,6 +366,8 @@ def create_schema(conn):
             run_id text not null,
             frame integer not null,
             target_replay_frame integer,
+            restore_source text,
+            checkpoint_replay_frame integer,
             target_scene_frame integer,
             target_solver_hash text,
             target_presentation_hash text,
@@ -380,6 +382,7 @@ def create_schema(conn):
             hash_matched integer,
             fallback_attempted integer,
             fallback_restored integer,
+            failure_reason text,
             primary key(run_id, frame)
         );
 
@@ -924,17 +927,19 @@ def insert_replay_restore(conn, item):
     conn.execute(
         """
         insert or replace into replay_restores(
-            run_id, frame, target_replay_frame, target_scene_frame, target_solver_hash,
+            run_id, frame, target_replay_frame, restore_source, checkpoint_replay_frame, target_scene_frame, target_solver_hash,
             target_presentation_hash, restored_solver_hash, restored_presentation_hash,
             target_body_count, restored_body_count, contact_count, pipeline_record_count,
-            checkpoint_boundary, hash_captured, hash_matched, fallback_attempted, fallback_restored
+            checkpoint_boundary, hash_captured, hash_matched, fallback_attempted, fallback_restored, failure_reason
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             item.get("run"),
             as_int(item.get("frame")),
             as_int(item.get("target_replay_frame")),
+            item.get("restore_source"),
+            as_int(item.get("checkpoint_replay_frame")),
             as_int(item.get("target_scene_frame")),
             str(item.get("target_solver_hash")) if item.get("target_solver_hash") is not None else None,
             str(item.get("target_presentation_hash")) if item.get("target_presentation_hash") is not None else None,
@@ -949,6 +954,7 @@ def insert_replay_restore(conn, item):
             as_int(item.get("hash_matched")),
             as_int(item.get("fallback_attempted")),
             as_int(item.get("fallback_restored")),
+            item.get("failure_reason"),
         ),
     )
 
@@ -1886,6 +1892,7 @@ def query_restore(conn, cache, args):
         restore = row_to_dict(row)
         restore["checks"] = checks
         restore["passed"] = all(checks.values())
+        restore["failed"] = not restore["passed"]
         restores.append(restore)
 
     return {

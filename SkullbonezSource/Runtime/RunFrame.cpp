@@ -1079,47 +1079,122 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     outResult = RunReplayV2TargetRestoreResult();
     auto writeReason = [outReason, reasonSize]( const char* reason )
     { WriteReplayProbeReason( outReason, reasonSize, reason ); };
+    constexpr ReplayFrameIndex LATEST_NON_CHECKPOINT_TARGET = ( std::numeric_limits<ReplayFrameIndex>::max )();
+    const char* restoreSource = makeLiveBranch ? "v2_file_branch" : "v2_file_target";
+#ifndef _DEBUG
+    (void)restoreSource;
+#endif
+    const ReplayV2SolverHashSample* target = nullptr;
+    const ReplaySolverFrameSample* checkpoint = nullptr;
+
+    auto logRestoreDiagnostic = [&]( const char* failureReason,
+                                     const ReplayV2SolverHashSample* diagnosticTarget,
+                                     const ReplaySolverFrameSample* diagnosticCheckpoint,
+                                     uint64_t restoredSolverHash,
+                                     uint64_t restoredPresentationHash,
+                                     std::size_t restoredBodyCount,
+                                     bool hashCaptured,
+                                     bool hashMatched,
+                                     bool fallbackAttempted,
+                                     bool fallbackRestored )
+    {
+#ifdef _DEBUG
+        const ReplayFrameIndex targetFrame =
+            diagnosticTarget ? diagnosticTarget->frameIndex
+                             : ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET ? 0 : requestedFrame );
+        RuntimeDiagnostics::LogReplayRestoreResult(
+            m_diagnostics.PhysicsDiagnostics(),
+            SceneState(),
+            restoreSource,
+            targetFrame,
+            diagnosticTarget ? diagnosticTarget->sceneFrame : SceneState().currentFrame,
+            diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0,
+            diagnosticTarget ? diagnosticTarget->solverHash : 0,
+            diagnosticTarget ? diagnosticTarget->presentationHash : 0,
+            diagnosticTarget ? diagnosticTarget->bodyCount : 0,
+            restoredSolverHash,
+            restoredPresentationHash,
+            restoredBodyCount,
+            diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0,
+            diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0,
+            diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false,
+            hashCaptured,
+            hashMatched,
+            fallbackAttempted,
+            fallbackRestored,
+            failureReason );
+#else
+        (void)failureReason;
+        (void)diagnosticTarget;
+        (void)diagnosticCheckpoint;
+        (void)restoredSolverHash;
+        (void)restoredPresentationHash;
+        (void)restoredBodyCount;
+        (void)hashCaptured;
+        (void)hashMatched;
+        (void)fallbackAttempted;
+        (void)fallbackRestored;
+#endif
+    };
+
+    auto failWithDiagnostic = [&]( const char* message,
+                                   const ReplayV2SolverHashSample* diagnosticTarget,
+                                   const ReplaySolverFrameSample* diagnosticCheckpoint,
+                                   uint64_t restoredSolverHash = 0,
+                                   uint64_t restoredPresentationHash = 0,
+                                   std::size_t restoredBodyCount = 0,
+                                   bool hashCaptured = false,
+                                   bool hashMatched = false,
+                                   bool fallbackAttempted = false,
+                                   bool fallbackRestored = false ) -> bool
+    {
+        logRestoreDiagnostic( message,
+                              diagnosticTarget,
+                              diagnosticCheckpoint,
+                              restoredSolverHash,
+                              restoredPresentationHash,
+                              restoredBodyCount,
+                              hashCaptured,
+                              hashMatched,
+                              fallbackAttempted,
+                              fallbackRestored );
+        writeReason( message );
+        return false;
+    };
 
     if ( !path || path[0] == '\0' )
     {
-        writeReason( "replay v2 target restore requires a v2 artifact path" );
-        return false;
+        return failWithDiagnostic( "replay v2 target restore requires a v2 artifact path", target, checkpoint );
     }
 
     std::vector<ReplaySolverFrameSample> checkpoints;
     ReplayV2SolverCheckpointLoadResult checkpointResult;
     if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, checkpoints, &checkpointResult ) )
     {
-        writeReason( "failed to load v2 solver checkpoints" );
-        return false;
+        return failWithDiagnostic( "failed to load v2 solver checkpoints", target, checkpoint );
     }
 
     std::vector<ReplayV2SolverHashSample> hashes;
     ReplayV2SolverHashLoadResult hashResult;
     if ( !ReplayV2Artifact::LoadSolverHashes( path, hashes, &hashResult ) )
     {
-        writeReason( "failed to load v2 solver hashes" );
-        return false;
+        return failWithDiagnostic( "failed to load v2 solver hashes", target, checkpoint );
     }
 
     std::vector<ReplayEventSample> events;
     ReplayV2EventLoadResult eventResult;
     if ( !ReplayV2Artifact::LoadEvents( path, events, &eventResult ) )
     {
-        writeReason( "failed to load v2 events" );
-        return false;
+        return failWithDiagnostic( "failed to load v2 events", target, checkpoint );
     }
 
     std::vector<ReplayPresentationSample> presentationSamples;
     ReplayV2LoadResult presentationResult;
     if ( !ReplayV2Artifact::LoadPresentation( path, presentationSamples, &presentationResult ) )
     {
-        writeReason( "failed to load v2 presentation frames" );
-        return false;
+        return failWithDiagnostic( "failed to load v2 presentation frames", target, checkpoint );
     }
 
-    constexpr ReplayFrameIndex LATEST_NON_CHECKPOINT_TARGET = ( std::numeric_limits<ReplayFrameIndex>::max )();
-    const ReplayV2SolverHashSample* target = nullptr;
     if ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET )
     {
         for ( auto it = hashes.rbegin(); it != hashes.rend(); ++it )
@@ -1132,8 +1207,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         }
         if ( !target )
         {
-            writeReason( "found no saved non-checkpoint target hash" );
-            return false;
+            return failWithDiagnostic( "found no saved non-checkpoint target hash", target, checkpoint );
         }
     }
     else
@@ -1153,12 +1227,10 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                        sizeof( message ),
                        "found no saved hash for requested target frame %llu",
                        static_cast<unsigned long long>( requestedFrame ) );
-            writeReason( message );
-            return false;
+            return failWithDiagnostic( message, target, checkpoint );
         }
     }
 
-    const ReplaySolverFrameSample* checkpoint = nullptr;
     for ( const ReplaySolverFrameSample& candidate : checkpoints )
     {
         if ( candidate.frameIndex <= target->frameIndex &&
@@ -1169,24 +1241,20 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     }
     if ( !checkpoint )
     {
-        writeReason( "found no checkpoint before target hash" );
-        return false;
+        return failWithDiagnostic( "found no checkpoint before target hash", target, checkpoint );
     }
     if ( checkpoint->frameIndex > target->frameIndex )
     {
-        writeReason( "selected checkpoint after target frame" );
-        return false;
+        return failWithDiagnostic( "selected checkpoint after target frame", target, checkpoint );
     }
     if ( checkpoint->eventCursor == 0 )
     {
-        writeReason( "loaded a checkpoint without an event cursor" );
-        return false;
+        return failWithDiagnostic( "loaded a checkpoint without an event cursor", target, checkpoint );
     }
     if ( target->frameIndex - checkpoint->frameIndex >
          static_cast<ReplayFrameIndex>( hashes.size() + events.size() + 1u ) )
     {
-        writeReason( "selected an implausibly distant target frame" );
-        return false;
+        return failWithDiagnostic( "selected an implausibly distant target frame", target, checkpoint );
     }
 
     ReplaySolverFrameSample liveBackup;
@@ -1198,16 +1266,31 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     }
     bool stateMutated = false;
 
-    auto failAfterMutation = [&]( const char* message ) -> bool
+    auto failAfterMutation = [&]( const char* message,
+                                  const ReplayV2SolverHashSample* diagnosticTarget,
+                                  uint64_t restoredSolverHash = 0,
+                                  uint64_t restoredPresentationHash = 0,
+                                  std::size_t restoredBodyCount = 0,
+                                  bool hashCaptured = false,
+                                  bool hashMatched = false ) -> bool
     {
+        bool fallbackRestored = false;
         if ( stateMutated && hasLiveBackup )
         {
             char fallbackReason[128] = {};
-            ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+            fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
         }
-        writeReason( message );
-        return false;
+        return failWithDiagnostic( message,
+                                   diagnosticTarget,
+                                   checkpoint,
+                                   restoredSolverHash,
+                                   restoredPresentationHash,
+                                   restoredBodyCount,
+                                   hashCaptured,
+                                   hashMatched,
+                                   stateMutated && hasLiveBackup,
+                                   fallbackRestored );
     };
 
     char reason[192] = {};
@@ -1218,8 +1301,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                    sizeof( message ),
                    "failed to apply checkpoint: %s",
                    reason[0] != '\0' ? reason : "unknown restore failure" );
-        writeReason( message );
-        return false;
+        return failWithDiagnostic( message, target, checkpoint );
     }
     stateMutated = true;
     m_cGameModelCollection.InvalidatePhysicsStreams();
@@ -1259,7 +1341,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                event.sequence,
                                static_cast<unsigned long long>( event.frameIndex ),
                                eventReason[0] != '\0' ? eventReason : "unknown event replay failure" );
-                    return failAfterMutation( message );
+                    return failAfterMutation( message, target );
                 }
                 eventCursor = (std::max)( eventCursor, event.sequence + 1u );
                 ++eventsApplied;
@@ -1278,7 +1360,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
             if ( !expectedHash )
             {
-                return failAfterMutation( "could not find stepped hash metadata" );
+                return failAfterMutation( "could not find stepped hash metadata", target );
             }
 
             ReplaySolverFrameSample stepReference;
@@ -1294,7 +1376,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             std::size_t stepBodyCount = 0;
             if ( !CaptureCurrentReplaySolverHash( stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
             {
-                return failAfterMutation( "failed to capture stepped hash" );
+                return failAfterMutation( "failed to capture stepped hash", expectedHash );
             }
             if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
             {
@@ -1364,14 +1446,19 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                expectedHash->bodyCount,
                                static_cast<unsigned long long>( eventsApplied ) );
                 }
-                return failAfterMutation( message );
+                return failAfterMutation( message,
+                                          expectedHash,
+                                          stepSolverHash,
+                                          stepPresentationHash,
+                                          stepBodyCount,
+                                          true );
             }
         }
     }
 
     if ( unsupportedEvents != 0 )
     {
-        return failAfterMutation( "encountered unsupported branch events before target" );
+        return failAfterMutation( "encountered unsupported branch events before target", target );
     }
 
     ReplaySolverFrameSample reference;
@@ -1387,7 +1474,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     std::size_t restoredBodyCount = 0;
     if ( !CaptureCurrentReplaySolverHash( reference, restoredSolverHash, restoredPresentationHash, restoredBodyCount ) )
     {
-        return failAfterMutation( "failed to capture target hash" );
+        return failAfterMutation( "failed to capture target hash", target );
     }
     if ( restoredBodyCount != target->bodyCount )
     {
@@ -1397,7 +1484,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                    "replay restore target probe body count mismatch: restored=%llu expected=%u",
                    static_cast<unsigned long long>( restoredBodyCount ),
                    target->bodyCount );
-        return failAfterMutation( message );
+        return failAfterMutation( message,
+                                  target,
+                                  restoredSolverHash,
+                                  restoredPresentationHash,
+                                  restoredBodyCount,
+                                  true );
     }
     if ( restoredSolverHash != target->solverHash )
     {
@@ -1407,7 +1499,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                    "replay restore target probe solver hash mismatch: restored=0x%016llX expected=0x%016llX",
                    static_cast<unsigned long long>( restoredSolverHash ),
                    static_cast<unsigned long long>( target->solverHash ) );
-        return failAfterMutation( message );
+        return failAfterMutation( message,
+                                  target,
+                                  restoredSolverHash,
+                                  restoredPresentationHash,
+                                  restoredBodyCount,
+                                  true );
     }
 
     outResult.checkpointCount = checkpointResult.checkpointCount;
@@ -1421,6 +1518,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
     outResult.eventCursor = eventCursor;
     outResult.solverHash = restoredSolverHash;
     outResult.presentationHash = restoredPresentationHash;
+
+    logRestoreDiagnostic( "",
+                          target,
+                          checkpoint,
+                          restoredSolverHash,
+                          restoredPresentationHash,
+                          restoredBodyCount,
+                          true,
+                          true,
+                          false,
+                          false );
 
     if ( makeLiveBranch )
     {
@@ -1488,6 +1596,31 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             static_cast<unsigned long long>( result.solverHash ),
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+}
+
+void Run::VerifyReplaySolverFailureFileProbe( const char* path )
+{
+    constexpr ReplayFrameIndex MISSING_TARGET_FRAME = 999999999u;
+    RunReplayV2TargetRestoreResult result;
+    char reason[256] = {};
+    if ( RestoreReplayV2ArtifactTargetState( path, MISSING_TARGET_FRAME, false, result, reason, sizeof( reason ) ) )
+    {
+        throw std::runtime_error( "replay restore failure probe unexpectedly restored a missing target frame" );
+    }
+    if ( strstr( reason, "found no saved hash for requested target frame" ) == nullptr )
+    {
+        char message[384] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore failure probe produced an unexpected reason: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
+        throw std::runtime_error( message );
+    }
+
+    printf( "[replay] Restore failure probe passed: path=%s missing_frame=%llu reason=\"%s\"\n",
+            path,
+            static_cast<unsigned long long>( MISSING_TARGET_FRAME ),
+            reason );
 }
 
 void Run::VerifyReplaySolverBranchFileProbe( const char* path )

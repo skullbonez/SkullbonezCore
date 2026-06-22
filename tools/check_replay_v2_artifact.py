@@ -30,6 +30,7 @@ OUT_DIR = REPO / "TestOutput" / "validation" / "replay_v2"
 ARTIFACT = OUT_DIR / "replay_save_probe.skreplay"
 TRACE = OUT_DIR / "replay_save_probe.physicsdiag.ndjson"
 RUNTIME_TRACE = OUT_DIR / "replay_save_probe_runtime.physicsdiag.ndjson"
+RESTORE_FAILURE_TRACE = OUT_DIR / "replay_restore_failure.physicsdiag.ndjson"
 SCENE_ARG = "SkullbonezData/scenes/replay_v2_solver_one.scene.json"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 REPLAY_QUERY_BAT = REPO / "tools" / "replay_query.bat"
@@ -75,6 +76,9 @@ def generate_artifact():
     remove_if_exists(RUNTIME_TRACE)
     remove_if_exists(RUNTIME_TRACE.with_suffix(".sqlite"))
     remove_if_exists(RUNTIME_TRACE.with_suffix(".sqlite.lock"))
+    remove_if_exists(RESTORE_FAILURE_TRACE)
+    remove_if_exists(RESTORE_FAILURE_TRACE.with_suffix(".sqlite"))
+    remove_if_exists(RESTORE_FAILURE_TRACE.with_suffix(".sqlite.lock"))
 
     command = [
         str(EXE),
@@ -217,6 +221,53 @@ def probe_restored_branch():
     if not any("branch_id=" in line and "branch_id=0" not in line for line in probe_lines):
         raise RuntimeError("runtime restore branch probe did not create a live branch")
     return len(runtime_stdout.encode("utf-8"))
+
+
+def probe_restore_failure_row():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-failure-file-probe",
+        str(ARTIFACT),
+        "--physics-diag",
+        str(RESTORE_FAILURE_TRACE),
+    ]
+    print("  Restore failure probe command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Restore failure probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Restore failure probe passed" in line for line in probe_lines):
+        raise RuntimeError("runtime restore failure probe did not report expected saved-file failure")
+
+    restore_command = [str(PHYSICS_QUERY_BAT), str(RESTORE_FAILURE_TRACE), "restore", "--limit", "4"]
+    print("  Restore failure query command:")
+    print(
+        "    tools\\physics_query.bat "
+        "TestOutput\\validation\\replay_v2\\replay_restore_failure.physicsdiag.ndjson restore --limit 4"
+    )
+    restore_stdout, restore_payload = run_json(restore_command, REPO)
+    restores = restore_payload.get("restores") or []
+    if len(restores) != 1:
+        raise RuntimeError(f"expected one replay restore failure row, found {len(restores)}")
+    restore = restores[0]
+    if restore.get("passed"):
+        raise RuntimeError("restore failure query unexpectedly marked the failure row as passed")
+    if restore.get("restore_source") != "v2_file_target":
+        raise RuntimeError(f"unexpected restore failure source: {restore.get('restore_source')}")
+    if "found no saved hash for requested target frame" not in str(restore.get("failure_reason") or ""):
+        raise RuntimeError(f"restore failure row missing reason: {restore}")
+    if not restore.get("failed"):
+        raise RuntimeError(f"restore failure row was not marked failed: {restore}")
+    return len(runtime_stdout.encode("utf-8")), len(restore_stdout.encode("utf-8"))
 
 
 def query_artifact():
@@ -476,9 +527,12 @@ def main():
         restore_target_probe_bytes = probe_restored_target()
         print("  Probing saved solver branch restore...")
         restore_branch_probe_bytes = probe_restored_branch()
+        print("  Probing saved solver restore failure SkullScope row...")
+        restore_failure_probe_bytes, restore_failure_query_bytes = probe_restore_failure_row()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
+        restore_failure_sqlite_path = RESTORE_FAILURE_TRACE.with_suffix(".sqlite")
         print(
             "  PASS: replay v2 artifact frames={frames} bodies={bodies} branches={branches} events={events} event_cursors={event_cursors} checkpoints={checkpoints}".format(
                 frames=summary.get("frameCount"),
@@ -493,12 +547,19 @@ def main():
         print(f"  Runtime trace bytes: {RUNTIME_TRACE.stat().st_size if RUNTIME_TRACE.exists() else 0}")
         print(f"  Trace bytes: {TRACE.stat().st_size}")
         print(f"  SQLite bytes: {sqlite_path.stat().st_size if sqlite_path.exists() else 0}")
+        print(f"  Restore failure trace bytes: {RESTORE_FAILURE_TRACE.stat().st_size}")
+        print(
+            "  Restore failure SQLite bytes: "
+            f"{restore_failure_sqlite_path.stat().st_size if restore_failure_sqlite_path.exists() else 0}"
+        )
         print(f"  Load probe output bytes: {load_probe_bytes}")
         print(f"  Restore file probe output bytes: {restore_probe_bytes}")
         print(f"  Restore target probe output bytes: {restore_target_probe_bytes}")
         print(f"  Restore branch probe output bytes: {restore_branch_probe_bytes}")
+        print(f"  Restore failure probe output bytes: {restore_failure_probe_bytes}")
+        print(f"  Restore failure query output bytes: {restore_failure_query_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
-        print(f"  Query output bytes total: {sum(query_bytes.values())}")
+        print(f"  Query output bytes total: {sum(query_bytes.values()) + restore_failure_query_bytes}")
         return 0
     except Exception as exc:
         print(f"  FAIL: {exc}")

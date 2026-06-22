@@ -6,8 +6,8 @@
 @rem Mental model:
 @rem   This gate proves the executable can write a real v2 presentation
 @rem   .skreplay file, reload presentation data, restore a saved solver
-@rem   checkpoint, and expose bounded query output plus a SkullScope-compatible
-@rem   slice.
+@rem   checkpoint, report an expected saved-file restore failure, and expose
+@rem   bounded query output plus a SkullScope-compatible slice.
 @rem
 @rem Glossary:
 @rem   Replay v2 artifact: Chunked binary presentation .skreplay file.
