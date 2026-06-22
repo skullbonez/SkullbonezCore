@@ -640,6 +640,8 @@ constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
     { EditorTab::OBJECT_TREE_BIG_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_TREE_CEDAR_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_TREE_PINE_SHEDDING, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_RAGDOLL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_RAGDOLL_SLEEP, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
 };
 constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT =
     static_cast<int>( sizeof( kEditorMiniPaletteEntries ) / sizeof( kEditorMiniPaletteEntries[0] ) );
@@ -1713,6 +1715,29 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
         draw.Rect( cx - r * 0.66f, cy - r * 0.86f, r * 1.42f, r * 1.42f, color.r, color.g, color.b, alpha * 0.48f );
         draw.Rect( cx - r * 0.92f, cy - r * 0.58f, r * 1.48f, r * 1.48f, color.r, color.g, color.b, alpha );
         draw.Rect( cx + r * 0.56f, cy - r * 0.38f, r * 0.22f, r * 1.26f, color.r, color.g, color.b, alpha * 0.56f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_RAGDOLL || type == EditorTab::OBJECT_RAGDOLL_SLEEP )
+    {
+        draw.RoundedRect( cx - r * 0.34f,
+                          cy - r * 1.05f,
+                          r * 0.68f,
+                          r * 0.68f,
+                          999.0f,
+                          color.r,
+                          color.g,
+                          color.b,
+                          alpha );
+        draw.Rect( cx - r * 0.42f, cy - r * 0.34f, r * 0.84f, r * 0.92f, color.r, color.g, color.b, alpha );
+        draw.Rect( cx - r * 1.05f, cy - r * 0.18f, r * 0.52f, r * 0.32f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Rect( cx + r * 0.53f, cy - r * 0.18f, r * 0.52f, r * 0.32f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Rect( cx - r * 0.50f, cy + r * 0.65f, r * 0.34f, r * 0.68f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Rect( cx + r * 0.16f, cy + r * 0.65f, r * 0.34f, r * 0.68f, color.r, color.g, color.b, alpha * 0.82f );
+        if ( type == EditorTab::OBJECT_RAGDOLL_SLEEP )
+        {
+            draw.Rect( cx + r * 0.56f, cy - r * 1.04f, r * 0.48f, 2.0f, color.r, color.g, color.b, alpha );
+            draw.Rect( cx + r * 0.70f, cy - r * 0.82f, r * 0.40f, 2.0f, color.r, color.g, color.b, alpha * 0.78f );
+        }
         return;
     }
     if ( IsEditorMiniRootType( type ) )

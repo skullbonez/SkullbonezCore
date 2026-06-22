@@ -27,6 +27,7 @@ Related:
 #include "../RunInternal.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
+#include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
 
 #pragma warning( push, 0 )
@@ -701,7 +702,9 @@ void Run::SetUpCamerasFromScene( const TestScene& scene )
 void Run::SetUpGameModelsFromScene( const TestScene& scene )
 {
     SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() +
-                              scene.GetBoxStateCount() + scene.GetConvexHullCount() + scene.GetConvexHullStateCount();
+                              scene.GetBoxStateCount() + scene.GetConvexHullCount() + scene.GetConvexHullStateCount() +
+                              scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
+    m_cGameModelCollection.ClearPointJointConstraints();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -752,7 +755,12 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
         gameModel.SetFixed( bs.isFixed );
 
+        const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( bs.isSleeping && !bs.isFixed )
+        {
+            m_cGameModelCollection.SeedModelAsleep( modelIndex );
+        }
     }
 
     // box entries: rigid box entities
@@ -808,7 +816,12 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetOrientation( Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ) );
         gameModel.SetFixed( box.isFixed );
 
+        const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( box.isSleeping && !box.isFixed )
+        {
+            m_cGameModelCollection.SeedModelAsleep( modelIndex );
+        }
     }
 
     // convex_hull entries: authored immutable hull assets
@@ -876,6 +889,61 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         {
             m_cGameModelCollection.SeedModelAsleep( modelIndex );
         }
+    }
+
+    for ( int i = 0; i < scene.GetRagdollCount(); ++i )
+    {
+        const SceneRagdoll& ragdollScene = scene.GetRagdoll( i );
+        RagdollBuildOptions options;
+        options.namePrefix = ragdollScene.name;
+        options.terrainPoint = Vector3( ragdollScene.posX, ragdollScene.posY, ragdollScene.posZ );
+        options.scale = ragdollScene.scale;
+        options.fixed = ragdollScene.isFixed;
+        options.startsAsleep = ragdollScene.startsAsleep;
+        if ( ragdollScene.hasInitOrient )
+        {
+            options.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), ragdollScene.eulerX * _PI / 180.0f );
+            options.orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), ragdollScene.eulerY * _PI / 180.0f );
+            options.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), ragdollScene.eulerZ * _PI / 180.0f );
+        }
+        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    auto findModelByName = [&]( const char* name ) -> int
+    {
+        if ( !name || name[0] == '\0' )
+        {
+            return -1;
+        }
+        for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
+        {
+            if ( strcmp( models[static_cast<size_t>( modelIndex )].GetName(), name ) == 0 )
+            {
+                return modelIndex;
+            }
+        }
+        return -1;
+    };
+
+    for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
+    {
+        const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
+        PointJointConstraint joint;
+        joint.bodyA = findModelByName( sceneJoint.bodyA );
+        joint.bodyB = findModelByName( sceneJoint.bodyB );
+        if ( joint.bodyA < 0 || joint.bodyB < 0 )
+        {
+            fprintf( stderr, "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n", sceneJoint.bodyA, sceneJoint.bodyB );
+            continue;
+        }
+        joint.localAnchorA = sceneJoint.localAnchorA;
+        joint.localAnchorB = sceneJoint.localAnchorB;
+        joint.slack = sceneJoint.slack;
+        joint.stiffness = sceneJoint.stiffness;
+        joint.damping = sceneJoint.damping;
+        joint.groupId = sceneJoint.groupId;
+        m_cGameModelCollection.AddPointJointConstraint( joint );
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )

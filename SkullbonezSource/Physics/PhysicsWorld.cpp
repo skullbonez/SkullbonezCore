@@ -127,6 +127,7 @@ PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
     m_objectNarrowphaseParent.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
+    m_pointJointConstraints.reserve( MAX_GAME_MODELS );
 }
 
 
@@ -168,6 +169,7 @@ void PhysicsWorld::Clear()
     m_objectNarrowphaseParent.clear();
     m_objectNarrowphaseRank.clear();
     m_objectNarrowphaseRootToIsland.clear();
+    m_pointJointConstraints.clear();
     m_collisionCellKeys.clear();
 }
 
@@ -512,6 +514,28 @@ void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
 void PhysicsWorld::EndCollisionVisualFrame()
 {
     m_collisionVisualFrameActive = false;
+}
+
+
+void PhysicsWorld::ClearPointJointConstraints()
+{
+    m_pointJointConstraints.clear();
+}
+
+
+void PhysicsWorld::AddPointJointConstraint( const PointJointConstraint& constraint )
+{
+    if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA == constraint.bodyB )
+    {
+        return;
+    }
+    m_pointJointConstraints.push_back( constraint );
+}
+
+
+const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
+{
+    return m_pointJointConstraints;
 }
 
 
@@ -936,6 +960,84 @@ void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
     m_sleepIslandSystem.PropagateSupport( *this, collection );
 }
 
+bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
+{
+    if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
+    {
+        return false;
+    }
+    if ( bodyA > bodyB )
+    {
+        std::swap( bodyA, bodyB );
+    }
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        int jointA = constraint.bodyA;
+        int jointB = constraint.bodyB;
+        if ( jointA > jointB )
+        {
+            std::swap( jointA, jointB );
+        }
+        if ( jointA == bodyA && jointB == bodyB )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, float dt )
+{
+    if ( m_pointJointConstraints.empty() || static_cast<int>( m_sleepState.size() ) <= 0 )
+    {
+        return;
+    }
+
+    auto& models = collection.PhysicsModels();
+    const int modelCount = static_cast<int>( models.size() );
+    auto wakeBody = [&]( int index )
+    {
+        if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) || !m_sleepState[index] ||
+             models[index].IsFixed() )
+        {
+            return;
+        }
+        m_sleepState[index] = 0;
+        if ( index < static_cast<int>( m_sleepCounter.size() ) )
+        {
+            m_sleepCounter[index] = 0;
+        }
+        if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+        {
+            m_sleepIslandVisualId[index] = 0;
+        }
+        if ( index < static_cast<int>( m_timeRemaining.size() ) )
+        {
+            m_timeRemaining[index] = dt;
+        }
+        models[index].ApplyForces( dt );
+    };
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        const int a = constraint.bodyA;
+        const int b = constraint.bodyB;
+        if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount || a >= static_cast<int>( m_sleepState.size() ) ||
+             b >= static_cast<int>( m_sleepState.size() ) )
+        {
+            continue;
+        }
+        const bool aSleeping = m_sleepState[a] != 0;
+        const bool bSleeping = m_sleepState[b] != 0;
+        if ( aSleeping != bSleeping )
+        {
+            wakeBody( aSleeping ? a : b );
+        }
+    }
+}
+
+
 void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 {
     auto& m_gameModels = collection.PhysicsModels();
@@ -1126,6 +1228,16 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                                                   return a >= 0 && b >= 0 && a < modelCount && b < modelCount &&
                                                          bodyStream.isFixed[a] && bodyStream.isFixed[b];
                                               } ),
+                              candidatePairs.end() );
+    }
+
+    if ( !m_pointJointConstraints.empty() )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
+        candidatePairs.erase( std::remove_if( candidatePairs.begin(),
+                                              candidatePairs.end(),
+                                              [&]( const std::pair<int, int>& pair )
+                                              { return IsPointJointPair( pair.first, pair.second ); } ),
                               candidatePairs.end() );
     }
 
@@ -1818,6 +1930,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_END( "Frame/Physics/Terrain" );
 
     m_contactSolver.Solve( *this, collection, dt );
+    WakePointJointConnectedBodies( collection, dt );
+    Ragdoll::SolvePointJoints( collection, m_pointJointConstraints, m_sleepState, dt );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
     PropagateSleepSupport( collection );

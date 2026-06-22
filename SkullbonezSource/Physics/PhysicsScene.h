@@ -59,6 +59,8 @@ class PhysicsScene
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+    void ClearPointJointConstraints();
+    void AddPointJointConstraint( const PointJointConstraint& constraint );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
@@ -77,6 +79,7 @@ class PhysicsScene
     const std::vector<uint8_t>& GetSleepInhibitedStates() const;
     const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
     const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
+    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );

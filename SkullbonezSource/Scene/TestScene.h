@@ -82,6 +82,7 @@ struct SceneBallState
     float radius, mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
     bool isFixed;
+    bool isSleeping;
 };
 
 struct SceneBoxState
@@ -95,6 +96,7 @@ struct SceneBoxState
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
     bool isFixed;
+    bool isSleeping;
 };
 
 struct SceneConvexHullState
@@ -111,6 +113,29 @@ struct SceneConvexHullState
     bool isFixed;
     bool isSleeping;
     bool contactReleaseOnImpact;
+};
+
+struct SceneRagdoll
+{
+    char name[64];
+    float posX, posY, posZ;
+    float scale;
+    float eulerX, eulerY, eulerZ;
+    bool hasInitOrient;
+    bool isFixed;
+    bool startsAsleep;
+};
+
+struct ScenePointJointConstraint
+{
+    char bodyA[64];
+    char bodyB[64];
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.25f;
+    float stiffness = 0.22f;
+    float damping = 0.35f;
+    uint32_t groupId = 0;
 };
 
 struct SceneBox
@@ -385,6 +410,8 @@ class TestScene
     std::vector<SceneBox> m_boxes;
     std::vector<SceneConvexHull> m_convexHulls;
     std::vector<SceneConvexHullState> m_convexHullStates;
+    std::vector<SceneRagdoll> m_ragdolls;
+    std::vector<ScenePointJointConstraint> m_pointJointConstraints;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
@@ -469,6 +496,10 @@ class TestScene
     const SceneConvexHull& GetConvexHull( int index ) const;
     int GetConvexHullStateCount() const;
     const SceneConvexHullState& GetConvexHullState( int index ) const;
+    int GetRagdollCount() const;
+    const SceneRagdoll& GetRagdoll( int index ) const;
+    int GetPointJointConstraintCount() const;
+    const ScenePointJointConstraint& GetPointJointConstraint( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;

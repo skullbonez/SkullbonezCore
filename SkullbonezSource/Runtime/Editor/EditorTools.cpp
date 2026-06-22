@@ -49,7 +49,7 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 28,
+static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 30,
                "Update editor placement scale classification when adding editor object types." );
 } // namespace
 
@@ -98,7 +98,8 @@ Assets::EditorHullAsset EditorHullAssetForType( int objectType )
 bool EditorPlacementUsesUniformScale( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
-    return type == UI::EditorTab::OBJECT_BALL || type == UI::EditorTab::OBJECT_SPHERE;
+    return type == UI::EditorTab::OBJECT_BALL || type == UI::EditorTab::OBJECT_SPHERE ||
+           type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
 }
 
 bool EditorPlacementUsesHullScaleFactors( int objectType )
@@ -141,6 +142,9 @@ Vector3 EditorDefaultPlacementScale( int objectType )
         return Vector3( 4.0f, 4.0f, 4.0f );
     case UI::EditorTab::OBJECT_SPHERE:
         return Vector3( 8.0f, 8.0f, 8.0f );
+    case UI::EditorTab::OBJECT_RAGDOLL:
+    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        return Vector3( 1.0f, 1.0f, 1.0f );
     default:
         return Vector3( 1.0f, 1.0f, 1.0f );
     }

@@ -113,6 +113,18 @@ void PhysicsScene::EndCollisionVisualFrame()
 }
 
 
+void PhysicsScene::ClearPointJointConstraints()
+{
+    m_world.ClearPointJointConstraints();
+}
+
+
+void PhysicsScene::AddPointJointConstraint( const PointJointConstraint& constraint )
+{
+    m_world.AddPointJointConstraint( constraint );
+}
+
+
 void PhysicsScene::SetTornadoFieldConfig( const TornadoFieldConfig& config )
 {
     m_world.SetTornadoFieldConfig( config );
@@ -224,6 +236,12 @@ const std::vector<SkullbonezCore::Physics::PhysicsDebugContact>& PhysicsScene::G
 const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsScene::GetPhysicsPipelineTrace() const
 {
     return m_world.GetPhysicsPipelineTrace();
+}
+
+
+const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsScene::GetPointJointConstraints() const
+{
+    return m_world.GetPointJointConstraints();
 }
 
 

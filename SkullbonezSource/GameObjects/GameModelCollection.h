@@ -142,6 +142,8 @@ class GameModelCollection : public Rendering::IRenderSceneView
     void WakeModel( int index );
     void SeedModelAsleep( int index );
     void SetPhysicsSleepEnabled( bool enabled );
+    void ClearPointJointConstraints();
+    void AddPointJointConstraint( const Physics::PointJointConstraint& constraint );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
     void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );
@@ -194,6 +196,10 @@ class GameModelCollection : public Rendering::IRenderSceneView
     const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
     {
         return m_physicsScene.GetPhysicsPipelineTrace();
+    }
+    const std::vector<Physics::PointJointConstraint>& GetPointJointConstraints() const
+    {
+        return m_physicsScene.GetPointJointConstraints();
     }
 
 #ifdef _DEBUG

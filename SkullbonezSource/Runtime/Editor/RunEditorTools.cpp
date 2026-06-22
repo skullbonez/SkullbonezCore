@@ -22,6 +22,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../InputController.h"
 #include "../../Physics/PhysicsMass.h"
+#include "../../Physics/Ragdoll.h"
 #include "../RuntimeFileWriter.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
@@ -906,6 +907,9 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
     case SkullbonezCore::UI::EditorTab::OBJECT_BALL:
     case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
         return scale.x * 2.0f;
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        return scale.x * 18.5f;
     default:
     {
         if ( EditorTreeDefinitionForType( type ) )
@@ -1877,6 +1881,10 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
     case SkullbonezCore::UI::EditorTab::OBJECT_SPHERE:
         EmitSphere( center, scale.x, ghostR, ghostG, ghostB );
         break;
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL:
+    case SkullbonezCore::UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        Ragdoll::AddPreviewLines( m_lineData, terrainPoint, scale.x, orientation, ghostR, ghostG, ghostB );
+        break;
     default:
     {
         ConvexHullShape hull;
@@ -2307,6 +2315,10 @@ bool Run::TryComputeEditorObjectCenter( int objectType,
     case UI::EditorTab::OBJECT_SPHERE:
         outCenter =
             Vector3( terrainPoint.x, terrainPoint.y + scale.x + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
+        return true;
+    case UI::EditorTab::OBJECT_RAGDOLL:
+    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        outCenter = Ragdoll::DefaultPreviewCenter( terrainPoint, scale.x, orientation );
         return true;
     case UI::EditorTab::OBJECT_TREE_SMALL:
     case UI::EditorTab::OBJECT_TREE_BIG:
@@ -2816,7 +2828,9 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     const int modelCount = m_cGameModelCollection.GetModelCount();
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
-    const int requiredModelCount = tree ? tree->partCount : 1;
+    const bool isRagdollType =
+        type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const int requiredModelCount = isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( tree ? tree->partCount : 1 );
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
@@ -2838,7 +2852,8 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     Quaternion placementOrientationCopy = placementOrientation;
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
-    const char* modePrefix = placementFixed ? "static" : ( tree && tree->seedAsleep ? "sleeping" : "dynamic" );
+    const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    const char* modePrefix = placementFixed ? "static" : ( ( tree && tree->seedAsleep ) || ragdollStartsAsleep ? "sleeping" : "dynamic" );
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
@@ -2990,6 +3005,20 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
         }
     };
 
+    auto addRagdoll = [&]()
+    {
+        RagdollBuildOptions options;
+        char prefix[64];
+        sprintf_s( prefix, sizeof( prefix ), "%s_ragdoll_%03d", modePrefix, serial );
+        options.namePrefix = prefix;
+        options.terrainPoint = terrainPoint;
+        options.orientation = placementOrientation;
+        options.scale = placementScale.x;
+        options.fixed = placementFixed;
+        options.startsAsleep = ragdollStartsAsleep && !placementFixed;
+        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
+    };
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
@@ -3059,6 +3088,10 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
         {
             addTree( *tree );
         }
+        break;
+    case UI::EditorTab::OBJECT_RAGDOLL:
+    case UI::EditorTab::OBJECT_RAGDOLL_SLEEP:
+        addRagdoll();
         break;
     default:
         break;

@@ -525,6 +525,18 @@ void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
+void GameModelCollection::ClearPointJointConstraints()
+{
+    m_physicsScene.ClearPointJointConstraints();
+}
+
+
+void GameModelCollection::AddPointJointConstraint( const Physics::PointJointConstraint& constraint )
+{
+    m_physicsScene.AddPointJointConstraint( constraint );
+}
+
+
 void GameModelCollection::BeginCollisionVisualFrame()
 {
     m_physicsScene.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );

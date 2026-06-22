@@ -181,6 +181,10 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", m_gameModels[i].IsFixed() },
             } );
+            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            {
+                scene["objects"].back()["sleeping"] = true;
+            }
         }
         else if ( std::holds_alternative<BoundingBox>( shape ) )
         {
@@ -199,6 +203,10 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", m_gameModels[i].IsFixed() },
             } );
+            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            {
+                scene["objects"].back()["sleeping"] = true;
+            }
         }
         else if ( std::holds_alternative<ConvexHullShape>( shape ) )
         {
@@ -229,6 +237,30 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 hullState["sleeping"] = true;
             }
             scene["objects"].push_back( hullState );
+        }
+    }
+
+    const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints = collection.GetPointJointConstraints();
+    if ( !pointJoints.empty() )
+    {
+        scene["ragdollJoints"] = Json::array();
+        for ( const SkullbonezCore::Physics::PointJointConstraint& joint : pointJoints )
+        {
+            if ( joint.bodyA < 0 || joint.bodyB < 0 || joint.bodyA >= static_cast<int>( m_gameModels.size() ) ||
+                 joint.bodyB >= static_cast<int>( m_gameModels.size() ) )
+            {
+                continue;
+            }
+            scene["ragdollJoints"].push_back( {
+                { "bodyA", m_gameModels[static_cast<size_t>( joint.bodyA )].GetName() },
+                { "bodyB", m_gameModels[static_cast<size_t>( joint.bodyB )].GetName() },
+                { "localAnchorA", Vec3Json( joint.localAnchorA ) },
+                { "localAnchorB", Vec3Json( joint.localAnchorB ) },
+                { "slack", joint.slack },
+                { "stiffness", joint.stiffness },
+                { "damping", joint.damping },
+                { "groupId", joint.groupId },
+            } );
         }
     }
 

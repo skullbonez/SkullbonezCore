@@ -480,6 +480,41 @@ const SceneConvexHullState& TestScene::GetConvexHullState( int index ) const
 }
 
 
+int TestScene::GetRagdollCount() const
+{
+    return static_cast<int>( m_ragdolls.size() );
+}
+
+
+const SceneRagdoll& TestScene::GetRagdoll( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_ragdolls.size() ) )
+    {
+        throw std::runtime_error( "Ragdoll index out of range.  (TestScene::GetRagdoll)" );
+    }
+
+    return m_ragdolls[index];
+}
+
+
+int TestScene::GetPointJointConstraintCount() const
+{
+    return static_cast<int>( m_pointJointConstraints.size() );
+}
+
+
+const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
+    {
+        throw std::runtime_error(
+            "PointJointConstraint index out of range.  (TestScene::GetPointJointConstraint)" );
+    }
+
+    return m_pointJointConstraints[index];
+}
+
+
 int TestScene::GetRequiredContactCount() const
 {
     return static_cast<int>( m_requiredContacts.size() );

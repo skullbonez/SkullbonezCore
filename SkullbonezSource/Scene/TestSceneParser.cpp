@@ -1969,6 +1969,10 @@ class TestSceneParser
         {
             state.isFixed = ReadBool( *fixed, path, "ballState.fixed" );
         }
+        if ( const Json* sleeping = FindMember( object, "sleeping" ) )
+        {
+            state.isSleeping = ReadBool( *sleeping, path, "ballState.sleeping" );
+        }
         m_scene.m_ballStates.push_back( state );
     }
 
@@ -2017,6 +2021,10 @@ class TestSceneParser
                   state.inertiaY,
                   state.inertiaZ );
         state.isFixed = ReadBool( RequireMember( object, path, "boxState", "fixed" ), path, "boxState.fixed" );
+        if ( const Json* sleeping = FindMember( object, "sleeping" ) )
+        {
+            state.isSleeping = ReadBool( *sleeping, path, "boxState.sleeping" );
+        }
         m_scene.m_boxStates.push_back( state );
     }
 
@@ -2082,6 +2090,42 @@ class TestSceneParser
         m_scene.m_convexHullStates.push_back( state );
     }
 
+    void ApplyRagdoll( const Json& object, const std::string& path )
+    {
+        SceneRagdoll ragdoll = {};
+        ReadRequiredStringField( ragdoll.name, object, path, "ragdoll", "name" );
+        ReadVec3( RequireMember( object, path, "ragdoll", "position" ),
+                  path,
+                  "ragdoll.position",
+                  ragdoll.posX,
+                  ragdoll.posY,
+                  ragdoll.posZ );
+        ragdoll.scale = 1.0f;
+        if ( const Json* scale = FindMember( object, "scale" ) )
+        {
+            ragdoll.scale = (std::max)( 0.25f, ReadFloat( *scale, path, "ragdoll.scale" ) );
+        }
+        if ( const Json* fixed = FindMember( object, "fixed" ) )
+        {
+            ragdoll.isFixed = ReadBool( *fixed, path, "ragdoll.fixed" );
+        }
+        if ( const Json* sleeping = FindMember( object, "sleeping" ) )
+        {
+            ragdoll.startsAsleep = ReadBool( *sleeping, path, "ragdoll.sleeping" );
+        }
+        if ( const Json* awake = FindMember( object, "awake" ) )
+        {
+            ragdoll.startsAsleep = !ReadBool( *awake, path, "ragdoll.awake" );
+        }
+        if ( const Json* euler = FindMember( object, "euler" ) )
+        {
+            ReadVec3( *euler, path, "ragdoll.euler", ragdoll.eulerX, ragdoll.eulerY, ragdoll.eulerZ );
+            ragdoll.hasInitOrient = true;
+        }
+        m_scene.m_ragdolls.push_back( ragdoll );
+    }
+
+
     void ApplyObject( const Json& object, const std::string& path )
     {
         RequireObject( object, path, "object" );
@@ -2122,10 +2166,52 @@ class TestSceneParser
         {
             ApplyConvexHullState( object, path );
         }
+        else if ( type == "ragdoll" )
+        {
+            ApplyRagdoll( object, path );
+        }
         else
         {
             Fail( path, "Unknown object type: " + type );
         }
+    }
+
+
+    void ApplyPointJointConstraint( const Json& jointJson, const std::string& path )
+    {
+        RequireObject( jointJson, path, "ragdollJoint" );
+        ScenePointJointConstraint joint = {};
+        ReadRequiredStringField( joint.bodyA, jointJson, path, "ragdollJoint", "bodyA" );
+        ReadRequiredStringField( joint.bodyB, jointJson, path, "ragdollJoint", "bodyB" );
+        ReadVec3( RequireMember( jointJson, path, "ragdollJoint", "localAnchorA" ),
+                  path,
+                  "ragdollJoint.localAnchorA",
+                  joint.localAnchorA.x,
+                  joint.localAnchorA.y,
+                  joint.localAnchorA.z );
+        ReadVec3( RequireMember( jointJson, path, "ragdollJoint", "localAnchorB" ),
+                  path,
+                  "ragdollJoint.localAnchorB",
+                  joint.localAnchorB.x,
+                  joint.localAnchorB.y,
+                  joint.localAnchorB.z );
+        if ( const Json* slack = FindMember( jointJson, "slack" ) )
+        {
+            joint.slack = (std::max)( 0.0f, ReadFloat( *slack, path, "ragdollJoint.slack" ) );
+        }
+        if ( const Json* stiffness = FindMember( jointJson, "stiffness" ) )
+        {
+            joint.stiffness = std::clamp( ReadFloat( *stiffness, path, "ragdollJoint.stiffness" ), 0.0f, 1.0f );
+        }
+        if ( const Json* damping = FindMember( jointJson, "damping" ) )
+        {
+            joint.damping = std::clamp( ReadFloat( *damping, path, "ragdollJoint.damping" ), 0.0f, 1.0f );
+        }
+        if ( const Json* group = FindMember( jointJson, "groupId" ) )
+        {
+            joint.groupId = static_cast<uint32_t>( (std::max)( 0, ReadInt( *group, path, "ragdollJoint.groupId" ) ) );
+        }
+        m_scene.m_pointJointConstraints.push_back( joint );
     }
 
     void ApplyObjectMaterial( const Json& materialJson, const std::string& path )
@@ -2342,6 +2428,14 @@ class TestSceneParser
             for ( const Json& object : *objects )
             {
                 ApplyObject( object, path );
+            }
+        }
+        if ( const Json* ragdollJoints = FindMember( root, "ragdollJoints" ) )
+        {
+            RequireArray( *ragdollJoints, path, "ragdollJoints" );
+            for ( const Json& joint : *ragdollJoints )
+            {
+                ApplyPointJointConstraint( joint, path );
             }
         }
         ApplyAssetInstances( root, path );

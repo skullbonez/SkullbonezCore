@@ -37,6 +37,7 @@ Related:
 #include "PersistentContactSolver.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "Debug/PhysicsDebugVisualizer.h"
+#include "Ragdoll.h"
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "../Core/SkullScope.h"
 #include "SleepIslandSystem.h"
@@ -242,6 +243,7 @@ class PhysicsWorld
     std::vector<int> m_objectNarrowphaseParent;
     std::vector<uint8_t> m_objectNarrowphaseRank;
     std::vector<int> m_objectNarrowphaseRootToIsland;
+    std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoField m_tornadoField;
@@ -280,6 +282,8 @@ class PhysicsWorld
     void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
     void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );
     void PropagateSleepSupport( GameObjects::GameModelCollection& collection );
+    bool IsPointJointPair( int bodyA, int bodyB ) const;
+    void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
 
   public:
     PhysicsWorld();
@@ -291,6 +295,9 @@ class PhysicsWorld
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+    void ClearPointJointConstraints();
+    void AddPointJointConstraint( const PointJointConstraint& constraint );
+    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
