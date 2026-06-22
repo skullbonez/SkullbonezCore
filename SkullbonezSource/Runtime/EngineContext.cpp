@@ -1,0 +1,41 @@
+/*
+File: SkullbonezSource/Runtime/EngineContext.cpp
+Purpose:
+  Implements runtime system graph binding.
+
+Mental model:
+  The context is intentionally lightweight: Run owns the actual systems and
+  binds their addresses once construction has completed.
+*/
+#include "EngineContext.h"
+
+namespace SkullbonezCore
+{
+namespace Basics
+{
+void EngineContext::Bind( const EngineContextBindings& bindings )
+{
+    m_bindings = bindings;
+}
+
+
+bool EngineContext::IsBound() const
+{
+    return m_bindings.scene && m_bindings.simulation && m_bindings.capture && m_bindings.diagnostics &&
+           m_bindings.commands && m_bindings.systems && m_bindings.runtimeSettings && m_bindings.input &&
+           m_bindings.camera && m_bindings.debug && m_bindings.world && m_bindings.models;
+}
+
+
+const EngineContextBindings& EngineContext::Bindings() const
+{
+    return m_bindings;
+}
+
+
+EngineContextBindings& EngineContext::Bindings()
+{
+    return m_bindings;
+}
+} // namespace Basics
+} // namespace SkullbonezCore

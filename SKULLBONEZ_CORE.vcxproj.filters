@@ -166,8 +166,14 @@
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp">
+      <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
       <Filter>Source Files\Physics</Filter>
@@ -178,7 +184,13 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp">
@@ -224,6 +236,12 @@
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\EngineContext.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
@@ -363,6 +381,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp">
       <Filter>Source Files\Physics\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
+      <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -551,6 +572,12 @@
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\DiagnosticsController.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\EngineContext.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -581,11 +608,23 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">
       <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h">
+      <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h">
       <Filter>Header Files\Physics</Filter>
@@ -697,6 +736,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h">
       <Filter>Header Files\Physics\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h">
+      <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h">
       <Filter>Header Files\Runtime</Filter>

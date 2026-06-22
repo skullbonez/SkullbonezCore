@@ -434,7 +434,7 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    RuntimeDiagnostics::LogReplayScrubProbe( m_physicsDiagnostics,
+    RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(),
                                              SceneState(),
                                              *selected,
                                              *live,
@@ -464,7 +464,7 @@ void Run::EnterInteractiveSceneRun()
 {
     SceneState().isInteractiveRun = true;
     SceneState().isExitOnComplete = false;
-    m_screenshot.isScreenshotAndExit = false;
+    m_capture.Screenshot().isScreenshotAndExit = false;
 }
 
 
@@ -478,7 +478,7 @@ void Run::HoldCompletedInteractiveScene()
 {
     SceneState().isTestComplete = true;
     SceneState().isExitOnComplete = false;
-    m_screenshot.isScreenshotAndExit = false;
+    m_capture.Screenshot().isScreenshotAndExit = false;
     m_camera.autoCycleInterval = -1.0f;
     m_camera.autoCycleAccum = 0.0f;
 }
@@ -504,8 +504,7 @@ bool Run::TickScreenshots()
 
     ScreenshotSink sink( *this );
     const std::string* scenePath = CurrentSceneQueuePath();
-    const RuntimeCaptureResult result = CaptureSystem::TickScreenshots(
-        m_screenshot,
+    const RuntimeCaptureResult result = m_capture.TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
                                     SceneState().isInteractiveRun,
                                     SceneState().currentFrame,
@@ -570,14 +569,14 @@ void Run::TickAutoCycle()
     };
 
     ScreenshotSink sink( *this );
-    const RuntimeCaptureResult result = CaptureSystem::TickAutoCycle( SceneState().isSceneMode,
-                                                                      SceneState().isInteractiveRun,
-                                                                      m_cGameModelCollection.GetModelCount(),
-                                                                      m_camera.autoCycleInterval,
-                                                                      m_camera.autoCycleAccum,
-                                                                      m_camera.autoCycleShotsTaken,
-                                                                      m_camera.trackBallIndex,
-                                                                      sink );
+    const RuntimeCaptureResult result = m_capture.TickAutoCycle( SceneState().isSceneMode,
+                                                                 SceneState().isInteractiveRun,
+                                                                 m_cGameModelCollection.GetModelCount(),
+                                                                 m_camera.autoCycleInterval,
+                                                                 m_camera.autoCycleAccum,
+                                                                 m_camera.autoCycleShotsTaken,
+                                                                 m_camera.trackBallIndex,
+                                                                 sink );
 
     if ( result.completion != RuntimeCaptureCompletion::AutoCycle )
     {
@@ -601,11 +600,10 @@ void Run::TickAutoCycle()
 
 void Run::TickPerfLog()
 {
-    RuntimeDiagnostics::TickPerfLog( m_perfLogState,
-                                     RuntimePerfTickContext{ sPerfPass + 1,
-                                                             SceneState().currentFrame + 1,
-                                                             m_timers.physicsTime,
-                                                             m_timers.renderTime } );
+    m_diagnostics.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+                                                       SceneState().currentFrame + 1,
+                                                       m_timers.physicsTime,
+                                                       m_timers.renderTime } );
 
     if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {
@@ -649,7 +647,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( SceneState().targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
+    if ( SceneState().targetFrameCount > 0 && !m_capture.Screenshot().isScreenshotSaved )
     {
         if ( SceneState().currentFrame >= SceneState().targetFrameCount )
         {
@@ -731,7 +729,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_perfLogState.isPerfTest && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnostics.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG

@@ -61,11 +61,13 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
 
 
 Run::Run( std::vector<std::string> sceneQueue )
-    : m_sceneRuntime( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
+    : m_sceneController( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
       m_sceneTargetPass( *this ), m_shadowPass( *this ), m_reflectionPass( *this ), m_objectPass( *this ),
       m_terrainPass( *this ), m_waterPass( *this ), m_debugOverlayPass( *this ), m_volumetricPass( *this ),
       m_tonemapPass( *this ), m_uiTextPass( *this )
 {
+    BindEngineContext();
+    RefreshRuntimeViewModel();
     RefreshSceneBrowserList();
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
@@ -77,13 +79,36 @@ Run::Run( std::vector<std::string> sceneQueue )
 
 RunSceneState& Run::SceneState()
 {
-    return m_sceneRuntime.State();
+    return m_sceneController.State();
 }
 
 
 const RunSceneState& Run::SceneState() const
 {
-    return m_sceneRuntime.State();
+    return m_sceneController.State();
+}
+
+
+void Run::BindEngineContext()
+{
+    m_engineContext.Bind( EngineContextBindings{ &m_sceneController,
+                                                 &m_simulation,
+                                                 &m_capture,
+                                                 &m_diagnostics,
+                                                 &m_runtimeCommands,
+                                                 &m_systems,
+                                                 &m_runtimeSettings,
+                                                 &m_runtimeInput,
+                                                 &m_camera,
+                                                 &m_debug,
+                                                 &m_cWorldEnvironment,
+                                                 &m_cGameModelCollection } );
+}
+
+
+void Run::RefreshRuntimeViewModel()
+{
+    m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext );
 }
 
 
@@ -93,7 +118,7 @@ Run::~Run()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
-    RuntimeDiagnostics::ClosePerfLog( m_perfLogState );
+    m_diagnostics.ClosePerfLog();
     m_replay.FlushHashLog();
     m_solverReplay.FlushHashLog();
     if ( m_replay.IsEnabled() )
@@ -934,19 +959,19 @@ void Run::SetPhysicsDebugContactLingerOverride( float seconds )
 #ifdef _DEBUG
 void Run::SetPhysicsRegressionLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_perfLogState, path );
+    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnostics.PerfLog(), path );
 }
 
 
 void Run::SetPhysicsCollisionTimeLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_perfLogState, path );
+    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_diagnostics.PerfLog(), path );
 }
 
 
 void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
-    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_physicsDiagnostics,
+    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(),
                                                    m_cGameModelCollection,
                                                    path,
                                                    fixedStepForcedByDiagnostics );
@@ -999,7 +1024,7 @@ void Run::Initialise()
 
 void Run::RunSceneLoadOnly( const char* snapshotOutPath )
 {
-    const int sceneCount = m_sceneRuntime.QueueSize();
+    const int sceneCount = m_sceneController.QueueSize();
     if ( sceneCount <= 0 )
     {
         return;
@@ -1013,7 +1038,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
 
     printf( "[scene-load-only] Loaded 1/%d: %s\n",
             sceneCount,
-            m_sceneRuntime.PathAt( 0 ).empty() ? "generated" : m_sceneRuntime.PathAt( 0 ).c_str() );
+            m_sceneController.PathAt( 0 ).empty() ? "generated" : m_sceneController.PathAt( 0 ).c_str() );
     if ( writeSnapshot )
     {
         const bool saved = m_cGameModelCollection.SaveSceneSnapshot( snapshotOutPath,
@@ -1043,7 +1068,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
         printf( "[scene-load-only] Loaded %d/%d: %s\n",
                 i + 1,
                 sceneCount,
-                m_sceneRuntime.PathAt( i ).empty() ? "generated" : m_sceneRuntime.PathAt( i ).c_str() );
+                m_sceneController.PathAt( i ).empty() ? "generated" : m_sceneController.PathAt( i ).c_str() );
     }
 }
 
@@ -1441,7 +1466,7 @@ void Run::LogSceneFinished( const char* reason )
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_physicsDiagnostics,
+    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
                                                     m_cGameModelCollection,
                                                     SceneState(),
                                                     Cfg(),
@@ -1452,6 +1477,6 @@ void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 
 void Run::EndPhysicsDiagnosticsRun( const char* status )
 {
-    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_physicsDiagnostics, SceneState(), status );
+    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), SceneState(), status );
 }
 #endif

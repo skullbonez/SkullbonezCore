@@ -27,11 +27,11 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 void Run::SaveScreenshot( const char* path )
 {
-    CaptureSystem::SaveBackbufferBmp( Gfx(), path );
+    CaptureController::SaveBackbufferBmp( Gfx(), path );
 }
 
 
 void Run::LogPerfMemory( const char* checkpoint )
 {
-    RuntimeDiagnostics::LogPerfMemory( m_perfLogState, sPerfPass + 1, checkpoint );
+    m_diagnostics.LogPerfMemory( sPerfPass + 1, checkpoint );
 }

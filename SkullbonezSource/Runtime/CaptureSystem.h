@@ -27,7 +27,17 @@ class IRenderCaptureBackend;
 
 namespace Basics
 {
-struct RunScreenshotState;
+struct RunScreenshotState
+{
+    bool isScreenshotSaved = false;   // Screenshot already written this run
+    bool isScreenshotAndExit = false; // Capture frame 1 as SCENENAME.bmp then exit
+    int screenshotFrame = -1;         // Save screenshot at this frame (-1 = unused)
+    int screenshotMs = -1;            // Save screenshot at this elapsed ms (-1 = unused)
+    char screenshotPath[256] = {};    // Output path for screenshot (empty = none)
+    int screenshotInterval = -1;      // Save screenshot every N frames (-1 = disabled)
+    int intervalCaptureCount = 0;     // Sequential counter for interval captures
+    char screenshotDir[256] = {};     // Output directory for interval captures
+};
 
 enum class RuntimeCaptureCompletion
 {

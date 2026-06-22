@@ -1098,19 +1098,19 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 
 bool Run::HasSceneQueueEntry( int index ) const
 {
-    return m_sceneRuntime.HasEntry( index );
+    return m_sceneController.HasEntry( index );
 }
 
 
 bool Run::HasCurrentSceneQueueEntry() const
 {
-    return m_sceneRuntime.HasCurrentEntry();
+    return m_sceneController.HasCurrentEntry();
 }
 
 
 const std::string* Run::CurrentSceneQueuePath() const
 {
-    return m_sceneRuntime.CurrentPath();
+    return m_sceneController.CurrentPath();
 }
 
 
@@ -1211,7 +1211,7 @@ void Run::ClearSceneRuntimeUIOverrides()
 
 void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
@@ -1255,35 +1255,28 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
 
     // Close previous perf log if open
-    if ( m_perfLogState.perfLogFile )
+    if ( m_diagnostics.PerfLog().perfLogFile )
     {
         LogPerfMemory( "end" );
-        if ( m_perfLogState.perfLogWritesSinceFlush > 0 )
+        if ( m_diagnostics.PerfLog().perfLogWritesSinceFlush > 0 )
         {
-            fflush( m_perfLogState.perfLogFile );
-            m_perfLogState.perfLogWritesSinceFlush = 0;
+            fflush( m_diagnostics.PerfLog().perfLogFile );
+            m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
         }
-        fclose( m_perfLogState.perfLogFile );
-        m_perfLogState.perfLogFile = nullptr;
+        fclose( m_diagnostics.PerfLog().perfLogFile );
+        m_diagnostics.PerfLog().perfLogFile = nullptr;
     }
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
-    m_perfLogState.isPerfTest = false;
-    m_perfLogState.perfHeaderWritten = false;
-    m_screenshot.isScreenshotSaved = false;
-    m_screenshot.isScreenshotAndExit = false;
+    m_diagnostics.PerfLog().isPerfTest = false;
+    m_diagnostics.PerfLog().perfHeaderWritten = false;
     m_simulation.Reset();
-    m_screenshot.screenshotFrame = -1;
-    m_screenshot.screenshotMs = -1;
-    m_screenshot.screenshotPath[0] = '\0';
-    m_screenshot.screenshotInterval = -1;
-    m_screenshot.intervalCaptureCount = 0;
-    m_screenshot.screenshotDir[0] = '\0';
-    m_perfLogState.perfLogPath[0] = '\0';
-    m_perfLogState.isPerfLogFlushEnabled = false;
-    m_perfLogState.perfLogFlushInterval = 0;
-    m_perfLogState.perfLogWritesSinceFlush = 0;
+    m_capture.ResetScreenshot();
+    m_diagnostics.PerfLog().perfLogPath[0] = '\0';
+    m_diagnostics.PerfLog().isPerfLogFlushEnabled = false;
+    m_diagnostics.PerfLog().perfLogFlushInterval = 0;
+    m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_uiStress = RunUIStressState{};
@@ -1398,8 +1391,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                                        : m_startupWorkerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_perfLogState.perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_diagnostics.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
+        m_diagnostics.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
@@ -1449,7 +1442,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
 #ifdef _DEBUG
-        isAutomationScene = isAutomationScene || m_physicsDiagnostics.isEnabled;
+        isAutomationScene = isAutomationScene || m_diagnostics.PhysicsDiagnostics().isEnabled;
 #endif
         if ( !preserveUIState )
         {
@@ -1552,41 +1545,46 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
-        m_screenshot.screenshotMs = scene.GetScreenshotMs();
-        m_screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
+        m_capture.Screenshot().screenshotFrame = scene.GetScreenshotFrame();
+        m_capture.Screenshot().screenshotMs = scene.GetScreenshotMs();
+        m_capture.Screenshot().isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
-            strcpy_s( m_screenshot.screenshotPath, sizeof( m_screenshot.screenshotPath ), scene.GetScreenshotPath() );
+            strcpy_s( m_capture.Screenshot().screenshotPath,
+                      sizeof( m_capture.Screenshot().screenshotPath ),
+                      scene.GetScreenshotPath() );
         }
         // Interval capture: create output directory
-        m_screenshot.screenshotInterval = scene.GetScreenshotInterval();
+        m_capture.Screenshot().screenshotInterval = scene.GetScreenshotInterval();
         if ( scene.GetScreenshotDir()[0] != '\0' )
         {
-            strcpy_s( m_screenshot.screenshotDir, sizeof( m_screenshot.screenshotDir ), scene.GetScreenshotDir() );
-            CreateDirectoryA( m_screenshot.screenshotDir, nullptr );
+            strcpy_s( m_capture.Screenshot().screenshotDir,
+                      sizeof( m_capture.Screenshot().screenshotDir ),
+                      scene.GetScreenshotDir() );
+            CreateDirectoryA( m_capture.Screenshot().screenshotDir, nullptr );
         }
 
         // Perf test: open CSV log file
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_perfLogState.isPerfTest = true;
-            strcpy_s( m_perfLogState.perfLogPath, sizeof( m_perfLogState.perfLogPath ), pPerfPath );
+            m_diagnostics.PerfLog().isPerfTest = true;
+            strcpy_s( m_diagnostics.PerfLog().perfLogPath, sizeof( m_diagnostics.PerfLog().perfLogPath ), pPerfPath );
             const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_perfLogState.perfLogFile, m_perfLogState.perfLogPath, mode );
-            if ( m_perfLogState.perfLogFile )
+            fopen_s( &m_diagnostics.PerfLog().perfLogFile, m_diagnostics.PerfLog().perfLogPath, mode );
+            if ( m_diagnostics.PerfLog().perfLogFile )
             {
-                m_perfLogState.perfLogWritesSinceFlush = 0;
+                m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
                 LogPerfMemory( "start" );
             }
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_perfLogState.physicsRegressionLogOverride );
-        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath( m_perfLogState.physicsCollisionTimeLogOverride );
+        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
+            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
 #endif
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
@@ -1679,7 +1677,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         const bool hasSnapshotState =
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
-        const bool shouldPauseSnapshotState = hasSnapshotState && !m_physicsDiagnostics.isEnabled;
+        const bool shouldPauseSnapshotState = hasSnapshotState && !m_diagnostics.PhysicsDiagnostics().isEnabled;
 #else
         const bool shouldPauseSnapshotState = hasSnapshotState;
 #endif
@@ -2186,14 +2184,14 @@ bool Run::CreateSceneFromUI( const char* requestedName )
     }
 
     EnterInteractiveSceneRun();
-    LoadScene( m_sceneRuntime.Append( normalizedPath ), true, true );
+    LoadScene( m_sceneController.Append( normalizedPath ), true, true );
     return true;
 }
 
 
 void Run::LoadSceneFromBrowserIndex( int index )
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
     if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
     {
         return;
@@ -2212,7 +2210,7 @@ void Run::LoadSceneFromBrowserIndex( int index )
         else
         {
             SceneState().isExitOnComplete = false;
-            m_screenshot.isScreenshotAndExit = false;
+            m_capture.Screenshot().isScreenshotAndExit = false;
         }
         return;
     }
@@ -2223,7 +2221,7 @@ void Run::LoadSceneFromBrowserIndex( int index )
 
 void Run::LoadDemoSceneFromUI()
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
     EnterInteractiveSceneRun();
     const int demoIndex = runtime.FindGeneratedDemo();
     if ( demoIndex >= 0 )
@@ -2426,7 +2424,7 @@ bool Run::ApplyAdjacentCinematicMode( int direction )
 
 void Run::LoadAdjacentSceneFromBrowser( int direction )
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
     if ( direction == 0 )
     {
         return;
@@ -2486,7 +2484,7 @@ void Run::LoadAdjacentSceneFromBrowser( int direction )
 
 void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
     if ( !runtime.HasCurrentEntry() )
     {
         return;
@@ -2675,11 +2673,11 @@ void Run::UpdateWorldTerrainBounds()
 
 bool Run::AdvanceScene()
 {
-    SceneRuntime& runtime = m_sceneRuntime;
+    SceneController& runtime = m_sceneController;
     const bool preserveInteractiveUI = SceneState().isInteractiveRun;
 
     // For perf tests with 2 passes, the second pass re-runs the same scene
-    if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
+    if ( m_diagnostics.PerfLog().isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
         LoadScene( runtime.CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );

@@ -144,7 +144,10 @@ WORLD_PREFIXES = (
 RUNTIME_PREFIXES = (
     "Camera",
     "CameraCollection",
+    "CaptureController",
     "CaptureSystem",
+    "DiagnosticsController",
+    "EngineContext",
     "Init",
     "Input",
     "InputController",
@@ -158,13 +161,17 @@ RUNTIME_PREFIXES = (
     "RunRender",
     "RunStress",
     "RunUiTextPass",
+    "RuntimeCommandQueue",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
+    "RuntimeViewModel",
+    "SimulationController",
     "Window",
 )
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
+    "SceneController",
     "SceneRuntime",
 )
 

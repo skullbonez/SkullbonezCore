@@ -57,10 +57,14 @@ Related:
 #include "../Core/Timer.h"
 #include "Input.h"
 #include "InputController.h"
-#include "RuntimeDiagnostics.h"
+#include "CaptureController.h"
+#include "DiagnosticsController.h"
+#include "EngineContext.h"
+#include "RuntimeCommandQueue.h"
+#include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
-#include "Scene/SceneRuntime.h"
-#include "../Physics/SimulationSystem.h"
+#include "Scene/SceneController.h"
+#include "SimulationController.h"
 #include "../Assets/TextureCollection.h"
 #include "Window.h"
 #include "../Rendering/Text.h"
@@ -233,18 +237,6 @@ struct RunCameraState
     float autoCycleInterval = -1.0f;                                             // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;                                                 // Accumulated real-time seconds since last shot
     int autoCycleShotsTaken = 0;                                                 // Number of per-ball screenshots taken so far
-};
-
-struct RunScreenshotState
-{
-    bool isScreenshotSaved = false;                                              // Screenshot already written this run
-    bool isScreenshotAndExit = false;                                            // Capture frame 1 as SCENENAME.bmp then exit
-    int screenshotFrame = -1;                                                    // Save screenshot at this frame (-1 = unused)
-    int screenshotMs = -1;                                                       // Save screenshot at this elapsed ms (-1 = unused)
-    char screenshotPath[256] = {};                                               // Output path for screenshot (empty = none)
-    int screenshotInterval = -1;                                                 // Save screenshot every N frames (-1 = disabled)
-    int intervalCaptureCount = 0;                                                // Sequential counter for interval captures
-    char screenshotDir[256] = {};                                                // Output directory for interval captures
 };
 
 struct RunLiveStyleControlState
@@ -1083,7 +1075,7 @@ class Run
         Run& m_run;
     };
 
-    SceneRuntime m_sceneRuntime;                                                 // Owns scene queue and current scene-run state
+    SceneController m_sceneController;                                           // Owns scene queue and current scene-run state
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
     std::vector<const char*> m_sceneBrowserNamePtrs;
@@ -1126,9 +1118,8 @@ class Run
     bool m_cmdHasPhysicsDebugContactLingerOverride = false;
     float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
 
-    RunPerfLogState m_perfLogState;                                              // Perf/test logging paths, files, and flush policy
+    DiagnosticsController m_diagnostics;                                         // Perf/test logs and queryable physics diagnostic trace
 #ifdef _DEBUG
-    RunPhysicsDiagnosticsState m_physicsDiagnostics;                             // Queryable model-facing physics diagnostic trace
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                        // Scene/app runtime swap policy toggles
@@ -1136,7 +1127,7 @@ class Run
     RunSubsystemState m_systems;                                                 // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
-    SimulationSystem m_simulation;                                               // Simulation timestep policy and physics accumulators
+    SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
     RunReplayScrubberState m_replayScrubber;
@@ -1151,7 +1142,7 @@ class Run
     bool m_replayLauncherVisualBackupActive = false;
     uint32_t m_solverReplayMismatchReports = 0;
     bool m_solverReplayMismatchSuppressed = false;
-    RunScreenshotState m_screenshot;                                             // Screenshot trigger and capture state
+    CaptureController m_capture;                                                 // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle;                                        // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles
@@ -1168,6 +1159,9 @@ class Run
     LauncherLaser m_launcherLaser;                                               // Visible launcher-mode laser shots; render-only feedback.
     Environment::WorldEnvironment m_cWorldEnvironment;                           // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;                     // Scene bodies plus solver-visible object state.
+    RuntimeCommandQueue m_runtimeCommands;                                       // Deferred runtime/tool command intent.
+    EngineContext m_engineContext;                                               // Bound view over runtime-owned systems.
+    RuntimeViewModel m_runtimeViewModel;                                         // Scalar runtime snapshot for presentation/diagnostics.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
     FullscreenQuadPass m_fullscreenQuadPass;                                     // Shared full-screen vertex buffer pass used by sky/post effects
     SkyPass m_skyPass;                                                           // Background sky pass, reused by reflection and scene target passes
@@ -1184,11 +1178,14 @@ class Run
 
     inline static int sPerfPass = 0;
     void Render();                                                               // Skips 3D in text-only runs, then records passes for the current camera state.
-    RunSceneState& SceneState();                                                 // Mutable scene-run state owned by SceneRuntime
-    const RunSceneState& SceneState() const;                                     // Read-only scene-run state owned by SceneRuntime
+    RunSceneState& SceneState();                                                 // Mutable scene-run state owned by SceneController
+    const RunSceneState& SceneState() const;                                     // Read-only scene-run state owned by SceneController
+    void BindEngineContext();                                                    // Binds runtime-owned systems into EngineContext
+    void RefreshRuntimeViewModel();                                              // Rebuilds scalar presentation state from EngineContext
     void RelativeUpdateCamera( uint32_t hash );                                  // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                      // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
+    bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     void StepPhysicsPipelineStage( int direction );                              // direction is a left/right cursor step for pipeline visualization.
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void SetUpCamerasFromScene(

@@ -30,6 +30,7 @@ Related:
 #include <cfloat>
 #include <cstddef>
 #include <cstring>
+#include <utility>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -1715,7 +1716,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.renderTuning.saveDefaults )
         {
-            SaveRenderDefaults();
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveRenderDefaults } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveRenderDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
@@ -1880,34 +1881,39 @@ void Run::TakeInput()
         }
         if ( uiCommands.scene.resetScene )
         {
-            EnterInteractiveSceneRun();
-            ResetCurrentScene( true, true );
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.resetSceneDefaults )
         {
-            EnterInteractiveSceneRun();
-            ResetCurrentScene( false, true, false );
+            RuntimeCommand command{ RuntimeCommandType::ResetCurrentScene };
+            command.preserveUIState = false;
+            command.preserveRuntimeState = false;
+            m_runtimeCommands.Push( std::move( command ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ResetSceneDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.requestDemoScene )
         {
-            LoadDemoSceneFromUI();
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::LoadDemoScene } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::LoadDemoScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.saveSceneDefaults )
         {
-            SaveCurrentSceneDefaults();
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSceneDefaults } );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSceneDefaults, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.createScene )
         {
-            CreateSceneFromUI( uiCommands.scene.requestedSceneName );
+            RuntimeCommand command{ RuntimeCommandType::CreateScene };
+            command.text = uiCommands.scene.requestedSceneName;
+            m_runtimeCommands.Push( std::move( command ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CreateScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.scene.requestedSceneIndex >= 0 )
         {
-            LoadSceneFromBrowserIndex( uiCommands.scene.requestedSceneIndex );
+            RuntimeCommand command{ RuntimeCommandType::LoadSceneIndex };
+            command.index = uiCommands.scene.requestedSceneIndex;
+            m_runtimeCommands.Push( command );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectScene, RuntimeInputActionSource::UI );
         }
 
@@ -2211,7 +2217,9 @@ void Run::TakeInput()
                                                       sScreenshotSeq,
                                                       100 ) )
             {
-                SaveScreenshot( path );
+                RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
+                command.text = path;
+                m_runtimeCommands.Push( std::move( command ) );
             }
         }
     }
@@ -2220,8 +2228,7 @@ void Run::TakeInput()
     {
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ResetScene, 'R' ) )
         {
-            EnterInteractiveSceneRun();
-            ResetCurrentScene( true, true );
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
         }
     }
     if ( SceneState().isSceneMode )
@@ -2230,8 +2237,7 @@ void Run::TakeInput()
                                                           RuntimeInputAction::ResetSceneFromBackspace,
                                                           VK_BACK ) )
         {
-            EnterInteractiveSceneRun();
-            ResetCurrentScene( true, true );
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
         }
     }
 
@@ -2313,6 +2319,64 @@ void Run::TakeInput()
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
     }
+
+    DrainRuntimeCommands();
+}
+
+
+bool Run::DrainRuntimeCommands()
+{
+    bool processed = false;
+    RuntimeCommand command;
+    while ( m_runtimeCommands.TryPop( command ) )
+    {
+        processed = true;
+        switch ( command.type )
+        {
+        case RuntimeCommandType::LoadSceneIndex:
+            LoadSceneFromBrowserIndex( command.index );
+            break;
+        case RuntimeCommandType::LoadDemoScene:
+            LoadDemoSceneFromUI();
+            break;
+        case RuntimeCommandType::ResetCurrentScene:
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( command.preserveUIState, command.suppressExitOnComplete, command.preserveRuntimeState );
+            break;
+        case RuntimeCommandType::CreateScene:
+            CreateSceneFromUI( command.text.c_str() );
+            break;
+        case RuntimeCommandType::SaveScreenshot:
+            if ( !command.text.empty() )
+            {
+                SaveScreenshot( command.text.c_str() );
+            }
+            break;
+        case RuntimeCommandType::SaveSceneDefaults:
+            SaveCurrentSceneDefaults();
+            break;
+        case RuntimeCommandType::SaveRenderDefaults:
+            SaveRenderDefaults();
+            break;
+        case RuntimeCommandType::AdvanceScene:
+            if ( !AdvanceScene() )
+            {
+                PostQuitMessage( 0 );
+            }
+            break;
+        case RuntimeCommandType::Quit:
+            PostQuitMessage( 0 );
+            break;
+        case RuntimeCommandType::None:
+            break;
+        }
+    }
+
+    if ( processed )
+    {
+        RefreshRuntimeViewModel();
+    }
+    return processed;
 }
 
 

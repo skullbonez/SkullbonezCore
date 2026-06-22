@@ -666,10 +666,13 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
 #endif
     }
 
+    m_run.RefreshRuntimeViewModel();
+    const RuntimeViewModel& view = m_run.m_runtimeViewModel;
+
     const char* sceneName = "";
-    if ( m_run.SceneState().isSceneMode && m_run.m_sceneRuntime.HasCurrentEntry() )
+    if ( view.sceneMode && m_run.m_sceneController.HasCurrentEntry() )
     {
-        sceneName = FileNameFromPath( m_run.m_sceneRuntime.CurrentPath()->c_str() );
+        sceneName = FileNameFromPath( m_run.m_sceneController.CurrentPath()->c_str() );
     }
 
     if ( m_run.m_UI.IsVisible() )
@@ -700,29 +703,29 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                            1000.0f;
         UIData.cpuFrameMs = m_run.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_run.m_timers.gpuFrameWorkMs;
-        UIData.modelCount = m_run.SceneState().modelCount;
+        UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-        UIData.currentFrame = m_run.SceneState().currentFrame;
-        UIData.targetFrameCount = m_run.SceneState().targetFrameCount;
+        UIData.currentFrame = view.frame;
+        UIData.targetFrameCount = view.targetFrameCount;
         UIData.rngSeed = m_run.SceneState().rngSeed;
         UIData.solverBallCount = m_run.SceneState().solverBallCount;
         UIData.solverBoxCount = m_run.SceneState().solverBoxCount;
-        UIData.currentSceneIndex = m_run.SceneState().currentSceneIndex;
-        UIData.sceneCount = m_run.m_sceneRuntime.QueueSize();
+        UIData.currentSceneIndex = view.sceneIndex;
+        UIData.sceneCount = view.sceneCount;
         UIData.now = m_run.m_timers.simulationTimer.GetTotalTime();
-        UIData.sceneMode = m_run.SceneState().isSceneMode;
-        UIData.scenePhysicsEnabled = m_run.SceneState().isScenePhysics;
-        UIData.sceneTextEnabled = m_run.SceneState().isSceneText;
+        UIData.sceneMode = view.sceneMode;
+        UIData.scenePhysicsEnabled = view.scenePhysics;
+        UIData.sceneTextEnabled = view.sceneText;
         UIData.textOnly = m_run.m_debug.isTextOnly;
-        UIData.fixedStep = m_run.SceneState().isFixedStep;
+        UIData.fixedStep = view.fixedStep;
         UIData.exitOnComplete = m_run.SceneState().isExitOnComplete;
         UIData.testComplete = m_run.SceneState().isTestComplete;
         UIData.vsyncEnabled = m_run.m_runtimeSettings.isVsyncEnabled;
         UIData.pipelineSyncEnabled = m_run.m_runtimeSettings.isPipelineSyncEnabled;
         UIData.sceneEnergy = sceneEnergyForDisplay;
-        UIData.timeScale = m_run.SceneState().timeScale;
+        UIData.timeScale = view.timeScale;
         UIData.trackHeight = m_run.m_camera.trackBallIndex >= 0 ? m_run.m_camera.trackHeight : 0.0f;
         UIData.autoCycleInterval = m_run.m_camera.autoCycleInterval > 0.0f ? m_run.m_camera.autoCycleInterval : 0.0f;
         UIData.worldGravity = m_run.m_cWorldEnvironment.GetGravity();
@@ -776,8 +779,8 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         UIData.editorTerrainAlign = m_run.m_editor.autoTerrainAlign;
         UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
         UIData.editorObjectType = m_run.m_editor.objectType;
-        UIData.canSaveSceneDefaults = m_run.SceneState().isSceneMode && m_run.m_sceneRuntime.HasCurrentEntry() &&
-                                      !m_run.m_sceneRuntime.CurrentPath()->empty();
+        UIData.canSaveSceneDefaults = view.sceneMode && m_run.m_sceneController.HasCurrentEntry() &&
+                                      !m_run.m_sceneController.CurrentPath()->empty();
         UIData.cinematicRendering = m_run.IsCinematicRenderingEnabled();
         UIData.ordinaryRender = Cfg().ordinaryRender;
         UIData.cinematic = m_run.ActiveCinematicConfig();
