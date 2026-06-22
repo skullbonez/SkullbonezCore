@@ -188,6 +188,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayRecorder",
     "ReplaySolverSnapshot",
+    "ReplayV2Artifact",
     "RunReplayTools",
 )
 

@@ -28,6 +28,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "Replay/ReplayExporter.h"
+#include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
 
@@ -709,11 +710,11 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     char path[256] = {};
     bool saved = false;
     int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
-    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_";
+    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
         saved = track == RunReplayTrack::Solver ? ReplayExporter::Save( m_solverReplay, path )
-                                                : ReplayExporter::Save( m_replay, path );
+                                                : ReplayV2Artifact::SavePresentation( m_replay, path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();

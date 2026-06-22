@@ -3,8 +3,9 @@
 Date: 2026-06-21
 Status: In progress - smooth backwards presentation scrubbing is now the
 primary goal; retained in-memory solver restore plus path/contact visualizer and
-live prediction v1 are implemented, while sparse checkpoint/event rollback and
-saved `.skreplay` v2 artifacts are not implemented.
+live prediction v1 are implemented; binary `.skreplay` v2 presentation artifacts
+and `tools\replay_query` are implemented; sparse checkpoint/event rollback,
+solver chunks, and saved authoritative restore are not implemented.
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -31,12 +32,14 @@ correctness available now. Future work can replace the dense retained snapshot
 with checkpoint/event replay once restore hashes and visualization tooling are
 proven.
 
-Audit note, 2026-06-22: the current saved `solver_replay_####.skreplay`
-artifact is not v2. It is version 1 JSON debug/inspection output with dense
-per-frame body samples and compact authoritative snapshot summaries. It does not
-serialize full persistent-contact rows, event streams, seek indexes, or a
-reloadable authoritative checkpoint format. Current restore works only from the
-retained in-memory `ReplaySolverFrameSample` chain.
+Audit note, 2026-06-22: the saved `solver_replay_####.skreplay` artifact is not
+v2. It is version 1 JSON debug/inspection output with dense per-frame body
+samples and compact authoritative snapshot summaries. The presentation save path
+now writes `replay_v2_####.skreplay` chunked binary v2 artifacts for smooth
+visual scrub data only. V2 does not yet serialize full persistent-contact rows,
+event streams, authoritative solver checkpoints, or a reloadable authoritative
+checkpoint format. Current restore still works only from the retained in-memory
+`ReplaySolverFrameSample` chain.
 
 The core rule remains:
 
@@ -149,7 +152,7 @@ solver hash, and only then make the state live.
 | Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. |
 | Branch restore | Press `Enter` while paused on the solver row to directly restore the selected retained in-memory solver frame as the new live branch. This does not yet restore a sparse checkpoint, replay events forward, or hash-gate the restored tick before going live. |
 | Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts light child bodies before impact with amber incoming traces/rings, then continue with grey post-contact traces. The right-side cause tree lists the root/child hierarchy and focuses the camera on clicked rows. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. `ALT VEL` edits selected dynamic-body linear/angular velocity and rebuilds the predicted chain from the edited live state. |
-| Saving | `SAVE` writes retained presentation samples to `replays\replay_####.skreplay`; solver row save writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries. These files are not reloadable authoritative replay artifacts. |
+| Saving | `SAVE` on the presentation row writes `replays\replay_v2_####.skreplay` binary v2 presentation artifacts with `MANI`, `BODY`, `PRES`, and `INDX` chunks. Solver row save still writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries. These files are not reloadable authoritative replay artifacts. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
 | Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. There is no restore-to-tick hash-match gate or saved-artifact restore test yet. |
 
@@ -162,7 +165,7 @@ solver hash, and only then make the state live.
 | Phase 3: Event stream | Missing | No typed `ReplayEventStream`, event cursors, or deterministic event replay for launcher, reset/load, world edits, editor commits, or generated-scene rebuilds. |
 | Phase 4: Restore to tick without branch resume | Missing | Current restore applies the selected retained in-memory sample directly. It does not restore the nearest checkpoint, replay ticks/events to the target, compare hashes, or emit `replay_restore`. |
 | Phase 5: Branch and resume | Partial | `Enter` on the solver row makes the selected retained sample live and resets the replay timeline, but there is no branch id or parent-branch metadata. |
-| Phase 6: Saved authoritative replay artifacts | Missing | Current `.skreplay` files are version 1 JSON. They are inspection/debug artifacts, not chunked v2 files with solver checkpoints, event stream chunks, hashes, seek index, loader, or verifier. |
+| Phase 6: Saved authoritative replay artifacts | Partial | Presentation saves now produce chunked binary v2 artifacts for smooth scrub playback/querying, with a body dictionary, 32-byte pose records, seek index, and `tools\replay_query` bridge. Missing: solver checkpoint chunks, event stream chunks, per-tick solver hash chunks, loader, restore verifier, and branch-from-file. |
 
 Observed local artifact sizing during the 2026-06-22 audit:
 
@@ -316,9 +319,11 @@ That assumes body metadata is deduplicated and dense samples are binary, not
 JSON. Compression and delta encoding can come later, after the uncompressed
 format and query path are correct.
 
-Short-term export can remain JSON for inspectability. Once deterministic restore
-is proven, add binary chunks and optional compression. File-size work should not
-come before correctness.
+Short-term solver export can remain JSON for inspectability while the legacy
+debug path is still useful. Presentation save now writes binary v2 because
+smooth backwards scrubbing is the immediate priority and the dense pose stream
+was too large as JSON. Compression and delta encoding can come later, after the
+uncompressed format and query path are correct.
 
 ### SkullScope And Agent Queryability
 
@@ -335,11 +340,11 @@ tools\replay_query.bat replays\sample.skreplay export-skullscope --frames 1200:1
 
 Implementation options:
 
-1. Add `tools\replay_query.py/.bat` that decodes v2 chunk tables and exposes
-   bounded JSON answers for agents and humans.
+1. `tools\replay_query.py/.bat` decodes v2 chunk tables and exposes bounded JSON
+   answers for agents and humans.
 2. Reuse the existing `physics_query.py` cache style by importing selected v2
    chunks into SQLite tables.
-3. Provide `export-skullscope` for selected frame windows so existing
+3. `export-skullscope` writes selected frame windows so existing
    `tools\physics_query.bat` workflows can inspect replay slices without loading
    huge raw artifacts into the model.
 
