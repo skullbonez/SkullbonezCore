@@ -591,6 +591,8 @@ struct ParsedArgs
     int replaySeconds = 30;
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
+    bool replayRestoreProbe = false;
+    float replayRestoreProbeNormalized = 0.25f;
     bool replaySaveProbe = false;
     char replaySaveProbePath[260] = {};
     bool replayLoad = false;
@@ -770,6 +772,19 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[replay] Scrub SkullScope probe enabled." },
+        { "--replay-restore-test",
+          "--replay_restore_test",
+          []( ParsedArgs& args )
+          {
+              args.replayRestoreProbe = true;
+              args.replayRestoreProbeNormalized = 0.25f;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = 1;
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+          },
+          "[replay] Restore hash SkullScope probe enabled." },
         { "--worker-self-test",
           "--workers-self-test",
           []( ParsedArgs& args )
@@ -1658,6 +1673,28 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[replay] Scrub probe normalized position: %.3f\n", args.replayScrubProbeNormalized );
               return true;
           } },
+        { "--replay-restore-probe",
+          "--replay_restore_probe",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float normalized = 0.0f;
+              if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
+              {
+                  return FailCommandLineParse(
+                      "--replay-restore-probe expects a normalized position in the range 0..0.995." );
+              }
+              args.replayRestoreProbe = true;
+              args.replayRestoreProbeNormalized = normalized;
+              args.replayRecording = true;
+              args.replayExplicit = true;
+              args.replaySeconds = (std::max)( 1, args.replaySeconds );
+              args.fixedStep = true;
+              args.suppressExitDialog = true;
+              fprintf( stdout,
+                       "[replay] Restore probe normalized position: %.3f\n",
+                       args.replayRestoreProbeNormalized );
+              return true;
+          } },
         { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
         { "--replay-save-test", "--replay_save_test", ApplyReplaySaveProbePath },
         { "--replay-load", "--replay_load", ApplyReplayLoadPath },
@@ -1810,6 +1847,23 @@ bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 #endif
 }
 
+// Guards the replay restore hash SkullScope probe against use in non-Debug builds.
+bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-restore-test" ) && !HasOption( commandLine, "--replay_restore_test" ) &&
+         !HasOption( commandLine, "--replay-restore-probe" ) && !HasOption( commandLine, "--replay_restore_probe" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse(
+        "--replay-restore-probe is only supported in Debug builds with SkullScope diagnostics." );
+#else
+    return true;
+#endif
+}
+
 // Guards the replay v2 save probe against use in non-Debug builds.
 bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 {
@@ -1930,6 +1984,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
     if ( !ValidateReplayScrubProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplayRestoreProbe( commandLine ) )
     {
         return false;
     }
@@ -2162,6 +2220,10 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.replayScrubProbe )
         {
             cRun->SetReplayScrubProbe( args.replayScrubProbeNormalized );
+        }
+        if ( args.replayRestoreProbe )
+        {
+            cRun->SetReplayRestoreProbe( args.replayRestoreProbeNormalized );
         }
         if ( args.replaySaveProbe )
         {

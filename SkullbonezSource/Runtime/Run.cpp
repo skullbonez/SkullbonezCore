@@ -608,6 +608,14 @@ void Run::SetReplayScrubProbe( float normalized )
     printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
 }
 
+void Run::SetReplayRestoreProbe( float normalized )
+{
+    m_replayRestoreProbe.enabled = true;
+    m_replayRestoreProbe.completed = false;
+    m_replayRestoreProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayRestoreProbe.normalized );
+}
+
 void Run::SetReplaySaveProbe( const char* path )
 {
     if ( !path || path[0] == '\0' )
@@ -912,9 +920,7 @@ void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& s
 }
 
 
-bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
-                                           char* outReason,
-                                           std::size_t reasonSize )
+bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )
     {
@@ -1009,8 +1015,127 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
     RestoreReplayLauncherVisualSample( sample.launcherVisual );
+    writeReason( "applied" );
+    return true;
+}
+
+bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
+                                          uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash,
+                                          std::size_t& outBodyCount )
+{
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.checkpointIntervalFrames = 1;
+
+    ReplaySolverRecorder verifier;
+    if ( !verifier.Configure( config ) )
+    {
+        return false;
+    }
+
+    ReplayLauncherVisualSample launcherVisual;
+    BuildReplayLauncherVisualSample( launcherVisual );
+
+    ReplayCaptureInput input;
+    input.sceneFrame = reference.sceneFrame;
+    input.simulationSeconds = reference.simulationSeconds;
+    input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
+    input.fixedStep = SceneState().isFixedStep;
+    input.scenePhysicsEnabled = SceneState().isScenePhysics;
+    input.sceneTextEnabled = SceneState().isSceneText;
+    input.waterHidden = m_debug.isWaterHidden;
+    input.terrainHidden = m_debug.isTerrainHidden;
+    input.cameras = m_systems.cameras;
+    input.world = &m_cWorldEnvironment;
+    input.models = &m_cGameModelCollection;
+    input.launcherVisual = &launcherVisual;
+    verifier.CaptureFrame( input );
+
+    const ReplaySolverFrameSample* verified = verifier.LatestSample();
+    if ( !verified )
+    {
+        return false;
+    }
+
+    outSolverHash = verified->solverHash;
+    outPresentationHash = verified->presentationHash;
+    outBodyCount = verified->bodies.size();
+    return true;
+}
+
+bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
+                                           char* outReason,
+                                           std::size_t reasonSize )
+{
+    auto writeReason = [outReason, reasonSize]( const char* message )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+        }
+    };
+
+    ReplaySolverFrameSample liveBackup;
+    bool hasLiveBackup = false;
+    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    {
+        if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
+        {
+            liveBackup = *latest;
+            hasLiveBackup = true;
+        }
+    }
+
+    char applyReason[128] = {};
+    if ( !ApplyReplaySolverSampleState( sample, applyReason, sizeof( applyReason ) ) )
+    {
+        writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
+        return false;
+    }
+
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    const bool hashCaptured =
+        CaptureCurrentReplaySolverHash( sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
+    const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
+    bool fallbackRestored = false;
+
+    if ( !hashMatched && hasLiveBackup )
+    {
+        char fallbackReason[128] = {};
+        fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+    }
+
+#ifdef _DEBUG
+    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(),
+                                               SceneState(),
+                                               sample,
+                                               restoredSolverHash,
+                                               restoredPresentationHash,
+                                               restoredBodyCount,
+                                               hashCaptured,
+                                               hashMatched,
+                                               !hashMatched && hasLiveBackup,
+                                               fallbackRestored );
+#endif
+
+    if ( !hashCaptured )
+    {
+        writeReason( "restore hash capture failed" );
+        return false;
+    }
+    if ( !hashMatched )
+    {
+        writeReason( fallbackRestored ? "restore hash mismatch; live state restored"
+                                      : "restore hash mismatch; fallback unavailable" );
+        return false;
+    }
+
     ResetReplayTimelineForActiveScene();
-    writeReason( "restored" );
+    writeReason( "restored hash match" );
     return true;
 }
 

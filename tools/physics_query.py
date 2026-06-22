@@ -362,6 +362,27 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table replay_restores(
+            run_id text not null,
+            frame integer not null,
+            target_replay_frame integer,
+            target_scene_frame integer,
+            target_solver_hash text,
+            target_presentation_hash text,
+            restored_solver_hash text,
+            restored_presentation_hash text,
+            target_body_count integer,
+            restored_body_count integer,
+            contact_count integer,
+            pipeline_record_count integer,
+            checkpoint_boundary integer,
+            hash_captured integer,
+            hash_matched integer,
+            fallback_attempted integer,
+            fallback_restored integer,
+            primary key(run_id, frame)
+        );
+
         create table events(
             run_id text not null,
             event_id text not null,
@@ -398,6 +419,7 @@ def create_indexes(conn):
         create index idx_solver_stats_frame on solver_stats(run_id, frame);
         create index idx_pipeline_stages_frame on pipeline_stages(run_id, frame);
         create index idx_replay_scrubs_frame on replay_scrubs(run_id, selected_replay_frame, live_replay_frame);
+        create index idx_replay_restores_frame on replay_restores(run_id, target_replay_frame);
         """
     )
 
@@ -515,6 +537,7 @@ def import_trace(conn, trace_path):
         "solver_stats": 0,
         "pipeline_stages": 0,
         "replay_scrub": 0,
+        "replay_restore": 0,
         "event": 0,
         "end": 0,
         "unknown": 0,
@@ -554,6 +577,8 @@ def import_trace(conn, trace_path):
                 insert_pipeline_stages(conn, item)
             elif kind == "replay_scrub":
                 insert_replay_scrub(conn, item)
+            elif kind == "replay_restore":
+                insert_replay_restore(conn, item)
             elif kind == "event":
                 insert_event(conn, item)
             elif kind == "end":
@@ -891,6 +916,39 @@ def insert_replay_scrub(conn, item):
             as_float(item.get("pre_live_delta_sq")),
             as_float(item.get("applied_delta_sq")),
             as_float(item.get("restored_delta_sq")),
+        ),
+    )
+
+
+def insert_replay_restore(conn, item):
+    conn.execute(
+        """
+        insert or replace into replay_restores(
+            run_id, frame, target_replay_frame, target_scene_frame, target_solver_hash,
+            target_presentation_hash, restored_solver_hash, restored_presentation_hash,
+            target_body_count, restored_body_count, contact_count, pipeline_record_count,
+            checkpoint_boundary, hash_captured, hash_matched, fallback_attempted, fallback_restored
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_int(item.get("target_replay_frame")),
+            as_int(item.get("target_scene_frame")),
+            str(item.get("target_solver_hash")) if item.get("target_solver_hash") is not None else None,
+            str(item.get("target_presentation_hash")) if item.get("target_presentation_hash") is not None else None,
+            str(item.get("restored_solver_hash")) if item.get("restored_solver_hash") is not None else None,
+            str(item.get("restored_presentation_hash")) if item.get("restored_presentation_hash") is not None else None,
+            as_int(item.get("target_body_count")),
+            as_int(item.get("restored_body_count")),
+            as_int(item.get("contact_count")),
+            as_int(item.get("pipeline_record_count")),
+            as_int(item.get("checkpoint_boundary")),
+            as_int(item.get("hash_captured")),
+            as_int(item.get("hash_matched")),
+            as_int(item.get("fallback_attempted")),
+            as_int(item.get("fallback_restored")),
         ),
     )
 
@@ -1801,6 +1859,45 @@ def query_replay(conn, cache, args):
     }
 
 
+def query_restore(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    rows = conn.execute(
+        """
+        select * from replay_restores
+        where run_id=?
+        order by frame
+        limit ?
+        """,
+        (run_id, args.limit or DEFAULT_LIMIT),
+    ).fetchall()
+    restores = []
+    for row in rows:
+        checks = {
+            "hashCaptured": row["hash_captured"] == 1,
+            "hashMatched": row["hash_matched"] == 1
+            and row["target_solver_hash"] is not None
+            and row["restored_solver_hash"] is not None
+            and row["target_solver_hash"] == row["restored_solver_hash"],
+            "bodyCountMatched": row["target_body_count"] is not None
+            and row["restored_body_count"] is not None
+            and row["target_body_count"] == row["restored_body_count"],
+            "noFallbackNeeded": row["fallback_attempted"] == 0 and row["fallback_restored"] == 0,
+        }
+        restore = row_to_dict(row)
+        restore["checks"] = checks
+        restore["passed"] = all(checks.values())
+        restores.append(restore)
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "restores": restores,
+        "passed": bool(restores) and all(item["passed"] for item in restores),
+        "note": None if rows else "No replay restore probe rows are present for this trace.",
+        "relatedQueries": ["frame <target_scene_frame>", "replay --limit 8"],
+    }
+
+
 def load_questions():
     if not QUESTIONS_PATH.exists():
         return {}
@@ -2048,6 +2145,10 @@ def build_parser():
     replay.add_argument("--min-distance-sq", type=float, default=0.0001)
     replay.add_argument("--trace-tolerance-sq", type=float, default=0.000001)
     replay.set_defaults(func=query_replay)
+
+    restore = sub.add_parser("restore", help="Replay restore hash probe diagnostics.")
+    add_common(restore)
+    restore.set_defaults(func=query_restore)
 
     questions = sub.add_parser("questions", help="List or expand pre-baked question query packs.")
     add_common(questions)

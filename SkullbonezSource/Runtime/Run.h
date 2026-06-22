@@ -604,6 +604,14 @@ struct RunReplayScrubProbeState
     float minDistanceSquared = 0.0001f;
 };
 
+struct RunReplayRestoreProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    float normalized = 0.25f;
+    int minSampleCount = 24;
+};
+
 struct RunReplaySaveProbeState
 {
     bool enabled = false;
@@ -1252,6 +1260,7 @@ class Run
     DiagnosticsController m_diagnostics;                                         // Perf/test logs and queryable physics diagnostic trace
 #ifdef _DEBUG
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
+    RunReplayRestoreProbeState m_replayRestoreProbe;                             // CLI-only solver restore hash self-test state.
     RunReplaySaveProbeState m_replaySaveProbe;                                   // CLI-only v2 replay artifact save self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                        // Scene/app runtime swap policy toggles
@@ -1517,6 +1526,11 @@ class Run
     void RestoreReplayPresentationRenderPose();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
     void RestoreReplayLauncherVisualForRender();
+    bool ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
+    bool CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
+                                         uint64_t& outSolverHash,
+                                         uint64_t& outPresentationHash,
+                                         std::size_t& outBodyCount );
     bool
     RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
 
@@ -1628,6 +1642,7 @@ class Run
     void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
     void TickReplayScrubProbe();
+    void TickReplayRestoreProbe();
     void TickReplaySaveProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
@@ -1674,6 +1689,7 @@ class Run
         const char* path,
         bool fixedStepForcedByDiagnostics );                                     // Enable queryable physics diagnostics (CLI --physics-diag)
     void SetReplayScrubProbe( float normalized );                                // Enable CLI-only replay scrub SkullScope probe.
+    void SetReplayRestoreProbe( float normalized );                              // Enable CLI-only replay restore hash probe.
     void SetReplaySaveProbe( const char* path );                                 // Enable CLI-only v2 replay save probe.
     void VerifyLoadedReplayPresentationProbe( float normalized );                // Validate runtime scrubbing from a loaded v2 file.
 #endif

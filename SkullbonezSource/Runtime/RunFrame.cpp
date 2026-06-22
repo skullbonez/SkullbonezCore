@@ -308,6 +308,7 @@ void Run::CaptureReplayPhysicsStep()
     }
 #ifdef _DEBUG
     TickReplayScrubProbe();
+    TickReplayRestoreProbe();
     TickReplaySaveProbe();
 #endif
 }
@@ -500,6 +501,55 @@ void Run::TickReplayScrubProbe()
         static_cast<unsigned long long>( live->frameIndex ),
         selectedBody->id.value,
         bestDistanceSquared );
+    PostQuitMessage( 0 );
+}
+
+void Run::TickReplayRestoreProbe()
+{
+    if ( !m_replayRestoreProbe.enabled || m_replayRestoreProbe.completed )
+    {
+        return;
+    }
+
+    const ReplayRecorderStats stats = m_solverReplay.GetStats();
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replayRestoreProbe.minSampleCount ) )
+    {
+        return;
+    }
+
+    const ReplaySolverFrameSample* selectedSample =
+        m_solverReplay.SampleAtNormalized( m_replayRestoreProbe.normalized );
+    const ReplaySolverFrameSample* latestSample = m_solverReplay.LatestSample();
+    if ( !selectedSample || !latestSample )
+    {
+        throw std::runtime_error( "replay restore probe could not select retained solver samples" );
+    }
+    if ( selectedSample->frameIndex >= latestSample->frameIndex )
+    {
+        throw std::runtime_error( "replay restore probe did not select an older solver sample" );
+    }
+
+    const ReplaySolverFrameSample selected = *selectedSample;
+    const ReplayFrameIndex latestFrame = latestSample->frameIndex;
+    const uint64_t selectedHash = selected.solverHash;
+    char reason[160] = {};
+    const bool restored = RestoreReplaySolverSampleAsLive( selected, reason, sizeof( reason ) );
+    if ( !restored )
+    {
+        char message[224] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore probe failed: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
+        throw std::runtime_error( message );
+    }
+
+    m_replayRestoreProbe.completed = true;
+    printf( "[replay] Restore probe passed: target_replay_frame=%llu previous_live_replay_frame=%llu "
+            "solver_hash=0x%016llX\n",
+            static_cast<unsigned long long>( selected.frameIndex ),
+            static_cast<unsigned long long>( latestFrame ),
+            static_cast<unsigned long long>( selectedHash ) );
     PostQuitMessage( 0 );
 }
 

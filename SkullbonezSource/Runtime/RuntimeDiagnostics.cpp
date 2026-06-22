@@ -307,6 +307,49 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
     Log().FlushAll();
 }
 
+void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                                const RunSceneState& scene,
+                                                const ReplaySolverFrameSample& selected,
+                                                uint64_t restoredSolverHash,
+                                                uint64_t restoredPresentationHash,
+                                                std::size_t restoredBodyCount,
+                                                bool hashCaptured,
+                                                bool hashMatched,
+                                                bool fallbackAttempted,
+                                                bool fallbackRestored )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
+                  "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
+                  "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
+                  "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
+                  "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
+                  "\"fallback_restored\":%d}\n",
+                  diagnostics.currentRunId,
+                  scene.currentFrame,
+                  static_cast<unsigned long long>( selected.frameIndex ),
+                  selected.sceneFrame,
+                  static_cast<unsigned long long>( selected.solverHash ),
+                  static_cast<unsigned long long>( selected.presentationHash ),
+                  static_cast<unsigned long long>( restoredSolverHash ),
+                  static_cast<unsigned long long>( restoredPresentationHash ),
+                  selected.bodies.size(),
+                  restoredBodyCount,
+                  static_cast<unsigned>( selected.contactCount ),
+                  static_cast<unsigned>( selected.pipelineRecordCount ),
+                  selected.checkpointBoundary ? 1 : 0,
+                  hashCaptured ? 1 : 0,
+                  hashMatched ? 1 : 0,
+                  fallbackAttempted ? 1 : 0,
+                  fallbackRestored ? 1 : 0 );
+    Log().FlushAll();
+}
+
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
                                                    const RunSceneState& scene,
                                                    const char* status )
