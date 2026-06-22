@@ -217,7 +217,8 @@ enum class ReplayEventKind : uint16_t
     BranchRestore = 3,
     WorldOverride = 4,
     LauncherConfig = 5,
-    LauncherFire = 6
+    LauncherFire = 6,
+    GeneratedSceneConfig = 7
 };
 
 struct ReplayEventSample

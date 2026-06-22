@@ -1498,6 +1498,7 @@ class Run
         const Math::Vector::Vector3& rayOrigin,
         const Math::Vector::Vector3& rayDirection,
         const Math::Vector::Vector3& cameraUp );                                 // Records camera-derived launcher fire payloads.
+    void RecordReplayGeneratedSceneConfigEvent();                                // Records generated-scene object counts and seed metadata.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.

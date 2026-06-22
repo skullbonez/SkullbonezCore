@@ -136,6 +136,7 @@ class EventInfo:
             4: "worldOverride",
             5: "launcherConfig",
             6: "launcherFire",
+            7: "generatedSceneConfig",
         }.get(self.kind, "unknown")
 
 
@@ -258,6 +259,18 @@ def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
             }
         )
         return decoded
+    if row.kind == 7:
+        override_id = (row.flags >> 8) & 0x3
+        return {
+            "modelCount": row.values[0],
+            "solverBallCount": row.values[1],
+            "solverBoxCount": row.values[2],
+            "rngSeed": row.values[3],
+            "exactSolverCounts": bool(row.flags & 1),
+            "uiModelCountOverride": bool(row.flags & 2),
+            "uiSolverCountOverride": bool(row.flags & 4),
+            "objectTypeOverride": {0: "mixed", 1: "allBalls", 2: "allBoxes"}.get(override_id, "unknown"),
+        }
     return None
 
 

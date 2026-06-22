@@ -533,6 +533,16 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         WriteReplayProbeReason( outReason, reasonSize, "applied launcher fire" );
         return true;
     }
+    case ReplayEventKind::GeneratedSceneConfig:
+        if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
+             SceneState().solverBoxCount != event.value2 ||
+             static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "generated scene config event does not match live state" );
+            return false;
+        }
+        WriteReplayProbeReason( outReason, reasonSize, "verified generated scene config" );
+        return true;
     default:
         WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
         return false;

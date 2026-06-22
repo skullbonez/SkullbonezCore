@@ -49,6 +49,11 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -71,6 +76,16 @@ int32_t ReplayFloatBitsSigned( float value )
 void HashReplayFloat( uint64_t& hash, float value )
 {
     const uint32_t bits = ReplayFloatBits( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
+}
+
+void HashReplayInt( uint64_t& hash, int32_t value )
+{
+    const uint32_t bits = static_cast<uint32_t>( value );
     for ( int shift = 0; shift < 32; shift += 8 )
     {
         hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
@@ -762,6 +777,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     m_solverReplay.ResetTimeline( sceneLabel );
     m_replayEvents.ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    RecordReplayGeneratedSceneConfigEvent();
     m_solverReplayMismatchReports = 0;
     m_solverReplayMismatchSuppressed = false;
 }
@@ -906,6 +922,44 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
                        m_cGameModelCollection.GetModelCount(),
                        hash,
                        payload );
+}
+
+
+void Run::RecordReplayGeneratedSceneConfigEvent()
+{
+    if ( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 )
+    {
+        return;
+    }
+
+    uint32_t flags = 0;
+    flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
+                 ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
+                 : 0u;
+    flags |= m_UIModelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+    flags |= ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+                 ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
+                 : 0u;
+    flags |= ( static_cast<uint32_t>( m_generatedObjectTypeOverride ) << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+             REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, SceneState().modelCount );
+    HashReplayInt( hash, SceneState().solverBallCount );
+    HashReplayInt( hash, SceneState().solverBoxCount );
+    HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
+    HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+    HashReplayInt( hash, static_cast<int32_t>( m_generatedObjectTypeOverride ) );
+
+    RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
+                       0,
+                       flags,
+                       SceneState().modelCount,
+                       SceneState().solverBallCount,
+                       SceneState().solverBoxCount,
+                       static_cast<int32_t>( SceneState().rngSeed ),
+                       hash,
+                       "generated_scene_config" );
 }
 
 

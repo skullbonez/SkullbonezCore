@@ -30,7 +30,7 @@ OUT_DIR = REPO / "TestOutput" / "validation" / "replay_v2"
 ARTIFACT = OUT_DIR / "replay_save_probe.skreplay"
 TRACE = OUT_DIR / "replay_save_probe.physicsdiag.ndjson"
 RUNTIME_TRACE = OUT_DIR / "replay_save_probe_runtime.physicsdiag.ndjson"
-SCENE_ARG = "SkullbonezData/scenes/physics_roll.scene.json"
+SCENE_ARG = "SkullbonezData/scenes/replay_v2_solver_one.scene.json"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 REPLAY_QUERY_BAT = REPO / "tools" / "replay_query.bat"
 PHYSICS_QUERY_BAT = REPO / "tools" / "physics_query.bat"
@@ -349,11 +349,16 @@ def query_artifact():
     if event_samples[0].get("kind") != "timelineStart":
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
     event_kinds = {sample.get("kind") for sample in event_samples}
-    for expected_kind in ("worldOverride", "launcherConfig", "launcherFire"):
+    for expected_kind in ("generatedSceneConfig", "worldOverride", "launcherConfig", "launcherFire"):
         if expected_kind not in event_kinds:
             raise RuntimeError(f"expected replay event kind {expected_kind}, found {sorted(event_kinds)}")
     for sample in event_samples:
-        if sample.get("kind") in ("worldOverride", "launcherConfig", "launcherFire") and not sample.get("decoded"):
+        if sample.get("kind") in (
+            "generatedSceneConfig",
+            "worldOverride",
+            "launcherConfig",
+            "launcherFire",
+        ) and not sample.get("decoded"):
             raise RuntimeError(f"expected decoded payload for {sample.get('kind')}: {sample}")
 
     cursor_command = [
