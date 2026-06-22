@@ -1195,6 +1195,17 @@ class Run
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     void StepPhysicsPipelineStage( int direction );                              // direction is a left/right cursor step for pipeline visualization.
+    void UpdateRuntimeInputModeAfterAction(
+        RuntimeInputAction action,
+        RuntimeInputActionSource source );                                       // Records the mode transition caused by one runtime/tool action.
+    bool ReplayInspectionActive() const;                                         // True when replay owns inspection camera semantics.
+    bool ReplayInspectionMouseLookActive() const;                                // True when replay inspection is consuming mouse-look.
+    bool MouseLookOwnsCursor() const;                                            // True when camera/editor/replay mouse-look should hide the system cursor.
+    bool ShouldHideNativeCursor() const;                                         // True when the current tool mode should hide the Windows cursor.
+    void ApplyCursorOwnership();                                                 // Applies current cursor ownership to the system cursor.
+    void ReleaseMouseToUI();                                                     // Gives mouse focus back to Win32/UI when tools stop owning it.
+    void EnterFlyModeCamera();                                                   // Switches camera state into free-flight controls.
+    void ExitFlyModeCamera();                                                    // Restores terrain camera bounds and leaves launcher mode.
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void SetUpCamerasFromScene(
         const TestScene& scene );                                                // Applies authored camera records without disturbing scene automation gates.
@@ -1405,6 +1416,18 @@ class Run
                                        Math::Vector::Vector3& outCenter )
         const;                                                                   // Terrain hit converted to object center; false when placement is invalid.
     bool TryComputeEditorPlacementPreview( int objectType );                     // Snapped ghost placement data from the mouse ray.
+    void ResetEditorUnfocusedInputState();                                       // Clears transient editor gestures when app focus is lost.
+    void ClearEditorManipulationState();                                         // Clears placement/gizmo gesture state while preserving editor mode.
+    void ToggleEditorPlacementMode( RuntimeInputActionSource source );           // Enters/exits placement mode from keyboard or UI.
+    void HandleEditorKeyboardShortcuts();                                        // Applies editor-mode Alt/Tab shortcuts.
+    void ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands,
+                                bool keyboardToggleEditorMode );                 // Applies Editor-tab UI and keyboard mode toggles.
+    void TickEditorViewportAndPlacementScaleInput(
+        int unhandledWheelDelta );                                               // Updates viewport-look and placement scale/altitude gestures.
+    bool TickEditorWorldClick(
+        const RuntimeMouseEdges& mouseEdges,
+        bool suppressWorldActionThisFrame );                                     // Handles editor placement, selection, and gizmo mouse ownership.
+    void HandleEditorSaveHotkeys();                                              // Handles F2 scene snapshots and F3 screenshot commands.
     void UpdateEditorInteractionPreview();                                       // Refreshes ghost and gizmo hover state before world-click handling
     bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin,
                              const Math::Vector::Vector3& rayDirection,

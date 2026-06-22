@@ -18,14 +18,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
-#include "Editor/EditorTools.h"
 #include "InputController.h"
-#include "RuntimeFileWriter.h"
 #include "RuntimeTuning.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
-#include <chrono>
 #include <cstddef>
 #include <utility>
 
@@ -117,6 +114,120 @@ void Run::StepPhysicsPipelineStage( int direction )
 }
 
 
+void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
+{
+    InputController::ApplyModeAction( m_runtimeInput,
+                                      InputController::ResolveMode( BuildRuntimeInputModeState( m_camera, m_editor ) ),
+                                      action,
+                                      source );
+}
+
+
+bool Run::ReplayInspectionActive() const
+{
+    return m_replayScrubber.inspectionCameraActive || m_replayScrubber.paused || m_replayScrubber.simulationPaused;
+}
+
+
+bool Run::ReplayInspectionMouseLookActive() const
+{
+    return ReplayInspectionActive() && Input::IsRightMouseDown() && !m_UI.WantsNativeMouseCursor() &&
+           !m_UI.BlocksCameraMouse();
+}
+
+
+bool Run::MouseLookOwnsCursor() const
+{
+    if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
+    {
+        return false;
+    }
+
+    if ( m_editor.editorModeEnabled )
+    {
+        return m_editor.viewportLookActive;
+    }
+
+    if ( ReplayInspectionActive() )
+    {
+        return ReplayInspectionMouseLookActive();
+    }
+
+    return m_camera.isFlyMode;
+}
+
+
+bool Run::ShouldHideNativeCursor() const
+{
+    if ( MouseLookOwnsCursor() )
+    {
+        return true;
+    }
+
+    return m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible &&
+           !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
+}
+
+
+void Run::ApplyCursorOwnership()
+{
+    Input::SetSystemCursorVisible( !ShouldHideNativeCursor() );
+}
+
+
+void Run::ReleaseMouseToUI()
+{
+    if ( !MouseLookOwnsCursor() )
+    {
+        ReleaseCapture();
+        InputController::ResetMouseLook( m_camera );
+    }
+}
+
+
+void Run::EnterFlyModeCamera()
+{
+    // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
+    // on the current camera so fly controls work without requiring CAMERA_FREE
+    if ( !SceneState().isSceneMode )
+    {
+        m_systems.cameras->SelectCamera( CAMERA_FREE, false );
+    }
+    m_camera.cameraTime = 0.0f;
+    XZBounds unbounded;
+    unbounded.m_xMin = -99999.9f;
+    unbounded.m_xMax = 99999.9f;
+    unbounded.m_zMin = -99999.9f;
+    unbounded.m_zMax = 99999.9f;
+    uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+    m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+    if ( ShouldHideNativeCursor() )
+    {
+        Input::SetSystemCursorVisible( false );
+    }
+    else
+    {
+        ReleaseMouseToUI();
+        Input::SetSystemCursorVisible( true );
+    }
+    InputController::ResetMouseLook( m_camera );
+}
+
+
+void Run::ExitFlyModeCamera()
+{
+    // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
+    // the stock Windows cursor.
+    uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+    m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+    Input::SetSystemCursorVisible( true );
+    m_camera.cameraTime = 0.0f;
+    // Exiting fly mode also exits launcher mode.
+    m_camera.isLauncherMode = false;
+    InputController::ResetMouseLook( m_camera );
+}
+
+
 void Run::TakeInput()
 {
     if ( !Input::IsAppFocused() )
@@ -144,20 +255,7 @@ void Run::TakeInput()
             UI::InputControl::EndMouseCapture();
             m_replayVelocityEdit.mouseCaptured = false;
         }
-        m_editor.viewportLookActive = false;
-        m_editor.altShortcutWasDown = false;
-        m_editor.tabShortcutWasDown = false;
-        m_editor.tildeShortcutWasDown = false;
-        m_editor.placementScaleActive = false;
-        m_editor.placementScaleWheelSteps = 0;
-        m_editor.gizmoDragActive = false;
-        m_editor.gizmoDragIsRotation = false;
-        m_editor.gizmoDragIsScale = false;
-        m_editor.activeGizmoAxis = -1;
-        m_editor.gizmoDragStartAxisT = 0.0f;
-        m_editor.gizmoDragStartRotationAngle = 0.0f;
-        m_editor.gizmoDragStartPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-        m_editor.gizmoDragStartOrientation = IDENTITY_QUATERNION;
+        ResetEditorUnfocusedInputState();
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
         InputController::BeginFrame( m_runtimeInput,
@@ -169,123 +267,6 @@ void Run::TakeInput()
         RunUIStressActions();
         return;
     }
-
-    const auto ReplayInspectionActive = [&]() -> bool
-    { return m_replayScrubber.inspectionCameraActive || m_replayScrubber.paused || m_replayScrubber.simulationPaused; };
-    const auto ReplayInspectionMouseLookActive = [&]() -> bool
-    {
-        return ReplayInspectionActive() && Input::IsRightMouseDown() && !m_UI.WantsNativeMouseCursor() &&
-               !m_UI.BlocksCameraMouse();
-    };
-    const auto MouseLookOwnsCursor = [&]() -> bool
-    {
-        if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
-        {
-            return false;
-        }
-
-        if ( m_editor.editorModeEnabled )
-        {
-            return m_editor.viewportLookActive;
-        }
-
-        if ( ReplayInspectionActive() )
-        {
-            return ReplayInspectionMouseLookActive();
-        }
-
-        return m_camera.isFlyMode;
-    };
-    const auto ShouldHideNativeCursor = [&]() -> bool
-    {
-        if ( MouseLookOwnsCursor() )
-        {
-            return true;
-        }
-
-        return m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible &&
-               !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
-    };
-    const auto ApplyCursorOwnership = [&]() -> void { Input::SetSystemCursorVisible( !ShouldHideNativeCursor() ); };
-    const auto ReleaseMouseToUI = [&]() -> void
-    {
-        if ( !MouseLookOwnsCursor() )
-        {
-            ReleaseCapture();
-            InputController::ResetMouseLook( m_camera );
-        }
-    };
-    const auto UpdateRuntimeInputModeAfterAction = [&]( RuntimeInputAction action,
-                                                        RuntimeInputActionSource source ) -> void
-    {
-        InputController::ApplyModeAction(
-            m_runtimeInput,
-            InputController::ResolveMode( BuildRuntimeInputModeState( m_camera, m_editor ) ),
-            action,
-            source );
-    };
-    const auto ClearEditorManipulationState = [&]() -> void
-    {
-        m_editor.placementPreviewVisible = false;
-        m_editor.placementScaleActive = false;
-        m_editor.placementScaleWheelSteps = 0;
-        m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
-        m_editor.placementScaleStart = m_editor.placementScale;
-        m_editor.gizmoDragActive = false;
-        m_editor.gizmoDragIsRotation = false;
-        m_editor.gizmoDragIsScale = false;
-        m_editor.activeGizmoAxis = -1;
-        m_editor.placementAltitudeSteps = 0;
-    };
-    const auto ToggleEditorPlacementMode = [&]( RuntimeInputActionSource source ) -> void
-    {
-        EnterInteractiveSceneRun();
-        m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
-        m_editor.viewportLookActive = false;
-        ClearEditorManipulationState();
-        ReleaseMouseToUI();
-        ApplyCursorOwnership();
-        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
-    };
-    const auto EnterFlyModeCamera = [&]() -> void
-    {
-        // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
-        // on the current camera so fly controls work without requiring CAMERA_FREE
-        if ( !SceneState().isSceneMode )
-        {
-            m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-        }
-        m_camera.cameraTime = 0.0f;
-        XZBounds unbounded;
-        unbounded.m_xMin = -99999.9f;
-        unbounded.m_xMax = 99999.9f;
-        unbounded.m_zMin = -99999.9f;
-        unbounded.m_zMax = 99999.9f;
-        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-        m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-        if ( ShouldHideNativeCursor() )
-        {
-            Input::SetSystemCursorVisible( false );
-        }
-        else
-        {
-            ReleaseMouseToUI();
-            Input::SetSystemCursorVisible( true );
-        }
-        InputController::ResetMouseLook( m_camera );
-    };
-    const auto ExitFlyModeCamera = [&]() -> void
-    {
-        // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
-        // the stock Windows cursor.
-        uint32_t activeCam = SceneState().isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-        m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-        Input::SetSystemCursorVisible( true );
-        m_camera.cameraTime = 0.0f;
-        // Exiting fly mode also exits launcher mode.
-        m_camera.isLauncherMode = false;
-        InputController::ResetMouseLook( m_camera );
-    };
 
     ApplyCursorOwnership();
 
@@ -353,35 +334,7 @@ void Run::TakeInput()
 
         if ( m_editor.editorModeEnabled )
         {
-            m_camera.isFlyMode = true;
-            m_camera.isLauncherMode = false;
-            m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::ToggleEditorTool,
-                                                              VK_MENU ) )
-            {
-                ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );
-            }
-            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                              RuntimeInputAction::CycleEditorPlacementType,
-                                                              VK_TAB ) )
-            {
-                if ( Input::IsKeyDown( VK_CONTROL ) )
-                {
-                    EnterInteractiveSceneRun();
-                    m_editor.placeStaticObject = !m_editor.placeStaticObject;
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-                else
-                {
-                    EnterInteractiveSceneRun();
-                    m_editor.objectType = ( m_editor.objectType + 1 ) % UI::EditorTab::OBJECT_TYPE_COUNT;
-                    ClearEditorManipulationState();
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
-                                                       RuntimeInputActionSource::Keyboard );
-                }
-            }
+            HandleEditorKeyboardShortcuts();
         }
         else
         {
@@ -704,108 +657,7 @@ void Run::TakeInput()
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
-        if ( uiCommands.editor.requestedObjectType >= 0 )
-        {
-            const int requestedObjectType =
-                std::clamp( uiCommands.editor.requestedObjectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-            if ( requestedObjectType != m_editor.objectType )
-            {
-                m_editor.objectType = requestedObjectType;
-                ClearEditorManipulationState();
-            }
-            else if ( uiCommands.editor.enterPlacementMode )
-            {
-                ClearEditorManipulationState();
-            }
-            if ( uiCommands.editor.enterPlacementMode && m_editor.editorModeEnabled )
-            {
-                EnterInteractiveSceneRun();
-                m_editor.placementModeEnabled = true;
-                m_editor.viewportLookActive = false;
-                ReleaseMouseToUI();
-                ApplyCursorOwnership();
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, RuntimeInputActionSource::UI );
-            }
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
-        {
-            EnterInteractiveSceneRun();
-            const RuntimeInputActionSource toggleEditorSource =
-                keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI;
-            m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
-            if ( m_editor.editorModeEnabled )
-            {
-                const bool wasFlyMode = m_camera.isFlyMode;
-                m_editor.placementModeEnabled = true;
-                m_editor.viewportLookActive = false;
-                ClearEditorManipulationState();
-                m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
-                m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
-                m_camera.isFlyMode = true;
-                m_camera.isLauncherMode = false;
-                if ( !wasFlyMode )
-                {
-                    EnterFlyModeCamera();
-                }
-                else
-                {
-                    InputController::ResetMouseLook( m_camera );
-                }
-                ApplyCursorOwnership();
-            }
-            else
-            {
-                const bool wasFlyMode = m_camera.isFlyMode;
-                m_editor.viewportLookActive = false;
-                m_editor.placementPreviewVisible = false;
-                m_editor.placementModeEnabled = false;
-                m_editor.gizmoDragActive = false;
-                m_editor.gizmoDragIsRotation = false;
-                m_editor.gizmoDragIsScale = false;
-                m_editor.activeGizmoAxis = -1;
-                m_editor.placementScaleActive = false;
-                m_editor.placementScaleWheelSteps = 0;
-                m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
-                m_editor.placementScaleStart = m_editor.placementScale;
-                m_editor.placementAltitudeSteps = 0;
-                m_camera.isFlyMode = m_editor.restoreFlyModeAfterEditor || m_editor.restoreRayTestModeAfterEditor;
-                m_camera.isLauncherMode = m_editor.restoreRayTestModeAfterEditor;
-                m_editor.restoreFlyModeAfterEditor = false;
-                m_editor.restoreRayTestModeAfterEditor = false;
-                if ( wasFlyMode && !m_camera.isFlyMode )
-                {
-                    ExitFlyModeCamera();
-                }
-                else
-                {
-                    InputController::ResetMouseLook( m_camera );
-                }
-            }
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, toggleEditorSource );
-        }
-        if ( uiCommands.editor.togglePlacementMode )
-        {
-            ToggleEditorPlacementMode( RuntimeInputActionSource::UI );
-        }
-        if ( uiCommands.editor.togglePlaceStatic )
-        {
-            EnterInteractiveSceneRun();
-            m_editor.placeStaticObject = !m_editor.placeStaticObject;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
-                                               RuntimeInputActionSource::UI );
-        }
-        if ( uiCommands.editor.toggleTerrainAlign )
-        {
-            EnterInteractiveSceneRun();
-            m_editor.autoTerrainAlign = !m_editor.autoTerrainAlign;
-            m_editor.placementPreviewVisible = false;
-            m_editor.placementScaleActive = false;
-            m_editor.placementScaleWheelSteps = 0;
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
-                                               RuntimeInputActionSource::UI );
-        }
+        ApplyEditorUICommands( uiCommands, keyboardToggleEditorMode );
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
@@ -1174,234 +1026,16 @@ void Run::TakeInput()
 
         RunUIStressActions();
 
-        const bool editorViewportLookNow =
-            m_editor.editorModeEnabled && Input::IsRightMouseDown() && !m_UI.BlocksCameraMouse();
-        if ( editorViewportLookNow != m_editor.viewportLookActive )
-        {
-            InputController::ResetMouseLook( m_camera );
-        }
-        m_editor.viewportLookActive = editorViewportLookNow;
-        if ( editorViewportLookNow != ( m_runtimeInput.CurrentMode() == RuntimeInputMode::EditorViewportLook ) )
-        {
-            UpdateRuntimeInputModeAfterAction( editorViewportLookNow ? RuntimeInputAction::BeginEditorViewportLook
-                                                                     : RuntimeInputAction::EndEditorViewportLook,
-                                               RuntimeInputActionSource::Mouse );
-        }
-
-        const int placementWheelSteps = EditorMouseWheelSteps( editorUnhandledWheelDelta );
-        const bool placementLeftMouseNow = Input::IsLeftMouseDown();
-        if ( m_editor.placementScaleActive && placementLeftMouseNow && !m_editor.viewportLookActive &&
-             !m_UI.BlocksCameraMouse() )
-        {
-            if ( placementWheelSteps != 0 )
-            {
-                EnterInteractiveSceneRun();
-                m_editor.placementScaleWheelSteps += placementWheelSteps;
-            }
-
-            const POINT currentClient = Input::GetClientMouseCoordinates();
-            const float dragPixelsX = static_cast<float>( currentClient.x - m_editor.placementScaleStartClient.x );
-            const float dragPixelsY = static_cast<float>( currentClient.y - m_editor.placementScaleStartClient.y );
-            m_editor.placementScale = EditorPlacementScaleFromGesture( m_editor.objectType,
-                                                                       m_editor.placementScaleStart,
-                                                                       dragPixelsX,
-                                                                       dragPixelsY,
-                                                                       m_editor.placementScaleWheelSteps );
-        }
-        else if ( placementWheelSteps != 0 && m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
-                  !m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() )
-        {
-            const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
-            if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
-            {
-                EnterInteractiveSceneRun();
-                m_editor.placementAltitudeSteps = nextAltitudeSteps;
-            }
-        }
-        ApplyCursorOwnership();
+        TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );
     }
 
-    UpdateEditorInteractionPreview();
-
-    // Editor and launcher actions share world clicks. UI hover/capture
-    // suppresses both so panel interaction never mutates the scene.
+    // Editor, replay, and launcher actions share world clicks. UI hover/capture
+    // suppresses them so panel interaction never mutates the scene.
     {
         const RuntimeMouseEdges mouseEdges =
             m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
-        const bool leftMouseNow = mouseEdges.leftDown;
         const bool leftPressed = mouseEdges.leftPressed;
-        const bool leftReleased = mouseEdges.leftReleased;
-        bool consumedWorldClick = false;
-
-        if ( m_editor.placementScaleActive )
-        {
-            consumedWorldClick = true;
-            if ( leftReleased || suppressWorldActionThisFrame )
-            {
-                if ( leftReleased && !suppressWorldActionThisFrame && m_editor.placementPreviewVisible )
-                {
-                    const int previousModelCount = m_cGameModelCollection.GetModelCount();
-                    PlaceEditorObjectAtTerrainPoint( m_editor.objectType,
-                                                     m_editor.placeStaticObject,
-                                                     m_editor.placementTerrainPoint );
-                    if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
-                    {
-                        m_editor.selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
-                    }
-                }
-                m_editor.placementScaleActive = false;
-                m_editor.placementScaleWheelSteps = 0;
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorPlacementScale,
-                                                   RuntimeInputActionSource::Mouse );
-            }
-        }
-
-        if ( !consumedWorldClick && m_editor.gizmoDragActive )
-        {
-            consumedWorldClick = true;
-            if ( leftMouseNow && !suppressWorldActionThisFrame )
-            {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
-                {
-                    if ( m_editor.gizmoDragIsScale )
-                    {
-                        ScaleSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
-                    }
-                    else if ( m_editor.gizmoDragIsRotation )
-                    {
-                        RotateSelectedEditorObjectAroundAxis( rayOrigin, rayDirection );
-                    }
-                    else
-                    {
-                        MoveSelectedEditorObjectAlongAxis( rayOrigin, rayDirection );
-                    }
-                }
-            }
-            if ( leftReleased || suppressWorldActionThisFrame )
-            {
-                m_editor.gizmoDragActive = false;
-                m_editor.gizmoDragIsRotation = false;
-                m_editor.gizmoDragIsScale = false;
-                m_editor.activeGizmoAxis = -1;
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
-                                                   RuntimeInputActionSource::Mouse );
-            }
-        }
-
-        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
-        {
-            const bool editorScaleMode =
-                m_editor.editorModeEnabled && !m_editor.placementModeEnabled && Input::IsKeyDown( VK_CONTROL );
-            if ( editorScaleMode && m_editor.selectedModelIndex >= 0 &&
-                 m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() && m_editor.hotGizmoAxis >= 0 )
-            {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                float axisT = 0.0f;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
-                {
-                    EnterInteractiveSceneRun();
-                    GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
-                    m_editor.gizmoDragActive = true;
-                    m_editor.gizmoDragIsRotation = false;
-                    m_editor.gizmoDragIsScale = true;
-                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
-                    m_editor.gizmoDragStartAxisT = axisT;
-                    m_editor.gizmoDragStartShape = model.GetCollisionShape();
-                    consumedWorldClick = true;
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
-                                                       RuntimeInputActionSource::Mouse );
-                }
-            }
-
-            if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
-                 m_editor.selectedModelIndex >= 0 && m_editor.hotRotationAxis >= 0 )
-            {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                float startAngle = 0.0f;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
-                {
-                    EnterInteractiveSceneRun();
-                    m_editor.gizmoDragActive = true;
-                    m_editor.gizmoDragIsRotation = true;
-                    m_editor.gizmoDragIsScale = false;
-                    m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
-                    m_editor.gizmoDragStartRotationAngle = startAngle;
-                    m_editor.gizmoDragStartOrientation =
-                        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )]
-                            .GetOrientation();
-                    consumedWorldClick = true;
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
-                                                       RuntimeInputActionSource::Mouse );
-                }
-            }
-
-            if ( !consumedWorldClick && m_editor.editorModeEnabled && !m_editor.placementModeEnabled &&
-                 !editorScaleMode && m_editor.selectedModelIndex >= 0 && m_editor.hotGizmoAxis >= 0 )
-            {
-                Vector3 rayOrigin;
-                Vector3 rayDirection;
-                float axisT = 0.0f;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
-                {
-                    EnterInteractiveSceneRun();
-                    m_editor.gizmoDragActive = true;
-                    m_editor.gizmoDragIsRotation = false;
-                    m_editor.gizmoDragIsScale = false;
-                    m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
-                    m_editor.gizmoDragStartAxisT = axisT;
-                    m_editor.gizmoDragStartPosition =
-                        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )]
-                            .GetPosition();
-                    consumedWorldClick = true;
-                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
-                                                       RuntimeInputActionSource::Mouse );
-                }
-            }
-
-            if ( !consumedWorldClick && m_editor.editorModeEnabled )
-            {
-                if ( m_editor.placementModeEnabled )
-                {
-                    if ( m_editor.placementPreviewVisible )
-                    {
-                        m_editor.placementScaleActive = true;
-                        m_editor.placementScaleWheelSteps = 0;
-                        m_editor.placementScaleStart =
-                            EditorClampPlacementScale( m_editor.objectType, m_editor.placementScale );
-                        m_editor.placementScale = m_editor.placementScaleStart;
-                        m_editor.placementScaleStartClient = Input::GetClientMouseCoordinates();
-                        m_editor.placementScaleTerrainPoint = m_editor.placementTerrainPoint;
-                        m_editor.placementScaleRayOrigin = m_editor.placementRayOrigin;
-                        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorPlacementScale,
-                                                           RuntimeInputActionSource::Mouse );
-                    }
-                }
-                else
-                {
-                    Vector3 rayOrigin;
-                    Vector3 rayDirection;
-                    int pickedIndex = -1;
-                    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                         TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
-                    {
-                        m_editor.selectedModelIndex = pickedIndex;
-                    }
-                    else
-                    {
-                        m_editor.selectedModelIndex = -1;
-                    }
-                }
-                consumedWorldClick = true;
-            }
-        }
-
+        bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldActionThisFrame );
         if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame && !m_editor.editorModeEnabled &&
              !m_UI.WantsNativeMouseCursor() && ( Input::IsKeyDown( VK_CONTROL ) || !m_camera.isLauncherMode ) )
         {
@@ -1431,53 +1065,7 @@ void Run::TakeInput()
         return;
     }
 
-    // F2: Save scene snapshot to Scenes/
-    {
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
-                                                          RuntimeInputAction::SaveSceneSnapshot,
-                                                          VK_F2 ) )
-        {
-            static int sSnapshotSeq = 0;
-            char path[256] = {};
-            if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                      sizeof( path ),
-                                                      "Scenes",
-                                                      "snapshot_",
-                                                      ".scene.json",
-                                                      sSnapshotSeq,
-                                                      100 ) )
-            {
-                m_cGameModelCollection.SaveSceneSnapshot( path,
-                                                          SceneState().isScenePhysics,
-                                                          SceneState().isSceneText,
-                                                          m_cWorldEnvironment,
-                                                          m_systems.cameras->GetCameraTranslation(),
-                                                          m_systems.cameras->GetCameraView(),
-                                                          m_systems.cameras->GetCameraUp() );
-            }
-        }
-    }
-
-    // F3: Save screenshot to Screenshots/
-    {
-        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
-        {
-            static int sScreenshotSeq = 0;
-            char path[256] = {};
-            if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                      sizeof( path ),
-                                                      "Screenshots",
-                                                      "screenshot_",
-                                                      ".bmp",
-                                                      sScreenshotSeq,
-                                                      100 ) )
-            {
-                RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
-                command.text = path;
-                m_runtimeCommands.Push( std::move( command ) );
-            }
-        }
-    }
+    HandleEditorSaveHotkeys();
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
