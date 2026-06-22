@@ -16,10 +16,22 @@ from typing import Iterable
 MAGIC = b"SKREPV2\0"
 HEADER = struct.Struct("<8sIIIIQQ")
 CHUNK_ENTRY = struct.Struct("<4sQQII")
+U32 = struct.Struct("<I")
+COUNTED_U8 = struct.Struct("<B")
+COUNTED_U16 = struct.Struct("<H")
+COUNTED_I32 = struct.Struct("<i")
+COUNTED_I64 = struct.Struct("<q")
+COUNTED_FLOAT = struct.Struct("<f")
+PAIR_I32 = struct.Struct("<ii")
 BODY_RECORD = struct.Struct("<IiB3s64s")
 FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
 BODY_POSE = struct.Struct("<Ifffffff")
 HASH_RECORD = struct.Struct("<QidQQIHHB3s")
+CHECKPOINT_HEADER = struct.Struct("<QidfQQHHBBH")
+LAUNCHER_HEADER = struct.Struct("<iiBB2sff")
+TORNADO_CONFIG = struct.Struct("<BB2s" + ("f" * 14))
+SOLVER_STATS = struct.Struct("<iiiiiiiff")
+SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
 
 FLAG_WATER_HIDDEN = 1 << 0
 FLAG_TERRAIN_HIDDEN = 1 << 1
@@ -77,6 +89,53 @@ class SolverHashInfo:
     checkpoint_boundary: bool
 
 
+@dataclass
+class SolverCheckpointInfo:
+    frame_index: int
+    scene_frame: int
+    time_seconds: float
+    dt: float
+    presentation_hash: int
+    solver_hash: int
+    body_count: int
+    contact_count: int
+    pipeline_record_count: int
+    checkpoint_boundary: bool
+    world_flags: int
+    ray_line_count: int
+    laser_shot_count: int
+    snapshot_version: int
+    snapshot_model_count: int
+    persistent_contact_count: int
+    contact_cache_count: int
+    debug_contact_count: int
+    pipeline_trace_count: int
+    collision_cell_key_count: int
+    bodies: list[dict[str, object]]
+
+
+class ChunkReader:
+    def __init__(self, raw: bytes, label: str) -> None:
+        self.raw = raw
+        self.label = label
+        self.offset = 0
+
+    def unpack(self, fmt: struct.Struct) -> tuple[object, ...]:
+        if self.offset + fmt.size > len(self.raw):
+            raise ReplayQueryError(f"{self.label} chunk ended unexpectedly")
+        values = fmt.unpack_from(self.raw, self.offset)
+        self.offset += fmt.size
+        return values
+
+    def u32(self) -> int:
+        return int(self.unpack(U32)[0])
+
+    def skip(self, count: int) -> None:
+        if count < 0 or self.offset + count > len(self.raw):
+            raise ReplayQueryError(f"{self.label} chunk ended unexpectedly")
+        self.offset += count
+
+
 def clean_name(raw: bytes) -> str:
     return raw.split(b"\0", 1)[0].decode("utf-8", errors="replace")
 
@@ -103,11 +162,13 @@ class ReplayV2:
         self.bodies: list[BodyInfo] = []
         self.frames: list[FrameIndex] = []
         self.solver_hashes: list[SolverHashInfo] = []
+        self.solver_checkpoints: list[SolverCheckpointInfo] = []
         self._parse_header()
         self._parse_manifest()
         self._parse_bodies()
         self._parse_index()
         self._parse_solver_hashes()
+        self._parse_solver_checkpoints()
 
     def _parse_header(self) -> None:
         if len(self.data) < HEADER.size:
@@ -237,11 +298,174 @@ class ReplayV2:
             raise ReplayQueryError("HASH chunk has trailing bytes")
         self.solver_hashes = hashes
 
+    @staticmethod
+    def _skip_counted(reader: ChunkReader, item: struct.Struct) -> int:
+        count = reader.u32()
+        reader.skip(item.size * count)
+        return count
+
+    @staticmethod
+    def _parse_launcher_summary(reader: ChunkReader) -> tuple[int, int]:
+        reader.unpack(LAUNCHER_HEADER)
+        ray_line_count = reader.u32()
+        reader.skip(32 * ray_line_count)
+        laser_shot_count = reader.u32()
+        reader.skip(60 * laser_shot_count)
+        return ray_line_count, laser_shot_count
+
+    @staticmethod
+    def _parse_snapshot_summary(reader: ChunkReader) -> dict[str, int]:
+        version, model_count, _next_sleep_id, _sleep_enabled, _collision_active, _reserved = reader.unpack(
+            struct.Struct("<IiiBB2s")
+        )
+        reader.unpack(TORNADO_CONFIG)
+        ReplayV2._skip_counted(reader, COUNTED_FLOAT)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_FLOAT)
+        ReplayV2._skip_counted(reader, COUNTED_FLOAT)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_I32)
+        ReplayV2._skip_counted(reader, COUNTED_I32)
+        ReplayV2._skip_counted(reader, PAIR_I32)
+        ReplayV2._skip_counted(reader, COUNTED_I32)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        ReplayV2._skip_counted(reader, COUNTED_U8)
+        persistent_contact_count = reader.u32()
+        reader.skip(140 * persistent_contact_count)
+        contact_cache_count = reader.u32()
+        reader.skip(20 * contact_cache_count)
+        reader.unpack(SOLVER_STATS)
+        ReplayV2._skip_counted(reader, COUNTED_U16)
+        ReplayV2._skip_counted(reader, COUNTED_U16)
+        debug_contact_count = reader.u32()
+        reader.skip(68 * debug_contact_count)
+        pipeline_trace_count = reader.u32()
+        reader.skip(56 * pipeline_trace_count)
+        collision_cell_key_count = ReplayV2._skip_counted(reader, COUNTED_I64)
+        return {
+            "version": int(version),
+            "modelCount": int(model_count),
+            "persistentContactCount": persistent_contact_count,
+            "contactCacheCount": contact_cache_count,
+            "debugContactCount": debug_contact_count,
+            "pipelineTraceCount": pipeline_trace_count,
+            "collisionCellKeyCount": collision_cell_key_count,
+        }
+
+    def _parse_solver_body(self, reader: ChunkReader) -> dict[str, object]:
+        values = reader.unpack(SOLVER_BODY)
+        dictionary_index = int(values[0])
+        if dictionary_index >= len(self.bodies):
+            raise ReplayQueryError("SCHK body dictionary index is out of range")
+        floats = values[1:22]
+        flags = values[22]
+        sleep_island_visual_id = int(values[24])
+        contact_count = int(values[25])
+        max_penetration = float(values[27])
+        normal_impulse_sum = float(values[28])
+        body = self.bodies[dictionary_index]
+        return {
+            "dictionaryIndex": dictionary_index,
+            "bodyId": body.body_id,
+            "modelIndex": body.model_index,
+            "name": body.name,
+            "shape": body.shape,
+            "position": [round_float(floats[0]), round_float(floats[1]), round_float(floats[2])],
+            "linearVelocity": [round_float(floats[3]), round_float(floats[4]), round_float(floats[5])],
+            "angularVelocity": [round_float(floats[6]), round_float(floats[7]), round_float(floats[8])],
+            "orientation": [
+                round_float(floats[9]),
+                round_float(floats[10]),
+                round_float(floats[11]),
+                round_float(floats[12]),
+            ],
+            "mass": round_float(floats[13]),
+            "inverseMass": round_float(floats[14]),
+            "fixed": bool(flags[0]) if flags else False,
+            "sleeping": bool(flags[1]) if len(flags) > 1 else False,
+            "sleepSupported": bool(flags[2]) if len(flags) > 2 else False,
+            "sleepInhibited": bool(flags[3]) if len(flags) > 3 else False,
+            "collisionContact": bool(flags[4]) if len(flags) > 4 else False,
+            "sleepIslandVisualId": sleep_island_visual_id,
+            "contactCount": contact_count,
+            "maxPenetration": round_float(max_penetration),
+            "normalImpulseSum": round_float(normal_impulse_sum),
+        }
+
+    def _parse_solver_checkpoints(self) -> None:
+        chunk = self.chunks.get("SCHK")
+        if not chunk:
+            self.solver_checkpoints = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "SCHK")
+        reader = ChunkReader(raw, "SCHK")
+        checkpoint_count = reader.u32()
+        if checkpoint_count != chunk.record_count:
+            raise ReplayQueryError("SCHK chunk count does not match chunk table")
+
+        checkpoints: list[SolverCheckpointInfo] = []
+        for _ in range(checkpoint_count):
+            (
+                frame_index,
+                scene_frame,
+                time_seconds,
+                dt,
+                presentation_hash,
+                solver_hash,
+                contact_count,
+                pipeline_record_count,
+                checkpoint_boundary,
+                world_flags,
+                _reserved,
+            ) = reader.unpack(CHECKPOINT_HEADER)
+            reader.skip(12 + 36)
+            ray_line_count, laser_shot_count = self._parse_launcher_summary(reader)
+            snapshot = self._parse_snapshot_summary(reader)
+            body_count = reader.u32()
+            body_records = [self._parse_solver_body(reader) for _ in range(body_count)]
+            checkpoints.append(
+                SolverCheckpointInfo(
+                    frame_index=int(frame_index),
+                    scene_frame=int(scene_frame),
+                    time_seconds=float(time_seconds),
+                    dt=float(dt),
+                    presentation_hash=int(presentation_hash),
+                    solver_hash=int(solver_hash),
+                    body_count=body_count,
+                    contact_count=int(contact_count),
+                    pipeline_record_count=int(pipeline_record_count),
+                    checkpoint_boundary=bool(checkpoint_boundary),
+                    world_flags=int(world_flags),
+                    ray_line_count=ray_line_count,
+                    laser_shot_count=laser_shot_count,
+                    snapshot_version=snapshot["version"],
+                    snapshot_model_count=snapshot["modelCount"],
+                    persistent_contact_count=snapshot["persistentContactCount"],
+                    contact_cache_count=snapshot["contactCacheCount"],
+                    debug_contact_count=snapshot["debugContactCount"],
+                    pipeline_trace_count=snapshot["pipelineTraceCount"],
+                    collision_cell_key_count=snapshot["collisionCellKeyCount"],
+                    bodies=body_records,
+                )
+            )
+        if reader.offset != len(raw):
+            raise ReplayQueryError("SCHK chunk has trailing bytes")
+        self.solver_checkpoints = checkpoints
+
     def summary(self) -> dict[str, object]:
         first = self.frames[0] if self.frames else None
         last = self.frames[-1] if self.frames else None
         first_hash = self.solver_hashes[0] if self.solver_hashes else None
         last_hash = self.solver_hashes[-1] if self.solver_hashes else None
+        first_checkpoint = self.solver_checkpoints[0] if self.solver_checkpoints else None
+        last_checkpoint = self.solver_checkpoints[-1] if self.solver_checkpoints else None
         chunks = [
             {
                 "id": chunk.ident,
@@ -260,14 +484,18 @@ class ReplayV2:
             "frameCount": len(self.frames),
             "bodyDictionaryCount": len(self.bodies),
             "solverHashCount": len(self.solver_hashes),
+            "solverCheckpointCount": len(self.solver_checkpoints),
             "firstSolverHashFrame": first_hash.frame_index if first_hash else None,
             "lastSolverHashFrame": last_hash.frame_index if last_hash else None,
+            "firstSolverCheckpointFrame": first_checkpoint.frame_index if first_checkpoint else None,
+            "lastSolverCheckpointFrame": last_checkpoint.frame_index if last_checkpoint else None,
             "firstFrame": first.frame_index if first else None,
             "lastFrame": last.frame_index if last else None,
             "durationSeconds": self._duration_seconds(),
             "fileBytes": self.file_size,
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
             "solverHashBytes": self.manifest.get("solverHashBytes", 0),
+            "solverBodyBytes": self.manifest.get("solverBodyBytes", 0),
             "chunks": chunks,
         }
 
@@ -289,6 +517,12 @@ class ReplayV2:
             return list(self.solver_hashes)
         start, end = parse_frame_range(frame_range)
         return [row for row in self.solver_hashes if start <= row.frame_index <= end]
+
+    def selected_checkpoints(self, frame_range: str | None) -> list[SolverCheckpointInfo]:
+        if not frame_range:
+            return list(self.solver_checkpoints)
+        start, end = parse_frame_range(frame_range)
+        return [row for row in self.solver_checkpoints if start <= row.frame_index <= end]
 
     def find_frame(self, frame_index: int) -> FrameIndex:
         for frame in self.frames:
@@ -448,6 +682,42 @@ class ReplayV2:
             )
         return samples
 
+    def checkpoint_samples(self, frames: str | None, limit: int, body_limit: int) -> list[dict[str, object]]:
+        samples: list[dict[str, object]] = []
+        for row in self.selected_checkpoints(frames):
+            if len(samples) >= limit:
+                break
+            samples.append(
+                {
+                    "frameIndex": row.frame_index,
+                    "sceneFrame": row.scene_frame,
+                    "timeSeconds": round_float(row.time_seconds),
+                    "dt": round_float(row.dt),
+                    "presentationHash": hash_text(row.presentation_hash),
+                    "solverHash": hash_text(row.solver_hash),
+                    "bodyCount": row.body_count,
+                    "contactCount": row.contact_count,
+                    "pipelineRecordCount": row.pipeline_record_count,
+                    "checkpointBoundary": row.checkpoint_boundary,
+                    "launcher": {
+                        "rayLineCount": row.ray_line_count,
+                        "laserShotCount": row.laser_shot_count,
+                    },
+                    "snapshot": {
+                        "version": row.snapshot_version,
+                        "modelCount": row.snapshot_model_count,
+                        "persistentContactCount": row.persistent_contact_count,
+                        "contactCacheCount": row.contact_cache_count,
+                        "debugContactCount": row.debug_contact_count,
+                        "pipelineTraceCount": row.pipeline_trace_count,
+                        "collisionCellKeyCount": row.collision_cell_key_count,
+                    },
+                    "bodiesReturned": min(len(row.bodies), max(body_limit, 0)),
+                    "bodies": row.bodies[: max(body_limit, 0)],
+                }
+            )
+        return samples
+
     def export_skullscope(self, frames: list[FrameIndex], out_path: Path, run_id: str) -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         rows = 0
@@ -558,12 +828,26 @@ def cmd_hashes(replay: ReplayV2, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_checkpoints(replay: ReplayV2, args: argparse.Namespace) -> None:
+    samples = replay.checkpoint_samples(args.frames, args.limit, args.body_limit)
+    print_json(
+        {
+            "checkpointCount": len(replay.solver_checkpoints),
+            "samplesReturned": len(samples),
+            "samples": samples,
+            "note": None
+            if replay.solver_checkpoints
+            else "This v2 artifact does not include solver checkpoint chunks.",
+        }
+    )
+
+
 def cmd_contacts(_replay: ReplayV2, args: argparse.Namespace) -> None:
     print_json(
         {
             "frames": args.frames,
             "contactCount": 0,
-            "note": "Presentation v2 artifacts do not include contact rows yet; use solver chunks or SkullScope traces when available.",
+            "note": "Presentation v2 artifacts do not include standalone contact rows yet; use checkpoints or SkullScope traces when available.",
         }
     )
 
@@ -607,6 +891,12 @@ def build_parser() -> argparse.ArgumentParser:
     hashes.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
     hashes.add_argument("--limit", type=int, default=120)
     hashes.set_defaults(func=cmd_hashes)
+
+    checkpoints = subparsers.add_parser("checkpoints", help="Print sparse solver checkpoint summaries")
+    checkpoints.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
+    checkpoints.add_argument("--limit", type=int, default=20)
+    checkpoints.add_argument("--body-limit", type=int, default=3)
+    checkpoints.set_defaults(func=cmd_checkpoints)
 
     contacts = subparsers.add_parser("contacts", help="Report contact availability for a frame window")
     contacts.add_argument("--frames", help="Inclusive replay frame window")

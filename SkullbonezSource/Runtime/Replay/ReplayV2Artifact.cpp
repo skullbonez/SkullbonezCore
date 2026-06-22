@@ -1,18 +1,20 @@
 /*
 File: SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 Purpose:
-  Writes compact chunked binary v2 replay presentation artifacts.
+  Writes compact chunked binary v2 replay artifacts.
 
 Mental model:
-  The presentation v2 file is a seekable pose stream: metadata is deduplicated
-  into a body dictionary, while each frame stores only the body dictionary index,
-  position, and orientation needed for smooth scrub preview.
+  The v2 file is presentation-first: metadata is deduplicated into a body
+  dictionary, dense frames store only pose data for smooth scrub preview, and
+  optional solver chunks provide hashes/checkpoint payloads for restore
+  verification work.
 
 Glossary:
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
   HASH: Optional per-tick presentation/solver hash records.
+  SCHK: Optional sparse solver checkpoint records.
   INDX: Frame seek index into the presentation chunk.
 
 Invariants:
@@ -57,6 +59,7 @@ constexpr uint32_t REPLAY_V2_FRAME_HEADER_BYTES = 92;
 constexpr uint32_t REPLAY_V2_INDEX_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
 constexpr uint32_t REPLAY_V2_HASH_ENTRY_BYTES = 48;
+constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
 enum ReplayV2WorldFlags : uint8_t
@@ -228,6 +231,11 @@ bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplayBodyPrese
     return entry.id == body.id.value && entry.modelIndex == body.modelIndex;
 }
 
+bool SameDictionaryBody( const BodyDictionaryEntry& entry, const ReplaySolverBodySample& body )
+{
+    return entry.id == body.id.value && entry.modelIndex == body.modelIndex;
+}
+
 uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const ReplayBodyPresentationSample& body )
 {
     const auto found =
@@ -246,6 +254,23 @@ uint32_t FindOrAddBody( std::vector<BodyDictionaryEntry>& dictionary, const Repl
     std::memcpy( entry.name, body.name, sizeof( entry.name ) );
     dictionary.push_back( entry );
     return static_cast<uint32_t>( dictionary.size() - 1u );
+}
+
+bool FindBodyDictionaryIndex( const std::vector<BodyDictionaryEntry>& dictionary,
+                              const ReplaySolverBodySample& body,
+                              uint32_t& outIndex )
+{
+    const auto found =
+        std::find_if( dictionary.begin(),
+                      dictionary.end(),
+                      [&body]( const BodyDictionaryEntry& entry ) { return SameDictionaryBody( entry, body ); } );
+    if ( found == dictionary.end() )
+    {
+        return false;
+    }
+
+    outIndex = static_cast<uint32_t>( found - dictionary.begin() );
+    return true;
 }
 
 void AppendBodyDictionary( std::vector<uint8_t>& out, const std::vector<BodyDictionaryEntry>& dictionary )
@@ -301,6 +326,285 @@ void AppendPresentationFrame( std::vector<uint8_t>& out,
         AppendPod( out, dictionaryIndex );
         AppendVec3( out, body.position );
         AppendOrientation( out, body.orientation );
+    }
+}
+
+template <typename T> void AppendCountedPodVector( std::vector<uint8_t>& out, const std::vector<T>& values )
+{
+    AppendPod( out, CheckedU32( values.size() ) );
+    for ( const T& value : values )
+    {
+        AppendPod( out, value );
+    }
+}
+
+void AppendCountedIntVector( std::vector<uint8_t>& out, const std::vector<int>& values )
+{
+    AppendPod( out, CheckedU32( values.size() ) );
+    for ( int value : values )
+    {
+        AppendPod( out, static_cast<int32_t>( value ) );
+    }
+}
+
+void AppendCountedPairVector( std::vector<uint8_t>& out, const std::vector<std::pair<int, int>>& values )
+{
+    AppendPod( out, CheckedU32( values.size() ) );
+    for ( const std::pair<int, int>& value : values )
+    {
+        AppendPod( out, static_cast<int32_t>( value.first ) );
+        AppendPod( out, static_cast<int32_t>( value.second ) );
+    }
+}
+
+void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physics::TornadoFieldConfig& config )
+{
+    const uint8_t enabled = config.enabled ? 1u : 0u;
+    const uint8_t visualizeVelocityField = config.visualizeVelocityField ? 1u : 0u;
+    const uint8_t reserved[2] = {};
+    AppendPod( out, enabled );
+    AppendPod( out, visualizeVelocityField );
+    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendVec3( out, config.center );
+    AppendPod( out, config.radius );
+    AppendPod( out, config.height );
+    AppendPod( out, config.inwardAcceleration );
+    AppendPod( out, config.swirlAcceleration );
+    AppendPod( out, config.liftAcceleration );
+    AppendPod( out, config.ejectAcceleration );
+    AppendPod( out, config.ejectUpAcceleration );
+    AppendPod( out, config.ejectBand );
+    AppendPod( out, config.minCaptureSeconds );
+    AppendPod( out, config.ejectCooldownSeconds );
+    AppendPod( out, config.maxDeltaVelocity );
+}
+
+void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample& stats )
+{
+    AppendPod( out, static_cast<int32_t>( stats.rowCount ) );
+    AppendPod( out, static_cast<int32_t>( stats.cachePreviousRows ) );
+    AppendPod( out, static_cast<int32_t>( stats.cacheHits ) );
+    AppendPod( out, static_cast<int32_t>( stats.cacheMisses ) );
+    AppendPod( out, static_cast<int32_t>( stats.warmStartedRows ) );
+    AppendPod( out, static_cast<int32_t>( stats.positionCorrectionRows ) );
+    AppendPod( out, static_cast<int32_t>( stats.solverIterations ) );
+    AppendPod( out, stats.positionCorrectionTotal );
+    AppendPod( out, stats.positionCorrectionMax );
+}
+
+void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersistentContactSample& contact )
+{
+    AppendPod( out, static_cast<int32_t>( contact.bodyA ) );
+    AppendPod( out, static_cast<int32_t>( contact.bodyB ) );
+    AppendPod( out, contact.featureId );
+    AppendPod( out, contact.key );
+    AppendVec3( out, contact.normal );
+    AppendVec3( out, contact.tangent1 );
+    AppendVec3( out, contact.tangent2 );
+    AppendVec3( out, contact.rA );
+    AppendVec3( out, contact.rB );
+    AppendPod( out, contact.penetration );
+    AppendPod( out, contact.normalMass );
+    AppendPod( out, contact.tangentMass1 );
+    AppendPod( out, contact.tangentMass2 );
+    AppendPod( out, contact.bias );
+    AppendPod( out, contact.frictionLimit );
+    AppendPod( out, contact.accN );
+    AppendPod( out, contact.accT1 );
+    AppendPod( out, contact.accT2 );
+    const uint8_t flags[6] = {
+        contact.warmStarted ? 1u : 0u,
+        contact.isTerrain ? 1u : 0u,
+        contact.supportsRestingPolicy ? 1u : 0u,
+        contact.allowsTangentFriction ? 1u : 0u,
+        contact.normalCoupledFriction ? 1u : 0u,
+        contact.inhibitsSleep ? 1u : 0u,
+    };
+    const uint8_t reserved = 0;
+    AppendBytes( out, flags, sizeof( flags ) );
+    AppendPod( out, contact.manifoldPointCount );
+    AppendPod( out, reserved );
+    AppendVec3( out, contact.terrainNormal );
+    AppendPod( out, contact.terrainWarmStart );
+}
+
+void AppendContactCache( std::vector<uint8_t>& out, const ReplaySolverContactCacheSample& cache )
+{
+    AppendPod( out, cache.key );
+    AppendPod( out, cache.accN );
+    AppendPod( out, cache.accT1 );
+    AppendPod( out, cache.accT2 );
+}
+
+void AppendPhysicsDebugContact( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsDebugContact& contact )
+{
+    AppendPod( out, static_cast<int32_t>( contact.bodyA ) );
+    AppendPod( out, static_cast<int32_t>( contact.bodyB ) );
+    AppendPod( out, contact.featureId );
+    AppendVec3( out, contact.point );
+    AppendVec3( out, contact.normal );
+    AppendVec3( out, contact.tangent1 );
+    AppendVec3( out, contact.tangent2 );
+    AppendPod( out, contact.penetration );
+    AppendPod( out, contact.normalImpulse );
+}
+
+void AppendPipelineRecord( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+{
+    AppendPod( out, static_cast<int32_t>( record.stage ) );
+    AppendPod( out, static_cast<int32_t>( record.bodyA ) );
+    AppendPod( out, static_cast<int32_t>( record.bodyB ) );
+    AppendPod( out, static_cast<int32_t>( record.iteration ) );
+    AppendPod( out, record.featureId );
+    AppendVec3( out, record.point );
+    AppendVec3( out, record.normal );
+    AppendPod( out, record.scalarA );
+    AppendPod( out, record.scalarB );
+    AppendPod( out, record.scalarC );
+}
+
+void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSnapshot& snapshot )
+{
+    const uint8_t sleepEnabled = snapshot.sleepEnabled ? 1u : 0u;
+    const uint8_t collisionVisualFrameActive = snapshot.collisionVisualFrameActive ? 1u : 0u;
+    const uint8_t reserved[2] = {};
+    AppendPod( out, snapshot.version );
+    AppendPod( out, static_cast<int32_t>( snapshot.modelCount ) );
+    AppendPod( out, static_cast<int32_t>( snapshot.nextSleepIslandVisualId ) );
+    AppendPod( out, sleepEnabled );
+    AppendPod( out, collisionVisualFrameActive );
+    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendTornadoConfig( out, snapshot.tornadoConfig );
+    AppendCountedPodVector( out, snapshot.timeRemaining );
+    AppendCountedPodVector( out, snapshot.sleepSupportedThisFrame );
+    AppendCountedPodVector( out, snapshot.sleepInhibitedThisFrame );
+    AppendCountedPodVector( out, snapshot.sleepState );
+    AppendCountedPodVector( out, snapshot.sleepCounter );
+    AppendCountedPodVector( out, snapshot.underwaterSleepLocked );
+    AppendCountedPodVector( out, snapshot.tornadoCaptureSeconds );
+    AppendCountedPodVector( out, snapshot.tornadoEjectCooldownSeconds );
+    AppendCountedPodVector( out, snapshot.collisionVisualContacts );
+    AppendCountedIntVector( out, snapshot.sleepIslandVisualId );
+    AppendCountedIntVector( out, snapshot.sleepIslandAssignedVisualId );
+    AppendCountedPairVector( out, snapshot.sleepSupportEdges );
+    AppendCountedIntVector( out, snapshot.sleepIslandParent );
+    AppendCountedPodVector( out, snapshot.sleepIslandRank );
+    AppendCountedPodVector( out, snapshot.sleepIslandHasAwake );
+    AppendCountedPodVector( out, snapshot.sleepIslandHasSupportAnchor );
+    AppendCountedPodVector( out, snapshot.sleepIslandEligible );
+    AppendCountedPodVector( out, snapshot.sleepIslandCanSleep );
+
+    AppendPod( out, CheckedU32( snapshot.persistentContacts.size() ) );
+    for ( const ReplaySolverPersistentContactSample& contact : snapshot.persistentContacts )
+    {
+        AppendPersistentContact( out, contact );
+    }
+
+    AppendPod( out, CheckedU32( snapshot.persistentContactCache.size() ) );
+    for ( const ReplaySolverContactCacheSample& cache : snapshot.persistentContactCache )
+    {
+        AppendContactCache( out, cache );
+    }
+
+    AppendSolverStats( out, snapshot.solverStats );
+    AppendCountedPodVector( out, snapshot.persistentContactCounts );
+    AppendCountedPodVector( out, snapshot.persistentRestingContactCounts );
+
+    AppendPod( out, CheckedU32( snapshot.debugContacts.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsDebugContact& contact : snapshot.debugContacts )
+    {
+        AppendPhysicsDebugContact( out, contact );
+    }
+
+    AppendPod( out, CheckedU32( snapshot.pipelineTrace.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record : snapshot.pipelineTrace )
+    {
+        AppendPipelineRecord( out, record );
+    }
+
+    AppendCountedPodVector( out, snapshot.collisionCellKeys );
+}
+
+bool AppendSolverBodyRecord( std::vector<uint8_t>& out,
+                             const std::vector<BodyDictionaryEntry>& dictionary,
+                             const ReplaySolverBodySample& body )
+{
+    uint32_t dictionaryIndex = 0;
+    if ( !FindBodyDictionaryIndex( dictionary, body, dictionaryIndex ) )
+    {
+        return false;
+    }
+
+    const uint8_t flags[5] = {
+        body.fixed ? 1u : 0u,
+        body.sleeping ? 1u : 0u,
+        body.sleepSupported ? 1u : 0u,
+        body.sleepInhibited ? 1u : 0u,
+        body.collisionContact ? 1u : 0u,
+    };
+    const uint8_t reserved[3] = {};
+    const uint16_t reserved16 = 0;
+    AppendPod( out, dictionaryIndex );
+    AppendVec3( out, body.position );
+    AppendVec3( out, body.linearVelocity );
+    AppendVec3( out, body.angularVelocity );
+    AppendOrientation( out, body.orientation );
+    AppendPod( out, body.mass );
+    AppendPod( out, body.inverseMass );
+    AppendVec3( out, body.rotationalInertia );
+    AppendVec3( out, body.inverseRotationalInertia );
+    AppendBytes( out, flags, sizeof( flags ) );
+    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendPod( out, static_cast<int32_t>( body.sleepIslandVisualId ) );
+    AppendPod( out, body.contactCount );
+    AppendPod( out, reserved16 );
+    AppendPod( out, body.maxPenetration );
+    AppendPod( out, body.normalImpulseSum );
+    return true;
+}
+
+void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisualSample& launcher )
+{
+    const uint8_t fireMode = static_cast<uint8_t>( launcher.fireMode );
+    const uint8_t visualizeRays = launcher.visualizeRays ? 1u : 0u;
+    const uint8_t reserved[2] = {};
+    AppendPod( out, static_cast<int32_t>( launcher.nextRayLine ) );
+    AppendPod( out, static_cast<int32_t>( launcher.nextLaserShot ) );
+    AppendPod( out, fireMode );
+    AppendPod( out, visualizeRays );
+    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendPod( out, launcher.impulseStrength );
+    AppendPod( out, launcher.projectileSpeed );
+
+    AppendPod( out, CheckedU32( launcher.rayLines.size() ) );
+    for ( const ReplayRayCastLineSample& line : launcher.rayLines )
+    {
+        const uint8_t active = line.active ? 1u : 0u;
+        const uint8_t hit = line.hit ? 1u : 0u;
+        const uint8_t lineReserved[2] = {};
+        AppendVec3( out, line.start );
+        AppendVec3( out, line.end );
+        AppendPod( out, line.ageSeconds );
+        AppendPod( out, active );
+        AppendPod( out, hit );
+        AppendBytes( out, lineReserved, sizeof( lineReserved ) );
+    }
+
+    AppendPod( out, CheckedU32( launcher.laserShots.size() ) );
+    for ( const LauncherLaserShotSnapshot& shot : launcher.laserShots )
+    {
+        const uint8_t active = shot.active ? 1u : 0u;
+        const uint8_t hit = shot.hit ? 1u : 0u;
+        const uint8_t shotReserved[2] = {};
+        AppendVec3( out, shot.start );
+        AppendVec3( out, shot.end );
+        AppendVec3( out, shot.cameraRight );
+        AppendVec3( out, shot.cameraUp );
+        AppendPod( out, shot.ageSeconds );
+        AppendPod( out, shot.lifetimeSeconds );
+        AppendPod( out, active );
+        AppendPod( out, hit );
+        AppendBytes( out, shotReserved, sizeof( shotReserved ) );
     }
 }
 
@@ -642,7 +946,8 @@ Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t record
 
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
                                     const std::vector<BodyDictionaryEntry>& dictionary,
-                                    std::size_t solverHashCount )
+                                    std::size_t solverHashCount,
+                                    std::size_t solverCheckpointCount )
 {
     const ReplayPresentationSample& first = samples.front();
     const ReplayPresentationSample& last = samples.back();
@@ -653,6 +958,11 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
         chunks.push_back( "HASH" );
         tracks.push_back( "solverHashes" );
     }
+    if ( solverCheckpointCount > 0 )
+    {
+        chunks.push_back( "SCHK" );
+        tracks.push_back( "solverCheckpoints" );
+    }
     chunks.push_back( "INDX" );
 
     Json manifest;
@@ -661,22 +971,31 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["track"] = "presentation";
     manifest["tracks"] = tracks;
     manifest["encoding"] = "little-endian chunked binary";
-    manifest["schema"] = solverHashCount > 0 ? "presentation-v2+solver-hashes" : "presentation-v2";
+    manifest["schema"] = solverCheckpointCount > 0
+                             ? "presentation-v2+solver-hashes+solver-checkpoints"
+                             : ( solverHashCount > 0 ? "presentation-v2+solver-hashes" : "presentation-v2" );
     manifest["frameCount"] = samples.size();
     manifest["bodyDictionaryCount"] = dictionary.size();
     manifest["solverHashCount"] = solverHashCount;
+    manifest["solverCheckpointCount"] = solverCheckpointCount;
     manifest["firstFrame"] = first.frameIndex;
     manifest["lastFrame"] = last.frameIndex;
     manifest["firstTimeSeconds"] = first.simulationSeconds;
     manifest["lastTimeSeconds"] = last.simulationSeconds;
     manifest["bodyPoseBytes"] = REPLAY_V2_BODY_POSE_BYTES;
     manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
+    manifest["solverBodyBytes"] = solverCheckpointCount > 0 ? REPLAY_V2_SOLVER_BODY_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
-    manifest["notes"] = solverHashCount > 0 ? "Presentation v2 supports smooth visual scrub and carries per-tick "
-                                              "solver hashes; checkpoint/event chunks are not present."
-                                            : "Presentation v2 supports smooth visual scrub; solver checkpoint/event "
-                                              "chunks are not present.";
+    manifest["notes"] = solverCheckpointCount > 0
+                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
+                              "sparse solver checkpoint payloads; event chunks and saved restore verification are not "
+                              "present."
+                        : solverHashCount > 0
+                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes; "
+                              "checkpoint/event chunks are not present."
+                            : "Presentation v2 supports smooth visual scrub; solver checkpoint/event chunks are not "
+                              "present.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -719,6 +1038,63 @@ std::vector<uint8_t> BuildHashChunk( const std::vector<ReplaySolverFrameSample>&
     return bytes;
 }
 
+std::size_t CountSolverCheckpoints( const std::vector<ReplaySolverFrameSample>& solverSamples )
+{
+    return static_cast<std::size_t>( std::count_if( solverSamples.begin(),
+                                                    solverSamples.end(),
+                                                    []( const ReplaySolverFrameSample& sample )
+                                                    { return sample.checkpointBoundary; } ) );
+}
+
+bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& solverSamples,
+                                 const std::vector<BodyDictionaryEntry>& dictionary,
+                                 std::vector<uint8_t>& outBytes,
+                                 std::size_t& outCheckpointCount )
+{
+    outBytes.clear();
+    outCheckpointCount = CountSolverCheckpoints( solverSamples );
+    AppendPod( outBytes, CheckedU32( outCheckpointCount ) );
+    for ( const ReplaySolverFrameSample& sample : solverSamples )
+    {
+        if ( !sample.checkpointBoundary )
+        {
+            continue;
+        }
+
+        const uint8_t checkpointBoundary = sample.checkpointBoundary ? 1u : 0u;
+        const uint8_t worldFlags = WorldFlags( sample.world );
+        const uint16_t reserved16 = 0;
+        AppendPod( outBytes, sample.frameIndex );
+        AppendPod( outBytes, static_cast<int32_t>( sample.sceneFrame ) );
+        AppendPod( outBytes, sample.simulationSeconds );
+        AppendPod( outBytes, sample.physicsDt );
+        AppendPod( outBytes, sample.presentationHash );
+        AppendPod( outBytes, sample.solverHash );
+        AppendPod( outBytes, sample.contactCount );
+        AppendPod( outBytes, sample.pipelineRecordCount );
+        AppendPod( outBytes, checkpointBoundary );
+        AppendPod( outBytes, worldFlags );
+        AppendPod( outBytes, reserved16 );
+        AppendPod( outBytes, sample.world.gravity );
+        AppendPod( outBytes, sample.world.fluidHeight );
+        AppendPod( outBytes, sample.world.fluidDensity );
+        AppendVec3( outBytes, sample.camera.eye );
+        AppendVec3( outBytes, sample.camera.view );
+        AppendVec3( outBytes, sample.camera.up );
+        AppendLauncherVisual( outBytes, sample.launcherVisual );
+        AppendSolverSnapshot( outBytes, sample.worldSnapshot );
+        AppendPod( outBytes, CheckedU32( sample.bodies.size() ) );
+        for ( const ReplaySolverBodySample& body : sample.bodies )
+        {
+            if ( !AppendSolverBodyRecord( outBytes, dictionary, body ) )
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                   const std::vector<ReplaySolverFrameSample>* solverSamples,
                   std::vector<Chunk>& outChunks )
@@ -753,14 +1129,27 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     std::vector<uint8_t> bodyBytes;
     AppendBodyDictionary( bodyBytes, dictionary );
 
+    std::vector<uint8_t> checkpointBytes;
+    std::size_t solverCheckpointCount = 0u;
+    if ( solverSamples && !solverSamples->empty() &&
+         !BuildSolverCheckpointChunk( *solverSamples, dictionary, checkpointBytes, solverCheckpointCount ) )
+    {
+        return false;
+    }
+
     const std::size_t solverHashCount = solverSamples ? solverSamples->size() : 0u;
-    outChunks.push_back( MakeChunk( "MANI", BuildManifest( samples, dictionary, solverHashCount ), 1u ) );
+    outChunks.push_back(
+        MakeChunk( "MANI", BuildManifest( samples, dictionary, solverHashCount, solverCheckpointCount ), 1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
     if ( solverSamples && !solverSamples->empty() )
     {
         outChunks.push_back(
             MakeChunk( "HASH", BuildHashChunk( *solverSamples ), CheckedU32( solverSamples->size() ) ) );
+    }
+    if ( solverCheckpointCount > 0u )
+    {
+        outChunks.push_back( MakeChunk( "SCHK", std::move( checkpointBytes ), CheckedU32( solverCheckpointCount ) ) );
     }
     outChunks.push_back( MakeChunk( "INDX", BuildIndex( index ), CheckedU32( index.size() ) ) );
     return true;
@@ -874,6 +1263,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         result->sampleCount = samples.size();
         result->bodyDictionaryCount = bodyChunk.recordCount;
         result->solverHashCount = 0;
+        result->solverCheckpointCount = 0;
         result->fileBytes = fileBytes.size();
     }
     return true;
@@ -939,6 +1329,7 @@ bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& r
         result->sampleCount = samples.size();
         result->bodyDictionaryCount = bodyChunk.recordCount;
         result->solverHashCount = solverSamples.size();
+        result->solverCheckpointCount = CountSolverCheckpoints( solverSamples );
         result->fileBytes = fileBytes.size();
     }
     return true;

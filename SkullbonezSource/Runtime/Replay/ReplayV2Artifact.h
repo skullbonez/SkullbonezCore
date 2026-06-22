@@ -4,12 +4,16 @@ Purpose:
   Declares the chunked binary v2 replay artifact writer.
 
 Mental model:
-  V2 artifacts are saved replay buffers, not live simulation state. The first
-  track is presentation-only so backwards scrub can load dense poses cheaply.
+  V2 artifacts are saved replay buffers, not yet complete branchable timelines.
+  The first track is presentation data for smooth scrub, with optional solver
+  hash/checkpoint chunks layered in for saved restore verification work.
 
 Glossary:
   Presentation track: Body poses, camera, and world display fields used for
     smooth visual scrubbing.
+  Solver checkpoint chunk: Sparse saved solver payloads copied from retained
+    checkpoint-boundary samples. Event chunks and saved restore are separate
+    work.
   Chunk: A typed byte range in the replay file, found through the chunk table.
 
 Invariants:
@@ -36,6 +40,7 @@ struct ReplayV2SaveResult
     std::size_t sampleCount = 0;
     std::size_t bodyDictionaryCount = 0;
     std::size_t solverHashCount = 0;
+    std::size_t solverCheckpointCount = 0;
     std::size_t fileBytes = 0;
 };
 

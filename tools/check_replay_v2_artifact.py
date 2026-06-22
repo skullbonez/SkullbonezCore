@@ -153,11 +153,15 @@ def query_artifact():
         raise RuntimeError(f"expected 32-byte pose rows, found {summary.get('bodyPoseBytes')}")
     if int(summary.get("solverHashBytes") or 0) != 48:
         raise RuntimeError(f"expected 48-byte solver hash rows, found {summary.get('solverHashBytes')}")
+    if int(summary.get("solverBodyBytes") or 0) != 112:
+        raise RuntimeError(f"expected 112-byte solver body checkpoint rows, found {summary.get('solverBodyBytes')}")
     if int(summary.get("solverHashCount") or 0) < int(summary.get("frameCount") or 0):
         raise RuntimeError(
             f"expected a solver hash per replay frame, found {summary.get('solverHashCount')} hashes for "
             f"{summary.get('frameCount')} frames"
         )
+    if int(summary.get("solverCheckpointCount") or 0) <= 0:
+        raise RuntimeError("expected at least one solver checkpoint chunk row")
 
     first_frame = int(summary["firstFrame"])
     last_frame = int(summary["lastFrame"])
@@ -209,6 +213,39 @@ def query_artifact():
     if not hash_samples or not all(sample.get("solverHash") for sample in hash_samples):
         raise RuntimeError("replay hashes query did not return solver hash samples")
 
+    checkpoint_command = [
+        str(REPLAY_QUERY_BAT),
+        str(ARTIFACT),
+        "checkpoints",
+        "--frames",
+        f"{first_frame}:{last_frame}",
+        "--limit",
+        "8",
+        "--body-limit",
+        "2",
+    ]
+    print("  Checkpoint command:")
+    print(
+        "    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay "
+        f"checkpoints --frames {first_frame}:{last_frame} --limit 8 --body-limit 2"
+    )
+    checkpoint_stdout, checkpoints = run_json(checkpoint_command, REPO)
+    if int(checkpoints.get("checkpointCount") or 0) != int(summary.get("solverCheckpointCount") or 0):
+        raise RuntimeError("replay checkpoint query did not report the full solver checkpoint track")
+    checkpoint_samples = checkpoints.get("samples") or []
+    if not checkpoint_samples:
+        raise RuntimeError("replay checkpoint query did not return any checkpoint samples")
+    first_checkpoint = checkpoint_samples[0]
+    if not first_checkpoint.get("checkpointBoundary") or not first_checkpoint.get("solverHash"):
+        raise RuntimeError("replay checkpoint query did not return checkpoint hash metadata")
+    if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
+        raise RuntimeError("replay checkpoint query did not return solver body payloads")
+    snapshot = first_checkpoint.get("snapshot") or {}
+    if int(snapshot.get("version") or 0) != 1:
+        raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
+    if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
+        raise RuntimeError("replay checkpoint snapshot model count did not match body count")
+
     export_end = min(first_frame + 5, last_frame)
     export_command = [
         str(REPLAY_QUERY_BAT),
@@ -243,6 +280,7 @@ def query_artifact():
         "replay_frame": len(frame_stdout.encode("utf-8")),
         "replay_body": len(body_stdout.encode("utf-8")),
         "replay_hashes": len(hash_stdout.encode("utf-8")),
+        "replay_checkpoints": len(checkpoint_stdout.encode("utf-8")),
         "replay_export": len(export_stdout.encode("utf-8")),
         "physics_summary": len(physics_stdout.encode("utf-8")),
     }
@@ -258,7 +296,13 @@ def main():
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
-        print(f"  PASS: replay v2 artifact frames={summary.get('frameCount')} bodies={summary.get('bodyDictionaryCount')}")
+        print(
+            "  PASS: replay v2 artifact frames={frames} bodies={bodies} checkpoints={checkpoints}".format(
+                frames=summary.get("frameCount"),
+                bodies=summary.get("bodyDictionaryCount"),
+                checkpoints=summary.get("solverCheckpointCount"),
+            )
+        )
         print(f"  Artifact bytes: {ARTIFACT.stat().st_size}")
         print(f"  Runtime trace bytes: {RUNTIME_TRACE.stat().st_size if RUNTIME_TRACE.exists() else 0}")
         print(f"  Trace bytes: {TRACE.stat().st_size}")

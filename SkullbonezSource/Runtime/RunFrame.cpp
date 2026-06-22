@@ -584,6 +584,10 @@ void Run::TickReplaySaveProbe()
     {
         throw std::runtime_error( "replay save probe wrote v2 artifact without a full solver hash track" );
     }
+    if ( result.solverCheckpointCount == 0 )
+    {
+        throw std::runtime_error( "replay save probe wrote v2 artifact without solver checkpoint chunks" );
+    }
 
     std::vector<ReplayPresentationSample> loadedSamples;
     ReplayV2LoadResult loadResult;
@@ -668,11 +672,13 @@ void Run::TickReplaySaveProbe()
     }
 
     m_replaySaveProbe.completed = true;
-    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu bytes=%llu\n",
+    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
+            "solver_checkpoints=%llu bytes=%llu\n",
             m_replaySaveProbe.path,
             static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
             static_cast<unsigned long long>( result.solverHashCount ),
+            static_cast<unsigned long long>( result.solverCheckpointCount ),
             static_cast<unsigned long long>( result.fileBytes ) );
     printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",

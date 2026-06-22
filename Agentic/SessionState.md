@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `97d9972c` added v2 solver hash chunks and pushed it to `origin/nightrunner-22-june`. |
+| Last committed milestone | `e43fe8b1` added retained in-memory restore hash verification and pushed it to `origin/nightrunner-22-june`. |
 | Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
-| Pending work | V2 now has smooth file-backed presentation scrub, per-tick solver hash chunks, and retained in-memory restore hash verification. Remaining plan gaps include solver checkpoint chunks, event chunks, saved restore verification, branch-from-file, and in-app file loading/picking. |
+| Pending work | V2 now has smooth file-backed presentation scrub, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, and retained in-memory restore hash verification. Remaining plan gaps include event chunks, saved restore verification, branch-from-file, and in-app file loading/picking. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Latest retained-restore hash slice gates passed: `tools\validate_replay_scrub.bat` in `TestOutput\agent_logs\2026-06-22_replay_restore_hash_validate_replay_scrub.log`, `tools\validate_physics_deep.bat` in `TestOutput\agent_logs\2026-06-22_replay_restore_hash_validate_physics_deep.log`, `tools\validate_physics.bat` in `TestOutput\agent_logs\2026-06-22_replay_restore_hash_validate_physics.log`, `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-22_replay_restore_hash_validate_full.log`, and `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-22_replay_restore_hash_validate_fast_rerun.log`. |
+| Validation | Latest checkpoint-chunk slice gates passed: `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_checkpoint_validate_replay_v2_2.log`, `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_checkpoint_validate_fast_2.log`, and `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_checkpoint_validate_full.log`. |
 
 ## Active Notes
 
