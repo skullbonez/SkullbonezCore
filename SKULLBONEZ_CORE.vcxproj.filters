@@ -421,6 +421,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>

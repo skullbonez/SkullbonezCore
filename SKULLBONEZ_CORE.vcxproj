@@ -151,6 +151,7 @@
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />

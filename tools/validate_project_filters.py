@@ -194,6 +194,7 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorHullAssets",
     "LauncherLaser",
+    "LauncherTools",
     "RunEditorTools",
 )
 
