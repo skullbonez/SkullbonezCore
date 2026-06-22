@@ -6,6 +6,19 @@ Purpose:
 Mental model:
   The builder reads existing subsystem owners and copies only scalar UI-facing
   state, so no renderer, scene, or physics owner is exposed to presentation.
+
+Glossary:
+  View model: Read-only presentation snapshot assembled from runtime owners.
+  EngineContext: Bound view over subsystems owned by Run.
+  Scalar state: Small copyable values such as counts, flags, and indices.
+
+Invariants:
+  - Building the view model must not mutate subsystems.
+  - Missing or unbound context returns a default snapshot.
+
+Related:
+  - SkullbonezSource/Runtime/RuntimeViewModel.h
+  - SkullbonezSource/Runtime/EngineContext.h
 */
 #include "RuntimeViewModel.h"
 

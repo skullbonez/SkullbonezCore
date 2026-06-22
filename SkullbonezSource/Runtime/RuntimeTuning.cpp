@@ -8,6 +8,16 @@ Mental model:
   Runtime input decides when a UI command is accepted. This file decides how
   accepted values clamp, mutate config, and persist as scene overrides.
 
+Glossary:
+  Cinematic config: HDR/post-processing and style settings for the active look.
+  Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
+  Override mask: Bitset recording which UI-touched scene values should persist.
+  Worker override: Runtime request for the worker-pool thread count.
+
+Invariants:
+  - UI values are clamped before they mutate live configuration.
+  - Scene override masks must be updated with the value they describe.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeTuning.h
   - SkullbonezSource/Runtime/RunInput.cpp

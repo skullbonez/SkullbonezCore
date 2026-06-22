@@ -3,6 +3,22 @@ File: SkullbonezSource/Physics/PhysicsScene.cpp
 Purpose:
   Coordinates PhysicsWorld with deterministic body/collider/render stores.
 
+Mental model:
+  PhysicsWorld still owns the solver. PhysicsScene is the coordination boundary
+  that refreshes body, collider, and render snapshots around that solver without
+  changing the live GameModelCollection order.
+
+Glossary:
+  Solver: Physics step that integrates motion and applies collision/contact
+    impulses.
+  Store: Ordered snapshot of one ownership concern such as bodies, colliders,
+    or render instances.
+  Determinism: Same inputs produce byte-exact validation artifacts.
+
+Invariants:
+  - Store refresh order must preserve GameModelCollection physics model order.
+  - RunPhysics delegates to PhysicsWorld without changing floating-point order.
+
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
 */

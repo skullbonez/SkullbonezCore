@@ -3,6 +3,18 @@ File: SkullbonezSource/Rendering/RenderInstanceStore.cpp
 Purpose:
   Builds model-order render instance snapshots from GameModel state.
 
+Mental model:
+  Refresh copies renderer-facing values after gameplay/physics have committed.
+  It does not allocate GPU resources; it records the CPU-side draw intent that a
+  future render snapshot can consume.
+
+Glossary:
+  Render instance: One draw-facing object record with transform and material
+    intent.
+  Material intent: Engine-level material choice before a renderer maps it to
+    shaders, textures, or descriptor rows.
+  Replay body id: Stable per-scene id shared with physics/replay records.
+
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.h
 */

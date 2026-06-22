@@ -7,6 +7,16 @@ Mental model:
   UI emits raw parameter changes. Runtime tuning clamps those values, updates
   live config, and records scene override bits so persistence remains explicit.
 
+Glossary:
+  Cinematic config: HDR/post-processing and style settings for the active look.
+  Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
+  Override mask: Bitset recording which UI-touched scene values should persist.
+  Worker override: Runtime request for the worker-pool thread count.
+
+Invariants:
+  - Helpers clamp raw UI values before writing runtime config.
+  - Scene override bits and the changed value must stay paired.
+
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
   - SkullbonezSource/UI/UICommands.h

@@ -8,6 +8,16 @@ Mental model:
   It is rebuilt from EngineContext rather than letting UI code chase storage
   owners directly.
 
+Glossary:
+  View model: Read-only presentation snapshot assembled from runtime owners.
+  EngineContext: Bound view over subsystems owned by Run.
+  Scalar state: Small copyable values such as counts, flags, and indices.
+  Presentation layer: UI or diagnostics code that reads state without owning it.
+
+Invariants:
+  - View models are copies; consumers must not infer ownership from them.
+  - Builder reads through EngineContext and leaves source systems untouched.
+
 Related:
   - SkullbonezSource/Runtime/EngineContext.h
   - SkullbonezSource/Runtime/RunUiTextPass.cpp

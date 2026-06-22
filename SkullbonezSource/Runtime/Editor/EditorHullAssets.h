@@ -7,8 +7,19 @@ Mental model:
   Scene files should prefer stable logical hull ids such as diamond or hex_prism.
   The asset boundary resolves those ids to the current hull files.
 
+Glossary:
+  Hull asset: Authored convex collision mesh used by editor primitives.
+  Hull token: Stable scene-file string that names a built-in hull asset.
+  Contact release: Editor/authored behavior that lets fixed decoration become
+    dynamic after a large impact.
+
+Invariants:
+  - Scene-file tokens are compatibility contracts; do not rename them casually.
+  - Defaults here must match editor placement and scene snapshot serialization.
+
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/Editor/EditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
 */

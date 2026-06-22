@@ -8,6 +8,16 @@ Mental model:
   still formats artifacts, but Run no longer directly owns the perf and physics
   diagnostic structs.
 
+Glossary:
+  Perf log: CSV-style runtime performance artifact written during runs.
+  SkullScope: Queryable physics diagnostics trace workflow.
+  Diagnostics artifact: File produced for validation, profiling, or analysis.
+  Trace state: Mutable state needed while a diagnostics run is active.
+
+Invariants:
+  - RuntimeDiagnostics owns artifact formatting and schema compatibility.
+  - Controller state must be closed/flushed through the helper API.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
   - SkullbonezSource/Runtime/RunFrame.cpp

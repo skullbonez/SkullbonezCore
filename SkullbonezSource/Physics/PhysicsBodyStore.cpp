@@ -3,6 +3,18 @@ File: SkullbonezSource/Physics/PhysicsBodyStore.cpp
 Purpose:
   Builds deterministic body-order snapshots from GameModel physics state.
 
+Mental model:
+  Refresh observes the compatibility model list after simulation has committed.
+  It copies only body-facing values so future physics-store migrations can be
+  checked without changing solver ordering.
+
+Glossary:
+  Body: Simulated object state such as position, orientation, velocity, mass,
+    and sleep flag.
+  Sleep: Optimization that stops simulating stable bodies until something wakes
+    them.
+  Replay body id: Stable per-scene id used by replay and SkullScope traces.
+
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */

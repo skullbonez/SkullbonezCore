@@ -6,6 +6,19 @@ Purpose:
 Mental model:
   The context is intentionally lightweight: Run owns the actual systems and
   binds their addresses once construction has completed.
+
+Glossary:
+  EngineContext: Bound view over runtime-owned systems.
+  Binding: Non-owning pointer to a subsystem owned by Run.
+  Runtime boundary: Named subsystem edge used by extraction slices.
+
+Invariants:
+  - EngineContext must not take ownership of bound systems.
+  - IsBound() is conservative so incomplete bindings fail closed.
+
+Related:
+  - SkullbonezSource/Runtime/EngineContext.h
+  - SkullbonezSource/Runtime/Run.h
 */
 #include "EngineContext.h"
 

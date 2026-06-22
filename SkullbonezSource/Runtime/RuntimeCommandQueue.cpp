@@ -6,6 +6,20 @@ Purpose:
 Mental model:
   Commands are ordinary FIFO intent records. The queue does not execute them;
   controllers or Run decide how to apply each command.
+
+Glossary:
+  FIFO (First In, First Out): Queue order where the oldest command is consumed
+    first.
+  Runtime command: Typed intent record emitted by input, UI, or tools.
+  Command consumer: Runtime code that applies a queued command to live state.
+
+Invariants:
+  - Queue order is observable behavior for same-frame command handling.
+  - TryPop moves exactly one command and leaves empty queues unchanged.
+
+Related:
+  - SkullbonezSource/Runtime/RuntimeCommandQueue.h
+  - SkullbonezSource/Runtime/RunInput.cpp
 */
 #include "RuntimeCommandQueue.h"
 

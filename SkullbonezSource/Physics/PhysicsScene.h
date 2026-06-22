@@ -9,6 +9,17 @@ Mental model:
   remains the solver owner for now, while stores mirror the same model order for
   replay, diagnostics, and migration checks.
 
+Glossary:
+  Solver: Physics step that integrates bodies and resolves contacts.
+  Store: Ordered snapshot for one concern, such as bodies, colliders, or render
+    instances.
+  SkullScope: Queryable physics diagnostics trace workflow.
+  Determinism: Same inputs produce byte-exact validation output.
+
+Invariants:
+  - Body, collider, render, replay, and diagnostics ordering stays aligned.
+  - PhysicsWorld remains authoritative until store migration has its own gate.
+
 Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
   - SkullbonezSource/Physics/PhysicsWorld.h

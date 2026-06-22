@@ -7,6 +7,17 @@ Mental model:
   Placement gestures start as mouse deltas and wheel clicks. This file maps
   that input into safe object scale values before RunInput commits the object.
 
+Glossary:
+  Placement gesture: Mouse drag and wheel input used to size an editor object
+    before placement commits.
+  Hull scale: Per-axis size multiplier for convex hull editor assets.
+  Uniform scale: One shared size value applied to all axes.
+  Scale lock: Tree/root rule that keeps authored part proportions coherent.
+
+Invariants:
+  - Object-type classification must stay in sync with UI::EditorTab entries.
+  - Scale helpers clamp before objects are committed to the scene.
+
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
   - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md

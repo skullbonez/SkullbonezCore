@@ -8,6 +8,15 @@ Mental model:
   provides a named ownership point for scene state before deeper scene-loading
   side effects move out of RunScene.cpp.
 
+Glossary:
+  Scene runtime: Mutable per-scene queue, completion, and automation state.
+  Scene queue: Ordered list of authored scenes or demo entries to run.
+  Pass-through boundary: Wrapper that names ownership before moving behavior.
+
+Invariants:
+  - Controller accessors must preserve the existing SceneRuntime semantics.
+  - No scene load side effects live here yet; RunScene.cpp still applies them.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp

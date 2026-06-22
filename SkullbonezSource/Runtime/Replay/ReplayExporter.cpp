@@ -2,6 +2,25 @@
 File: SkullbonezSource/Runtime/Replay/ReplayExporter.cpp
 Purpose:
   Writes bounded replay buffers to disk for later debugging and sharing.
+
+Mental model:
+  Exporters serialize already-retained replay samples. They do not pull live
+  simulation state, advance physics, or mutate replay buffers.
+
+Glossary:
+  Replay buffer: Bounded in-memory sequence of retained presentation or solver
+    samples.
+  Presentation sample: Render-facing pose/state captured from a frame.
+  Solver sample: Physics-facing state needed for rollback and diagnostics.
+  Artifact: File written for debugging, sharing, or automated inspection.
+
+Invariants:
+  - Export order follows the recorder order so artifact diffs stay stable.
+  - Missing optional data should serialize explicitly rather than shifting fields.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/ReplayExporter.h
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #include "ReplayExporter.h"
 

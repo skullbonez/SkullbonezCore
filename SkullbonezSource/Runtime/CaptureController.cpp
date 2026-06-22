@@ -6,6 +6,19 @@ Purpose:
 Mental model:
   Run supplies frame context and a sink. CaptureController owns the mutable
   screenshot request state and delegates pixel writing to CaptureSystem.
+
+Glossary:
+  Capture sink: Callback surface that performs the actual screenshot write.
+  Auto-cycle: Screenshot automation that steps through tracked balls/scenes.
+  Screenshot request: Runtime state describing when and where to capture pixels.
+
+Invariants:
+  - CaptureController owns trigger state but not backbuffer readback.
+  - Tick methods must be deterministic for suite and screenshot automation.
+
+Related:
+  - SkullbonezSource/Runtime/CaptureController.h
+  - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #include "CaptureController.h"
 

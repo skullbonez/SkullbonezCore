@@ -8,6 +8,16 @@ Mental model:
   extraction slices from reaching through individual Run members without first
   declaring which runtime boundary they need.
 
+Glossary:
+  EngineContext: Bound view over runtime-owned systems.
+  Binding: Non-owning pointer to a subsystem owned by Run.
+  Runtime boundary: Named subsystem edge used by extraction slices.
+  Facade: Small public surface that hides broader runtime ownership.
+
+Invariants:
+  - All bindings are borrowed; Run keeps ownership and lifetime.
+  - New extracted systems should request context through this declared surface.
+
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RuntimeViewModel.h

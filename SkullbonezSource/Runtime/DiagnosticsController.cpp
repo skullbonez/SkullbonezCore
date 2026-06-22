@@ -6,6 +6,19 @@ Purpose:
 Mental model:
   The controller stores mutable diagnostics state and delegates artifact writes
   to RuntimeDiagnostics so existing output stays byte-for-byte compatible.
+
+Glossary:
+  Perf log: CSV-style runtime performance artifact written during runs.
+  SkullScope: Queryable physics diagnostics trace workflow.
+  Diagnostics artifact: File produced for validation, profiling, or analysis.
+
+Invariants:
+  - Formatting and close behavior stay in RuntimeDiagnostics.
+  - Controller moves ownership only; artifact schema must not drift here.
+
+Related:
+  - SkullbonezSource/Runtime/DiagnosticsController.h
+  - SkullbonezSource/Runtime/RuntimeDiagnostics.h
 */
 #include "DiagnosticsController.h"
 

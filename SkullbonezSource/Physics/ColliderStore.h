@@ -8,6 +8,16 @@ Mental model:
   Narrowphase still reads GameModel through PhysicsWorld today; this boundary
   makes the future authoritative collider store explicit and reviewable.
 
+Glossary:
+  Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
+  Narrowphase: Precise collision pass that computes actual contact points.
+  Convex hull: Collision shape made from a closed convex set of authored points.
+  Replay body id: Stable per-scene id paired with a body for replay diagnostics.
+
+Invariants:
+  - Store index order must match GameModelCollection physics model order.
+  - Refresh must not mutate GameModel state; it is a snapshot boundary only.
+
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
   - SkullbonezSource/Physics/PhysicsScene.h

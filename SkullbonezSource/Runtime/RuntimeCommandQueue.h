@@ -8,6 +8,17 @@ Mental model:
   state. The queue starts as the shared contract; later slices can move direct
   UI and editor mutations onto it without changing command vocabulary.
 
+Glossary:
+  FIFO (First In, First Out): Queue order where the oldest command is consumed
+    first.
+  Runtime command: Typed intent record emitted by input, UI, or tools.
+  Command consumer: Runtime code that applies a queued command to live state.
+  Deferred intent: User/tool request stored until the frame boundary.
+
+Invariants:
+  - Command order is part of same-frame runtime behavior.
+  - Command payload fields stay simple value types for predictable ownership.
+
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
   - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md

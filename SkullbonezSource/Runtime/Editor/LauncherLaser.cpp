@@ -8,6 +8,17 @@ Mental model:
   ribbon and a narrow hot core toward the current camera so the feedback stays
   visible even when fired straight out of the crosshair.
 
+Glossary:
+  Billboard: Camera-facing quad built from a world-space segment and view
+    direction.
+  Ribbon: Thin quad strip used to render one laser streak.
+  Afterimage: Fading visual trail that remains briefly after the shot.
+  Shader handle: Runtime id that resolves to a renderer-owned shader resource.
+
+Invariants:
+  - Laser shots are visual feedback only; physics impulses happen elsewhere.
+  - Expired shots must stop drawing without changing launcher hit history.
+
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
   - SkullbonezSource/Runtime/RunPasses.cpp

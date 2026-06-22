@@ -7,6 +7,17 @@ Mental model:
   Input owns gestures. Editor tools own how those gestures translate into
   editable object scale, clamp ranges, and placement semantics.
 
+Glossary:
+  Placement gesture: Mouse drag and wheel input used to size an object before
+    placement commits.
+  Hull scale: Per-axis size multiplier for convex hull editor assets.
+  Uniform scale: One shared size value applied to all axes.
+  Scale lock: Rule that keeps authored multi-part tree/root proportions stable.
+
+Invariants:
+  - Helpers must be deterministic and side-effect free.
+  - Object-type helpers must stay aligned with the editor tab object enum.
+
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp

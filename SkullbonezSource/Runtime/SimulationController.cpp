@@ -5,7 +5,20 @@ Purpose:
 
 Mental model:
   This is a behavior-preserving facade over SimulationSystem. It gives Run a
-  runtime-owned seam before solver ownership moves into PhysicsScene.
+  runtime-owned boundary before solver ownership moves into PhysicsScene.
+
+Glossary:
+  Simulation tick: One runtime request to advance fixed or variable physics.
+  Timestep policy: Rule that decides how wall time becomes physics steps.
+  Facade: Small wrapper that names ownership without changing behavior.
+
+Invariants:
+  - Tick delegates to SimulationSystem without changing step math.
+  - Reset clears accumulated timestep state through the existing owner.
+
+Related:
+  - SkullbonezSource/Runtime/SimulationController.h
+  - SkullbonezSource/Physics/SimulationSystem.h
 */
 #include "SimulationController.h"
 

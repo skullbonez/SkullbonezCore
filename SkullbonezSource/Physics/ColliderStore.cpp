@@ -3,6 +3,17 @@ File: SkullbonezSource/Physics/ColliderStore.cpp
 Purpose:
   Builds deterministic collider-order snapshots from GameModel collision state.
 
+Mental model:
+  Refresh copies the live compatibility models into a compact collider view.
+  The order is intentionally the model order so solver, replay, and diagnostics
+  can compare store data without remapping body ids.
+
+Glossary:
+  Collider: Shape metadata used to decide what precise collision test applies.
+  Narrowphase: Precise collision pass that builds contacts for candidate pairs.
+  Replay body id: Stable per-scene id used when replay and diagnostics name a
+    physics body across frames.
+
 Related:
   - SkullbonezSource/Physics/ColliderStore.h
 */

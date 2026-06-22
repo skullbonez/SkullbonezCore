@@ -7,6 +7,21 @@ Mental model:
   Solver replay samples are not just render poses. A restorable replay tick also
   needs the persistent contact cache and sleep/tornado state that affect the
   next fixed physics step.
+
+Glossary:
+  Solver sample: Physics-facing state retained for rollback and diagnostics.
+  Contact cache: Persistent contact rows and accumulated impulses reused by the
+    solver for stability.
+  Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
+  Tornado field: Runtime force field whose state affects future physics ticks.
+
+Invariants:
+  - Snapshot field order should stay stable for replay artifact compatibility.
+  - Restored samples must contain enough state for the next fixed step to match.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
 */
 #pragma once
 

@@ -8,6 +8,16 @@ Mental model:
   lower-level CaptureSystem still writes pixels, while this controller owns
   trigger state and per-frame automation decisions.
 
+Glossary:
+  Capture sink: Callback surface that performs the actual screenshot write.
+  Auto-cycle: Screenshot automation that advances capture targets over time.
+  Screenshot request: Runtime state describing when and where to capture pixels.
+  Frame gate: Per-frame decision that says whether a capture is due now.
+
+Invariants:
+  - Controller state is runtime-owned; pixel IO stays in CaptureSystem.
+  - Automation must remain stable for validation screenshot timing.
+
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.h
   - SkullbonezSource/Runtime/RunFrame.cpp

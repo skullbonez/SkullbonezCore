@@ -9,6 +9,17 @@ Mental model:
   order and replay ids so future migrations can move fields without changing
   solver ordering.
 
+Glossary:
+  Body: Simulated object state consumed by the physics step.
+  Sleep: Optimization that skips stable bodies until contact or user action
+    wakes them.
+  Inverse mass: Reciprocal mass value; zero means an immovable body.
+  Replay body id: Stable per-scene id used by replay and diagnostics.
+
+Invariants:
+  - Body records stay in GameModelCollection physics model order.
+  - Store refreshes are observational; physics mutation remains elsewhere.
+
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsScene.h

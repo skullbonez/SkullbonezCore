@@ -9,6 +9,18 @@ Mental model:
   model index order so future RenderSceneSnapshot work can compare output
   without changing pass order.
 
+Glossary:
+  Render instance: CPU-side record describing one model's draw transform and
+    material intent.
+  Material intent: Renderer-neutral description of surface style and texture
+    selection.
+  RenderSceneSnapshot: Future immutable frame input consumed by render passes.
+  Replay body id: Stable per-scene id shared with physics/replay records.
+
+Invariants:
+  - Instance order mirrors GameModelCollection so draw order stays stable.
+  - Store refreshes do not touch GPU resources or renderer lifetime.
+
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.cpp
   - SkullbonezSource/Physics/PhysicsScene.h

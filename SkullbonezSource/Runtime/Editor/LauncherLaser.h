@@ -7,9 +7,20 @@ Mental model:
   The laser is display-only feedback for launcher-mode ray shots. It never changes
   physics state; callers provide the already-computed hit/miss segment.
 
+Glossary:
+  Billboard: Camera-facing quad built from a world-space segment and view
+    direction.
+  Ribbon: Thin render strip used for the laser core and glow.
+  Snapshot: Compact replay record of visible launcher feedback.
+  Shader handle: Runtime id that resolves to renderer-owned shader state.
+
+Invariants:
+  - LauncherLaser owns only transient render feedback.
+  - Replay snapshots must preserve enough state to restore visible shots.
+
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
 */
 #pragma once
 

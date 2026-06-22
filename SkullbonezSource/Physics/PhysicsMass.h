@@ -7,8 +7,19 @@ Mental model:
   Object mass is an authored physical property. Hull masses come from baked
   assets; only parametric editor primitives still derive defaults at runtime.
 
+Glossary:
+  Density: Mass per unit volume; editor primitives use it to derive default
+    dynamic mass.
+  Inertia tensor: Rotational mass distribution used by angular motion.
+  Inverse inertia: Component-wise reciprocal inertia; zero locks rotation on
+    that axis.
+
+Invariants:
+  - Dynamic masses are clamped above zero so inverse mass stays finite.
+  - These defaults affect authored object creation, not per-frame solver tuning.
+
 Related:
-  - SkullbonezSource/Runtime/RunInput.cpp
+  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Physics/ConvexHullShape.cpp
 */
 #pragma once

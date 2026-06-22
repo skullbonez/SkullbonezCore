@@ -7,6 +7,20 @@ Mental model:
   These recorders observe committed simulation state. They must not mutate
   bodies, physics caches, renderer resources, or UI state; capture enabled
   should only add bounded CPU memory use and optional hash-log writes.
+
+Glossary:
+  Presentation sample: Render-facing pose/state captured from a frame.
+  Solver sample: Physics-facing state retained for rollback and diagnostics.
+  Hash log: Deterministic per-sample digest stream used to compare replay output.
+  Retention window: Maximum in-memory duration retained by the ring buffers.
+
+Invariants:
+  - Recording observes committed state and never advances simulation.
+  - Hash packing must stay deterministic across machines and configurations.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
 */
 #include "ReplayRecorder.h"
 
