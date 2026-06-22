@@ -219,7 +219,8 @@ enum class ReplayEventKind : uint16_t
     LauncherConfig = 5,
     LauncherFire = 6,
     GeneratedSceneConfig = 7,
-    EditorPlace = 8
+    EditorPlace = 8,
+    EditorTransform = 9
 };
 
 struct ReplayEventSample

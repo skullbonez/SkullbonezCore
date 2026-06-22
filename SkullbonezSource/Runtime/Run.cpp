@@ -51,6 +51,8 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -118,6 +120,20 @@ void AppendReplayVectorHex( char*& cursor, std::size_t& remaining, const Vector3
     AppendReplayFloatHex( cursor, remaining, value.x );
     AppendReplayFloatHex( cursor, remaining, value.y );
     AppendReplayFloatHex( cursor, remaining, value.z );
+}
+
+
+void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Quaternion& value )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    value.GetComponents( x, y, z, w );
+    AppendReplayFloatHex( cursor, remaining, x );
+    AppendReplayFloatHex( cursor, remaining, y );
+    AppendReplayFloatHex( cursor, remaining, z );
+    AppendReplayFloatHex( cursor, remaining, w );
 }
 
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
@@ -1009,6 +1025,59 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
                        fixedObject ? 1 : 0,
                        terrainAlign ? 1 : 0,
                        modelCountBefore,
+                       hash,
+                       payload );
+}
+
+
+void Run::RecordReplayEditorTransformEvent( int modelIndex, uint32_t changedFlags, const GameModel& model )
+{
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE;
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+
+    char payload[80] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "xform7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, model.GetPosition() );
+    AppendReplayQuaternionHex( cursor, remaining, model.GetOrientation() );
+
+    float qx = 0.0f;
+    float qy = 0.0f;
+    float qz = 0.0f;
+    float qw = 1.0f;
+    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, modelIndex );
+    HashReplayInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
+    HashReplayInt( hash, m_cGameModelCollection.GetModelCount() );
+    HashReplayInt( hash, static_cast<int32_t>( changedFlags ) );
+    HashReplayFloat( hash, model.GetPosition().x );
+    HashReplayFloat( hash, model.GetPosition().y );
+    HashReplayFloat( hash, model.GetPosition().z );
+    HashReplayFloat( hash, qx );
+    HashReplayFloat( hash, qy );
+    HashReplayFloat( hash, qz );
+    HashReplayFloat( hash, qw );
+
+    RecordReplayEvent( ReplayEventKind::EditorTransform,
+                       NextReplayEventFrameIndex(),
+                       changedFlags,
+                       modelIndex,
+                       static_cast<int32_t>( model.GetReplayBodyId() ),
+                       m_cGameModelCollection.GetModelCount(),
+                       0,
                        hash,
                        payload );
 }

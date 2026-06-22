@@ -1508,6 +1508,10 @@ class Run
         int modelCountBefore,
         const Math::Vector::Vector3& terrainPoint,
         const Math::Vector::Vector3& placementScale );                           // Records editor placement commits for saved v2 replay.
+    void RecordReplayEditorTransformEvent(
+        int modelIndex,
+        uint32_t changedFlags,
+        const GameObjects::GameModel& model );                                   // Records committed editor translate/rotate gizmo changes.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.

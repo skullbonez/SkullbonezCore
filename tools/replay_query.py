@@ -138,6 +138,7 @@ class EventInfo:
             6: "launcherFire",
             7: "generatedSceneConfig",
             8: "editorPlace",
+            9: "editorTransform",
         }.get(self.kind, "unknown")
 
 
@@ -246,6 +247,24 @@ def decode_place6_payload(text: str) -> dict[str, object] | None:
     }
 
 
+def decode_transform7_payload(text: str) -> dict[str, object] | None:
+    prefix = "xform7:"
+    payload = text[len(prefix) :] if text.startswith(prefix) else ""
+    if len(payload) != 56:
+        return None
+    try:
+        floats = [
+            struct.unpack("<f", struct.pack("<I", int(payload[i : i + 8], 16)))[0]
+            for i in range(0, len(payload), 8)
+        ]
+    except ValueError:
+        return None
+    return {
+        "position": [round_float(v) for v in floats[0:3]],
+        "orientation": [round_float(v) for v in floats[3:7]],
+    }
+
+
 def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
     if row.kind == 4:
         return {
@@ -298,6 +317,18 @@ def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
                 "fixed": bool(row.flags & 1),
                 "terrainAlign": bool(row.flags & 2),
                 "modelCountBeforePlace": row.values[3],
+            }
+        )
+        return decoded
+    if row.kind == 9:
+        decoded = decode_transform7_payload(row.text) or {}
+        decoded.update(
+            {
+                "modelIndex": row.values[0],
+                "replayBodyId": row.values[1],
+                "modelCountAtCommit": row.values[2],
+                "translated": bool(row.flags & 1),
+                "rotated": bool(row.flags & 2),
             }
         )
         return decoded

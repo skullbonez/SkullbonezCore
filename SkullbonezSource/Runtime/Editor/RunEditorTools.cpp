@@ -50,6 +50,9 @@ using SkullbonezCore::Assets::EditorHullAssetToken;
 
 namespace
 {
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
     const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y +
@@ -85,6 +88,39 @@ float HullAuthoredBottomOffset( const ConvexHullShape& hull )
         minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
     }
     return minY == FLT_MAX ? 0.0f : -minY;
+}
+
+
+bool EditorPositionsDiffer( const Vector3& a, const Vector3& b )
+{
+    return VectorMagSquared( a - b ) > 1.0e-8f;
+}
+
+
+bool EditorOrientationsDiffer( const Quaternion& a, const Quaternion& b )
+{
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float az = 0.0f;
+    float aw = 1.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
+    float bz = 0.0f;
+    float bw = 1.0f;
+    a.GetComponents( ax, ay, az, aw );
+    b.GetComponents( bx, by, bz, bw );
+
+    const float dx = ax - bx;
+    const float dy = ay - by;
+    const float dz = az - bz;
+    const float dw = aw - bw;
+    const float sx = ax + bx;
+    const float sy = ay + by;
+    const float sz = az + bz;
+    const float sw = aw + bw;
+    const float directDistanceSq = dx * dx + dy * dy + dz * dz + dw * dw;
+    const float flippedDistanceSq = sx * sx + sy * sy + sz * sz + sw * sw;
+    return (std::min)( directDistanceSq, flippedDistanceSq ) > 1.0e-10f;
 }
 
 
@@ -1497,6 +1533,27 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         }
         if ( leftReleased || suppressWorldActionThisFrame )
         {
+            if ( leftReleased && !suppressWorldActionThisFrame && !m_editor.gizmoDragIsScale &&
+                 m_editor.selectedModelIndex >= 0 &&
+                 m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+            {
+                const GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
+                uint32_t changedFlags = 0;
+                if ( m_editor.gizmoDragIsRotation )
+                {
+                    changedFlags |=
+                        EditorOrientationsDiffer( model.GetOrientation(), m_editor.gizmoDragStartOrientation )
+                            ? REPLAY_EDITOR_TRANSFORM_ROTATE
+                            : 0u;
+                }
+                else
+                {
+                    changedFlags |= EditorPositionsDiffer( model.GetPosition(), m_editor.gizmoDragStartPosition )
+                                        ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
+                                        : 0u;
+                }
+                RecordReplayEditorTransformEvent( m_editor.selectedModelIndex, changedFlags, model );
+            }
             m_editor.gizmoDragActive = false;
             m_editor.gizmoDragIsRotation = false;
             m_editor.gizmoDragIsScale = false;

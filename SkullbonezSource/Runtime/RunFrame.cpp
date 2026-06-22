@@ -43,6 +43,10 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
+    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE;
 
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
@@ -138,6 +142,32 @@ bool DecodeReplayPlace6Payload( const ReplayEventSample& event, Vector3& outTerr
     outPlacementScale = Vector3( values[3], values[4], values[5] );
     return true;
 }
+
+
+bool DecodeReplayTransform7Payload( const ReplayEventSample& event, Vector3& outPosition, Quaternion& outOrientation )
+{
+    constexpr char prefix[] = "xform7:";
+    if ( std::strncmp( event.text, prefix, sizeof( prefix ) - 1 ) != 0 )
+    {
+        return false;
+    }
+
+    const char* cursor = event.text + sizeof( prefix ) - 1;
+    float values[7] = {};
+    for ( float& value : values )
+    {
+        if ( !ReadReplayHexFloat( cursor, value ) )
+        {
+            return false;
+        }
+    }
+
+    outPosition = Vector3( values[0], values[1], values[2] );
+    outOrientation = Quaternion( values[3], values[4], values[5], values[6] );
+    outOrientation.Normalise();
+    return true;
+}
+
 
 const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<ReplayV2SolverHashSample>& hashes,
                                                               ReplayFrameIndex frameIndex )
@@ -603,6 +633,58 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         WriteReplayProbeReason( outReason, reasonSize, "applied editor placement" );
         return true;
     }
+    case ReplayEventKind::EditorTransform:
+    {
+        if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "unsupported editor transform flags" );
+            return false;
+        }
+
+        Vector3 position;
+        Quaternion orientation;
+        if ( !DecodeReplayTransform7Payload( event, position, orientation ) )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform payload" );
+            return false;
+        }
+
+        if ( event.value2 != m_cGameModelCollection.GetModelCount() )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "editor transform model count precondition mismatch" );
+            return false;
+        }
+        if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "editor transform model index is out of range" );
+            return false;
+        }
+
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
+        if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
+        {
+            WriteReplayProbeReason( outReason, reasonSize, "editor transform replay body id mismatch" );
+            return false;
+        }
+
+        if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
+        {
+            model.SetPosition( position );
+        }
+        if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
+        {
+            model.SetOrientation( orientation );
+        }
+        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+        if ( !model.IsFixed() )
+        {
+            m_cGameModelCollection.WakeModel( event.value0 );
+        }
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+        WriteReplayProbeReason( outReason, reasonSize, "applied editor transform" );
+        return true;
+    }
     default:
         WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
         return false;
@@ -849,7 +931,21 @@ void Run::TickReplaySaveProbe()
                               m_cWorldEnvironment.GetFluidDensity() );
         m_editor.placementScale = Vector3( 2.0f, 2.0f, 2.0f );
         m_editor.autoTerrainAlign = false;
-        PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) );
+        const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
+        if ( PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) ) )
+        {
+            GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
+            placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
+            Quaternion placedOrientation = placedModel.GetOrientation();
+            placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
+            placedModel.SetOrientation( placedOrientation );
+            placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            m_cGameModelCollection.InvalidatePhysicsStreams();
+            RecordReplayEditorTransformEvent( modelCountBeforePlace,
+                                              REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE,
+                                              placedModel );
+        }
         m_rayCastTest.projectileSpeed += 1.0f;
         RecordReplayLauncherConfigEvent( 2u );
         FireRayCastTest();
