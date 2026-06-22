@@ -569,6 +569,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     ReplayPresentationSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
     sample.branch = NormalizeBranchInfo( input.branch );
+    sample.eventCursor = input.eventCursor;
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f
@@ -791,6 +792,7 @@ void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sam
 
     ReplayCheckpointSummary& checkpoint = m_checkpoints[index];
     checkpoint.frameIndex = sample.frameIndex;
+    checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
     checkpoint.stateHash = sample.stateHash;
     checkpoint.bodyCount =
@@ -917,6 +919,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     ReplaySolverFrameSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
     sample.branch = NormalizeBranchInfo( input.branch );
+    sample.eventCursor = input.eventCursor;
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f
@@ -1166,6 +1169,7 @@ void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample
 
     ReplayCheckpointSummary& checkpoint = m_checkpoints[index];
     checkpoint.frameIndex = sample.frameIndex;
+    checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
     checkpoint.stateHash = sample.solverHash;
     checkpoint.bodyCount =

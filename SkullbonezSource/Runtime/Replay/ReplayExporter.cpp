@@ -218,6 +218,7 @@ Json FrameJson( const ReplayPresentationSample& sample )
     char hashBuffer[24] = {};
     Json frame;
     frame["frameIndex"] = sample.frameIndex;
+    frame["eventCursor"] = sample.eventCursor;
     frame["sceneFrame"] = sample.sceneFrame;
     frame["simulationSeconds"] = sample.simulationSeconds;
     frame["physicsDt"] = sample.physicsDt;
@@ -242,6 +243,7 @@ Json FrameJson( const ReplaySolverFrameSample& sample )
     char presentationHashBuffer[24] = {};
     Json frame;
     frame["frameIndex"] = sample.frameIndex;
+    frame["eventCursor"] = sample.eventCursor;
     frame["sceneFrame"] = sample.sceneFrame;
     frame["simulationSeconds"] = sample.simulationSeconds;
     frame["physicsDt"] = sample.physicsDt;

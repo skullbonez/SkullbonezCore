@@ -28,6 +28,7 @@ FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
 BODY_POSE = struct.Struct("<Ifffffff")
 BRANCH_RECORD = struct.Struct("<IIQQQQQIIQ")
 EVENT_RECORD = struct.Struct("<QIIIHHIiiiiQQQ128sI")
+EVENT_CURSOR_RECORD = struct.Struct("<QIIQ")
 HASH_RECORD = struct.Struct("<QidQQIHHB3s")
 CHECKPOINT_HEADER = struct.Struct("<QidfQQHHBBH")
 LAUNCHER_HEADER = struct.Struct("<iiBB2sff")
@@ -136,6 +137,14 @@ class EventInfo:
 
 
 @dataclass
+class EventCursorInfo:
+    frame_index: int
+    event_cursor: int
+    flags: int
+    solver_hash: int
+
+
+@dataclass
 class SolverCheckpointInfo:
     frame_index: int
     scene_frame: int
@@ -143,6 +152,7 @@ class SolverCheckpointInfo:
     dt: float
     presentation_hash: int
     solver_hash: int
+    event_cursor: int
     body_count: int
     contact_count: int
     pipeline_record_count: int
@@ -209,6 +219,7 @@ class ReplayV2:
         self.frames: list[FrameIndex] = []
         self.branches: list[BranchInfo] = []
         self.events: list[EventInfo] = []
+        self.event_cursors: list[EventCursorInfo] = []
         self.solver_hashes: list[SolverHashInfo] = []
         self.solver_checkpoints: list[SolverCheckpointInfo] = []
         self._parse_header()
@@ -217,6 +228,7 @@ class ReplayV2:
         self._parse_index()
         self._parse_branches()
         self._parse_events()
+        self._parse_event_cursors()
         self._parse_solver_hashes()
         self._parse_solver_checkpoints()
 
@@ -448,6 +460,36 @@ class ReplayV2:
             raise ReplayQueryError("EVNT chunk has trailing bytes")
         self.events = events
 
+    def _parse_event_cursors(self) -> None:
+        chunk = self.chunks.get("ECUR")
+        if not chunk:
+            self.event_cursors = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "ECUR")
+        if len(raw) < 4:
+            raise ReplayQueryError("ECUR chunk is too small")
+        cursor_count = struct.unpack_from("<I", raw, 0)[0]
+        if cursor_count != chunk.record_count:
+            raise ReplayQueryError("ECUR chunk count does not match chunk table")
+        cursor = 4
+        rows: list[EventCursorInfo] = []
+        for _ in range(cursor_count):
+            if cursor + EVENT_CURSOR_RECORD.size > len(raw):
+                raise ReplayQueryError("ECUR chunk ended mid-record")
+            frame_index, event_cursor, flags, solver_hash = EVENT_CURSOR_RECORD.unpack_from(raw, cursor)
+            cursor += EVENT_CURSOR_RECORD.size
+            rows.append(
+                EventCursorInfo(
+                    frame_index=int(frame_index),
+                    event_cursor=int(event_cursor),
+                    flags=int(flags),
+                    solver_hash=int(solver_hash),
+                )
+            )
+        if cursor != len(raw):
+            raise ReplayQueryError("ECUR chunk has trailing bytes")
+        self.event_cursors = rows
+
     @staticmethod
     def _skip_counted(reader: ChunkReader, item: struct.Struct) -> int:
         count = reader.u32()
@@ -549,6 +591,12 @@ class ReplayV2:
             "normalImpulseSum": round_float(normal_impulse_sum),
         }
 
+    def _event_cursor_for_checkpoint(self, frame_index: int, solver_hash: int) -> int:
+        for row in self.event_cursors:
+            if row.frame_index == frame_index and (row.solver_hash == 0 or row.solver_hash == solver_hash):
+                return row.event_cursor
+        return 0
+
     def _parse_solver_checkpoints(self) -> None:
         chunk = self.chunks.get("SCHK")
         if not chunk:
@@ -588,6 +636,7 @@ class ReplayV2:
                     dt=float(dt),
                     presentation_hash=int(presentation_hash),
                     solver_hash=int(solver_hash),
+                    event_cursor=self._event_cursor_for_checkpoint(int(frame_index), int(solver_hash)),
                     body_count=body_count,
                     contact_count=int(contact_count),
                     pipeline_record_count=int(pipeline_record_count),
@@ -635,6 +684,7 @@ class ReplayV2:
             "bodyDictionaryCount": len(self.bodies),
             "branchCount": len(self.branches),
             "eventCount": len(self.events),
+            "eventCursorCount": len(self.event_cursors),
             "solverHashCount": len(self.solver_hashes),
             "solverCheckpointCount": len(self.solver_checkpoints),
             "firstBranchId": self.branches[0].branch_id if self.branches else None,
@@ -650,6 +700,7 @@ class ReplayV2:
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
             "branchEntryBytes": self.manifest.get("branchEntryBytes", 0),
             "eventEntryBytes": self.manifest.get("eventEntryBytes", 0),
+            "eventCursorEntryBytes": self.manifest.get("eventCursorEntryBytes", 0),
             "solverHashBytes": self.manifest.get("solverHashBytes", 0),
             "solverBodyBytes": self.manifest.get("solverBodyBytes", 0),
             "chunks": chunks,
@@ -685,6 +736,12 @@ class ReplayV2:
             return list(self.events)
         start, end = parse_frame_range(frame_range)
         return [row for row in self.events if start <= row.frame_index <= end]
+
+    def selected_event_cursors(self, frame_range: str | None) -> list[EventCursorInfo]:
+        if not frame_range:
+            return list(self.event_cursors)
+        start, end = parse_frame_range(frame_range)
+        return [row for row in self.event_cursors if start <= row.frame_index <= end]
 
     def find_frame(self, frame_index: int) -> FrameIndex:
         for frame in self.frames:
@@ -887,6 +944,21 @@ class ReplayV2:
             )
         return samples
 
+    def event_cursor_samples(self, frames: str | None, limit: int) -> list[dict[str, object]]:
+        samples: list[dict[str, object]] = []
+        for row in self.selected_event_cursors(frames):
+            if len(samples) >= limit:
+                break
+            samples.append(
+                {
+                    "frameIndex": row.frame_index,
+                    "eventCursor": row.event_cursor,
+                    "flags": row.flags,
+                    "solverHash": hash_text(row.solver_hash),
+                }
+            )
+        return samples
+
     def checkpoint_samples(self, frames: str | None, limit: int, body_limit: int) -> list[dict[str, object]]:
         samples: list[dict[str, object]] = []
         for row in self.selected_checkpoints(frames):
@@ -900,6 +972,7 @@ class ReplayV2:
                     "dt": round_float(row.dt),
                     "presentationHash": hash_text(row.presentation_hash),
                     "solverHash": hash_text(row.solver_hash),
+                    "eventCursor": row.event_cursor,
                     "bodyCount": row.body_count,
                     "contactCount": row.contact_count,
                     "pipelineRecordCount": row.pipeline_record_count,
@@ -1057,6 +1130,18 @@ def cmd_events(replay: ReplayV2, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_event_cursors(replay: ReplayV2, args: argparse.Namespace) -> None:
+    samples = replay.event_cursor_samples(args.frames, args.limit)
+    print_json(
+        {
+            "eventCursorCount": len(replay.event_cursors),
+            "samplesReturned": len(samples),
+            "samples": samples,
+            "note": None if replay.event_cursors else "This v2 artifact does not include checkpoint event cursors.",
+        }
+    )
+
+
 def cmd_checkpoints(replay: ReplayV2, args: argparse.Namespace) -> None:
     samples = replay.checkpoint_samples(args.frames, args.limit, args.body_limit)
     print_json(
@@ -1129,6 +1214,11 @@ def build_parser() -> argparse.ArgumentParser:
     events.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
     events.add_argument("--limit", type=int, default=20)
     events.set_defaults(func=cmd_events)
+
+    event_cursors = subparsers.add_parser("event-cursors", help="Print checkpoint event cursor records")
+    event_cursors.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
+    event_cursors.add_argument("--limit", type=int, default=20)
+    event_cursors.set_defaults(func=cmd_event_cursors)
 
     checkpoints = subparsers.add_parser("checkpoints", help="Print sparse solver checkpoint summaries")
     checkpoints.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")

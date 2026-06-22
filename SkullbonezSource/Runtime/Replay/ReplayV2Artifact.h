@@ -45,6 +45,7 @@ struct ReplayV2SaveResult
     std::size_t solverHashCount = 0;
     std::size_t solverCheckpointCount = 0;
     std::size_t eventCount = 0;
+    std::size_t eventCursorCount = 0;
     std::size_t fileBytes = 0;
 };
 

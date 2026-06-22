@@ -1092,6 +1092,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
 
     ReplayCaptureInput input;
     input.branch = reference.branch;
+    input.eventCursor = reference.eventCursor;
     input.sceneFrame = reference.sceneFrame;
     input.simulationSeconds = reference.simulationSeconds;
     input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;

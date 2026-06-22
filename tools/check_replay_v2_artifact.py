@@ -185,6 +185,8 @@ def query_artifact():
         raise RuntimeError(f"expected 200-byte event rows, found {summary.get('eventEntryBytes')}")
     if int(summary.get("eventCount") or 0) <= 0:
         raise RuntimeError("expected at least one replay event row")
+    if int(summary.get("eventCursorEntryBytes") or 0) != 24:
+        raise RuntimeError(f"expected 24-byte event cursor rows, found {summary.get('eventCursorEntryBytes')}")
     if int(summary.get("solverHashBytes") or 0) != 48:
         raise RuntimeError(f"expected 48-byte solver hash rows, found {summary.get('solverHashBytes')}")
     if int(summary.get("solverBodyBytes") or 0) != 112:
@@ -196,6 +198,11 @@ def query_artifact():
         )
     if int(summary.get("solverCheckpointCount") or 0) <= 0:
         raise RuntimeError("expected at least one solver checkpoint chunk row")
+    if int(summary.get("eventCursorCount") or 0) != int(summary.get("solverCheckpointCount") or 0):
+        raise RuntimeError(
+            f"expected one event cursor per checkpoint, found {summary.get('eventCursorCount')} cursors for "
+            f"{summary.get('solverCheckpointCount')} checkpoints"
+        )
 
     first_frame = int(summary["firstFrame"])
     last_frame = int(summary["lastFrame"])
@@ -286,6 +293,30 @@ def query_artifact():
     if event_samples[0].get("kind") != "timelineStart":
         raise RuntimeError(f"expected timelineStart event first, found {event_samples[0]}")
 
+    cursor_command = [
+        str(REPLAY_QUERY_BAT),
+        str(ARTIFACT),
+        "event-cursors",
+        "--frames",
+        f"{first_frame}:{last_frame}",
+        "--limit",
+        "8",
+    ]
+    print("  Event cursor command:")
+    print(
+        "    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay "
+        f"event-cursors --frames {first_frame}:{last_frame} --limit 8"
+    )
+    cursor_stdout, cursors = run_json(cursor_command, REPO)
+    if int(cursors.get("eventCursorCount") or 0) != int(summary.get("eventCursorCount") or 0):
+        raise RuntimeError("replay event cursor query did not report the full cursor track")
+    cursor_samples = cursors.get("samples") or []
+    if not cursor_samples:
+        raise RuntimeError("replay event cursor query did not return any cursor samples")
+    first_cursor = cursor_samples[0]
+    if int(first_cursor.get("eventCursor") or 0) <= 0 or not first_cursor.get("solverHash"):
+        raise RuntimeError(f"replay event cursor query returned invalid metadata: {first_cursor}")
+
     checkpoint_command = [
         str(REPLAY_QUERY_BAT),
         str(ARTIFACT),
@@ -311,6 +342,8 @@ def query_artifact():
     first_checkpoint = checkpoint_samples[0]
     if not first_checkpoint.get("checkpointBoundary") or not first_checkpoint.get("solverHash"):
         raise RuntimeError("replay checkpoint query did not return checkpoint hash metadata")
+    if int(first_checkpoint.get("eventCursor") or 0) != int(first_cursor.get("eventCursor") or 0):
+        raise RuntimeError("replay checkpoint query did not include matching event cursor metadata")
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
@@ -355,6 +388,7 @@ def query_artifact():
         "replay_hashes": len(hash_stdout.encode("utf-8")),
         "replay_branches": len(branch_stdout.encode("utf-8")),
         "replay_events": len(event_stdout.encode("utf-8")),
+        "replay_event_cursors": len(cursor_stdout.encode("utf-8")),
         "replay_checkpoints": len(checkpoint_stdout.encode("utf-8")),
         "replay_export": len(export_stdout.encode("utf-8")),
         "physics_summary": len(physics_stdout.encode("utf-8")),
@@ -374,11 +408,12 @@ def main():
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
         print(
-            "  PASS: replay v2 artifact frames={frames} bodies={bodies} branches={branches} events={events} checkpoints={checkpoints}".format(
+            "  PASS: replay v2 artifact frames={frames} bodies={bodies} branches={branches} events={events} event_cursors={event_cursors} checkpoints={checkpoints}".format(
                 frames=summary.get("frameCount"),
                 bodies=summary.get("bodyDictionaryCount"),
                 branches=summary.get("branchCount"),
                 events=summary.get("eventCount"),
+                event_cursors=summary.get("eventCursorCount"),
                 checkpoints=summary.get("solverCheckpointCount"),
             )
         )

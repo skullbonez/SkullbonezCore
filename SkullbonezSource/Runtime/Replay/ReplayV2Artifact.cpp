@@ -15,6 +15,7 @@ Glossary:
   PRES: Presentation frame chunk with dense 32-byte pose records.
   BRAN: Branch provenance records for saved timeline ancestry.
   EVNT: Bounded timeline/runtime intent records needed for authoritative rollback.
+  ECUR: Event cursor records attached to sparse solver checkpoints.
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
   INDX: Frame seek index into the presentation chunk.
@@ -64,6 +65,7 @@ constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
 constexpr uint32_t REPLAY_V2_HASH_ENTRY_BYTES = 48;
 constexpr uint32_t REPLAY_V2_BRANCH_ENTRY_BYTES = 64;
 constexpr uint32_t REPLAY_V2_EVENT_ENTRY_BYTES = 200;
+constexpr uint32_t REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
@@ -103,6 +105,14 @@ struct BranchRecord
     ReplayBranchInfo branch;
     ReplayFrameIndex firstRetainedFrame = 0;
     ReplayFrameIndex lastRetainedFrame = 0;
+};
+
+struct EventCursorRecord
+{
+    ReplayFrameIndex frameIndex = 0;
+    uint32_t eventCursor = 0;
+    uint32_t flags = 0;
+    uint64_t solverHash = 0;
 };
 
 struct ChunkTableEntry
@@ -875,6 +885,40 @@ bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes,
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( branchCount ) * REPLAY_V2_BRANCH_ENTRY_BYTES;
 }
 
+bool ParseEventCursorRecords( const std::vector<uint8_t>& fileBytes,
+                              const ChunkTableEntry& chunk,
+                              std::vector<EventCursorRecord>& outRecords )
+{
+    outRecords.clear();
+
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+
+    uint32_t cursorCount = 0;
+    if ( !ReadPod( cursor, cursorCount ) || cursorCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    outRecords.reserve( cursorCount );
+    for ( uint32_t i = 0; i < cursorCount; ++i )
+    {
+        EventCursorRecord record;
+        if ( !ReadPod( cursor, record.frameIndex ) || !ReadPod( cursor, record.eventCursor ) ||
+             !ReadPod( cursor, record.flags ) || !ReadPod( cursor, record.solverHash ) )
+        {
+            return false;
+        }
+        outRecords.push_back( record );
+    }
+
+    return cursor.offset == cursor.size && cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( cursorCount ) *
+                                                                                   REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES;
+}
+
 ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, ReplayFrameIndex frameIndex )
 {
     for ( const BranchRecord& record : branches )
@@ -896,6 +940,28 @@ template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>&
     for ( T& sample : samples )
     {
         sample.branch = BranchForFrame( branches, sample.frameIndex );
+    }
+}
+
+void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records,
+                               std::vector<ReplaySolverFrameSample>& samples )
+{
+    if ( records.empty() )
+    {
+        return;
+    }
+
+    for ( ReplaySolverFrameSample& sample : samples )
+    {
+        for ( const EventCursorRecord& record : records )
+        {
+            if ( record.frameIndex == sample.frameIndex &&
+                 ( record.solverHash == 0 || record.solverHash == sample.solverHash ) )
+            {
+                sample.eventCursor = record.eventCursor;
+                break;
+            }
+        }
     }
 }
 
@@ -1538,10 +1604,49 @@ std::vector<uint8_t> BuildEventChunk( const std::vector<ReplayEventSample>& even
     return bytes;
 }
 
+std::vector<EventCursorRecord> BuildEventCursorRecords( const std::vector<ReplaySolverFrameSample>* solverSamples )
+{
+    std::vector<EventCursorRecord> records;
+    if ( !solverSamples )
+    {
+        return records;
+    }
+
+    for ( const ReplaySolverFrameSample& sample : *solverSamples )
+    {
+        if ( !sample.checkpointBoundary )
+        {
+            continue;
+        }
+
+        EventCursorRecord record;
+        record.frameIndex = sample.frameIndex;
+        record.eventCursor = sample.eventCursor;
+        record.solverHash = sample.solverHash;
+        records.push_back( record );
+    }
+    return records;
+}
+
+std::vector<uint8_t> BuildEventCursorChunk( const std::vector<EventCursorRecord>& records )
+{
+    std::vector<uint8_t> bytes;
+    AppendPod( bytes, CheckedU32( records.size() ) );
+    for ( const EventCursorRecord& record : records )
+    {
+        AppendPod( bytes, record.frameIndex );
+        AppendPod( bytes, record.eventCursor );
+        AppendPod( bytes, record.flags );
+        AppendPod( bytes, record.solverHash );
+    }
+    return bytes;
+}
+
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
                                     const std::vector<BodyDictionaryEntry>& dictionary,
                                     std::size_t branchCount,
                                     std::size_t eventCount,
+                                    std::size_t eventCursorCount,
                                     std::size_t solverHashCount,
                                     std::size_t solverCheckpointCount )
 {
@@ -1555,6 +1660,12 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
         chunks.push_back( "EVNT" );
         tracks.push_back( "events" );
         schema += "+events";
+    }
+    if ( eventCursorCount > 0 )
+    {
+        chunks.push_back( "ECUR" );
+        tracks.push_back( "eventCursors" );
+        schema += "+event-cursors";
     }
     if ( solverHashCount > 0 )
     {
@@ -1581,6 +1692,7 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["bodyDictionaryCount"] = dictionary.size();
     manifest["branchCount"] = branchCount;
     manifest["eventCount"] = eventCount;
+    manifest["eventCursorCount"] = eventCursorCount;
     manifest["solverHashCount"] = solverHashCount;
     manifest["solverCheckpointCount"] = solverCheckpointCount;
     manifest["firstFrame"] = first.frameIndex;
@@ -1590,15 +1702,19 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["bodyPoseBytes"] = REPLAY_V2_BODY_POSE_BYTES;
     manifest["branchEntryBytes"] = REPLAY_V2_BRANCH_ENTRY_BYTES;
     manifest["eventEntryBytes"] = eventCount > 0 ? REPLAY_V2_EVENT_ENTRY_BYTES : 0u;
+    manifest["eventCursorEntryBytes"] = eventCursorCount > 0 ? REPLAY_V2_EVENT_CURSOR_ENTRY_BYTES : 0u;
     manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
     manifest["solverBodyBytes"] = solverCheckpointCount > 0 ? REPLAY_V2_SOLVER_BODY_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
     manifest["notes"] =
-        eventCount > 0
+        eventCount > 0 && eventCursorCount > 0
             ? "Presentation v2 supports smooth visual scrub and carries branch provenance, bounded runtime events, "
-              "per-tick solver hashes, and sparse solver checkpoint payloads. Arbitrary event replay and "
-              "branch-from-file are not complete yet."
+              "checkpoint event cursors, per-tick solver hashes, and sparse solver checkpoint payloads. Arbitrary "
+              "event replay and branch-from-file are not complete yet."
+        : eventCount > 0
+            ? "Presentation v2 supports smooth visual scrub and carries branch provenance plus bounded runtime events. "
+              "Checkpoint event cursors, arbitrary event replay, and branch-from-file are not complete yet."
         : solverCheckpointCount > 0
             ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus sparse "
               "solver checkpoint payloads plus branch provenance; event chunks and branch-from-file are not "
@@ -1757,10 +1873,18 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     const std::size_t solverHashCount = solverSamples ? solverSamples->size() : 0u;
     const std::size_t eventCount = eventSamples ? eventSamples->size() : 0u;
-    outChunks.push_back( MakeChunk(
-        "MANI",
-        BuildManifest( samples, dictionary, branchRecords.size(), eventCount, solverHashCount, solverCheckpointCount ),
-        1u ) );
+    const std::vector<EventCursorRecord> eventCursorRecords =
+        eventCount > 0 ? BuildEventCursorRecords( solverSamples ) : std::vector<EventCursorRecord>();
+    const std::size_t eventCursorCount = eventCursorRecords.size();
+    outChunks.push_back( MakeChunk( "MANI",
+                                    BuildManifest( samples,
+                                                   dictionary,
+                                                   branchRecords.size(),
+                                                   eventCount,
+                                                   eventCursorCount,
+                                                   solverHashCount,
+                                                   solverCheckpointCount ),
+                                    1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
     outChunks.push_back( MakeChunk( "BRAN", BuildBranchChunk( branchRecords ), CheckedU32( branchRecords.size() ) ) );
@@ -1768,6 +1892,11 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     {
         outChunks.push_back(
             MakeChunk( "EVNT", BuildEventChunk( *eventSamples ), CheckedU32( eventSamples->size() ) ) );
+    }
+    if ( !eventCursorRecords.empty() )
+    {
+        outChunks.push_back(
+            MakeChunk( "ECUR", BuildEventCursorChunk( eventCursorRecords ), CheckedU32( eventCursorRecords.size() ) ) );
     }
     if ( solverSamples && !solverSamples->empty() )
     {
@@ -1892,6 +2021,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         result->solverHashCount = 0;
         result->solverCheckpointCount = 0;
         result->eventCount = 0;
+        result->eventCursorCount = 0;
         result->fileBytes = fileBytes.size();
     }
     return true;
@@ -1968,6 +2098,7 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
         result->solverHashCount = solverSamples.size();
         result->solverCheckpointCount = CountSolverCheckpoints( solverSamples );
         result->eventCount = eventSamples.size();
+        result->eventCursorCount = !eventSamples.empty() ? CountSolverCheckpoints( solverSamples ) : 0;
         result->fileBytes = fileBytes.size();
     }
     return true;
@@ -2078,6 +2209,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
     const ChunkTableEntry* bodyChunk = FindChunk( chunkTable, "BODY" );
     const ChunkTableEntry* checkpointChunk = FindChunk( chunkTable, "SCHK" );
     const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
+    const ChunkTableEntry* eventCursorChunk = FindChunk( chunkTable, "ECUR" );
     if ( !bodyChunk || !checkpointChunk )
     {
         return false;
@@ -2085,11 +2217,16 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
 
     std::vector<BodyDictionaryEntry> dictionary;
     std::vector<BranchRecord> branches;
+    std::vector<EventCursorRecord> eventCursors;
     if ( !ParseBodyDictionary( fileBytes, *bodyChunk, dictionary ) )
     {
         return false;
     }
     if ( branchChunk && !ParseBranchRecords( fileBytes, *branchChunk, branches ) )
+    {
+        return false;
+    }
+    if ( eventCursorChunk && !ParseEventCursorRecords( fileBytes, *eventCursorChunk, eventCursors ) )
     {
         return false;
     }
@@ -2099,6 +2236,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
         return false;
     }
     ApplyBranchMetadata( branches, outCheckpoints );
+    ApplyEventCursorMetadata( eventCursors, outCheckpoints );
 
     if ( result )
     {

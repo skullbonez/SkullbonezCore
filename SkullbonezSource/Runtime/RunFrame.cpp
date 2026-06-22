@@ -291,6 +291,7 @@ void Run::CaptureReplayPhysicsStep()
 
         ReplayCaptureInput input;
         input.branch = m_replayBranch;
+        input.eventCursor = m_replayEvents.GetStats().nextSequence;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
         input.physicsDt = PHYSICS_FIXED_DT;
@@ -594,6 +595,10 @@ void Run::TickReplaySaveProbe()
     {
         throw std::runtime_error( "replay save probe wrote v2 artifact without event chunks" );
     }
+    if ( result.eventCursorCount == 0 )
+    {
+        throw std::runtime_error( "replay save probe wrote v2 artifact without checkpoint event cursors" );
+    }
 
     std::vector<ReplayPresentationSample> loadedSamples;
     ReplayV2LoadResult loadResult;
@@ -679,13 +684,14 @@ void Run::TickReplaySaveProbe()
 
     m_replaySaveProbe.completed = true;
     printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu "
-            "solver_checkpoints=%llu events=%llu bytes=%llu\n",
+            "solver_checkpoints=%llu events=%llu event_cursors=%llu bytes=%llu\n",
             m_replaySaveProbe.path,
             static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
             static_cast<unsigned long long>( result.solverHashCount ),
             static_cast<unsigned long long>( result.solverCheckpointCount ),
             static_cast<unsigned long long>( result.eventCount ),
+            static_cast<unsigned long long>( result.eventCursorCount ),
             static_cast<unsigned long long>( result.fileBytes ) );
     printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
@@ -813,6 +819,10 @@ void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
     }
 
     const ReplaySolverFrameSample& checkpoint = checkpoints.front();
+    if ( checkpoint.eventCursor == 0 )
+    {
+        throw std::runtime_error( "replay restore file probe loaded a checkpoint without an event cursor" );
+    }
     char reason[160] = {};
     if ( !RestoreReplaySolverSampleAsLive( checkpoint, reason, sizeof( reason ) ) )
     {
@@ -825,11 +835,12 @@ void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
     }
 
     printf( "[replay] Restore file probe passed: path=%s checkpoints=%llu first_frame=%llu target_frame=%llu "
-            "bodies=%llu solver_hash=0x%016llX bytes=%llu\n",
+            "event_cursor=%u bodies=%llu solver_hash=0x%016llX bytes=%llu\n",
             path,
             static_cast<unsigned long long>( result.checkpointCount ),
             static_cast<unsigned long long>( result.firstFrame ),
             static_cast<unsigned long long>( checkpoint.frameIndex ),
+            checkpoint.eventCursor,
             static_cast<unsigned long long>( checkpoint.bodies.size() ),
             static_cast<unsigned long long>( checkpoint.solverHash ),
             static_cast<unsigned long long>( result.fileBytes ) );

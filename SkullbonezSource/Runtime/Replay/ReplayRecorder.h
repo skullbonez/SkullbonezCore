@@ -113,6 +113,7 @@ struct ReplayPresentationSample
 {
     ReplayFrameIndex frameIndex = 0;
     ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -181,6 +182,7 @@ struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;
     ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -199,6 +201,7 @@ struct ReplaySolverFrameSample
 struct ReplayCheckpointSummary
 {
     ReplayFrameIndex frameIndex = 0;
+    uint32_t eventCursor = 0;
     double simulationSeconds = 0.0;
     uint64_t stateHash = 0;
     uint32_t bodyCount = 0;
@@ -247,6 +250,7 @@ struct ReplayEventInput
 struct ReplayCaptureInput
 {
     ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
