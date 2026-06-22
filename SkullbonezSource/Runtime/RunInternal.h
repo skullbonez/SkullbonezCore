@@ -96,6 +96,7 @@ inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
+inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
 inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 542.0f;
 inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
@@ -142,7 +143,8 @@ inline float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack t
 inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
+    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP +
+                                REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
     constexpr float rightInset = 10.0f + REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH;
     return { panel.x + leftInset,
              ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
@@ -158,6 +160,12 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              track.y - ( REPLAY_SCRUBBER_SAVE_BUTTON_SIZE - track.h ) * 0.5f,
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE,
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
+}
+
+inline UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName )
+{
+    const UI::UIRect save = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
+    return { save.x + save.w + REPLAY_SCRUBBER_SAVE_BUTTON_GAP, save.y, REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH, save.h };
 }
 
 inline UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH )

@@ -362,6 +362,7 @@ struct RunReplayScrubberState
     bool pauseRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
+    bool loadHovered = false;
     bool restoreWasDown = false;
     bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;
@@ -1415,6 +1416,7 @@ class Run
     void SetViewingOrientation();                                                // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                     // Backbuffer capture path; current encoder writes BMP files.
     bool SaveReplayBufferFromScrubber( RunReplayTrack track );                   // Writes one retained in-memory replay track to replays/.
+    bool PromptLoadReplayPresentationArtifact( HWND hwnd );                      // Open a .skreplay picker for a v2 scrub source.
     bool SaveCurrentSceneDefaults();                                             // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                     // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                   // Ordinary Render-tab values persisted to engine.cfg.

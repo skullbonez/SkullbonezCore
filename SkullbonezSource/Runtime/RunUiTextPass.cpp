@@ -223,6 +223,7 @@ void Run::RenderReplayScrubberOverlay()
     {
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
         const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
+        const UI::UIRect loadButton = ReplayScrubberLoadButtonRect( screenW, screenH, trackName );
         const float rowT = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, trackName ), 0.0f, 1.0f );
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
@@ -230,9 +231,9 @@ void Run::RenderReplayScrubberOverlay()
         const bool inactiveDuringScrub = ( m_replayScrubber.dragging || m_replayScrubber.paused ) && !active;
         const bool saveHover =
             saveEnabled && m_replayScrubber.saveHovered && m_replayScrubber.saveHoveredTrack == trackName;
-        const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' && m_replayScrubber.saveMessageUntil >= now &&
-                                  m_replayScrubber.saveMessageTrack == trackName;
+        const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' && m_replayScrubber.saveMessageUntil >= now;
         const bool saveFailed = saveFeedback && strstr( m_replayScrubber.saveMessage, "FAILED" ) != nullptr;
+        const bool loadHover = m_replayScrubber.loadHovered;
         const float saveR = saveFeedback ? ( saveFailed ? 0.48f : 0.13f ) : ( saveHover ? 0.20f : 0.09f );
         const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
         const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
@@ -296,6 +297,25 @@ void Run::RenderReplayScrubberOverlay()
         draw.Outline( iconX, iconY, iconW, iconH, 0.88f, 0.97f, 1.0f, iconA );
         draw.Rect( iconX + 2.0f, iconY + 2.0f, iconW - 4.0f, 3.0f, 0.88f, 0.97f, 1.0f, iconA * 0.73f );
         draw.Rect( iconX + 3.0f, iconY + 8.0f, iconW - 6.0f, 3.0f, 0.88f, 0.97f, 1.0f, iconA * 0.85f );
+
+        draw.RoundedRect( loadButton.x,
+                          loadButton.y,
+                          loadButton.w,
+                          loadButton.h,
+                          4.0f,
+                          loadHover ? 0.18f : 0.08f,
+                          loadHover ? 0.28f : 0.13f,
+                          loadHover ? 0.44f : 0.20f,
+                          0.92f );
+        draw.Outline( loadButton.x,
+                      loadButton.y,
+                      loadButton.w,
+                      loadButton.h,
+                      outlineR,
+                      outlineG,
+                      outlineB,
+                      loadHover ? 0.72f : 0.34f );
+        draw.Text( loadButton.x + 9.0f, loadButton.y + 5.0f, 9.5f, 0.78f, 0.90f, 1.0f, "LOAD" );
     };
 
     if ( loadedPresentation )
