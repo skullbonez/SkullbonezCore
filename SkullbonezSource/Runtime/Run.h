@@ -592,6 +592,14 @@ struct RunReplayScrubProbeState
     int minSampleCount = 24;
     float minDistanceSquared = 0.0001f;
 };
+
+struct RunReplaySaveProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    int minSampleCount = 24;
+    char path[260] = {};
+};
 #endif
 
 struct RunEditorPlacementState
@@ -1233,6 +1241,7 @@ class Run
     DiagnosticsController m_diagnostics;                                         // Perf/test logs and queryable physics diagnostic trace
 #ifdef _DEBUG
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
+    RunReplaySaveProbeState m_replaySaveProbe;                                   // CLI-only v2 replay artifact save self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                        // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                                      // Frame/simulation timers and rolling timing values
@@ -1602,6 +1611,7 @@ class Run
     void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
     void TickReplayScrubProbe();
+    void TickReplaySaveProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -1645,6 +1655,7 @@ class Run
         const char* path,
         bool fixedStepForcedByDiagnostics );                                     // Enable queryable physics diagnostics (CLI --physics-diag)
     void SetReplayScrubProbe( float normalized );                                // Enable CLI-only replay scrub SkullScope probe.
+    void SetReplaySaveProbe( const char* path );                                 // Enable CLI-only v2 replay save probe.
 #endif
 };
 } // namespace Basics

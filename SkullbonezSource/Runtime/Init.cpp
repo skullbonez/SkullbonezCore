@@ -590,6 +590,8 @@ struct ParsedArgs
     int replaySeconds = 30;
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
+    bool replaySaveProbe = false;
+    char replaySaveProbePath[260] = {};
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
@@ -1515,6 +1517,28 @@ bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
     return true;
 }
 
+bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--replay-save-probe expects a file path." );
+    }
+    if ( strlen( value ) >= sizeof( args.replaySaveProbePath ) )
+    {
+        return FailCommandLineParse( "--replay-save-probe path is too long." );
+    }
+
+    strcpy_s( args.replaySaveProbePath, sizeof( args.replaySaveProbePath ), value );
+    args.replaySaveProbe = true;
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    args.replaySeconds = (std::max)( 1, args.replaySeconds );
+    args.fixedStep = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[replay] Save probe output: %s\n", args.replaySaveProbePath );
+    return true;
+}
+
 
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
@@ -1597,6 +1621,8 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[replay] Scrub probe normalized position: %.3f\n", args.replayScrubProbeNormalized );
               return true;
           } },
+        { "--replay-save-probe", "--replay_save_probe", ApplyReplaySaveProbePath },
+        { "--replay-save-test", "--replay_save_test", ApplyReplaySaveProbePath },
         { "--replay-hashes", "--replay_hashes", ApplyReplayHashLogPath },
         { "--ui-stress",
           "--ui_stress",
@@ -1744,6 +1770,22 @@ bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 #endif
 }
 
+// Guards the replay v2 save probe against use in non-Debug builds.
+bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
+{
+    if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) &&
+         !HasOption( commandLine, "--replay-save-test" ) && !HasOption( commandLine, "--replay_save_test" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--replay-save-probe is only supported in Debug builds." );
+#else
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
@@ -1833,6 +1875,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
     if ( !ValidateReplayScrubProbe( commandLine ) )
+    {
+        return false;
+    }
+    if ( !ValidateReplaySaveProbe( commandLine ) )
     {
         return false;
     }
@@ -1926,6 +1972,10 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
             return FailCommandLineParse(
                 "--replay-scrub-probe requires --physics-diag so SkullScope can query the result." );
         }
+    }
+    if ( out.replaySaveProbe && !out.replayRecording )
+    {
+        return FailCommandLineParse( "--replay-save-probe requires replay capture; remove --replay off." );
     }
 #endif
 
@@ -2053,6 +2103,10 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.replayScrubProbe )
         {
             cRun->SetReplayScrubProbe( args.replayScrubProbeNormalized );
+        }
+        if ( args.replaySaveProbe )
+        {
+            cRun->SetReplaySaveProbe( args.replaySaveProbePath );
         }
 #endif
         if ( args.showProfiler )

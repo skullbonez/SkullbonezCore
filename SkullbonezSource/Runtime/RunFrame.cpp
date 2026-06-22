@@ -19,6 +19,7 @@ Related:
 #include "RunInternal.h"
 
 #include "CaptureSystem.h"
+#include "Replay/ReplayV2Artifact.h"
 
 #include <stdexcept>
 
@@ -306,6 +307,7 @@ void Run::CaptureReplayPhysicsStep()
     }
 #ifdef _DEBUG
     TickReplayScrubProbe();
+    TickReplaySaveProbe();
 #endif
 }
 
@@ -497,6 +499,34 @@ void Run::TickReplayScrubProbe()
         static_cast<unsigned long long>( live->frameIndex ),
         selectedBody->id.value,
         bestDistanceSquared );
+    PostQuitMessage( 0 );
+}
+
+void Run::TickReplaySaveProbe()
+{
+    if ( !m_replaySaveProbe.enabled || m_replaySaveProbe.completed )
+    {
+        return;
+    }
+
+    const ReplayRecorderStats stats = m_replay.GetStats();
+    if ( stats.sampleCount < static_cast<std::size_t>( m_replaySaveProbe.minSampleCount ) )
+    {
+        return;
+    }
+
+    ReplayV2SaveResult result;
+    if ( !ReplayV2Artifact::SavePresentation( m_replay, m_replaySaveProbe.path, &result ) )
+    {
+        throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
+    }
+
+    m_replaySaveProbe.completed = true;
+    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu bytes=%llu\n",
+            m_replaySaveProbe.path,
+            static_cast<unsigned long long>( result.sampleCount ),
+            static_cast<unsigned long long>( result.bodyDictionaryCount ),
+            static_cast<unsigned long long>( result.fileBytes ) );
     PostQuitMessage( 0 );
 }
 #endif

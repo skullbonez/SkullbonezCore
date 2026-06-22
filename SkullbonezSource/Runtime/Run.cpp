@@ -593,6 +593,19 @@ void Run::SetReplayScrubProbe( float normalized )
     m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
     printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
 }
+
+void Run::SetReplaySaveProbe( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        throw std::runtime_error( "replay save probe requires an output path" );
+    }
+
+    m_replaySaveProbe.enabled = true;
+    m_replaySaveProbe.completed = false;
+    strcpy_s( m_replaySaveProbe.path, sizeof( m_replaySaveProbe.path ), path );
+    printf( "[replay] Save probe enabled: path=%s\n", m_replaySaveProbe.path );
+}
 #endif
 
 

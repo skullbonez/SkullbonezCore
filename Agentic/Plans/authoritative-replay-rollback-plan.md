@@ -154,7 +154,7 @@ solver hash, and only then make the state live.
 | Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts light child bodies before impact with amber incoming traces/rings, then continue with grey post-contact traces. The right-side cause tree lists the root/child hierarchy and focuses the camera on clicked rows. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. `ALT VEL` edits selected dynamic-body linear/angular velocity and rebuilds the predicted chain from the edited live state. |
 | Saving | `SAVE` on the presentation row writes `replays\replay_v2_####.skreplay` binary v2 presentation artifacts with `MANI`, `BODY`, `PRES`, and `INDX` chunks. Solver row save still writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries. These files are not reloadable authoritative replay artifacts. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
-| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. There is no restore-to-tick hash-match gate or saved-artifact restore test yet. |
+| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state. `tools\validate_replay_v2_artifact.bat` writes a real runtime v2 presentation artifact, queries it, exports a bounded SkullScope slice, and imports that slice through `physics_query`. There is no restore-to-tick hash-match gate or saved authoritative restore test yet. |
 
 ## Implementation Status Audit, 2026-06-22
 
@@ -165,7 +165,7 @@ solver hash, and only then make the state live.
 | Phase 3: Event stream | Missing | No typed `ReplayEventStream`, event cursors, or deterministic event replay for launcher, reset/load, world edits, editor commits, or generated-scene rebuilds. |
 | Phase 4: Restore to tick without branch resume | Missing | Current restore applies the selected retained in-memory sample directly. It does not restore the nearest checkpoint, replay ticks/events to the target, compare hashes, or emit `replay_restore`. |
 | Phase 5: Branch and resume | Partial | `Enter` on the solver row makes the selected retained sample live and resets the replay timeline, but there is no branch id or parent-branch metadata. |
-| Phase 6: Saved authoritative replay artifacts | Partial | Presentation saves now produce chunked binary v2 artifacts for smooth scrub playback/querying, with a body dictionary, 32-byte pose records, seek index, and `tools\replay_query` bridge. Missing: solver checkpoint chunks, event stream chunks, per-tick solver hash chunks, loader, restore verifier, and branch-from-file. |
+| Phase 6: Saved authoritative replay artifacts | Partial | Presentation saves now produce chunked binary v2 artifacts for smooth scrub playback/querying, with a body dictionary, 32-byte pose records, seek index, `tools\replay_query` bridge, and `tools\validate_replay_v2_artifact.bat` runtime artifact proof. Missing: solver checkpoint chunks, event stream chunks, per-tick solver hash chunks, loader, restore verifier, and branch-from-file. |
 
 Observed local artifact sizing during the 2026-06-22 audit:
 

@@ -22,6 +22,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--replay-seconds` | `1..600` | Retention window for replay capture; default is 30 seconds at 120 Hz. Alias: `--replay_seconds`. |
 | `--replay-hashes` | path | Enable replay capture and write a CSV of replay frame hashes for fixed-step comparison runs. Alias: `--replay_hashes`. |
 | `--replay-scrub-test` | Debug flag | Enable the CLI-only replay scrub SkullScope probe, select an older retained sample, emit one `replay_scrub` row, and exit after the probe passes. |
+| `--replay-save-probe` | Debug path | Enable the CLI-only replay v2 save probe, write a binary presentation `.skreplay` artifact after enough retained samples exist, and exit. Alias: `--replay_save_probe`; `--replay-save-test` is accepted by validation tooling. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--tornado` | optional `on`, `off` | Start with the generated-demo tornado force field enabled or disabled. Bare flag means `on`; the Physics tab can still toggle it live. |
@@ -157,7 +158,9 @@ Debug builds include a focused SkullScope replay scrub probe:
 tools\validate_replay_scrub.bat
 ```
 
-The gate builds Debug, launches `physics_roll.scene.json` with `--replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`, then runs `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`. The query passes only when the selected replay sample is older than the live edge, the selected/live hashes differ, the chosen body moved, and the logged replay positions match the corresponding SkullScope body rows.
+The scrub gate builds Debug, launches `physics_roll.scene.json` with `--replay-scrub-test --physics-diag Debug\replay_scrub.physicsdiag.ndjson`, then runs `tools\physics_query.bat Debug\replay_scrub.physicsdiag.ndjson replay --limit 8`. The query passes only when the selected replay sample is older than the live edge, the selected/live hashes differ, the chosen body moved, and the logged replay positions match the corresponding SkullScope body rows.
+
+The v2 artifact gate builds Debug, launches `physics_roll.scene.json` with `--replay-save-probe TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag TestOutput\validation\replay_v2\replay_save_probe_runtime.physicsdiag.ndjson`, then uses `tools\replay_query.bat` to query `summary`, `frame`, `body`, and `export-skullscope`. The exported bounded NDJSON slice is imported with `tools\physics_query.bat ... summary` so binary replay files stay inspectable without loading raw artifacts into the model.
 
 ## Runtime Facades And Streams
 
