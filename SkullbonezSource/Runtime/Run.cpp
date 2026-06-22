@@ -857,8 +857,9 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved = track == RunReplayTrack::Solver ? ReplayExporter::Save( m_solverReplay, path )
-                                                : ReplayV2Artifact::SavePresentation( m_replay, path );
+        saved = track == RunReplayTrack::Solver
+                    ? ReplayExporter::Save( m_solverReplay, path )
+                    : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();

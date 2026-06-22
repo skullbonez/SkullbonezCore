@@ -151,6 +151,13 @@ def query_artifact():
         raise RuntimeError("expected at least one body dictionary entry")
     if int(summary.get("bodyPoseBytes") or 0) != 32:
         raise RuntimeError(f"expected 32-byte pose rows, found {summary.get('bodyPoseBytes')}")
+    if int(summary.get("solverHashBytes") or 0) != 48:
+        raise RuntimeError(f"expected 48-byte solver hash rows, found {summary.get('solverHashBytes')}")
+    if int(summary.get("solverHashCount") or 0) < int(summary.get("frameCount") or 0):
+        raise RuntimeError(
+            f"expected a solver hash per replay frame, found {summary.get('solverHashCount')} hashes for "
+            f"{summary.get('frameCount')} frames"
+        )
 
     first_frame = int(summary["firstFrame"])
     last_frame = int(summary["lastFrame"])
@@ -180,6 +187,27 @@ def query_artifact():
     body_stdout, body = run_json(body_command, REPO)
     if int(body.get("sampleCount") or 0) <= 0:
         raise RuntimeError("replay body query did not return samples")
+
+    hash_command = [
+        str(REPLAY_QUERY_BAT),
+        str(ARTIFACT),
+        "hashes",
+        "--frames",
+        f"{first_frame}:{last_frame}",
+        "--limit",
+        "8",
+    ]
+    print("  Hash command:")
+    print(
+        "    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay "
+        f"hashes --frames {first_frame}:{last_frame} --limit 8"
+    )
+    hash_stdout, hashes = run_json(hash_command, REPO)
+    if int(hashes.get("hashCount") or 0) < int(summary.get("frameCount") or 0):
+        raise RuntimeError("replay hashes query did not report the full solver hash track")
+    hash_samples = hashes.get("samples") or []
+    if not hash_samples or not all(sample.get("solverHash") for sample in hash_samples):
+        raise RuntimeError("replay hashes query did not return solver hash samples")
 
     export_end = min(first_frame + 5, last_frame)
     export_command = [
@@ -214,6 +242,7 @@ def query_artifact():
         "replay_summary": len(summary_stdout.encode("utf-8")),
         "replay_frame": len(frame_stdout.encode("utf-8")),
         "replay_body": len(body_stdout.encode("utf-8")),
+        "replay_hashes": len(hash_stdout.encode("utf-8")),
         "replay_export": len(export_stdout.encode("utf-8")),
         "physics_summary": len(physics_stdout.encode("utf-8")),
     }

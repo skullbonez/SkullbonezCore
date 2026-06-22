@@ -12,6 +12,7 @@ Glossary:
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
+  HASH: Optional per-tick presentation/solver hash records.
   INDX: Frame seek index into the presentation chunk.
 
 Invariants:
@@ -55,6 +56,7 @@ constexpr uint32_t REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES = 76;
 constexpr uint32_t REPLAY_V2_FRAME_HEADER_BYTES = 92;
 constexpr uint32_t REPLAY_V2_INDEX_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
+constexpr uint32_t REPLAY_V2_HASH_ENTRY_BYTES = 48;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
 enum ReplayV2WorldFlags : uint8_t
@@ -639,27 +641,42 @@ Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t record
 }
 
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
-                                    const std::vector<BodyDictionaryEntry>& dictionary )
+                                    const std::vector<BodyDictionaryEntry>& dictionary,
+                                    std::size_t solverHashCount )
 {
     const ReplayPresentationSample& first = samples.front();
     const ReplayPresentationSample& last = samples.back();
+    Json chunks = Json::array( { "MANI", "BODY", "PRES" } );
+    Json tracks = Json::array( { "presentation" } );
+    if ( solverHashCount > 0 )
+    {
+        chunks.push_back( "HASH" );
+        tracks.push_back( "solverHashes" );
+    }
+    chunks.push_back( "INDX" );
 
     Json manifest;
     manifest["format"] = "skullbonez.skreplay";
     manifest["version"] = REPLAY_V2_VERSION;
     manifest["track"] = "presentation";
+    manifest["tracks"] = tracks;
     manifest["encoding"] = "little-endian chunked binary";
-    manifest["schema"] = "presentation-v2";
+    manifest["schema"] = solverHashCount > 0 ? "presentation-v2+solver-hashes" : "presentation-v2";
     manifest["frameCount"] = samples.size();
     manifest["bodyDictionaryCount"] = dictionary.size();
+    manifest["solverHashCount"] = solverHashCount;
     manifest["firstFrame"] = first.frameIndex;
     manifest["lastFrame"] = last.frameIndex;
     manifest["firstTimeSeconds"] = first.simulationSeconds;
     manifest["lastTimeSeconds"] = last.simulationSeconds;
     manifest["bodyPoseBytes"] = REPLAY_V2_BODY_POSE_BYTES;
-    manifest["chunks"] = Json::array( { "MANI", "BODY", "PRES", "INDX" } );
+    manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
+    manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
-    manifest["notes"] = "Presentation v2 supports smooth visual scrub; solver checkpoint/event chunks are not present.";
+    manifest["notes"] = solverHashCount > 0 ? "Presentation v2 supports smooth visual scrub and carries per-tick "
+                                              "solver hashes; checkpoint/event chunks are not present."
+                                            : "Presentation v2 supports smooth visual scrub; solver checkpoint/event "
+                                              "chunks are not present.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -680,9 +697,37 @@ std::vector<uint8_t> BuildIndex( const std::vector<IndexedFrame>& frames )
     return bytes;
 }
 
-bool BuildChunks( const std::vector<ReplayPresentationSample>& samples, std::vector<Chunk>& outChunks )
+std::vector<uint8_t> BuildHashChunk( const std::vector<ReplaySolverFrameSample>& solverSamples )
+{
+    std::vector<uint8_t> bytes;
+    AppendPod( bytes, CheckedU32( solverSamples.size() ) );
+    for ( const ReplaySolverFrameSample& sample : solverSamples )
+    {
+        const uint8_t checkpointBoundary = sample.checkpointBoundary ? 1u : 0u;
+        const uint8_t reserved[3] = {};
+        AppendPod( bytes, sample.frameIndex );
+        AppendPod( bytes, static_cast<int32_t>( sample.sceneFrame ) );
+        AppendPod( bytes, sample.simulationSeconds );
+        AppendPod( bytes, sample.presentationHash );
+        AppendPod( bytes, sample.solverHash );
+        AppendPod( bytes, CheckedU32( sample.bodies.size() ) );
+        AppendPod( bytes, sample.contactCount );
+        AppendPod( bytes, sample.pipelineRecordCount );
+        AppendPod( bytes, checkpointBoundary );
+        AppendBytes( bytes, reserved, sizeof( reserved ) );
+    }
+    return bytes;
+}
+
+bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
+                  const std::vector<ReplaySolverFrameSample>* solverSamples,
+                  std::vector<Chunk>& outChunks )
 {
     if ( samples.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
+    {
+        return false;
+    }
+    if ( solverSamples && solverSamples->size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
     }
@@ -708,9 +753,15 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples, std::vec
     std::vector<uint8_t> bodyBytes;
     AppendBodyDictionary( bodyBytes, dictionary );
 
-    outChunks.push_back( MakeChunk( "MANI", BuildManifest( samples, dictionary ), 1u ) );
+    const std::size_t solverHashCount = solverSamples ? solverSamples->size() : 0u;
+    outChunks.push_back( MakeChunk( "MANI", BuildManifest( samples, dictionary, solverHashCount ), 1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
+    if ( solverSamples && !solverSamples->empty() )
+    {
+        outChunks.push_back(
+            MakeChunk( "HASH", BuildHashChunk( *solverSamples ), CheckedU32( solverSamples->size() ) ) );
+    }
     outChunks.push_back( MakeChunk( "INDX", BuildIndex( index ), CheckedU32( index.size() ) ) );
     return true;
 }
@@ -779,7 +830,7 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
     }
 
     std::vector<Chunk> chunks;
-    if ( !BuildChunks( samples, chunks ) )
+    if ( !BuildChunks( samples, nullptr, chunks ) )
     {
         return false;
     }
@@ -822,6 +873,72 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         const Chunk& bodyChunk = chunks[1];
         result->sampleCount = samples.size();
         result->bodyDictionaryCount = bodyChunk.recordCount;
+        result->solverHashCount = 0;
+        result->fileBytes = fileBytes.size();
+    }
+    return true;
+}
+
+bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
+                                                         const ReplaySolverRecorder& solverRecorder,
+                                                         const char* path,
+                                                         ReplayV2SaveResult* result )
+{
+    std::vector<ReplayPresentationSample> samples;
+    recorder.CopySamplesChronological( samples );
+    if ( samples.empty() )
+    {
+        return false;
+    }
+
+    std::vector<ReplaySolverFrameSample> solverSamples;
+    solverRecorder.CopySamplesChronological( solverSamples );
+
+    std::vector<Chunk> chunks;
+    if ( !BuildChunks( samples, &solverSamples, chunks ) )
+    {
+        return false;
+    }
+
+    std::vector<uint8_t> fileBytes;
+    if ( !BuildFileBytes( chunks, fileBytes ) )
+    {
+        return false;
+    }
+
+    if ( !RuntimeFileWriter::EnsureParentDirectory( path ) )
+    {
+        return false;
+    }
+
+    std::ofstream output( path, std::ios::out | std::ios::binary | std::ios::trunc );
+    if ( !output.is_open() )
+    {
+        return false;
+    }
+
+    if ( fileBytes.size() > static_cast<std::size_t>( ( std::numeric_limits<std::streamsize>::max )() ) )
+    {
+        return false;
+    }
+
+    output.write( reinterpret_cast<const char*>( fileBytes.data() ), static_cast<std::streamsize>( fileBytes.size() ) );
+    if ( !output.good() )
+    {
+        return false;
+    }
+    output.close();
+    if ( output.fail() )
+    {
+        return false;
+    }
+
+    if ( result )
+    {
+        const Chunk& bodyChunk = chunks[1];
+        result->sampleCount = samples.size();
+        result->bodyDictionaryCount = bodyChunk.recordCount;
+        result->solverHashCount = solverSamples.size();
         result->fileBytes = fileBytes.size();
     }
     return true;

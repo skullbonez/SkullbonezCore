@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `major-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `cbad6bd7` completed the source comment pass for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md` and pushed it to `origin/major-refactor`. |
-| Active objective | None for the physics playground refactor plan; the plan has been completed on `major-refactor`. |
-| Pending work | None for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md`. Continue unrelated active plans separately. |
+| Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | `76183a5d` loaded v2 presentation files into the runtime scrubber and pushed it to `origin/nightrunner-22-june`. |
+| Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
+| Pending work | V2 now has smooth file-backed presentation scrub and per-tick solver hash chunks. Remaining plan gaps include solver checkpoint chunks, event chunks, restore verification, branch-from-file, and in-app file loading/picking. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Final plan gate passed `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-22_phase_f_comment_pass_validate_full.log`: Profile and Debug builds succeeded with 0 warnings and 0 errors, DX12 validation reported 0 errors, DX12 captures matched baselines, and physics regression matched byte-exactly. |
+| Validation | Latest replay-v2 hash slice gates passed: `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-22_replay_v2_hash_validate_replay_v2_2.log`, `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-22_replay_v2_hash_validate_full.log`, and `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-22_replay_v2_hash_validate_fast.log`. |
 
 ## Active Notes
 
@@ -55,6 +55,7 @@ audits when it is still useful.
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |
 | Render graph completion | Active plan | `Agentic/Plans/dx12-render-graph-completion-plan.md` remains the focused DX12 resource-state ownership plan. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, asset, parser, and render graph boundaries. |
+| Authoritative replay rollback | Active plan | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` on `nightrunner-22-june`; do not delete old replay paths until the v2 migration is complete. |
 
 ## Known Bugs
 

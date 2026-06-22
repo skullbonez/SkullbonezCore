@@ -19,6 +19,7 @@ CHUNK_ENTRY = struct.Struct("<4sQQII")
 BODY_RECORD = struct.Struct("<IiB3s64s")
 FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
 BODY_POSE = struct.Struct("<Ifffffff")
+HASH_RECORD = struct.Struct("<QidQQIHHB3s")
 
 FLAG_WATER_HIDDEN = 1 << 0
 FLAG_TERRAIN_HIDDEN = 1 << 1
@@ -63,6 +64,19 @@ class FrameIndex:
     body_count: int
 
 
+@dataclass
+class SolverHashInfo:
+    frame_index: int
+    scene_frame: int
+    time_seconds: float
+    presentation_hash: int
+    solver_hash: int
+    body_count: int
+    contact_count: int
+    pipeline_record_count: int
+    checkpoint_boundary: bool
+
+
 def clean_name(raw: bytes) -> str:
     return raw.split(b"\0", 1)[0].decode("utf-8", errors="replace")
 
@@ -88,10 +102,12 @@ class ReplayV2:
         self.manifest: dict[str, object] = {}
         self.bodies: list[BodyInfo] = []
         self.frames: list[FrameIndex] = []
+        self.solver_hashes: list[SolverHashInfo] = []
         self._parse_header()
         self._parse_manifest()
         self._parse_bodies()
         self._parse_index()
+        self._parse_solver_hashes()
 
     def _parse_header(self) -> None:
         if len(self.data) < HEADER.size:
@@ -175,9 +191,57 @@ class ReplayV2:
             frames.append(FrameIndex(frame_index, presentation_offset, body_count))
         self.frames = frames
 
+    def _parse_solver_hashes(self) -> None:
+        chunk = self.chunks.get("HASH")
+        if not chunk:
+            self.solver_hashes = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "HASH")
+        if len(raw) < 4:
+            raise ReplayQueryError("HASH chunk is too small")
+        hash_count = struct.unpack_from("<I", raw, 0)[0]
+        if hash_count != chunk.record_count:
+            raise ReplayQueryError("HASH chunk count does not match chunk table")
+        cursor = 4
+        hashes: list[SolverHashInfo] = []
+        for _ in range(hash_count):
+            if cursor + HASH_RECORD.size > len(raw):
+                raise ReplayQueryError("HASH chunk ended mid-record")
+            (
+                frame_index,
+                scene_frame,
+                time_seconds,
+                presentation_hash,
+                solver_hash,
+                body_count,
+                contact_count,
+                pipeline_record_count,
+                checkpoint_boundary,
+                _reserved,
+            ) = HASH_RECORD.unpack_from(raw, cursor)
+            cursor += HASH_RECORD.size
+            hashes.append(
+                SolverHashInfo(
+                    frame_index=frame_index,
+                    scene_frame=scene_frame,
+                    time_seconds=time_seconds,
+                    presentation_hash=presentation_hash,
+                    solver_hash=solver_hash,
+                    body_count=body_count,
+                    contact_count=contact_count,
+                    pipeline_record_count=pipeline_record_count,
+                    checkpoint_boundary=bool(checkpoint_boundary),
+                )
+            )
+        if cursor != len(raw):
+            raise ReplayQueryError("HASH chunk has trailing bytes")
+        self.solver_hashes = hashes
+
     def summary(self) -> dict[str, object]:
         first = self.frames[0] if self.frames else None
         last = self.frames[-1] if self.frames else None
+        first_hash = self.solver_hashes[0] if self.solver_hashes else None
+        last_hash = self.solver_hashes[-1] if self.solver_hashes else None
         chunks = [
             {
                 "id": chunk.ident,
@@ -195,11 +259,15 @@ class ReplayV2:
             "authoritative": self.manifest.get("authoritative", False),
             "frameCount": len(self.frames),
             "bodyDictionaryCount": len(self.bodies),
+            "solverHashCount": len(self.solver_hashes),
+            "firstSolverHashFrame": first_hash.frame_index if first_hash else None,
+            "lastSolverHashFrame": last_hash.frame_index if last_hash else None,
             "firstFrame": first.frame_index if first else None,
             "lastFrame": last.frame_index if last else None,
             "durationSeconds": self._duration_seconds(),
             "fileBytes": self.file_size,
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
+            "solverHashBytes": self.manifest.get("solverHashBytes", 0),
             "chunks": chunks,
         }
 
@@ -215,6 +283,12 @@ class ReplayV2:
             return list(self.frames)
         start, end = parse_frame_range(frame_range)
         return [frame for frame in self.frames if start <= frame.frame_index <= end]
+
+    def selected_hashes(self, frame_range: str | None) -> list[SolverHashInfo]:
+        if not frame_range:
+            return list(self.solver_hashes)
+        start, end = parse_frame_range(frame_range)
+        return [row for row in self.solver_hashes if start <= row.frame_index <= end]
 
     def find_frame(self, frame_index: int) -> FrameIndex:
         for frame in self.frames:
@@ -354,6 +428,26 @@ class ReplayV2:
                 break
         return samples
 
+    def hash_samples(self, frames: str | None, limit: int) -> list[dict[str, object]]:
+        samples: list[dict[str, object]] = []
+        for row in self.selected_hashes(frames):
+            if len(samples) >= limit:
+                break
+            samples.append(
+                {
+                    "frameIndex": row.frame_index,
+                    "sceneFrame": row.scene_frame,
+                    "timeSeconds": round_float(row.time_seconds),
+                    "presentationHash": hash_text(row.presentation_hash),
+                    "solverHash": hash_text(row.solver_hash),
+                    "bodyCount": row.body_count,
+                    "contactCount": row.contact_count,
+                    "pipelineRecordCount": row.pipeline_record_count,
+                    "checkpointBoundary": row.checkpoint_boundary,
+                }
+            )
+        return samples
+
     def export_skullscope(self, frames: list[FrameIndex], out_path: Path, run_id: str) -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         rows = 0
@@ -453,6 +547,17 @@ def cmd_body(replay: ReplayV2, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_hashes(replay: ReplayV2, args: argparse.Namespace) -> None:
+    samples = replay.hash_samples(args.frames, args.limit)
+    print_json(
+        {
+            "hashCount": len(replay.solver_hashes),
+            "samplesReturned": len(samples),
+            "samples": samples,
+        }
+    )
+
+
 def cmd_contacts(_replay: ReplayV2, args: argparse.Namespace) -> None:
     print_json(
         {
@@ -497,6 +602,11 @@ def build_parser() -> argparse.ArgumentParser:
     body.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
     body.add_argument("--limit", type=int, default=120)
     body.set_defaults(func=cmd_body)
+
+    hashes = subparsers.add_parser("hashes", help="Print per-frame presentation and solver hashes")
+    hashes.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
+    hashes.add_argument("--limit", type=int, default=120)
+    hashes.set_defaults(func=cmd_hashes)
 
     contacts = subparsers.add_parser("contacts", help="Report contact availability for a frame window")
     contacts.add_argument("--frames", help="Inclusive replay frame window")

@@ -523,9 +523,16 @@ void Run::TickReplaySaveProbe()
     }
 
     ReplayV2SaveResult result;
-    if ( !ReplayV2Artifact::SavePresentation( m_replay, m_replaySaveProbe.path, &result ) )
+    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay,
+                                                              m_solverReplay,
+                                                              m_replaySaveProbe.path,
+                                                              &result ) )
     {
         throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
+    }
+    if ( result.solverHashCount < result.sampleCount )
+    {
+        throw std::runtime_error( "replay save probe wrote v2 artifact without a full solver hash track" );
     }
 
     std::vector<ReplayPresentationSample> loadedSamples;
@@ -611,10 +618,11 @@ void Run::TickReplaySaveProbe()
     }
 
     m_replaySaveProbe.completed = true;
-    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu bytes=%llu\n",
+    printf( "[replay] Save probe wrote: path=%s samples=%llu bodies=%llu solver_hashes=%llu bytes=%llu\n",
             m_replaySaveProbe.path,
             static_cast<unsigned long long>( result.sampleCount ),
             static_cast<unsigned long long>( result.bodyDictionaryCount ),
+            static_cast<unsigned long long>( result.solverHashCount ),
             static_cast<unsigned long long>( result.fileBytes ) );
     printf( "[replay] Save probe loaded: samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
