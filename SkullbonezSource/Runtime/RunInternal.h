@@ -97,11 +97,11 @@ inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 492.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 458.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 174.0f;
+inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
@@ -192,7 +192,7 @@ inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
 inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
 {
     const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 8.0f, control.y + 7.0f, (std::max)( 40.0f, control.w - 50.0f ), 8.0f };
+    return { control.x + 8.0f, control.y + 7.0f, (std::max)( 40.0f, control.w - 44.0f ), 8.0f };
 }
 
 inline float ReplayPredictionHorizonT( float seconds )
@@ -250,11 +250,11 @@ inline int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
                                          REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
 }
 
-inline constexpr float REPLAY_CAUSE_WINDOW_TITLE_HEIGHT = 36.0f;
-inline constexpr float REPLAY_CAUSE_WINDOW_ROW_HEIGHT = 34.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_TITLE_HEIGHT = 38.0f;
+inline constexpr float REPLAY_CAUSE_WINDOW_ROW_HEIGHT = 38.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_PADDING = 12.0f;
 inline constexpr float REPLAY_CAUSE_WINDOW_RESIZE_SIZE = 18.0f;
-inline constexpr int REPLAY_CAUSE_WINDOW_MIN_W = 360;
+inline constexpr int REPLAY_CAUSE_WINDOW_MIN_W = 320;
 inline constexpr int REPLAY_CAUSE_WINDOW_MIN_H = 180;
 
 inline UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
@@ -315,7 +315,7 @@ inline void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, in
 {
     if ( !state.hasWindowPlacement )
     {
-        state.width = (std::min)( 420, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
+        state.width = (std::min)( 380, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
         state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 160 ) );
         state.x = (std::max)( 12, screenW - state.width - 24 );
         state.y = 72;

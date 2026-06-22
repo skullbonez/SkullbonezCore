@@ -563,6 +563,27 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 
             m_worldTorque += CrossProduct( arm, dampingForce );
         }
+
+        if ( target.IsSphere() )
+        {
+            const Vector3 sphereAngularVel = target.GetAngularVelocity();
+            const float sphereSpinDampingRate = waterCoupling * Cfg().fluidAngularDragMultiplier * 0.35f;
+            if ( sphereSpinDampingRate > TOLERANCE && !sphereAngularVel.IsCloseToZero() )
+            {
+                const Vector3& inertia = target.GetRotationalInertia();
+                Vector3 sphereAngularDampingTorque(
+                    -sphereAngularVel.x * inertia.x * sphereSpinDampingRate,
+                    -sphereAngularVel.y * inertia.y * sphereSpinDampingRate,
+                    -sphereAngularVel.z * inertia.z * sphereSpinDampingRate );
+                sphereAngularDampingTorque.x = ClampAngularDragTorqueAxis(
+                    sphereAngularDampingTorque.x, sphereAngularVel.x, inertia.x, changeInTime );
+                sphereAngularDampingTorque.y = ClampAngularDragTorqueAxis(
+                    sphereAngularDampingTorque.y, sphereAngularVel.y, inertia.y, changeInTime );
+                sphereAngularDampingTorque.z = ClampAngularDragTorqueAxis(
+                    sphereAngularDampingTorque.z, sphereAngularVel.z, inertia.z, changeInTime );
+                m_worldTorque += sphereAngularDampingTorque;
+            }
+        }
     }
 
     m_worldForce +=

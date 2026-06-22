@@ -45,6 +45,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 namespace
 {
 using Json = nlohmann::ordered_json;
+constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 int NextSceneRand( unsigned int& state )
 {
@@ -90,6 +91,26 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
         return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
     }
     return strcmp( material.target, model.GetName() ) == 0;
+}
+
+bool SceneNameStartsWith( const char* name, const char* prefix )
+{
+    return name && strncmp( name, prefix, strlen( prefix ) ) == 0;
+}
+
+bool IsEditorPlacedSphereName( const char* name )
+{
+    return SceneNameStartsWith( name, "static_ball_" ) || SceneNameStartsWith( name, "dynamic_ball_" ) ||
+           SceneNameStartsWith( name, "sleeping_ball_" ) || SceneNameStartsWith( name, "static_sphere_" ) ||
+           SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
+}
+
+void ApplyEditorPlacedSphereMaterial( GameModel& model )
+{
+    if ( IsEditorPlacedSphereName( model.GetName() ) )
+    {
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
+    }
 }
 
 bool IsCineScenePath( const std::string& path )
@@ -720,6 +741,7 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetName( ball.name );
         gameModel.AddBoundingSphere( ball.m_radius );
         gameModel.SetFixed( ball.isFixed );
+        ApplyEditorPlacedSphereMaterial( gameModel );
 
         // apply initial orientation if specified (euler angles in degrees, XYZ order)
         if ( ball.hasInitOrient )
@@ -754,6 +776,7 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
         gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
         gameModel.SetFixed( bs.isFixed );
+        ApplyEditorPlacedSphereMaterial( gameModel );
 
         const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
@@ -1736,6 +1759,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_camera.trackHeight = scene.GetTrackHeight();
             m_camera.trackBallIndex = 0;
             m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
+        }
+        if ( m_camera.mode == RunCameraMode::Demo && !IsDemoCameraModeAvailable() )
+        {
+            m_camera.mode = RunCameraMode::Free;
+            SyncLegacyCameraModeFlags();
         }
 
         const char* rendererName = Gfx().GetRendererName();

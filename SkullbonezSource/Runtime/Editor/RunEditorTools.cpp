@@ -3093,7 +3093,7 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
         model.SetTerrain( m_systems.terrain.get() );
         model.SetCoefficientRestitution( restitution );
         model.AddBoundingSphere( radius );
-        ApplyEditorSpawnMaterial( model, fixedObject, false );
+        model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );

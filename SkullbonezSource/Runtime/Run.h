@@ -481,7 +481,7 @@ struct RunReplayCauseTreeState
     bool hasWindowPlacement = false;
     int x = 0;
     int y = 0;
-    int width = 460;
+    int width = 380;
     int height = 420;
     float scrollY = 0.0f;
     bool draggingWindow = false;
@@ -598,7 +598,7 @@ struct RunEditorPlacementState
 {
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
-    bool placeStaticObject = true;
+    bool placeStaticObject = false;
     bool autoTerrainAlign = false;
     bool restoreFlyModeAfterEditor = false;
     bool restoreRayTestModeAfterEditor = false;

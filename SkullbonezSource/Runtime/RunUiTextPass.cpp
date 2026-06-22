@@ -335,8 +335,7 @@ void Run::RenderReplayScrubberOverlay()
                       predictEnabled ? 1.0f : 0.62f,
                       predictEnabled ? 0.82f : 0.64f,
                       m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging ? 0.98f : 0.86f );
-    const float predictSecondsW = Text2d::MeasureText( 8.5f, predictSecondsLabel );
-    draw.Text( predict.x + predict.w - predictSecondsW - 7.0f,
+    draw.Text( predictHorizon.x + predictHorizon.w + 8.0f,
                predict.y + 4.5f,
                8.5f,
                predictEnabled ? 0.90f : 0.64f,
@@ -369,8 +368,8 @@ void Run::RenderReplayCauseTreeOverlay()
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 7.0f, 0.014f, 0.018f, 0.024f, 0.88f );
     draw.Outline( panel.x, panel.y, panel.w, panel.h, 0.36f, 0.54f, 0.62f, 0.50f );
     draw.Rect( title.x, title.y + title.h - 1.0f, title.w, 1.0f, 0.36f, 0.54f, 0.62f, 0.35f );
-    draw.Text( panel.x + 12.0f, panel.y + 10.0f, 12.5f, 0.82f, 0.94f, 1.0f, "REPLAY CAMERA" );
-    draw.Text( panel.x + 132.0f, panel.y + 12.0f, 10.0f, 0.58f, 0.70f, 0.78f, "CAUSE" );
+    draw.Text( panel.x + 12.0f, panel.y + 10.0f, 13.5f, 0.82f, 0.94f, 1.0f, "REPLAY CAMERA" );
+    draw.Text( panel.x + 136.0f, panel.y + 12.0f, 11.0f, 0.58f, 0.70f, 0.78f, "CAUSE" );
 
     const bool predictionRows = !m_replayCauseTree.rows.empty() && m_replayCauseTree.rows.front().prediction;
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
@@ -501,10 +500,10 @@ void Run::RenderReplayCauseTreeOverlay()
         char label[144] = {};
         sprintf_s( label, sizeof( label ), "%s  %s", prefix, row.name );
         char clippedLabel[144] = {};
-        const int labelChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 7.4f );
+        const int labelChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 8.4f );
         truncateText( label, clippedLabel, sizeof( clippedLabel ), labelChars );
         char clippedDetail[160] = {};
-        const int detailChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 6.3f );
+        const int detailChars = static_cast<int>( ( rowRect.w - indent - 18.0f ) / 7.2f );
         truncateText( row.detail, clippedDetail, sizeof( clippedDetail ), detailChars );
 
         float markerR = 0.94f;
@@ -534,14 +533,14 @@ void Run::RenderReplayCauseTreeOverlay()
         draw.Rect( markerX, markerY, 6.0f, 6.0f, markerR, markerG, markerB, 0.92f );
         draw.Text( markerX + 11.0f,
                    rowRect.y + 4.0f,
-                   10.8f,
+                   12.4f,
                    row.kind == RunReplayCauseTreeRowKind::Body ? 0.88f : 0.78f,
                    row.kind == RunReplayCauseTreeRowKind::Body ? 1.0f : 0.86f,
                    row.kind == RunReplayCauseTreeRowKind::Body ? 0.86f : 0.82f,
                    clippedLabel );
         if ( clippedDetail[0] != '\0' )
         {
-            draw.Text( markerX + 11.0f, rowRect.y + 20.0f, 8.8f, 0.56f, 0.66f, 0.72f, clippedDetail );
+            draw.Text( markerX + 11.0f, rowRect.y + 22.0f, 10.4f, 0.56f, 0.66f, 0.72f, clippedDetail );
         }
     }
 

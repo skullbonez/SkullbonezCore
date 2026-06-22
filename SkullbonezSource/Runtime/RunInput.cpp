@@ -144,7 +144,12 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
 
 bool Run::IsDemoCameraModeAvailable() const
 {
-    return m_cGameModelCollection.GetModelCount() > 0;
+    const int modelCount = m_cGameModelCollection.GetModelCount();
+    if ( !SceneState().isSceneMode )
+    {
+        return modelCount > 0;
+    }
+    return m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < modelCount;
 }
 
 
