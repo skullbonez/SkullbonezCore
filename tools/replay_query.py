@@ -276,6 +276,28 @@ def decode_transform_payload(text: str) -> dict[str, object] | None:
 
 
 def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
+    if row.kind == 2:
+        command_names = {
+            0: "None",
+            1: "LoadSceneIndex",
+            2: "LoadDemoScene",
+            3: "ResetCurrentScene",
+            4: "CreateScene",
+            5: "SaveScreenshot",
+            6: "SaveSceneDefaults",
+            7: "SaveRenderDefaults",
+            8: "AdvanceScene",
+            9: "Quit",
+        }
+        return {
+            "command": command_names.get(row.values[0], "Unknown"),
+            "commandId": row.values[0],
+            "index": row.values[1],
+            "preserveUIState": bool(row.flags & 1),
+            "suppressExitOnComplete": bool(row.flags & 2),
+            "preserveRuntimeState": bool(row.flags & 4),
+            "text": row.text,
+        }
     if row.kind == 4:
         return {
             "gravity": round_float(float_from_i32_bits(row.values[0])),

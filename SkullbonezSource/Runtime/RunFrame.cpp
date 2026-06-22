@@ -565,6 +565,27 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         WriteReplayProbeReason( outReason, reasonSize, "ignored" );
         return true;
     case ReplayEventKind::RuntimeCommand:
+    {
+        const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
+        switch ( commandType )
+        {
+        case RuntimeCommandType::SaveScreenshot:
+        case RuntimeCommandType::SaveSceneDefaults:
+        case RuntimeCommandType::SaveRenderDefaults:
+        case RuntimeCommandType::Quit:
+        case RuntimeCommandType::None:
+            WriteReplayProbeReason( outReason, reasonSize, "ignored non-solver runtime command" );
+            return true;
+        case RuntimeCommandType::ResetCurrentScene:
+        case RuntimeCommandType::LoadSceneIndex:
+        case RuntimeCommandType::LoadDemoScene:
+        case RuntimeCommandType::CreateScene:
+        case RuntimeCommandType::AdvanceScene:
+        default:
+            WriteReplayProbeReason( outReason, reasonSize, "unsupported runtime timeline mutation event" );
+            return false;
+        }
+    }
     case ReplayEventKind::BranchRestore:
         WriteReplayProbeReason( outReason, reasonSize, "unsupported timeline mutation event" );
         return false;
@@ -965,6 +986,14 @@ void Run::TickReplaySaveProbe()
     }
 
     const ReplayRecorderStats stats = m_replay.GetStats();
+    if ( !m_replaySaveProbe.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
+    {
+        m_replaySaveProbe.runtimeResetCoverageInjected = true;
+        m_replaySaveProbe.eventCoverageInjected = false;
+        m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::ResetCurrentScene } );
+        return;
+    }
+
     if ( !m_replaySaveProbe.eventCoverageInjected && stats.sampleCount >= 4 )
     {
         m_replaySaveProbe.eventCoverageInjected = true;

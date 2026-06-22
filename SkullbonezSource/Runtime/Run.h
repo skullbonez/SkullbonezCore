@@ -637,6 +637,7 @@ struct RunReplaySaveProbeState
 {
     bool enabled = false;
     bool completed = false;
+    bool runtimeResetCoverageInjected = false;
     bool eventCoverageInjected = false;
     int minSampleCount = 24;
     char path[260] = {};
