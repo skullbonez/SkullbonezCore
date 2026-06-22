@@ -8,7 +8,7 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `f00ab9ae` records replay v2 authoritative-state inventory evidence and explicit timeline-mutation checkpoint-barrier validation. |
+| Last committed milestone | `39b25d0f` archives the authoritative replay rollback plan in `Agentic/Plans/Done/` after replay v2 closeout. |
 | Active objective | Replay v2 migration plan is archived in `Agentic/Plans/Done/authoritative-replay-rollback-plan.md`; no active replay implementation plan is open. |
 | Pending work | Do not delete legacy replay exporters yet. V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed generated-scene-config/runtime-command/world-override/editor-place/editor-transform/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, generated-topology rebuild before mismatched saved checkpoint restore, reset-command checkpoint-precondition coverage, explicit scene-transition checkpoint-barrier rejection coverage, live branch-from-file wiring for loaded v2 artifacts, in-app v2 replay save/load controls, an explicit scrubber `BRANCH` action shared with `Enter`, and saved-file restore failure SkullScope rows/query validation. |
 | Blockers | None known. |
