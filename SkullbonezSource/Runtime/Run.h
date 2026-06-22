@@ -363,9 +363,9 @@ struct RunReplayScrubberState
     bool saveHovered = false;
     bool restoreWasDown = false;
     bool restoreConsumedThisFrame = false;
-    RunReplayTrack activeTrack = RunReplayTrack::Presentation;
-    RunReplayTrack saveHoveredTrack = RunReplayTrack::Presentation;
-    RunReplayTrack saveMessageTrack = RunReplayTrack::Presentation;
+    RunReplayTrack activeTrack = RunReplayTrack::Solver;
+    RunReplayTrack saveHoveredTrack = RunReplayTrack::Solver;
+    RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
     bool leftWasDown = false;
     float position = 1.0f;                                                       // 0 = oldest retained sample, 1 = live edge.
     float presentationPosition = 1.0f;

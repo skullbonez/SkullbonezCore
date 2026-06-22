@@ -126,6 +126,12 @@ void UIComboBox::SetDropUp( bool dropUp )
 }
 
 
+void UIComboBox::SetLabelVisible( bool visible )
+{
+    m_labelVisible = visible;
+}
+
+
 void UIComboBox::ToggleOpen()
 {
     m_isOpen = !m_isOpen;
@@ -140,8 +146,9 @@ void UIComboBox::Close()
 
 UIRect UIComboBox::FieldRect() const
 {
-    const float fieldW = (std::max)( 54.0f, m_bounds.w - COMBO_LABEL_W );
-    return { m_bounds.x + COMBO_LABEL_W, m_bounds.y + COMBO_FIELD_Y, fieldW, COMBO_FIELD_H };
+    const float labelW = m_labelVisible ? COMBO_LABEL_W : 0.0f;
+    const float fieldW = (std::max)( 54.0f, m_bounds.w - labelW );
+    return { m_bounds.x + labelW, m_bounds.y + COMBO_FIELD_Y, fieldW, COMBO_FIELD_H };
 }
 
 
@@ -190,13 +197,16 @@ void UIComboBox::Draw( const UIDrawContext& draw,
     const bool fieldHovered = field.Contains( mouseX, mouseY );
     const bool selectedDisabled =
         selectedIndex >= 0 && selectedIndex < 32 && ( disabledOptionMask & ( 1u << selectedIndex ) ) != 0;
-    draw.Text( m_bounds.x,
-               m_bounds.y + 4.0f,
-               10.5f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
-               label );
+    if ( m_labelVisible && label && label[0] != '\0' )
+    {
+        draw.Text( m_bounds.x,
+                   m_bounds.y + 4.0f,
+                   10.5f,
+                   palette.textSecondary.r,
+                   palette.textSecondary.g,
+                   palette.textSecondary.b,
+                   label );
+    }
     draw.RoundedPanel( field,
                        radius,
                        fieldHovered ? palette.controlHover : palette.control,

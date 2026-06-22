@@ -101,9 +101,10 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
 
 constexpr int CAMERA_MODE_OPTION_COUNT = 4;
 const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Free", "Launcher", "Manipulator" };
-constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 154.0f;
-constexpr float MINIMIZED_CAMERA_MODE_GAP = 10.0f;
+constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 92.0f;
+constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
+constexpr float MINIMIZED_RUN_MAX_W = 330.0f;
 
 UIRect MinimizedCameraModeComboBounds( const UIRect& minimized )
 {
@@ -123,6 +124,29 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
     const float desiredW =
         titleLeft + titleW + MINIMIZED_CAMERA_MODE_GAP + MINIMIZED_CAMERA_MODE_COMBO_W + MINIMIZED_RESTORE_W;
     return std::clamp( desiredW, 154.0f, maxW );
+}
+
+void StripMinimizedRuntimeModeSuffix( const InGameUIFrameData& data, char* title, size_t titleSize )
+{
+    if ( !title || titleSize == 0 )
+    {
+        return;
+    }
+
+    const char* runtimeMode = data.runtimeInputModeLabel ? data.runtimeInputModeLabel : "";
+    if ( runtimeMode[0] == '\0' || std::strcmp( runtimeMode, "Scene" ) == 0 )
+    {
+        return;
+    }
+
+    char suffix[80] = {};
+    snprintf( suffix, sizeof( suffix ), "  [%s]", runtimeMode );
+    const size_t titleLen = strlen( title );
+    const size_t suffixLen = strlen( suffix );
+    if ( titleLen >= suffixLen && std::strcmp( title + titleLen - suffixLen, suffix ) == 0 )
+    {
+        title[titleLen - suffixLen] = '\0';
+    }
 }
 
 uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData& data )
@@ -2712,6 +2736,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
         const bool showEditorMiniPalette = editorModeEnabled;
         const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
+        m_cameraModeCombo.SetLabelVisible( false );
         m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
                                      cameraModeComboBounds.y,
                                      cameraModeComboBounds.w,
@@ -3632,8 +3657,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
         char titleText[192] = {};
         Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
-        m_window.minimizedWidth = data.editorModeEnabled ? EditorMinimizedWidth( data, screenW )
-                                                         : MinimizedWidthWithCameraModeCombo( titleText, screenW );
+        if ( !data.editorModeEnabled )
+        {
+            StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
+        }
+        m_window.minimizedWidth = data.editorModeEnabled
+                                      ? EditorMinimizedWidth( data, screenW )
+                                      : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
+                                                   MINIMIZED_RUN_MAX_W );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         if ( data.editorModeEnabled )
         {
@@ -3658,6 +3689,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         else
         {
             const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
+            m_cameraModeCombo.SetLabelVisible( false );
             m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
                                          cameraModeComboBounds.y,
                                          cameraModeComboBounds.w,
@@ -3672,7 +3704,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                 ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
                 ~( data.cameraModeEnabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
             m_cameraModeCombo.Draw( draw,
-                                    "Mode",
+                                    "",
                                     kCameraModeOptions,
                                     CAMERA_MODE_OPTION_COUNT,
                                     cameraModeIndex,

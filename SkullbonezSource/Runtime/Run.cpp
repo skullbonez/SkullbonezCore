@@ -647,15 +647,13 @@ void Run::ResetReplayScrubber()
 
 bool Run::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_replay.IsEnabled() ||
-         !m_solverReplay.IsEnabled() )
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_solverReplay.IsEnabled() )
     {
         return false;
     }
 
-    const ReplayRecorderStats replayStats = m_replay.GetStats();
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-    return replayStats.sampleCount >= 2 && solverReplayStats.sampleCount >= 2 &&
+    return solverReplayStats.sampleCount >= 2 &&
            ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
              m_replayScrubber.simulationPaused );
 }
@@ -668,17 +666,13 @@ bool Run::IsReplayScrubPaused() const
         return false;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
     if ( position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
     {
         return false;
     }
 
-    if ( m_replayScrubber.activeTrack == RunReplayTrack::Solver )
-    {
-        return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized( position ) != nullptr;
-    }
-    return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
+    return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized( position ) != nullptr;
 }
 
 
@@ -700,7 +694,7 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 
 const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
 {
-    if ( !IsReplayScrubPaused() || m_replayScrubber.activeTrack != RunReplayTrack::Solver )
+    if ( !IsReplayScrubPaused() )
     {
         return nullptr;
     }
