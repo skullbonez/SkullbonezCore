@@ -1146,6 +1146,38 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
           ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overPanel || overSaveButton || overPauseButton ||
                                                       overVelocityEditToggle || overPredictUi ) ) );
 
+    if ( loadedPresentation && restorePressed && m_replayScrubber.paused &&
+         m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        EnterInteractiveSceneRun();
+        char reason[160] = {};
+        RunReplayV2TargetRestoreResult result;
+        const ReplayPresentationSample* selected = CurrentReplayScrubSample();
+        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
+        const bool restored = selected && RestoreReplayV2ArtifactTargetState( m_loadedPresentationReplay.path,
+                                                                              selectedFrame,
+                                                                              true,
+                                                                              result,
+                                                                              reason,
+                                                                              sizeof( reason ) );
+        m_replayScrubber.restoreConsumedThisFrame = true;
+        m_replayScrubber.saveMessageTrack = RunReplayTrack::Presentation;
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   restored ? "V2 FILE BRANCHED" : "RESTORE FAILED" );
+        m_replayScrubber.saveMessageUntil = now + 2.5;
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        fprintf( stderr,
+                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
+                 restored ? "applied" : "failed",
+                 static_cast<unsigned long long>( selectedFrame ),
+                 restored ? result.branchId : 0,
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+        return true;
+    }
+
     if ( solverToolsEnabled && restorePressed && m_replayScrubber.paused &&
          m_replayScrubber.activeTrack == RunReplayTrack::Solver )
     {

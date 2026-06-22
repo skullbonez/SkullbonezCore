@@ -594,6 +594,24 @@ struct RunLoadedReplayPresentationState
     char path[260] = {};
 };
 
+struct RunReplayV2TargetRestoreResult
+{
+    std::size_t checkpointCount = 0;
+    std::size_t eventCount = 0;
+    std::size_t hashCount = 0;
+    std::size_t eventsApplied = 0;
+    std::size_t bodyCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex checkpointFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    uint32_t eventCursor = 0;
+    uint32_t branchId = 0;
+    uint32_t parentBranchId = 0;
+    uint64_t solverHash = 0;
+    uint64_t presentationHash = 0;
+    bool madeLiveBranch = false;
+};
+
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
 {
@@ -1562,6 +1580,12 @@ class Run
                                          uint64_t& outSolverHash,
                                          uint64_t& outPresentationHash,
                                          std::size_t& outBodyCount );
+    bool RestoreReplayV2ArtifactTargetState( const char* path,
+                                             ReplayFrameIndex requestedFrame,
+                                             bool makeLiveBranch,
+                                             RunReplayV2TargetRestoreResult& outResult,
+                                             char* outReason,
+                                             std::size_t reasonSize );
     bool
     RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
 
@@ -1728,6 +1752,8 @@ class Run
         const char* path );                                                      // Validate hash-gated restore from a v2 solver checkpoint.
     void VerifyReplaySolverTargetFileProbe(
         const char* path );                                                      // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
+    void VerifyReplaySolverBranchFileProbe(
+        const char* path );                                                      // Validate checkpoint-plus-event replay can become a live branch.
 #endif
 };
 } // namespace Basics

@@ -190,6 +190,35 @@ def probe_restored_target():
     return len(runtime_stdout.encode("utf-8"))
 
 
+def probe_restored_branch():
+    command = [
+        str(EXE),
+        "--renderer",
+        "dx12",
+        "--vsync",
+        "off",
+        "--shadows",
+        "off",
+        "--scene",
+        SCENE_ARG,
+        "--replay-restore-branch-file-probe",
+        str(ARTIFACT),
+    ]
+    print("  Restore branch probe command:")
+    print("    " + " ".join(command))
+    runtime_stdout = run_checked(command, REPO)
+    probe_lines = [line for line in runtime_stdout.splitlines() if "[replay] Restore branch probe" in line]
+    for line in probe_lines:
+        print(f"  {line}")
+    if not any("Restore branch probe passed" in line for line in probe_lines):
+        raise RuntimeError("runtime restore branch probe did not report branch-from-file proof")
+    if not any("events_applied=" in line and "events_applied=0" not in line for line in probe_lines):
+        raise RuntimeError("runtime restore branch probe did not apply saved v2 events")
+    if not any("branch_id=" in line and "branch_id=0" not in line for line in probe_lines):
+        raise RuntimeError("runtime restore branch probe did not create a live branch")
+    return len(runtime_stdout.encode("utf-8"))
+
+
 def query_artifact():
     summary_command = [str(REPLAY_QUERY_BAT), str(ARTIFACT), "summary"]
     print("  Summary command:")
@@ -440,6 +469,8 @@ def main():
         restore_probe_bytes = probe_restored_checkpoint()
         print("  Probing saved solver target restore...")
         restore_target_probe_bytes = probe_restored_target()
+        print("  Probing saved solver branch restore...")
+        restore_branch_probe_bytes = probe_restored_branch()
         print("  Querying replay v2 artifact...")
         summary, query_bytes = query_artifact()
         sqlite_path = TRACE.with_suffix(".sqlite")
@@ -460,6 +491,7 @@ def main():
         print(f"  Load probe output bytes: {load_probe_bytes}")
         print(f"  Restore file probe output bytes: {restore_probe_bytes}")
         print(f"  Restore target probe output bytes: {restore_target_probe_bytes}")
+        print(f"  Restore branch probe output bytes: {restore_branch_probe_bytes}")
         print(f"  Query output bytes: {json.dumps(query_bytes, sort_keys=True)}")
         print(f"  Query output bytes total: {sum(query_bytes.values())}")
         return 0

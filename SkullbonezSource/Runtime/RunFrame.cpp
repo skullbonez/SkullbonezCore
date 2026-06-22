@@ -23,6 +23,7 @@ Related:
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -1056,54 +1057,95 @@ void Run::VerifyReplaySolverCheckpointFileProbe( const char* path )
             static_cast<unsigned long long>( checkpoint.solverHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
 }
+#endif
 
-void Run::VerifyReplaySolverTargetFileProbe( const char* path )
+bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
+                                              ReplayFrameIndex requestedFrame,
+                                              bool makeLiveBranch,
+                                              RunReplayV2TargetRestoreResult& outResult,
+                                              char* outReason,
+                                              std::size_t reasonSize )
 {
+    outResult = RunReplayV2TargetRestoreResult();
+    auto writeReason = [outReason, reasonSize]( const char* reason )
+    { WriteReplayProbeReason( outReason, reasonSize, reason ); };
+
     if ( !path || path[0] == '\0' )
     {
-        throw std::runtime_error( "replay restore target probe requires a v2 artifact path" );
+        writeReason( "replay v2 target restore requires a v2 artifact path" );
+        return false;
     }
 
     std::vector<ReplaySolverFrameSample> checkpoints;
     ReplayV2SolverCheckpointLoadResult checkpointResult;
     if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, checkpoints, &checkpointResult ) )
     {
-        throw std::runtime_error( "replay restore target probe failed to load v2 solver checkpoints" );
+        writeReason( "failed to load v2 solver checkpoints" );
+        return false;
     }
 
     std::vector<ReplayV2SolverHashSample> hashes;
     ReplayV2SolverHashLoadResult hashResult;
     if ( !ReplayV2Artifact::LoadSolverHashes( path, hashes, &hashResult ) )
     {
-        throw std::runtime_error( "replay restore target probe failed to load v2 solver hashes" );
+        writeReason( "failed to load v2 solver hashes" );
+        return false;
     }
 
     std::vector<ReplayEventSample> events;
     ReplayV2EventLoadResult eventResult;
     if ( !ReplayV2Artifact::LoadEvents( path, events, &eventResult ) )
     {
-        throw std::runtime_error( "replay restore target probe failed to load v2 events" );
+        writeReason( "failed to load v2 events" );
+        return false;
     }
 
     std::vector<ReplayPresentationSample> presentationSamples;
     ReplayV2LoadResult presentationResult;
     if ( !ReplayV2Artifact::LoadPresentation( path, presentationSamples, &presentationResult ) )
     {
-        throw std::runtime_error( "replay restore target probe failed to load v2 presentation frames" );
+        writeReason( "failed to load v2 presentation frames" );
+        return false;
     }
 
+    constexpr ReplayFrameIndex LATEST_NON_CHECKPOINT_TARGET = ( std::numeric_limits<ReplayFrameIndex>::max )();
     const ReplayV2SolverHashSample* target = nullptr;
-    for ( auto it = hashes.rbegin(); it != hashes.rend(); ++it )
+    if ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET )
     {
-        if ( !it->checkpointBoundary )
+        for ( auto it = hashes.rbegin(); it != hashes.rend(); ++it )
         {
-            target = &*it;
-            break;
+            if ( !it->checkpointBoundary )
+            {
+                target = &*it;
+                break;
+            }
+        }
+        if ( !target )
+        {
+            writeReason( "found no saved non-checkpoint target hash" );
+            return false;
         }
     }
-    if ( !target )
+    else
     {
-        throw std::runtime_error( "replay restore target probe found no non-checkpoint target hash" );
+        for ( const ReplayV2SolverHashSample& hash : hashes )
+        {
+            if ( hash.frameIndex == requestedFrame )
+            {
+                target = &hash;
+                break;
+            }
+        }
+        if ( !target )
+        {
+            char message[192] = {};
+            sprintf_s( message,
+                       sizeof( message ),
+                       "found no saved hash for requested target frame %llu",
+                       static_cast<unsigned long long>( requestedFrame ) );
+            writeReason( message );
+            return false;
+        }
     }
 
     const ReplaySolverFrameSample* checkpoint = nullptr;
@@ -1117,21 +1159,46 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
     }
     if ( !checkpoint )
     {
-        throw std::runtime_error( "replay restore target probe found no checkpoint before target hash" );
+        writeReason( "found no checkpoint before target hash" );
+        return false;
     }
-    if ( checkpoint->frameIndex >= target->frameIndex )
+    if ( checkpoint->frameIndex > target->frameIndex )
     {
-        throw std::runtime_error( "replay restore target probe did not select a later target frame" );
+        writeReason( "selected checkpoint after target frame" );
+        return false;
     }
     if ( checkpoint->eventCursor == 0 )
     {
-        throw std::runtime_error( "replay restore target probe loaded a checkpoint without an event cursor" );
+        writeReason( "loaded a checkpoint without an event cursor" );
+        return false;
     }
     if ( target->frameIndex - checkpoint->frameIndex >
          static_cast<ReplayFrameIndex>( hashes.size() + events.size() + 1u ) )
     {
-        throw std::runtime_error( "replay restore target probe selected an implausibly distant target frame" );
+        writeReason( "selected an implausibly distant target frame" );
+        return false;
     }
+
+    ReplaySolverFrameSample liveBackup;
+    bool hasLiveBackup = false;
+    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    {
+        liveBackup = *latest;
+        hasLiveBackup = true;
+    }
+    bool stateMutated = false;
+
+    auto failAfterMutation = [&]( const char* message ) -> bool
+    {
+        if ( stateMutated && hasLiveBackup )
+        {
+            char fallbackReason[128] = {};
+            ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+            m_cGameModelCollection.InvalidatePhysicsStreams();
+        }
+        writeReason( message );
+        return false;
+    };
 
     char reason[192] = {};
     if ( !ApplyReplaySolverSampleState( *checkpoint, reason, sizeof( reason ) ) )
@@ -1139,10 +1206,12 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
         char message[288] = {};
         sprintf_s( message,
                    sizeof( message ),
-                   "replay restore target probe failed to apply checkpoint: %s",
+                   "failed to apply checkpoint: %s",
                    reason[0] != '\0' ? reason : "unknown restore failure" );
-        throw std::runtime_error( message );
+        writeReason( message );
+        return false;
     }
+    stateMutated = true;
     m_cGameModelCollection.InvalidatePhysicsStreams();
 
     ReplayFrameIndex currentFrame = checkpoint->frameIndex;
@@ -1180,7 +1249,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
                                event.sequence,
                                static_cast<unsigned long long>( event.frameIndex ),
                                eventReason[0] != '\0' ? eventReason : "unknown event replay failure" );
-                    throw std::runtime_error( message );
+                    return failAfterMutation( message );
                 }
                 eventCursor = (std::max)( eventCursor, event.sequence + 1u );
                 ++eventsApplied;
@@ -1199,7 +1268,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
             if ( !expectedHash )
             {
-                throw std::runtime_error( "replay restore target probe could not find stepped hash metadata" );
+                return failAfterMutation( "could not find stepped hash metadata" );
             }
 
             ReplaySolverFrameSample stepReference;
@@ -1215,7 +1284,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             std::size_t stepBodyCount = 0;
             if ( !CaptureCurrentReplaySolverHash( stepReference, stepSolverHash, stepPresentationHash, stepBodyCount ) )
             {
-                throw std::runtime_error( "replay restore target probe failed to capture stepped hash" );
+                return failAfterMutation( "failed to capture stepped hash" );
             }
             if ( stepBodyCount != expectedHash->bodyCount || stepSolverHash != expectedHash->solverHash )
             {
@@ -1285,14 +1354,14 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
                                expectedHash->bodyCount,
                                static_cast<unsigned long long>( eventsApplied ) );
                 }
-                throw std::runtime_error( message );
+                return failAfterMutation( message );
             }
         }
     }
 
     if ( unsupportedEvents != 0 )
     {
-        throw std::runtime_error( "replay restore target probe encountered unsupported branch events before target" );
+        return failAfterMutation( "encountered unsupported branch events before target" );
     }
 
     ReplaySolverFrameSample reference;
@@ -1308,7 +1377,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
     std::size_t restoredBodyCount = 0;
     if ( !CaptureCurrentReplaySolverHash( reference, restoredSolverHash, restoredPresentationHash, restoredBodyCount ) )
     {
-        throw std::runtime_error( "replay restore target probe failed to capture target hash" );
+        return failAfterMutation( "failed to capture target hash" );
     }
     if ( restoredBodyCount != target->bodyCount )
     {
@@ -1318,7 +1387,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
                    "replay restore target probe body count mismatch: restored=%llu expected=%u",
                    static_cast<unsigned long long>( restoredBodyCount ),
                    target->bodyCount );
-        throw std::runtime_error( message );
+        return failAfterMutation( message );
     }
     if ( restoredSolverHash != target->solverHash )
     {
@@ -1328,6 +1397,69 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
                    "replay restore target probe solver hash mismatch: restored=0x%016llX expected=0x%016llX",
                    static_cast<unsigned long long>( restoredSolverHash ),
                    static_cast<unsigned long long>( target->solverHash ) );
+        return failAfterMutation( message );
+    }
+
+    outResult.checkpointCount = checkpointResult.checkpointCount;
+    outResult.eventCount = eventResult.eventCount;
+    outResult.hashCount = hashResult.hashCount;
+    outResult.eventsApplied = eventsApplied;
+    outResult.bodyCount = restoredBodyCount;
+    outResult.fileBytes = hashResult.fileBytes;
+    outResult.checkpointFrame = checkpoint->frameIndex;
+    outResult.targetFrame = target->frameIndex;
+    outResult.eventCursor = eventCursor;
+    outResult.solverHash = restoredSolverHash;
+    outResult.presentationHash = restoredPresentationHash;
+
+    if ( makeLiveBranch )
+    {
+        const uint32_t parentBranchId = checkpoint->branch.branchId != 0
+                                            ? checkpoint->branch.branchId
+                                            : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+        ReplayBranchInfo restoredBranch;
+        restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+        restoredBranch.parentBranchId = parentBranchId;
+        restoredBranch.startFrame = 0;
+        restoredBranch.sourceFrame = target->frameIndex;
+        restoredBranch.sourceSolverHash = target->solverHash;
+        m_replayBranch = restoredBranch;
+        ResetReplayTimelineForActiveScene( true );
+        RecordReplayEvent( ReplayEventKind::BranchRestore,
+                           0,
+                           0,
+                           static_cast<int32_t>( parentBranchId ),
+                           target->sceneFrame,
+                           0,
+                           0,
+                           target->solverHash,
+                           "hash-verified v2 file restore" );
+        outResult.branchId = restoredBranch.branchId;
+        outResult.parentBranchId = parentBranchId;
+        outResult.madeLiveBranch = true;
+    }
+
+    writeReason( "restored hash match" );
+    return true;
+}
+
+#ifdef _DEBUG
+void Run::VerifyReplaySolverTargetFileProbe( const char* path )
+{
+    RunReplayV2TargetRestoreResult result;
+    char reason[256] = {};
+    if ( !RestoreReplayV2ArtifactTargetState( path,
+                                              ( std::numeric_limits<ReplayFrameIndex>::max )(),
+                                              false,
+                                              result,
+                                              reason,
+                                              sizeof( reason ) ) )
+    {
+        char message[384] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore target probe failed: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
         throw std::runtime_error( message );
     }
 
@@ -1335,17 +1467,55 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             "checkpoint_frame=%llu target_frame=%llu event_cursor=%u events_applied=%llu bodies=%llu "
             "solver_hash=0x%016llX presentation_hash=0x%016llX bytes=%llu\n",
             path,
-            static_cast<unsigned long long>( checkpointResult.checkpointCount ),
-            static_cast<unsigned long long>( eventResult.eventCount ),
-            static_cast<unsigned long long>( hashResult.hashCount ),
-            static_cast<unsigned long long>( checkpoint->frameIndex ),
-            static_cast<unsigned long long>( target->frameIndex ),
-            eventCursor,
-            static_cast<unsigned long long>( eventsApplied ),
-            static_cast<unsigned long long>( restoredBodyCount ),
-            static_cast<unsigned long long>( restoredSolverHash ),
-            static_cast<unsigned long long>( restoredPresentationHash ),
-            static_cast<unsigned long long>( hashResult.fileBytes ) );
+            static_cast<unsigned long long>( result.checkpointCount ),
+            static_cast<unsigned long long>( result.eventCount ),
+            static_cast<unsigned long long>( result.hashCount ),
+            static_cast<unsigned long long>( result.checkpointFrame ),
+            static_cast<unsigned long long>( result.targetFrame ),
+            result.eventCursor,
+            static_cast<unsigned long long>( result.eventsApplied ),
+            static_cast<unsigned long long>( result.bodyCount ),
+            static_cast<unsigned long long>( result.solverHash ),
+            static_cast<unsigned long long>( result.presentationHash ),
+            static_cast<unsigned long long>( result.fileBytes ) );
+}
+
+void Run::VerifyReplaySolverBranchFileProbe( const char* path )
+{
+    RunReplayV2TargetRestoreResult result;
+    char reason[256] = {};
+    if ( !RestoreReplayV2ArtifactTargetState( path,
+                                              ( std::numeric_limits<ReplayFrameIndex>::max )(),
+                                              true,
+                                              result,
+                                              reason,
+                                              sizeof( reason ) ) )
+    {
+        char message[384] = {};
+        sprintf_s( message,
+                   sizeof( message ),
+                   "replay restore branch probe failed: %s",
+                   reason[0] != '\0' ? reason : "unknown restore failure" );
+        throw std::runtime_error( message );
+    }
+
+    printf( "[replay] Restore branch probe passed: path=%s checkpoints=%llu events=%llu hashes=%llu "
+            "checkpoint_frame=%llu target_frame=%llu event_cursor=%u events_applied=%llu bodies=%llu "
+            "branch_id=%u parent_branch_id=%u solver_hash=0x%016llX presentation_hash=0x%016llX bytes=%llu\n",
+            path,
+            static_cast<unsigned long long>( result.checkpointCount ),
+            static_cast<unsigned long long>( result.eventCount ),
+            static_cast<unsigned long long>( result.hashCount ),
+            static_cast<unsigned long long>( result.checkpointFrame ),
+            static_cast<unsigned long long>( result.targetFrame ),
+            result.eventCursor,
+            static_cast<unsigned long long>( result.eventsApplied ),
+            static_cast<unsigned long long>( result.bodyCount ),
+            result.branchId,
+            result.parentBranchId,
+            static_cast<unsigned long long>( result.solverHash ),
+            static_cast<unsigned long long>( result.presentationHash ),
+            static_cast<unsigned long long>( result.fileBytes ) );
 }
 #endif
 

@@ -8,10 +8,11 @@ branching; binary `.skreplay` v2 presentation artifacts, file-backed v2
 presentation scrub loading, v2 per-tick solver hash chunks, sparse v2 solver
 checkpoint chunks, checkpoint-frame saved restore verification, saved
 non-checkpoint target checkpoint-plus-event restore verification, and branch provenance, event, and
-checkpoint event-cursor chunks/querying are implemented; typed event replay
-coverage now includes world overrides, launcher configuration changes, and
-launcher fire payloads; branch-from-file and broad editor/generated-scene event
-coverage are not implemented.
+checkpoint event-cursor chunks/querying are implemented; loaded v2 files can
+branch live from a hash-verified saved checkpoint/event target; typed event
+replay coverage now includes world overrides, launcher configuration changes,
+and launcher fire payloads; broad editor/generated-scene event coverage and an
+in-app replay file picker are not implemented.
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -56,9 +57,11 @@ recomputed solver hash to match before passing. A second Debug probe can restore
 the nearest sparse checkpoint, clear consumed one-shot impulse state, replay
 typed world/launcher events and fixed physics ticks forward, and compare every
 stepped target hash through the saved non-checkpoint target selected by the
-probe. It does not yet
-branch from a saved file in the UI. Current interactive branch restore still
-works only from the retained in-memory `ReplaySolverFrameSample` chain.
+probe. A loaded v2 file can now branch live through the same helper when the
+scrubber is paused on `V2 FILE` and `Enter` is pressed. Current retained
+interactive branch restore still works from the in-memory
+`ReplaySolverFrameSample` chain, while saved-file branch restore uses the v2
+checkpoint/event/hash tracks.
 
 Audit note, 2026-06-23: solver hashes now include launcher control state needed
 for future deterministic inputs, but exclude transient ray/laser visual age and
@@ -153,13 +156,13 @@ labels, and deeper tree controls.
 
 ## Priority Update, 2026-06-22
 
-The immediate user priority is smooth backwards scrubbing, not full
-authoritative branch-from-file. That changes the next useful slice:
+The immediate user priority is smooth backwards scrubbing, with authoritative
+restore layered behind it rather than run during drag. That changes the useful
+slice order:
 
 1. Preserve smooth visual reverse scrub as a dense presentation track.
-2. Do not promise saved arbitrary-target authoritative restore until `.skreplay`
-   v2 has event chunks and checkpoint-plus-event replay. Saved checkpoint-frame
-   restore is now a Debug-verified stepping stone, not the full branch workflow.
+2. Do not promise broad saved authoritative restore until `.skreplay` v2 has
+   enough event coverage for the scene/editor actions being replayed.
 3. Keep authoritative solver restore as a separate track layered behind the
    scrub UI.
 
@@ -182,13 +185,14 @@ the replay into queryable, seekable tracks:
 | Debuggable binary | `tools\replay_query.bat` and `export-skullscope` keep binary artifacts inspectable without loading raw files into GPT. |
 | Format evolution | Chunks allow new tracks without rewriting the whole artifact or breaking old preview-only loads. |
 
-Cleanup should wait until v2 file playback and branch-from-file are stable. The
+Cleanup should wait until v2 file playback, branch-from-file, and event coverage
+are stable. The
 candidate removals are:
 
 | Old path | Removal condition |
 |----------|-------------------|
 | v1 JSON presentation save (`replay_####.skreplay`) | Remove after v2 presentation save/load/query is the only supported smooth-scrub save path. |
-| Routine solver JSON save (`solver_replay_####.skreplay`) | Keep as a Debug inspection/export path until v2 branch-from-file and checkpoint queries cover the same evidence. |
+| Routine solver JSON save (`solver_replay_####.skreplay`) | Keep as a Debug inspection/export path until v2 branch-from-file, broader event coverage, and checkpoint queries cover the same evidence. |
 | Duplicate presentation loading/export helpers | Remove after all UI, CLI probes, and docs point at v2 loaders and `replay_query`. |
 | Hash-only CSV/debug exports that duplicate v2 `HASH` queries | Remove after validation gates and handoff docs consume the v2 query bridge. |
 | Legacy assumptions that `.skreplay` means JSON | Remove once v1 files fail gracefully as preview/debug-only and v2 is the default runtime artifact. |
@@ -200,11 +204,11 @@ candidate removals are:
 | Replay recording | `ReplayRecorder` stores a bounded 30-second presentation ring by default for generated/interactive runs. |
 | Solver recording | `ReplaySolverRecorder` stores same-tick body data plus retained world snapshots with sleep, contact cache, persistent contacts, tornado state, debug contacts, and launcher visual state. |
 | Scrubbing | The bottom hot-zone scrubber previews historical body/camera presentation samples and pauses physics while away from live; solver preview also hides future bodies and swaps in solver-sample launcher visuals for the draw. A loaded v2 presentation artifact arms a file-backed `V2 FILE` presentation row for smooth backwards scrub, with the right edge mapped to the file's last sample rather than live simulation. |
-| Branch restore | Press `Enter` while paused on the solver row to restore the selected retained in-memory solver frame as the new live branch. The restore path now recomputes the solver hash after applying the retained state, assigns a child branch id with parent/source metadata, records a branch-restore event, and only resets the live replay branch on a hash match. This does not yet restore a sparse checkpoint from the UI or replay events forward. |
+| Branch restore | Press `Enter` while paused on the solver row to restore the selected retained in-memory solver frame as the new live branch. Press `Enter` while paused on a loaded `V2 FILE` row to restore the selected saved frame by applying the nearest sparse checkpoint, replaying typed events/fixed ticks forward, comparing the target solver hash, assigning a child branch id, and resetting the live replay timeline. Retained restore and file restore both record branch provenance only after hash match. |
 | Path visualizer | Mouse-selected root body draws retained past/future paths; Shift-click adds more retained history roots. Future contacts light child bodies before impact with amber incoming traces/rings, then continue with grey post-contact traces. The right-side cause tree lists the root/child hierarchy and focuses the camera on clicked rows. Optional `PREDICT` runs a sandboxed live solver lookahead for a 1-10 second UI-selected horizon and draws predicted root/child futures from the live edge. `ALT VEL` edits selected dynamic-body linear/angular velocity and rebuilds the predicted chain from the edited live state. |
-| Saving/loading | The presentation save path writes `replays\replay_v2_####.skreplay` binary v2 presentation artifacts with `MANI`, `BODY`, `PRES`, `BRAN`, `EVNT`, `ECUR`, `HASH`, `SCHK`, and `INDX` chunks. `--replay-load <path>` loads one of those artifacts as the runtime presentation scrub source after scene initialization. Solver row save still writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries plus branch/event-cursor fields. V2 files now contain branch provenance, bounded timeline/runtime event rows, typed world-override/launcher-config/launcher-fire event payloads, checkpoint event cursors, and sparse solver checkpoint payloads. `--replay-restore-file-probe <path>` can load and hash-verify a checkpoint frame in a fresh Debug runtime; `--replay-restore-target-file-probe <path>` can restore the nearest checkpoint and replay typed events/fixed ticks to a saved non-checkpoint target. They are not complete branchable authoritative replay artifacts yet because branch-from-file and broad event coverage are still missing. |
+| Saving/loading | The presentation save path writes `replays\replay_v2_####.skreplay` binary v2 presentation artifacts with `MANI`, `BODY`, `PRES`, `BRAN`, `EVNT`, `ECUR`, `HASH`, `SCHK`, and `INDX` chunks. `--replay-load <path>` loads one of those artifacts as the runtime presentation scrub source after scene initialization. Solver row save still writes `replays\solver_replay_####.skreplay` v1 JSON with compact authoritative snapshot summaries plus branch/event-cursor fields. V2 files now contain branch provenance, bounded timeline/runtime event rows, typed world-override/launcher-config/launcher-fire event payloads, checkpoint event cursors, and sparse solver checkpoint payloads. `--replay-restore-file-probe <path>` can load and hash-verify a checkpoint frame in a fresh Debug runtime; `--replay-restore-target-file-probe <path>` can restore the nearest checkpoint and replay typed events/fixed ticks to a saved non-checkpoint target; `--replay-restore-branch-file-probe <path>` proves the same target can become a live branch. They are not complete branchable authoritative replay artifacts yet because broad event coverage and in-app file picking are still missing. |
 | Hashing | Replay samples include a presentation hash and optional `--replay-hashes` CSV output; solver hashes include hidden authoritative snapshot state. |
-| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state and that retained solver restore matches the original solver hash before branching. `tools\validate_replay_v2_artifact.bat` writes a real runtime v2 presentation artifact with branch rows, typed event rows, checkpoint event-cursor rows, solver hash rows, and sparse solver checkpoint rows, reloads it through the C++ v2 reader, proves an older loaded pose can be applied/restored, proves `--replay-load-probe` can drive the runtime scrub source from that file, proves `--replay-restore-file-probe` can load and hash-verify a saved checkpoint frame with a nonzero event cursor in a fresh Debug runtime, proves `--replay-restore-target-file-probe` can replay typed events/fixed ticks from the checkpoint to a saved target hash, queries presentation frames/bodies/branches/events/event-cursors/hashes/checkpoints, requires decoded world-override/launcher-config/launcher-fire payloads, exports a bounded SkullScope slice, and imports that slice through `physics_query`. |
+| Determinism evidence | `tools\validate_replay_scrub.bat` uses SkullScope to prove a selected visual replay sample maps to queried body state and that retained solver restore matches the original solver hash before branching. `tools\validate_replay_v2_artifact.bat` writes a real runtime v2 presentation artifact with branch rows, typed event rows, checkpoint event-cursor rows, solver hash rows, and sparse solver checkpoint rows, reloads it through the C++ v2 reader, proves an older loaded pose can be applied/restored, proves `--replay-load-probe` can drive the runtime scrub source from that file, proves `--replay-restore-file-probe` can load and hash-verify a saved checkpoint frame with a nonzero event cursor in a fresh Debug runtime, proves `--replay-restore-target-file-probe` can replay typed events/fixed ticks from the checkpoint to a saved target hash, proves `--replay-restore-branch-file-probe` can make that saved target a live branch, queries presentation frames/bodies/branches/events/event-cursors/hashes/checkpoints, requires decoded world-override/launcher-config/launcher-fire payloads, exports a bounded SkullScope slice, and imports that slice through `physics_query`. |
 
 ## Implementation Status Audit, 2026-06-23
 
@@ -213,9 +217,9 @@ candidate removals are:
 | Phase 1: State inventory and hash contract | Partial | Solver hashes include body fields and `ReplaySolverWorldSnapshot`, and retained restore now gates live-branch reset on a recomputed hash match. There is no standalone authoritative-state inventory report yet. |
 | Phase 2: In-memory solver checkpoint ring | Partial shortcut | Dense per-frame `ReplaySolverFrameSample` storage exists. `m_checkpoints` stores `ReplayCheckpointSummary` only, but v2 save now emits sparse `SCHK` checkpoint payloads from checkpoint-boundary retained solver samples. |
 | Phase 3: Event stream | Partial | `ReplayEventRecorder` now records bounded timeline-start, runtime-command, hash-verified branch-restore, world-override, launcher-config, and launcher-fire rows. V2 saves emit/query `EVNT` event chunks plus `ECUR` checkpoint event-cursor chunks; `replay_query` decodes the typed world/launcher payloads; loaded solver checkpoints receive their cursor metadata in C++; the saved target probe replays typed world/launcher events deterministically. Missing: full coverage for editor commits, generated-scene rebuild payloads, and broader runtime command replay. |
-| Phase 4: Restore to tick without branch resume | Partial | Current interactive restore applies the selected retained in-memory sample directly, recomputes the solver hash from the restored live state, emits `replay_restore`, and resets the live replay branch only on a hash match. The Debug saved-file probe can load one sparse checkpoint frame from v2 and hash-verify that exact checkpoint after applying it. The Debug target probe can restore the nearest saved sparse checkpoint and replay typed world/launcher events plus fixed ticks to the saved non-checkpoint target hash selected by the probe. Missing: SkullScope `replay_restore` rows for saved-file target failures and a UI workflow. |
-| Phase 5: Branch and resume | Partial | `Enter` on the solver row makes the selected retained sample live, assigns a child branch id with parent/source frame/hash metadata, records a branch-restore event, and resets the replay timeline so old future samples do not mix into the new branch. Missing: explicit branch UI affordance beyond `Enter`, deterministic event-forward replay, and branch-from-file. |
-| Phase 6: Saved authoritative replay artifacts | Partial | Presentation saves now produce chunked binary v2 artifacts for smooth scrub playback/querying, with a body dictionary, 32-byte pose records, seek index, branch provenance rows, typed event rows, checkpoint event-cursor rows, per-tick solver hash rows, sparse solver checkpoint chunks, C++ presentation/checkpoint/event/hash loaders, file-backed runtime presentation scrub source, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, `tools\replay_query` bridge, and `tools\validate_replay_v2_artifact.bat` runtime artifact/load/hash/branch/event/event-cursor/checkpoint/restore proof. Missing: in-app file picker/load command, branch-from-file, and broader event coverage. |
+| Phase 4: Restore to tick without branch resume | Partial | Current interactive restore applies the selected retained in-memory sample directly, recomputes the solver hash from the restored live state, emits `replay_restore`, and resets the live replay branch only on a hash match. The Debug saved-file probe can load one sparse checkpoint frame from v2 and hash-verify that exact checkpoint after applying it. The Debug target probe can restore the nearest saved sparse checkpoint and replay typed world/launcher events plus fixed ticks to the saved non-checkpoint target hash selected by the probe. Missing: SkullScope `replay_restore` rows for saved-file target failures. |
+| Phase 5: Branch and resume | Partial | `Enter` on the retained solver row makes the selected retained sample live, assigns a child branch id with parent/source frame/hash metadata, records a branch-restore event, and resets the replay timeline so old future samples do not mix into the new branch. `Enter` on a loaded `V2 FILE` row now uses the v2 checkpoint/event/hash tracks to make the selected saved frame live after hash verification. Missing: explicit branch UI affordance beyond `Enter` and broader deterministic event-forward replay coverage. |
+| Phase 6: Saved authoritative replay artifacts | Partial | Presentation saves now produce chunked binary v2 artifacts for smooth scrub playback/querying, with a body dictionary, 32-byte pose records, seek index, branch provenance rows, typed event rows, checkpoint event-cursor rows, per-tick solver hash rows, sparse solver checkpoint chunks, C++ presentation/checkpoint/event/hash loaders, file-backed runtime presentation scrub source, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, live branch-from-file verification, `tools\replay_query` bridge, and `tools\validate_replay_v2_artifact.bat` runtime artifact/load/hash/branch/event/event-cursor/checkpoint/restore proof. Missing: in-app file picker/load command and broader event coverage. |
 
 Observed local artifact sizing during the 2026-06-22 audit:
 
