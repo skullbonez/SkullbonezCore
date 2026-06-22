@@ -1,30 +1,12 @@
 # Authoritative Replay Rollback Plan
 
 Date: 2026-06-21
-Status: In progress - smooth backwards presentation scrubbing is now the
-primary goal; retained in-memory solver restore plus path/contact visualizer and
-live prediction v1 are implemented; retained restore now hash-verifies before
-branching; binary `.skreplay` v2 presentation artifacts, file-backed v2
-presentation scrub loading, v2 per-tick solver hash chunks, sparse v2 solver
-checkpoint chunks, checkpoint-frame saved restore verification, saved
-non-checkpoint target checkpoint-plus-event restore verification, and branch provenance, event, and
-checkpoint event-cursor chunks/querying are implemented; loaded v2 files can
-branch live from a hash-verified saved checkpoint/event target through `Enter`
-or the scrubber `BRANCH` button; the scrubber can save binary v2 artifacts and
-open a `.skreplay` picker for file-backed `V2 FILE` scrubbing; typed event
-replay coverage now includes generated-scene config rows, world overrides,
-editor placement commits, committed editor translate/rotate/scale gizmo
-transforms, launcher configuration changes, and launcher fire payloads; broad
-generated-scene restore now rebuilds deterministic generated topology from the
-saved config event when a fresh process has mismatched live topology; broader
-runtime reset commands are now captured as queryable v2 rows and validated as
-post-reset checkpoint preconditions; non-solver runtime commands are explicitly
-ignored during restore, while scene-load/create/advance timeline mutations stay
-unsupported inside a checkpoint-to-target replay window and the v2 artifact
-gate now mutates a copied artifact to prove that rejection path; saved v2 file
-restore failures now emit queryable SkullScope rows with failure reasons; the
-standalone authoritative-state inventory report now lives at
-`Agentic/Reports/2026-06-23/replay-v2-authoritative-state-inventory.md`.
+Status: Done 2026-06-23 - the current v2 migration is complete for smooth
+backwards scrubbing, binary saved replay queryability, checkpoint-plus-event
+restore, and branch-from-file. Legacy v1 replay/debug exporters are
+intentionally retained. Scene-load/create/advance/reset runtime commands are
+checkpoint barriers: queryable and restorable from checkpoints after the
+transition, but rejected inside checkpoint-to-target replay windows.
 Related: `Agentic/Plans/Done/replay-system-plan.md`, `Agentic/Reference/runtime-reference.md`
 Impact area: physics, runtime replay, scene system, SkullScope diagnostics, tests, UI
 Validation note: plan-only edits require no validation. Implementation changes
@@ -560,28 +542,15 @@ Required gates by implementation phase:
 | Broadphase rebuild order is nondeterministic | Add deterministic rebuild ordering or serialize required broadphase state. |
 | Saved replay format hardens too early | Keep v1 JSON inspectable; move to chunked/binary only after restore proof. |
 
-## Open Questions
+## Closeout Decisions
 
-1. Should "resume from here" happen on mouse release away from live, a small
-   scrubber button, or a confirmation prompt?
-2. Should checkpoint cadence be configurable from CLI, scene files, or only
-   engine config?
-3. Which solver caches can be rebuilt deterministically versus serialized?
-4. Should `.skreplay` v2 prioritize fresh-process restore, in-process branch
-   resume, or both in the first shipping slice?
-5. How much mismatch detail should the UI show before handing the user to
-   SkullScope queries?
+| Question | Decision |
+|----------|----------|
+| Resume trigger | Branching is explicit: press `Enter` or click the scrubber `BRANCH` button while paused on a retained solver or loaded `V2 FILE` row. Dragging back to live remains preview-only. |
+| Checkpoint cadence | Current replay recorder config owns cadence, and v2 save emits sparse checkpoint chunks from checkpoint-boundary retained solver samples. Further CLI/scene configurability can be a separate tuning task. |
+| Solver cache serialization | `Agentic/Reports/2026-06-23/replay-v2-authoritative-state-inventory.md` records the current serialize/rebuild/query-boundary decisions. |
+| Fresh-process restore vs. in-process branch | Both are covered for the current v2 scope: Debug probes verify fresh-process saved restore, and the scrubber/`Enter` path branches live from loaded v2 files after hash verification. |
+| Mismatch detail | Saved restore failures emit bounded `replay_restore` SkullScope rows and compact failure reasons; agents should query those rows instead of reading raw replay files. |
 
-## Suggested First Agent Task
-
-Create a read-only authoritative-state inventory:
-
-1. Inspect `SkullbonezGameModelCollection`, physics world/caches, persistent
-   contact solver, sleep island system, broadphase, runtime fixed-step timing,
-   and replay capture points.
-2. Produce a table of every field needed for checkpoint restore.
-3. Classify each field as serialize, rebuild deterministically, diagnostic-only,
-   or presentation-only.
-4. Propose the first `ReplaySolverCheckpoint` struct shape and hash inputs.
-
-No code changes should happen until that inventory is reviewed.
+No legacy replay path was removed as part of this plan. The cleanup candidates
+above remain future work and should only be acted on when explicitly requested.
