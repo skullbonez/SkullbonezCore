@@ -6,14 +6,17 @@ Purpose:
 Mental model:
   V2 artifacts are saved replay buffers, not yet complete branchable timelines.
   The first track is presentation data for smooth scrub, with optional solver
-  hash/checkpoint chunks layered in for saved restore verification work.
+  hash/checkpoint chunks and branch provenance layered in for saved restore
+  verification work.
 
 Glossary:
   Presentation track: Body poses, camera, and world display fields used for
     smooth visual scrubbing.
   Solver checkpoint chunk: Sparse saved solver payloads copied from retained
-    checkpoint-boundary samples. Event chunks and saved restore are separate
-    work.
+    checkpoint-boundary samples. Saved checkpoint-frame restore verification
+    exists; event chunks and arbitrary target restore are separate work.
+  Branch provenance chunk: Small records naming live timeline ancestry after a
+    hash-verified restore creates a child branch.
   Chunk: A typed byte range in the replay file, found through the chunk table.
 
 Invariants:

@@ -272,6 +272,16 @@ uint16_t SaturatingUint16( std::size_t value )
     return value > 0xffffu ? 0xffffu : static_cast<uint16_t>( value );
 }
 
+ReplayBranchInfo NormalizeBranchInfo( const ReplayBranchInfo& branch )
+{
+    ReplayBranchInfo normalized = branch;
+    if ( normalized.branchId == 0 )
+    {
+        normalized.branchId = 1;
+    }
+    return normalized;
+}
+
 void IncrementBodyContactSummary( int bodyIndex,
                                   float penetration,
                                   float normalImpulse,
@@ -558,6 +568,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     ReplayPresentationSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
+    sample.branch = NormalizeBranchInfo( input.branch );
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f
@@ -905,6 +916,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     ReplaySolverFrameSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
+    sample.branch = NormalizeBranchInfo( input.branch );
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f

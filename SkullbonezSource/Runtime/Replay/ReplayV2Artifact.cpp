@@ -13,6 +13,7 @@ Glossary:
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
+  BRAN: Branch provenance records for saved timeline ancestry.
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
   INDX: Frame seek index into the presentation chunk.
@@ -59,6 +60,7 @@ constexpr uint32_t REPLAY_V2_FRAME_HEADER_BYTES = 92;
 constexpr uint32_t REPLAY_V2_INDEX_ENTRY_BYTES = 24;
 constexpr uint32_t REPLAY_V2_BODY_POSE_BYTES = 32;
 constexpr uint32_t REPLAY_V2_HASH_ENTRY_BYTES = 48;
+constexpr uint32_t REPLAY_V2_BRANCH_ENTRY_BYTES = 64;
 constexpr uint32_t REPLAY_V2_SOLVER_BODY_ENTRY_BYTES = 112;
 constexpr char REPLAY_V2_MAGIC[8] = { 'S', 'K', 'R', 'E', 'P', 'V', '2', '\0' };
 
@@ -91,6 +93,13 @@ struct IndexedFrame
     ReplayFrameIndex frameIndex = 0;
     uint64_t presentationChunkOffset = 0;
     uint32_t bodyCount = 0;
+};
+
+struct BranchRecord
+{
+    ReplayBranchInfo branch;
+    ReplayFrameIndex firstRetainedFrame = 0;
+    ReplayFrameIndex lastRetainedFrame = 0;
 };
 
 struct ChunkTableEntry
@@ -818,6 +827,75 @@ bool ParseIndex( const std::vector<uint8_t>& fileBytes,
            cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( frameCount ) * REPLAY_V2_INDEX_ENTRY_BYTES;
 }
 
+bool ParseBranchRecords( const std::vector<uint8_t>& fileBytes,
+                         const ChunkTableEntry& chunk,
+                         std::vector<BranchRecord>& outBranches )
+{
+    outBranches.clear();
+
+    ByteCursor cursor;
+    if ( !MakeCursor( fileBytes, chunk.offset, chunk.size, cursor ) )
+    {
+        return false;
+    }
+
+    uint32_t branchCount = 0;
+    if ( !ReadPod( cursor, branchCount ) || branchCount != chunk.recordCount )
+    {
+        return false;
+    }
+
+    outBranches.reserve( branchCount );
+    for ( uint32_t i = 0; i < branchCount; ++i )
+    {
+        BranchRecord record;
+        uint32_t reserved = 0;
+        uint64_t reserved64 = 0;
+        if ( !ReadPod( cursor, record.branch.branchId ) || !ReadPod( cursor, record.branch.parentBranchId ) ||
+             !ReadPod( cursor, record.branch.startFrame ) || !ReadPod( cursor, record.firstRetainedFrame ) ||
+             !ReadPod( cursor, record.lastRetainedFrame ) || !ReadPod( cursor, record.branch.sourceFrame ) ||
+             !ReadPod( cursor, record.branch.sourceSolverHash ) || !SkipBytes( cursor, sizeof( uint32_t ) ) ||
+             !ReadPod( cursor, reserved ) || !ReadPod( cursor, reserved64 ) )
+        {
+            return false;
+        }
+        if ( record.branch.branchId == 0 || record.lastRetainedFrame < record.firstRetainedFrame )
+        {
+            return false;
+        }
+        (void)reserved;
+        (void)reserved64;
+        outBranches.push_back( record );
+    }
+
+    return cursor.offset == cursor.size &&
+           cursor.size == sizeof( uint32_t ) + static_cast<std::size_t>( branchCount ) * REPLAY_V2_BRANCH_ENTRY_BYTES;
+}
+
+ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, ReplayFrameIndex frameIndex )
+{
+    for ( const BranchRecord& record : branches )
+    {
+        if ( frameIndex >= record.firstRetainedFrame && frameIndex <= record.lastRetainedFrame )
+        {
+            return record.branch;
+        }
+    }
+    return ReplayBranchInfo();
+}
+
+template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>& branches, std::vector<T>& samples )
+{
+    if ( branches.empty() )
+    {
+        return;
+    }
+    for ( T& sample : samples )
+    {
+        sample.branch = BranchForFrame( branches, sample.frameIndex );
+    }
+}
+
 bool ReadVec3( ByteCursor& cursor, Vector3& out )
 {
     return ReadPod( cursor, out.x ) && ReadPod( cursor, out.y ) && ReadPod( cursor, out.z );
@@ -1373,15 +1451,72 @@ Chunk MakeChunk( const char id[4], std::vector<uint8_t>&& bytes, uint32_t record
     return chunk;
 }
 
+std::vector<BranchRecord> BuildBranchRecords( const std::vector<ReplayPresentationSample>& samples )
+{
+    std::vector<BranchRecord> records;
+    for ( const ReplayPresentationSample& sample : samples )
+    {
+        ReplayBranchInfo branch = sample.branch;
+        if ( branch.branchId == 0 )
+        {
+            branch.branchId = 1;
+        }
+
+        auto existing = std::find_if( records.begin(),
+                                      records.end(),
+                                      [branch]( const BranchRecord& record )
+                                      { return record.branch.branchId == branch.branchId; } );
+        if ( existing != records.end() )
+        {
+            existing->firstRetainedFrame = (std::min)( existing->firstRetainedFrame, sample.frameIndex );
+            existing->lastRetainedFrame = (std::max)( existing->lastRetainedFrame, sample.frameIndex );
+            continue;
+        }
+
+        BranchRecord record;
+        record.branch = branch;
+        record.firstRetainedFrame = sample.frameIndex;
+        record.lastRetainedFrame = sample.frameIndex;
+        records.push_back( record );
+    }
+    return records;
+}
+
+std::vector<uint8_t> BuildBranchChunk( const std::vector<BranchRecord>& records )
+{
+    std::vector<uint8_t> bytes;
+    AppendPod( bytes, CheckedU32( records.size() ) );
+    for ( const BranchRecord& record : records )
+    {
+        const uint32_t restoredBranchFlag = record.branch.parentBranchId != 0 ? 1u : 0u;
+        const uint32_t sourceHashFlag = record.branch.sourceSolverHash != 0 ? 2u : 0u;
+        const uint32_t flags = restoredBranchFlag | sourceHashFlag;
+        const uint32_t reserved = 0;
+        const uint64_t reserved64 = 0;
+        AppendPod( bytes, record.branch.branchId );
+        AppendPod( bytes, record.branch.parentBranchId );
+        AppendPod( bytes, record.branch.startFrame );
+        AppendPod( bytes, record.firstRetainedFrame );
+        AppendPod( bytes, record.lastRetainedFrame );
+        AppendPod( bytes, record.branch.sourceFrame );
+        AppendPod( bytes, record.branch.sourceSolverHash );
+        AppendPod( bytes, flags );
+        AppendPod( bytes, reserved );
+        AppendPod( bytes, reserved64 );
+    }
+    return bytes;
+}
+
 std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>& samples,
                                     const std::vector<BodyDictionaryEntry>& dictionary,
+                                    std::size_t branchCount,
                                     std::size_t solverHashCount,
                                     std::size_t solverCheckpointCount )
 {
     const ReplayPresentationSample& first = samples.front();
     const ReplayPresentationSample& last = samples.back();
-    Json chunks = Json::array( { "MANI", "BODY", "PRES" } );
-    Json tracks = Json::array( { "presentation" } );
+    Json chunks = Json::array( { "MANI", "BODY", "PRES", "BRAN" } );
+    Json tracks = Json::array( { "presentation", "branchProvenance" } );
     if ( solverHashCount > 0 )
     {
         chunks.push_back( "HASH" );
@@ -1401,10 +1536,12 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["tracks"] = tracks;
     manifest["encoding"] = "little-endian chunked binary";
     manifest["schema"] = solverCheckpointCount > 0
-                             ? "presentation-v2+solver-hashes+solver-checkpoints"
-                             : ( solverHashCount > 0 ? "presentation-v2+solver-hashes" : "presentation-v2" );
+                             ? "presentation-v2+branch-provenance+solver-hashes+solver-checkpoints"
+                             : ( solverHashCount > 0 ? "presentation-v2+branch-provenance+solver-hashes"
+                                                     : "presentation-v2+branch-provenance" );
     manifest["frameCount"] = samples.size();
     manifest["bodyDictionaryCount"] = dictionary.size();
+    manifest["branchCount"] = branchCount;
     manifest["solverHashCount"] = solverHashCount;
     manifest["solverCheckpointCount"] = solverCheckpointCount;
     manifest["firstFrame"] = first.frameIndex;
@@ -1412,18 +1549,20 @@ std::vector<uint8_t> BuildManifest( const std::vector<ReplayPresentationSample>&
     manifest["firstTimeSeconds"] = first.simulationSeconds;
     manifest["lastTimeSeconds"] = last.simulationSeconds;
     manifest["bodyPoseBytes"] = REPLAY_V2_BODY_POSE_BYTES;
+    manifest["branchEntryBytes"] = REPLAY_V2_BRANCH_ENTRY_BYTES;
     manifest["solverHashBytes"] = solverHashCount > 0 ? REPLAY_V2_HASH_ENTRY_BYTES : 0u;
     manifest["solverBodyBytes"] = solverCheckpointCount > 0 ? REPLAY_V2_SOLVER_BODY_ENTRY_BYTES : 0u;
     manifest["chunks"] = chunks;
     manifest["authoritative"] = false;
     manifest["notes"] = solverCheckpointCount > 0
                             ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
-                              "sparse solver checkpoint payloads; event chunks and branch-from-file are not present."
+                              "sparse solver checkpoint payloads plus branch provenance; event chunks and "
+                              "branch-from-file are not present."
                         : solverHashCount > 0
-                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes; "
-                              "checkpoint/event chunks are not present."
+                            ? "Presentation v2 supports smooth visual scrub and carries per-tick solver hashes plus "
+                              "branch provenance; checkpoint/event chunks are not present."
                             : "Presentation v2 supports smooth visual scrub; solver checkpoint/event chunks are not "
-                              "present.";
+                              "present, but branch provenance is recorded.";
 
     const std::string jsonText = manifest.dump();
     return std::vector<uint8_t>( jsonText.begin(), jsonText.end() );
@@ -1539,6 +1678,7 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     std::vector<BodyDictionaryEntry> dictionary;
     std::vector<IndexedFrame> index;
     std::vector<uint8_t> presentationBytes;
+    std::vector<BranchRecord> branchRecords = BuildBranchRecords( samples );
 
     AppendPod( presentationBytes, CheckedU32( samples.size() ) );
     dictionary.reserve( samples.front().bodies.size() );
@@ -1567,9 +1707,12 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
     const std::size_t solverHashCount = solverSamples ? solverSamples->size() : 0u;
     outChunks.push_back(
-        MakeChunk( "MANI", BuildManifest( samples, dictionary, solverHashCount, solverCheckpointCount ), 1u ) );
+        MakeChunk( "MANI",
+                   BuildManifest( samples, dictionary, branchRecords.size(), solverHashCount, solverCheckpointCount ),
+                   1u ) );
     outChunks.push_back( MakeChunk( "BODY", std::move( bodyBytes ), CheckedU32( dictionary.size() ) ) );
     outChunks.push_back( MakeChunk( "PRES", std::move( presentationBytes ), CheckedU32( samples.size() ) ) );
+    outChunks.push_back( MakeChunk( "BRAN", BuildBranchChunk( branchRecords ), CheckedU32( branchRecords.size() ) ) );
     if ( solverSamples && !solverSamples->empty() )
     {
         outChunks.push_back(
@@ -1784,6 +1927,7 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
     const ChunkTableEntry* bodyChunk = FindChunk( chunkTable, "BODY" );
     const ChunkTableEntry* presentationChunk = FindChunk( chunkTable, "PRES" );
     const ChunkTableEntry* indexChunk = FindChunk( chunkTable, "INDX" );
+    const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
     if ( !bodyChunk || !presentationChunk || !indexChunk )
     {
         return false;
@@ -1791,6 +1935,7 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
 
     std::vector<BodyDictionaryEntry> dictionary;
     std::vector<IndexedFrame> index;
+    std::vector<BranchRecord> branches;
     if ( !ParseBodyDictionary( fileBytes, *bodyChunk, dictionary ) )
     {
         outSamples.clear();
@@ -1801,11 +1946,17 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
         outSamples.clear();
         return false;
     }
+    if ( branchChunk && !ParseBranchRecords( fileBytes, *branchChunk, branches ) )
+    {
+        outSamples.clear();
+        return false;
+    }
     if ( !ParsePresentationSamples( fileBytes, *presentationChunk, dictionary, index, outSamples ) )
     {
         outSamples.clear();
         return false;
     }
+    ApplyBranchMetadata( branches, outSamples );
 
     if ( result )
     {
@@ -1841,13 +1992,19 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
 
     const ChunkTableEntry* bodyChunk = FindChunk( chunkTable, "BODY" );
     const ChunkTableEntry* checkpointChunk = FindChunk( chunkTable, "SCHK" );
+    const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
     if ( !bodyChunk || !checkpointChunk )
     {
         return false;
     }
 
     std::vector<BodyDictionaryEntry> dictionary;
+    std::vector<BranchRecord> branches;
     if ( !ParseBodyDictionary( fileBytes, *bodyChunk, dictionary ) )
+    {
+        return false;
+    }
+    if ( branchChunk && !ParseBranchRecords( fileBytes, *branchChunk, branches ) )
     {
         return false;
     }
@@ -1856,6 +2013,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
         outCheckpoints.clear();
         return false;
     }
+    ApplyBranchMetadata( branches, outCheckpoints );
 
     if ( result )
     {

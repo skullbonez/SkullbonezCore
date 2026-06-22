@@ -670,8 +670,12 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 }
 
 
-void Run::ResetReplayTimelineForActiveScene()
+void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
+    if ( !preserveBranchMetadata )
+    {
+        m_replayBranch = ReplayBranchInfo();
+    }
     if ( m_replayScrubber.simulationPaused )
     {
         SetReplaySimulationPaused( false );
@@ -1039,6 +1043,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
+    input.branch = reference.branch;
     input.sceneFrame = reference.sceneFrame;
     input.simulationSeconds = reference.simulationSeconds;
     input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
@@ -1134,7 +1139,17 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
         return false;
     }
 
-    ResetReplayTimelineForActiveScene();
+    const uint32_t parentBranchId = sample.branch.branchId != 0
+                                        ? sample.branch.branchId
+                                        : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+    ReplayBranchInfo restoredBranch;
+    restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+    restoredBranch.parentBranchId = parentBranchId;
+    restoredBranch.startFrame = 0;
+    restoredBranch.sourceFrame = sample.frameIndex;
+    restoredBranch.sourceSolverHash = sample.solverHash;
+    m_replayBranch = restoredBranch;
+    ResetReplayTimelineForActiveScene( true );
     writeReason( "restored hash match" );
     return true;
 }

@@ -72,6 +72,25 @@ const char* HashText( uint64_t hash, char ( &buffer )[24] )
     return buffer;
 }
 
+Json BranchJson( const ReplayBranchInfo& branch )
+{
+    char sourceHashBuffer[24] = {};
+    Json json;
+    json["branchId"] = branch.branchId;
+    json["parentBranchId"] = branch.parentBranchId;
+    json["startFrame"] = branch.startFrame;
+    json["sourceFrame"] = branch.sourceFrame;
+    if ( branch.sourceSolverHash != 0 )
+    {
+        json["sourceSolverHash"] = HashText( branch.sourceSolverHash, sourceHashBuffer );
+    }
+    else
+    {
+        json["sourceSolverHash"] = nullptr;
+    }
+    return json;
+}
+
 Json BodyJson( const ReplayBodyPresentationSample& body )
 {
     Json result;
@@ -206,6 +225,7 @@ Json FrameJson( const ReplayPresentationSample& sample )
     frame["contactCount"] = sample.contactCount;
     frame["pipelineRecordCount"] = sample.pipelineRecordCount;
     frame["checkpointBoundary"] = sample.checkpointBoundary;
+    frame["branch"] = BranchJson( sample.branch );
     frame["world"] = WorldJson( sample.world );
     frame["camera"] = CameraJson( sample.camera );
     frame["bodies"] = Json::array();
@@ -230,6 +250,7 @@ Json FrameJson( const ReplaySolverFrameSample& sample )
     frame["contactCount"] = sample.contactCount;
     frame["pipelineRecordCount"] = sample.pipelineRecordCount;
     frame["checkpointBoundary"] = sample.checkpointBoundary;
+    frame["branch"] = BranchJson( sample.branch );
     frame["world"] = WorldJson( sample.world );
     frame["camera"] = CameraJson( sample.camera );
     frame["launcherVisual"] = LauncherVisualSummaryJson( sample.launcherVisual );

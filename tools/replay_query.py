@@ -26,6 +26,7 @@ PAIR_I32 = struct.Struct("<ii")
 BODY_RECORD = struct.Struct("<IiB3s64s")
 FRAME_HEADER = struct.Struct("<QidfQHHBBH" + ("f" * 12) + "I")
 BODY_POSE = struct.Struct("<Ifffffff")
+BRANCH_RECORD = struct.Struct("<IIQQQQQIIQ")
 HASH_RECORD = struct.Struct("<QidQQIHHB3s")
 CHECKPOINT_HEADER = struct.Struct("<QidfQQHHBBH")
 LAUNCHER_HEADER = struct.Struct("<iiBB2sff")
@@ -87,6 +88,26 @@ class SolverHashInfo:
     contact_count: int
     pipeline_record_count: int
     checkpoint_boundary: bool
+
+
+@dataclass
+class BranchInfo:
+    branch_id: int
+    parent_branch_id: int
+    start_frame: int
+    first_retained_frame: int
+    last_retained_frame: int
+    source_frame: int
+    source_solver_hash: int
+    flags: int
+
+    @property
+    def restored(self) -> bool:
+        return bool(self.flags & 1)
+
+    @property
+    def has_source_hash(self) -> bool:
+        return bool(self.flags & 2)
 
 
 @dataclass
@@ -161,12 +182,14 @@ class ReplayV2:
         self.manifest: dict[str, object] = {}
         self.bodies: list[BodyInfo] = []
         self.frames: list[FrameIndex] = []
+        self.branches: list[BranchInfo] = []
         self.solver_hashes: list[SolverHashInfo] = []
         self.solver_checkpoints: list[SolverCheckpointInfo] = []
         self._parse_header()
         self._parse_manifest()
         self._parse_bodies()
         self._parse_index()
+        self._parse_branches()
         self._parse_solver_hashes()
         self._parse_solver_checkpoints()
 
@@ -297,6 +320,51 @@ class ReplayV2:
         if cursor != len(raw):
             raise ReplayQueryError("HASH chunk has trailing bytes")
         self.solver_hashes = hashes
+
+    def _parse_branches(self) -> None:
+        chunk = self.chunks.get("BRAN")
+        if not chunk:
+            self.branches = []
+            return
+        raw = read_exact_range(self.data, chunk.offset, chunk.size, "BRAN")
+        if len(raw) < 4:
+            raise ReplayQueryError("BRAN chunk is too small")
+        branch_count = struct.unpack_from("<I", raw, 0)[0]
+        if branch_count != chunk.record_count:
+            raise ReplayQueryError("BRAN chunk count does not match chunk table")
+        cursor = 4
+        branches: list[BranchInfo] = []
+        for _ in range(branch_count):
+            if cursor + BRANCH_RECORD.size > len(raw):
+                raise ReplayQueryError("BRAN chunk ended mid-record")
+            (
+                branch_id,
+                parent_branch_id,
+                start_frame,
+                first_retained_frame,
+                last_retained_frame,
+                source_frame,
+                source_solver_hash,
+                flags,
+                _reserved,
+                _reserved64,
+            ) = BRANCH_RECORD.unpack_from(raw, cursor)
+            cursor += BRANCH_RECORD.size
+            branches.append(
+                BranchInfo(
+                    branch_id=int(branch_id),
+                    parent_branch_id=int(parent_branch_id),
+                    start_frame=int(start_frame),
+                    first_retained_frame=int(first_retained_frame),
+                    last_retained_frame=int(last_retained_frame),
+                    source_frame=int(source_frame),
+                    source_solver_hash=int(source_solver_hash),
+                    flags=int(flags),
+                )
+            )
+        if cursor != len(raw):
+            raise ReplayQueryError("BRAN chunk has trailing bytes")
+        self.branches = branches
 
     @staticmethod
     def _skip_counted(reader: ChunkReader, item: struct.Struct) -> int:
@@ -483,8 +551,11 @@ class ReplayV2:
             "authoritative": self.manifest.get("authoritative", False),
             "frameCount": len(self.frames),
             "bodyDictionaryCount": len(self.bodies),
+            "branchCount": len(self.branches),
             "solverHashCount": len(self.solver_hashes),
             "solverCheckpointCount": len(self.solver_checkpoints),
+            "firstBranchId": self.branches[0].branch_id if self.branches else None,
+            "lastBranchId": self.branches[-1].branch_id if self.branches else None,
             "firstSolverHashFrame": first_hash.frame_index if first_hash else None,
             "lastSolverHashFrame": last_hash.frame_index if last_hash else None,
             "firstSolverCheckpointFrame": first_checkpoint.frame_index if first_checkpoint else None,
@@ -494,6 +565,7 @@ class ReplayV2:
             "durationSeconds": self._duration_seconds(),
             "fileBytes": self.file_size,
             "bodyPoseBytes": self.manifest.get("bodyPoseBytes"),
+            "branchEntryBytes": self.manifest.get("branchEntryBytes", 0),
             "solverHashBytes": self.manifest.get("solverHashBytes", 0),
             "solverBodyBytes": self.manifest.get("solverBodyBytes", 0),
             "chunks": chunks,
@@ -682,6 +754,25 @@ class ReplayV2:
             )
         return samples
 
+    def branch_samples(self, limit: int) -> list[dict[str, object]]:
+        samples: list[dict[str, object]] = []
+        for row in self.branches:
+            if len(samples) >= limit:
+                break
+            samples.append(
+                {
+                    "branchId": row.branch_id,
+                    "parentBranchId": row.parent_branch_id,
+                    "startFrame": row.start_frame,
+                    "firstRetainedFrame": row.first_retained_frame,
+                    "lastRetainedFrame": row.last_retained_frame,
+                    "sourceFrame": row.source_frame,
+                    "sourceSolverHash": hash_text(row.source_solver_hash) if row.has_source_hash else None,
+                    "restored": row.restored,
+                }
+            )
+        return samples
+
     def checkpoint_samples(self, frames: str | None, limit: int, body_limit: int) -> list[dict[str, object]]:
         samples: list[dict[str, object]] = []
         for row in self.selected_checkpoints(frames):
@@ -828,6 +919,18 @@ def cmd_hashes(replay: ReplayV2, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_branches(replay: ReplayV2, args: argparse.Namespace) -> None:
+    samples = replay.branch_samples(args.limit)
+    print_json(
+        {
+            "branchCount": len(replay.branches),
+            "samplesReturned": len(samples),
+            "samples": samples,
+            "note": None if replay.branches else "This v2 artifact does not include branch provenance chunks.",
+        }
+    )
+
+
 def cmd_checkpoints(replay: ReplayV2, args: argparse.Namespace) -> None:
     samples = replay.checkpoint_samples(args.frames, args.limit, args.body_limit)
     print_json(
@@ -891,6 +994,10 @@ def build_parser() -> argparse.ArgumentParser:
     hashes.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")
     hashes.add_argument("--limit", type=int, default=120)
     hashes.set_defaults(func=cmd_hashes)
+
+    branches = subparsers.add_parser("branches", help="Print saved branch provenance records")
+    branches.add_argument("--limit", type=int, default=20)
+    branches.set_defaults(func=cmd_branches)
 
     checkpoints = subparsers.add_parser("checkpoints", help="Print sparse solver checkpoint summaries")
     checkpoints.add_argument("--frames", help="Inclusive replay frame window, for example 1200:1260")

@@ -290,6 +290,7 @@ void Run::CaptureReplayPhysicsStep()
         BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
+        input.branch = m_replayBranch;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
         input.physicsDt = PHYSICS_FIXED_DT;

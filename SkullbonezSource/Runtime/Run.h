@@ -1271,6 +1271,7 @@ class Run
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
+    ReplayBranchInfo m_replayBranch;                                             // Current live replay branch provenance.
     RunLoadedReplayPresentationState
         m_loadedPresentationReplay;                                              // Optional v2 file-backed presentation samples for smooth scrub playback.
     RunReplayScrubberState m_replayScrubber;
@@ -1451,7 +1452,8 @@ class Run
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
-    void ResetReplayTimelineForActiveScene();                                    // Scene/model rebuilds start a fresh in-memory replay branch.
+    void ResetReplayTimelineForActiveScene(
+        bool preserveBranchMetadata = false );                                   // Scene/model rebuilds start a fresh in-memory replay branch.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.

@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `f8274a7c` added sparse v2 solver checkpoint chunks/query support and pushed it to `origin/nightrunner-22-june`; the current slice adds saved checkpoint-frame restore verification. |
+| Last committed milestone | `994d0169` added saved checkpoint-frame restore verification and pushed it to `origin/nightrunner-22-june`; the current slice adds replay branch provenance for restored timelines and saved v2 artifacts. |
 | Active objective | Continue `Agentic/Plans/authoritative-replay-rollback-plan.md` until v2 replay migration is complete enough to move the plan to `Done/`. |
-| Pending work | V2 now has smooth file-backed presentation scrub, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, and saved checkpoint-frame restore verification. Remaining plan gaps include event chunks, arbitrary target checkpoint-plus-event restore, branch-from-file, and in-app file loading/picking. |
+| Pending work | V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, and saved checkpoint-frame restore verification. Remaining plan gaps include event chunks, arbitrary target checkpoint-plus-event restore, branch-from-file, and in-app file loading/picking. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Latest saved-restore slice gates passed: `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_restore_validate_replay_v2.log`, `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_restore_validate_fast.log`, and `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-23_replay_v2_restore_validate_full.log`. |
+| Validation | Latest branch-provenance slice gates passed: `tools\validate_replay_v2_artifact.bat` in `TestOutput\agent_logs\2026-06-23_replay_branch_validate_replay_v2.log`, `tools\validate_fast.bat` in `TestOutput\agent_logs\2026-06-23_replay_branch_validate_fast.log`, and `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-23_replay_branch_validate_full.log`. |
 
 ## Active Notes
 

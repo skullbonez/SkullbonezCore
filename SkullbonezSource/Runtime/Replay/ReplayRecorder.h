@@ -51,6 +51,15 @@ struct ReplayBodyId
     uint32_t value = 0;
 };
 
+struct ReplayBranchInfo
+{
+    uint32_t branchId = 1;
+    uint32_t parentBranchId = 0;
+    ReplayFrameIndex startFrame = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    uint64_t sourceSolverHash = 0;
+};
+
 enum class ReplayBodyShapeKind : uint8_t
 {
     Unknown,
@@ -103,6 +112,7 @@ struct ReplayBodyPresentationSample
 struct ReplayPresentationSample
 {
     ReplayFrameIndex frameIndex = 0;
+    ReplayBranchInfo branch;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -170,6 +180,7 @@ struct ReplayLauncherVisualSample
 struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;
+    ReplayBranchInfo branch;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -197,6 +208,7 @@ struct ReplayCheckpointSummary
 
 struct ReplayCaptureInput
 {
+    ReplayBranchInfo branch;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
