@@ -180,10 +180,12 @@
     <ClCompile Include="SkullbonezSource\Config.cpp" />
     <ClCompile Include="SkullbonezSource\RunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\Run.cpp" />
+    <ClCompile Include="SkullbonezSource\RunEditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\RunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\RunInput.cpp" />
     <ClCompile Include="SkullbonezSource\RunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\RunPasses.cpp" />
+    <ClCompile Include="SkullbonezSource\RunReplayTools.cpp" />
     <ClCompile Include="SkullbonezSource\RunRender.cpp" />
     <ClCompile Include="SkullbonezSource\RunScene.cpp" />
     <ClCompile Include="SkullbonezSource\RunStress.cpp" />

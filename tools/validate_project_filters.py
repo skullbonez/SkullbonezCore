@@ -172,11 +172,13 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayRecorder",
     "ReplaySolverSnapshot",
+    "RunReplayTools",
 )
 
 RUNTIME_EDITOR_PREFIXES = (
     "EditorHullAssets",
     "LauncherLaser",
+    "RunEditorTools",
 )
 
 CORE_PREFIXES = (
