@@ -1199,6 +1199,128 @@ class TestSceneParser
         }
     }
 
+    void ApplyTornadoFloat( const Json& source,
+                            const std::string& path,
+                            const char* memberName,
+                            float& target,
+                            float minimum )
+    {
+        if ( const Json* value = FindMember( source, memberName ) )
+        {
+            const std::string context = std::string( "tornadoSystem." ) + memberName;
+            target = (std::max)( minimum, ReadFloat( *value, path, context.c_str() ) );
+        }
+    }
+
+    void ApplyTornadoVortex( const Json& object, const std::string& path, Physics::TornadoSystemConfig& system )
+    {
+        RequireObject( object, path, "tornadoSystem.vortices[]" );
+        Physics::TornadoVortexConfig vortex;
+        vortex.field.enabled = true;
+        if ( const Json* center = FindMember( object, "center" ) )
+        {
+            ReadVec3( *center,
+                      path,
+                      "tornadoSystem.vortices[].center",
+                      vortex.field.center.x,
+                      vortex.field.center.y,
+                      vortex.field.center.z );
+        }
+        else
+        {
+            ReadVec3( RequireMember( object, path, "tornadoSystem.vortices[]", "position" ),
+                      path,
+                      "tornadoSystem.vortices[].position",
+                      vortex.field.center.x,
+                      vortex.field.center.y,
+                      vortex.field.center.z );
+        }
+
+        if ( const Json* enabled = FindMember( object, "enabled" ) )
+        {
+            vortex.field.enabled = ReadBool( *enabled, path, "tornadoSystem.vortices[].enabled" );
+        }
+        if ( const Json* spawnTime = FindMember( object, "spawnTime" ) )
+        {
+            vortex.spawnSeconds =
+                (std::max)( 0.0f, ReadFloat( *spawnTime, path, "tornadoSystem.vortices[].spawnTime" ) );
+        }
+        if ( const Json* spawnSeconds = FindMember( object, "spawnSeconds" ) )
+        {
+            vortex.spawnSeconds =
+                (std::max)( 0.0f, ReadFloat( *spawnSeconds, path, "tornadoSystem.vortices[].spawnSeconds" ) );
+        }
+        if ( const Json* ttl = FindMember( object, "ttl" ) )
+        {
+            vortex.timeToLiveSeconds = (std::max)( 0.0f, ReadFloat( *ttl, path, "tornadoSystem.vortices[].ttl" ) );
+        }
+        if ( const Json* timeToLive = FindMember( object, "timeToLive" ) )
+        {
+            vortex.timeToLiveSeconds =
+                (std::max)( 0.0f, ReadFloat( *timeToLive, path, "tornadoSystem.vortices[].timeToLive" ) );
+        }
+        if ( const Json* timeToLiveSeconds = FindMember( object, "timeToLiveSeconds" ) )
+        {
+            vortex.timeToLiveSeconds =
+                (std::max)( 0.0f, ReadFloat( *timeToLiveSeconds, path, "tornadoSystem.vortices[].timeToLiveSeconds" ) );
+        }
+
+        ApplyTornadoFloat( object, path, "growSeconds", vortex.growSeconds, 0.0f );
+        ApplyTornadoFloat( object, path, "shrinkSeconds", vortex.shrinkSeconds, 0.0f );
+        ApplyTornadoFloat( object, path, "driftRadius", vortex.driftRadius, 0.0f );
+        ApplyTornadoFloat( object, path, "driftSpeed", vortex.driftSpeed, 0.0f );
+        ApplyTornadoFloat( object, path, "driftPhase", vortex.driftPhase, -100000.0f );
+        ApplyTornadoFloat( object, path, "repulsionRadius", vortex.repulsionRadius, 0.0f );
+        ApplyTornadoFloat( object, path, "repulsionStrength", vortex.repulsionStrength, 0.0f );
+        ApplyTornadoFloat( object, path, "radius", vortex.field.radius, 1.0f );
+        ApplyTornadoFloat( object, path, "height", vortex.field.height, 1.0f );
+        ApplyTornadoFloat( object, path, "inwardAcceleration", vortex.field.inwardAcceleration, 0.0f );
+        ApplyTornadoFloat( object, path, "swirlAcceleration", vortex.field.swirlAcceleration, 0.0f );
+        ApplyTornadoFloat( object, path, "liftAcceleration", vortex.field.liftAcceleration, 0.0f );
+        ApplyTornadoFloat( object, path, "ejectAcceleration", vortex.field.ejectAcceleration, 0.0f );
+        ApplyTornadoFloat( object, path, "ejectUpAcceleration", vortex.field.ejectUpAcceleration, 0.0f );
+        ApplyTornadoFloat( object, path, "ejectBand", vortex.field.ejectBand, 0.0f );
+        ApplyTornadoFloat( object, path, "minCaptureSeconds", vortex.field.minCaptureSeconds, 0.0f );
+        ApplyTornadoFloat( object, path, "ejectCooldownSeconds", vortex.field.ejectCooldownSeconds, 0.0f );
+        ApplyTornadoFloat( object, path, "maxDeltaVelocity", vortex.field.maxDeltaVelocity, 1.0f );
+        if ( const Json* vectors = FindMember( object, "visualizeVelocityField" ) )
+        {
+            vortex.field.visualizeVelocityField =
+                ReadBool( *vectors, path, "tornadoSystem.vortices[].visualizeVelocityField" );
+        }
+
+        system.vortices.push_back( vortex );
+    }
+
+    void ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path )
+    {
+        RequireObject( tornadoSystem, path, "tornadoSystem" );
+        Physics::TornadoSystemConfig system;
+        system.enabled = true;
+        if ( const Json* enabled = FindMember( tornadoSystem, "enabled" ) )
+        {
+            system.enabled = ReadBool( *enabled, path, "tornadoSystem.enabled" );
+        }
+        if ( const Json* vectors = FindMember( tornadoSystem, "visualizeVelocityField" ) )
+        {
+            system.visualizeVelocityField = ReadBool( *vectors, path, "tornadoSystem.visualizeVelocityField" );
+        }
+
+        const Json& vortices = RequireMember( tornadoSystem, path, "tornadoSystem", "vortices" );
+        RequireArray( vortices, path, "tornadoSystem.vortices" );
+        for ( const Json& vortex : vortices )
+        {
+            ApplyTornadoVortex( vortex, path, system );
+        }
+        if ( system.vortices.empty() )
+        {
+            Fail( path, "tornadoSystem.vortices must not be empty" );
+        }
+
+        m_scene.m_tornadoSystem.hasTornadoSystem = true;
+        m_scene.m_tornadoSystem.config = system;
+    }
+
     void ApplyRuntime( const Json& runtime, const std::string& path )
     {
         RequireObject( runtime, path, "runtime" );
@@ -2381,6 +2503,10 @@ class TestSceneParser
         if ( const Json* simulation = FindMember( root, "simulation" ) )
         {
             ApplySimulation( *simulation, path );
+        }
+        if ( const Json* tornadoSystem = FindMember( root, "tornadoSystem" ) )
+        {
+            ApplyTornadoSystem( *tornadoSystem, path );
         }
         if ( const Json* runtime = FindMember( root, "runtime" ) )
         {

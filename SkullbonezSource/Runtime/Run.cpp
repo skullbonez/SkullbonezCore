@@ -1350,7 +1350,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     };
 
-    if ( sample.worldSnapshot.version != 1 )
+    if ( sample.worldSnapshot.version < 1 || sample.worldSnapshot.version > 2 )
     {
         writeReason( "unsupported snapshot version" );
         return false;
@@ -1400,7 +1400,6 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
-        orientation.Normalise();
         model.SetFixed( body.fixed );
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
@@ -1426,9 +1425,11 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
     m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
     m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
+    m_runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;
     if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
     {
-        m_runtimeSettings.tornadoVisual.enabled = m_runtimeSettings.tornadoField.enabled;
+        m_runtimeSettings.tornadoVisual.enabled =
+            m_runtimeSettings.tornadoField.enabled || m_runtimeSettings.tornadoSystem.enabled;
     }
 
     if ( m_systems.cameras )

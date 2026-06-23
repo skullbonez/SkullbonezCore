@@ -1174,7 +1174,12 @@ void Run::TornadoVisualPass::EnsureGpuResources( const RenderFrameContext& /*fra
     const int particleCount = std::clamp( visual.particleCount, 0, 256 );
     constexpr int dustBands = 3;
     constexpr int dustSegments = 56;
-    const int vertexCount = ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6;
+    const int authoredVortexCount =
+        m_run.m_runtimeSettings.tornadoSystem.enabled
+            ? (std::max)( 1, static_cast<int>( m_run.m_runtimeSettings.tornadoSystem.vortices.size() ) )
+            : 1;
+    const int vertexCount =
+        authoredVortexCount * ( ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6 );
     const std::size_t floatCapacity =
         static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * TORNADO_VISUAL_FLOATS_PER_VERTEX;
     if ( m_vertices.capacity() < floatCapacity )
@@ -1188,6 +1193,8 @@ void Run::TornadoVisualPass::ReleaseGpuResources()
 {
     m_vertices.clear();
     m_vertices.shrink_to_fit();
+    m_activeVisualVortices.clear();
+    m_activeVisualVortices.shrink_to_fit();
     m_liveVisualTimeSeconds = 0.0f;
     m_lastLiveVisualSourceSeconds = 0.0;
     m_hasLiveVisualTime = false;
@@ -1196,9 +1203,8 @@ void Run::TornadoVisualPass::ReleaseGpuResources()
 
 bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 {
-    const Physics::TornadoFieldConfig& field = m_run.m_runtimeSettings.tornadoField;
     const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
-    if ( !field.enabled || !visual.enabled || field.radius <= 1.0f || field.height <= 1.0f || !IsGfxReady() )
+    if ( !visual.enabled || !IsGfxReady() )
     {
         return false;
     }
@@ -1213,11 +1219,12 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         return false;
     }
 
-    m_vertices.clear();
     const float twoPi = 6.28318530718f;
     const auto* replaySample = m_run.CurrentReplayScrubSample();
     const auto* solverSample = replaySample ? nullptr : m_run.CurrentReplaySolverScrubSample();
     const bool useReplayTime = replaySample != nullptr || solverSample != nullptr;
+    const bool useTornadoSystem =
+        m_run.m_runtimeSettings.tornadoSystem.enabled && !m_run.m_runtimeSettings.tornadoSystem.vortices.empty();
     const double sourceSeconds = m_run.m_timers.simulationTimer.GetTimeSinceLastStart();
     if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
     {
@@ -1239,9 +1246,37 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     {
         time = static_cast<float>( solverSample->simulationSeconds );
     }
-    const float rotation = time * visual.rotationSpeed;
-    const float radius = field.radius;
-    const float height = field.height;
+    else if ( useTornadoSystem )
+    {
+        time = m_run.m_cGameModelCollection.GetTornadoSystemElapsedSeconds();
+    }
+
+    m_activeVisualVortices.clear();
+    if ( useTornadoSystem )
+    {
+        Physics::TornadoSystem::BuildActiveVortices( m_run.m_runtimeSettings.tornadoSystem,
+                                                     time,
+                                                     m_activeVisualVortices );
+    }
+    else
+    {
+        const Physics::TornadoFieldConfig& field = m_run.m_runtimeSettings.tornadoField;
+        if ( field.enabled && field.radius > 1.0f && field.height > 1.0f )
+        {
+            Physics::TornadoActiveVortex active;
+            active.field = field;
+            active.strength = 1.0f;
+            active.ageSeconds = time;
+            active.sourceIndex = 0;
+            m_activeVisualVortices.push_back( active );
+        }
+    }
+    if ( m_activeVisualVortices.empty() )
+    {
+        return false;
+    }
+
+    m_vertices.clear();
     const Vector3 cameraForward =
         NormalizeOr( inputs.frame.viewCenter - inputs.frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
     const Vector3 cameraUp = NormalizeOr( inputs.frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
@@ -1256,96 +1291,142 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         return position.y - 64.0f;
     };
 
-    if ( shellAlpha > 0.0f )
+    for ( const Physics::TornadoActiveVortex& activeVortex : m_activeVisualVortices )
     {
-        constexpr float shellTurns = 2.85f;
-        for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
+        const Physics::TornadoFieldConfig& field = activeVortex.field;
+        const float rotation = time * visual.rotationSpeed + static_cast<float>( activeVortex.sourceIndex ) * 1.73f;
+        const float radius = field.radius;
+        const float height = field.height;
+
+        if ( shellAlpha > 0.0f )
         {
-            const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
-            const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) + rotation +
-                                ribbonSeed * 0.45f;
-            for ( int segment = 0; segment < ribbonSegments; ++segment )
+            constexpr float shellTurns = 2.85f;
+            for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
             {
-                const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
-                const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
-                const float angle0 = phase + t0 * shellTurns * twoPi;
-                const float angle1 = phase + t1 * shellTurns * twoPi;
-                const float radius0 =
-                    radius * ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
-                const float radius1 =
-                    radius * ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
-                const Vector3 p0 =
-                    field.center + CylindricalOffset( radius0, angle0 ) + Vector3( 0.0f, t0 * height, 0.0f );
-                const Vector3 p1 =
-                    field.center + CylindricalOffset( radius1, angle1 ) + Vector3( 0.0f, t1 * height, 0.0f );
-                const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
-                const Vector3 viewDir = NormalizeOr( inputs.frame.eye - segmentCenter, -cameraForward );
-                const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
-                const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
-                const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
-                const float baseFade = Clamp01( t0 / 0.16f );
-                const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
-                const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
-                const float alpha = shellAlpha * baseFade * topFade * gapFade;
-                const float cool = 0.72f + 0.08f * t0;
-                EmitFxQuad( m_vertices,
-                            p0 - side * width,
-                            p1 - side * width,
-                            p1 + side * width,
-                            p0 + side * width,
-                            cool,
-                            0.78f,
-                            0.84f,
-                            alpha,
-                            TORNADO_FX_KIND_RIBBON,
-                            0.0f,
-                            0.0f,
-                            0.0f,
-                            0.0f );
+                const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
+                const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) +
+                                    rotation + ribbonSeed * 0.45f;
+                for ( int segment = 0; segment < ribbonSegments; ++segment )
+                {
+                    const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
+                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
+                    const float angle0 = phase + t0 * shellTurns * twoPi;
+                    const float angle1 = phase + t1 * shellTurns * twoPi;
+                    const float radius0 =
+                        radius * ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
+                    const float radius1 =
+                        radius * ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
+                    const Vector3 p0 =
+                        field.center + CylindricalOffset( radius0, angle0 ) + Vector3( 0.0f, t0 * height, 0.0f );
+                    const Vector3 p1 =
+                        field.center + CylindricalOffset( radius1, angle1 ) + Vector3( 0.0f, t1 * height, 0.0f );
+                    const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
+                    const Vector3 viewDir = NormalizeOr( inputs.frame.eye - segmentCenter, -cameraForward );
+                    const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
+                    const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
+                    const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
+                    const float baseFade = Clamp01( t0 / 0.16f );
+                    const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
+                    const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
+                    const float alpha = shellAlpha * baseFade * topFade * gapFade;
+                    const float cool = 0.72f + 0.08f * t0;
+                    EmitFxQuad( m_vertices,
+                                p0 - side * width,
+                                p1 - side * width,
+                                p1 + side * width,
+                                p0 + side * width,
+                                cool,
+                                0.78f,
+                                0.84f,
+                                alpha,
+                                TORNADO_FX_KIND_RIBBON,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f );
+                }
             }
         }
-    }
 
-    if ( dustAlpha > 0.0f )
-    {
-        constexpr int dustBands = 3;
-        constexpr int dustSegments = 56;
-        for ( int band = 0; band < dustBands; ++band )
+        if ( dustAlpha > 0.0f )
         {
-            const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
-            const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
-            for ( int segment = 0; segment < dustSegments; ++segment )
+            constexpr int dustBands = 3;
+            constexpr int dustSegments = 56;
+            for ( int band = 0; band < dustBands; ++band )
             {
-                if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
+                const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
+                const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
+                for ( int segment = 0; segment < dustSegments; ++segment )
                 {
-                    continue;
+                    if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
+                    {
+                        continue;
+                    }
+                    const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
+                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
+                    const float angle0 = phase + t0 * twoPi * 1.18f;
+                    const float angle1 = phase + t1 * twoPi * 1.18f;
+                    const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
+                    const float innerRadius = bandRadius - radius * 0.015f;
+                    const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
+                    const float y0 =
+                        field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
+                    const float y1 =
+                        field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
+                    const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
+                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                    const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
+                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                    const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
+                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                    const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
+                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                    const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
+                    EmitFxQuad( m_vertices,
+                                a,
+                                b,
+                                c,
+                                d,
+                                0.58f,
+                                0.47f,
+                                0.31f,
+                                alpha,
+                                TORNADO_FX_KIND_DUST,
+                                terrainHeightFor( a ),
+                                terrainHeightFor( b ),
+                                terrainHeightFor( c ),
+                                terrainHeightFor( d ) );
                 }
-                const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
-                const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
-                const float angle0 = phase + t0 * twoPi * 1.18f;
-                const float angle1 = phase + t1 * twoPi * 1.18f;
-                const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
-                const float innerRadius = bandRadius - radius * 0.015f;
-                const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
-                const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
-                const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
-                const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
-                                  Vector3( 0.0f, y0 - field.center.y, 0.0f );
-                const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
-                                  Vector3( 0.0f, y1 - field.center.y, 0.0f );
-                const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
-                                  Vector3( 0.0f, y1 - field.center.y, 0.0f );
-                const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
-                                  Vector3( 0.0f, y0 - field.center.y, 0.0f );
-                const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
+            }
+
+            for ( int particle = 0; particle < particleCount; ++particle )
+            {
+                const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
+                const float h0 = HashUnitFloat( seed );
+                const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
+                const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
+                const float heightT = powf( h0, 1.45f );
+                const float angularSpeed = 0.65f + heightT * 1.25f;
+                const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
+                const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
+                const Vector3 center =
+                    field.center + CylindricalOffset( particleRadius, angle ) + Vector3( 0.0f, height * heightT, 0.0f );
+                const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
+                const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
+                const Vector3 right = cameraRight * size;
+                const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
+                const Vector3 a = center - right - up;
+                const Vector3 b = center + right - up;
+                const Vector3 c = center + right + up;
+                const Vector3 d = center - right + up;
                 EmitFxQuad( m_vertices,
                             a,
                             b,
                             c,
                             d,
-                            0.58f,
-                            0.47f,
-                            0.31f,
+                            0.68f,
+                            0.52f,
+                            0.34f,
                             alpha,
                             TORNADO_FX_KIND_DUST,
                             terrainHeightFor( a ),
@@ -1353,42 +1434,6 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
                             terrainHeightFor( c ),
                             terrainHeightFor( d ) );
             }
-        }
-
-        for ( int particle = 0; particle < particleCount; ++particle )
-        {
-            const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
-            const float h0 = HashUnitFloat( seed );
-            const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
-            const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
-            const float heightT = powf( h0, 1.45f );
-            const float angularSpeed = 0.65f + heightT * 1.25f;
-            const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
-            const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
-            const Vector3 center =
-                field.center + CylindricalOffset( particleRadius, angle ) + Vector3( 0.0f, height * heightT, 0.0f );
-            const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
-            const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
-            const Vector3 right = cameraRight * size;
-            const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
-            const Vector3 a = center - right - up;
-            const Vector3 b = center + right - up;
-            const Vector3 c = center + right + up;
-            const Vector3 d = center - right + up;
-            EmitFxQuad( m_vertices,
-                        a,
-                        b,
-                        c,
-                        d,
-                        0.68f,
-                        0.52f,
-                        0.34f,
-                        alpha,
-                        TORNADO_FX_KIND_DUST,
-                        terrainHeightFor( a ),
-                        terrainHeightFor( b ),
-                        terrainHeightFor( c ),
-                        terrainHeightFor( d ) );
         }
     }
 
@@ -1456,7 +1501,24 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField )
+    const auto tornadoSystemVectorsVisible = []( const Physics::TornadoSystemConfig& config )
+    {
+        if ( config.visualizeVelocityField )
+        {
+            return true;
+        }
+        for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+        {
+            if ( vortex.field.visualizeVelocityField )
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    const bool tornadoVectorsVisible = m_run.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+                                       tornadoSystemVectorsVisible( m_run.m_runtimeSettings.tornadoSystem );
+    if ( tornadoVectorsVisible )
     {
         if ( inputs.frame.scene )
         {
@@ -1508,7 +1570,9 @@ bool Run::DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs
     {
         return true;
     }
-    if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField && inputs.frame.scene )
+    if ( ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+           m_run.m_runtimeSettings.tornadoSystem.visualizeVelocityField ) &&
+         inputs.frame.scene )
     {
         return true;
     }

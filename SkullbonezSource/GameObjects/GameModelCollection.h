@@ -151,6 +151,15 @@ class GameModelCollection : public Rendering::IRenderSceneView
     {
         return m_physicsScene.GetTornadoFieldConfig();
     }
+    void SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config );
+    const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const
+    {
+        return m_physicsScene.GetTornadoSystemConfig();
+    }
+    float GetTornadoSystemElapsedSeconds() const
+    {
+        return m_physicsScene.GetTornadoSystemElapsedSeconds();
+    }
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,

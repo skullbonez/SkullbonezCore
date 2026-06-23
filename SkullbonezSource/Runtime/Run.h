@@ -114,6 +114,7 @@ struct RunRuntimeSettings
     bool isPhysicsSleepEnabled =
         true;                                                                    // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
     Physics::TornadoFieldConfig tornadoField;                                    // Live vortex force/debug vector field controlled by CLI/UI
+    Physics::TornadoSystemConfig tornadoSystem;                                  // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                                         // Render-only tornado art tuning outside deterministic physics state.
 };
 
@@ -1192,6 +1193,7 @@ class Run
       private:
         Run& m_run;
         std::vector<float> m_vertices;
+        std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
         float m_liveVisualTimeSeconds = 0.0f;
         double m_lastLiveVisualSourceSeconds = 0.0;
         bool m_hasLiveVisualTime = false;

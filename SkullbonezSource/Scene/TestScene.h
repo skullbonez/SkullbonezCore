@@ -35,6 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include <vector>
@@ -341,6 +342,12 @@ struct SceneWorldOverride
     float worldFluidDensity = 0.0f;
 };
 
+struct SceneTornadoSystem
+{
+    bool hasTornadoSystem = false;
+    Physics::TornadoSystemConfig config;
+};
+
 struct SceneUIOptions
 {
     bool hasSettings = false;
@@ -422,6 +429,7 @@ class TestScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SceneTornadoSystem m_tornadoSystem;
     SceneUIOptions m_UIOptions;
 
   public:
@@ -510,6 +518,8 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    bool HasTornadoSystem() const;
+    const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;
 };
 } // namespace Basics

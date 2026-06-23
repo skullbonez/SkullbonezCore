@@ -68,6 +68,23 @@ void ApplySceneWorkerThreadSetting( int requestedWorkerThreads )
     }
 }
 
+Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
+{
+    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
+    const float xHalf = eulerXDeg * DEG2RAD * 0.5f;
+    const float yHalf = eulerYDeg * DEG2RAD * 0.5f;
+    const float zHalf = eulerZDeg * DEG2RAD * 0.5f;
+
+    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+
+    Quaternion orientation;
+    orientation *= xRotation * yRotation * zRotation;
+    orientation.Normalise();
+    return orientation;
+}
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
     if ( strcmp( material.target, "all" ) == 0 )
@@ -925,9 +942,8 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         options.startsAsleep = ragdollScene.startsAsleep;
         if ( ragdollScene.hasInitOrient )
         {
-            options.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), ragdollScene.eulerX * _PI / 180.0f );
-            options.orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), ragdollScene.eulerY * _PI / 180.0f );
-            options.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), ragdollScene.eulerZ * _PI / 180.0f );
+            options.orientation =
+                MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
         }
         Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
     }
@@ -1434,6 +1450,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         rngSeed = 1;
     }
+    bool hasSceneTornadoSystem = false;
+    TornadoSystemConfig sceneTornadoSystem;
 
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
@@ -1479,6 +1497,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         SceneState().isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
+        hasSceneTornadoSystem = scene.HasTornadoSystem();
+        if ( hasSceneTornadoSystem )
+        {
+            sceneTornadoSystem = scene.GetTornadoSystemConfig();
+        }
         Cfg().gameModelCapacity =
             scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
         ApplySceneWorkerThreadSetting( scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads()
@@ -1819,11 +1842,26 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     if ( !shouldPreserveRuntimeState )
     {
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
+        m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
         ApplyTornadoDefaultsForActiveScene();
+        if ( hasSceneTornadoSystem )
+        {
+            m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
+            m_runtimeSettings.tornadoField.enabled = false;
+            m_runtimeSettings.tornadoVisual.enabled = true;
+        }
     }
     if ( m_cmdHasTornadoOverride )
     {
-        m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+        if ( m_runtimeSettings.tornadoSystem.enabled || !m_runtimeSettings.tornadoSystem.vortices.empty() )
+        {
+            m_runtimeSettings.tornadoSystem.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoField.enabled = false;
+        }
+        else
+        {
+            m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+        }
         if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
         {
             m_runtimeSettings.tornadoVisual.enabled = m_cmdTornadoEnabled;
@@ -1832,6 +1870,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     if ( m_cmdTornadoVectors )
     {
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
+        m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
     SyncTornadoFieldToPhysics();
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
@@ -2735,6 +2774,7 @@ void Run::ApplyTornadoDefaultsForActiveScene()
 void Run::SyncTornadoFieldToPhysics()
 {
     m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
+    m_cGameModelCollection.SetTornadoSystemConfig( m_runtimeSettings.tornadoSystem );
 }
 
 

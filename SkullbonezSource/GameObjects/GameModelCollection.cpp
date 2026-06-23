@@ -555,6 +555,12 @@ void GameModelCollection::SetTornadoFieldConfig( const Physics::TornadoFieldConf
 }
 
 
+void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config )
+{
+    m_physicsScene.SetTornadoSystemConfig( config );
+}
+
+
 void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
 {
     m_physicsScene.RenderTornadoFieldVectors( viewProj );

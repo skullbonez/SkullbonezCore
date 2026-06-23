@@ -591,6 +591,18 @@ float TestScene::GetWorldFluidDensity() const
 }
 
 
+bool TestScene::HasTornadoSystem() const
+{
+    return m_tornadoSystem.hasTornadoSystem;
+}
+
+
+const SkullbonezCore::Physics::TornadoSystemConfig& TestScene::GetTornadoSystemConfig() const
+{
+    return m_tornadoSystem.config;
+}
+
+
 const SceneUIOptions& TestScene::GetUIOptions() const
 {
     return m_UIOptions;

@@ -137,6 +137,24 @@ const SkullbonezCore::Physics::TornadoFieldConfig& PhysicsScene::GetTornadoField
 }
 
 
+void PhysicsScene::SetTornadoSystemConfig( const TornadoSystemConfig& config )
+{
+    m_world.SetTornadoSystemConfig( config );
+}
+
+
+const SkullbonezCore::Physics::TornadoSystemConfig& PhysicsScene::GetTornadoSystemConfig() const
+{
+    return m_world.GetTornadoSystemConfig();
+}
+
+
+float PhysicsScene::GetTornadoSystemElapsedSeconds() const
+{
+    return m_world.GetTornadoSystemElapsedSeconds();
+}
+
+
 void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
 {
     m_world.RenderTornadoFieldVectors( viewProj );

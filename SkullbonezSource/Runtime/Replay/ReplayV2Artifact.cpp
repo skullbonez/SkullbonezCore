@@ -401,6 +401,32 @@ void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physi
     AppendPod( out, config.maxDeltaVelocity );
 }
 
+
+void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physics::TornadoSystemConfig& config )
+{
+    const uint8_t enabled = config.enabled ? 1u : 0u;
+    const uint8_t visualizeVelocityField = config.visualizeVelocityField ? 1u : 0u;
+    const uint8_t reserved[2] = {};
+    AppendPod( out, enabled );
+    AppendPod( out, visualizeVelocityField );
+    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendPod( out, CheckedU32( config.vortices.size() ) );
+    for ( const SkullbonezCore::Physics::TornadoVortexConfig& vortex : config.vortices )
+    {
+        AppendTornadoConfig( out, vortex.field );
+        AppendPod( out, vortex.spawnSeconds );
+        AppendPod( out, vortex.timeToLiveSeconds );
+        AppendPod( out, vortex.growSeconds );
+        AppendPod( out, vortex.shrinkSeconds );
+        AppendPod( out, vortex.driftRadius );
+        AppendPod( out, vortex.driftSpeed );
+        AppendPod( out, vortex.driftPhase );
+        AppendPod( out, vortex.repulsionRadius );
+        AppendPod( out, vortex.repulsionStrength );
+    }
+}
+
+
 void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample& stats )
 {
     AppendPod( out, static_cast<int32_t>( stats.rowCount ) );
@@ -497,6 +523,11 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSna
     AppendPod( out, collisionVisualFrameActive );
     AppendBytes( out, reserved, sizeof( reserved ) );
     AppendTornadoConfig( out, snapshot.tornadoConfig );
+    if ( snapshot.version >= 2 )
+    {
+        AppendTornadoSystemConfig( out, snapshot.tornadoSystemConfig );
+        AppendPod( out, snapshot.tornadoSystemElapsedSeconds );
+    }
     AppendCountedPodVector( out, snapshot.timeRemaining );
     AppendCountedPodVector( out, snapshot.sleepSupportedThisFrame );
     AppendCountedPodVector( out, snapshot.sleepInhibitedThisFrame );
@@ -1233,6 +1264,51 @@ bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoFiel
     return true;
 }
 
+
+bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoVortexConfig& outConfig )
+{
+    if ( !ReadTornadoConfig( cursor, outConfig.field ) || !ReadPod( cursor, outConfig.spawnSeconds ) ||
+         !ReadPod( cursor, outConfig.timeToLiveSeconds ) || !ReadPod( cursor, outConfig.growSeconds ) ||
+         !ReadPod( cursor, outConfig.shrinkSeconds ) || !ReadPod( cursor, outConfig.driftRadius ) ||
+         !ReadPod( cursor, outConfig.driftSpeed ) || !ReadPod( cursor, outConfig.driftPhase ) ||
+         !ReadPod( cursor, outConfig.repulsionRadius ) || !ReadPod( cursor, outConfig.repulsionStrength ) )
+    {
+        return false;
+    }
+    return true;
+}
+
+
+bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoSystemConfig& outConfig )
+{
+    uint8_t enabled = 0;
+    uint8_t visualizeVelocityField = 0;
+    uint32_t count = 0;
+    if ( !ReadPod( cursor, enabled ) || !ReadPod( cursor, visualizeVelocityField ) || !SkipBytes( cursor, 2 ) ||
+         !ReadPod( cursor, count ) )
+    {
+        return false;
+    }
+    if ( count > 256u )
+    {
+        return false;
+    }
+
+    outConfig = SkullbonezCore::Physics::TornadoSystemConfig();
+    outConfig.enabled = enabled != 0;
+    outConfig.visualizeVelocityField = visualizeVelocityField != 0;
+    outConfig.vortices.resize( count );
+    for ( SkullbonezCore::Physics::TornadoVortexConfig& vortex : outConfig.vortices )
+    {
+        if ( !ReadTornadoVortexConfig( cursor, vortex ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
 {
     int32_t rowCount = 0;
@@ -1355,8 +1431,24 @@ bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnaps
     if ( !ReadPod( cursor, outSnapshot.version ) || !ReadPod( cursor, modelCount ) ||
          !ReadPod( cursor, nextSleepIslandVisualId ) || !ReadPod( cursor, sleepEnabled ) ||
          !ReadPod( cursor, collisionVisualFrameActive ) || !SkipBytes( cursor, 2 ) ||
-         !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.timeRemaining ) ||
+         !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) )
+    {
+        return false;
+    }
+    if ( outSnapshot.version < 1 || outSnapshot.version > 2 )
+    {
+        return false;
+    }
+    if ( outSnapshot.version >= 2 )
+    {
+        if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) ||
+             !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
+        {
+            return false;
+        }
+    }
+
+    if ( !ReadCountedPodVector( cursor, outSnapshot.timeRemaining ) ||
          !ReadCountedPodVector( cursor, outSnapshot.sleepSupportedThisFrame ) ||
          !ReadCountedPodVector( cursor, outSnapshot.sleepInhibitedThisFrame ) ||
          !ReadCountedPodVector( cursor, outSnapshot.sleepState ) ||

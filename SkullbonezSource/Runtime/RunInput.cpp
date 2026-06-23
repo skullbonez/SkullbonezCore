@@ -915,12 +915,37 @@ void Run::TakeInput()
                                                RuntimeInputActionSource::UI );
         }
         bool tornadoFieldChanged = false;
+        const bool hasTornadoSystem = !m_runtimeSettings.tornadoSystem.vortices.empty();
+        const auto applyTornadoFieldValue = [&]( float TornadoFieldConfig::* field, float value )
+        {
+            if ( hasTornadoSystem )
+            {
+                for ( TornadoVortexConfig& vortex : m_runtimeSettings.tornadoSystem.vortices )
+                {
+                    vortex.field.*field = value;
+                }
+            }
+            else
+            {
+                m_runtimeSettings.tornadoField.*field = value;
+            }
+        };
         if ( uiCommands.physics.toggleTornado )
         {
-            m_runtimeSettings.tornadoField.enabled = !m_runtimeSettings.tornadoField.enabled;
+            bool tornadoEnabled = false;
+            if ( hasTornadoSystem )
+            {
+                m_runtimeSettings.tornadoSystem.enabled = !m_runtimeSettings.tornadoSystem.enabled;
+                tornadoEnabled = m_runtimeSettings.tornadoSystem.enabled;
+            }
+            else
+            {
+                m_runtimeSettings.tornadoField.enabled = !m_runtimeSettings.tornadoField.enabled;
+                tornadoEnabled = m_runtimeSettings.tornadoField.enabled;
+            }
             if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
             {
-                m_runtimeSettings.tornadoVisual.enabled = m_runtimeSettings.tornadoField.enabled;
+                m_runtimeSettings.tornadoVisual.enabled = tornadoEnabled;
             }
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornado, RuntimeInputActionSource::UI );
@@ -933,8 +958,16 @@ void Run::TakeInput()
         }
         if ( uiCommands.physics.toggleTornadoFieldVectors )
         {
-            m_runtimeSettings.tornadoField.visualizeVelocityField =
-                !m_runtimeSettings.tornadoField.visualizeVelocityField;
+            if ( hasTornadoSystem )
+            {
+                m_runtimeSettings.tornadoSystem.visualizeVelocityField =
+                    !m_runtimeSettings.tornadoSystem.visualizeVelocityField;
+            }
+            else
+            {
+                m_runtimeSettings.tornadoField.visualizeVelocityField =
+                    !m_runtimeSettings.tornadoField.visualizeVelocityField;
+            }
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoFieldVectors,
                                                RuntimeInputActionSource::UI );
@@ -947,36 +980,41 @@ void Run::TakeInput()
         }
         if ( uiCommands.physics.requestTornadoRadius )
         {
-            m_runtimeSettings.tornadoField.radius =
-                std::clamp( uiCommands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX );
+            applyTornadoFieldValue(
+                &TornadoFieldConfig::radius,
+                std::clamp( uiCommands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX ) );
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoHeight )
         {
-            m_runtimeSettings.tornadoField.height =
-                std::clamp( uiCommands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX );
+            applyTornadoFieldValue(
+                &TornadoFieldConfig::height,
+                std::clamp( uiCommands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX ) );
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoInward )
         {
-            m_runtimeSettings.tornadoField.inwardAcceleration =
-                std::clamp( uiCommands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX );
+            applyTornadoFieldValue(
+                &TornadoFieldConfig::inwardAcceleration,
+                std::clamp( uiCommands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX ) );
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoSwirl )
         {
-            m_runtimeSettings.tornadoField.swirlAcceleration =
-                std::clamp( uiCommands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX );
+            applyTornadoFieldValue(
+                &TornadoFieldConfig::swirlAcceleration,
+                std::clamp( uiCommands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX ) );
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestTornadoLift )
         {
-            m_runtimeSettings.tornadoField.liftAcceleration =
-                std::clamp( uiCommands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX );
+            applyTornadoFieldValue(
+                &TornadoFieldConfig::liftAcceleration,
+                std::clamp( uiCommands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX ) );
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyTornadoSettings, RuntimeInputActionSource::UI );
         }

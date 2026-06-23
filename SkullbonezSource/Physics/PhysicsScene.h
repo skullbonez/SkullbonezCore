@@ -63,6 +63,9 @@ class PhysicsScene
     void AddPointJointConstraint( const PointJointConstraint& constraint );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
+    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
+    const TornadoSystemConfig& GetTornadoSystemConfig() const;
+    float GetTornadoSystemElapsedSeconds() const;
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
