@@ -253,11 +253,12 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
     shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
 
     DynamicVBDX12 vertexLayout = {};
-    vertexLayout.numAttribs = 2;
+    vertexLayout.numAttribs = 3;
     vertexLayout.attribComponents[0] = 3;
     vertexLayout.attribComponents[1] = 4;
-    vertexLayout.floatsPerVertex = 7;
-    vertexLayout.stride = 7 * static_cast<int>( sizeof( float ) );
+    vertexLayout.attribComponents[2] = 4;
+    vertexLayout.floatsPerVertex = 11;
+    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
 
     const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
     const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );

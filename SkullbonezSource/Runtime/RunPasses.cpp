@@ -55,6 +55,9 @@ constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
 constexpr unsigned int RENDER_TEXTURE_SLOT_3 = 1u << 3;
+constexpr std::size_t TORNADO_VISUAL_FLOATS_PER_VERTEX = 11u;
+constexpr float TORNADO_FX_KIND_RIBBON = 0.0f;
+constexpr float TORNADO_FX_KIND_DUST = 1.0f;
 
 void ClearRenderTextureSlotsExcept( unsigned int keptSlots )
 {
@@ -115,7 +118,16 @@ Vector3 CylindricalOffset( float radius, float angle )
     return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
 }
 
-void EmitColorVertex( std::vector<float>& vertices, const Vector3& position, float r, float g, float b, float a )
+void EmitFxVertex( std::vector<float>& vertices,
+                   const Vector3& position,
+                   float r,
+                   float g,
+                   float b,
+                   float a,
+                   float u,
+                   float v,
+                   float fxKind,
+                   float terrainY )
 {
     vertices.push_back( position.x );
     vertices.push_back( position.y );
@@ -124,24 +136,33 @@ void EmitColorVertex( std::vector<float>& vertices, const Vector3& position, flo
     vertices.push_back( g );
     vertices.push_back( b );
     vertices.push_back( a );
+    vertices.push_back( u );
+    vertices.push_back( v );
+    vertices.push_back( fxKind );
+    vertices.push_back( terrainY );
 }
 
-void EmitColorQuad( std::vector<float>& vertices,
-                    const Vector3& a,
-                    const Vector3& b,
-                    const Vector3& c,
-                    const Vector3& d,
-                    float r,
-                    float g,
-                    float blue,
-                    float alpha )
+void EmitFxQuad( std::vector<float>& vertices,
+                 const Vector3& a,
+                 const Vector3& b,
+                 const Vector3& c,
+                 const Vector3& d,
+                 float r,
+                 float g,
+                 float blue,
+                 float alpha,
+                 float fxKind,
+                 float terrainA,
+                 float terrainB,
+                 float terrainC,
+                 float terrainD )
 {
-    EmitColorVertex( vertices, a, r, g, blue, alpha );
-    EmitColorVertex( vertices, b, r, g, blue, alpha );
-    EmitColorVertex( vertices, c, r, g, blue, alpha );
-    EmitColorVertex( vertices, a, r, g, blue, alpha );
-    EmitColorVertex( vertices, c, r, g, blue, alpha );
-    EmitColorVertex( vertices, d, r, g, blue, alpha );
+    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
+    EmitFxVertex( vertices, b, r, g, blue, alpha, 1.0f, 0.0f, fxKind, terrainB );
+    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
+    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
+    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
+    EmitFxVertex( vertices, d, r, g, blue, alpha, 0.0f, 1.0f, fxKind, terrainD );
 }
 
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
@@ -1149,12 +1170,13 @@ void Run::TornadoVisualPass::EnsureGpuResources( const RenderFrameContext& /*fra
 {
     const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
     const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
-    const int ribbonSegments = std::clamp( visual.ribbonSegments, 0, 96 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
     const int particleCount = std::clamp( visual.particleCount, 0, 256 );
     constexpr int dustBands = 3;
     constexpr int dustSegments = 56;
     const int vertexCount = ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6;
-    const std::size_t floatCapacity = static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * 7u;
+    const std::size_t floatCapacity =
+        static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * TORNADO_VISUAL_FLOATS_PER_VERTEX;
     if ( m_vertices.capacity() < floatCapacity )
     {
         m_vertices.reserve( floatCapacity );
@@ -1190,7 +1212,15 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 
     m_vertices.clear();
     const float twoPi = 6.28318530718f;
-    const float time = static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    float time = static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    if ( const auto* replaySample = m_run.CurrentReplayScrubSample() )
+    {
+        time = static_cast<float>( replaySample->simulationSeconds );
+    }
+    else if ( const auto* solverSample = m_run.CurrentReplaySolverScrubSample() )
+    {
+        time = static_cast<float>( solverSample->simulationSeconds );
+    }
     const float rotation = time * visual.rotationSpeed;
     const float radius = field.radius;
     const float height = field.height;
@@ -1199,6 +1229,14 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     const Vector3 cameraUp = NormalizeOr( inputs.frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
     const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
     const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
+    const auto terrainHeightFor = [&]( const Vector3& position )
+    {
+        if ( m_run.m_systems.terrain && m_run.m_systems.terrain->IsInBounds( position.x, position.z ) )
+        {
+            return m_run.m_systems.terrain->GetTerrainHeightAt( position.x, position.z );
+        }
+        return position.y - 64.0f;
+    };
 
     if ( shellAlpha > 0.0f )
     {
@@ -1232,15 +1270,20 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
                 const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
                 const float alpha = shellAlpha * baseFade * topFade * gapFade;
                 const float cool = 0.72f + 0.08f * t0;
-                EmitColorQuad( m_vertices,
-                               p0 - side * width,
-                               p1 - side * width,
-                               p1 + side * width,
-                               p0 + side * width,
-                               cool,
-                               0.78f,
-                               0.84f,
-                               alpha );
+                EmitFxQuad( m_vertices,
+                            p0 - side * width,
+                            p1 - side * width,
+                            p1 + side * width,
+                            p0 + side * width,
+                            cool,
+                            0.78f,
+                            0.84f,
+                            alpha,
+                            TORNADO_FX_KIND_RIBBON,
+                            0.0f,
+                            0.0f,
+                            0.0f,
+                            0.0f );
             }
         }
     }
@@ -1255,7 +1298,7 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
             const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
             for ( int segment = 0; segment < dustSegments; ++segment )
             {
-                if ( ( segment + band * 3 ) % 9 == 0 )
+                if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
                 {
                     continue;
                 }
@@ -1264,8 +1307,8 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
                 const float angle0 = phase + t0 * twoPi * 1.18f;
                 const float angle1 = phase + t1 * twoPi * 1.18f;
                 const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
-                const float innerRadius = bandRadius - radius * 0.025f;
-                const float outerRadius = bandRadius + radius * ( 0.035f + 0.012f * bandT );
+                const float innerRadius = bandRadius - radius * 0.015f;
+                const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
                 const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
                 const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
                 const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
@@ -1276,8 +1319,21 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
                                   Vector3( 0.0f, y1 - field.center.y, 0.0f );
                 const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
                                   Vector3( 0.0f, y0 - field.center.y, 0.0f );
-                const float alpha = dustAlpha * ( 0.82f - 0.16f * bandT );
-                EmitColorQuad( m_vertices, a, b, c, d, 0.76f, 0.70f, 0.60f, alpha );
+                const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
+                EmitFxQuad( m_vertices,
+                            a,
+                            b,
+                            c,
+                            d,
+                            0.58f,
+                            0.47f,
+                            0.31f,
+                            alpha,
+                            TORNADO_FX_KIND_DUST,
+                            terrainHeightFor( a ),
+                            terrainHeightFor( b ),
+                            terrainHeightFor( c ),
+                            terrainHeightFor( d ) );
             }
         }
 
@@ -1297,15 +1353,24 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
             const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
             const Vector3 right = cameraRight * size;
             const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
-            EmitColorQuad( m_vertices,
-                           center - right - up,
-                           center + right - up,
-                           center + right + up,
-                           center - right + up,
-                           0.82f,
-                           0.76f,
-                           0.64f,
-                           alpha );
+            const Vector3 a = center - right - up;
+            const Vector3 b = center + right - up;
+            const Vector3 c = center + right + up;
+            const Vector3 d = center - right + up;
+            EmitFxQuad( m_vertices,
+                        a,
+                        b,
+                        c,
+                        d,
+                        0.68f,
+                        0.52f,
+                        0.34f,
+                        alpha,
+                        TORNADO_FX_KIND_DUST,
+                        terrainHeightFor( a ),
+                        terrainHeightFor( b ),
+                        terrainHeightFor( c ),
+                        terrainHeightFor( d ) );
         }
     }
 
@@ -1331,7 +1396,7 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
     Gfx().SetCullFace( false );
     Gfx().DrawTransientColoredTriangles( m_vertices.data(),
-                                         static_cast<int>( m_vertices.size() / 7u ),
+                                         static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
                                          inputs.frame.viewProjection.Data() );
     Gfx().SetCullFace( cullWasEnabled );
     Gfx().SetBlendFunc( blendSrc, blendDst );

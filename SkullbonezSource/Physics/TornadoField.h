@@ -48,9 +48,9 @@ struct TornadoFieldConfig
     float liftAcceleration = 78.0f;
     float ejectAcceleration = 260.0f;
     float ejectUpAcceleration = 70.0f;
-    float ejectBand = 0.78f;
-    float minCaptureSeconds = 0.65f;
-    float ejectCooldownSeconds = 1.15f;
+    float ejectBand = 0.88f;
+    float minCaptureSeconds = 1.50f;
+    float ejectCooldownSeconds = 2.25f;
     float maxDeltaVelocity = 24.0f;
 };
 

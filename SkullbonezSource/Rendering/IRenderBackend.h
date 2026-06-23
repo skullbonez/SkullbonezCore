@@ -306,7 +306,7 @@ class IRenderBackend : public IRenderCaptureBackend
     }
 
     // --- Transient Colored Triangle Rendering ---
-    // Immediate world-space triangles with interleaved [x,y,z,r,g,b,a] vertices.
+    // Immediate world-space triangles with interleaved [x,y,z,r,g,b,a,u,v,kind,terrainY] vertices.
     // Used for sparse alpha FX that should depth-test against opaque world geometry.
     virtual void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 )
     {
