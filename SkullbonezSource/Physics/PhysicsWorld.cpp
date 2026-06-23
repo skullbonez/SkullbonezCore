@@ -74,7 +74,6 @@ constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
 constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
-constexpr float PHYSICS_CONSTRAINT_SLEEP_ANGULAR_TOLERANCE = 0.05f;
 constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
 constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
@@ -99,131 +98,6 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     }
 
     return value * ( maxMagnitude / sqrtf( magSq ) );
-}
-
-Vector3 NormalizeOrFallback( const Vector3& value, const Vector3& fallback )
-{
-    const float mag = Vector::VectorMag( value );
-    if ( mag <= TOLERANCE || !std::isfinite( mag ) )
-    {
-        return fallback;
-    }
-    return value / mag;
-}
-
-void BuildConstraintBasis( const Math::Transformation::RotationMatrix& rotation,
-                           const Vector3& localPrimary,
-                           const Vector3& localSecondary,
-                           Vector3& primary,
-                           Vector3& secondary,
-                           Vector3& tertiary )
-{
-    primary = NormalizeOrFallback( rotation * localPrimary, Vector3( 0.0f, 1.0f, 0.0f ) );
-    secondary = rotation * localSecondary;
-    secondary -= primary * ( secondary * primary );
-    secondary =
-        NormalizeOrFallback( secondary,
-                             fabsf( primary.y ) > 0.8f ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 1.0f, 0.0f ) );
-    tertiary = NormalizeOrFallback( Vector::CrossProduct( primary, secondary ), Vector3( 0.0f, 0.0f, 1.0f ) );
-}
-
-float MeasureConstraintAngle( const Vector3& axis, const Vector3& referenceA, const Vector3& referenceB )
-{
-    const Vector3 normalizedAxis = NormalizeOrFallback( axis, Vector3( 0.0f, 1.0f, 0.0f ) );
-    Vector3 projectedA = referenceA - normalizedAxis * ( referenceA * normalizedAxis );
-    projectedA = NormalizeOrFallback( projectedA, Vector3( 1.0f, 0.0f, 0.0f ) );
-    Vector3 projectedB = referenceB - normalizedAxis * ( referenceB * normalizedAxis );
-    projectedB = NormalizeOrFallback( projectedB, projectedA );
-    const float sinAngle = Vector::CrossProduct( projectedA, projectedB ) * normalizedAxis;
-    const float cosAngle = std::clamp( projectedA * projectedB, -1.0f, 1.0f );
-    return atan2f( sinAngle, cosAngle );
-}
-
-bool ConstraintAxisValueRelaxed( float value,
-                                 ConstraintAxisMode mode,
-                                 const PhysicsConstraintLimit& limit,
-                                 float tolerance )
-{
-    if ( mode == ConstraintAxisMode::Free )
-    {
-        return true;
-    }
-    if ( mode == ConstraintAxisMode::Locked )
-    {
-        return fabsf( value ) <= tolerance;
-    }
-    return value >= limit.minValue - tolerance && value <= limit.maxValue + tolerance;
-}
-
-bool IsPhysicsConstraintRelaxed( const PhysicsConstraintDescriptor& constraint,
-                                 const GameModel& modelA,
-                                 const GameModel& modelB )
-{
-    auto orientationA = modelA.GetOrientation();
-    auto orientationB = modelB.GetOrientation();
-    const auto rotA = orientationA.GetOrientationMatrix();
-    const auto rotB = orientationB.GetOrientationMatrix();
-    const Vector3 anchorA = modelA.GetPosition() + rotA * constraint.localAnchorA;
-    const Vector3 anchorB = modelB.GetPosition() + rotB * constraint.localAnchorB;
-    const Vector3 error = anchorB - anchorA;
-
-    if ( constraint.type != PhysicsConstraintType::Slider && constraint.type != PhysicsConstraintType::SixDof )
-    {
-        const float distance = Vector::VectorMag( error );
-        const float allowedDistance =
-            constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
-                                           constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
-        return distance <= allowedDistance;
-    }
-
-    Vector3 primaryA;
-    Vector3 secondaryA;
-    Vector3 tertiaryA;
-    Vector3 primaryB;
-    Vector3 secondaryB;
-    Vector3 tertiaryB;
-    BuildConstraintBasis( rotA,
-                          constraint.localAxisA,
-                          constraint.localSecondaryAxisA,
-                          primaryA,
-                          secondaryA,
-                          tertiaryA );
-    BuildConstraintBasis( rotB,
-                          constraint.localAxisB,
-                          constraint.localSecondaryAxisB,
-                          primaryB,
-                          secondaryB,
-                          tertiaryB );
-
-    const Vector3 linearAxes[3] = { primaryA, secondaryA, tertiaryA };
-    for ( int axisIndex = 0; axisIndex < 3; ++axisIndex )
-    {
-        const float value = error * linearAxes[axisIndex];
-        if ( !ConstraintAxisValueRelaxed( value,
-                                          constraint.linearAxisModes[static_cast<size_t>( axisIndex )],
-                                          constraint.linearLimits[static_cast<size_t>( axisIndex )],
-                                          POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE ) )
-        {
-            return false;
-        }
-    }
-
-    const Vector3 angularAxes[3] = { primaryA, secondaryA, tertiaryA };
-    const Vector3 referencesA[3] = { secondaryA, tertiaryA, primaryA };
-    const Vector3 referencesB[3] = { secondaryB, tertiaryB, primaryB };
-    for ( int axisIndex = 0; axisIndex < 3; ++axisIndex )
-    {
-        const float angle =
-            MeasureConstraintAngle( angularAxes[axisIndex], referencesA[axisIndex], referencesB[axisIndex] );
-        if ( !ConstraintAxisValueRelaxed( angle,
-                                          constraint.angularAxisModes[static_cast<size_t>( axisIndex )],
-                                          constraint.angularLimits[static_cast<size_t>( axisIndex )],
-                                          PHYSICS_CONSTRAINT_SLEEP_ANGULAR_TOLERANCE ) )
-        {
-            return false;
-        }
-    }
-    return true;
 }
 } // namespace
 
@@ -266,8 +140,6 @@ PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( MAX_GAME_MODELS );
-    m_physicsConstraints.reserve( MAX_GAME_MODELS );
-    m_solverConstraints.reserve( MAX_GAME_MODELS );
 }
 
 
@@ -317,9 +189,6 @@ void PhysicsWorld::Clear()
     m_objectNarrowphaseRank.clear();
     m_objectNarrowphaseRootToIsland.clear();
     m_pointJointConstraints.clear();
-    m_physicsConstraints.clear();
-    m_solverConstraints.clear();
-    m_constraintSolverStats = PhysicsConstraintSolverStats();
     m_collisionCellKeys.clear();
 }
 
@@ -674,8 +543,6 @@ void PhysicsWorld::EndCollisionVisualFrame()
 void PhysicsWorld::ClearPointJointConstraints()
 {
     m_pointJointConstraints.clear();
-    m_physicsConstraints.clear();
-    m_solverConstraints.clear();
 }
 
 
@@ -689,25 +556,9 @@ void PhysicsWorld::AddPointJointConstraint( const PointJointConstraint& constrai
 }
 
 
-void PhysicsWorld::AddPhysicsConstraint( const PhysicsConstraintDescriptor& constraint )
-{
-    if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA == constraint.bodyB )
-    {
-        return;
-    }
-    m_physicsConstraints.push_back( constraint );
-}
-
-
 const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints() const
 {
     return m_pointJointConstraints;
-}
-
-
-const std::vector<PhysicsConstraintDescriptor>& PhysicsWorld::GetPhysicsConstraints() const
-{
-    return m_physicsConstraints;
 }
 
 
@@ -1207,28 +1058,16 @@ void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
 
 void PhysicsWorld::AppendPointJointSupportEdges( int modelCount )
 {
-    // Concept: a constraint is not a contact, but it is still a physical
+    // Concept: a point joint is not a contact, but it is still a physical
     // support path for sleep. Adding bidirectional edges lets a quiet ragdoll
     // limb inherit support from any grounded body in the same constrained
     // component without changing the contact solver rows.
-    if ( m_pointJointConstraints.empty() && m_physicsConstraints.empty() )
+    if ( m_pointJointConstraints.empty() )
     {
         return;
     }
 
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepSupportEdges.emplace_back( a, b );
-        m_sleepSupportEdges.emplace_back( b, a );
-    }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
     {
         const int a = constraint.bodyA;
         const int b = constraint.bodyB;
@@ -1355,10 +1194,10 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
 {
     // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
     // treats the sleepers as temporary static anchors. Wake the whole constraint
-    // component so later constraint impulses are applied to the same live island.
+    // component so later point-joint impulses are applied to the same live island.
     auto& models = collection.PhysicsModels();
     const int modelCount = static_cast<int>( models.size() );
-    if ( ( m_pointJointConstraints.empty() && m_physicsConstraints.empty() ) || index < 0 || index >= modelCount ||
+    if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
          index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
@@ -1424,19 +1263,6 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
         m_sleepPointJointBody[b] = 1;
         unionIslands( a, b );
     }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
-    {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
-    }
 
     if ( m_sleepPointJointBody[index] == 0 )
     {
@@ -1461,7 +1287,7 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
 }
 
 
-bool PhysicsWorld::IsConstrainedPair( int bodyA, int bodyB ) const
+bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
 {
     if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
     {
@@ -1484,27 +1310,13 @@ bool PhysicsWorld::IsConstrainedPair( int bodyA, int bodyB ) const
             return true;
         }
     }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
-    {
-        int jointA = constraint.bodyA;
-        int jointB = constraint.bodyB;
-        if ( jointA > jointB )
-        {
-            std::swap( jointA, jointB );
-        }
-        if ( jointA == bodyA && jointB == bodyB )
-        {
-            return true;
-        }
-    }
     return false;
 }
 
 
 void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, float dt )
 {
-    if ( ( m_pointJointConstraints.empty() && m_physicsConstraints.empty() ) ||
-         static_cast<int>( m_sleepState.size() ) <= 0 )
+    if ( m_pointJointConstraints.empty() || static_cast<int>( m_sleepState.size() ) <= 0 )
     {
         return;
     }
@@ -1562,20 +1374,6 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
         // Concept: point-joint edges define the constrained component. If one
         // piece is awake, any sleeping neighbors must wake before the solver
         // applies joint impulses against them as static anchors.
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount ||
-             a >= static_cast<int>( m_sleepState.size() ) || b >= static_cast<int>( m_sleepState.size() ) )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
-    }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
-    {
         const int a = constraint.bodyA;
         const int b = constraint.bodyB;
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount ||
@@ -1823,13 +1621,13 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                               candidatePairs.end() );
     }
 
-    if ( !m_pointJointConstraints.empty() || !m_physicsConstraints.empty() )
+    if ( !m_pointJointConstraints.empty() )
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
         candidatePairs.erase( std::remove_if( candidatePairs.begin(),
                                               candidatePairs.end(),
                                               [&]( const std::pair<int, int>& pair )
-                                              { return IsConstrainedPair( pair.first, pair.second ); } ),
+                                              { return IsPointJointPair( pair.first, pair.second ); } ),
                               candidatePairs.end() );
     }
 
@@ -2523,16 +2321,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     m_contactSolver.Solve( *this, collection, dt );
     WakePointJointConnectedBodies( collection, dt );
-    m_solverConstraints.clear();
-    m_solverConstraints.insert( m_solverConstraints.end(), m_physicsConstraints.begin(), m_physicsConstraints.end() );
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        if ( constraint.solverEnabled )
-        {
-            m_solverConstraints.push_back( MakeBallSocketConstraint( constraint ) );
-        }
-    }
-    m_constraintSolverStats = PhysicsConstraintSolver::Solve( collection, m_solverConstraints, m_sleepState, dt );
+    Ragdoll::SolvePointJoints( collection, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
@@ -2672,19 +2461,6 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         m_sleepPointJointBody[b] = 1;
         unionIslands( a, b );
     }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
-    {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
-    }
 
     m_sleepVisualIslandIds.clear();
     m_sleepVisualIslandBodies.clear();
@@ -2758,20 +2534,6 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
                                            constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
         if ( distance > allowedDistance )
-        {
-            m_sleepIslandPointJointsRelaxed[findIsland( a )] = 0;
-        }
-    }
-    for ( const PhysicsConstraintDescriptor& constraint : m_physicsConstraints )
-    {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        if ( !IsPhysicsConstraintRelaxed( constraint, m_gameModels[a], m_gameModels[b] ) )
         {
             m_sleepIslandPointJointsRelaxed[findIsland( a )] = 0;
         }

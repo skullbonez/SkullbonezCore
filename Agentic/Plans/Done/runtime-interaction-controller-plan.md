@@ -333,3 +333,10 @@ Focused scenarios:
 - The first behavior-preserving slice should be small. The risky part is not
   adding enums; it is moving ownership of cancellation and transition side
   effects without changing replay determinism.
+
+## Post-Implementation Feedback
+
+- 2026-06-24: Launcher mode and Free/Inspect camera mode should not require a
+  right-click hold to rotate the camera. Other modes should require right-click
+  hold for camera rotation, and every mode should still expose right-click
+  rotate support where camera rotation is valid.

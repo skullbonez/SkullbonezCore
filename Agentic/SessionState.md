@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-23rd-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Night-worker queue on `nightrunner-23rd-june` completed the runtime interaction controller and humanoid ragdoll constraints plans after validation. |
-| Active objective | None; the queued `runtime-interaction-controller-plan.md` and `humanoid-ragdoll-constraints-plan.md` tasks are archived in `Agentic/Plans/Done/`. |
-| Pending work | Do not delete legacy replay exporters yet. Optional ragdoll polish: surface constraint solver stats in diagnostics and rename `ClearPointJointConstraints()` if the mixed legacy/production clearing API gains broader callers. |
+| Last committed milestone | Runtime interaction controller is retained on `nightrunner-23rd-june`; the humanoid ragdoll constraints experiment was rolled back after user review. |
+| Active objective | None. `runtime-interaction-controller-plan.md` remains archived; `humanoid-ragdoll-constraints-plan.md` is restored to `Agentic/Plans/` for a future rethink instead of being treated as done. |
+| Pending work | Do not delete legacy replay exporters yet. Runtime input follow-up: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime interaction controller slice is covered by `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_full.bat`. Humanoid ragdoll constraints are covered by focused suite smoke plus `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_full.bat`; final logs are in `TestOutput\agent_logs\2026-06-24_validate_fast_humanoid_ragdoll_constraints.log`, `TestOutput\agent_logs\2026-06-24_validate_physics_humanoid_ragdoll_constraints.log`, and `TestOutput\agent_logs\2026-06-24_validate_full_humanoid_ragdoll_constraints.log`. |
+| Validation | Runtime interaction controller slice is covered by `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_full.bat`. Ragdoll rollback is covered by `tools\validate_fast.bat` and `tools\validate_full.bat`; logs are in `TestOutput\agent_logs\2026-06-24_validate_fast_revert_ragdoll_constraints.log` and `TestOutput\agent_logs\2026-06-24_validate_full_revert_ragdoll_constraints.log`. |
 
 ## Active Notes
 
@@ -50,7 +50,6 @@ audits when it is still useful.
 | Agent documentation alignment | Done | Archived in `Agentic/Plans/Done/agent-docs-alignment-plan.md`; startup, dirty-worktree, scoped instruction, review, and agent-orchestration guidance are now centralized. |
 | Agent orchestrator skill | Active | The old JSON/Python control plane is retired. `Agentic/Skills/orchestrator/SKILL.md` is the active coordinator contract for plan queues, fresh worker agents, rubber-duck review agents, validation, commits, pushes, and handoffs. |
 | Runtime interaction controller | Done | Archived in `Agentic/Plans/Done/runtime-interaction-controller-plan.md`; central workspace/owner policy now coordinates Inspect/Edit/Replay/Launcher/Manipulator transitions, stepping, and stale interaction cleanup. |
-| Humanoid ragdoll constraints | Done | Archived in `Agentic/Plans/Done/humanoid-ragdoll-constraints-plan.md`; production ball socket, hinge, cone twist, slider, and six-DOF constraint descriptors/solver paths now back humanoid ragdolls and scene-authored constraints. |
 | Physics playground refactor and prefix cleanup | Done | Completed on `major-refactor` through `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md`; source prefix cleanup, module folders, runtime/physics/render/editor boundaries, dead-code audit, and full comment pass are committed and pushed. |
 | Catto physics solver finalisation | Done | Persistent Catto rows, terrain shared row pipeline, SkullScope query support, and updated deterministic baselines are on `main`. |
 | Post-PR73 roadmap follow-up | Done | Runtime extraction review fixes and validation report are recorded in `Agentic/Reports/2026-06-16/post-pr73-roadmap-review-fixes/validation-report.md`. |

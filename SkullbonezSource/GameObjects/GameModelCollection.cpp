@@ -537,12 +537,6 @@ void GameModelCollection::AddPointJointConstraint( const Physics::PointJointCons
 }
 
 
-void GameModelCollection::AddPhysicsConstraint( const Physics::PhysicsConstraintDescriptor& constraint )
-{
-    m_physicsScene.AddPhysicsConstraint( constraint );
-}
-
-
 void GameModelCollection::BeginCollisionVisualFrame()
 {
     m_physicsScene.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );

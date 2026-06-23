@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/Ragdoll.h
 Purpose:
-  Builds simple ragdoll body sets and named humanoid constraints.
+  Builds simple ragdoll body sets and solves their first point-joint constraints.
 
 Mental model:
-  Ragdoll owns prefab construction. Constraint descriptors live in the physics
-  constraint module so legacy point joints and named humanoid joints share the
-  same solver path.
+  This is deliberately a small bridge toward a future generic constraint system.
+  Ragdoll owns prefab construction, while PointJointConstraint is generic solver
+  data that can later move under a broader constraint module.
 
 Invariants:
   - Constraint order is deterministic and scene-authored.
@@ -23,7 +23,6 @@ Related:
 
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
-#include "PhysicsConstraint.h"
 
 namespace SkullbonezCore
 {
@@ -44,6 +43,18 @@ class GameModelCollection;
 
 namespace Physics
 {
+struct PointJointConstraint
+{
+    int bodyA = -1;
+    int bodyB = -1;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.25f;
+    float stiffness = 0.22f;
+    float damping = 0.35f;
+    uint32_t groupId = 0;
+};
+
 struct RagdollBuildOptions
 {
     const char* namePrefix = "ragdoll";
@@ -74,6 +85,10 @@ class Ragdoll
                                    Environment::WorldEnvironment& worldEnvironment,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
+    static void SolvePointJoints( GameObjects::GameModelCollection& collection,
+                                  const std::vector<PointJointConstraint>& constraints,
+                                  const std::vector<uint8_t>& sleepState,
+                                  float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -50,9 +50,6 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::ConstraintAxisMode;
-using SkullbonezCore::Physics::PhysicsConstraintDescriptor;
-using SkullbonezCore::Physics::PhysicsConstraintLimit;
 
 namespace
 {
@@ -76,88 +73,6 @@ Json OrientationJson( GameModel& model )
     float qw = 1.0f;
     model.GetOrientation().GetComponents( qx, qy, qz, qw );
     return Json::array( { qx, qy, qz, qw } );
-}
-
-const char* ConstraintAxisModeJson( ConstraintAxisMode mode )
-{
-    switch ( mode )
-    {
-    case ConstraintAxisMode::Free:
-        return "free";
-    case ConstraintAxisMode::Locked:
-        return "locked";
-    case ConstraintAxisMode::Limited:
-        return "limited";
-    default:
-        return "locked";
-    }
-}
-
-Json ConstraintLimitJson( const PhysicsConstraintLimit& limit )
-{
-    return Json::array( { limit.minValue, limit.maxValue, limit.softness, limit.damping, limit.restitution } );
-}
-
-Json ConstraintDescriptorJson( const PhysicsConstraintDescriptor& constraint, const std::vector<GameModel>& models )
-{
-    Json item = {
-        { "type", SkullbonezCore::Physics::PhysicsConstraintTypeName( constraint.type ) },
-        { "bodyA", models[static_cast<size_t>( constraint.bodyA )].GetName() },
-        { "bodyB", models[static_cast<size_t>( constraint.bodyB )].GetName() },
-        { "localAnchorA", Vec3Json( constraint.localAnchorA ) },
-        { "localAnchorB", Vec3Json( constraint.localAnchorB ) },
-        { "localAxisA", Vec3Json( constraint.localAxisA ) },
-        { "localAxisB", Vec3Json( constraint.localAxisB ) },
-        { "localSecondaryAxisA", Vec3Json( constraint.localSecondaryAxisA ) },
-        { "localSecondaryAxisB", Vec3Json( constraint.localSecondaryAxisB ) },
-        { "linearAxisModes",
-          Json::array( {
-              ConstraintAxisModeJson( constraint.linearAxisModes[0] ),
-              ConstraintAxisModeJson( constraint.linearAxisModes[1] ),
-              ConstraintAxisModeJson( constraint.linearAxisModes[2] ),
-          } ) },
-        { "angularAxisModes",
-          Json::array( {
-              ConstraintAxisModeJson( constraint.angularAxisModes[0] ),
-              ConstraintAxisModeJson( constraint.angularAxisModes[1] ),
-              ConstraintAxisModeJson( constraint.angularAxisModes[2] ),
-          } ) },
-        { "linearLimits",
-          Json::array( {
-              ConstraintLimitJson( constraint.linearLimits[0] ),
-              ConstraintLimitJson( constraint.linearLimits[1] ),
-              ConstraintLimitJson( constraint.linearLimits[2] ),
-          } ) },
-        { "angularLimits",
-          Json::array( {
-              ConstraintLimitJson( constraint.angularLimits[0] ),
-              ConstraintLimitJson( constraint.angularLimits[1] ),
-              ConstraintLimitJson( constraint.angularLimits[2] ),
-          } ) },
-        { "slack", constraint.slack },
-        { "stiffness", constraint.stiffness },
-        { "damping", constraint.damping },
-        { "angularDamping", constraint.angularDamping },
-        { "groupId", constraint.groupId },
-        { "stableId", constraint.stableId },
-    };
-    if ( constraint.debugName[0] != '\0' )
-    {
-        item["debugName"] = constraint.debugName;
-    }
-    if ( constraint.motorEnabled )
-    {
-        item["motorEnabled"] = true;
-    }
-    if ( constraint.breakEnabled )
-    {
-        item["breakEnabled"] = true;
-    }
-    if ( constraint.breakImpulseThreshold > 0.0f )
-    {
-        item["breakImpulseThreshold"] = constraint.breakImpulseThreshold;
-    }
-    return item;
 }
 } // namespace
 
@@ -347,26 +262,6 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "damping", joint.damping },
                 { "groupId", joint.groupId },
             } );
-            if ( !joint.solverEnabled )
-            {
-                scene["ragdollJoints"].back()["solverEnabled"] = false;
-            }
-        }
-    }
-
-    const std::vector<PhysicsConstraintDescriptor>& physicsConstraints = collection.GetPhysicsConstraints();
-    if ( !physicsConstraints.empty() )
-    {
-        scene["physicsConstraints"] = Json::array();
-        for ( const PhysicsConstraintDescriptor& constraint : physicsConstraints )
-        {
-            if ( constraint.bodyA < 0 || constraint.bodyB < 0 ||
-                 constraint.bodyA >= static_cast<int>( m_gameModels.size() ) ||
-                 constraint.bodyB >= static_cast<int>( m_gameModels.size() ) )
-            {
-                continue;
-            }
-            scene["physicsConstraints"].push_back( ConstraintDescriptorJson( constraint, m_gameModels ) );
         }
     }
 

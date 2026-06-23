@@ -514,23 +514,6 @@ const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index )
 }
 
 
-int TestScene::GetPhysicsConstraintCount() const
-{
-    return static_cast<int>( m_physicsConstraints.size() );
-}
-
-
-const ScenePhysicsConstraint& TestScene::GetPhysicsConstraint( int index ) const
-{
-    if ( index < 0 || index >= static_cast<int>( m_physicsConstraints.size() ) )
-    {
-        throw std::runtime_error( "PhysicsConstraint index out of range.  (TestScene::GetPhysicsConstraint)" );
-    }
-
-    return m_physicsConstraints[index];
-}
-
-
 int TestScene::GetRequiredContactCount() const
 {
     return static_cast<int>( m_requiredContacts.size() );

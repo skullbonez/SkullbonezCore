@@ -158,10 +158,7 @@
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\HumanoidRagdollPreset.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsConstraint.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsConstraintSolver.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
@@ -300,10 +297,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h" />
-    <ClInclude Include="SkullbonezSource\Physics\HumanoidRagdollPreset.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsConstraint.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsConstraintSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
