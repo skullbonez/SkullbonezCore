@@ -150,12 +150,21 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
     EnsureCommandListOpen();
 
-    // Lazy-init shader and LINE_LIST PSO
+    // Lazy-init shader and LINE_LIST PSO. The PSO must match the active render
+    // target format; cinematic mode draws these lines into the HDR scene target
+    // instead of the ordinary swapchain backbuffer.
     if ( !m_gridLineShader )
     {
         m_gridLineShader = CreateShader( "shaders/grid_line" );
     }
-    if ( !m_gridLinePSO )
+
+    ID3D12PipelineState* gridLinePSO = nullptr;
+    auto psoIt = m_gridLinePSOs.find( m_currentRTVFormat );
+    if ( psoIt != m_gridLinePSOs.end() )
+    {
+        gridLinePSO = psoIt->second;
+    }
+    else
     {
         ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
 
@@ -185,11 +194,16 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         psoDesc.SampleMask = UINT_MAX;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        psoDesc.RTVFormats[0] = m_currentRTVFormat;
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.SampleDesc.Count = 1;
-        m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &m_gridLinePSO ) );
-        NameDx12Object( m_gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+        HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+        if ( FAILED( hr ) )
+        {
+            throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
+        }
+        NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+        m_gridLinePSOs[m_currentRTVFormat] = gridLinePSO;
     }
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is
@@ -199,7 +213,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
-    m_commandList->SetPipelineState( m_gridLinePSO );
+    m_commandList->SetPipelineState( gridLinePSO );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 

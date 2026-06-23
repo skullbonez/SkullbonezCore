@@ -372,7 +372,7 @@ class RenderBackendDX12 : public IRenderBackend
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;
-    ID3D12PipelineState* m_gridLinePSO = nullptr;
+    std::unordered_map<DXGI_FORMAT, ID3D12PipelineState*> m_gridLinePSOs;
     int m_gridLineVBCapacity = 0;
     std::unique_ptr<IShader> m_transientColorShader;
 
