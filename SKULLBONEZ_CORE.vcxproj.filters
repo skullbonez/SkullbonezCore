@@ -157,7 +157,16 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp">
       <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\HumanoidRagdollPreset.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsConstraint.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsConstraintSolver.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
@@ -572,7 +581,16 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h">
       <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\HumanoidRagdollPreset.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsConstraint.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsConstraintSolver.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">

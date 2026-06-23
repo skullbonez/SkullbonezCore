@@ -985,7 +985,25 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         joint.stiffness = sceneJoint.stiffness;
         joint.damping = sceneJoint.damping;
         joint.groupId = sceneJoint.groupId;
+        joint.solverEnabled = sceneJoint.solverEnabled;
         m_cGameModelCollection.AddPointJointConstraint( joint );
+    }
+
+    for ( int i = 0; i < scene.GetPhysicsConstraintCount(); ++i )
+    {
+        const ScenePhysicsConstraint& sceneConstraint = scene.GetPhysicsConstraint( i );
+        PhysicsConstraintDescriptor descriptor = sceneConstraint.descriptor;
+        descriptor.bodyA = findModelByName( sceneConstraint.bodyA );
+        descriptor.bodyB = findModelByName( sceneConstraint.bodyB );
+        if ( descriptor.bodyA < 0 || descriptor.bodyB < 0 )
+        {
+            fprintf( stderr,
+                     "[scene] physics_constraint could not resolve '%s' <-> '%s'\n",
+                     sceneConstraint.bodyA,
+                     sceneConstraint.bodyB );
+            continue;
+        }
+        m_cGameModelCollection.AddPhysicsConstraint( descriptor );
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )

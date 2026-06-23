@@ -61,6 +61,7 @@ class PhysicsScene
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
     void AddPointJointConstraint( const PointJointConstraint& constraint );
+    void AddPhysicsConstraint( const PhysicsConstraintDescriptor& constraint );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
@@ -83,6 +84,7 @@ class PhysicsScene
     const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
     const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
+    const std::vector<PhysicsConstraintDescriptor>& GetPhysicsConstraints() const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );

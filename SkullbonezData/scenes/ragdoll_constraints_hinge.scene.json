@@ -1,0 +1,154 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -24.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": true,
+      "sleep": true
+    }
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_constraints_hinge",
+      "position": [
+        500,
+        82,
+        575
+      ],
+      "view": [
+        500,
+        26,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "hinge_upper",
+      "position": [
+        500,
+        36,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        4.0,
+        1.2
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "hinge_lower",
+      "position": [
+        500,
+        28,
+        500
+      ],
+      "halfExtents": [
+        1.0,
+        4.0,
+        1.0
+      ],
+      "mass": 3.0,
+      "restitution": 0.08,
+      "velocity": [
+        7,
+        0,
+        0
+      ],
+      "fixed": false
+    }
+  ],
+  "physicsConstraints": [
+    {
+      "type": "hinge",
+      "debugName": "hinge_focus",
+      "bodyA": "hinge_upper",
+      "bodyB": "hinge_lower",
+      "localAnchorA": [
+        0.0,
+        -4.0,
+        0.0
+      ],
+      "localAnchorB": [
+        0.0,
+        4.0,
+        0.0
+      ],
+      "localAxisA": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "localAxisB": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "localSecondaryAxisA": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "localSecondaryAxisB": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "angularLimitsDegrees": [
+        [
+          -8.0,
+          118.0,
+          0.15,
+          0.28
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "slack": 0.04,
+      "stiffness": 0.24,
+      "damping": 0.35,
+      "angularDamping": 0.28,
+      "groupId": 102
+    }
+  ]
+}

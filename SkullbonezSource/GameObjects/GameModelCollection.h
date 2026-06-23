@@ -144,6 +144,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
     void AddPointJointConstraint( const Physics::PointJointConstraint& constraint );
+    void AddPhysicsConstraint( const Physics::PhysicsConstraintDescriptor& constraint );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
     void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );
@@ -209,6 +210,10 @@ class GameModelCollection : public Rendering::IRenderSceneView
     const std::vector<Physics::PointJointConstraint>& GetPointJointConstraints() const
     {
         return m_physicsScene.GetPointJointConstraints();
+    }
+    const std::vector<Physics::PhysicsConstraintDescriptor>& GetPhysicsConstraints() const
+    {
+        return m_physicsScene.GetPhysicsConstraints();
     }
 
 #ifdef _DEBUG

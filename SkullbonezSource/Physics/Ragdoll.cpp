@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/Ragdoll.cpp
 Purpose:
-  Builds simple humanoid ragdolls and solves their first point-joint constraints.
+  Builds simple humanoid ragdolls with named production constraints.
 
 Mental model:
-  The body layout is prefab code; the joint rows are intentionally generic
-  point-to-point constraint data. This keeps the hacky ragdoll feature isolated
-  and leaves a clear migration path to a full constraint solver.
+  Ragdoll owns prefab body layout. Runtime joint behavior is authored as
+  PhysicsConstraintDescriptor data so humanoid joints share the production
+  constraint solver with any scene-authored compatibility point joints.
 
 Invariants:
   - Body and constraint creation order must stay deterministic.
@@ -20,7 +20,7 @@ Related:
 
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
-#include "ContactSolverCommon.h"
+#include "HumanoidRagdollPreset.h"
 #include "PhysicsMass.h"
 
 #include <algorithm>
@@ -42,11 +42,6 @@ constexpr float RAGDOLL_SURFACE_EPSILON = 0.08f;
 constexpr float RAGDOLL_DEFAULT_SCALE = 1.0f;
 constexpr float RAGDOLL_MIN_SCALE = 0.25f;
 constexpr float RAGDOLL_MAX_SCALE = 8.0f;
-constexpr float RAGDOLL_JOINT_MAX_BIAS_SPEED = 28.0f;
-constexpr float RAGDOLL_JOINT_MAX_POSITION_CORRECTION = 0.35f;
-constexpr float RAGDOLL_JOINT_MAX_LINEAR_SPEED = 70.0f;
-constexpr float RAGDOLL_JOINT_MAX_ANGULAR_SPEED = 18.0f;
-constexpr int RAGDOLL_SOLVER_ITERATIONS = 4;
 
 enum SimplePart
 {
@@ -83,6 +78,7 @@ struct SimpleJointDef
     Vector3 localAnchorA;
     Vector3 localAnchorB;
     float slack;
+    HumanoidJointKind kind;
 };
 
 Vector3 ScaleVector( const Vector3& value, float scale )
@@ -119,23 +115,60 @@ const SimplePartDef* SimpleParts()
 const SimpleJointDef* SimpleJoints( int& outCount )
 {
     static const SimpleJointDef joints[] = {
-        { PART_TORSO, PART_HEAD, Vector3( 0.0f, 3.2f, 0.0f ), Vector3( 0.0f, -1.2f, 0.0f ), 0.28f },
-        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
-        { PART_LEFT_UPPER_ARM, PART_LEFT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f },
-        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
+        { PART_TORSO,
+          PART_HEAD,
+          Vector3( 0.0f, 3.2f, 0.0f ),
+          Vector3( 0.0f, -1.2f, 0.0f ),
+          0.28f,
+          HumanoidJointKind::Neck },
+        { PART_TORSO,
+          PART_LEFT_UPPER_ARM,
+          Vector3( -2.2f, 2.25f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.35f,
+          HumanoidJointKind::Shoulder },
+        { PART_LEFT_UPPER_ARM,
+          PART_LEFT_LOWER_ARM,
+          Vector3( 0.0f, -2.2f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.30f,
+          HumanoidJointKind::Elbow },
+        { PART_TORSO,
+          PART_RIGHT_UPPER_ARM,
+          Vector3( 2.2f, 2.25f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.35f,
+          HumanoidJointKind::Shoulder },
         { PART_RIGHT_UPPER_ARM,
           PART_RIGHT_LOWER_ARM,
           Vector3( 0.0f, -2.2f, 0.0f ),
           Vector3( 0.0f, 2.2f, 0.0f ),
-          0.30f },
-        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
-        { PART_LEFT_UPPER_LEG, PART_LEFT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f },
-        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
+          0.30f,
+          HumanoidJointKind::Elbow },
+        { PART_TORSO,
+          PART_LEFT_UPPER_LEG,
+          Vector3( -0.85f, -3.2f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.35f,
+          HumanoidJointKind::Hip },
+        { PART_LEFT_UPPER_LEG,
+          PART_LEFT_LOWER_LEG,
+          Vector3( 0.0f, -2.4f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.30f,
+          HumanoidJointKind::Knee },
+        { PART_TORSO,
+          PART_RIGHT_UPPER_LEG,
+          Vector3( 0.85f, -3.2f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.35f,
+          HumanoidJointKind::Hip },
         { PART_RIGHT_UPPER_LEG,
           PART_RIGHT_LOWER_LEG,
           Vector3( 0.0f, -2.4f, 0.0f ),
           Vector3( 0.0f, 2.4f, 0.0f ),
-          0.30f },
+          0.30f,
+          HumanoidJointKind::Knee },
     };
     outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
     return joints;
@@ -184,76 +217,6 @@ void AppendPreviewBox( std::vector<float>& lineData,
     for ( const auto& edge : edges )
     {
         AppendPreviewLine( lineData, corners[edge[0]], corners[edge[1]], r, g, b );
-    }
-}
-
-RotationMatrix BodyRotation( const GameModel& model )
-{
-    Quaternion q = model.GetOrientation();
-    return q.GetOrientationMatrix();
-}
-
-Vector3 ApplyModelInvInertia( GameModel& model, const Vector3& value )
-{
-    const Vector3& invInertia = model.GetInvertedRotationalInertia();
-    if ( !model.UsesWorldInertia() )
-    {
-        return VectorMultiply( invInertia, value );
-    }
-
-    const RotationMatrix rotation = BodyRotation( model );
-    const Vector3 local = rotation.TransposeMultiply( value );
-    return rotation * VectorMultiply( invInertia, local );
-}
-
-Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
-{
-    if ( !std::isfinite( value.x ) || !std::isfinite( value.y ) || !std::isfinite( value.z ) )
-    {
-        return ZERO_VECTOR;
-    }
-
-    const float limitSq = limit * limit;
-    const float magSq = value * value;
-    if ( magSq <= limitSq || magSq <= TOLERANCE )
-    {
-        return value;
-    }
-
-    return value * ( limit / sqrtf( magSq ) );
-}
-
-void ClampRagdollBodyVelocity( GameModel& model )
-{
-    model.SetLinearVelocity( ClampVectorMagnitude( model.GetVelocity(), RAGDOLL_JOINT_MAX_LINEAR_SPEED ) );
-    model.SetAngularVelocity( ClampVectorMagnitude( model.GetAngularVelocity(), RAGDOLL_JOINT_MAX_ANGULAR_SPEED ) );
-}
-
-void ApplyConstraintImpulse( GameModel& a,
-                             GameModel& b,
-                             const Vector3& rA,
-                             const Vector3& rB,
-                             const Vector3& impulse,
-                             float invMassA,
-                             float invMassB )
-{
-    if ( invMassA > 0.0f )
-    {
-        a.SetLinearVelocity( a.GetVelocity() + impulse * invMassA );
-        a.SetAngularVelocity( a.GetAngularVelocity() + ApplyModelInvInertia( a, CrossProduct( rA, impulse ) ) );
-    }
-    if ( invMassB > 0.0f )
-    {
-        b.SetLinearVelocity( b.GetVelocity() - impulse * invMassB );
-        b.SetAngularVelocity( b.GetAngularVelocity() - ApplyModelInvInertia( b, CrossProduct( rB, impulse ) ) );
-    }
-    if ( invMassA > 0.0f )
-    {
-        ClampRagdollBodyVelocity( a );
-    }
-    if ( invMassB > 0.0f )
-    {
-        ClampRagdollBodyVelocity( b );
     }
 }
 
@@ -343,6 +306,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
 
     int jointCount = 0;
     const SimpleJointDef* joints = SimpleJoints( jointCount );
+    const HumanoidRagdollPreset preset = HumanoidRagdollPresetFactory::Default();
     for ( int i = 0; i < jointCount; ++i )
     {
         PointJointConstraint constraint;
@@ -354,7 +318,19 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         constraint.stiffness = 0.22f;
         constraint.damping = 0.35f;
         constraint.groupId = groupId;
+        constraint.solverEnabled = false;
         collection.AddPointJointConstraint( constraint );
+        PhysicsConstraintDescriptor descriptor = HumanoidRagdollPresetFactory::BuildJoint( joints[i].kind,
+                                                                                           constraint.bodyA,
+                                                                                           constraint.bodyB,
+                                                                                           constraint.localAnchorA,
+                                                                                           constraint.localAnchorB,
+                                                                                           scale,
+                                                                                           groupId,
+                                                                                           preset );
+        descriptor.stableId = ( groupId * 31u ) + static_cast<uint32_t>( i + 1 );
+        sprintf_s( descriptor.debugName, sizeof( descriptor.debugName ), "humanoid_joint_%u_%02d", groupId, i );
+        collection.AddPhysicsConstraint( descriptor );
     }
 
     if ( options.startsAsleep && !options.fixed )
@@ -364,102 +340,4 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
             collection.SeedModelAsleep( firstBody + i );
         }
     }
-}
-
-void Ragdoll::SolvePointJoints( GameModelCollection& collection,
-                                const std::vector<PointJointConstraint>& constraints,
-                                const std::vector<uint8_t>& sleepState,
-                                float dt )
-{
-    if ( constraints.empty() || dt <= TOLERANCE )
-    {
-        return;
-    }
-
-    std::vector<GameModel>& models = collection.PhysicsModels();
-    const int modelCount = static_cast<int>( models.size() );
-    const float invDt = 1.0f / dt;
-    for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
-    {
-        for ( const PointJointConstraint& constraint : constraints )
-        {
-            if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA >= modelCount ||
-                 constraint.bodyB >= modelCount )
-            {
-                continue;
-            }
-
-            GameModel& a = models[static_cast<size_t>( constraint.bodyA )];
-            GameModel& b = models[static_cast<size_t>( constraint.bodyB )];
-            const bool aSleeping =
-                constraint.bodyA < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyA] != 0;
-            const bool bSleeping =
-                constraint.bodyB < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyB] != 0;
-            const float invMassA = ( a.IsFixed() || aSleeping ) ? 0.0f : a.GetInvertedMass();
-            const float invMassB = ( b.IsFixed() || bSleeping ) ? 0.0f : b.GetInvertedMass();
-            const float totalInvMass = invMassA + invMassB;
-            if ( totalInvMass <= TOLERANCE )
-            {
-                continue;
-            }
-
-            const RotationMatrix rotA = BodyRotation( a );
-            const RotationMatrix rotB = BodyRotation( b );
-            const Vector3 rA = rotA * constraint.localAnchorA;
-            const Vector3 rB = rotB * constraint.localAnchorB;
-            const Vector3 anchorA = a.GetPosition() + rA;
-            const Vector3 anchorB = b.GetPosition() + rB;
-            Vector3 error = anchorB - anchorA;
-            float distance = VectorMag( error );
-            if ( distance <= constraint.slack && iteration > 0 )
-            {
-                continue;
-            }
-
-            Vector3 axis( 1.0f, 0.0f, 0.0f );
-            if ( distance > TOLERANCE )
-            {
-                axis = error / distance;
-            }
-
-            const Vector3 velA = a.GetVelocity() + CrossProduct( a.GetAngularVelocity(), rA );
-            const Vector3 velB = b.GetVelocity() + CrossProduct( b.GetAngularVelocity(), rB );
-            const float relVel = ( velB - velA ) * axis;
-            const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
-            const float biasSpeed =
-                std::clamp( distanceError * constraint.stiffness * invDt, 0.0f, RAGDOLL_JOINT_MAX_BIAS_SPEED );
-            const float velocityTarget = std::clamp( ( relVel + biasSpeed ) * ( 1.0f + constraint.damping ),
-                                                     -RAGDOLL_JOINT_MAX_BIAS_SPEED,
-                                                     RAGDOLL_JOINT_MAX_BIAS_SPEED );
-            const float effectiveMass = ContactSolver::ComputeTwoBodyEffectiveMass(
-                invMassA,
-                invMassB,
-                axis,
-                rA,
-                rB,
-                [&]( const Vector3& v ) { return invMassA > 0.0f ? ApplyModelInvInertia( a, v ) : ZERO_VECTOR; },
-                [&]( const Vector3& v ) { return invMassB > 0.0f ? ApplyModelInvInertia( b, v ) : ZERO_VECTOR; } );
-            if ( effectiveMass > 0.0f )
-            {
-                ApplyConstraintImpulse( a, b, rA, rB, axis * ( effectiveMass * velocityTarget ), invMassA, invMassB );
-            }
-
-            if ( distanceError > TOLERANCE )
-            {
-                const float correctionAmount =
-                    (std::min)( distanceError * constraint.stiffness, RAGDOLL_JOINT_MAX_POSITION_CORRECTION );
-                const Vector3 correction = axis * ( correctionAmount / totalInvMass );
-                if ( invMassA > 0.0f )
-                {
-                    a.SetPosition( a.GetPosition() + correction * invMassA );
-                }
-                if ( invMassB > 0.0f )
-                {
-                    b.SetPosition( b.GetPosition() - correction * invMassB );
-                }
-            }
-        }
-    }
-
-    collection.InvalidatePhysicsStreams();
 }

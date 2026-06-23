@@ -35,6 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsConstraint.h"
 #include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
@@ -137,6 +138,14 @@ struct ScenePointJointConstraint
     float stiffness = 0.22f;
     float damping = 0.35f;
     uint32_t groupId = 0;
+    bool solverEnabled = true;
+};
+
+struct ScenePhysicsConstraint
+{
+    char bodyA[64] = {};
+    char bodyB[64] = {};
+    Physics::PhysicsConstraintDescriptor descriptor;
 };
 
 struct SceneBox
@@ -419,6 +428,7 @@ class TestScene
     std::vector<SceneConvexHullState> m_convexHullStates;
     std::vector<SceneRagdoll> m_ragdolls;
     std::vector<ScenePointJointConstraint> m_pointJointConstraints;
+    std::vector<ScenePhysicsConstraint> m_physicsConstraints;
     std::vector<SceneObjectMaterialOverride> m_objectMaterials;
     std::vector<SceneRequiredContact> m_requiredContacts;
     std::vector<SceneRequiredBroadphaseXCells> m_requiredBroadphaseXCells;
@@ -508,6 +518,8 @@ class TestScene
     const SceneRagdoll& GetRagdoll( int index ) const;
     int GetPointJointConstraintCount() const;
     const ScenePointJointConstraint& GetPointJointConstraint( int index ) const;
+    int GetPhysicsConstraintCount() const;
+    const ScenePhysicsConstraint& GetPhysicsConstraint( int index ) const;
     int GetObjectMaterialOverrideCount() const;
     const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     int GetRequiredContactCount() const;

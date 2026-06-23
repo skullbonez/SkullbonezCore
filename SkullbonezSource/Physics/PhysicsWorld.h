@@ -38,6 +38,8 @@ Related:
 
 #include "../GameObjects/GameModel.h"
 #include "PersistentContactSolver.h"
+#include "PhysicsConstraint.h"
+#include "PhysicsConstraintSolver.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "Debug/PhysicsDebugVisualizer.h"
 #include "Ragdoll.h"
@@ -261,6 +263,9 @@ class PhysicsWorld
     std::vector<uint8_t> m_objectNarrowphaseRank;
     std::vector<int> m_objectNarrowphaseRootToIsland;
     std::vector<PointJointConstraint> m_pointJointConstraints;
+    std::vector<PhysicsConstraintDescriptor> m_physicsConstraints;
+    std::vector<PhysicsConstraintDescriptor> m_solverConstraints;
+    PhysicsConstraintSolverStats m_constraintSolverStats;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoField m_tornadoField;
@@ -305,7 +310,7 @@ class PhysicsWorld
     bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
-    bool IsPointJointPair( int bodyA, int bodyB ) const;
+    bool IsConstrainedPair( int bodyA, int bodyB ) const;
     void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
 
   public:
@@ -320,7 +325,9 @@ class PhysicsWorld
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
     void AddPointJointConstraint( const PointJointConstraint& constraint );
+    void AddPhysicsConstraint( const PhysicsConstraintDescriptor& constraint );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
+    const std::vector<PhysicsConstraintDescriptor>& GetPhysicsConstraints() const;
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );

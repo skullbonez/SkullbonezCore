@@ -125,6 +125,12 @@ void PhysicsScene::AddPointJointConstraint( const PointJointConstraint& constrai
 }
 
 
+void PhysicsScene::AddPhysicsConstraint( const PhysicsConstraintDescriptor& constraint )
+{
+    m_world.AddPhysicsConstraint( constraint );
+}
+
+
 void PhysicsScene::SetTornadoFieldConfig( const TornadoFieldConfig& config )
 {
     m_world.SetTornadoFieldConfig( config );
@@ -260,6 +266,12 @@ const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsScene:
 const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsScene::GetPointJointConstraints() const
 {
     return m_world.GetPointJointConstraints();
+}
+
+
+const std::vector<SkullbonezCore::Physics::PhysicsConstraintDescriptor>& PhysicsScene::GetPhysicsConstraints() const
+{
+    return m_world.GetPhysicsConstraints();
 }
 
 

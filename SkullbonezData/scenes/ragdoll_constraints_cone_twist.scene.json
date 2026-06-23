@@ -1,0 +1,146 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -24.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": true,
+      "sleep": true
+    }
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_constraints_cone_twist",
+      "position": [
+        500,
+        82,
+        575
+      ],
+      "view": [
+        500,
+        28,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "cone_parent",
+      "position": [
+        500,
+        38,
+        500
+      ],
+      "halfExtents": [
+        2.2,
+        2.2,
+        1.2
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "cone_child",
+      "position": [
+        506,
+        34,
+        500
+      ],
+      "halfExtents": [
+        1.2,
+        4.0,
+        1.0
+      ],
+      "mass": 3.0,
+      "restitution": 0.08,
+      "velocity": [
+        0,
+        0,
+        9
+      ],
+      "fixed": false
+    }
+  ],
+  "physicsConstraints": [
+    {
+      "type": "coneTwist",
+      "debugName": "cone_twist_focus",
+      "bodyA": "cone_parent",
+      "bodyB": "cone_child",
+      "localAnchorA": [
+        2.2,
+        0.0,
+        0.0
+      ],
+      "localAnchorB": [
+        0.0,
+        4.0,
+        0.0
+      ],
+      "localAxisA": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "localAxisB": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "angularLimitsDegrees": [
+        [
+          0.0,
+          58.0,
+          0.15,
+          0.28
+        ],
+        [
+          -28.0,
+          28.0,
+          0.15,
+          0.28
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "slack": 0.04,
+      "stiffness": 0.24,
+      "damping": 0.35,
+      "angularDamping": 0.28,
+      "groupId": 103
+    }
+  ]
+}
