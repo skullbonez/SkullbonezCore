@@ -1,9 +1,9 @@
 # PIX Marker Taxonomy And Render Detail Plan
 
 Date: 2026-06-23
-Status: Draft plan
+Status: Implemented on branch `nightrunner-23rd-june`
 Impact area: platform profiler, DX12 PIX markers, runtime render instrumentation, physics worker diagnostics
-Validation for this document-only change: none required
+Validation: `tools\validate_format.bat` passed; `tools\validate_dx12_renderer.bat` passed with DX12 validation errors: 0 and matching screenshots; explicit `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --renderer dx12 --vsync off --frames 2 --scene SkullbonezData\scenes\solver_smoke.scene.json` smoke passed with no profiler-stack/error strings. `tools\validate_full.bat` was run and failed at the physics CSV compare; the same 1193-line physics mismatch starting at line 11742 was reproduced on clean `main` in a detached probe worktree, so it is recorded as a pre-existing validation blocker rather than a regression from this plan.
 
 ## Goal
 
@@ -14,6 +14,22 @@ Make PIX captures easier to read at a glance:
 - show useful render pass detail in PIX CPU timing captures,
 - keep in-engine profiler marker names, perf CSVs, and UI rows stable unless a
   later slice intentionally changes them.
+
+## Implementation Notes
+
+- Semantic domain colors and execution-context suffixes now live in
+  `PlatformProfiler`; detailed suffix/color classification is enabled for
+  explicit platform-profiler captures so default Debug/Profile validation keeps
+  its lightweight marker behavior.
+- Worker scopes can emit `_Worker` PIX ranges, GPU scopes can emit CPU `_Record`
+  mirrors, and DX12 command-list events can emit `_GPU` names during explicit
+  detailed captures. Stack-close bookkeeping tracks what actually opened, so
+  disabling marker emission mid-scope does not create false end-without-begin
+  logs.
+- Render detail was added for DebugOverlay, VolumetricLight, Tonemap, selected
+  subdraws, and the `TransparentBalls` pass audit. The extra render-detail GPU
+  profiler scopes are guarded by explicit detailed captures to avoid perturbing
+  ordinary validation timing.
 
 The immediate problem is visible in PIX captures: physics has rich nested spans,
 while render often appears as a broad `Frame/Render` block with little CPU-track

@@ -403,7 +403,11 @@ void Run::Execute()
                     ::HashStr( "Frame/Render/Balls" ),
                     ::HashStr( "Frame/Render/Terrain" ),
                     ::HashStr( "Frame/Render/Water" ),
+                    ::HashStr( "Frame/Render/TornadoVisual" ),
                     ::HashStr( "Frame/Render/TransparentBalls" ),
+                    ::HashStr( "Frame/Render/DebugOverlay" ),
+                    ::HashStr( "Frame/Render/VolumetricLight" ),
+                    ::HashStr( "Frame/Render/Tonemap" ),
                     ::HashStr( "Frame/UI/Draw" ),
                 };
                 float gpuMs = 0.0f;

@@ -179,7 +179,7 @@ void RenderBackendDX12::WaitForGpu()
 
 void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason ) const
 {
-    if ( m_platformProfilerGpuDepth == 0 || !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
+    if ( m_platformProfilerGpuDepth == 0 )
     {
         return;
     }

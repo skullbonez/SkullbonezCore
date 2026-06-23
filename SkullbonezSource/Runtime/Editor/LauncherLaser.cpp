@@ -159,6 +159,19 @@ void LauncherLaser::Update( float dt )
 }
 
 
+bool LauncherLaser::HasActiveShots() const
+{
+    for ( const Shot& shot : m_shots )
+    {
+        if ( shot.active )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void LauncherLaser::CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const
 {
     outShots.clear();

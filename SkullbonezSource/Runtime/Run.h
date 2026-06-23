@@ -1213,6 +1213,8 @@ class Run
         void Render( const DebugOverlayPassInputs& inputs );
 
       private:
+        bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
+
         Run& m_run;
     };
 

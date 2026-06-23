@@ -197,7 +197,14 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
         return;
     }
     EnsureCommandListOpen();
-    const char* markerName = name ? name : "(null)";
+    char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+    const char* markerName =
+        SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()
+            ? SkullbonezCore::Basics::PlatformProfiler::DecorateMarkerName( name,
+                                                                            "_GPU",
+                                                                            gpuMarkerName,
+                                                                            sizeof( gpuMarkerName ) )
+            : name;
     PIXBeginEvent( m_commandList,
                    SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                    "%s",
@@ -212,15 +219,13 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
 
 void RenderBackendDX12::PlatformProfilerGpuEnd()
 {
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
-    {
-        return;
-    }
-
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     if ( m_platformProfilerGpuDepth <= 0 )
     {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
+        if ( SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
+        {
+            Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
+        }
         return;
     }
     if ( !m_commandList || !m_commandListOpen )
@@ -248,7 +253,14 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
         return;
     }
     EnsureCommandListOpen();
-    const char* markerName = name ? name : "(null)";
+    char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+    const char* markerName =
+        SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()
+            ? SkullbonezCore::Basics::PlatformProfiler::DecorateMarkerName( name,
+                                                                            "_GPU",
+                                                                            gpuMarkerName,
+                                                                            sizeof( gpuMarkerName ) )
+            : name;
     PIXSetMarker( m_commandList,
                   SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                   "%s",

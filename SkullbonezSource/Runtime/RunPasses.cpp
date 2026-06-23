@@ -40,6 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "../Core/PlatformProfiler.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -979,8 +980,14 @@ Run::ReflectionPassOutput Run::ReflectionPass::Render( const ReflectionPassInput
 
 void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
 {
-    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Balls" );
+    const bool transparentPass = inputs.mode == ObjectPassMode::Transparent;
+    const char* passName = transparentPass ? "Frame/Render/TransparentBalls" : "Frame/Render/Balls";
+    const uint32_t passHash =
+        transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    GpuProfilerScope profileScope( passName, passHash );
+#endif
+    Rendering::DrawCallTraceScope drawTraceScope( passName, passHash );
 
     if ( inputs.collisionStateColorsVisible )
     {
@@ -1015,8 +1022,6 @@ void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
                                               inputs.drawMaskedModels );
         }
     }
-
-    PROFILE_GPU_END( "Frame/Render/Balls" );
 }
 
 
@@ -1343,19 +1348,45 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
+    if ( !HasOverlayWork( inputs ) )
+    {
+        return;
+    }
+
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
+    }
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/DebugOverlay" );
     if ( m_run.m_debug.isBroadphaseOverlay )
     {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/Broadphase" );
+        }
         DRAW_CALL_TRACE_SCOPE( "Broadphase" );
         m_run.m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/DebugOverlay/Broadphase" );
+        }
     }
 
     if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField )
     {
-        DRAW_CALL_TRACE_SCOPE( "TornadoField" );
         if ( inputs.frame.scene )
         {
+            if ( detailMarkers )
+            {
+                PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
+            }
+            DRAW_CALL_TRACE_SCOPE( "TornadoField" );
             inputs.frame.scene->RenderTornadoFieldVectors( inputs.frame.viewProjection );
+            if ( detailMarkers )
+            {
+                PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
+            }
         }
     }
 
@@ -1363,6 +1394,10 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/PhysicsDebug" );
+        }
         DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
         m_run.m_physicsDebugVisualizer.SetFlags( m_run.m_debug.physicsDebugFlags );
         m_run.m_physicsDebugVisualizer.SetPipelineStageCursor( m_run.m_debug.physicsDebugPipelineStageCursor );
@@ -1372,7 +1407,69 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                                     inputs.frame.viewProjection,
                                                     m_run.m_systems.terrain.get() );
         }
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/DebugOverlay/PhysicsDebug" );
+        }
     }
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/DebugOverlay" );
+    }
+}
+
+
+bool Run::DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) const
+{
+    if ( m_run.m_debug.isBroadphaseOverlay )
+    {
+        return true;
+    }
+    if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField && inputs.frame.scene )
+    {
+        return true;
+    }
+    if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        return true;
+    }
+
+    const float rayLinger = (std::max)( 0.0f, m_run.m_debug.physicsDebugContactLinger );
+    if ( rayLinger > 0.0f )
+    {
+        for ( const RunRayCastTestLine& line : m_run.m_rayCastTest.lines )
+        {
+            if ( line.active && line.ageSeconds < rayLinger )
+            {
+                return true;
+            }
+        }
+    }
+
+    const bool placementPreview = m_run.m_editor.editorModeEnabled && m_run.m_editor.placementModeEnabled &&
+                                  m_run.m_editor.placementPreviewVisible;
+    const bool editorSelection = m_run.m_editor.editorModeEnabled && !m_run.m_editor.placementModeEnabled &&
+                                 m_run.m_editor.selectedModelIndex >= 0 &&
+                                 m_run.m_editor.selectedModelIndex < m_run.m_cGameModelCollection.GetModelCount();
+    if ( placementPreview || editorSelection )
+    {
+        return true;
+    }
+    if ( m_run.m_mousePickup.active && m_run.m_mousePickup.modelIndex >= 0 &&
+         m_run.m_mousePickup.modelIndex < m_run.m_cGameModelCollection.GetModelCount() )
+    {
+        return true;
+    }
+
+    if ( m_run.m_replayPathVisualizer.hasTarget || m_run.m_replayCamera.focusKind != RunReplayCameraFocusKind::None )
+    {
+        return true;
+    }
+    if ( m_run.m_replayVelocityEdit.enabled && !m_run.m_editor.editorModeEnabled )
+    {
+        return true;
+    }
+    return m_run.m_launcherLaser.HasActiveShots();
 }
 
 
@@ -1439,7 +1536,6 @@ void Run::VolumetricPass::ReleaseGpuResources()
 
 bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
 {
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/VolumetricLight" );
     const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
@@ -1450,6 +1546,12 @@ bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
         return false;
     }
 
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight" );
+    }
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/VolumetricLight" );
     // Invariant: unbind the full-size scene target before sampling it. The
     // volumetric pass reads scene color/depth and writes a separate soft light
     // texture, so read and write targets must be different resources.
@@ -1465,19 +1567,37 @@ bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
-    volumetric.shader->Use();
-    BindVolumetricPassParams( *volumetric.shader, cinematic );
-    // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
-    // depth. The shader uses depth to tell sky pixels from solid geometry so
-    // rays pass through sky and fade when they cross hills/balls.
-    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(), scene.hdrTarget->GetDepthTextureHandle(), 0, 0 );
-    DrawFullscreenQuad( fullscreen.quadVB );
+    {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight/Draw" );
+        }
+        DRAW_CALL_TRACE_SCOPE( "Draw" );
+        volumetric.shader->Use();
+        BindVolumetricPassParams( *volumetric.shader, cinematic );
+        // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
+        // depth. The shader uses depth to tell sky pixels from solid geometry so
+        // rays pass through sky and fade when they cross hills/balls.
+        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                                scene.hdrTarget->GetDepthTextureHandle(),
+                                0,
+                                0 );
+        DrawFullscreenQuad( fullscreen.quadVB );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/VolumetricLight/Draw" );
+        }
+    }
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
     volumetric.target->Unbind();
     Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/VolumetricLight" );
+    }
     return true;
 }
 
@@ -1507,7 +1627,6 @@ void Run::TonemapPass::ReleaseGpuResources()
 
 void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAlreadyUnbound, bool volumetricReady )
 {
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
     TonemapPassResources& tonemap = m_run.m_systems.renderPasses.tonemap;
@@ -1517,6 +1636,12 @@ void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAl
         return;
     }
 
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Tonemap" );
+    }
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     if ( !sceneAlreadyUnbound )
     {
         scene.hdrTarget->Unbind();
@@ -1532,20 +1657,35 @@ void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAl
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes
     // normal display color and where bloom/fog/rays are layered in.
-    tonemap.shader->Use();
-    const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
-    BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
-    // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
-    // and slot 2 is either the volumetric-light texture or a harmless fallback
-    // when that pass is disabled.
-    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
-                            scene.hdrTarget->GetDepthTextureHandle(),
-                            volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
-                                                                 : scene.hdrTarget->GetColorTextureHandle(),
-                            0 );
-    DrawFullscreenQuad( fullscreen.quadVB );
+    {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/Tonemap/Draw" );
+        }
+        DRAW_CALL_TRACE_SCOPE( "Draw" );
+        tonemap.shader->Use();
+        const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
+        BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
+        // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
+        // and slot 2 is either the volumetric-light texture or a harmless fallback
+        // when that pass is disabled.
+        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                                scene.hdrTarget->GetDepthTextureHandle(),
+                                volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
+                                                                     : scene.hdrTarget->GetColorTextureHandle(),
+                                0 );
+        DrawFullscreenQuad( fullscreen.quadVB );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/Tonemap/Draw" );
+        }
+    }
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/Tonemap" );
+    }
 }

@@ -19,6 +19,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED ) && defined( _WIN32 ) && defined( SKULLBONEZ_PLATFORM_PROFILER_PIX ) &&       \
@@ -43,8 +44,13 @@ namespace PlatformProfiler
 bool IsAvailable();
 void SetEnabled( bool enabled );
 bool IsEnabled();
+void SetDetailedRangesEnabled( bool enabled );
+bool AreDetailedRangesEnabled();
+
+static constexpr std::size_t MAX_DECORATED_MARKER_NAME_CHARS = 256;
 
 uint64_t ColorForMarker( const char* name, uint32_t hash );
+const char* DecorateMarkerName( const char* name, const char* suffix, char* buffer, std::size_t bufferSize );
 
 void CpuBegin( const char* name, uint32_t hash );
 void CpuEnd();

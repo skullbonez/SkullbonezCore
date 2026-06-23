@@ -93,6 +93,9 @@ Profiler::Profiler()
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
+    std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
+    std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
+    std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
 }
 
 
@@ -294,7 +297,8 @@ void Profiler::RecordWorkerSample( const char* fullPath,
 
 WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
     : m_fullPath( fullPath ), m_hash( hash ),
-      m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 )
+      m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 ),
+      m_platformProfilerOpen( false )
 {
     if ( m_workerIndex < 0 )
     {
@@ -303,6 +307,14 @@ WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m_startTicks = t.QuadPart;
+    if ( PlatformProfiler::AreDetailedRangesEnabled() )
+    {
+        char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+        PlatformProfiler::CpuBegin(
+            PlatformProfiler::DecorateMarkerName( m_fullPath, "_Worker", markerName, sizeof( markerName ) ),
+            m_hash );
+        m_platformProfilerOpen = true;
+    }
 }
 
 
@@ -314,6 +326,11 @@ WorkerProfilerScope::~WorkerProfilerScope()
     }
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
+    if ( m_platformProfilerOpen )
+    {
+        PlatformProfiler::CpuEnd();
+        m_platformProfilerOpen = false;
+    }
     Profiler::Instance().RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
 }
 
@@ -348,10 +365,15 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
         m.spanWrittenThisFrame = true;
     }
     m.openCount = 1;
-    m_stackIndices[m_stackTop++] = idx;
+    const int stackSlot = m_stackTop++;
+    m_stackIndices[stackSlot] = idx;
+    m_platformProfilerCpuOpen[stackSlot] = false;
+    m_platformProfilerGpuRecordOpen[stackSlot] = false;
+    m_platformProfilerGpuEventOpen[stackSlot] = false;
     if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
     {
         PlatformProfiler::CpuBegin( fullPath, hash );
+        m_platformProfilerCpuOpen[stackSlot] = true;
     }
 }
 
@@ -363,8 +385,11 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
         AbortMismatch( "PROFILE_END with empty stack", fullPath );
     }
 
-    int topIdx = m_stackIndices[m_stackTop - 1];
+    const int stackSlot = m_stackTop - 1;
+    int topIdx = m_stackIndices[stackSlot];
     Marker& top = m_markers[topIdx];
+    const bool cpuPlatformOpen = m_platformProfilerCpuOpen[stackSlot];
+    m_platformProfilerCpuOpen[stackSlot] = false;
 
     if ( top.hash != hash )
     {
@@ -383,7 +408,7 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
         static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
-    if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
+    if ( emitCpuPlatformProfiler && cpuPlatformOpen )
     {
         PlatformProfiler::CpuEnd();
     }
@@ -397,9 +422,19 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
         return;
     }
     BeginInternal( fullPath, hash, false );
+    const int stackSlot = m_stackTop - 1;
+    if ( PlatformProfiler::AreDetailedRangesEnabled() )
+    {
+        char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+        PlatformProfiler::CpuBegin(
+            PlatformProfiler::DecorateMarkerName( fullPath, "_Record", markerName, sizeof( markerName ) ),
+            hash );
+        m_platformProfilerGpuRecordOpen[stackSlot] = true;
+    }
     if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
     {
         Gfx().PlatformProfilerGpuBegin( fullPath, hash );
+        m_platformProfilerGpuEventOpen[stackSlot] = true;
     }
     BeginGpuTimerInternal( fullPath, hash );
 }
@@ -411,10 +446,22 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
     {
         return;
     }
+    const int stackSlot = m_stackTop > 0 ? m_stackTop - 1 : -1;
+    const bool platformGpuOpen = stackSlot >= 0 ? m_platformProfilerGpuEventOpen[stackSlot] : false;
+    const bool platformRecordOpen = stackSlot >= 0 ? m_platformProfilerGpuRecordOpen[stackSlot] : false;
+    if ( stackSlot >= 0 )
+    {
+        m_platformProfilerGpuEventOpen[stackSlot] = false;
+        m_platformProfilerGpuRecordOpen[stackSlot] = false;
+    }
     EndGpuTimerInternal( fullPath, hash );
-    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
+    if ( platformGpuOpen && IsGfxReady() )
     {
         Gfx().PlatformProfilerGpuEnd();
+    }
+    if ( platformRecordOpen )
+    {
+        PlatformProfiler::CpuEnd();
     }
     EndInternal( fullPath, hash, false );
 }
