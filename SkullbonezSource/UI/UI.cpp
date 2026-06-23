@@ -651,51 +651,48 @@ static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) ==
                    static_cast<int>( UIRenderParam::Count ),
                "Render slider specs must match UIRenderParam." );
 
-constexpr int EDITOR_MINI_TREE_FAMILY_NONE = -1;
-constexpr int EDITOR_MINI_TREE_FAMILY_SMALL = 0;
-constexpr int EDITOR_MINI_TREE_FAMILY_PINE = 1;
-constexpr int EDITOR_MINI_TREE_FAMILY_CEDAR = 2;
-constexpr int EDITOR_MINI_TREE_VARIANT_PHYSICS = 0;
-constexpr int EDITOR_MINI_TREE_VARIANT_SLEEPING = 1;
-constexpr int EDITOR_MINI_TREE_VARIANT_ROOTED = 2;
-constexpr int EDITOR_MINI_TREE_VARIANT_COUNT = 3;
+constexpr int EDITOR_MINI_TREE_TYPE_NONE = -1;
+constexpr int EDITOR_MINI_TREE_TYPE_SMALL = 0;
+constexpr int EDITOR_MINI_TREE_TYPE_PINE = 1;
+constexpr int EDITOR_MINI_TREE_TYPE_CEDAR = 2;
+constexpr int EDITOR_MINI_TREE_TYPE_COUNT = 3;
+constexpr int EDITOR_MINI_TREE_PLACEMENT_NONE = -1;
+constexpr int EDITOR_MINI_TREE_PLACEMENT_FIXED = 0;
+constexpr int EDITOR_MINI_TREE_PLACEMENT_SLEEPING = 1;
+constexpr int EDITOR_MINI_TREE_PLACEMENT_ROOTED = 2;
+constexpr int EDITOR_MINI_RAGDOLL_MODE_SLEEPING = 1;
+constexpr int EDITOR_MINI_RAGDOLL_MODE_COUNT = 2;
+constexpr int EDITOR_MINI_FLYOUT_OPTION_MAX = 3;
 constexpr double EDITOR_MINI_HOLD_SECONDS = 0.32;
 constexpr int EDITOR_MINI_HOLD_MODE_NONE = 0;
-constexpr int EDITOR_MINI_HOLD_MODE_TREE_VARIANTS = 1;
-constexpr int EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY = 2;
+constexpr int EDITOR_MINI_HOLD_MODE_TREE_TYPES = 1;
+constexpr int EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES = 2;
 
 struct EditorMiniPaletteEntry
 {
     int objectType;
-    int treeFamily;
+    int treePlacement;
     int holdMode;
 };
 
 constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
-    { EditorTab::OBJECT_BOX, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_BALL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_SPHERE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_WEDGE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_TRI_PRISM, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_TAPERED_BLOCK, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_PYRAMID, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_HEX_PRISM, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_HULL_DIAMOND, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_SLAB, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_LUMP, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_ROOT_SMALL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY },
-    { EditorTab::OBJECT_ROOT_LARGE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY },
-    { EditorTab::OBJECT_TREE_SMALL, EDITOR_MINI_TREE_FAMILY_SMALL, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
-    { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_FAMILY_PINE, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
-    { EditorTab::OBJECT_TREE_CEDAR, EDITOR_MINI_TREE_FAMILY_CEDAR, EDITOR_MINI_HOLD_MODE_TREE_VARIANTS },
-    { EditorTab::OBJECT_TREE_SMALL_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TREE_BIG_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TREE_CEDAR_SLOPE, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_TREE_PINE_SHEDDING, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_RAGDOLL, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
-    { EditorTab::OBJECT_RAGDOLL_SLEEP, EDITOR_MINI_TREE_FAMILY_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_BOX, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_BALL, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_SPHERE, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_WEDGE, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_TRI_PRISM, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_TAPERED_BLOCK, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_PYRAMID, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_HEX_PRISM, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_HULL_DIAMOND, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_SLAB, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_LUMP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_PLACEMENT_FIXED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
+    { EditorTab::OBJECT_TREE_BIG_SLEEP, EDITOR_MINI_TREE_PLACEMENT_SLEEPING, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
+    { EditorTab::OBJECT_TREE_BIG_ROOTED, EDITOR_MINI_TREE_PLACEMENT_ROOTED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
+    { EditorTab::OBJECT_RAGDOLL, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES },
 };
 constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT =
     static_cast<int>( sizeof( kEditorMiniPaletteEntries ) / sizeof( kEditorMiniPaletteEntries[0] ) );
@@ -703,99 +700,134 @@ constexpr int EDITOR_MINI_PALETTE_ENTRY_COUNT =
 struct EditorMiniPaletteLayout
 {
     UIRect buttons[EDITOR_MINI_PALETTE_ENTRY_COUNT];
-    UIRect flyoutOptions[EDITOR_MINI_TREE_VARIANT_COUNT];
+    UIRect flyoutOptions[EDITOR_MINI_FLYOUT_OPTION_MAX];
     UIRect bounds;
     UIRect flyoutBounds;
     float buttonSize = 0.0f;
     int buttonCount = 0;
+    int flyoutOptionCount = 0;
     bool flyoutVisible = false;
 };
 
-bool IsEditorMiniTreeFamilyValid( int family )
+bool IsEditorMiniTreePlacementValid( int placement )
 {
-    return family >= EDITOR_MINI_TREE_FAMILY_SMALL && family <= EDITOR_MINI_TREE_FAMILY_CEDAR;
+    return placement >= EDITOR_MINI_TREE_PLACEMENT_FIXED && placement <= EDITOR_MINI_TREE_PLACEMENT_ROOTED;
 }
 
-bool EditorMiniTreeFamilyForType( int objectType, int& outFamily, int& outVariant )
+int EditorMiniPaletteFlyoutOptionCount( int holdMode )
+{
+    if ( holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
+    {
+        return EDITOR_MINI_TREE_TYPE_COUNT;
+    }
+    if ( holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
+    {
+        return EDITOR_MINI_RAGDOLL_MODE_COUNT;
+    }
+    return 0;
+}
+
+bool EditorMiniTreeTypeForType( int objectType, int& outTreeType, int& outPlacement )
 {
     switch ( objectType )
     {
     case EditorTab::OBJECT_TREE_SMALL:
-        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
-        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        outTreeType = EDITOR_MINI_TREE_TYPE_SMALL;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_FIXED;
         return true;
     case EditorTab::OBJECT_TREE_SMALL_SLEEP:
-        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
-        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        outTreeType = EDITOR_MINI_TREE_TYPE_SMALL;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_SLEEPING;
         return true;
     case EditorTab::OBJECT_TREE_SMALL_ROOTED:
-        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
-        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        outTreeType = EDITOR_MINI_TREE_TYPE_SMALL;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_ROOTED;
         return true;
     case EditorTab::OBJECT_TREE_BIG:
-        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
-        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        outTreeType = EDITOR_MINI_TREE_TYPE_PINE;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_FIXED;
         return true;
     case EditorTab::OBJECT_TREE_BIG_SLEEP:
-        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
-        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        outTreeType = EDITOR_MINI_TREE_TYPE_PINE;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_SLEEPING;
         return true;
     case EditorTab::OBJECT_TREE_BIG_ROOTED:
-        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
-        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        outTreeType = EDITOR_MINI_TREE_TYPE_PINE;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_ROOTED;
         return true;
     case EditorTab::OBJECT_TREE_CEDAR:
-        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
-        outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+        outTreeType = EDITOR_MINI_TREE_TYPE_CEDAR;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_FIXED;
         return true;
     case EditorTab::OBJECT_TREE_CEDAR_SLEEP:
-        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
-        outVariant = EDITOR_MINI_TREE_VARIANT_SLEEPING;
+        outTreeType = EDITOR_MINI_TREE_TYPE_CEDAR;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_SLEEPING;
         return true;
     case EditorTab::OBJECT_TREE_CEDAR_ROOTED:
-        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
-        outVariant = EDITOR_MINI_TREE_VARIANT_ROOTED;
+        outTreeType = EDITOR_MINI_TREE_TYPE_CEDAR;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_ROOTED;
         return true;
     default:
-        outFamily = EDITOR_MINI_TREE_FAMILY_NONE;
-        outVariant = -1;
+        outTreeType = EDITOR_MINI_TREE_TYPE_NONE;
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
         return false;
     }
 }
 
-int EditorMiniTreeObjectType( int family, int variant )
+bool EditorMiniPaletteTreeStateForType( int objectType, bool editorPlaceStatic, int& outPlacement, int& outTreeType )
 {
-    if ( family == EDITOR_MINI_TREE_FAMILY_SMALL )
+    int treeType = EDITOR_MINI_TREE_TYPE_NONE;
+    int placement = EDITOR_MINI_TREE_PLACEMENT_NONE;
+    if ( !EditorMiniTreeTypeForType( objectType, treeType, placement ) )
     {
-        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
+        outTreeType = EDITOR_MINI_TREE_TYPE_NONE;
+        return false;
+    }
+    if ( placement == EDITOR_MINI_TREE_PLACEMENT_FIXED && !editorPlaceStatic )
+    {
+        outPlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
+        outTreeType = treeType;
+        return false;
+    }
+    outPlacement = placement;
+    outTreeType = treeType;
+    return true;
+}
+
+int EditorMiniTreeObjectType( int treeType, int placement )
+{
+    if ( treeType == EDITOR_MINI_TREE_TYPE_SMALL )
+    {
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_SMALL_SLEEP;
         }
-        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_ROOTED )
         {
             return EditorTab::OBJECT_TREE_SMALL_ROOTED;
         }
         return EditorTab::OBJECT_TREE_SMALL;
     }
-    if ( family == EDITOR_MINI_TREE_FAMILY_PINE )
+    if ( treeType == EDITOR_MINI_TREE_TYPE_PINE )
     {
-        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_BIG_SLEEP;
         }
-        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_ROOTED )
         {
             return EditorTab::OBJECT_TREE_BIG_ROOTED;
         }
         return EditorTab::OBJECT_TREE_BIG;
     }
-    if ( family == EDITOR_MINI_TREE_FAMILY_CEDAR )
+    if ( treeType == EDITOR_MINI_TREE_TYPE_CEDAR )
     {
-        if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_CEDAR_SLEEP;
         }
-        if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+        if ( placement == EDITOR_MINI_TREE_PLACEMENT_ROOTED )
         {
             return EditorTab::OBJECT_TREE_CEDAR_ROOTED;
         }
@@ -841,11 +873,18 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
 
     if ( flyoutOpen && flyoutAnchorEntry >= 0 && flyoutAnchorEntry < layout.buttonCount )
     {
+        const int optionCount =
+            EditorMiniPaletteFlyoutOptionCount( kEditorMiniPaletteEntries[flyoutAnchorEntry].holdMode );
+        if ( optionCount <= 0 )
+        {
+            return layout;
+        }
         const UIRect anchor = layout.buttons[flyoutAnchorEntry];
         const float optionSize = buttonSize;
         const float optionGap = (std::max)( 2.0f, std::floor( buttonSize * 0.12f ) );
         const float padding = 4.0f;
-        const float flyoutW = padding * 2.0f + optionSize * 3.0f + optionGap * 2.0f;
+        const float flyoutW = padding * 2.0f + optionSize * static_cast<float>( optionCount ) +
+                              optionGap * static_cast<float>( optionCount - 1 );
         const float flyoutH = padding * 2.0f + optionSize;
         float flyoutX = anchor.x + anchor.w + 8.0f;
         if ( flyoutX + flyoutW > static_cast<float>( screenW ) - margin )
@@ -855,7 +894,8 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW,
         const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - flyoutH );
         const float flyoutY = std::clamp( anchor.y + ( anchor.h - flyoutH ) * 0.5f, margin, maxY );
         layout.flyoutBounds = { flyoutX, flyoutY, flyoutW, flyoutH };
-        for ( int i = 0; i < EDITOR_MINI_TREE_VARIANT_COUNT; ++i )
+        layout.flyoutOptionCount = optionCount;
+        for ( int i = 0; i < optionCount; ++i )
         {
             layout.flyoutOptions[i] = { flyoutX + padding + static_cast<float>( i ) * ( optionSize + optionGap ),
                                         flyoutY + padding,
@@ -887,7 +927,7 @@ int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int
         return -1;
     }
 
-    for ( int i = 0; i < EDITOR_MINI_TREE_VARIANT_COUNT; ++i )
+    for ( int i = 0; i < layout.flyoutOptionCount; ++i )
     {
         if ( layout.flyoutOptions[i].Contains( mouseX, mouseY ) )
         {
@@ -1220,36 +1260,40 @@ bool IsEditorMiniHullType( int objectType )
 }
 
 
-bool EditorMiniTreeVisualForType( int objectType, int& outFamily, int& outVariant, bool& outSlope, bool& outShedding )
+bool EditorMiniTreeVisualForType( int objectType,
+                                  int& outTreeType,
+                                  int& outPlacement,
+                                  bool& outSlope,
+                                  bool& outShedding )
 {
     outSlope = false;
     outShedding = false;
-    if ( EditorMiniTreeFamilyForType( objectType, outFamily, outVariant ) )
+    if ( EditorMiniTreeTypeForType( objectType, outTreeType, outPlacement ) )
     {
         return true;
     }
 
-    outVariant = EDITOR_MINI_TREE_VARIANT_PHYSICS;
+    outPlacement = EDITOR_MINI_TREE_PLACEMENT_FIXED;
     switch ( objectType )
     {
     case EditorTab::OBJECT_TREE_SMALL_SLOPE:
-        outFamily = EDITOR_MINI_TREE_FAMILY_SMALL;
+        outTreeType = EDITOR_MINI_TREE_TYPE_SMALL;
         outSlope = true;
         return true;
     case EditorTab::OBJECT_TREE_BIG_SLOPE:
-        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outTreeType = EDITOR_MINI_TREE_TYPE_PINE;
         outSlope = true;
         return true;
     case EditorTab::OBJECT_TREE_CEDAR_SLOPE:
-        outFamily = EDITOR_MINI_TREE_FAMILY_CEDAR;
+        outTreeType = EDITOR_MINI_TREE_TYPE_CEDAR;
         outSlope = true;
         return true;
     case EditorTab::OBJECT_TREE_PINE_SHEDDING:
-        outFamily = EDITOR_MINI_TREE_FAMILY_PINE;
+        outTreeType = EDITOR_MINI_TREE_TYPE_PINE;
         outShedding = true;
         return true;
     default:
-        outFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+        outTreeType = EDITOR_MINI_TREE_TYPE_NONE;
         return false;
     }
 }
@@ -1353,7 +1397,7 @@ void DrawEditorMiniTreeSilhouette( const UIDrawContext& draw,
 
     draw.Rect( cx - trunkW * 0.5f, cy + r * 0.05f, trunkW, r * 0.94f, color.r, color.g, color.b, alpha * 0.74f );
 
-    if ( family == EDITOR_MINI_TREE_FAMILY_SMALL )
+    if ( family == EDITOR_MINI_TREE_TYPE_SMALL )
     {
         draw.RoundedRect( cx - r * 0.72f,
                           cy - r * 0.72f,
@@ -1374,7 +1418,7 @@ void DrawEditorMiniTreeSilhouette( const UIDrawContext& draw,
                           color.b,
                           alpha * 0.94f );
     }
-    else if ( family == EDITOR_MINI_TREE_FAMILY_CEDAR )
+    else if ( family == EDITOR_MINI_TREE_TYPE_CEDAR )
     {
         draw.Triangle( cx,
                        cy - r * 1.25f,
@@ -1524,26 +1568,28 @@ void DrawEditorMiniHullSilhouette( const UIDrawContext& draw,
         draw.Rect( cx - r * 1.05f, cy + r * 0.62f, r * 2.10f, r * 0.24f, color.r, color.g, color.b, alpha * 0.70f );
         return;
     case EditorTab::OBJECT_HULL_TRI_PRISM:
-        draw.Triangle( cx - r * 0.92f,
-                       cy + r * 0.76f,
-                       cx - r * 0.14f,
-                       cy - r * 0.76f,
-                       cx + r * 0.56f,
-                       cy + r * 0.76f,
+        draw.Triangle( cx - r * 0.98f,
+                       cy + r * 0.78f,
+                       cx - r * 0.18f,
+                       cy - r * 0.78f,
+                       cx + r * 0.58f,
+                       cy + r * 0.78f,
                        color.r,
                        color.g,
                        color.b,
                        alpha );
-        draw.Triangle( cx - r * 0.38f,
-                       cy + r * 0.46f,
-                       cx + r * 0.34f,
-                       cy - r * 0.92f,
-                       cx + r * 0.98f,
-                       cy + r * 0.46f,
+        draw.Triangle( cx - r * 0.36f,
+                       cy + r * 0.42f,
+                       cx + r * 0.42f,
+                       cy - r * 0.96f,
+                       cx + r * 1.04f,
+                       cy + r * 0.42f,
                        color.r,
                        color.g,
                        color.b,
                        alpha * 0.70f );
+        draw.Rect( cx - r * 0.96f, cy + r * 0.64f, r * 1.54f, 2.0f, color.r, color.g, color.b, alpha * 0.82f );
+        draw.Rect( cx - r * 0.36f, cy + r * 0.32f, r * 1.38f, 2.0f, color.r, color.g, color.b, alpha * 0.62f );
         return;
     case EditorTab::OBJECT_HULL_TAPERED_BLOCK:
         draw.Rect( cx - r * 0.54f, cy - r * 0.70f, r * 1.08f, r * 1.40f, color.r, color.g, color.b, alpha );
@@ -1800,16 +1846,16 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
         return;
     }
 
-    int treeFamily = EDITOR_MINI_TREE_FAMILY_NONE;
-    int treeVariant = -1;
+    int treeType = EDITOR_MINI_TREE_TYPE_NONE;
+    int treePlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
     bool treeSlope = false;
     bool treeShedding = false;
-    if ( EditorMiniTreeVisualForType( type, treeFamily, treeVariant, treeSlope, treeShedding ) )
+    if ( EditorMiniTreeVisualForType( type, treeType, treePlacement, treeSlope, treeShedding ) )
     {
         DrawEditorMiniTreeSilhouette( draw,
                                       bounds,
-                                      treeFamily,
-                                      treeVariant == EDITOR_MINI_TREE_VARIANT_ROOTED,
+                                      treeType,
+                                      treePlacement == EDITOR_MINI_TREE_PLACEMENT_ROOTED,
                                       treeSlope,
                                       treeShedding,
                                       color,
@@ -1855,13 +1901,13 @@ void DrawEditorMiniVariantMarker( const UIDrawContext& draw,
 {
     const float x = bounds.x + bounds.w - 8.0f;
     const float y = bounds.y + bounds.h - 8.0f;
-    if ( variant == EDITOR_MINI_TREE_VARIANT_SLEEPING )
+    if ( variant == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
     {
         draw.Rect( x - 3.0f, y - 3.0f, 2.0f, 6.0f, color.r, color.g, color.b, 0.92f );
         draw.Rect( x + 1.0f, y - 3.0f, 2.0f, 6.0f, color.r, color.g, color.b, 0.92f );
         return;
     }
-    if ( variant == EDITOR_MINI_TREE_VARIANT_ROOTED )
+    if ( variant == EDITOR_MINI_TREE_PLACEMENT_ROOTED )
     {
         draw.Rect( x - 1.0f, y - 5.0f, 2.0f, 7.0f, color.r, color.g, color.b, 0.92f );
         draw.Triangle( x, y, x - 5.0f, y + 4.0f, x - 1.0f, y + 1.0f, color.r, color.g, color.b, 0.92f );
@@ -1983,21 +2029,70 @@ void DrawEditorMiniTooltip( const UIDrawContext& draw,
 }
 
 
+int EditorMiniRagdollObjectType( int mode )
+{
+    return mode == EDITOR_MINI_RAGDOLL_MODE_SLEEPING ? EditorTab::OBJECT_RAGDOLL_SLEEP : EditorTab::OBJECT_RAGDOLL;
+}
+
+
+bool EditorMiniSelectionRequestsStatic( int holdMode, int treePlacement, bool& outPlaceStatic )
+{
+    if ( holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
+    {
+        outPlaceStatic = treePlacement != EDITOR_MINI_TREE_PLACEMENT_SLEEPING;
+        return true;
+    }
+    if ( holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
+    {
+        outPlaceStatic = false;
+        return true;
+    }
+    outPlaceStatic = false;
+    return false;
+}
+
+
+const char* EditorMiniPaletteEntryLabel( const EditorMiniPaletteEntry& entry )
+{
+    if ( entry.holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
+    {
+        switch ( entry.treePlacement )
+        {
+        case EDITOR_MINI_TREE_PLACEMENT_FIXED:
+            return "Fixed tree";
+        case EDITOR_MINI_TREE_PLACEMENT_SLEEPING:
+            return "Sleeping tree";
+        case EDITOR_MINI_TREE_PLACEMENT_ROOTED:
+            return "Rooted tree";
+        default:
+            break;
+        }
+    }
+    if ( entry.holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
+    {
+        return "Ragdoll";
+    }
+    return EditorTab::ObjectLabel( entry.objectType );
+}
+
+
 void DrawEditorMiniPalette( const UIDrawContext& draw,
                             const EditorMiniPaletteLayout& layout,
                             int editorObjectType,
+                            bool editorPlaceStatic,
                             int mouseX,
                             int mouseY,
-                            int flyoutFamily,
+                            int flyoutTreePlacement,
                             int flyoutHoldMode,
                             int pressedEntry,
                             int screenW,
                             int screenH )
 {
     const Style::UIPalette& palette = Style::Palette();
-    int currentFamily = EDITOR_MINI_TREE_FAMILY_NONE;
-    int currentVariant = -1;
-    EditorMiniTreeFamilyForType( editorObjectType, currentFamily, currentVariant );
+    int currentTreePlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
+    int currentTreeType = EDITOR_MINI_TREE_TYPE_NONE;
+    const bool currentTreeState =
+        EditorMiniPaletteTreeStateForType( editorObjectType, editorPlaceStatic, currentTreePlacement, currentTreeType );
 
     const char* tooltipLabel = nullptr;
     UIRect tooltipAnchor = {};
@@ -2005,10 +2100,18 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
         const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[i];
-        const bool familyEntry = IsEditorMiniTreeFamilyValid( entry.treeFamily );
-        const bool selected = familyEntry ? currentFamily == entry.treeFamily : entry.objectType == editorObjectType;
+        const bool treeEntry = IsEditorMiniTreePlacementValid( entry.treePlacement );
+        const bool ragdollEntry = entry.holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES;
+        const bool selected =
+            treeEntry ? ( currentTreeState && currentTreePlacement == entry.treePlacement )
+                      : ( ragdollEntry ? ( editorObjectType == EditorTab::OBJECT_RAGDOLL ||
+                                           editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP )
+                                       : entry.objectType == editorObjectType );
         const bool hot = layout.buttons[i].Contains( mouseX, mouseY );
-        const int marker = familyEntry && selected ? currentVariant : -1;
+        const int marker = treeEntry ? entry.treePlacement
+                                     : ( ragdollEntry && editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP
+                                             ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING
+                                             : -1 );
         const bool holdCapable = entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE;
         const bool holdActive = holdCapable && i == pressedEntry && flyoutHoldMode != EDITOR_MINI_HOLD_MODE_NONE;
         DrawEditorMiniPaletteButton( draw,
@@ -2021,7 +2124,7 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
                                      holdActive );
         if ( hot )
         {
-            tooltipLabel = EditorTab::ObjectLabel( entry.objectType );
+            tooltipLabel = EditorMiniPaletteEntryLabel( entry );
             tooltipAnchor = layout.buttons[i];
         }
     }
@@ -2038,19 +2141,26 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
                           0.0f,
                           0.24f );
         draw.RoundedPanel( layout.flyoutBounds, Style::Radii().control, palette.window, palette.border );
-        for ( int variant = 0; variant < EDITOR_MINI_TREE_VARIANT_COUNT; ++variant )
+        for ( int option = 0; option < layout.flyoutOptionCount; ++option )
         {
-            int marker = variant;
-            int type = EditorMiniTreeObjectType( flyoutFamily, variant );
-            if ( flyoutHoldMode == EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY )
+            int marker = -1;
+            int type = EditorTab::OBJECT_BOX;
+            bool selected = false;
+            if ( flyoutHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
             {
-                type = EditorMiniTreeObjectType( variant, EDITOR_MINI_TREE_VARIANT_ROOTED );
-                marker = EDITOR_MINI_TREE_VARIANT_ROOTED;
+                marker = flyoutTreePlacement;
+                type = EditorMiniTreeObjectType( option, flyoutTreePlacement );
+                selected = currentTreeState && currentTreePlacement == flyoutTreePlacement && currentTreeType == option;
             }
-            const bool selected = type == editorObjectType;
-            const bool hot = layout.flyoutOptions[variant].Contains( mouseX, mouseY );
+            else if ( flyoutHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
+            {
+                type = EditorMiniRagdollObjectType( option );
+                marker = option == EDITOR_MINI_RAGDOLL_MODE_SLEEPING ? EDITOR_MINI_TREE_PLACEMENT_SLEEPING : -1;
+                selected = type == editorObjectType;
+            }
+            const bool hot = layout.flyoutOptions[option].Contains( mouseX, mouseY );
             DrawEditorMiniPaletteButton( draw,
-                                         layout.flyoutOptions[variant],
+                                         layout.flyoutOptions[option],
                                          type,
                                          selected,
                                          hot,
@@ -2060,7 +2170,7 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
             if ( hot )
             {
                 tooltipLabel = EditorTab::ObjectLabel( type );
-                tooltipAnchor = layout.flyoutOptions[variant];
+                tooltipAnchor = layout.flyoutOptions[option];
             }
         }
     }
@@ -2217,7 +2327,7 @@ void InGameUI::CancelEditorMiniPaletteInteraction()
     m_editorMiniPaletteFlyoutOpen = false;
     m_editorMiniPalettePressedEntry = -1;
     m_editorMiniPalettePressedObjectType = -1;
-    m_editorMiniPalettePressedFamily = EDITOR_MINI_TREE_FAMILY_NONE;
+    m_editorMiniPalettePressedTreePlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
     m_editorMiniPalettePressedHoldMode = EDITOR_MINI_HOLD_MODE_NONE;
     m_editorMiniPalettePressStart = 0.0;
 }
@@ -2856,10 +2966,16 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                               m_editorMiniPaletteFlyoutOpen );
             insideEditorMiniPalette = EditorMiniPaletteContains( editorMiniPalette, m_mouseX, m_mouseY );
 
-            const auto SelectEditorMiniPaletteObject = [&]( int objectType ) -> void
+            const auto SelectEditorMiniPaletteObject =
+                [&]( int objectType, bool requestPlaceStatic = false, bool placeStatic = false ) -> void
             {
                 result.commands.editor.requestedObjectType =
                     std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
+                if ( requestPlaceStatic )
+                {
+                    result.commands.editor.requestPlaceStatic = true;
+                    result.commands.editor.requestedPlaceStatic = placeStatic;
+                }
                 result.commands.editor.enterPlacementMode = true;
                 result.commands.ui.userInteracted = true;
                 editorMiniPaletteHandled = true;
@@ -2877,7 +2993,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         m_editorMiniPaletteFlyoutOpen = false;
                         m_editorMiniPalettePressedEntry = pressedButton;
                         m_editorMiniPalettePressedObjectType = entry.objectType;
-                        m_editorMiniPalettePressedFamily = entry.treeFamily;
+                        m_editorMiniPalettePressedTreePlacement = entry.treePlacement;
                         m_editorMiniPalettePressedHoldMode = entry.holdMode;
                         m_editorMiniPalettePressStart = now;
                         result.commands.ui.userInteracted = true;
@@ -2898,21 +3014,23 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                 if ( input.leftReleased )
                 {
                     int selectedObjectType = -1;
+                    bool requestPlaceStatic = false;
+                    bool requestedPlaceStatic = false;
                     if ( m_editorMiniPaletteFlyoutOpen )
                     {
                         const int flyoutOption =
                             HitEditorMiniPaletteFlyoutOption( editorMiniPalette, m_mouseX, m_mouseY );
                         if ( flyoutOption >= 0 )
                         {
-                            if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_VARIANTS )
+                            if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
                             {
-                                selectedObjectType =
-                                    EditorMiniTreeObjectType( m_editorMiniPalettePressedFamily, flyoutOption );
+                                selectedObjectType = EditorMiniTreeObjectType(
+                                    flyoutOption,
+                                    m_editorMiniPalettePressedTreePlacement );
                             }
-                            else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_ROOTED_FAMILY )
+                            else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
                             {
-                                selectedObjectType =
-                                    EditorMiniTreeObjectType( flyoutOption, EDITOR_MINI_TREE_VARIANT_ROOTED );
+                                selectedObjectType = EditorMiniRagdollObjectType( flyoutOption );
                             }
                         }
                     }
@@ -2926,7 +3044,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
                     if ( selectedObjectType >= 0 )
                     {
-                        SelectEditorMiniPaletteObject( selectedObjectType );
+                        requestPlaceStatic = EditorMiniSelectionRequestsStatic( m_editorMiniPalettePressedHoldMode,
+                                                                               m_editorMiniPalettePressedTreePlacement,
+                                                                               requestedPlaceStatic );
+                        SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
                     }
                     CancelEditorMiniPaletteInteraction();
                     InputControl::EndMouseCapture();
@@ -3677,9 +3798,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             DrawEditorMiniPalette( draw,
                                    editorMiniPalette,
                                    data.editorObjectType,
+                                   data.editorPlaceStatic,
                                    m_mouseX,
                                    m_mouseY,
-                                   m_editorMiniPalettePressedFamily,
+                                   m_editorMiniPalettePressedTreePlacement,
                                    m_editorMiniPalettePressedHoldMode,
                                    m_editorMiniPalettePressedEntry,
                                    screenW,

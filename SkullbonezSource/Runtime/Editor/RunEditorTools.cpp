@@ -1337,6 +1337,14 @@ void Run::HandleEditorKeyboardShortcuts()
 
 void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands, bool keyboardToggleEditorMode )
 {
+    if ( uiCommands.editor.requestPlaceStatic &&
+         m_editor.placeStaticObject != uiCommands.editor.requestedPlaceStatic )
+    {
+        EnterInteractiveSceneRun();
+        m_editor.placeStaticObject = uiCommands.editor.requestedPlaceStatic;
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                           RuntimeInputActionSource::UI );
+    }
     if ( uiCommands.editor.requestedObjectType >= 0 )
     {
         const int requestedObjectType =

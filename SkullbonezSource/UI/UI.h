@@ -277,7 +277,7 @@ class InGameUI
     bool m_editorMiniPaletteFlyoutOpen = false;
     int m_editorMiniPalettePressedEntry = -1;
     int m_editorMiniPalettePressedObjectType = -1;
-    int m_editorMiniPalettePressedFamily = -1;
+    int m_editorMiniPalettePressedTreePlacement = -1;
     int m_editorMiniPalettePressedHoldMode = 0;
     double m_editorMiniPalettePressStart = 0.0;
 

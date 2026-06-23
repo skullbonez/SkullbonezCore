@@ -218,6 +218,8 @@ struct UIEditorCommands
     bool togglePlaceStatic = false;
     bool toggleTerrainAlign = false;
     bool enterPlacementMode = false;
+    bool requestPlaceStatic = false;
+    bool requestedPlaceStatic = false;
     int requestedObjectType = -1;
 };
 
