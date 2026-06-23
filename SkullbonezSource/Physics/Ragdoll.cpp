@@ -338,12 +338,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         model.SetName( name );
         model.SetFixed( options.fixed );
 
-        const int bodyIndex = collection.GetModelCount();
         collection.AddGameModel( std::move( model ) );
-        if ( options.startsAsleep && !options.fixed )
-        {
-            collection.SeedModelAsleep( bodyIndex );
-        }
     }
 
     int jointCount = 0;
@@ -360,6 +355,14 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         constraint.damping = 0.35f;
         constraint.groupId = groupId;
         collection.AddPointJointConstraint( constraint );
+    }
+
+    if ( options.startsAsleep && !options.fixed )
+    {
+        for ( int i = 0; i < PART_COUNT; ++i )
+        {
+            collection.SeedModelAsleep( firstBody + i );
+        }
     }
 }
 

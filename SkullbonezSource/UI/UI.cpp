@@ -2102,11 +2102,10 @@ void DrawEditorMiniPalette( const UIDrawContext& draw,
         const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[i];
         const bool treeEntry = IsEditorMiniTreePlacementValid( entry.treePlacement );
         const bool ragdollEntry = entry.holdMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES;
-        const bool selected =
-            treeEntry ? ( currentTreeState && currentTreePlacement == entry.treePlacement )
-                      : ( ragdollEntry ? ( editorObjectType == EditorTab::OBJECT_RAGDOLL ||
-                                           editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP )
-                                       : entry.objectType == editorObjectType );
+        const bool selected = treeEntry ? ( currentTreeState && currentTreePlacement == entry.treePlacement )
+                                        : ( ragdollEntry ? ( editorObjectType == EditorTab::OBJECT_RAGDOLL ||
+                                                             editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP )
+                                                         : entry.objectType == editorObjectType );
         const bool hot = layout.buttons[i].Contains( mouseX, mouseY );
         const int marker = treeEntry ? entry.treePlacement
                                      : ( ragdollEntry && editorObjectType == EditorTab::OBJECT_RAGDOLL_SLEEP
@@ -3024,9 +3023,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                         {
                             if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
                             {
-                                selectedObjectType = EditorMiniTreeObjectType(
-                                    flyoutOption,
-                                    m_editorMiniPalettePressedTreePlacement );
+                                selectedObjectType =
+                                    EditorMiniTreeObjectType( flyoutOption, m_editorMiniPalettePressedTreePlacement );
                             }
                             else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
                             {
@@ -3045,8 +3043,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                     if ( selectedObjectType >= 0 )
                     {
                         requestPlaceStatic = EditorMiniSelectionRequestsStatic( m_editorMiniPalettePressedHoldMode,
-                                                                               m_editorMiniPalettePressedTreePlacement,
-                                                                               requestedPlaceStatic );
+                                                                                m_editorMiniPalettePressedTreePlacement,
+                                                                                requestedPlaceStatic );
                         SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
                     }
                     CancelEditorMiniPaletteInteraction();

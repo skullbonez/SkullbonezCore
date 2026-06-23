@@ -127,19 +127,34 @@ bool DecodeReplayRay9Payload( const ReplayEventSample& event,
     return true;
 }
 
-bool DecodeReplayPlace6Payload( const ReplayEventSample& event, Vector3& outTerrainPoint, Vector3& outPlacementScale )
+bool DecodeReplayPlacePayload( const ReplayEventSample& event,
+                               Vector3& outTerrainPoint,
+                               Vector3& outPlacementScale,
+                               float& outPlacementYawRadians )
 {
-    constexpr char prefix[] = "place6:";
-    if ( std::strncmp( event.text, prefix, sizeof( prefix ) - 1 ) != 0 )
+    constexpr char prefix6[] = "place6:";
+    constexpr char prefix7[] = "place7:";
+    int valueCount = 0;
+    const char* cursor = nullptr;
+    if ( std::strncmp( event.text, prefix7, sizeof( prefix7 ) - 1 ) == 0 )
+    {
+        valueCount = 7;
+        cursor = event.text + sizeof( prefix7 ) - 1;
+    }
+    else if ( std::strncmp( event.text, prefix6, sizeof( prefix6 ) - 1 ) == 0 )
+    {
+        valueCount = 6;
+        cursor = event.text + sizeof( prefix6 ) - 1;
+    }
+    else
     {
         return false;
     }
 
-    const char* cursor = event.text + sizeof( prefix ) - 1;
-    float values[6] = {};
-    for ( float& value : values )
+    float values[7] = {};
+    for ( int i = 0; i < valueCount; ++i )
     {
-        if ( !ReadReplayHexFloat( cursor, value ) )
+        if ( !ReadReplayHexFloat( cursor, values[i] ) )
         {
             return false;
         }
@@ -147,6 +162,7 @@ bool DecodeReplayPlace6Payload( const ReplayEventSample& event, Vector3& outTerr
 
     outTerrainPoint = Vector3( values[0], values[1], values[2] );
     outPlacementScale = Vector3( values[3], values[4], values[5] );
+    outPlacementYawRadians = valueCount >= 7 ? values[6] : 0.0f;
     return true;
 }
 
@@ -649,7 +665,8 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
     {
         Vector3 terrainPoint;
         Vector3 placementScale;
-        if ( !DecodeReplayPlace6Payload( event, terrainPoint, placementScale ) )
+        float placementYawRadians = 0.0f;
+        if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
         {
             WriteReplayProbeReason( outReason, reasonSize, "invalid editor placement payload" );
             return false;
@@ -664,14 +681,17 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
 
         const Vector3 previousPlacementScale = m_editor.placementScale;
         const bool previousTerrainAlign = m_editor.autoTerrainAlign;
+        const float previousPlacementYawRadians = m_editor.placementYawRadians;
         m_editor.placementScale = placementScale;
         m_editor.autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+        m_editor.placementYawRadians = placementYawRadians;
         const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
                                                              ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                              terrainPoint,
                                                              false );
         m_editor.placementScale = previousPlacementScale;
         m_editor.autoTerrainAlign = previousTerrainAlign;
+        m_editor.placementYawRadians = previousPlacementYawRadians;
         if ( !placed )
         {
             WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );

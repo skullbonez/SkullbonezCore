@@ -988,12 +988,13 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
                                         bool terrainAlign,
                                         int modelCountBefore,
                                         const Vector3& terrainPoint,
-                                        const Vector3& placementScale )
+                                        const Vector3& placementScale,
+                                        float placementYawRadians )
 {
-    char payload[64] = {};
+    char payload[80] = {};
     char* cursor = payload;
     std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "place6:" );
+    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
     if ( prefixWritten > 0 )
     {
         const std::size_t consumed =
@@ -1003,6 +1004,7 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
     }
     AppendReplayVectorHex( cursor, remaining, terrainPoint );
     AppendReplayVectorHex( cursor, remaining, placementScale );
+    AppendReplayFloatHex( cursor, remaining, placementYawRadians );
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
     HashReplayInt( hash, objectType );
@@ -1015,6 +1017,7 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
     HashReplayFloat( hash, placementScale.x );
     HashReplayFloat( hash, placementScale.y );
     HashReplayFloat( hash, placementScale.z );
+    HashReplayFloat( hash, placementYawRadians );
 
     uint32_t flags = 0;
     flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;

@@ -53,6 +53,7 @@ namespace
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
@@ -708,6 +709,17 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
 }
 
 
+Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bool autoTerrainAlign, float yawRadians )
+{
+    Quaternion orientation = EditorOrientationFromTerrainNormal( objectType, terrainNormal, autoTerrainAlign );
+    if ( fabsf( yawRadians ) > 1.0e-5f )
+    {
+        orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), yawRadians );
+    }
+    return orientation;
+}
+
+
 const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
     const char* path = EditorHullAssetPath( asset );
@@ -1054,6 +1066,202 @@ float EditorGizmoRotationRadius( float modelRadius )
 }
 
 
+using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY>;
+
+bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
+{
+    static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
+                                                        "head",
+                                                        "upper_arm_l",
+                                                        "lower_arm_l",
+                                                        "upper_arm_r",
+                                                        "lower_arm_r",
+                                                        "upper_leg_l",
+                                                        "lower_leg_l",
+                                                        "upper_leg_r",
+                                                        "lower_leg_r" };
+
+    const char* name = model.GetName();
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    const std::size_t nameLength = std::strlen( name );
+    for ( const char* suffix : RAGDOLL_SUFFIXES )
+    {
+        const std::size_t suffixLength = std::strlen( suffix );
+        if ( nameLength <= suffixLength + 1 )
+        {
+            continue;
+        }
+
+        const std::size_t suffixStart = nameLength - suffixLength;
+        if ( name[suffixStart - 1] != '_' || std::strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
+        {
+            continue;
+        }
+
+        outPrefixLength = suffixStart - 1;
+        return outPrefixLength > 0;
+    }
+    return false;
+}
+
+
+bool EditorRagdollPrefixMatches( const char* a, std::size_t aLength, const char* b, std::size_t bLength )
+{
+    return aLength == bLength && std::strncmp( a, b, aLength ) == 0;
+}
+
+
+int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
+                                        int selectedIndex,
+                                        EditorGizmoGroupIndices& outIndices )
+{
+    outIndices.fill( -1 );
+    if ( selectedIndex < 0 || selectedIndex >= static_cast<int>( models.size() ) )
+    {
+        return 0;
+    }
+
+    std::size_t selectedPrefixLength = 0;
+    if ( !TryGetEditorRagdollInstancePrefixLength( models[static_cast<std::size_t>( selectedIndex )],
+                                                   selectedPrefixLength ) )
+    {
+        outIndices[0] = selectedIndex;
+        return 1;
+    }
+
+    const char* selectedName = models[static_cast<std::size_t>( selectedIndex )].GetName();
+    int count = 0;
+    for ( int i = 0; i < static_cast<int>( models.size() ) && count < static_cast<int>( outIndices.size() ); ++i )
+    {
+        const GameModel& candidate = models[static_cast<std::size_t>( i )];
+        std::size_t prefixLength = 0;
+        if ( TryGetEditorRagdollInstancePrefixLength( candidate, prefixLength ) &&
+             EditorRagdollPrefixMatches( selectedName, selectedPrefixLength, candidate.GetName(), prefixLength ) )
+        {
+            outIndices[static_cast<std::size_t>( count )] = i;
+            ++count;
+        }
+    }
+
+    if ( count <= 0 )
+    {
+        outIndices[0] = selectedIndex;
+        return 1;
+    }
+    return count;
+}
+
+
+bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+                                 int selectedIndex,
+                                 Vector3& outOrigin,
+                                 float& outRadius,
+                                 EditorGizmoGroupIndices* outGroupIndices = nullptr,
+                                 int* outGroupCount = nullptr )
+{
+    EditorGizmoGroupIndices indices = {};
+    const int count = GatherSelectedEditorTransformGroup( models, selectedIndex, indices );
+    if ( count <= 0 )
+    {
+        return false;
+    }
+
+    Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    for ( int i = 0; i < count; ++i )
+    {
+        origin += models[static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] )].GetPosition();
+    }
+    origin /= static_cast<float>( count );
+
+    float radius = 1.0f;
+    for ( int i = 0; i < count; ++i )
+    {
+        const GameModel& model = models[static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] )];
+        radius = (std::max)( radius, Distance( model.GetPosition(), origin ) + EditorModelRadius( model ) );
+    }
+
+    outOrigin = origin;
+    outRadius = radius;
+    if ( outGroupIndices )
+    {
+        *outGroupIndices = indices;
+    }
+    if ( outGroupCount )
+    {
+        *outGroupCount = count;
+    }
+    return true;
+}
+
+
+void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
+                                       const std::vector<GameModel>& models,
+                                       bool allowRagdollGroup )
+{
+    editor.gizmoDragGroupCount = 0;
+    editor.gizmoDragGroupIndices.fill( -1 );
+    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= static_cast<int>( models.size() ) )
+    {
+        return;
+    }
+
+    EditorGizmoGroupIndices indices = {};
+    int count = 1;
+    indices[0] = editor.selectedModelIndex;
+    if ( allowRagdollGroup )
+    {
+        count = GatherSelectedEditorTransformGroup( models, editor.selectedModelIndex, indices );
+    }
+
+    editor.gizmoDragGroupCount =
+        std::clamp( count, 0, static_cast<int>( RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY ) );
+    for ( int i = 0; i < editor.gizmoDragGroupCount; ++i )
+    {
+        const int index = indices[static_cast<std::size_t>( i )];
+        editor.gizmoDragGroupIndices[static_cast<std::size_t>( i )] = index;
+        const GameModel& model = models[static_cast<std::size_t>( index )];
+        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = model.GetPosition();
+        editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] = model.GetOrientation();
+    }
+}
+
+
+int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount )
+{
+    const int count = editor.gizmoDragGroupCount;
+    if ( count <= 0 || count > static_cast<int>( RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY ) )
+    {
+        return 0;
+    }
+    for ( int i = 0; i < count; ++i )
+    {
+        const int index = editor.gizmoDragGroupIndices[static_cast<std::size_t>( i )];
+        if ( index < 0 || index >= modelCount )
+        {
+            return 0;
+        }
+    }
+    return count;
+}
+
+
+void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                    int index,
+                                    GameModel& model )
+{
+    model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    if ( !model.IsFixed() )
+    {
+        collection.WakeModel( index );
+    }
+}
+
+
 float ReplayVelocityLinearBaseLength( float modelRadius )
 {
     return (std::max)( 10.0f, modelRadius + 7.0f );
@@ -1291,6 +1499,7 @@ void Run::ResetEditorUnfocusedInputState()
     m_editor.gizmoDragIsRotation = false;
     m_editor.gizmoDragIsScale = false;
     m_editor.activeGizmoAxis = -1;
+    m_editor.gizmoDragGroupCount = 0;
     m_editor.gizmoDragStartAxisT = 0.0f;
     m_editor.gizmoDragStartRotationAngle = 0.0f;
     m_editor.gizmoDragStartPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -1309,7 +1518,9 @@ void Run::ClearEditorManipulationState()
     m_editor.gizmoDragIsRotation = false;
     m_editor.gizmoDragIsScale = false;
     m_editor.activeGizmoAxis = -1;
+    m_editor.gizmoDragGroupCount = 0;
     m_editor.placementAltitudeSteps = 0;
+    m_editor.placementYawRadians = 0.0f;
 }
 
 
@@ -1337,8 +1548,7 @@ void Run::HandleEditorKeyboardShortcuts()
 
 void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands, bool keyboardToggleEditorMode )
 {
-    if ( uiCommands.editor.requestPlaceStatic &&
-         m_editor.placeStaticObject != uiCommands.editor.requestedPlaceStatic )
+    if ( uiCommands.editor.requestPlaceStatic && m_editor.placeStaticObject != uiCommands.editor.requestedPlaceStatic )
     {
         EnterInteractiveSceneRun();
         m_editor.placeStaticObject = uiCommands.editor.requestedPlaceStatic;
@@ -1404,11 +1614,13 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.gizmoDragIsRotation = false;
             m_editor.gizmoDragIsScale = false;
             m_editor.activeGizmoAxis = -1;
+            m_editor.gizmoDragGroupCount = 0;
             m_editor.placementScaleActive = false;
             m_editor.placementScaleWheelSteps = 0;
             m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
+            m_editor.placementYawRadians = 0.0f;
             m_camera.mode = NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
             m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
             if ( wasFlyMode && !IsFlyCameraMode() )
@@ -1464,10 +1676,20 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 
     const int placementWheelSteps = EditorMouseWheelSteps( unhandledWheelDelta );
     const bool placementLeftMouseNow = Input::IsLeftMouseDown();
+    const bool placementYawWheel = placementWheelSteps != 0 && m_editor.editorModeEnabled &&
+                                   m_editor.placementModeEnabled && Input::IsKeyDown( VK_CONTROL ) &&
+                                   !m_editor.viewportLookActive && !m_UI.BlocksCameraMouse();
+    if ( placementYawWheel )
+    {
+        EnterInteractiveSceneRun();
+        m_editor.placementYawRadians =
+            WrapEditorAngleDelta( m_editor.placementYawRadians +
+                                  static_cast<float>( placementWheelSteps ) * EDITOR_PLACEMENT_YAW_STEP_RADIANS );
+    }
     if ( m_editor.placementScaleActive && placementLeftMouseNow && !m_editor.viewportLookActive &&
          !m_UI.BlocksCameraMouse() )
     {
-        if ( placementWheelSteps != 0 )
+        if ( placementWheelSteps != 0 && !placementYawWheel )
         {
             EnterInteractiveSceneRun();
             m_editor.placementScaleWheelSteps += placementWheelSteps;
@@ -1483,7 +1705,7 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
                                                                    m_editor.placementScaleWheelSteps );
     }
     else if ( placementWheelSteps != 0 && m_editor.editorModeEnabled && m_editor.placementModeEnabled &&
-              !m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() )
+              !placementYawWheel && !m_editor.viewportLookActive && !m_UI.BlocksCameraMouse() )
     {
         const int nextAltitudeSteps = (std::max)( 0, m_editor.placementAltitudeSteps + placementWheelSteps );
         if ( nextAltitudeSteps != m_editor.placementAltitudeSteps )
@@ -1557,42 +1779,68 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
             {
                 const GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
-                uint32_t changedFlags = 0;
-                int scaleAxis = -1;
-                float scaleFactor = 1.0f;
                 if ( m_editor.gizmoDragIsScale )
                 {
-                    scaleAxis = m_editor.activeGizmoAxis;
-                    changedFlags |= TryEditorScaleFactorFromShapes( m_editor.gizmoDragStartShape,
-                                                                    model.GetCollisionShape(),
-                                                                    scaleAxis,
-                                                                    scaleFactor )
-                                        ? REPLAY_EDITOR_TRANSFORM_SCALE
-                                        : 0u;
-                }
-                else if ( m_editor.gizmoDragIsRotation )
-                {
-                    changedFlags |=
-                        EditorOrientationsDiffer( model.GetOrientation(), m_editor.gizmoDragStartOrientation )
-                            ? REPLAY_EDITOR_TRANSFORM_ROTATE
-                            : 0u;
+                    int scaleAxis = m_editor.activeGizmoAxis;
+                    float scaleFactor = 1.0f;
+                    const uint32_t changedFlags = TryEditorScaleFactorFromShapes( m_editor.gizmoDragStartShape,
+                                                                                  model.GetCollisionShape(),
+                                                                                  scaleAxis,
+                                                                                  scaleFactor )
+                                                      ? REPLAY_EDITOR_TRANSFORM_SCALE
+                                                      : 0u;
+                    RecordReplayEditorTransformEvent( m_editor.selectedModelIndex,
+                                                      changedFlags,
+                                                      model,
+                                                      scaleAxis,
+                                                      scaleFactor );
                 }
                 else
                 {
-                    changedFlags |= EditorPositionsDiffer( model.GetPosition(), m_editor.gizmoDragStartPosition )
-                                        ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
-                                        : 0u;
+                    const int groupCount =
+                        ValidCapturedEditorGizmoGroupCount( m_editor, m_cGameModelCollection.GetModelCount() );
+                    if ( groupCount > 0 )
+                    {
+                        for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
+                        {
+                            const int modelIndex =
+                                m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
+                            const GameModel& groupModel = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+                            uint32_t changedFlags = 0;
+                            changedFlags |=
+                                EditorPositionsDiffer(
+                                    groupModel.GetPosition(),
+                                    m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] )
+                                    ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
+                                    : 0u;
+                            changedFlags |=
+                                EditorOrientationsDiffer(
+                                    groupModel.GetOrientation(),
+                                    m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
+                                    ? REPLAY_EDITOR_TRANSFORM_ROTATE
+                                    : 0u;
+                            RecordReplayEditorTransformEvent( modelIndex, changedFlags, groupModel, -1, 1.0f );
+                        }
+                    }
+                    else
+                    {
+                        uint32_t changedFlags = 0;
+                        changedFlags |= EditorPositionsDiffer( model.GetPosition(), m_editor.gizmoDragStartPosition )
+                                            ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
+                                            : 0u;
+                        changedFlags |=
+                            EditorOrientationsDiffer( model.GetOrientation(), m_editor.gizmoDragStartOrientation )
+                                ? REPLAY_EDITOR_TRANSFORM_ROTATE
+                                : 0u;
+                        RecordReplayEditorTransformEvent( m_editor.selectedModelIndex, changedFlags, model, -1, 1.0f );
+                    }
                 }
-                RecordReplayEditorTransformEvent( m_editor.selectedModelIndex,
-                                                  changedFlags,
-                                                  model,
-                                                  scaleAxis,
-                                                  scaleFactor );
             }
             m_editor.gizmoDragActive = false;
             m_editor.gizmoDragIsRotation = false;
             m_editor.gizmoDragIsScale = false;
             m_editor.activeGizmoAxis = -1;
+            m_editor.gizmoDragGroupCount = 0;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
                                                RuntimeInputActionSource::Mouse );
         }
@@ -1619,6 +1867,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
                 m_editor.gizmoDragStartAxisT = axisT;
                 m_editor.gizmoDragStartShape = model.GetCollisionShape();
+                m_editor.gizmoDragStartPosition = model.GetPosition();
+                m_editor.gizmoDragStartOrientation = model.GetOrientation();
+                CaptureEditorGizmoDragGroupState( m_editor, m_cGameModelCollection.Models(), false );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
                                                    RuntimeInputActionSource::Mouse );
@@ -1640,9 +1891,14 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = m_editor.hotRotationAxis;
                 m_editor.gizmoDragStartRotationAngle = startAngle;
+                const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+                Vector3 selectionOrigin = models[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+                float selectionRadius = 1.0f;
+                TryGetEditorSelectionFrame( models, m_editor.selectedModelIndex, selectionOrigin, selectionRadius );
+                m_editor.gizmoDragStartPosition = selectionOrigin;
                 m_editor.gizmoDragStartOrientation =
-                    m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )]
-                        .GetOrientation();
+                    models[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
+                CaptureEditorGizmoDragGroupState( m_editor, models, true );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
                                                    RuntimeInputActionSource::Mouse );
@@ -1664,8 +1920,15 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_editor.gizmoDragIsScale = false;
                 m_editor.activeGizmoAxis = m_editor.hotGizmoAxis;
                 m_editor.gizmoDragStartAxisT = axisT;
-                m_editor.gizmoDragStartPosition =
-                    m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+                const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+                float selectionRadius = 1.0f;
+                TryGetEditorSelectionFrame( models,
+                                            m_editor.selectedModelIndex,
+                                            m_editor.gizmoDragStartPosition,
+                                            selectionRadius );
+                m_editor.gizmoDragStartOrientation =
+                    models[static_cast<size_t>( m_editor.selectedModelIndex )].GetOrientation();
+                CaptureEditorGizmoDragGroupState( m_editor, models, true );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
                                                    RuntimeInputActionSource::Mouse );
@@ -2484,8 +2747,10 @@ bool Run::TryComputeEditorPlacementPreview( int objectType )
         float ignoredHeight = 0.0f;
         m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
-    const Quaternion placementOrientation =
-        EditorOrientationFromTerrainNormal( objectType, terrainNormal, m_editor.autoTerrainAlign );
+    const Quaternion placementOrientation = EditorPlacementOrientation( objectType,
+                                                                        terrainNormal,
+                                                                        m_editor.autoTerrainAlign,
+                                                                        m_editor.placementYawRadians );
 
     Vector3 center;
     if ( !TryComputeEditorObjectCenter( objectType,
@@ -2749,9 +3014,12 @@ int Run::HitEditorGizmoAxis( const Vector3& rayOrigin, const Vector3& rayDirecti
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
-    const Vector3 origin = model.GetPosition();
-    const float radius = EditorModelRadius( model );
+    Vector3 origin;
+    float radius = 1.0f;
+    if ( !TryGetEditorSelectionFrame( models, m_editor.selectedModelIndex, origin, radius ) )
+    {
+        return -1;
+    }
     const float length = EditorGizmoAxisLength( radius );
     const float threshold = (std::max)( 1.25f, length * 0.06f );
     const float thresholdSq = threshold * threshold;
@@ -2781,9 +3049,13 @@ int Run::HitEditorRotationGizmoAxis( const Vector3& rayOrigin, const Vector3& ra
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const GameModel& model = models[static_cast<size_t>( m_editor.selectedModelIndex )];
-    const Vector3 origin = model.GetPosition();
-    const float ringRadius = EditorGizmoRotationRadius( EditorModelRadius( model ) );
+    Vector3 origin;
+    float radius = 1.0f;
+    if ( !TryGetEditorSelectionFrame( models, m_editor.selectedModelIndex, origin, radius ) )
+    {
+        return -1;
+    }
+    const float ringRadius = EditorGizmoRotationRadius( radius );
     const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
 
     int bestAxis = -1;
@@ -2828,8 +3100,15 @@ bool Run::TryEditorAxisRayParameter( int axis,
         return false;
     }
 
-    const Vector3 axisOrigin =
-        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    Vector3 axisOrigin;
+    float radius = 1.0f;
+    if ( !TryGetEditorSelectionFrame( m_cGameModelCollection.Models(),
+                                      m_editor.selectedModelIndex,
+                                      axisOrigin,
+                                      radius ) )
+    {
+        return false;
+    }
     const Vector3 axisVector = EditorAxisVector( axis );
     const Vector3 w = axisOrigin - rayOrigin;
     const float b = axisVector * rayDirection;
@@ -2857,8 +3136,12 @@ bool Run::TryEditorRotationRayAngle( int axis,
         return false;
     }
 
-    const Vector3 origin =
-        m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )].GetPosition();
+    Vector3 origin;
+    float radius = 1.0f;
+    if ( !TryGetEditorSelectionFrame( m_cGameModelCollection.Models(), m_editor.selectedModelIndex, origin, radius ) )
+    {
+        return false;
+    }
     const Vector3 normal = EditorAxisVector( axis );
     const float denom = normal * rayDirection;
     if ( fabsf( denom ) <= 1e-4f )
@@ -2906,18 +3189,30 @@ void Run::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vec
     {
         m_editor.gizmoDragActive = false;
         m_editor.activeGizmoAxis = -1;
+        m_editor.gizmoDragGroupCount = 0;
         return;
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
     const Vector3 axisVector = EditorAxisVector( m_editor.activeGizmoAxis );
-    const Vector3 newPosition = m_editor.gizmoDragStartPosition + axisVector * ( axisT - m_editor.gizmoDragStartAxisT );
-    model.SetPosition( newPosition );
-    model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-    if ( !model.IsFixed() )
+    const Vector3 delta = axisVector * ( axisT - m_editor.gizmoDragStartAxisT );
+    const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, m_cGameModelCollection.GetModelCount() );
+    if ( groupCount > 0 )
     {
-        m_cGameModelCollection.WakeModel( index );
+        for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
+        {
+            const int modelIndex = m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
+            GameModel& groupModel = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            groupModel.SetPosition( m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] +
+                                    delta );
+            ResetEditorModelMotionAndWake( m_cGameModelCollection, modelIndex, groupModel );
+        }
+    }
+    else
+    {
+        const Vector3 newPosition = m_editor.gizmoDragStartPosition + delta;
+        model.SetPosition( newPosition );
+        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
     }
 }
 
@@ -2941,6 +3236,7 @@ void Run::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Ve
         m_editor.gizmoDragActive = false;
         m_editor.gizmoDragIsScale = false;
         m_editor.activeGizmoAxis = -1;
+        m_editor.gizmoDragGroupCount = 0;
         return;
     }
 
@@ -2951,12 +3247,7 @@ void Run::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Ve
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
     if ( model.ScaleCollisionShapeAxisFromBase( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis, factor ) )
     {
-        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        if ( !model.IsFixed() )
-        {
-            m_cGameModelCollection.WakeModel( index );
-        }
+        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
     }
 }
 
@@ -2980,20 +3271,36 @@ void Run::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const 
         m_editor.gizmoDragActive = false;
         m_editor.gizmoDragIsRotation = false;
         m_editor.activeGizmoAxis = -1;
+        m_editor.gizmoDragGroupCount = 0;
         return;
     }
 
-    Quaternion orientation = m_editor.gizmoDragStartOrientation;
-    orientation.RotateAboutAxis( EditorAxisVector( m_editor.activeGizmoAxis ),
-                                 WrapEditorAngleDelta( currentAngle - m_editor.gizmoDragStartRotationAngle ) );
-
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
-    model.SetOrientation( orientation );
-    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-    if ( !model.IsFixed() )
+    const Vector3 axisVector = EditorAxisVector( m_editor.activeGizmoAxis );
+    const float angleDelta = WrapEditorAngleDelta( currentAngle - m_editor.gizmoDragStartRotationAngle );
+    const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, m_cGameModelCollection.GetModelCount() );
+    if ( groupCount > 0 )
     {
-        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        m_cGameModelCollection.WakeModel( index );
+        for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
+        {
+            const int modelIndex = m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
+            GameModel& groupModel = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            const Vector3 startOffset = m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] -
+                                        m_editor.gizmoDragStartPosition;
+            Quaternion orientation = m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
+            orientation.RotateAboutAxis( axisVector, angleDelta );
+            groupModel.SetPosition( m_editor.gizmoDragStartPosition +
+                                    RotatePointAboutArbitrary( angleDelta, axisVector, startOffset ) );
+            groupModel.SetOrientation( orientation );
+            ResetEditorModelMotionAndWake( m_cGameModelCollection, modelIndex, groupModel );
+        }
+    }
+    else
+    {
+        Quaternion orientation = m_editor.gizmoDragStartOrientation;
+        orientation.RotateAboutAxis( axisVector, angleDelta );
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
+        model.SetOrientation( orientation );
+        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
     }
 }
 
@@ -3026,6 +3333,7 @@ void Run::UpdateEditorInteractionPreview()
         m_editor.gizmoDragIsRotation = false;
         m_editor.gizmoDragIsScale = false;
         m_editor.activeGizmoAxis = -1;
+        m_editor.gizmoDragGroupCount = 0;
     }
 
     if ( m_editor.selectedModelIndex >= 0 && !m_editor.gizmoDragActive && !m_editor.placementModeEnabled )
@@ -3077,18 +3385,33 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
     if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && m_editor.selectedModelIndex >= 0 &&
          m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
     {
-        const GameModel& selected = m_cGameModelCollection.Models()[static_cast<size_t>( m_editor.selectedModelIndex )];
-        const float radius = EditorModelRadius( selected );
+        const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+        Vector3 gizmoOrigin;
+        float radius = 1.0f;
+        EditorGizmoGroupIndices groupIndices = {};
+        int groupCount = 0;
         const bool scaleMode = m_editor.gizmoDragIsScale || Input::IsKeyDown( VK_CONTROL );
-        m_editorTracer.AddSelectionOutline( selected );
-        m_editorTracer.AddGizmo( selected.GetPosition(),
-                                 radius,
-                                 m_editor.hotGizmoAxis,
-                                 m_editor.hotRotationAxis,
-                                 m_editor.activeGizmoAxis,
-                                 m_editor.gizmoDragIsRotation,
-                                 scaleMode,
-                                 m_editor.gizmoDragIsScale );
+        if ( TryGetEditorSelectionFrame( models,
+                                         m_editor.selectedModelIndex,
+                                         gizmoOrigin,
+                                         radius,
+                                         &groupIndices,
+                                         &groupCount ) )
+        {
+            for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
+            {
+                m_editorTracer.AddSelectionOutline(
+                    models[static_cast<std::size_t>( groupIndices[static_cast<std::size_t>( groupIndex )] )] );
+            }
+            m_editorTracer.AddGizmo( gizmoOrigin,
+                                     radius,
+                                     m_editor.hotGizmoAxis,
+                                     m_editor.hotRotationAxis,
+                                     m_editor.activeGizmoAxis,
+                                     m_editor.gizmoDragIsRotation,
+                                     scaleMode,
+                                     m_editor.gizmoDragIsScale );
+        }
     }
     if ( m_mousePickup.active && m_mousePickup.modelIndex >= 0 &&
          m_mousePickup.modelIndex < m_cGameModelCollection.GetModelCount() )
@@ -3151,7 +3474,7 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     }
     const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, m_editor.autoTerrainAlign );
     const Quaternion placementOrientation =
-        EditorOrientationFromTerrainNormal( type, terrainNormal, m_editor.autoTerrainAlign );
+        EditorPlacementOrientation( type, terrainNormal, m_editor.autoTerrainAlign, m_editor.placementYawRadians );
     Quaternion placementOrientationCopy = placementOrientation;
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
@@ -3410,7 +3733,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
                                       m_editor.autoTerrainAlign,
                                       modelCount,
                                       terrainPoint,
-                                      placementScale );
+                                      placementScale,
+                                      m_editor.placementYawRadians );
     }
     return placed;
 }

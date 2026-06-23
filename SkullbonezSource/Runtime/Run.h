@@ -643,6 +643,8 @@ struct RunReplaySaveProbeState
 
 struct RunEditorPlacementState
 {
+    static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
+
     bool editorModeEnabled = false;
     bool placementModeEnabled = false;
     bool placeStaticObject = false;
@@ -665,6 +667,7 @@ struct RunEditorPlacementState
     int activeGizmoAxis = -1;
     float gizmoDragStartAxisT = 0.0f;
     float gizmoDragStartRotationAngle = 0.0f;
+    float placementYawRadians = 0.0f;
     int placementAltitudeSteps = 0;
     int placementScaleWheelSteps = 0;
     Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
@@ -680,6 +683,10 @@ struct RunEditorPlacementState
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::CollisionDetection::CollisionShape gizmoDragStartShape;
+    int gizmoDragGroupCount = 0;
+    std::array<int, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupIndices = {};
+    std::array<Math::Vector::Vector3, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartPositions = {};
+    std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
 };
 
 class RunEditorTracer
@@ -1501,13 +1508,14 @@ class Run
         const Math::Vector::Vector3& rayDirection,
         const Math::Vector::Vector3& cameraUp );                                 // Records camera-derived launcher fire payloads.
     void RecordReplayGeneratedSceneConfigEvent();                                // Records generated-scene object counts and seed metadata.
-    void RecordReplayEditorPlaceEvent(
-        int objectType,
-        bool fixedObject,
-        bool terrainAlign,
-        int modelCountBefore,
-        const Math::Vector::Vector3& terrainPoint,
-        const Math::Vector::Vector3& placementScale );                           // Records editor placement commits for saved v2 replay.
+    void
+    RecordReplayEditorPlaceEvent( int objectType,
+                                  bool fixedObject,
+                                  bool terrainAlign,
+                                  int modelCountBefore,
+                                  const Math::Vector::Vector3& terrainPoint,
+                                  const Math::Vector::Vector3& placementScale,
+                                  float placementYawRadians );                   // Records editor placement commits for saved v2 replay.
     void
     RecordReplayEditorTransformEvent( int modelIndex,
                                       uint32_t changedFlags,
