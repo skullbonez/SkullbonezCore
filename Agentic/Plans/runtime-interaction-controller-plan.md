@@ -17,7 +17,8 @@ from replay can leave scrubbed replay state, prediction state, selection, or
 simulation pause alive behind the editor.
 
 Create a dedicated runtime interaction subsystem that owns those transitions,
-so entering a workspace decisively exits any incompatible workspace first.
+so entering a workspace or tool mode decisively exits any incompatible
+workspace or tool owner first.
 
 ## Core Model
 
@@ -44,8 +45,13 @@ enum class WorldInteractionOwner
 {
     None,
     InspectGizmo,
-    Editor,
-    Replay,
+    EditorPlacement,
+    EditorGizmo,
+    ReplayScrub,
+    ReplayVelocityEdit,
+    ReplayPrediction,
+    ReplayBranchTarget,
+    ReplayCauseTree,
     Launcher,
     Manipulator
 };
@@ -64,6 +70,18 @@ enum class CameraLookState
     RightMouseLook,
     EditorViewportLook,
     ReplayInspectionLook
+};
+
+enum class InteractionExitReason
+{
+    EnterLive,
+    EnterInspect,
+    EnterEdit,
+    EnterReplay,
+    EnterLauncher,
+    EnterManipulator,
+    ResetScene,
+    LoadScene
 };
 ```
 
@@ -100,7 +118,7 @@ should not know about camera modes, editor state, replay state, or UI capture.
 ### Replay
 
 - Owns scrubber interaction, replay camera inspection, replay path targets,
-  branch target selection, velocity edit, and prediction controls.
+  branch target selection, velocity edit/nudge, and prediction controls.
 - Replay state may render passive UI while another workspace is active only
   after its active ownership state has been cleared.
 
@@ -112,6 +130,9 @@ policy must be explicit:
 - `Launcher`: physics runs live; right mouse looks; WASD moves; left click fires.
 - `Manipulator`: physics runs live; right mouse looks; WASD moves; left click
   physically drags bodies.
+- Entering either tool must first exit the previous world-interaction owner,
+  including replay velocity edit/nudge, replay prediction, editor gizmos,
+  inspect gizmos, and any mouse capture they hold.
 
 ## Required Transitions
 
@@ -121,11 +142,56 @@ All high-level mode changes should go through controller methods such as:
 - `EnterInspect()`
 - `EnterEdit()`
 - `EnterReplay()`
+- `EnterLauncher()`
+- `EnterManipulator()`
 - `SetCameraMode(...)`
+- `SetWorldInteractionOwner(...)`
 - `BuildFramePolicy(...)`
 
 Entering a workspace must first call the exit routine for the previous
 workspace. Do not let callers toggle scattered booleans directly.
+
+### Mode Transition Cleanup Contract
+
+Every transition between active modes must use the same shape:
+
+1. Read the current `RuntimeWorkspace`, `WorldInteractionOwner`,
+   `CameraLookState`, and `PhysicsAdvanceState`.
+2. Call `ExitWorldInteractionOwner(previousOwner, reason)`.
+3. Call `ExitWorkspace(previousWorkspace, reason)` when the workspace changes.
+4. Clear camera look and mouse capture owned by the previous mode.
+5. Enter the new workspace or owner from a clean state.
+
+Direct assignment to mode enums should be treated as a bug. New modes are not
+responsible for tolerating old UI and input leftovers.
+
+The exit routine for an owner must clear all transient state owned by that
+owner:
+
+- hover state
+- drag state
+- active axes and handles
+- mouse capture and cursor hide requests
+- pending clicks and held buttons
+- path, prediction, or preview state owned by the old mode
+- UI panels or affordances that are only valid while the old owner is active
+
+### Replay Velocity Edit/Nudge To Launcher
+
+If the user is in replay velocity edit/nudge and presses the launcher shortcut,
+the transition must kill nudge before launcher receives input:
+
+- disable replay velocity edit/nudge
+- clear active linear and angular axes
+- clear hover, drag, and capture state
+- clear prediction/horizon drag state produced by the nudge tool
+- clear replay-owned selection or handles that are only valid for velocity edit
+- release replay mouse capture and cursor ownership
+- set `WorldInteractionOwner::Launcher`
+- enter live launcher policy: physics runs, right mouse looks, left click fires
+
+The same rule applies in the other direction. Launcher or manipulator input
+must be killed before replay, edit, or inspect ownership can start.
 
 ### Entering Edit From Replay
 
@@ -202,6 +268,12 @@ scrub pause. Rename the button to `HOLD` / `LIVE`, or fold this behavior into
 - Cursor hiding is a result of `CameraLookState`, not a permanent side effect of
   a camera mode.
 - World clicks are owned by exactly one `WorldInteractionOwner`.
+- A new `WorldInteractionOwner` can only be entered through the controller
+  transition API. It must never be set by directly assigning an enum or toggling
+  an old feature boolean.
+- Tool UIs should render from authoritative owner state. If an owner is not
+  active, its handles, previews, drag targets, hot axes, and hover affordances
+  must not render or consume input.
 
 ## Implementation Slices
 
@@ -212,9 +284,13 @@ scrub pause. Rename the button to `HOLD` / `LIVE`, or fold this behavior into
 3. Rename `Free` to `Inspect` in user-facing camera mode labels and shortcut
    behavior.
 4. Move replay/editor/inspect entry transitions into the controller.
-5. Add hard cleanup for `Replay -> Edit` and `Edit -> Replay`.
-6. Move cursor ownership and right-mouse look decisions behind controller policy.
-7. Remove obsolete direct boolean toggles once the controller is authoritative.
+5. Add explicit `WorldInteractionOwner` transitions for inspect gizmo, editor
+   placement/gizmo, replay scrub, replay velocity edit/nudge, replay prediction,
+   replay branch target, launcher, and manipulator.
+6. Add hard cleanup for `Replay -> Edit`, `Edit -> Replay`, and every
+   tool-to-tool transition.
+7. Move cursor ownership and right-mouse look decisions behind controller policy.
+8. Remove obsolete direct boolean toggles once the controller is authoritative.
 
 ## Test Plan
 
@@ -234,6 +310,15 @@ Focused scenarios:
 - Open replay, scrub to history, enable prediction/velocity edit/branch target,
   press tilde, and confirm editor opens at current live time with replay state
   cleared.
+- In replay velocity edit/nudge, hover or drag an axis, press launcher shortcut,
+  and confirm nudge handles disappear, mouse capture releases, prediction state
+  clears, physics runs live, and left click fires the launcher only.
+- In replay prediction, switch to manipulator and confirm prediction UI/input is
+  killed before manipulator drag begins.
+- In editor gizmo drag, switch to replay and confirm editor capture, hover, and
+  placement state are cleared before replay consumes input.
+- In inspect gizmo mode, switch to launcher and confirm the transform gizmo no
+  longer consumes clicks.
 - Enter replay from editor and confirm editor placement/gizmo state is cleared.
 - Camera combo and Tab never expose `Free`.
 - Snapshot scenes that previously opened paused in `Free` now open paused in
