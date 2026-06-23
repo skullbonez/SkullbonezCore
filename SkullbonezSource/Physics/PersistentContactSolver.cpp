@@ -163,6 +163,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     // stack stability and keeping the physics hot path affordable.
     const int solverIterations = (std::max)( 1, Cfg().persistentContactSolverIterations );
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
+    const float objectFrictionCoeff = Cfg().objectFrictionCoeff;
 
     // CATTO REF:
     //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
@@ -836,7 +837,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                 c.isTerrain
                     ? ( c.allowsTangentFriction ? Cfg().frictionCoeff * c.terrainWarmStart : 0.0f )
                     : ( c.normalCoupledFriction ? 0.0f
-                                                : Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
+                                                : objectFrictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -865,7 +866,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                         : ( c.isTerrain
                                 ? Cfg().frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                : ( c.normalCoupledFriction ? Cfg().frictionCoeff * c.accN : c.frictionLimit ) );
+                                : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
                 c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
             }
@@ -974,7 +975,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
                         : ( c.isTerrain
                                 ? Cfg().frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                : ( c.normalCoupledFriction ? Cfg().frictionCoeff * c.accN : c.frictionLimit ) );
+                                : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
                 float deltaT1 = c.accT1 - oldAccT1;
                 float deltaT2 = c.accT2 - oldAccT2;

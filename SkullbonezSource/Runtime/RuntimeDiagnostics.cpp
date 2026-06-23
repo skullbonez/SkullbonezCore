@@ -213,8 +213,9 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
                   "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
                   "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
-                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_"
-                  "coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,\"persistent_contact_slop\":%.6f,"
+                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
+                  "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
+                  "\"persistent_contact_slop\":%.6f,"
                   "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
                   "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
                   "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
@@ -235,6 +236,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   config.contactEpsilon,
                   config.contactRestitutionThreshold,
                   config.frictionCoeff,
+                  config.objectFrictionCoeff,
                   config.rollingFrictionCoeff,
                   config.spinFrictionCoeff,
                   config.broadphaseCell,
