@@ -100,23 +100,6 @@
   ],
   "objects": [
     {
-      "type": "box",
-      "name": "flat_pile_floor",
-      "position": [
-        500,
-        -0.25,
-        500
-      ],
-      "halfExtents": [
-        130,
-        0.25,
-        130
-      ],
-      "mass": 1000,
-      "restitution": 0.02,
-      "fixed": true
-    },
-    {
       "type": "boxState",
       "name": "throw_box_000",
       "position": [

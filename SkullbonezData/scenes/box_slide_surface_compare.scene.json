@@ -1,0 +1,151 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 424242,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -50,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 360,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "collisionVisualizer": false
+  },
+  "cameras": [
+    {
+      "name": "slide_compare",
+      "position": [
+        500,
+        175,
+        820
+      ],
+      "view": [
+        500,
+        25,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "fixed_box_surface",
+      "position": [
+        650,
+        1,
+        500
+      ],
+      "halfExtents": [
+        170,
+        1,
+        36
+      ],
+      "mass": 1000,
+      "restitution": 0.02,
+      "fixed": true
+    },
+    {
+      "type": "boxState",
+      "name": "slide_on_terrain",
+      "position": [
+        250,
+        5,
+        500
+      ],
+      "velocity": [
+        60,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        5,
+        5
+      ],
+      "mass": 50,
+      "restitution": 0.02,
+      "fixed": false,
+      "inertia": [
+        833.3333,
+        833.3333,
+        833.3333
+      ]
+    },
+    {
+      "type": "boxState",
+      "name": "slide_on_fixed_box",
+      "position": [
+        650,
+        7,
+        500
+      ],
+      "velocity": [
+        60,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        5,
+        5
+      ],
+      "mass": 50,
+      "restitution": 0.02,
+      "fixed": false,
+      "inertia": [
+        833.3333,
+        833.3333,
+        833.3333
+      ]
+    }
+  ]
+}
