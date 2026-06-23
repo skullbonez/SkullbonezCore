@@ -94,6 +94,19 @@ namespace RunInternal
 struct SceneRuntimeResetSnapshot;
 }
 
+struct TornadoVisualSettings
+{
+    bool enabled = true;                                                         // Render-only sparse funnel shell; physics force state remains separate.
+    bool autoEnableWithTornado = true;                                           // UI/CLI tornado toggles keep the production visual paired by default.
+    float shellAlpha = 0.14f;
+    float dustAlpha = 0.20f;
+    float ribbonWidth = 5.5f;
+    int ribbonCount = 7;
+    int ribbonSegments = 48;
+    int particleCount = 96;
+    float rotationSpeed = 1.25f;
+};
+
 struct RunRuntimeSettings
 {
     bool isVsyncEnabled = true;                                                  // Swap-chain sync interval (true = vsync)
@@ -101,6 +114,7 @@ struct RunRuntimeSettings
     bool isPhysicsSleepEnabled =
         true;                                                                    // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
     Physics::TornadoFieldConfig tornadoField;                                    // Live vortex force/debug vector field controlled by CLI/UI
+    TornadoVisualSettings tornadoVisual;                                         // Render-only tornado art tuning outside deterministic physics state.
 };
 
 struct RunTimerState
@@ -930,6 +944,13 @@ class Run
         int styleWaterMode = -1;
     };
 
+    struct TornadoVisualPassInputs
+    {
+        // Production tornado art uses the final world view/depth after opaque
+        // objects, terrain, and water. Physics field state is read-only shape input.
+        const RenderFrameContext& frame;
+    };
+
     struct DebugOverlayPassInputs
     {
         // Debug overlays draw after production geometry and use the final world
@@ -1151,6 +1172,28 @@ class Run
         WaterPassDebugInfo m_debugInfo;
     };
 
+    /* -- TornadoVisualPass
+    -------------------------------------------------------------------------------------------------------------------------------------
+
+        Draws sparse production tornado ribbons and dust after opaque world
+        depth exists, while leaving debug field vectors in DebugOverlayPass.
+    -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    class TornadoVisualPass
+    {
+      public:
+        explicit TornadoVisualPass( Run& run ) : m_run( run )
+        {
+        }
+
+        void EnsureGpuResources( const RenderFrameContext& frame );
+        void ReleaseGpuResources();
+        bool Render( const TornadoVisualPassInputs& inputs );
+
+      private:
+        Run& m_run;
+        std::vector<float> m_vertices;
+    };
+
     /* -- DebugOverlayPass
     --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1343,6 +1386,7 @@ class Run
     ObjectPass m_objectPass;                                                     // Production body and collision-solid pass
     TerrainPass m_terrainPass;                                                   // Terrain material/shadow receiver pass
     WaterPass m_waterPass;                                                       // Calm/ocean water pass
+    TornadoVisualPass m_tornadoVisualPass;                                       // Sparse alpha tornado shell/dust pass
     DebugOverlayPass m_debugOverlayPass;                                         // Broadphase and physics debug overlay pass
     VolumetricPass m_volumetricPass;                                             // Half-resolution cinematic light-shaft pass
     TonemapPass m_tonemapPass;                                                   // HDR-to-backbuffer resolve pass

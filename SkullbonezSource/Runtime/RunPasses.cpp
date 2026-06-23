@@ -84,6 +84,65 @@ void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uin
     }
 }
 
+float Clamp01( float value )
+{
+    return std::clamp( value, 0.0f, 1.0f );
+}
+
+float HashUnitFloat( uint32_t value )
+{
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    return static_cast<float>( value & 0x00ffffffu ) / static_cast<float>( 0x01000000u );
+}
+
+Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
+{
+    if ( VectorMagSquared( value ) <= 1.0e-8f )
+    {
+        return fallback;
+    }
+    value.Normalise();
+    return value;
+}
+
+Vector3 CylindricalOffset( float radius, float angle )
+{
+    return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
+}
+
+void EmitColorVertex( std::vector<float>& vertices, const Vector3& position, float r, float g, float b, float a )
+{
+    vertices.push_back( position.x );
+    vertices.push_back( position.y );
+    vertices.push_back( position.z );
+    vertices.push_back( r );
+    vertices.push_back( g );
+    vertices.push_back( b );
+    vertices.push_back( a );
+}
+
+void EmitColorQuad( std::vector<float>& vertices,
+                    const Vector3& a,
+                    const Vector3& b,
+                    const Vector3& c,
+                    const Vector3& d,
+                    float r,
+                    float g,
+                    float blue,
+                    float alpha )
+{
+    EmitColorVertex( vertices, a, r, g, blue, alpha );
+    EmitColorVertex( vertices, b, r, g, blue, alpha );
+    EmitColorVertex( vertices, c, r, g, blue, alpha );
+    EmitColorVertex( vertices, a, r, g, blue, alpha );
+    EmitColorVertex( vertices, c, r, g, blue, alpha );
+    EmitColorVertex( vertices, d, r, g, blue, alpha );
+}
+
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 {
     // Why: scene/config data can omit or zero the sun vector. Shadows still need
@@ -1078,6 +1137,204 @@ void Run::WaterPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
 void Run::WaterPass::ReleaseGpuResources()
 {
     // WorldEnvironment owns fluid render resources.
+}
+
+
+void Run::TornadoVisualPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
+{
+    const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
+    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 0, 96 );
+    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
+    constexpr int dustBands = 3;
+    constexpr int dustSegments = 56;
+    const int vertexCount = ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6;
+    const std::size_t floatCapacity = static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * 7u;
+    if ( m_vertices.capacity() < floatCapacity )
+    {
+        m_vertices.reserve( floatCapacity );
+    }
+}
+
+
+void Run::TornadoVisualPass::ReleaseGpuResources()
+{
+    m_vertices.clear();
+    m_vertices.shrink_to_fit();
+}
+
+
+bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
+{
+    const Physics::TornadoFieldConfig& field = m_run.m_runtimeSettings.tornadoField;
+    const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
+    if ( !field.enabled || !visual.enabled || field.radius <= 1.0f || field.height <= 1.0f || !IsGfxReady() )
+    {
+        return false;
+    }
+
+    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
+    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
+    const float shellAlpha = std::clamp( visual.shellAlpha, 0.0f, 0.30f );
+    const float dustAlpha = std::clamp( visual.dustAlpha, 0.0f, 0.30f );
+    if ( ( ribbonCount <= 0 || shellAlpha <= 0.0f ) && dustAlpha <= 0.0f )
+    {
+        return false;
+    }
+
+    m_vertices.clear();
+    const float twoPi = 6.28318530718f;
+    const float time = static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    const float rotation = time * visual.rotationSpeed;
+    const float radius = field.radius;
+    const float height = field.height;
+    const Vector3 cameraForward =
+        NormalizeOr( inputs.frame.viewCenter - inputs.frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+    const Vector3 cameraUp = NormalizeOr( inputs.frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
+    const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
+    const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
+
+    if ( shellAlpha > 0.0f )
+    {
+        constexpr float shellTurns = 2.85f;
+        for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
+        {
+            const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
+            const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) + rotation +
+                                ribbonSeed * 0.45f;
+            for ( int segment = 0; segment < ribbonSegments; ++segment )
+            {
+                const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
+                const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
+                const float angle0 = phase + t0 * shellTurns * twoPi;
+                const float angle1 = phase + t1 * shellTurns * twoPi;
+                const float radius0 =
+                    radius * ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
+                const float radius1 =
+                    radius * ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
+                const Vector3 p0 =
+                    field.center + CylindricalOffset( radius0, angle0 ) + Vector3( 0.0f, t0 * height, 0.0f );
+                const Vector3 p1 =
+                    field.center + CylindricalOffset( radius1, angle1 ) + Vector3( 0.0f, t1 * height, 0.0f );
+                const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
+                const Vector3 viewDir = NormalizeOr( inputs.frame.eye - segmentCenter, -cameraForward );
+                const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
+                const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
+                const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
+                const float baseFade = Clamp01( t0 / 0.16f );
+                const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
+                const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
+                const float alpha = shellAlpha * baseFade * topFade * gapFade;
+                const float cool = 0.72f + 0.08f * t0;
+                EmitColorQuad( m_vertices,
+                               p0 - side * width,
+                               p1 - side * width,
+                               p1 + side * width,
+                               p0 + side * width,
+                               cool,
+                               0.78f,
+                               0.84f,
+                               alpha );
+            }
+        }
+    }
+
+    if ( dustAlpha > 0.0f )
+    {
+        constexpr int dustBands = 3;
+        constexpr int dustSegments = 56;
+        for ( int band = 0; band < dustBands; ++band )
+        {
+            const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
+            const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
+            for ( int segment = 0; segment < dustSegments; ++segment )
+            {
+                if ( ( segment + band * 3 ) % 9 == 0 )
+                {
+                    continue;
+                }
+                const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
+                const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
+                const float angle0 = phase + t0 * twoPi * 1.18f;
+                const float angle1 = phase + t1 * twoPi * 1.18f;
+                const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
+                const float innerRadius = bandRadius - radius * 0.025f;
+                const float outerRadius = bandRadius + radius * ( 0.035f + 0.012f * bandT );
+                const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
+                const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
+                const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
+                                  Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
+                                  Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
+                                  Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
+                                  Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                const float alpha = dustAlpha * ( 0.82f - 0.16f * bandT );
+                EmitColorQuad( m_vertices, a, b, c, d, 0.76f, 0.70f, 0.60f, alpha );
+            }
+        }
+
+        for ( int particle = 0; particle < particleCount; ++particle )
+        {
+            const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
+            const float h0 = HashUnitFloat( seed );
+            const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
+            const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
+            const float heightT = powf( h0, 1.45f );
+            const float angularSpeed = 0.65f + heightT * 1.25f;
+            const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
+            const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
+            const Vector3 center =
+                field.center + CylindricalOffset( particleRadius, angle ) + Vector3( 0.0f, height * heightT, 0.0f );
+            const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
+            const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
+            const Vector3 right = cameraRight * size;
+            const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
+            EmitColorQuad( m_vertices,
+                           center - right - up,
+                           center + right - up,
+                           center + right + up,
+                           center - right + up,
+                           0.82f,
+                           0.76f,
+                           0.64f,
+                           alpha );
+        }
+    }
+
+    if ( m_vertices.empty() )
+    {
+        return false;
+    }
+
+    PROFILE_GPU_BEGIN( "Frame/Render/TornadoVisual" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/TornadoVisual" );
+    ClearAllRenderTextureSlots();
+    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
+    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+    Gfx().GetBlendFunc( blendSrc, blendDst );
+
+    Gfx().SetDepthTest( true );
+    Gfx().SetDepthWrite( false );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    Gfx().SetCullFace( false );
+    Gfx().DrawTransientColoredTriangles( m_vertices.data(),
+                                         static_cast<int>( m_vertices.size() / 7u ),
+                                         inputs.frame.viewProjection.Data() );
+    Gfx().SetCullFace( cullWasEnabled );
+    Gfx().SetBlendFunc( blendSrc, blendDst );
+    Gfx().SetBlend( blendWasEnabled );
+    Gfx().SetDepthWrite( depthWriteWasEnabled );
+    Gfx().SetDepthTest( depthTestWasEnabled );
+    PROFILE_GPU_END( "Frame/Render/TornadoVisual" );
+    return true;
 }
 
 

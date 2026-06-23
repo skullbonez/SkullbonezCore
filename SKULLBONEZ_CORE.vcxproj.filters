@@ -925,6 +925,9 @@
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\lit_textured.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>

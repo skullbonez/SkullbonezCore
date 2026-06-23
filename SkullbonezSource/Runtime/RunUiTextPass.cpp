@@ -855,6 +855,8 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         UIData.physicsDebugTransparent = m_run.m_debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = m_run.m_debug.isBroadphaseOverlay;
         UIData.tornadoEnabled = m_run.m_runtimeSettings.tornadoField.enabled;
+        UIData.tornadoVisualShell =
+            m_run.m_runtimeSettings.tornadoVisual.enabled && m_run.m_runtimeSettings.tornadoField.enabled;
         UIData.tornadoFieldVectors = m_run.m_runtimeSettings.tornadoField.visualizeVelocityField;
         UIData.tornadoRadius = m_run.m_runtimeSettings.tornadoField.radius;
         UIData.tornadoHeight = m_run.m_runtimeSettings.tornadoField.height;

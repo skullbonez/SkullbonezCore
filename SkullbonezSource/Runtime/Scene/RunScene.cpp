@@ -1824,6 +1824,10 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     if ( m_cmdHasTornadoOverride )
     {
         m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+        if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        {
+            m_runtimeSettings.tornadoVisual.enabled = m_cmdTornadoEnabled;
+        }
     }
     if ( m_cmdTornadoVectors )
     {

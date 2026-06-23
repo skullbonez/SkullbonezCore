@@ -57,6 +57,7 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
         { "shader.collision_visualizer", "shaders/collision_visualizer" },
         { "shader.grid_line", "shaders/grid_line" },
         { "shader.launcher_laser", "shaders/launcher_laser" },
+        { "shader.tornado_fx", "shaders/tornado_fx" },
         { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
         { "shader.ui_render_target_preview", "shaders/ui_render_target_preview" },
         { "shader.reflect_rt", "shaders/reflect.rt" },

@@ -52,7 +52,7 @@ constexpr int SLIDER_LAUNCHER_PROJECTILE_SPEED = SLIDER_PHYSICS_BASE + 9;
 
 struct UIPhysicsTabState
 {
-    UICheckBox toggles[12];
+    UICheckBox toggles[13];
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
     UISlider alphaSlider;

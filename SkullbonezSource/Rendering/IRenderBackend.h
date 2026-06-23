@@ -305,6 +305,16 @@ class IRenderBackend : public IRenderCaptureBackend
         (void)viewProjMatrix16;
     }
 
+    // --- Transient Colored Triangle Rendering ---
+    // Immediate world-space triangles with interleaved [x,y,z,r,g,b,a] vertices.
+    // Used for sparse alpha FX that should depth-test against opaque world geometry.
+    virtual void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 )
+    {
+        (void)data;
+        (void)vertexCount;
+        (void)viewProjMatrix16;
+    }
+
 
     // --- Instanced Mesh (hardware instancing: sphere, box, and diagnostic batches) ---
     // staticData: per-vertex geometry  |  instance data uploaded per frame

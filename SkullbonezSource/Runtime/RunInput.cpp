@@ -918,8 +918,18 @@ void Run::TakeInput()
         if ( uiCommands.physics.toggleTornado )
         {
             m_runtimeSettings.tornadoField.enabled = !m_runtimeSettings.tornadoField.enabled;
+            if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+            {
+                m_runtimeSettings.tornadoVisual.enabled = m_runtimeSettings.tornadoField.enabled;
+            }
             tornadoFieldChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornado, RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.physics.toggleTornadoVisualShell )
+        {
+            m_runtimeSettings.tornadoVisual.enabled = !m_runtimeSettings.tornadoVisual.enabled;
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleTornadoVisualShell,
+                                               RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.toggleTornadoFieldVectors )
         {

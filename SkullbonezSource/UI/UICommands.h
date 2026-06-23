@@ -188,6 +188,7 @@ struct UIPhysicsCommands
     bool toggleBroadphaseOverlay = false;
     bool toggleTerrainContactProbe = false;
     bool toggleTornado = false;
+    bool toggleTornadoVisualShell = false;
     bool toggleTornadoFieldVectors = false;
     bool toggleRayCastVisualization = false;
     bool requestTornadoRadius = false;

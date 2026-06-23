@@ -173,8 +173,8 @@ LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample
 Run::Run( std::vector<std::string> sceneQueue )
     : m_sceneController( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
       m_sceneTargetPass( *this ), m_shadowPass( *this ), m_reflectionPass( *this ), m_objectPass( *this ),
-      m_terrainPass( *this ), m_waterPass( *this ), m_debugOverlayPass( *this ), m_volumetricPass( *this ),
-      m_tonemapPass( *this ), m_uiTextPass( *this )
+      m_terrainPass( *this ), m_waterPass( *this ), m_tornadoVisualPass( *this ), m_debugOverlayPass( *this ),
+      m_volumetricPass( *this ), m_tonemapPass( *this ), m_uiTextPass( *this )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
@@ -339,6 +339,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             // producers, so cached handles are invalidated before targets die.
             m_tonemapPass.ReleaseGpuResources();
             m_volumetricPass.ReleaseGpuResources();
+            m_tornadoVisualPass.ReleaseGpuResources();
             m_sceneTargetPass.ReleaseGpuResources();
             m_shadowPass.ReleaseGpuResources();
             m_reflectionPass.ReleaseGpuResources();
@@ -484,6 +485,10 @@ void Run::RegisterBuiltInAssets()
                                                 "shaders/launcher_laser",
                                                 Assets::ShaderProgramKind::DebugLine,
                                                 contract( false, false, false, false, false ) );
+    m_systems.assets.RegisterShaderSourceAsset( "shader.tornado_fx",
+                                                "shaders/tornado_fx",
+                                                Assets::ShaderProgramKind::DebugLine,
+                                                contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur",
                                                 "shaders/UIBackdropBlur",
                                                 Assets::ShaderProgramKind::UI,
@@ -606,6 +611,10 @@ void Run::SetTornadoOverride( bool enabled )
     m_cmdHasTornadoOverride = true;
     m_cmdTornadoEnabled = enabled;
     m_runtimeSettings.tornadoField.enabled = enabled;
+    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+    {
+        m_runtimeSettings.tornadoVisual.enabled = enabled;
+    }
     SyncTornadoFieldToPhysics();
 }
 
@@ -1417,6 +1426,10 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
     m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
     m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
+    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+    {
+        m_runtimeSettings.tornadoVisual.enabled = m_runtimeSettings.tornadoField.enabled;
+    }
 
     if ( m_systems.cameras )
     {

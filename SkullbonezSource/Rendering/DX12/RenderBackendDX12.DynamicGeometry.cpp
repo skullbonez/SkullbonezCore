@@ -233,6 +233,49 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 }
 
 
+void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
+                                                       int vertexCount,
+                                                       const float* viewProjMatrix16 )
+{
+    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    {
+        return;
+    }
+
+    EnsureCommandListOpen();
+
+    if ( !m_transientColorShader )
+    {
+        m_transientColorShader = CreateShader( "shaders/tornado_fx" );
+    }
+    ShaderDX12* shader = static_cast<ShaderDX12*>( m_transientColorShader.get() );
+    shader->Use();
+    shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
+
+    DynamicVBDX12 vertexLayout = {};
+    vertexLayout.numAttribs = 2;
+    vertexLayout.attribComponents[0] = 3;
+    vertexLayout.attribComponents[1] = 4;
+    vertexLayout.floatsPerVertex = 7;
+    vertexLayout.stride = 7 * static_cast<int>( sizeof( float ) );
+
+    const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
+    const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
+    memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
+
+    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
+
+    D3D12_VERTEX_BUFFER_VIEW vbView = {};
+    vbView.BufferLocation = vbAddress;
+    vbView.SizeInBytes = static_cast<UINT>( dataSize );
+    vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
+    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+
+    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "TornadoVisual", vertexCount, 1 } );
+    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
+}
+
+
 uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                                  int staticVertCount,
                                                  int staticFloatsPerVert,

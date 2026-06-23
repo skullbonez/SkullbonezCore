@@ -405,6 +405,7 @@
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
+    <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />
     <None Include="SkullbonezData\hulls\pyramid.hull" />

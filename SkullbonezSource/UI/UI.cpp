@@ -226,6 +226,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.physicsDebugTransparent );
     hash = HashBool( hash, data.broadphaseOverlay );
     hash = HashBool( hash, data.tornadoEnabled );
+    hash = HashBool( hash, data.tornadoVisualShell );
     hash = HashBool( hash, data.tornadoFieldVectors );
     hash = HashBool( hash, data.rayCastVisualization );
     hash = HashFloat( hash, data.tornadoRadius, 100.0f );

@@ -137,6 +137,7 @@ struct InGameUIFrameData
     bool physicsDebugTransparent = false;
     bool broadphaseOverlay = false;
     bool tornadoEnabled = false;
+    bool tornadoVisualShell = false;
     bool tornadoFieldVectors = false;
     bool rayCastVisualization = false;
     float tornadoRadius = 0.0f;

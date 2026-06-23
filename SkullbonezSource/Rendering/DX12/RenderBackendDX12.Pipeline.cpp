@@ -435,7 +435,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // unchanged, the only per-draw work left is uploading the constant buffer.
     // This is the common path for many objects sharing the same mesh/shader
     // shape, such as generated balls or boxes.
-    bool psoChanged = ( psoHash != m_lastPSOHash );
+    bool psoChanged = m_psoDirty || ( psoHash != m_lastPSOHash );
 
     if ( !psoChanged && !m_texBindingsDirty && !m_targetsDirty )
     {

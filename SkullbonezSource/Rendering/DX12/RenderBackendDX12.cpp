@@ -1500,6 +1500,7 @@ void RenderBackendDX12::Shutdown()
         m_gridLinePSO = nullptr;
     }
     m_gridLineShader.reset();
+    m_transientColorShader.reset();
 
     // Instanced meshes
     for ( auto& im : m_instancedMeshes )

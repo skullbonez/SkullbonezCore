@@ -373,6 +373,7 @@ void Run::DrawPrimitives()
     m_objectPass.EnsureGpuResources( frame );
     m_terrainPass.EnsureGpuResources( frame );
     m_waterPass.EnsureGpuResources( frame );
+    m_tornadoVisualPass.EnsureGpuResources( frame );
     m_debugOverlayPass.EnsureGpuResources( frame );
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
@@ -458,6 +459,8 @@ void Run::DrawPrimitives()
                           m_debug.isWaterFreezeDebug,
                           m_debug.frozenWaterTime } );
 
+    const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
+
     if ( debugTransparentBodyPass )
     {
         m_objectPass.Render( { frame,
@@ -505,6 +508,7 @@ void Run::DrawPrimitives()
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
+    frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
     frameSnapshot.volumetricReady = volumetricReady;
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
 }
