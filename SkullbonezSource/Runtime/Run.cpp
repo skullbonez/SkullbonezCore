@@ -1157,6 +1157,7 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     }
 
     ClearReplayPathVisualizer();
+    m_interaction.EnterReplay();
     m_replayPrediction.enabled = false;
     m_replayPrediction.horizonDragging = false;
     m_replayVelocityEdit = RunReplayVelocityEditState{};

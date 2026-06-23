@@ -60,6 +60,7 @@ Related:
 #include "CaptureController.h"
 #include "DiagnosticsController.h"
 #include "EngineContext.h"
+#include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
@@ -241,7 +242,7 @@ enum class RunCameraMode
 {
     Demo = 0,
     Scene,
-    Free,
+    Inspect,
     Launcher,
     Manipulator,
     Count
@@ -253,6 +254,7 @@ struct RunCameraState
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
+    RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect;                   // N returns to the last non-launcher workspace.
     bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -1342,6 +1344,7 @@ class Run
     RunTimerState m_timers;                                                      // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                                                 // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
+    RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
@@ -1413,6 +1416,18 @@ class Run
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                                       // Records the mode transition caused by one runtime/tool action.
+    RuntimeInteractionTransition EnterInteractionForCameraMode(
+        RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
+    void ApplyRuntimeInteractionTransitionCleanup(
+        const RuntimeInteractionTransition&
+            transition );                                                        // Clears stale tool ownership before the new mode consumes input.
+    void ClearReplayInteractionForRuntimeTransition();                           // Clears replay-owned scrub, prediction, velocity, cause, and
+                                                       // path state.
+    void ClearEditorInteractionForRuntimeTransition(
+        bool clearSelection );                                                   // Clears editor placement/gizmo ownership before leaving Edit.
+    bool HasActiveReplayInteractionState() const;                                // True when replay owns transient input or historical presentation.
+    bool HasActiveEditorInteractionState() const;                                // True when editor owns placement/gizmo/input state.
+    bool InspectGizmoInteractionActive() const;                                  // True when Inspect owns live transform-gizmo interaction.
     bool ReplayInspectionActive() const;                                         // True when replay owns inspection camera semantics.
     bool ReplayInspectionMouseLookActive() const;                                // True when replay inspection is consuming mouse-look.
     bool MouseLookOwnsCursor() const;                                            // True when camera/editor/replay mouse-look should hide the system cursor.

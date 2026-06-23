@@ -1528,6 +1528,9 @@ void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
 {
     EnterInteractiveSceneRun();
     m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+    m_interaction.SetWorldInteractionOwner(
+        m_editor.placementModeEnabled ? WorldInteractionOwner::EditorPlacement : WorldInteractionOwner::EditorGizmo,
+        InteractionExitReason::EnterEdit );
     m_editor.viewportLookActive = false;
     ClearEditorManipulationState();
     ReleaseMouseToUI();
@@ -1572,6 +1575,8 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         {
             EnterInteractiveSceneRun();
             m_editor.placementModeEnabled = true;
+            m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::EditorPlacement,
+                                                    InteractionExitReason::EnterEdit );
             m_editor.viewportLookActive = false;
             ReleaseMouseToUI();
             ApplyCursorOwnership();
@@ -1584,16 +1589,19 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         EnterInteractiveSceneRun();
         const RuntimeInputActionSource toggleEditorSource =
             keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI;
-        m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
-        if ( m_editor.editorModeEnabled )
+        const bool enteringEditor = !m_editor.editorModeEnabled;
+        if ( enteringEditor )
         {
+            const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
             const bool wasFlyMode = IsFlyCameraMode();
+            m_editor.editorModeEnabled = true;
             m_editor.placementModeEnabled = true;
             m_editor.viewportLookActive = false;
             ClearEditorManipulationState();
             m_editor.restoreCameraModeAfterEditor = NormalizeCameraModeForCurrentScene( m_camera.mode );
             CancelMousePickup();
-            m_camera.mode = RunCameraMode::Free;
+            m_camera.mode = RunCameraMode::Inspect;
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -1606,7 +1614,12 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         }
         else
         {
+            const RunCameraMode restoreMode =
+                NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
+            const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( restoreMode );
+            ApplyRuntimeInteractionTransitionCleanup( transition );
             const bool wasFlyMode = IsFlyCameraMode();
+            m_editor.editorModeEnabled = false;
             m_editor.viewportLookActive = false;
             m_editor.placementPreviewVisible = false;
             m_editor.placementModeEnabled = false;
@@ -1621,7 +1634,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
             m_editor.placementYawRadians = 0.0f;
-            m_camera.mode = NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
+            m_camera.mode = restoreMode;
             m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
             if ( wasFlyMode && !IsFlyCameraMode() )
             {
@@ -1848,8 +1861,14 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
     if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
     {
-        const bool editorScaleMode =
-            m_editor.editorModeEnabled && !m_editor.placementModeEnabled && Input::IsKeyDown( VK_CONTROL );
+        const bool inspectGizmoActive = InspectGizmoInteractionActive();
+        const bool transformGizmoActive =
+            ( m_editor.editorModeEnabled || inspectGizmoActive ) && !m_editor.placementModeEnabled;
+        const WorldInteractionOwner transformOwner =
+            inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo;
+        const InteractionExitReason transformReason =
+            inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+        const bool editorScaleMode = transformGizmoActive && Input::IsKeyDown( VK_CONTROL );
         if ( editorScaleMode && m_editor.selectedModelIndex >= 0 &&
              m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() && m_editor.hotGizmoAxis >= 0 )
         {
@@ -1860,6 +1879,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = false;
@@ -1876,8 +1896,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
-             m_editor.selectedModelIndex >= 0 && m_editor.hotRotationAxis >= 0 )
+        if ( transformGizmoActive && !editorScaleMode && m_editor.selectedModelIndex >= 0 &&
+             m_editor.hotRotationAxis >= 0 )
         {
             Vector3 rayOrigin;
             Vector3 rayDirection;
@@ -1886,6 +1906,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = true;
                 m_editor.gizmoDragIsScale = false;
@@ -1905,8 +1926,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( !consumedWorldClick && m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
-             m_editor.selectedModelIndex >= 0 && m_editor.hotGizmoAxis >= 0 )
+        if ( !consumedWorldClick && transformGizmoActive && !editorScaleMode && m_editor.selectedModelIndex >= 0 &&
+             m_editor.hotGizmoAxis >= 0 )
         {
             Vector3 rayOrigin;
             Vector3 rayDirection;
@@ -1915,6 +1936,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.gizmoDragIsScale = false;
@@ -1935,7 +1957,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( !consumedWorldClick && m_editor.editorModeEnabled )
+        if ( !consumedWorldClick && ( m_editor.editorModeEnabled || inspectGizmoActive ) )
         {
             if ( m_editor.placementModeEnabled )
             {
@@ -1961,10 +1983,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
                      TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
                 {
+                    m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                     m_editor.selectedModelIndex = pickedIndex;
                 }
                 else
                 {
+                    m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::None, transformReason );
                     m_editor.selectedModelIndex = -1;
                 }
             }
@@ -3316,12 +3340,13 @@ void Run::UpdateEditorInteractionPreview()
         return;
     }
 
-    if ( !m_editor.editorModeEnabled )
+    const bool inspectGizmoActive = InspectGizmoInteractionActive();
+    if ( !m_editor.editorModeEnabled && !inspectGizmoActive )
     {
         return;
     }
 
-    if ( m_editor.placementModeEnabled )
+    if ( m_editor.editorModeEnabled && m_editor.placementModeEnabled )
     {
         m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
     }
@@ -3382,8 +3407,8 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                           m_editor.placementOrientation );
     }
 
-    if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && m_editor.selectedModelIndex >= 0 &&
-         m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    if ( ( m_editor.editorModeEnabled || InspectGizmoInteractionActive() ) && !m_editor.placementModeEnabled &&
+         m_editor.selectedModelIndex >= 0 && m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
     {
         const std::vector<GameModel>& models = m_cGameModelCollection.Models();
         Vector3 gizmoOrigin;

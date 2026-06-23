@@ -1396,6 +1396,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
+    m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
@@ -1791,7 +1792,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes start paused in free camera mode; user presses F to
+        // Snapshot scenes start paused in Inspect; user presses F to
         // resume simulation. Physics diagnostics need deterministic frame rows
         // immediately, so leave diagnostic launches in normal scene playback.
         const bool hasSnapshotState =
@@ -1803,7 +1804,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_camera.mode = RunCameraMode::Free;
+            m_interaction.EnterInspect();
+            m_camera.mode = RunCameraMode::Inspect;
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;

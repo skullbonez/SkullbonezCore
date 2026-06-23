@@ -39,7 +39,7 @@ namespace
 {
 bool CameraModeUsesFlyControls( RunCameraMode mode )
 {
-    return mode == RunCameraMode::Free || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator;
+    return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator;
 }
 
 
@@ -63,6 +63,18 @@ RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunE
     state.editorGizmoRotation = editor.gizmoDragIsRotation;
     state.editorGizmoScale = editor.gizmoDragIsScale;
     return state;
+}
+
+bool IsReplayWorldOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+
+bool IsEditorWorldOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo;
 }
 
 const char* ReplayRuntimeCommandName( RuntimeCommandType type )
@@ -175,6 +187,173 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 }
 
 
+RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
+{
+    mode = NormalizeCameraModeForCurrentScene( mode );
+    switch ( mode )
+    {
+    case RunCameraMode::Demo:
+    case RunCameraMode::Scene:
+        return m_interaction.EnterLive();
+    case RunCameraMode::Inspect:
+        return m_interaction.EnterInspect();
+    case RunCameraMode::Launcher:
+        return m_interaction.EnterLauncher();
+    case RunCameraMode::Manipulator:
+        return m_interaction.EnterManipulator();
+    default:
+        return m_interaction.EnterLive();
+    }
+}
+
+
+bool Run::HasActiveReplayInteractionState() const
+{
+    return m_replayCamera.active || m_replayCamera.focusKind != RunReplayCameraFocusKind::None ||
+           m_replayScrubber.dragging || m_replayScrubber.paused || m_replayScrubber.simulationPaused ||
+           m_replayScrubber.mouseCaptured || m_replayPathVisualizer.hasTarget ||
+           !m_replayPathVisualizer.targets.empty() || m_replayPrediction.enabled ||
+           m_replayPrediction.horizonDragging || m_replayPrediction.building || m_replayVelocityEdit.enabled ||
+           m_replayVelocityEdit.dragging || m_replayVelocityEdit.mouseCaptured || m_replayCauseTree.draggingWindow ||
+           m_replayCauseTree.resizingWindow || m_replayCauseTree.selectedRow >= 0 || !m_replayCauseTree.rows.empty();
+}
+
+
+bool Run::HasActiveEditorInteractionState() const
+{
+    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
+           m_editor.placementPreviewVisible || m_editor.placementScaleActive || m_editor.gizmoDragActive ||
+           m_editor.hotGizmoAxis >= 0 || m_editor.hotRotationAxis >= 0 || m_editor.activeGizmoAxis >= 0;
+}
+
+
+bool Run::InspectGizmoInteractionActive() const
+{
+    return !m_editor.editorModeEnabled && m_camera.mode == RunCameraMode::Inspect && !ReplayInspectionActive();
+}
+
+
+void Run::ClearReplayInteractionForRuntimeTransition()
+{
+    if ( m_replayScrubber.mouseCaptured || m_replayVelocityEdit.mouseCaptured || m_replayCauseTree.draggingWindow ||
+         m_replayCauseTree.resizingWindow )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+
+    m_replayScrubber.simulationPaused = false;
+    m_replayCamera.ownsSimulationPause = false;
+    ResetReplayScrubber();
+    ReplayScrubberSetAllTrackPositions( m_replayScrubber, 1.0f );
+    m_replayScrubber.visible = false;
+    m_replayScrubber.dragging = false;
+    m_replayScrubber.mouseCaptured = false;
+    m_replayScrubber.branchHovered = false;
+    m_replayScrubber.pauseHovered = false;
+    m_replayScrubber.saveHovered = false;
+    m_replayScrubber.loadHovered = false;
+
+    ClearReplayPathVisualizer();
+    m_replayPrediction.enabled = false;
+    m_replayPrediction.checkboxHovered = false;
+    m_replayPrediction.decreaseHovered = false;
+    m_replayPrediction.increaseHovered = false;
+    m_replayPrediction.horizonHovered = false;
+    m_replayPrediction.horizonDragging = false;
+    ClearReplayPredictionCache();
+
+    m_replayVelocityEdit = RunReplayVelocityEditState{};
+    m_replayCauseTree.hoveredRow = -1;
+    m_replayCauseTree.selectedRow = -1;
+    m_replayCauseTree.draggingWindow = false;
+    m_replayCauseTree.resizingWindow = false;
+    m_replayCauseTree.leftWasDown = false;
+    m_replayCauseTree.scrollY = 0.0f;
+    m_replayCauseTree.rows.clear();
+
+    ExitReplayInspectionCamera();
+    ApplyCursorOwnership();
+}
+
+
+void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
+{
+    ClearEditorManipulationState();
+    m_editor.viewportLookActive = false;
+    m_editor.placementModeEnabled = false;
+    m_editor.hotGizmoAxis = -1;
+    m_editor.hotRotationAxis = -1;
+    m_editor.activeGizmoAxis = -1;
+    if ( clearSelection )
+    {
+        m_editor.selectedModelIndex = -1;
+    }
+    ReleaseMouseToUI();
+    ApplyCursorOwnership();
+}
+
+
+void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
+{
+    const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
+    const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
+    const bool enteringTool =
+        transition.owner == WorldInteractionOwner::Launcher || transition.owner == WorldInteractionOwner::Manipulator;
+
+    if ( !enteringReplay && ( HasActiveReplayInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
+    {
+        ClearReplayInteractionForRuntimeTransition();
+    }
+
+    if ( transition.previousOwner == WorldInteractionOwner::Manipulator &&
+         transition.owner != WorldInteractionOwner::Manipulator )
+    {
+        CancelMousePickup();
+    }
+    if ( enteringTool && transition.owner != WorldInteractionOwner::Manipulator )
+    {
+        CancelMousePickup();
+    }
+
+    if ( ( !enteringEdit && HasActiveEditorInteractionState() ) || IsEditorWorldOwner( transition.previousOwner ) )
+    {
+        ClearEditorInteractionForRuntimeTransition( enteringReplay || enteringTool );
+        if ( m_editor.editorModeEnabled && !enteringEdit )
+        {
+            m_editor.editorModeEnabled = false;
+        }
+    }
+
+    switch ( transition.owner )
+    {
+    case WorldInteractionOwner::Launcher:
+        m_interaction.EnterLauncher();
+        break;
+    case WorldInteractionOwner::Manipulator:
+        m_interaction.EnterManipulator();
+        break;
+    default:
+        if ( transition.workspace == RuntimeWorkspace::Edit )
+        {
+            m_interaction.EnterEdit();
+        }
+        else if ( transition.workspace == RuntimeWorkspace::Replay )
+        {
+            m_interaction.EnterReplay();
+        }
+        else if ( transition.workspace == RuntimeWorkspace::Inspect )
+        {
+            m_interaction.EnterInspect();
+        }
+        else
+        {
+            m_interaction.EnterLive();
+        }
+        break;
+    }
+}
+
+
 const char* Run::CameraModeLabel( RunCameraMode mode ) const
 {
     switch ( mode )
@@ -183,8 +362,8 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
         return "Demo";
     case RunCameraMode::Scene:
         return "Scene";
-    case RunCameraMode::Free:
-        return "Free";
+    case RunCameraMode::Inspect:
+        return "Inspect";
     case RunCameraMode::Launcher:
         return "Launcher";
     case RunCameraMode::Manipulator:
@@ -213,11 +392,11 @@ RunCameraMode Run::NormalizeCameraModeForCurrentScene( RunCameraMode mode ) cons
     }
     if ( mode == RunCameraMode::Scene )
     {
-        return IsDemoCameraModeAvailable() ? RunCameraMode::Demo : RunCameraMode::Free;
+        return IsDemoCameraModeAvailable() ? RunCameraMode::Demo : RunCameraMode::Inspect;
     }
     if ( mode == RunCameraMode::Demo && !IsDemoCameraModeAvailable() )
     {
-        return RunCameraMode::Free;
+        return RunCameraMode::Inspect;
     }
     return mode;
 }
@@ -252,7 +431,7 @@ uint32_t Run::CameraModeEnabledMask() const
     {
         mask |= 1u << static_cast<int>( RunCameraMode::Scene );
     }
-    mask |= 1u << static_cast<int>( RunCameraMode::Free );
+    mask |= 1u << static_cast<int>( RunCameraMode::Inspect );
     mask |= 1u << static_cast<int>( RunCameraMode::Launcher );
     mask |= 1u << static_cast<int>( RunCameraMode::Manipulator );
     return mask;
@@ -281,7 +460,14 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         }
     }
 
+    const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( mode );
+    ApplyRuntimeInteractionTransitionCleanup( transition );
+
     const bool wasFlyMode = IsFlyCameraMode();
+    if ( mode != RunCameraMode::Launcher )
+    {
+        m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
+    }
     m_camera.mode = mode;
     if ( m_editor.editorModeEnabled )
     {
@@ -507,23 +693,30 @@ void Run::TakeInput()
             CycleCameraMode();
         }
 
-        // Compatibility shortcut: F enters Free, or returns to the passive camera mode when already free.
+        // F enters Inspect, or returns to the passive camera mode when already inspecting.
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
         {
             const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
-            ApplyCameraMode( m_camera.mode == RunCameraMode::Free ? passiveMode : RunCameraMode::Free,
+            ApplyCameraMode( m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
                              RuntimeInputActionSource::Keyboard );
         }
 
-        // Compatibility shortcut: N toggles launcher view with live simulation.
+        // N toggles launcher view with live simulation and returns to the previous non-launcher mode.
         {
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                               RuntimeInputAction::ToggleLauncher,
                                                               'N' ) )
             {
-                ApplyCameraMode(
-                    m_camera.mode == RunCameraMode::Launcher ? RunCameraMode::Free : RunCameraMode::Launcher,
-                    RuntimeInputActionSource::Keyboard );
+                if ( m_camera.mode == RunCameraMode::Launcher )
+                {
+                    ApplyCameraMode( m_camera.modeBeforeLauncher, RuntimeInputActionSource::Keyboard );
+                }
+                else
+                {
+                    m_camera.modeBeforeLauncher =
+                        m_camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : m_camera.mode;
+                    ApplyCameraMode( RunCameraMode::Launcher, RuntimeInputActionSource::Keyboard );
+                }
             }
         }
 
@@ -1355,11 +1548,18 @@ void Run::TakeInput()
         }
     }
 
-    const bool cameraMouseLookActive =
-        ( !m_editor.editorModeEnabled && IsFlyCameraMode() && m_camera.mode != RunCameraMode::Manipulator &&
-          ( !ReplayInspectionActive() || ReplayInspectionMouseLookActive() ) ) ||
-        m_editor.viewportLookActive;
-    const bool cameraKeyboardControlsActive = IsFlyCameraMode() || m_editor.viewportLookActive;
+    const RuntimeInteractionFramePolicy inputPolicy =
+        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                                                      Input::IsKeyDown( VK_SPACE ),
+                                                                      IsReplayScrubPaused(),
+                                                                      m_replayScrubber.simulationPaused,
+                                                                      Input::IsRightMouseDown(),
+                                                                      m_editor.viewportLookActive,
+                                                                      ReplayInspectionMouseLookActive(),
+                                                                      false,
+                                                                      SceneState().timeScale } );
+    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && MouseLookOwnsCursor();
+    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
     if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
