@@ -1188,6 +1188,9 @@ void Run::TornadoVisualPass::ReleaseGpuResources()
 {
     m_vertices.clear();
     m_vertices.shrink_to_fit();
+    m_liveVisualTimeSeconds = 0.0f;
+    m_lastLiveVisualSourceSeconds = 0.0;
+    m_hasLiveVisualTime = false;
 }
 
 
@@ -1212,12 +1215,27 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 
     m_vertices.clear();
     const float twoPi = 6.28318530718f;
-    float time = static_cast<float>( m_run.m_timers.simulationTimer.GetTimeSinceLastStart() );
-    if ( const auto* replaySample = m_run.CurrentReplayScrubSample() )
+    const auto* replaySample = m_run.CurrentReplayScrubSample();
+    const auto* solverSample = replaySample ? nullptr : m_run.CurrentReplaySolverScrubSample();
+    const bool useReplayTime = replaySample != nullptr || solverSample != nullptr;
+    const double sourceSeconds = m_run.m_timers.simulationTimer.GetTimeSinceLastStart();
+    if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
+    {
+        m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
+        m_hasLiveVisualTime = true;
+    }
+    else if ( !useReplayTime && !m_run.m_replayScrubber.simulationPaused )
+    {
+        m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
+    }
+    m_lastLiveVisualSourceSeconds = sourceSeconds;
+
+    float time = m_liveVisualTimeSeconds;
+    if ( replaySample )
     {
         time = static_cast<float>( replaySample->simulationSeconds );
     }
-    else if ( const auto* solverSample = m_run.CurrentReplaySolverScrubSample() )
+    else if ( solverSample )
     {
         time = static_cast<float>( solverSample->simulationSeconds );
     }

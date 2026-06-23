@@ -2723,11 +2723,11 @@ void Run::ApplyTornadoDefaultsForActiveScene()
 
     field.center =
         Vector3( cinematic.basinCenterX, m_cWorldEnvironment.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
-    field.radius = std::clamp( basinRadius * 1.08f, 150.0f, 280.0f );
+    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
     field.height = (std::max)( 130.0f, field.radius * 0.66f );
-    field.inwardAcceleration = 120.0f;
-    field.swirlAcceleration = 170.0f;
-    field.liftAcceleration = 78.0f;
+    field.inwardAcceleration = 150.0f;
+    field.swirlAcceleration = 185.0f;
+    field.liftAcceleration = 64.0f;
     m_runtimeSettings.tornadoField = field;
 }
 

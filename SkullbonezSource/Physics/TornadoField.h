@@ -43,14 +43,14 @@ struct TornadoFieldConfig
     Math::Vector::Vector3 center = Math::Vector::Vector3( 620.0f, 25.0f, 615.0f );
     float radius = 210.0f;
     float height = 140.0f;
-    float inwardAcceleration = 120.0f;
-    float swirlAcceleration = 170.0f;
-    float liftAcceleration = 78.0f;
+    float inwardAcceleration = 150.0f;
+    float swirlAcceleration = 185.0f;
+    float liftAcceleration = 64.0f;
     float ejectAcceleration = 260.0f;
     float ejectUpAcceleration = 70.0f;
-    float ejectBand = 0.88f;
-    float minCaptureSeconds = 1.50f;
-    float ejectCooldownSeconds = 2.25f;
+    float ejectBand = 0.96f;
+    float minCaptureSeconds = 2.50f;
+    float ejectCooldownSeconds = 3.50f;
     float maxDeltaVelocity = 24.0f;
 };
 

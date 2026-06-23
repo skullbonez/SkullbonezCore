@@ -1192,6 +1192,9 @@ class Run
       private:
         Run& m_run;
         std::vector<float> m_vertices;
+        float m_liveVisualTimeSeconds = 0.0f;
+        double m_lastLiveVisualSourceSeconds = 0.0;
+        bool m_hasLiveVisualTime = false;
     };
 
     /* -- DebugOverlayPass

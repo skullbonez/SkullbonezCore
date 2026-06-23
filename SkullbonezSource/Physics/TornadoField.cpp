@@ -91,7 +91,7 @@ Vector3 TornadoField::SampleAcceleration( const Vector3& position ) const
         horizontal > TOLERANCE ? Vector3( -dx / horizontal, 0.0f, -dz / horizontal ) : Vector3( 1.0f, 0.0f, 0.0f );
     Vector3 tangent( -inward.z, 0.0f, inward.x );
 
-    const float radialMask = SmoothStep01( 1.0f, 0.0f, radial01 );
+    const float radialMask = 0.18f + 0.82f * SmoothStep01( 1.0f, 0.0f, radial01 );
     const float columnMask = SmoothStep01( 0.0f, 0.12f, height01 ) * SmoothStep01( 1.0f, 0.78f, height01 );
     const float swirlMask = columnMask * ( 0.45f + 0.55f * radialMask );
 
