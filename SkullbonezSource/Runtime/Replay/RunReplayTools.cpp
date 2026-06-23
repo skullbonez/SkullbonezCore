@@ -905,7 +905,8 @@ void Run::SetReplaySimulationPaused( bool paused )
         return;
     }
 
-    PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
+    // Removing this marker until we can sort out avoiding hitting assert
+    // PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
 
     if ( paused )
     {
