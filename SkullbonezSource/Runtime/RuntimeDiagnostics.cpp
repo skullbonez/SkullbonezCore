@@ -213,8 +213,9 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_"
                   "reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_"
                   "forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_"
-                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_"
-                  "coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,\"persistent_contact_slop\":%.6f,"
+                  "epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"object_friction_"
+                  "coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,"
+                  "\"persistent_contact_slop\":%.6f,"
                   "\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,"
                   "\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_"
                   "slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_"
@@ -235,6 +236,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                   config.contactEpsilon,
                   config.contactRestitutionThreshold,
                   config.frictionCoeff,
+                  config.objectFrictionCoeff,
                   config.rollingFrictionCoeff,
                   config.spinFrictionCoeff,
                   config.broadphaseCell,
@@ -304,6 +306,99 @@ void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagno
                   preLiveDeltaSquared,
                   appliedDeltaSquared,
                   restoredDeltaSquared );
+    Log().FlushAll();
+}
+
+void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                                const RunSceneState& scene,
+                                                const ReplaySolverFrameSample& selected,
+                                                uint64_t restoredSolverHash,
+                                                uint64_t restoredPresentationHash,
+                                                std::size_t restoredBodyCount,
+                                                bool hashCaptured,
+                                                bool hashMatched,
+                                                bool fallbackAttempted,
+                                                bool fallbackRestored )
+{
+    LogReplayRestoreResult( diagnostics,
+                            scene,
+                            "retained_solver",
+                            selected.frameIndex,
+                            selected.sceneFrame,
+                            selected.checkpointBoundary ? selected.frameIndex : 0,
+                            selected.solverHash,
+                            selected.presentationHash,
+                            selected.bodies.size(),
+                            restoredSolverHash,
+                            restoredPresentationHash,
+                            restoredBodyCount,
+                            selected.contactCount,
+                            selected.pipelineRecordCount,
+                            selected.checkpointBoundary,
+                            hashCaptured,
+                            hashMatched,
+                            fallbackAttempted,
+                            fallbackRestored,
+                            hashMatched ? "" : "retained solver restore hash mismatch" );
+}
+
+void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
+                                                 const RunSceneState& scene,
+                                                 const char* restoreSource,
+                                                 uint64_t targetReplayFrame,
+                                                 int targetSceneFrame,
+                                                 uint64_t checkpointReplayFrame,
+                                                 uint64_t targetSolverHash,
+                                                 uint64_t targetPresentationHash,
+                                                 std::size_t targetBodyCount,
+                                                 uint64_t restoredSolverHash,
+                                                 uint64_t restoredPresentationHash,
+                                                 std::size_t restoredBodyCount,
+                                                 uint16_t contactCount,
+                                                 uint16_t pipelineRecordCount,
+                                                 bool checkpointBoundary,
+                                                 bool hashCaptured,
+                                                 bool hashMatched,
+                                                 bool fallbackAttempted,
+                                                 bool fallbackRestored,
+                                                 const char* failureReason )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+
+    std::string escapedSource = JsonEscape( restoreSource && restoreSource[0] != '\0' ? restoreSource : "unknown" );
+    std::string escapedReason = JsonEscape( failureReason ? failureReason : "" );
+
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"replay_restore\",\"run\":\"%s\",\"frame\":%d,\"target_replay_frame\":%llu,"
+                  "\"restore_source\":\"%s\",\"checkpoint_replay_frame\":%llu,"
+                  "\"target_scene_frame\":%d,\"target_solver_hash\":%llu,\"target_presentation_hash\":%llu,"
+                  "\"restored_solver_hash\":%llu,\"restored_presentation_hash\":%llu,\"target_body_count\":%zu,"
+                  "\"restored_body_count\":%zu,\"contact_count\":%u,\"pipeline_record_count\":%u,"
+                  "\"checkpoint_boundary\":%d,\"hash_captured\":%d,\"hash_matched\":%d,\"fallback_attempted\":%d,"
+                  "\"fallback_restored\":%d,\"failure_reason\":\"%s\"}\n",
+                  diagnostics.currentRunId,
+                  scene.currentFrame,
+                  static_cast<unsigned long long>( targetReplayFrame ),
+                  escapedSource.c_str(),
+                  static_cast<unsigned long long>( checkpointReplayFrame ),
+                  targetSceneFrame,
+                  static_cast<unsigned long long>( targetSolverHash ),
+                  static_cast<unsigned long long>( targetPresentationHash ),
+                  static_cast<unsigned long long>( restoredSolverHash ),
+                  static_cast<unsigned long long>( restoredPresentationHash ),
+                  targetBodyCount,
+                  restoredBodyCount,
+                  static_cast<unsigned>( contactCount ),
+                  static_cast<unsigned>( pipelineRecordCount ),
+                  checkpointBoundary ? 1 : 0,
+                  hashCaptured ? 1 : 0,
+                  hashMatched ? 1 : 0,
+                  fallbackAttempted ? 1 : 0,
+                  fallbackRestored ? 1 : 0,
+                  escapedReason.c_str() );
     Log().FlushAll();
 }
 

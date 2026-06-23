@@ -1,0 +1,346 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -32.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "trackHeight": 145.0
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": true,
+      "sleep": true
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_box_pile",
+      "position": [
+        470,
+        145,
+        625
+      ],
+      "view": [
+        500,
+        35,
+        502
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "mixed_pile_plate",
+      "position": [
+        500,
+        0.5,
+        500
+      ],
+      "halfExtents": [
+        22.0,
+        0.5,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "mixed_pile_wall_w",
+      "position": [
+        477,
+        10,
+        500
+      ],
+      "halfExtents": [
+        1.0,
+        10.0,
+        23.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "mixed_pile_wall_e",
+      "position": [
+        523,
+        10,
+        500
+      ],
+      "halfExtents": [
+        1.0,
+        10.0,
+        23.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "mixed_pile_wall_n",
+      "position": [
+        500,
+        10,
+        477
+      ],
+      "halfExtents": [
+        23.0,
+        10.0,
+        1.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "mixed_pile_wall_s",
+      "position": [
+        500,
+        10,
+        523
+      ],
+      "halfExtents": [
+        23.0,
+        10.0,
+        1.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "pile_box_00",
+      "position": [
+        494,
+        9,
+        498
+      ],
+      "halfExtents": [
+        5.0,
+        4.0,
+        4.0
+      ],
+      "mass": 42.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        12,
+        3
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pile_box_01",
+      "position": [
+        505,
+        10,
+        501
+      ],
+      "halfExtents": [
+        4.0,
+        5.0,
+        3.5
+      ],
+      "mass": 45.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "euler": [
+        0,
+        -16,
+        -5
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pile_box_02",
+      "position": [
+        500,
+        21,
+        493
+      ],
+      "halfExtents": [
+        4.5,
+        3.5,
+        4.0
+      ],
+      "mass": 38.0,
+      "restitution": 0.16,
+      "fixed": false,
+      "euler": [
+        8,
+        24,
+        -10
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pile_box_03",
+      "position": [
+        498,
+        32,
+        507
+      ],
+      "halfExtents": [
+        3.5,
+        4.5,
+        3.5
+      ],
+      "mass": 34.0,
+      "restitution": 0.16,
+      "fixed": false,
+      "euler": [
+        -12,
+        -28,
+        16
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pile_box_04",
+      "position": [
+        507,
+        43,
+        496
+      ],
+      "halfExtents": [
+        3.0,
+        5.0,
+        4.0
+      ],
+      "mass": 33.0,
+      "restitution": 0.14,
+      "fixed": false,
+      "euler": [
+        14,
+        34,
+        8
+      ]
+    },
+    {
+      "type": "box",
+      "name": "pile_box_05",
+      "position": [
+        493,
+        55,
+        504
+      ],
+      "halfExtents": [
+        4.0,
+        3.0,
+        4.5
+      ],
+      "mass": 31.0,
+      "restitution": 0.14,
+      "fixed": false,
+      "euler": [
+        -18,
+        8,
+        -22
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "pile_rag_0",
+      "position": [
+        500,
+        68,
+        500
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        0,
+        18
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "pile_rag_1",
+      "position": [
+        504,
+        91,
+        498
+      ],
+      "scale": 1.0,
+      "euler": [
+        8,
+        28,
+        -24
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "pile_rag_2",
+      "position": [
+        496,
+        114,
+        502
+      ],
+      "scale": 1.0,
+      "euler": [
+        -12,
+        -35,
+        22
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "pile_rag_3",
+      "position": [
+        501,
+        137,
+        499
+      ],
+      "scale": 1.0,
+      "euler": [
+        16,
+        46,
+        -28
+      ],
+      "sleeping": false
+    }
+  ]
+}

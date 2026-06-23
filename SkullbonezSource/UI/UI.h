@@ -156,7 +156,7 @@ struct InGameUIFrameData
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
     int cameraModeIndex = 0;
-    uint32_t cameraModeEnabledMask = 0xFu;
+    uint32_t cameraModeEnabledMask = 0x1Fu;
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -210,7 +210,7 @@ class InGameUI
                                      bool editorTerrainAlign = false,
                                      int editorObjectType = EditorTab::OBJECT_BOX,
                                      int cameraModeIndex = 0,
-                                     uint32_t cameraModeEnabledMask = 0xFu,
+                                     uint32_t cameraModeEnabledMask = 0x1Fu,
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
                                      int selectedSceneOption = -1 );

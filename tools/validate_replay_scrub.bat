@@ -1,13 +1,13 @@
 @rem
 @rem File: tools/validate_replay_scrub.bat
 @rem Purpose:
-@rem   Runs the focused replay scrub SkullScope regression.
+@rem   Runs the focused replay scrub and retained-restore SkullScope regression.
 @rem
 @rem Mental model:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. This one proves the replay scrubber
-@rem   can select an older presentation sample and expose that proof through
-@rem   bounded SkullScope queries.
+@rem   can select an older presentation sample and retained restore can hash-
+@rem   verify an older solver sample through bounded SkullScope queries.
 @rem
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded
@@ -40,12 +40,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/2] Checking replay scrub SkullScope probe...
+echo [2/2] Checking replay scrub and restore SkullScope probes...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_replay_scrub_regression.py"
 if errorlevel 1 (
-    echo FAIL: replay scrub SkullScope regression detected.
-    echo       Trace: Debug\replay_scrub.physicsdiag.ndjson
+    echo FAIL: replay scrub/restore SkullScope regression detected.
+    echo       Scrub trace:   Debug\replay_scrub.physicsdiag.ndjson
+    echo       Restore trace: Debug\replay_restore.physicsdiag.ndjson
     popd
     exit /b 2
 )

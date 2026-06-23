@@ -96,8 +96,10 @@ inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
 inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
+inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 458.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 542.0f;
+inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
@@ -141,7 +143,8 @@ inline float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack t
 inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
+    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP +
+                                REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
     constexpr float rightInset = 10.0f + REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH;
     return { panel.x + leftInset,
              ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
@@ -159,13 +162,25 @@ inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunRep
              REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
 }
 
-inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
+inline UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName )
+{
+    const UI::UIRect save = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
+    return { save.x + save.w + REPLAY_SCRUBBER_SAVE_BUTTON_GAP, save.y, REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH, save.h };
+}
+
+inline UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH )
 {
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH,
              panel.y + 14.0f,
-             REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH,
+             REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH,
              22.0f };
+}
+
+inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
+{
+    const UI::UIRect branch = ReplayScrubberBranchButtonRect( screenW, screenH );
+    return { branch.x + branch.w + 10.0f, branch.y, REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH, 22.0f };
 }
 
 inline UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )

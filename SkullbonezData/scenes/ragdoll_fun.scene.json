@@ -1,0 +1,346 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": 25.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": false,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "trackHeight": 95.0
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "debug": {
+    "waterHidden": false,
+    "terrainHidden": false,
+    "waterReflection": "fbo",
+    "physics": {
+      "contacts": false,
+      "sleep": false,
+      "transparent": false
+    }
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_fun",
+      "position": [
+        500,
+        124,
+        760
+      ],
+      "view": [
+        520,
+        42,
+        505
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "ragdoll_fun_deck",
+      "position": [
+        520,
+        31,
+        505
+      ],
+      "halfExtents": [
+        76.0,
+        3.0,
+        24.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_fun_backstop",
+      "position": [
+        520,
+        47,
+        530
+      ],
+      "halfExtents": [
+        76.0,
+        13.0,
+        1.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.06,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_fun_left_rail",
+      "position": [
+        443,
+        43,
+        505
+      ],
+      "halfExtents": [
+        1.0,
+        9.0,
+        24.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.06,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_fun_right_rail",
+      "position": [
+        597,
+        43,
+        505
+      ],
+      "halfExtents": [
+        1.0,
+        9.0,
+        24.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.06,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "ragdoll_fun_drop_ramp",
+      "position": [
+        520,
+        28,
+        459
+      ],
+      "halfExtents": [
+        72.0,
+        1.2,
+        25.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.08,
+      "fixed": true,
+      "euler": [
+        -12,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_0",
+      "position": [
+        468,
+        34,
+        493
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -10,
+        0
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_1",
+      "position": [
+        489,
+        34,
+        512
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        8,
+        0
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_2",
+      "position": [
+        512,
+        34,
+        492
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -22,
+        0
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_3",
+      "position": [
+        535,
+        34,
+        514
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        18,
+        0
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_4",
+      "position": [
+        558,
+        34,
+        493
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -34,
+        0
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_fun_target_5",
+      "position": [
+        579,
+        34,
+        512
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        27,
+        0
+      ],
+      "sleeping": true
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "tree.pine_stack",
+      "name": "ragdoll_fun_tree_pine_left",
+      "position": [
+        420,
+        25,
+        552
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -16,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "ragdoll_fun_tree_small_left",
+      "position": [
+        432,
+        25,
+        438
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "ragdoll_fun_tree_cedar_back",
+      "position": [
+        520,
+        25,
+        586
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        8,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_stack",
+      "name": "ragdoll_fun_tree_pine_right",
+      "position": [
+        630,
+        25,
+        548
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "ragdoll_fun_tree_small_right",
+      "position": [
+        612,
+        25,
+        430
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -25,
+        0
+      ]
+    },
+    {
+      "asset": "rock.slab_blue",
+      "name": "ragdoll_fun_splash_slab",
+      "position": [
+        522,
+        24,
+        412
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        32,
+        -3
+      ]
+    }
+  ]
+}

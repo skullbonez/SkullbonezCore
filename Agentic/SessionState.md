@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `major-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | `cbad6bd7` completed the source comment pass for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md` and pushed it to `origin/major-refactor`. |
-| Active objective | None for the physics playground refactor plan; the plan has been completed on `major-refactor`. |
-| Pending work | None for `Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md`. Continue unrelated active plans separately. |
+| Branch | `nightrunner-22-june` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | `39b25d0f` archives the authoritative replay rollback plan in `Agentic/Plans/Done/` after replay v2 closeout. |
+| Active objective | Replay v2 migration plan is archived in `Agentic/Plans/Done/authoritative-replay-rollback-plan.md`; no active replay implementation plan is open. |
+| Pending work | Do not delete legacy replay exporters yet. V2 now has smooth file-backed presentation scrub, branch provenance chunks/querying, bounded event chunks/querying, typed generated-scene-config/runtime-command/world-override/editor-place/editor-transform/launcher-config/launcher-fire event coverage, checkpoint event-cursor chunks/querying, per-tick solver hash chunks, sparse solver checkpoint chunks in saved artifacts, retained in-memory restore hash verification, saved checkpoint-frame restore verification, saved non-checkpoint target checkpoint-plus-event restore verification, generated-topology rebuild before mismatched saved checkpoint restore, reset-command checkpoint-precondition coverage, explicit scene-transition checkpoint-barrier rejection coverage, live branch-from-file wiring for loaded v2 artifacts, in-app v2 replay save/load controls, an explicit scrubber `BRANCH` action shared with `Enter`, and saved-file restore failure SkullScope rows/query validation. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Final plan gate passed `tools\validate_full.bat` in `TestOutput\agent_logs\2026-06-22_phase_f_comment_pass_validate_full.log`: Profile and Debug builds succeeded with 0 warnings and 0 errors, DX12 validation reported 0 errors, DX12 captures matched baselines, and physics regression matched byte-exactly. |
+| Validation | Current replay v2 inventory/checkpoint-barrier slice is covered by `python -m py_compile tools\check_replay_v2_artifact.py tools\replay_query.py`, focused `python tools\check_replay_v2_artifact.py`, `tools\validate_fast.bat`, and `tools\validate_replay_v2_artifact.bat`. Final logs are in `TestOutput\agent_logs\2026-06-23_replay_v2_timeline_mutation_checker_iter1.log`, `TestOutput\agent_logs\2026-06-23_validate_fast_replay_v2_inventory_boundary_final1.log`, and `TestOutput\agent_logs\2026-06-23_validate_replay_v2_inventory_boundary_final1.log`. |
 
 ## Active Notes
 
@@ -55,6 +55,7 @@ audits when it is still useful.
 | Water rendering cleanup | Active plan | `Agentic/Plans/water-rendering-cleanup-plan.md` remains the focused renderer plan for water material/intersection quality work. |
 | Render graph completion | Active plan | `Agentic/Plans/dx12-render-graph-completion-plan.md` remains the focused DX12 resource-state ownership plan. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, asset, parser, and render graph boundaries. |
+| Authoritative replay rollback | Done | Archived in `Agentic/Plans/Done/authoritative-replay-rollback-plan.md`; legacy replay paths were intentionally retained. |
 
 ## Known Bugs
 

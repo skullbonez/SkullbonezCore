@@ -24,6 +24,7 @@ Related:
 #include "../UI/UILayout.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -36,12 +37,24 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-RuntimeInputModeState BuildRuntimeInputModeState( const RunCameraState& camera, const RunEditorPlacementState& editor )
+bool CameraModeUsesFlyControls( RunCameraMode mode )
+{
+    return mode == RunCameraMode::Free || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator;
+}
+
+
+bool CameraModeUsesLauncher( RunCameraMode mode )
+{
+    return mode == RunCameraMode::Launcher;
+}
+
+
+RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor )
 {
     RuntimeInputModeState state;
-    state.flyCamera = camera.isFlyMode;
-    state.launcher = camera.isLauncherMode;
-    state.manipulator = camera.mode == RunCameraMode::Manipulator;
+    state.flyCamera = CameraModeUsesFlyControls( mode );
+    state.launcher = CameraModeUsesLauncher( mode );
+    state.manipulator = mode == RunCameraMode::Manipulator;
     state.editor = editor.editorModeEnabled;
     state.editorPlacement = editor.placementModeEnabled;
     state.editorViewportLook = editor.viewportLookActive;
@@ -50,6 +63,43 @@ RuntimeInputModeState BuildRuntimeInputModeState( const RunCameraState& camera, 
     state.editorGizmoRotation = editor.gizmoDragIsRotation;
     state.editorGizmoScale = editor.gizmoDragIsScale;
     return state;
+}
+
+const char* ReplayRuntimeCommandName( RuntimeCommandType type )
+{
+    switch ( type )
+    {
+    case RuntimeCommandType::LoadSceneIndex:
+        return "LoadSceneIndex";
+    case RuntimeCommandType::LoadDemoScene:
+        return "LoadDemoScene";
+    case RuntimeCommandType::ResetCurrentScene:
+        return "ResetCurrentScene";
+    case RuntimeCommandType::CreateScene:
+        return "CreateScene";
+    case RuntimeCommandType::SaveScreenshot:
+        return "SaveScreenshot";
+    case RuntimeCommandType::SaveSceneDefaults:
+        return "SaveSceneDefaults";
+    case RuntimeCommandType::SaveRenderDefaults:
+        return "SaveRenderDefaults";
+    case RuntimeCommandType::AdvanceScene:
+        return "AdvanceScene";
+    case RuntimeCommandType::Quit:
+        return "Quit";
+    case RuntimeCommandType::None:
+    default:
+        return "None";
+    }
+}
+
+uint32_t ReplayRuntimeCommandFlags( const RuntimeCommand& command )
+{
+    uint32_t flags = 0;
+    flags |= command.preserveUIState ? 1u : 0u;
+    flags |= command.suppressExitOnComplete ? 2u : 0u;
+    flags |= command.preserveRuntimeState ? 4u : 0u;
+    return flags;
 }
 
 struct RuntimeInputKeyBinding
@@ -117,10 +167,11 @@ void Run::StepPhysicsPipelineStage( int direction )
 
 void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeInputActionSource source )
 {
-    InputController::ApplyModeAction( m_runtimeInput,
-                                      InputController::ResolveMode( BuildRuntimeInputModeState( m_camera, m_editor ) ),
-                                      action,
-                                      source );
+    InputController::ApplyModeAction(
+        m_runtimeInput,
+        InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode, m_editor ) ),
+        action,
+        source );
 }
 
 
@@ -130,6 +181,8 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
     {
     case RunCameraMode::Demo:
         return "Demo";
+    case RunCameraMode::Scene:
+        return "Scene";
     case RunCameraMode::Free:
         return "Free";
     case RunCameraMode::Launcher:
@@ -144,12 +197,41 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
 
 bool Run::IsDemoCameraModeAvailable() const
 {
-    const int modelCount = m_cGameModelCollection.GetModelCount();
-    if ( !SceneState().isSceneMode )
+    if ( SceneState().isSceneMode )
     {
-        return modelCount > 0;
+        return false;
     }
-    return m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < modelCount;
+    return m_cGameModelCollection.GetModelCount() > 0;
+}
+
+
+RunCameraMode Run::NormalizeCameraModeForCurrentScene( RunCameraMode mode ) const
+{
+    if ( SceneState().isSceneMode )
+    {
+        return mode == RunCameraMode::Demo ? RunCameraMode::Scene : mode;
+    }
+    if ( mode == RunCameraMode::Scene )
+    {
+        return IsDemoCameraModeAvailable() ? RunCameraMode::Demo : RunCameraMode::Free;
+    }
+    if ( mode == RunCameraMode::Demo && !IsDemoCameraModeAvailable() )
+    {
+        return RunCameraMode::Free;
+    }
+    return mode;
+}
+
+
+bool Run::IsFlyCameraMode() const
+{
+    return CameraModeUsesFlyControls( m_camera.mode );
+}
+
+
+bool Run::IsLauncherCameraMode() const
+{
+    return CameraModeUsesLauncher( m_camera.mode );
 }
 
 
@@ -166,18 +248,14 @@ uint32_t Run::CameraModeEnabledMask() const
     {
         mask |= 1u << static_cast<int>( RunCameraMode::Demo );
     }
+    if ( SceneState().isSceneMode )
+    {
+        mask |= 1u << static_cast<int>( RunCameraMode::Scene );
+    }
     mask |= 1u << static_cast<int>( RunCameraMode::Free );
     mask |= 1u << static_cast<int>( RunCameraMode::Launcher );
     mask |= 1u << static_cast<int>( RunCameraMode::Manipulator );
     return mask;
-}
-
-
-void Run::SyncLegacyCameraModeFlags()
-{
-    m_camera.isLauncherMode = m_camera.mode == RunCameraMode::Launcher;
-    m_camera.isFlyMode = m_camera.mode == RunCameraMode::Free || m_camera.mode == RunCameraMode::Launcher ||
-                         m_camera.mode == RunCameraMode::Manipulator;
 }
 
 
@@ -188,42 +266,36 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     {
         return;
     }
+    mode = NormalizeCameraModeForCurrentScene( mode );
 
     if ( mode == RunCameraMode::Demo )
     {
-        if ( !IsDemoCameraModeAvailable() )
+        const int modelCount = m_cGameModelCollection.GetModelCount();
+        if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
         {
-            mode = RunCameraMode::Free;
+            m_camera.trackBallIndex = 0;
         }
-        else
+        if ( m_camera.trackHeight <= 0.0f )
         {
-            const int modelCount = m_cGameModelCollection.GetModelCount();
-            if ( m_camera.trackBallIndex < 0 || m_camera.trackBallIndex >= modelCount )
-            {
-                m_camera.trackBallIndex = 0;
-            }
-            if ( m_camera.trackHeight <= 0.0f )
-            {
-                m_camera.trackHeight = 300.0f;
-            }
+            m_camera.trackHeight = 300.0f;
         }
     }
 
-    const bool wasFlyMode = m_camera.isFlyMode;
+    const bool wasFlyMode = IsFlyCameraMode();
     m_camera.mode = mode;
     if ( m_editor.editorModeEnabled )
     {
         m_editor.restoreCameraModeAfterEditor = mode;
     }
-    SyncLegacyCameraModeFlags();
     if ( mode != RunCameraMode::Manipulator )
     {
         CancelMousePickup();
     }
 
-    if ( wasFlyMode != m_camera.isFlyMode )
+    const bool isFlyMode = IsFlyCameraMode();
+    if ( wasFlyMode != isFlyMode )
     {
-        if ( m_camera.isFlyMode )
+        if ( isFlyMode )
         {
             EnterFlyModeCamera();
         }
@@ -249,7 +321,7 @@ void Run::CycleCameraMode()
     int current = static_cast<int>( m_camera.mode );
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
-        current = static_cast<int>( RunCameraMode::Demo );
+        current = static_cast<int>( SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo );
     }
 
     for ( int step = 1; step <= static_cast<int>( RunCameraMode::Count ); ++step )
@@ -294,7 +366,7 @@ bool Run::MouseLookOwnsCursor() const
         return ReplayInspectionMouseLookActive();
     }
 
-    return m_camera.isFlyMode && m_camera.mode != RunCameraMode::Manipulator;
+    return IsFlyCameraMode() && m_camera.mode != RunCameraMode::Manipulator;
 }
 
 
@@ -363,8 +435,6 @@ void Run::ExitFlyModeCamera()
     m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
     Input::SetSystemCursorVisible( true );
     m_camera.cameraTime = 0.0f;
-    // Exiting fly mode also exits launcher mode.
-    m_camera.isLauncherMode = false;
     InputController::ResetMouseLook( m_camera );
 }
 
@@ -407,7 +477,7 @@ void Run::TakeInput()
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
         InputController::BeginFrame( m_runtimeInput,
-                                     BuildRuntimeInputModeState( m_camera, m_editor ),
+                                     BuildRuntimeInputModeState( m_camera.mode, m_editor ),
                                      false,
                                      true,
                                      true );
@@ -420,7 +490,7 @@ void Run::TakeInput()
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     InputController::BeginFrame( m_runtimeInput,
-                                 BuildRuntimeInputModeState( m_camera, m_editor ),
+                                 BuildRuntimeInputModeState( m_camera.mode, m_editor ),
                                  true,
                                  UIBlocksKeyboardBeforeInput,
                                  m_UI.BlocksCameraMouse() );
@@ -437,10 +507,11 @@ void Run::TakeInput()
             CycleCameraMode();
         }
 
-        // Compatibility shortcut: F enters Free, or returns to Demo when already free.
+        // Compatibility shortcut: F enters Free, or returns to the passive camera mode when already free.
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleFlyCamera, 'F' ) )
         {
-            ApplyCameraMode( m_camera.mode == RunCameraMode::Free ? RunCameraMode::Demo : RunCameraMode::Free,
+            const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
+            ApplyCameraMode( m_camera.mode == RunCameraMode::Free ? passiveMode : RunCameraMode::Free,
                              RuntimeInputActionSource::Keyboard );
         }
 
@@ -460,7 +531,7 @@ void Run::TakeInput()
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                               RuntimeInputAction::CycleLauncherFireMode,
                                                               'M' ) &&
-                 m_camera.isLauncherMode )
+                 IsLauncherCameraMode() )
             {
                 m_rayCastTest.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Laser
                                              ? RunLauncherFireMode::Projectile
@@ -473,7 +544,7 @@ void Run::TakeInput()
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                               RuntimeInputAction::WriteLauncherReproSnapshot,
                                                               VK_RETURN ) &&
-                 m_camera.isLauncherMode && !m_replayScrubber.restoreConsumedThisFrame )
+                 IsLauncherCameraMode() && !m_replayScrubber.restoreConsumedThisFrame )
             {
                 WriteLauncherReproSnapshot();
             }
@@ -1023,17 +1094,21 @@ void Run::TakeInput()
         }
         if ( uiCommands.physics.requestRayCastImpulseStrength )
         {
+            const float previousImpulse = m_rayCastTest.impulseStrength;
             m_rayCastTest.impulseStrength = std::clamp( uiCommands.physics.requestedRayCastImpulseStrength,
                                                         UI_RAY_IMPULSE_MIN,
                                                         UI_RAY_IMPULSE_MAX );
+            RecordReplayLauncherConfigEvent( previousImpulse != m_rayCastTest.impulseStrength ? 1u : 0u );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength,
                                                RuntimeInputActionSource::UI );
         }
         if ( uiCommands.physics.requestLauncherProjectileSpeed )
         {
+            const float previousProjectileSpeed = m_rayCastTest.projectileSpeed;
             m_rayCastTest.projectileSpeed = std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed,
                                                         UI_LAUNCHER_PROJECTILE_SPEED_MIN,
                                                         UI_LAUNCHER_PROJECTILE_SPEED_MAX );
+            RecordReplayLauncherConfigEvent( previousProjectileSpeed != m_rayCastTest.projectileSpeed ? 2u : 0u );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
@@ -1185,14 +1260,14 @@ void Run::TakeInput()
                                                        suppressWorldActionThisFrame );
         }
         if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame && !m_editor.editorModeEnabled &&
-             !m_UI.WantsNativeMouseCursor() && ( Input::IsKeyDown( VK_CONTROL ) || !m_camera.isLauncherMode ) )
+             !m_UI.WantsNativeMouseCursor() && ( Input::IsKeyDown( VK_CONTROL ) || !IsLauncherCameraMode() ) )
         {
             const bool additiveReplayPick = Input::IsKeyDown( VK_SHIFT );
             TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
             consumedWorldClick = true;
         }
 
-        if ( !consumedWorldClick && m_camera.isLauncherMode && leftPressed && !suppressWorldActionThisFrame &&
+        if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldActionThisFrame &&
              !m_UI.WantsNativeMouseCursor() )
         {
             EnterInteractiveSceneRun();
@@ -1233,10 +1308,10 @@ void Run::TakeInput()
     }
 
     const bool cameraMouseLookActive =
-        ( !m_editor.editorModeEnabled && m_camera.isFlyMode && m_camera.mode != RunCameraMode::Manipulator &&
+        ( !m_editor.editorModeEnabled && IsFlyCameraMode() && m_camera.mode != RunCameraMode::Manipulator &&
           ( !ReplayInspectionActive() || ReplayInspectionMouseLookActive() ) ) ||
         m_editor.viewportLookActive;
-    const bool cameraKeyboardControlsActive = m_camera.isFlyMode || m_editor.viewportLookActive;
+    const bool cameraKeyboardControlsActive = IsFlyCameraMode() || m_editor.viewportLookActive;
     if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
@@ -1362,6 +1437,18 @@ bool Run::DrainRuntimeCommands()
         case RuntimeCommandType::None:
             break;
         }
+        if ( command.type != RuntimeCommandType::None )
+        {
+            RecordReplayEvent( ReplayEventKind::RuntimeCommand,
+                               NextReplayEventFrameIndex(),
+                               ReplayRuntimeCommandFlags( command ),
+                               static_cast<int32_t>( command.type ),
+                               command.index,
+                               0,
+                               0,
+                               0,
+                               command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
+        }
     }
 
     if ( processed )
@@ -1374,7 +1461,7 @@ bool Run::DrainRuntimeCommands()
 
 void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( m_camera.isFlyMode || m_editor.viewportLookActive )
+    if ( IsFlyCameraMode() || m_editor.viewportLookActive )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
@@ -1409,7 +1496,7 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_camera.isFlyMode && !m_editor.viewportLookActive && !SceneState().isSceneMode )
+    if ( !IsFlyCameraMode() && !m_editor.viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =

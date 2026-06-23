@@ -28,9 +28,13 @@ Related:
 */
 #include "RunInternal.h"
 #include "Replay/ReplayExporter.h"
+#include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
 
+#include <cmath>
+#include <cstdio>
+#include <cstring>
 #include <stdexcept>
 
 using namespace SkullbonezCore::Basics;
@@ -42,6 +46,98 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
+constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
+constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
+
+uint32_t ReplayFloatBits( float value )
+{
+    uint32_t bits = 0;
+    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    return bits;
+}
+
+int32_t ReplayFloatBitsSigned( float value )
+{
+    const uint32_t bits = ReplayFloatBits( value );
+    int32_t signedBits = 0;
+    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
+    return signedBits;
+}
+
+void HashReplayFloat( uint64_t& hash, float value )
+{
+    const uint32_t bits = ReplayFloatBits( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
+}
+
+void HashReplayInt( uint64_t& hash, int32_t value )
+{
+    const uint32_t bits = static_cast<uint32_t>( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
+}
+
+void AppendReplayFloatHex( char*& cursor, std::size_t& remaining, float value )
+{
+    if ( remaining == 0 )
+    {
+        return;
+    }
+
+    const int written = std::snprintf( cursor, remaining, "%08X", ReplayFloatBits( value ) );
+    if ( written < 0 )
+    {
+        cursor[0] = '\0';
+        return;
+    }
+    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
+    cursor += consumed;
+    remaining -= consumed;
+}
+
+void AppendReplayVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
+{
+    AppendReplayFloatHex( cursor, remaining, value.x );
+    AppendReplayFloatHex( cursor, remaining, value.y );
+    AppendReplayFloatHex( cursor, remaining, value.z );
+}
+
+
+void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Quaternion& value )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    value.GetComponents( x, y, z, w );
+    AppendReplayFloatHex( cursor, remaining, x );
+    AppendReplayFloatHex( cursor, remaining, y );
+    AppendReplayFloatHex( cursor, remaining, z );
+    AppendReplayFloatHex( cursor, remaining, w );
+}
+
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
     if ( presentationPath.empty() )
@@ -56,6 +152,20 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
         return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
     }
     return presentationPath + ".solver";
+}
+
+const ReplayPresentationSample*
+LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
+{
+    if ( samples.empty() )
+    {
+        return nullptr;
+    }
+
+    const float t = std::clamp( normalized, 0.0f, 1.0f );
+    const std::size_t maxOffset = samples.size() - 1;
+    const std::size_t offset = (std::min)( maxOffset, static_cast<std::size_t>( t * maxOffset + 0.5f ) );
+    return &samples[offset];
 }
 } // namespace
 
@@ -564,18 +674,21 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
     solverReplayConfig.checkpointIntervalFrames = 60;
     solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
     m_solverReplay.Configure( solverReplayConfig );
+    m_replayEvents.Configure( replayConfig );
     ResetReplayScrubber();
     if ( m_replay.IsEnabled() )
     {
         const ReplayRecorderStats replayStats = m_replay.GetStats();
         const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+        const ReplayEventRecorderStats eventReplayStats = m_replayEvents.GetStats();
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
-                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d%s%s%s%s\n",
+                "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
                 replayConfig.retentionSeconds,
                 static_cast<unsigned long long>( replayStats.sampleCapacity ),
                 replayConfig.checkpointIntervalFrames,
                 static_cast<unsigned long long>( solverReplayStats.sampleCapacity ),
                 solverReplayConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( eventReplayStats.eventCapacity ),
                 replayConfig.hashLogPath.empty() ? "" : " hash_log=",
                 replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str(),
                 solverReplayConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
@@ -592,16 +705,81 @@ void Run::SetReplayScrubProbe( float normalized )
     m_replayScrubProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
     printf( "[replay] Scrub probe enabled: normalized=%.3f\n", m_replayScrubProbe.normalized );
 }
+
+void Run::SetReplayRestoreProbe( float normalized )
+{
+    m_replayRestoreProbe.enabled = true;
+    m_replayRestoreProbe.completed = false;
+    m_replayRestoreProbe.normalized = std::clamp( normalized, 0.0f, 0.99f );
+    printf( "[replay] Restore probe enabled: normalized=%.3f\n", m_replayRestoreProbe.normalized );
+}
+
+void Run::SetReplaySaveProbe( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        throw std::runtime_error( "replay save probe requires an output path" );
+    }
+
+    m_replaySaveProbe.enabled = true;
+    m_replaySaveProbe.completed = false;
+    strcpy_s( m_replaySaveProbe.path, sizeof( m_replaySaveProbe.path ), path );
+    printf( "[replay] Save probe enabled: path=%s\n", m_replaySaveProbe.path );
+}
 #endif
 
-
-void Run::ResetReplayTimelineForActiveScene()
+bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubber )
 {
+    if ( !path || path[0] == '\0' )
+    {
+        return false;
+    }
+
+    std::vector<ReplayPresentationSample> samples;
+    ReplayV2LoadResult result;
+    if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
+    {
+        return false;
+    }
+
+    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
+    m_loadedPresentationReplay.samples.swap( samples );
+    m_loadedPresentationReplay.enabled = true;
+    m_loadedPresentationReplay.bodyDictionaryCount = result.bodyDictionaryCount;
+    m_loadedPresentationReplay.fileBytes = result.fileBytes;
+    m_loadedPresentationReplay.firstFrame = result.firstFrame;
+    m_loadedPresentationReplay.lastFrame = result.lastFrame;
+    strncpy_s( m_loadedPresentationReplay.path, sizeof( m_loadedPresentationReplay.path ), path, _TRUNCATE );
+
+    if ( activateScrubber )
+    {
+        ArmLoadedReplayPresentationScrubber( 0.25f );
+    }
+
+    printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
+            "last_frame=%llu bytes=%llu\n",
+            m_loadedPresentationReplay.path,
+            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.lastFrame ),
+            static_cast<unsigned long long>( m_loadedPresentationReplay.fileBytes ) );
+    return true;
+}
+
+
+void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
+{
+    if ( !preserveBranchMetadata )
+    {
+        m_replayBranch = ReplayBranchInfo();
+    }
     if ( m_replayScrubber.simulationPaused )
     {
         SetReplaySimulationPaused( false );
     }
     ResetReplayScrubber();
+    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
     ClearReplayPathVisualizer();
     if ( m_replayVelocityEdit.mouseCaptured )
     {
@@ -617,8 +795,368 @@ void Run::ResetReplayTimelineForActiveScene()
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replay.ResetTimeline( sceneLabel );
     m_solverReplay.ResetTimeline( sceneLabel );
+    m_replayEvents.ResetTimeline( sceneLabel );
+    RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    RecordReplayGeneratedSceneConfigEvent();
     m_solverReplayMismatchReports = 0;
     m_solverReplayMismatchSuppressed = false;
+}
+
+ReplayFrameIndex Run::NextReplayEventFrameIndex() const
+{
+    const ReplayRecorderStats solverStats = m_solverReplay.GetStats();
+    if ( solverStats.enabled )
+    {
+        return solverStats.nextFrameIndex;
+    }
+
+    const ReplayRecorderStats presentationStats = m_replay.GetStats();
+    return presentationStats.nextFrameIndex;
+}
+
+
+void Run::RecordReplayEvent( ReplayEventKind kind,
+                             ReplayFrameIndex frameIndex,
+                             uint32_t flags,
+                             int32_t value0,
+                             int32_t value1,
+                             int32_t value2,
+                             int32_t value3,
+                             uint64_t data0,
+                             const char* text )
+{
+    if ( !m_replayEvents.IsEnabled() )
+    {
+        return;
+    }
+
+    ReplayEventInput input;
+    input.frameIndex = frameIndex;
+    input.branch = m_replayBranch;
+    input.kind = kind;
+    input.flags = flags;
+    input.value0 = value0;
+    input.value1 = value1;
+    input.value2 = value2;
+    input.value3 = value3;
+    input.data0 = data0;
+    input.text = text;
+    m_replayEvents.RecordEvent( input );
+}
+
+
+void Run::RecordReplayWorldOverrideEvent( float previousGravity,
+                                          float previousFluidHeight,
+                                          float previousFluidDensity,
+                                          float gravity,
+                                          float fluidHeight,
+                                          float fluidDensity )
+{
+    uint32_t flags = 0;
+    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
+    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
+    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
+    if ( flags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, gravity );
+    HashReplayFloat( hash, fluidHeight );
+    HashReplayFloat( hash, fluidDensity );
+
+    RecordReplayEvent( ReplayEventKind::WorldOverride,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       ReplayFloatBitsSigned( gravity ),
+                       ReplayFloatBitsSigned( fluidHeight ),
+                       ReplayFloatBitsSigned( fluidDensity ),
+                       0,
+                       hash,
+                       "world_override" );
+}
+
+
+void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
+{
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, m_rayCastTest.impulseStrength );
+    HashReplayFloat( hash, m_rayCastTest.projectileSpeed );
+
+    RecordReplayEvent( ReplayEventKind::LauncherConfig,
+                       NextReplayEventFrameIndex(),
+                       changedFlags,
+                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
+                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       0,
+                       0,
+                       hash,
+                       "launcher_config" );
+}
+
+
+void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
+                                         const Vector3& rayDirection,
+                                         const Vector3& cameraUp )
+{
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, rayOrigin );
+    AppendReplayVectorHex( cursor, remaining, rayDirection );
+    AppendReplayVectorHex( cursor, remaining, cameraUp );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayFloat( hash, rayOrigin.x );
+    HashReplayFloat( hash, rayOrigin.y );
+    HashReplayFloat( hash, rayOrigin.z );
+    HashReplayFloat( hash, rayDirection.x );
+    HashReplayFloat( hash, rayDirection.y );
+    HashReplayFloat( hash, rayDirection.z );
+    HashReplayFloat( hash, cameraUp.x );
+    HashReplayFloat( hash, cameraUp.y );
+    HashReplayFloat( hash, cameraUp.z );
+
+    const bool projectile = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile;
+    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
+    RecordReplayEvent( ReplayEventKind::LauncherFire,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       projectile ? 1 : 0,
+                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
+                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       m_cGameModelCollection.GetModelCount(),
+                       hash,
+                       payload );
+}
+
+
+void Run::RecordReplayGeneratedSceneConfigEvent()
+{
+    if ( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 )
+    {
+        return;
+    }
+
+    uint32_t flags = 0;
+    flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
+                 ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
+                 : 0u;
+    flags |= m_UIModelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+    flags |= ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+                 ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
+                 : 0u;
+    flags |= ( static_cast<uint32_t>( m_generatedObjectTypeOverride ) << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+             REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, SceneState().modelCount );
+    HashReplayInt( hash, SceneState().solverBallCount );
+    HashReplayInt( hash, SceneState().solverBoxCount );
+    HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
+    HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+    HashReplayInt( hash, static_cast<int32_t>( m_generatedObjectTypeOverride ) );
+
+    RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
+                       0,
+                       flags,
+                       SceneState().modelCount,
+                       SceneState().solverBallCount,
+                       SceneState().solverBoxCount,
+                       static_cast<int32_t>( SceneState().rngSeed ),
+                       hash,
+                       "generated_scene_config" );
+}
+
+
+void Run::RecordReplayEditorPlaceEvent( int objectType,
+                                        bool fixedObject,
+                                        bool terrainAlign,
+                                        int modelCountBefore,
+                                        const Vector3& terrainPoint,
+                                        const Vector3& placementScale )
+{
+    char payload[64] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "place6:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, terrainPoint );
+    AppendReplayVectorHex( cursor, remaining, placementScale );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, objectType );
+    HashReplayInt( hash, fixedObject ? 1 : 0 );
+    HashReplayInt( hash, terrainAlign ? 1 : 0 );
+    HashReplayInt( hash, modelCountBefore );
+    HashReplayFloat( hash, terrainPoint.x );
+    HashReplayFloat( hash, terrainPoint.y );
+    HashReplayFloat( hash, terrainPoint.z );
+    HashReplayFloat( hash, placementScale.x );
+    HashReplayFloat( hash, placementScale.y );
+    HashReplayFloat( hash, placementScale.z );
+
+    uint32_t flags = 0;
+    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
+    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
+
+    RecordReplayEvent( ReplayEventKind::EditorPlace,
+                       NextReplayEventFrameIndex(),
+                       flags,
+                       objectType,
+                       fixedObject ? 1 : 0,
+                       terrainAlign ? 1 : 0,
+                       modelCountBefore,
+                       hash,
+                       payload );
+}
+
+
+void Run::RecordReplayEditorTransformEvent( int modelIndex,
+                                            uint32_t changedFlags,
+                                            const GameModel& model,
+                                            int scaleAxis,
+                                            float scaleFactor )
+{
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
+    {
+        scaleAxis = -1;
+        scaleFactor = 1.0f;
+    }
+    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
+    {
+        return;
+    }
+
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten =
+        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    AppendReplayVectorHex( cursor, remaining, model.GetPosition() );
+    AppendReplayQuaternionHex( cursor, remaining, model.GetOrientation() );
+    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
+    {
+        AppendReplayFloatHex( cursor, remaining, scaleFactor );
+    }
+
+    float qx = 0.0f;
+    float qy = 0.0f;
+    float qz = 0.0f;
+    float qw = 1.0f;
+    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    HashReplayInt( hash, modelIndex );
+    HashReplayInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
+    HashReplayInt( hash, m_cGameModelCollection.GetModelCount() );
+    HashReplayInt( hash, static_cast<int32_t>( changedFlags ) );
+    HashReplayInt( hash, scaleAxis );
+    HashReplayFloat( hash, model.GetPosition().x );
+    HashReplayFloat( hash, model.GetPosition().y );
+    HashReplayFloat( hash, model.GetPosition().z );
+    HashReplayFloat( hash, qx );
+    HashReplayFloat( hash, qy );
+    HashReplayFloat( hash, qz );
+    HashReplayFloat( hash, qw );
+    HashReplayFloat( hash, scaleFactor );
+
+    RecordReplayEvent( ReplayEventKind::EditorTransform,
+                       NextReplayEventFrameIndex(),
+                       changedFlags,
+                       modelIndex,
+                       static_cast<int32_t>( model.GetReplayBodyId() ),
+                       m_cGameModelCollection.GetModelCount(),
+                       scaleAxis,
+                       hash,
+                       payload );
+}
+
+
+bool Run::HasLoadedReplayPresentation() const
+{
+    return m_loadedPresentationReplay.enabled && m_loadedPresentationReplay.samples.size() >= 2;
+}
+
+
+const ReplayPresentationSample* Run::LoadedReplayPresentationSampleAtNormalized( float normalized ) const
+{
+    if ( !HasLoadedReplayPresentation() )
+    {
+        return nullptr;
+    }
+
+    return LoadedPresentationSampleAtNormalized( m_loadedPresentationReplay.samples, normalized );
+}
+
+
+const ReplayPresentationSample* Run::LoadedReplayPresentationLatestSample() const
+{
+    return HasLoadedReplayPresentation() ? &m_loadedPresentationReplay.samples.back() : nullptr;
+}
+
+
+void Run::ArmLoadedReplayPresentationScrubber( float normalized )
+{
+    if ( !HasLoadedReplayPresentation() )
+    {
+        return;
+    }
+
+    if ( m_replayScrubber.simulationPaused )
+    {
+        SetReplaySimulationPaused( false );
+    }
+    if ( m_replayVelocityEdit.mouseCaptured || m_replayScrubber.mouseCaptured )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+
+    ClearReplayPathVisualizer();
+    m_replayPrediction.enabled = false;
+    m_replayPrediction.horizonDragging = false;
+    m_replayVelocityEdit = RunReplayVelocityEditState{};
+    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, normalized );
+    m_replayScrubber.solverPosition = 1.0f;
+    m_replayScrubber.dragging = false;
+    m_replayScrubber.paused = true;
+    m_replayScrubber.mouseCaptured = false;
+    m_replayScrubber.visible = true;
+    m_replayScrubber.visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    UpdateReplayInspectionCamera();
 }
 
 
@@ -647,13 +1185,15 @@ void Run::ResetReplayScrubber()
 
 bool Run::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() || !m_solverReplay.IsEnabled() )
+    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
     {
         return false;
     }
 
+    const bool loadedPresentation = HasLoadedReplayPresentation();
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-    return solverReplayStats.sampleCount >= 2 &&
+    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+    return ( loadedPresentation || solverReplayAvailable ) &&
            ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
              m_replayScrubber.simulationPaused );
 }
@@ -666,10 +1206,21 @@ bool Run::IsReplayScrubPaused() const
         return false;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
+    {
+        return LoadedReplayPresentationSampleAtNormalized(
+                   ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) ) != nullptr;
+    }
+
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
     if ( position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
     {
         return false;
+    }
+
+    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
     }
 
     return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized( position ) != nullptr;
@@ -678,12 +1229,20 @@ bool Run::IsReplayScrubPaused() const
 
 const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 {
-    if ( !IsReplayScrubPaused() )
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
     }
 
-    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
+    if ( HasLoadedReplayPresentation() )
+    {
+        return m_replayScrubber.paused
+                   ? LoadedReplayPresentationSampleAtNormalized(
+                         ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) )
+                   : nullptr;
+    }
+
+    if ( !IsReplayScrubPaused() )
     {
         return nullptr;
     }
@@ -694,7 +1253,7 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 
 const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
 {
-    if ( !IsReplayScrubPaused() )
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
     {
         return nullptr;
     }
@@ -710,11 +1269,13 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     char path[256] = {};
     bool saved = false;
     int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
-    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_";
+    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved = track == RunReplayTrack::Solver ? ReplayExporter::Save( m_solverReplay, path )
-                                                : ReplayExporter::Save( m_replay, path );
+        saved =
+            track == RunReplayTrack::Solver
+                ? ReplayExporter::Save( m_solverReplay, path )
+                : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, m_replayEvents, path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
@@ -767,9 +1328,7 @@ void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& s
 }
 
 
-bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
-                                           char* outReason,
-                                           std::size_t reasonSize )
+bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )
     {
@@ -835,6 +1394,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
         model.SetOrientation( orientation );
         model.SetLinearVelocity( body.linearVelocity );
         model.SetAngularVelocity( body.angularVelocity );
+        model.ClearImpulseForce();
     }
 
     if ( !m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( sample.worldSnapshot ) )
@@ -864,8 +1424,148 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
     RestoreReplayLauncherVisualSample( sample.launcherVisual );
-    ResetReplayTimelineForActiveScene();
-    writeReason( "restored" );
+    writeReason( "applied" );
+    return true;
+}
+
+bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
+                                          uint64_t& outSolverHash,
+                                          uint64_t& outPresentationHash,
+                                          std::size_t& outBodyCount )
+{
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.checkpointIntervalFrames = 1;
+
+    ReplaySolverRecorder verifier;
+    if ( !verifier.Configure( config ) )
+    {
+        return false;
+    }
+
+    ReplayLauncherVisualSample launcherVisual;
+    BuildReplayLauncherVisualSample( launcherVisual );
+
+    ReplayCaptureInput input;
+    input.branch = reference.branch;
+    input.eventCursor = reference.eventCursor;
+    input.sceneFrame = reference.sceneFrame;
+    input.simulationSeconds = reference.simulationSeconds;
+    input.physicsDt = reference.physicsDt > 0.0f ? reference.physicsDt : PHYSICS_FIXED_DT;
+    input.fixedStep = SceneState().isFixedStep;
+    input.scenePhysicsEnabled = SceneState().isScenePhysics;
+    input.sceneTextEnabled = SceneState().isSceneText;
+    input.waterHidden = m_debug.isWaterHidden;
+    input.terrainHidden = m_debug.isTerrainHidden;
+    input.cameras = m_systems.cameras;
+    input.world = &m_cWorldEnvironment;
+    input.models = &m_cGameModelCollection;
+    input.launcherVisual = &launcherVisual;
+    verifier.CaptureFrame( input );
+
+    const ReplaySolverFrameSample* verified = verifier.LatestSample();
+    if ( !verified )
+    {
+        return false;
+    }
+
+    outSolverHash = verified->solverHash;
+    outPresentationHash = verified->presentationHash;
+    outBodyCount = verified->bodies.size();
+    return true;
+}
+
+bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample,
+                                           char* outReason,
+                                           std::size_t reasonSize )
+{
+    auto writeReason = [outReason, reasonSize]( const char* message )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+        }
+    };
+
+    ReplaySolverFrameSample liveBackup;
+    bool hasLiveBackup = false;
+    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    {
+        if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
+        {
+            liveBackup = *latest;
+            hasLiveBackup = true;
+        }
+    }
+
+    char applyReason[128] = {};
+    if ( !ApplyReplaySolverSampleState( sample, applyReason, sizeof( applyReason ) ) )
+    {
+        writeReason( applyReason[0] != '\0' ? applyReason : "restore apply failed" );
+        return false;
+    }
+
+    uint64_t restoredSolverHash = 0;
+    uint64_t restoredPresentationHash = 0;
+    std::size_t restoredBodyCount = 0;
+    const bool hashCaptured =
+        CaptureCurrentReplaySolverHash( sample, restoredSolverHash, restoredPresentationHash, restoredBodyCount );
+    const bool hashMatched = hashCaptured && restoredSolverHash == sample.solverHash;
+    bool fallbackRestored = false;
+
+    if ( !hashMatched && hasLiveBackup )
+    {
+        char fallbackReason[128] = {};
+        fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
+    }
+
+#ifdef _DEBUG
+    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(),
+                                               SceneState(),
+                                               sample,
+                                               restoredSolverHash,
+                                               restoredPresentationHash,
+                                               restoredBodyCount,
+                                               hashCaptured,
+                                               hashMatched,
+                                               !hashMatched && hasLiveBackup,
+                                               fallbackRestored );
+#endif
+
+    if ( !hashCaptured )
+    {
+        writeReason( "restore hash capture failed" );
+        return false;
+    }
+    if ( !hashMatched )
+    {
+        writeReason( fallbackRestored ? "restore hash mismatch; live state restored"
+                                      : "restore hash mismatch; fallback unavailable" );
+        return false;
+    }
+
+    const uint32_t parentBranchId = sample.branch.branchId != 0
+                                        ? sample.branch.branchId
+                                        : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+    ReplayBranchInfo restoredBranch;
+    restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+    restoredBranch.parentBranchId = parentBranchId;
+    restoredBranch.startFrame = 0;
+    restoredBranch.sourceFrame = sample.frameIndex;
+    restoredBranch.sourceSolverHash = sample.solverHash;
+    m_replayBranch = restoredBranch;
+    ResetReplayTimelineForActiveScene( true );
+    RecordReplayEvent( ReplayEventKind::BranchRestore,
+                       0,
+                       0,
+                       static_cast<int32_t>( parentBranchId ),
+                       sample.sceneFrame,
+                       0,
+                       0,
+                       sample.solverHash,
+                       "hash-verified solver restore" );
+    writeReason( "restored hash match" );
     return true;
 }
 

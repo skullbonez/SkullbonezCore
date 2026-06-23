@@ -1,0 +1,41 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 4242,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 16,
+    "solverBalls": 3,
+    "solverBoxes": 2
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 300,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "cameras": [
+    {
+      "name": "cam1",
+      "position": [
+        321,
+        110,
+        557
+      ],
+      "view": [
+        581,
+        40,
+        633
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

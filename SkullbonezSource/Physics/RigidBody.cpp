@@ -402,6 +402,17 @@ void RigidBody::SetImpulseForce( const Vector3& vImpulseForce, const Vector3& vA
 }
 
 
+void RigidBody::ClearImpulseForce()
+{
+    m_appliedForce.Zero();
+    m_forceApplicationPoint.Zero();
+    m_torque.Zero();
+    m_linearAcceleration.Zero();
+    m_angularAcceleration.Zero();
+    m_isForceApplied = true;
+}
+
+
 const Vector3& RigidBody::GetAngularVelocity()
 {
     return m_angularVelocity;

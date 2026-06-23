@@ -34,6 +34,8 @@ Related:
 #include <cstdio>
 #include <cstring>
 
+#include <commdlg.h>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -929,21 +931,39 @@ void Run::EnterReplayInspectionCamera()
     const bool enteringInspectionCamera = !m_replayCamera.active;
     if ( !m_replayCamera.active )
     {
-        m_replayCamera.restoreFlyMode = m_camera.isFlyMode;
-        m_replayCamera.restoreLauncherMode = m_camera.isLauncherMode;
-        m_replayCamera.restoreCameraMode = m_camera.mode;
+        m_replayCamera.restoreCameraMode = NormalizeCameraModeForCurrentScene( m_camera.mode );
         m_replayCamera.restoreCameraHash = m_systems.cameras->GetSelectedCameraName();
 
-        const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
-        const Vector3 view = m_systems.cameras->GetRenderCameraView();
+        auto magnitudeSquared = []( const Vector3& value ) -> float
+        { return value.x * value.x + value.y * value.y + value.z * value.z; };
+
+        Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+        Vector3 view = m_systems.cameras->GetRenderCameraView();
+        Vector3 up = m_systems.cameras->GetRenderCameraUp();
+        if ( magnitudeSquared( view - eye ) < 0.000001f )
+        {
+            eye = m_systems.cameras->GetCameraTranslation();
+            view = m_systems.cameras->GetCameraView();
+            up = m_systems.cameras->GetCameraUp();
+        }
+        if ( magnitudeSquared( view - eye ) < 0.000001f )
+        {
+            view = eye + Vector3( 0.0f, 0.0f, 1.0f );
+        }
+        if ( magnitudeSquared( up ) < 0.000001f )
+        {
+            up = Vector3( 0.0f, 1.0f, 0.0f );
+        }
+
         m_replayCamera.restoreEye = eye;
         m_replayCamera.restoreView = view;
-        m_replayCamera.restoreUp = m_systems.cameras->GetRenderCameraUp();
+        m_replayCamera.restoreUp = up;
         m_replayCamera.hasRestorePose = true;
         m_systems.cameras->CancelTween();
         m_systems.cameras->SelectCamera( CAMERA_FREE, false );
         m_systems.cameras->SetPrimaryPosition( eye );
         m_systems.cameras->SetViewCoordinates( view );
+        m_systems.cameras->SetPrimaryUp( up );
         m_replayCamera.active = true;
     }
 
@@ -956,7 +976,6 @@ void Run::EnterReplayInspectionCamera()
     m_camera.cameraTime = 0.0f;
     CancelMousePickup();
     m_camera.mode = RunCameraMode::Free;
-    SyncLegacyCameraModeFlags();
     if ( enteringInspectionCamera )
     {
         Input::SetSystemCursorVisible( true );
@@ -973,8 +992,7 @@ void Run::ExitReplayInspectionCamera()
     }
 
     m_replayCamera.active = false;
-    m_camera.mode = m_replayCamera.restoreCameraMode;
-    SyncLegacyCameraModeFlags();
+    m_camera.mode = NormalizeCameraModeForCurrentScene( m_replayCamera.restoreCameraMode );
     if ( m_systems.cameras )
     {
         m_systems.cameras->CancelTween();
@@ -988,7 +1006,7 @@ void Run::ExitReplayInspectionCamera()
         if ( m_systems.terrain )
         {
             const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
-            if ( m_camera.isFlyMode )
+            if ( IsFlyCameraMode() )
             {
                 XZBounds unbounded;
                 unbounded.m_xMin = -99999.9f;
@@ -1027,6 +1045,144 @@ void Run::UpdateReplayInspectionCamera()
 }
 
 
+bool Run::RestoreReplayScrubberSelectionAsLive( double now,
+                                                RunReplayV2TargetRestoreResult* outV2Result,
+                                                char* outReason,
+                                                std::size_t reasonSize )
+{
+    if ( outV2Result )
+    {
+        *outV2Result = RunReplayV2TargetRestoreResult();
+    }
+
+    auto writeReason = [outReason, reasonSize]( const char* reason )
+    {
+        if ( outReason && reasonSize > 0 )
+        {
+            sprintf_s( outReason, reasonSize, "%s", reason ? reason : "restore failed" );
+        }
+    };
+
+    char reason[160] = {};
+    bool restored = false;
+    RunReplayTrack messageTrack = m_replayScrubber.activeTrack;
+    if ( HasLoadedReplayPresentation() && m_replayScrubber.paused &&
+         m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        EnterInteractiveSceneRun();
+        RunReplayV2TargetRestoreResult result;
+        const ReplayPresentationSample* selected = CurrentReplayScrubSample();
+        const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
+        restored = selected && RestoreReplayV2ArtifactTargetState( m_loadedPresentationReplay.path,
+                                                                   selectedFrame,
+                                                                   true,
+                                                                   result,
+                                                                   reason,
+                                                                   sizeof( reason ) );
+        if ( outV2Result )
+        {
+            *outV2Result = result;
+        }
+        messageTrack = RunReplayTrack::Presentation;
+        fprintf( stderr,
+                 "[replay] V2 file restore %s target_frame=%llu branch_id=%u%s%s\n",
+                 restored ? "applied" : "failed",
+                 static_cast<unsigned long long>( selectedFrame ),
+                 restored ? result.branchId : 0,
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+    }
+    else if ( m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    {
+        EnterInteractiveSceneRun();
+        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+        restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
+        messageTrack = RunReplayTrack::Solver;
+        fprintf( stderr,
+                 "[replay] Solver restore %s%s%s\n",
+                 restored ? "applied" : "failed",
+                 reason[0] != '\0' ? ": " : "",
+                 reason );
+    }
+    else
+    {
+        sprintf_s( reason, sizeof( reason ), "no paused replay branch target selected" );
+        fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    }
+
+    m_replayScrubber.restoreConsumedThisFrame = true;
+    m_replayScrubber.saveMessageTrack = messageTrack;
+    sprintf_s( m_replayScrubber.saveMessage,
+               sizeof( m_replayScrubber.saveMessage ),
+               restored ? ( messageTrack == RunReplayTrack::Presentation ? "V2 FILE BRANCHED" : "SOLVER RESTORED" )
+                        : "RESTORE FAILED" );
+    m_replayScrubber.saveMessageUntil = now + 2.5;
+    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+    writeReason( reason );
+    return restored;
+}
+
+bool Run::PromptLoadReplayPresentationArtifact( HWND hwnd )
+{
+    char path[MAX_PATH] = {};
+    OPENFILENAMEA openFile = {};
+    openFile.lStructSize = sizeof( openFile );
+    openFile.hwndOwner = hwnd;
+    openFile.lpstrFilter = "Skullbonez replay (*.skreplay)\0*.skreplay\0All files (*.*)\0*.*\0";
+    openFile.lpstrFile = path;
+    openFile.nMaxFile = sizeof( path );
+    openFile.lpstrInitialDir = "replays";
+    openFile.lpstrTitle = "Load Skullbonez replay v2 artifact";
+    openFile.lpstrDefExt = "skreplay";
+    openFile.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if ( !GetOpenFileNameA( &openFile ) )
+    {
+        if ( CommDlgExtendedError() != 0 )
+        {
+            const double now = m_timers.simulationTimer.GetTotalTime();
+            sprintf_s( m_replayScrubber.saveMessage, sizeof( m_replayScrubber.saveMessage ), "REPLAY PICKER FAILED" );
+            m_replayScrubber.saveMessageTrack = RunReplayTrack::Presentation;
+            m_replayScrubber.saveMessageUntil = now + 2.5;
+            m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+            m_replayScrubber.visible = true;
+        }
+        return false;
+    }
+
+    const bool loaded = LoadReplayPresentationArtifact( path, true );
+    const double now = m_timers.simulationTimer.GetTotalTime();
+    const char* fileName = strrchr( path, '\\' );
+    if ( !fileName )
+    {
+        fileName = strrchr( path, '/' );
+    }
+    fileName = fileName ? fileName + 1 : path;
+
+    m_replayScrubber.saveMessageTrack = RunReplayTrack::Presentation;
+    if ( loaded )
+    {
+        constexpr int loadedPrefixLength = 7;
+        constexpr int loadedFileNameLimit =
+            static_cast<int>( sizeof( m_replayScrubber.saveMessage ) ) - loadedPrefixLength - 1;
+        sprintf_s( m_replayScrubber.saveMessage,
+                   sizeof( m_replayScrubber.saveMessage ),
+                   "LOADED %.*s",
+                   loadedFileNameLimit,
+                   fileName );
+    }
+    else
+    {
+        sprintf_s( m_replayScrubber.saveMessage, sizeof( m_replayScrubber.saveMessage ), "REPLAY LOAD FAILED" );
+    }
+    m_replayScrubber.saveMessageUntil = now + 2.5;
+    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayScrubber.visible = true;
+    return loaded;
+}
+
+
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
@@ -1040,23 +1196,34 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     m_replayScrubber.restoreWasDown = restoreDown;
 
     const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
+    const bool loadedPresentation = HasLoadedReplayPresentation();
     const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    if ( !scrubberAllowed || !solverReplayStats.enabled || solverReplayStats.sampleCount < 2 || screenW <= 0 ||
-         screenH <= 0 )
+    if ( !scrubberAllowed || ( !loadedPresentation && !solverReplayAvailable ) || screenW <= 0 || screenH <= 0 )
     {
         if ( m_replayScrubber.mouseCaptured )
         {
             UI::InputControl::EndMouseCapture();
         }
-        ResetReplayScrubber();
+        if ( loadedPresentation )
+        {
+            m_replayScrubber.dragging = false;
+            m_replayScrubber.mouseCaptured = false;
+        }
+        else
+        {
+            ResetReplayScrubber();
+        }
         m_replayPrediction.checkboxHovered = false;
         m_replayPrediction.decreaseHovered = false;
         m_replayPrediction.increaseHovered = false;
         m_replayPrediction.horizonHovered = false;
         m_replayPrediction.horizonDragging = false;
         m_replayVelocityEdit.toggleHovered = false;
+        m_replayScrubber.branchHovered = false;
+        m_replayScrubber.loadHovered = false;
         m_replayScrubber.leftWasDown = leftDown;
         return false;
     }
@@ -1068,69 +1235,75 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect hotZone = ReplayScrubberHotZoneRect( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     const UI::UIRect solverSaveButton = ReplayScrubberSaveButtonRect( screenW, screenH, RunReplayTrack::Solver );
+    const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
     const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
     const UI::UIRect velocityEditToggle = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
     const UI::UIRect predictControl = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
+    const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
+    const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
-    const bool overSaveButton = solverSaveButton.Contains( mouse.x, mouse.y );
-    const bool overPauseButton = pauseButton.Contains( mouse.x, mouse.y );
-    const bool overVelocityEditToggle = velocityEditToggle.Contains( mouse.x, mouse.y );
-    const bool overPredictControl = predictControl.Contains( mouse.x, mouse.y );
-    const bool overPredictToggle = predictToggle.Contains( mouse.x, mouse.y );
+    const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
+    const bool overLoadButton = replayLoadButton.Contains( mouse.x, mouse.y );
+    const bool branchTargetAvailable =
+        m_replayScrubber.paused &&
+        ( ( loadedPresentation && m_replayScrubber.activeTrack == RunReplayTrack::Presentation &&
+            CurrentReplayScrubSample() != nullptr ) ||
+          ( solverToolsEnabled && m_replayScrubber.activeTrack == RunReplayTrack::Solver &&
+            CurrentReplaySolverScrubSample() != nullptr ) );
+    const bool overBranchButton = branchButton.Contains( mouse.x, mouse.y );
+    const bool overPauseButton = solverToolsEnabled && pauseButton.Contains( mouse.x, mouse.y );
+    const bool overVelocityEditToggle = solverToolsEnabled && velocityEditToggle.Contains( mouse.x, mouse.y );
+    const bool overPredictControl = solverToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
+    const bool overPredictToggle = solverToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
     const bool overPredictUi = overPredictControl || overPredictToggle;
-    const bool overPredictHorizon = predictHorizon.Contains( mouse.x, mouse.y ) ||
-                                    ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
-                                      mouse.x <= predictHorizon.x + predictHorizon.w );
-    const RunReplayTrack hoveredTrack = RunReplayTrack::Solver;
+    const bool overPredictHorizon =
+        solverToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
+                                ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
+                                  mouse.x <= predictHorizon.x + predictHorizon.w ) );
+    const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse = !uiBlocksMouse || m_replayScrubber.dragging || m_replayPrediction.horizonDragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
 
-    if ( inHotZone || overPanel || overSaveButton || overPauseButton || overVelocityEditToggle || overPredictUi ||
-         m_replayScrubber.dragging || m_replayPrediction.horizonDragging || m_replayScrubber.paused ||
-         m_replayScrubber.simulationPaused )
+    if ( inHotZone || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
+         overVelocityEditToggle || overPredictUi || m_replayScrubber.dragging || m_replayPrediction.horizonDragging ||
+         m_replayScrubber.paused || m_replayScrubber.simulationPaused )
     {
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
     m_replayScrubber.saveHovered = overSaveButton && ( m_replayScrubber.visibleUntil >= now ||
                                                        m_replayScrubber.dragging || m_replayScrubber.paused );
+    m_replayScrubber.loadHovered = overLoadButton && ( m_replayScrubber.visibleUntil >= now ||
+                                                       m_replayScrubber.dragging || m_replayScrubber.paused );
     m_replayScrubber.saveHoveredTrack = hoveredTrack;
-    const bool predictionControlVisible = m_replayScrubber.visibleUntil >= now || m_replayScrubber.dragging ||
-                                          m_replayPrediction.horizonDragging || m_replayScrubber.paused ||
-                                          m_replayScrubber.simulationPaused;
-    m_replayScrubber.pauseHovered = overPauseButton && predictionControlVisible;
-    m_replayVelocityEdit.toggleHovered = overVelocityEditToggle && predictionControlVisible;
-    m_replayPrediction.checkboxHovered = overPredictToggle && predictionControlVisible;
+    const bool branchControlVisible = m_replayScrubber.visibleUntil >= now || m_replayScrubber.dragging ||
+                                      m_replayScrubber.paused || m_replayScrubber.simulationPaused;
+    m_replayScrubber.branchHovered = branchTargetAvailable && overBranchButton && branchControlVisible;
+    const bool predictionControlVisible =
+        solverToolsEnabled &&
+        ( m_replayScrubber.visibleUntil >= now || m_replayScrubber.dragging || m_replayPrediction.horizonDragging ||
+          m_replayScrubber.paused || m_replayScrubber.simulationPaused );
+    m_replayScrubber.pauseHovered = solverToolsEnabled && overPauseButton && predictionControlVisible;
+    m_replayVelocityEdit.toggleHovered = solverToolsEnabled && overVelocityEditToggle && predictionControlVisible;
+    m_replayPrediction.checkboxHovered = solverToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayPrediction.decreaseHovered = false;
     m_replayPrediction.increaseHovered = false;
-    m_replayPrediction.horizonHovered = overPredictHorizon && predictionControlVisible;
+    m_replayPrediction.horizonHovered = solverToolsEnabled && overPredictHorizon && predictionControlVisible;
 
     bool consumesMouse =
         canTakeMouse && ( m_replayScrubber.dragging || m_replayPrediction.horizonDragging ||
-                          ( m_replayScrubber.visibleUntil >= now && ( inHotZone || overSaveButton || overPauseButton ||
-                                                                      overVelocityEditToggle || overPredictUi ) ) );
+                          ( m_replayScrubber.visibleUntil >= now &&
+                            ( inHotZone || overPanel || overSaveButton || overBranchButton || overLoadButton ||
+                              overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
 
-    if ( restorePressed && m_replayScrubber.paused && m_replayScrubber.activeTrack == RunReplayTrack::Solver )
+    if ( branchTargetAvailable &&
+         ( restorePressed || ( leftPressed && canTakeMouse && overBranchButton && branchControlVisible ) ) )
     {
-        EnterInteractiveSceneRun();
-        char reason[96] = {};
-        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
-        const bool restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
-        m_replayScrubber.restoreConsumedThisFrame = true;
-        m_replayScrubber.saveMessageTrack = RunReplayTrack::Solver;
-        sprintf_s( m_replayScrubber.saveMessage,
-                   sizeof( m_replayScrubber.saveMessage ),
-                   restored ? "SOLVER RESTORED" : "RESTORE FAILED" );
-        m_replayScrubber.saveMessageUntil = now + 2.5;
-        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_replayScrubber.visible = true;
-        fprintf( stderr,
-                 "[replay] Solver restore %s%s%s\n",
-                 restored ? "applied" : "failed",
-                 reason[0] != '\0' ? ": " : "",
-                 reason );
+        RestoreReplayScrubberSelectionAsLive( now );
+        consumesMouse = true;
         return true;
     }
 
@@ -1148,21 +1321,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         consumesMouse = true;
     };
 
-    if ( leftPressed && canTakeMouse && overPauseButton && m_replayScrubber.visibleUntil >= now )
+    if ( solverToolsEnabled && leftPressed && canTakeMouse && overPauseButton && m_replayScrubber.visibleUntil >= now )
     {
         SetReplaySimulationPaused( !m_replayScrubber.simulationPaused );
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayScrubber.visible = true;
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && overVelocityEditToggle && m_replayScrubber.visibleUntil >= now )
+    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overVelocityEditToggle &&
+              m_replayScrubber.visibleUntil >= now )
     {
         SetReplayVelocityEditEnabled( !m_replayVelocityEdit.enabled );
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayScrubber.visible = true;
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && overPredictHorizon && m_replayScrubber.visibleUntil >= now )
+    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overPredictHorizon &&
+              m_replayScrubber.visibleUntil >= now )
     {
         m_replayPrediction.horizonDragging = true;
         setPredictionHorizonFromMouse();
@@ -1172,7 +1347,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             m_replayScrubber.mouseCaptured = true;
         }
     }
-    else if ( leftPressed && canTakeMouse && overPredictToggle && m_replayScrubber.visibleUntil >= now )
+    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overPredictToggle &&
+              m_replayScrubber.visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
         m_replayPrediction.enabled = !m_replayPrediction.enabled;
@@ -1188,19 +1364,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayScrubber.visible = true;
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && overSaveButton && m_replayScrubber.visibleUntil >= now )
+    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overSaveButton &&
+              m_replayScrubber.visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
-        m_replayScrubber.activeTrack = RunReplayTrack::Solver;
-        ReplayScrubberSyncActivePosition( m_replayScrubber );
-        SaveReplayBufferFromScrubber( RunReplayTrack::Solver );
+        SaveReplayBufferFromScrubber( RunReplayTrack::Presentation );
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && !overPauseButton && !overPredictUi &&
-              ( inHotZone || overPanel || m_replayScrubber.paused ) )
+    else if ( leftPressed && canTakeMouse && overLoadButton && m_replayScrubber.visibleUntil >= now )
+    {
+        PromptLoadReplayPresentationArtifact( hwnd );
+        consumesMouse = true;
+    }
+    else if ( leftPressed && canTakeMouse && !overBranchButton && !overPauseButton && !overPredictUi &&
+              !overLoadButton && ( inHotZone || overPanel || m_replayScrubber.paused ) )
     {
         EnterInteractiveSceneRun();
-        m_replayScrubber.activeTrack = RunReplayTrack::Solver;
+        m_replayScrubber.activeTrack = scrubTrack;
         ReplayScrubberSyncActivePosition( m_replayScrubber );
         m_replayScrubber.dragging = true;
         if ( !m_replayScrubber.mouseCaptured )
@@ -1216,7 +1396,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             m_replayScrubber,
             m_replayScrubber.activeTrack,
             ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayScrubber.activeTrack ) );
-        if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+        if ( loadedPresentation )
+        {
+            m_replayScrubber.paused = true;
+        }
+        else if ( m_replayScrubber.position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
         {
             ReplayScrubberSetTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack, 1.0f );
             m_replayScrubber.paused = false;
@@ -1249,7 +1433,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             }
         }
     }
-    else if ( !m_replayScrubber.paused )
+    else if ( !loadedPresentation && !m_replayScrubber.paused )
     {
         ReplayScrubberSetAllTrackPositions( m_replayScrubber, 1.0f );
     }

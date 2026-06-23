@@ -250,6 +250,14 @@ uint64_t HashLauncherVisual( uint64_t hash, const ReplayLauncherVisualSample& vi
     return hash;
 }
 
+uint64_t HashLauncherControlState( uint64_t hash, const ReplayLauncherVisualSample& visual )
+{
+    hash = HashInt( hash, static_cast<int>( visual.fireMode ) );
+    hash = HashFloat( hash, visual.impulseStrength );
+    hash = HashFloat( hash, visual.projectileSpeed );
+    return hash;
+}
+
 ReplayBodyShapeKind ShapeKindForModel( const GameModel& model )
 {
     if ( model.IsSphere() )
@@ -270,6 +278,16 @@ ReplayBodyShapeKind ShapeKindForModel( const GameModel& model )
 uint16_t SaturatingUint16( std::size_t value )
 {
     return value > 0xffffu ? 0xffffu : static_cast<uint16_t>( value );
+}
+
+ReplayBranchInfo NormalizeBranchInfo( const ReplayBranchInfo& branch )
+{
+    ReplayBranchInfo normalized = branch;
+    if ( normalized.branchId == 0 )
+    {
+        normalized.branchId = 1;
+    }
+    return normalized;
 }
 
 void IncrementBodyContactSummary( int bodyIndex,
@@ -558,6 +576,8 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     ReplayPresentationSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
+    sample.branch = NormalizeBranchInfo( input.branch );
+    sample.eventCursor = input.eventCursor;
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f
@@ -780,6 +800,7 @@ void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sam
 
     ReplayCheckpointSummary& checkpoint = m_checkpoints[index];
     checkpoint.frameIndex = sample.frameIndex;
+    checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
     checkpoint.stateHash = sample.stateHash;
     checkpoint.bodyCount =
@@ -905,6 +926,8 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     ReplaySolverFrameSample& sample = AcquireSampleSlot();
     sample.frameIndex = m_nextFrameIndex++;
+    sample.branch = NormalizeBranchInfo( input.branch );
+    sample.eventCursor = input.eventCursor;
     sample.sceneFrame = input.sceneFrame;
     sample.physicsDt = input.physicsDt;
     sample.simulationSeconds = input.physicsDt > 0.0f
@@ -984,7 +1007,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     solverHash = HashInt( solverHash, static_cast<int>( modelCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
     solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
-    solverHash = HashLauncherVisual( solverHash, sample.launcherVisual );
+    solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
     solverHash = HashSolverWorldSnapshot( solverHash, sample.worldSnapshot );
 
     for ( std::size_t i = 0; i < modelCount; ++i )
@@ -1154,6 +1177,7 @@ void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample
 
     ReplayCheckpointSummary& checkpoint = m_checkpoints[index];
     checkpoint.frameIndex = sample.frameIndex;
+    checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
     checkpoint.stateHash = sample.solverHash;
     checkpoint.bodyCount =
@@ -1210,4 +1234,119 @@ std::size_t ReplaySolverRecorder::CheckpointCapacityFromConfig() const
     const std::size_t sampleCapacity = SampleCapacityFromConfig();
     const std::size_t interval = static_cast<std::size_t>( (std::max)( 1, m_config.checkpointIntervalFrames ) );
     return (std::max)( static_cast<std::size_t>( 2 ), sampleCapacity / interval + 2 );
+}
+
+bool ReplayEventRecorder::Configure( const ReplayRecorderConfig& config )
+{
+    m_config = config;
+    m_config.retentionSeconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
+
+    m_events.clear();
+    m_eventHead = 0;
+    m_eventCount = 0;
+    m_nextSequence = 0;
+    m_totalEventsCaptured = 0;
+    m_totalEventsEvicted = 0;
+
+    if ( !m_config.enabled )
+    {
+        return true;
+    }
+
+    m_events.resize( EventCapacityFromConfig() );
+    return true;
+}
+
+void ReplayEventRecorder::ResetTimeline( const char* )
+{
+    if ( !m_config.enabled )
+    {
+        return;
+    }
+
+    m_eventHead = 0;
+    m_eventCount = 0;
+    m_nextSequence = 0;
+}
+
+void ReplayEventRecorder::RecordEvent( const ReplayEventInput& input )
+{
+    if ( !m_config.enabled || m_events.empty() )
+    {
+        return;
+    }
+
+    ReplayEventSample& sample = AcquireEventSlot();
+    sample = ReplayEventSample();
+    sample.frameIndex = input.frameIndex;
+    sample.sequence = m_nextSequence++;
+    sample.branch = NormalizeBranchInfo( input.branch );
+    sample.kind = input.kind;
+    sample.payloadVersion = 1;
+    sample.flags = input.flags;
+    sample.value0 = input.value0;
+    sample.value1 = input.value1;
+    sample.value2 = input.value2;
+    sample.value3 = input.value3;
+    sample.data0 = input.data0;
+    if ( input.text && input.text[0] != '\0' )
+    {
+        strncpy_s( sample.text, sizeof( sample.text ), input.text, _TRUNCATE );
+    }
+
+    ++m_totalEventsCaptured;
+}
+
+bool ReplayEventRecorder::IsEnabled() const
+{
+    return m_config.enabled;
+}
+
+ReplayEventRecorderStats ReplayEventRecorder::GetStats() const
+{
+    ReplayEventRecorderStats stats;
+    stats.enabled = m_config.enabled;
+    stats.totalEventsCaptured = m_totalEventsCaptured;
+    stats.totalEventsEvicted = m_totalEventsEvicted;
+    stats.nextSequence = m_nextSequence;
+    stats.eventCapacity = m_events.size();
+    stats.eventCount = m_eventCount;
+    return stats;
+}
+
+void ReplayEventRecorder::CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const
+{
+    outEvents.clear();
+    outEvents.reserve( m_eventCount );
+    if ( m_eventCount == 0 || m_events.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < m_eventCount; ++i )
+    {
+        const std::size_t index = ( m_eventHead + i ) % m_events.size();
+        outEvents.push_back( m_events[index] );
+    }
+}
+
+ReplayEventSample& ReplayEventRecorder::AcquireEventSlot()
+{
+    if ( m_eventCount < m_events.size() )
+    {
+        const std::size_t index = ( m_eventHead + m_eventCount ) % m_events.size();
+        ++m_eventCount;
+        return m_events[index];
+    }
+
+    ReplayEventSample& sample = m_events[m_eventHead];
+    m_eventHead = ( m_eventHead + 1 ) % m_events.size();
+    ++m_totalEventsEvicted;
+    return sample;
+}
+
+std::size_t ReplayEventRecorder::EventCapacityFromConfig() const
+{
+    const int seconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
+    return (std::max)( static_cast<std::size_t>( 64 ), static_cast<std::size_t>( seconds ) * 64u );
 }

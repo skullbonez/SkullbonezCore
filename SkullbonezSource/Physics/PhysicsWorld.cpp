@@ -18,6 +18,9 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Point joint: Constraint that keeps two local anchor points close together
+    without yet modelling a full hinge, cone, or motor.
+  Sleep island: Connected body group that may deactivate only as a unit.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -69,6 +72,10 @@ constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
 constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
+constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
+constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
+constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
+constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -113,6 +120,11 @@ PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
     m_sleepIslandHasSupportAnchor.reserve( MAX_GAME_MODELS );
     m_sleepIslandEligible.reserve( MAX_GAME_MODELS );
     m_sleepIslandCanSleep.reserve( MAX_GAME_MODELS );
+    m_sleepPointJointBody.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasPointJoint.reserve( MAX_GAME_MODELS );
+    m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
+    m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
+    m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
@@ -154,6 +166,11 @@ void PhysicsWorld::Clear()
     m_sleepIslandHasSupportAnchor.clear();
     m_sleepIslandEligible.clear();
     m_sleepIslandCanSleep.clear();
+    m_sleepPointJointBody.clear();
+    m_sleepIslandHasPointJoint.clear();
+    m_sleepIslandPointJointsRelaxed.clear();
+    m_sleepVisualIslandIds.clear();
+    m_sleepVisualIslandBodies.clear();
     m_persistentContacts.clear();
     m_persistentContactCache.clear();
     m_persistentContactSolverStats = PersistentContactSolverStats();
@@ -651,40 +668,9 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         collection.InvalidatePhysicsStreams();
-        m_sleepState[index] = 0;
-        m_sleepCounter[index] = 0;
-        m_underwaterSleepLocked[index] = 0;
-        if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
-        {
-            m_sleepIslandVisualId[index] = 0;
-        }
+        WakeSleepVisualIsland( collection, index, 0.0f, false );
+        WakePointJointIsland( collection, index, 0.0f, false );
     }
-
-    // Hazard: waking a body must also forget any cached contact impulses that
-    // involve that body. Warm-start impulses are great for resting contact, but
-    // stale impulses after a manual wake or external force can push the body as
-    // if an old support contact still existed.
-    const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int bodyIndex ) -> bool
-    {
-        const uint64_t key = static_cast<uint64_t>( entry.key );
-        const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
-        if ( highBody == 0xffffu )
-        {
-            const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
-            return terrainBody == static_cast<uint32_t>( bodyIndex );
-        }
-
-        const uint32_t lowBody = static_cast<uint32_t>( ( key >> 40 ) & 0xffffffu );
-        const uint32_t objectHighBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffu );
-        return lowBody == static_cast<uint32_t>( bodyIndex ) || objectHighBody == static_cast<uint32_t>( bodyIndex );
-    };
-
-    m_persistentContactCache.erase(
-        std::remove_if( m_persistentContactCache.begin(),
-                        m_persistentContactCache.end(),
-                        [index, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
-                        { return cacheEntryReferencesBody( entry, index ); } ),
-        m_persistentContactCache.end() );
 }
 
 
@@ -960,6 +946,238 @@ void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
     m_sleepIslandSystem.PropagateSupport( *this, collection );
 }
 
+
+void PhysicsWorld::AppendPointJointSupportEdges( int modelCount )
+{
+    // Concept: a point joint is not a contact, but it is still a physical
+    // support path for sleep. Adding bidirectional edges lets a quiet ragdoll
+    // limb inherit support from any grounded body in the same constrained
+    // component without changing the contact solver rows.
+    if ( m_pointJointConstraints.empty() )
+    {
+        return;
+    }
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        const int a = constraint.bodyA;
+        const int b = constraint.bodyB;
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        m_sleepSupportEdges.emplace_back( a, b );
+        m_sleepSupportEdges.emplace_back( b, a );
+    }
+}
+
+
+void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
+{
+    const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int index ) -> bool
+    {
+        const uint64_t key = static_cast<uint64_t>( entry.key );
+        const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
+        if ( highBody == 0xffffu )
+        {
+            const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
+            return terrainBody == static_cast<uint32_t>( index );
+        }
+
+        const uint32_t lowBody = static_cast<uint32_t>( ( key >> 40 ) & 0xffffffu );
+        const uint32_t objectHighBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffu );
+        return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
+    };
+
+    m_persistentContactCache.erase(
+        std::remove_if( m_persistentContactCache.begin(),
+                        m_persistentContactCache.end(),
+                        [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
+                        { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
+        m_persistentContactCache.end() );
+}
+
+
+bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int index, float dt, bool applyForces )
+{
+    auto& models = collection.PhysicsModels();
+    if ( index < 0 || index >= static_cast<int>( models.size() ) || models[index].IsFixed() ||
+         index >= static_cast<int>( m_sleepState.size() ) )
+    {
+        return false;
+    }
+
+    const bool wasSleeping = m_sleepState[index] != 0;
+    const bool hadCounter = index < static_cast<int>( m_sleepCounter.size() ) && m_sleepCounter[index] != 0;
+    const bool hadSleepVisual =
+        index < static_cast<int>( m_sleepIslandVisualId.size() ) && m_sleepIslandVisualId[index] != 0;
+    const bool wasUnderwaterLocked =
+        index < static_cast<int>( m_underwaterSleepLocked.size() ) && m_underwaterSleepLocked[index] != 0;
+
+    m_sleepState[index] = 0;
+    if ( index < static_cast<int>( m_sleepCounter.size() ) )
+    {
+        m_sleepCounter[index] = 0;
+    }
+    if ( index < static_cast<int>( m_underwaterSleepLocked.size() ) )
+    {
+        m_underwaterSleepLocked[index] = 0;
+    }
+    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+    {
+        m_sleepIslandVisualId[index] = 0;
+    }
+    if ( dt > 0.0f && index < static_cast<int>( m_timeRemaining.size() ) )
+    {
+        m_timeRemaining[index] = dt;
+    }
+    if ( applyForces && wasSleeping && dt > TOLERANCE )
+    {
+        models[index].ApplyForces( dt );
+    }
+    // Hazard: waking a body must also forget any cached contact impulses that
+    // involve that body. Warm-start impulses are great for resting contact, but
+    // stale impulses after a manual wake or external force can push the body as
+    // if an old support contact still existed.
+    ForgetPersistentContactCacheForBody( index );
+
+    return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
+}
+
+
+void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+{
+    // Concept: m_sleepIslandVisualId is the persisted identity of a group that
+    // deactivated together. Contacts may be pruned while the group sleeps, so
+    // this id is the cheap way to wake the whole resting pile again.
+    if ( index < 0 || index >= static_cast<int>( m_sleepState.size() ) )
+    {
+        return;
+    }
+
+    const int visualId = index < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[index] : 0;
+    bool changed = false;
+    if ( visualId > 0 )
+    {
+        const int count = static_cast<int>( m_sleepIslandVisualId.size() );
+        for ( int i = 0; i < count; ++i )
+        {
+            if ( m_sleepIslandVisualId[i] == visualId )
+            {
+                changed = WakeDynamicBodyState( collection, i, dt, applyForces ) || changed;
+            }
+        }
+    }
+    else
+    {
+        changed = WakeDynamicBodyState( collection, index, dt, applyForces );
+    }
+
+    if ( changed )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+}
+
+
+void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+{
+    // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
+    // treats the sleepers as temporary static anchors. Wake the whole constraint
+    // component so later point-joint impulses are applied to the same live island.
+    auto& models = collection.PhysicsModels();
+    const int modelCount = static_cast<int>( models.size() );
+    if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
+         index >= static_cast<int>( m_sleepState.size() ) )
+    {
+        return;
+    }
+
+    m_sleepIslandParent.assign( modelCount, 0 );
+    m_sleepIslandRank.assign( modelCount, 0 );
+    m_sleepPointJointBody.assign( modelCount, 0 );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_sleepIslandParent[i] = i;
+    }
+
+    auto findIsland = [&]( int bodyIndex ) -> int
+    {
+        int root = bodyIndex;
+        while ( m_sleepIslandParent[root] != root )
+        {
+            root = m_sleepIslandParent[root];
+        }
+        while ( m_sleepIslandParent[bodyIndex] != bodyIndex )
+        {
+            int parent = m_sleepIslandParent[bodyIndex];
+            m_sleepIslandParent[bodyIndex] = root;
+            bodyIndex = parent;
+        }
+        return root;
+    };
+
+    auto unionIslands = [&]( int a, int b )
+    {
+        int rootA = findIsland( a );
+        int rootB = findIsland( b );
+        if ( rootA == rootB )
+        {
+            return;
+        }
+
+        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
+        {
+            std::swap( rootA, rootB );
+        }
+        m_sleepIslandParent[rootB] = rootA;
+        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
+        {
+            ++m_sleepIslandRank[rootA];
+        }
+    };
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        // Point-joint constraints are sleep-island edges. This keeps the current
+        // ragdoll behavior aligned with the future generic constraint system:
+        // constraints decide connectivity, contacts decide physical impulses.
+        const int a = constraint.bodyA;
+        const int b = constraint.bodyB;
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        m_sleepPointJointBody[a] = 1;
+        m_sleepPointJointBody[b] = 1;
+        unionIslands( a, b );
+    }
+
+    if ( m_sleepPointJointBody[index] == 0 )
+    {
+        return;
+    }
+
+    const int root = findIsland( index );
+    bool changed = false;
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_sleepPointJointBody[i] == 0 || findIsland( i ) != root )
+        {
+            continue;
+        }
+        changed = WakeDynamicBodyState( collection, i, dt, applyForces ) || changed;
+    }
+
+    if ( changed )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+}
+
+
 bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
 {
     if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
@@ -996,44 +1214,107 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
 
     auto& models = collection.PhysicsModels();
     const int modelCount = static_cast<int>( models.size() );
-    auto wakeBody = [&]( int index )
+    m_sleepIslandParent.assign( modelCount, 0 );
+    m_sleepIslandRank.assign( modelCount, 0 );
+    m_sleepPointJointBody.assign( modelCount, 0 );
+    m_sleepIslandHasAwake.assign( modelCount, 0 );
+    m_sleepIslandCanSleep.assign( modelCount, 0 );
+    for ( int i = 0; i < modelCount; ++i )
     {
-        if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) ||
-             !m_sleepState[index] || models[index].IsFixed() )
+        m_sleepIslandParent[i] = i;
+    }
+
+    auto findIsland = [&]( int index ) -> int
+    {
+        int root = index;
+        while ( m_sleepIslandParent[root] != root )
+        {
+            root = m_sleepIslandParent[root];
+        }
+        while ( m_sleepIslandParent[index] != index )
+        {
+            int parent = m_sleepIslandParent[index];
+            m_sleepIslandParent[index] = root;
+            index = parent;
+        }
+        return root;
+    };
+
+    auto unionIslands = [&]( int a, int b )
+    {
+        int rootA = findIsland( a );
+        int rootB = findIsland( b );
+        if ( rootA == rootB )
         {
             return;
         }
-        m_sleepState[index] = 0;
-        if ( index < static_cast<int>( m_sleepCounter.size() ) )
+
+        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
         {
-            m_sleepCounter[index] = 0;
+            std::swap( rootA, rootB );
         }
-        if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+        m_sleepIslandParent[rootB] = rootA;
+        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
         {
-            m_sleepIslandVisualId[index] = 0;
+            ++m_sleepIslandRank[rootA];
         }
-        if ( index < static_cast<int>( m_timeRemaining.size() ) )
-        {
-            m_timeRemaining[index] = dt;
-        }
-        models[index].ApplyForces( dt );
     };
 
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
     {
+        // Concept: point-joint edges define the constrained component. If one
+        // piece is awake, any sleeping neighbors must wake before the solver
+        // applies joint impulses against them as static anchors.
         const int a = constraint.bodyA;
         const int b = constraint.bodyB;
-        if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount || a >= static_cast<int>( m_sleepState.size() ) ||
-             b >= static_cast<int>( m_sleepState.size() ) )
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount ||
+             a >= static_cast<int>( m_sleepState.size() ) || b >= static_cast<int>( m_sleepState.size() ) )
         {
             continue;
         }
-        const bool aSleeping = m_sleepState[a] != 0;
-        const bool bSleeping = m_sleepState[b] != 0;
-        if ( aSleeping != bSleeping )
+
+        m_sleepPointJointBody[a] = 1;
+        m_sleepPointJointBody[b] = 1;
+        unionIslands( a, b );
+    }
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_sleepPointJointBody[i] == 0 || models[i].IsFixed() )
         {
-            wakeBody( aSleeping ? a : b );
+            continue;
         }
+
+        const int root = findIsland( i );
+        if ( i < static_cast<int>( m_sleepState.size() ) && m_sleepState[i] != 0 )
+        {
+            m_sleepIslandCanSleep[root] = 1;
+        }
+        else
+        {
+            m_sleepIslandHasAwake[root] = 1;
+        }
+    }
+
+    bool changed = false;
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_sleepPointJointBody[i] == 0 || models[i].IsFixed() || i >= static_cast<int>( m_sleepState.size() ) ||
+             m_sleepState[i] == 0 )
+        {
+            continue;
+        }
+
+        const int root = findIsland( i );
+        if ( m_sleepIslandHasAwake[root] != 0 && m_sleepIslandCanSleep[root] != 0 )
+        {
+            changed = WakeDynamicBodyState( collection, i, dt, true ) || changed;
+        }
+    }
+
+    if ( changed )
+    {
+        collection.InvalidatePhysicsStreams();
     }
 }
 
@@ -1932,6 +2213,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_contactSolver.Solve( *this, collection, dt );
     WakePointJointConnectedBodies( collection, dt );
     Ragdoll::SolvePointJoints( collection, m_pointJointConstraints, m_sleepState, dt );
+    AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
     PropagateSleepSupport( collection );
@@ -1993,6 +2275,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
     m_sleepIslandEligible.assign( modelCount, 1 );
     m_sleepIslandCanSleep.assign( modelCount, 1 );
+    m_sleepPointJointBody.assign( modelCount, 0 );
+    m_sleepIslandHasPointJoint.assign( modelCount, 0 );
+    m_sleepIslandPointJointsRelaxed.assign( modelCount, 1 );
     for ( int i = 0; i < modelCount; ++i )
     {
         m_sleepIslandParent[i] = i;
@@ -2051,6 +2336,54 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         }
     }
 
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        // Hazard: low velocity is not enough to prove a constrained component is
+        // ready to sleep. A stretched joint can be numerically quiet for a frame,
+        // so block sleep until point anchors are back within a small tolerance.
+        const int a = constraint.bodyA;
+        const int b = constraint.bodyB;
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        m_sleepPointJointBody[a] = 1;
+        m_sleepPointJointBody[b] = 1;
+        unionIslands( a, b );
+    }
+
+    m_sleepVisualIslandIds.clear();
+    m_sleepVisualIslandBodies.clear();
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        const int visualId = x < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[x] : 0;
+        if ( visualId <= 0 )
+        {
+            continue;
+        }
+
+        int visualSlot = -1;
+        for ( int i = 0; i < static_cast<int>( m_sleepVisualIslandIds.size() ); ++i )
+        {
+            if ( m_sleepVisualIslandIds[i] == visualId )
+            {
+                visualSlot = i;
+                break;
+            }
+        }
+
+        if ( visualSlot >= 0 )
+        {
+            unionIslands( m_sleepVisualIslandBodies[visualSlot], x );
+        }
+        else
+        {
+            m_sleepVisualIslandIds.push_back( visualId );
+            m_sleepVisualIslandBodies.push_back( x );
+        }
+    }
+
     for ( int x = 0; x < modelCount; ++x )
     {
         const int root = findIsland( x );
@@ -2065,6 +2398,35 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
              ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
         {
             m_sleepIslandHasSupportAnchor[root] = 1;
+        }
+        if ( m_sleepPointJointBody[x] != 0 )
+        {
+            m_sleepIslandHasPointJoint[root] = 1;
+        }
+    }
+
+    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
+    {
+        const int a = constraint.bodyA;
+        const int b = constraint.bodyB;
+        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
+        {
+            continue;
+        }
+
+        auto orientationA = m_gameModels[a].GetOrientation();
+        auto orientationB = m_gameModels[b].GetOrientation();
+        const auto rotA = orientationA.GetOrientationMatrix();
+        const auto rotB = orientationB.GetOrientationMatrix();
+        const Vector3 anchorA = m_gameModels[a].GetPosition() + rotA * constraint.localAnchorA;
+        const Vector3 anchorB = m_gameModels[b].GetPosition() + rotB * constraint.localAnchorB;
+        const float distance = Vector::VectorMag( anchorB - anchorA );
+        const float allowedDistance =
+            constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
+                                           constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
+        if ( distance > allowedDistance )
+        {
+            m_sleepIslandPointJointsRelaxed[findIsland( a )] = 0;
         }
     }
 
@@ -2086,11 +2448,25 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         const Vector3& omega = m_gameModels[x].GetAngularVelocity();
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
-        bool quiet = speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ;
         bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
         bool hasRestingObjectContact =
             x < static_cast<int>( m_persistentRestingContactCounts.size() ) && m_persistentRestingContactCounts[x] > 0;
         bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
+        bool pointJointMember = x < static_cast<int>( m_sleepPointJointBody.size() ) && m_sleepPointJointBody[x] != 0;
+        bool pointJointIsland = m_sleepIslandHasPointJoint[root] != 0;
+        float quietLinearSq = SLEEP_LINEAR_SQ;
+        float quietAngularSq = SLEEP_ANGULAR_SQ;
+        if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
+        {
+            // Why: anchored ragdolls can keep feeding tiny contact and joint
+            // corrections into each other after they have visually settled.
+            // The relaxed gate is still island-wide and support/joint-error
+            // guarded, so unsupported or stretched ragdolls stay awake.
+            quietLinearSq *= POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE * POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE;
+            quietAngularSq *= POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE * POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE;
+        }
+        bool quiet = speedSq < quietLinearSq && omegaSq < quietAngularSq;
+        bool pointJointAnchoredSupport = quiet && pointJointMember && pointJointIsland && islandHasSupportAnchor;
 
         // A quiet body in a grounded object-contact island is supported even if
         // the body itself is side-wedged or touching terrain on an edge/point.
@@ -2108,6 +2484,11 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             m_sleepSupportedThisFrame[x] = 1;
             supported = true;
         }
+        if ( !supported && pointJointAnchoredSupport )
+        {
+            m_sleepSupportedThisFrame[x] = 1;
+            supported = true;
+        }
 
         // Terrain can still inhibit sleep for edge/point contacts when that
         // contact is the only apparent support. In a quiet anchored island,
@@ -2115,13 +2496,17 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // object solver may have wedged the body against neighbors so it cannot
         // fall into a more stable footprint. The island anchor and object-contact
         // checks above are the escape hatch for that exact low-energy state.
-        bool terrainInhibitBlocksSleep =
-            m_sleepInhibitedThisFrame[x] != 0 && !( quiet && hasRestingObjectContact && islandHasSupportAnchor );
+        bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
+                                         !( quiet && hasRestingObjectContact && islandHasSupportAnchor ) &&
+                                         !pointJointAnchoredSupport;
+        bool pointJointErrorBlocksSleep = pointJointMember &&
+                                          root < static_cast<int>( m_sleepIslandPointJointsRelaxed.size() ) &&
+                                          m_sleepIslandPointJointsRelaxed[root] == 0;
 
         // Modern sleep is still velocity based, but Skullbonez also requires
         // credible island support so unsupported gravity bodies cannot become
         // numerically quiet for a few frames while visibly floating.
-        if ( !quiet || !supported || terrainInhibitBlocksSleep )
+        if ( !quiet || !supported || terrainInhibitBlocksSleep || pointJointErrorBlocksSleep )
         {
             m_sleepIslandEligible[root] = 0;
         }
@@ -2133,7 +2518,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         record.point = m_gameModels[x].GetPosition();
         record.scalarA = quiet ? 1.0f : 0.0f;
         record.scalarB = supported ? 1.0f : 0.0f;
-        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : 0.0f;
+        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
         RecordPhysicsPipelineStage( record );
     }
 

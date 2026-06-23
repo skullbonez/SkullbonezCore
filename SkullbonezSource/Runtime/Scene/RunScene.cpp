@@ -1380,8 +1380,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
-    m_camera.mode = RunCameraMode::Demo;
-    SyncLegacyCameraModeFlags();
+    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1675,13 +1674,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             }
         }
 
-        // Physics regression log: current-solver per-frame CSV enabled only by command line.
-#ifdef _DEBUG
-        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
-        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
-            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
-#endif
-
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
         if ( scene.GetSeed() > 0 )
@@ -1753,6 +1745,17 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             SetUpGameModelsFromScene( scene );
         }
 
+        // Physics regression log: current-solver per-frame CSV enabled only by command line.
+#ifdef _DEBUG
+        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
+            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
+        if ( m_diagnostics.PhysicsDiagnostics().isEnabled )
+        {
+            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics().path );
+        }
+#endif
+
         // Ball-tracking camera: enabled when scene specifies a positive track_height
         if ( scene.GetTrackHeight() > 0.0f )
         {
@@ -1760,12 +1763,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_camera.trackBallIndex = 0;
             m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
-        if ( m_camera.mode == RunCameraMode::Demo && !IsDemoCameraModeAvailable() )
-        {
-            m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
-        }
-
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
@@ -1784,7 +1781,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         if ( shouldPauseSnapshotState )
         {
             m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
@@ -2681,9 +2677,18 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
 
 void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
 {
+    const float previousGravity = m_cWorldEnvironment.GetGravity();
+    const float previousFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    const float previousFluidDensity = m_cWorldEnvironment.GetFluidDensity();
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
     m_cWorldEnvironment.SetFluidDensity( fluidDensity );
+    RecordReplayWorldOverrideEvent( previousGravity,
+                                    previousFluidHeight,
+                                    previousFluidDensity,
+                                    gravity,
+                                    fluidHeight,
+                                    fluidDensity );
 }
 
 

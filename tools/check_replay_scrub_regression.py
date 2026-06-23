@@ -23,10 +23,10 @@
 """
 Focused replay scrub SkullScope regression.
 
-The runtime emits one replay_scrub row when --replay-scrub-test is present.
-The query layer then proves that the selected replay frame is older than live,
-that the selected/live hashes differ, and that the selected/live body positions
-match the corresponding SkullScope body rows.
+The runtime emits one replay_scrub row when --replay-scrub-test is present and
+one replay_restore row when --replay-restore-test is present. The query layer
+then proves that scrub selects an older frame and that restore recomputes the
+original solver hash before making the selected frame live.
 """
 
 import json
@@ -38,6 +38,7 @@ import sys
 
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 TRACE = REPO / "Debug" / "replay_scrub.physicsdiag.ndjson"
+RESTORE_TRACE = REPO / "Debug" / "replay_restore.physicsdiag.ndjson"
 SCENE_ARG = "SkullbonezData/scenes/physics_roll.scene.json"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 QUERY_BAT = REPO / "tools" / "physics_query.bat"
@@ -65,13 +66,13 @@ def run_checked(args, cwd):
     return result.stdout
 
 
-def generate_trace():
+def generate_trace(trace, probe_flag):
     if not EXE.exists():
         raise RuntimeError(f"Debug executable not found: {EXE}")
 
-    remove_if_exists(TRACE)
-    remove_if_exists(TRACE.with_suffix(".sqlite"))
-    remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
+    remove_if_exists(trace)
+    remove_if_exists(trace.with_suffix(".sqlite"))
+    remove_if_exists(trace.with_suffix(".sqlite.lock"))
 
     command = [
         str(EXE),
@@ -89,21 +90,29 @@ def generate_trace():
         "on",
         "--replay-seconds",
         "1",
-        "--replay-scrub-test",
+        probe_flag,
         "--physics-diag",
-        str(TRACE),
+        str(trace),
     ]
     print("  Trace command:")
     print("    " + " ".join(command))
     run_checked(command, REPO)
-    if not TRACE.exists():
-        raise RuntimeError(f"diagnostic trace was not produced: {TRACE}")
+    if not trace.exists():
+        raise RuntimeError(f"diagnostic trace was not produced: {trace}")
 
 
 def query_replay():
     command = [str(QUERY_BAT), str(TRACE), "replay", "--limit", "8"]
     print("  Query command:")
     print("    tools\\physics_query.bat Debug\\replay_scrub.physicsdiag.ndjson replay --limit 8")
+    stdout = run_checked(command, REPO)
+    return stdout, json.loads(stdout)
+
+
+def query_restore():
+    command = [str(QUERY_BAT), str(RESTORE_TRACE), "restore", "--limit", "8"]
+    print("  Restore query command:")
+    print("    tools\\physics_query.bat Debug\\replay_restore.physicsdiag.ndjson restore --limit 8")
     stdout = run_checked(command, REPO)
     return stdout, json.loads(stdout)
 
@@ -139,17 +148,48 @@ def validate_payload(payload):
     )
 
 
+def validate_restore_payload(payload):
+    restores = payload.get("restores") or []
+    if len(restores) != 1:
+        raise RuntimeError(f"expected exactly one replay restore probe row, found {len(restores)}")
+    restore = restores[0]
+    if not payload.get("passed") or not restore.get("passed"):
+        raise RuntimeError(f"replay restore query checks failed: {json.dumps(restore.get('checks', {}), sort_keys=True)}")
+
+    checks = restore.get("checks", {})
+    required = ["hashCaptured", "hashMatched", "bodyCountMatched", "noFallbackNeeded"]
+    missing = [name for name in required if not checks.get(name)]
+    if missing:
+        raise RuntimeError(f"replay restore missing required checks: {', '.join(missing)}")
+
+    print(
+        "  PASS: restored replay frame {target} with solver hash {solver_hash}".format(
+            target=restore.get("target_replay_frame"),
+            solver_hash=restore.get("target_solver_hash"),
+        )
+    )
+
+
 def main():
     try:
         print("  Generating replay scrub SkullScope trace...")
-        generate_trace()
+        generate_trace(TRACE, "--replay-scrub-test")
         print("  Running replay SkullScope query...")
         query_stdout, payload = query_replay()
         validate_payload(payload)
+        print("  Generating replay restore SkullScope trace...")
+        generate_trace(RESTORE_TRACE, "--replay-restore-test")
+        print("  Running replay restore SkullScope query...")
+        restore_stdout, restore_payload = query_restore()
+        validate_restore_payload(restore_payload)
         sqlite_path = TRACE.with_suffix(".sqlite")
+        restore_sqlite_path = RESTORE_TRACE.with_suffix(".sqlite")
         print(f"  Trace bytes: {TRACE.stat().st_size}")
         print(f"  SQLite bytes: {sqlite_path.stat().st_size if sqlite_path.exists() else 0}")
         print(f"  Query output bytes: {len(query_stdout.encode('utf-8'))}")
+        print(f"  Restore trace bytes: {RESTORE_TRACE.stat().st_size}")
+        print(f"  Restore SQLite bytes: {restore_sqlite_path.stat().st_size if restore_sqlite_path.exists() else 0}")
+        print(f"  Restore query output bytes: {len(restore_stdout.encode('utf-8'))}")
         return 0
     except Exception as exc:
         print(f"  FAIL: {exc}")

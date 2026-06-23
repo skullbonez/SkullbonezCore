@@ -51,6 +51,15 @@ struct ReplayBodyId
     uint32_t value = 0;
 };
 
+struct ReplayBranchInfo
+{
+    uint32_t branchId = 1;
+    uint32_t parentBranchId = 0;
+    ReplayFrameIndex startFrame = 0;
+    ReplayFrameIndex sourceFrame = 0;
+    uint64_t sourceSolverHash = 0;
+};
+
 enum class ReplayBodyShapeKind : uint8_t
 {
     Unknown,
@@ -103,6 +112,8 @@ struct ReplayBodyPresentationSample
 struct ReplayPresentationSample
 {
     ReplayFrameIndex frameIndex = 0;
+    ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -170,6 +181,8 @@ struct ReplayLauncherVisualSample
 struct ReplaySolverFrameSample
 {
     ReplayFrameIndex frameIndex = 0;
+    ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -188,6 +201,7 @@ struct ReplaySolverFrameSample
 struct ReplayCheckpointSummary
 {
     ReplayFrameIndex frameIndex = 0;
+    uint32_t eventCursor = 0;
     double simulationSeconds = 0.0;
     uint64_t stateHash = 0;
     uint32_t bodyCount = 0;
@@ -195,8 +209,54 @@ struct ReplayCheckpointSummary
     uint16_t pipelineRecordCount = 0;
 };
 
+enum class ReplayEventKind : uint16_t
+{
+    Unknown = 0,
+    TimelineStart = 1,
+    RuntimeCommand = 2,
+    BranchRestore = 3,
+    WorldOverride = 4,
+    LauncherConfig = 5,
+    LauncherFire = 6,
+    GeneratedSceneConfig = 7,
+    EditorPlace = 8,
+    EditorTransform = 9
+};
+
+struct ReplayEventSample
+{
+    ReplayFrameIndex frameIndex = 0;
+    uint32_t sequence = 0;
+    ReplayBranchInfo branch;
+    ReplayEventKind kind = ReplayEventKind::Unknown;
+    uint16_t payloadVersion = 1;
+    uint32_t flags = 0;
+    int32_t value0 = 0;
+    int32_t value1 = 0;
+    int32_t value2 = 0;
+    int32_t value3 = 0;
+    uint64_t data0 = 0;
+    char text[128] = {};
+};
+
+struct ReplayEventInput
+{
+    ReplayFrameIndex frameIndex = 0;
+    ReplayBranchInfo branch;
+    ReplayEventKind kind = ReplayEventKind::Unknown;
+    uint32_t flags = 0;
+    int32_t value0 = 0;
+    int32_t value1 = 0;
+    int32_t value2 = 0;
+    int32_t value3 = 0;
+    uint64_t data0 = 0;
+    const char* text = nullptr;
+};
+
 struct ReplayCaptureInput
 {
+    ReplayBranchInfo branch;
+    uint32_t eventCursor = 0;
     int sceneFrame = 0;
     double simulationSeconds = 0.0;
     float physicsDt = 0.0f;
@@ -230,6 +290,16 @@ struct ReplayRecorderStats
     std::size_t checkpointCapacity = 0;
     std::size_t checkpointCount = 0;
     uint64_t latestStateHash = 0;
+};
+
+struct ReplayEventRecorderStats
+{
+    bool enabled = false;
+    uint64_t totalEventsCaptured = 0;
+    uint64_t totalEventsEvicted = 0;
+    uint32_t nextSequence = 0;
+    std::size_t eventCapacity = 0;
+    std::size_t eventCount = 0;
 };
 
 using ReplaySolverSampleVisitor = void ( * )( const ReplaySolverFrameSample& sample, void* userData );
@@ -309,6 +379,29 @@ class ReplaySolverRecorder
     uint64_t m_totalFramesCaptured = 0;
     uint64_t m_totalFramesEvicted = 0;
     uint64_t m_latestSolverHash = 0;
+};
+
+class ReplayEventRecorder
+{
+  public:
+    bool Configure( const ReplayRecorderConfig& config );
+    void ResetTimeline( const char* sceneLabel );
+    void RecordEvent( const ReplayEventInput& input );
+    bool IsEnabled() const;
+    ReplayEventRecorderStats GetStats() const;
+    void CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const;
+
+  private:
+    ReplayEventSample& AcquireEventSlot();
+    std::size_t EventCapacityFromConfig() const;
+
+    ReplayRecorderConfig m_config;
+    std::vector<ReplayEventSample> m_events;
+    std::size_t m_eventHead = 0;
+    std::size_t m_eventCount = 0;
+    uint32_t m_nextSequence = 0;
+    uint64_t m_totalEventsCaptured = 0;
+    uint64_t m_totalEventsEvicted = 0;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

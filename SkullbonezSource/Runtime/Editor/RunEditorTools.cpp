@@ -50,6 +50,10 @@ using SkullbonezCore::Assets::EditorHullAssetToken;
 
 namespace
 {
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
     const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y +
@@ -85,6 +89,39 @@ float HullAuthoredBottomOffset( const ConvexHullShape& hull )
         minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
     }
     return minY == FLT_MAX ? 0.0f : -minY;
+}
+
+
+bool EditorPositionsDiffer( const Vector3& a, const Vector3& b )
+{
+    return VectorMagSquared( a - b ) > 1.0e-8f;
+}
+
+
+bool EditorOrientationsDiffer( const Quaternion& a, const Quaternion& b )
+{
+    float ax = 0.0f;
+    float ay = 0.0f;
+    float az = 0.0f;
+    float aw = 1.0f;
+    float bx = 0.0f;
+    float by = 0.0f;
+    float bz = 0.0f;
+    float bw = 1.0f;
+    a.GetComponents( ax, ay, az, aw );
+    b.GetComponents( bx, by, bz, bw );
+
+    const float dx = ax - bx;
+    const float dy = ay - by;
+    const float dz = az - bz;
+    const float dw = aw - bw;
+    const float sx = ax + bx;
+    const float sy = ay + by;
+    const float sz = az + bz;
+    const float sw = aw + bw;
+    const float directDistanceSq = dx * dx + dy * dy + dz * dz + dw * dw;
+    const float flippedDistanceSq = sx * sx + sy * sy + sz * sz + sw * sw;
+    return (std::min)( directDistanceSq, flippedDistanceSq ) > 1.0e-10f;
 }
 
 
@@ -988,6 +1025,23 @@ float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 }
 
 
+bool TryEditorScaleFactorFromShapes( const CollisionShape& startShape,
+                                     const CollisionShape& currentShape,
+                                     int axis,
+                                     float& outFactor )
+{
+    const float startExtent = EditorShapeAxisExtent( startShape, axis );
+    if ( startExtent <= 0.0f )
+    {
+        return false;
+    }
+
+    const float currentExtent = EditorShapeAxisExtent( currentShape, axis );
+    outFactor = currentExtent / startExtent;
+    return std::isfinite( outFactor ) && fabsf( outFactor - 1.0f ) > 1.0e-4f;
+}
+
+
 float EditorGizmoAxisLength( float modelRadius )
 {
     return (std::max)( 14.0f, modelRadius + 12.0f );
@@ -1315,16 +1369,13 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
         if ( m_editor.editorModeEnabled )
         {
-            const bool wasFlyMode = m_camera.isFlyMode;
+            const bool wasFlyMode = IsFlyCameraMode();
             m_editor.placementModeEnabled = true;
             m_editor.viewportLookActive = false;
             ClearEditorManipulationState();
-            m_editor.restoreFlyModeAfterEditor = m_camera.isFlyMode;
-            m_editor.restoreRayTestModeAfterEditor = m_camera.isLauncherMode;
-            m_editor.restoreCameraModeAfterEditor = m_camera.mode;
+            m_editor.restoreCameraModeAfterEditor = NormalizeCameraModeForCurrentScene( m_camera.mode );
             CancelMousePickup();
             m_camera.mode = RunCameraMode::Free;
-            SyncLegacyCameraModeFlags();
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -1337,7 +1388,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         }
         else
         {
-            const bool wasFlyMode = m_camera.isFlyMode;
+            const bool wasFlyMode = IsFlyCameraMode();
             m_editor.viewportLookActive = false;
             m_editor.placementPreviewVisible = false;
             m_editor.placementModeEnabled = false;
@@ -1350,12 +1401,9 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.placementScale = EditorDefaultPlacementScale( m_editor.objectType );
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
-            m_camera.mode = m_editor.restoreCameraModeAfterEditor;
-            SyncLegacyCameraModeFlags();
-            m_editor.restoreFlyModeAfterEditor = false;
-            m_editor.restoreRayTestModeAfterEditor = false;
+            m_camera.mode = NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
             m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
-            if ( wasFlyMode && !m_camera.isFlyMode )
+            if ( wasFlyMode && !IsFlyCameraMode() )
             {
                 ExitFlyModeCamera();
             }
@@ -1497,6 +1545,42 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         }
         if ( leftReleased || suppressWorldActionThisFrame )
         {
+            if ( leftReleased && !suppressWorldActionThisFrame && m_editor.selectedModelIndex >= 0 &&
+                 m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+            {
+                const GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
+                uint32_t changedFlags = 0;
+                int scaleAxis = -1;
+                float scaleFactor = 1.0f;
+                if ( m_editor.gizmoDragIsScale )
+                {
+                    scaleAxis = m_editor.activeGizmoAxis;
+                    changedFlags |= TryEditorScaleFactorFromShapes( m_editor.gizmoDragStartShape,
+                                                                    model.GetCollisionShape(),
+                                                                    scaleAxis,
+                                                                    scaleFactor )
+                                        ? REPLAY_EDITOR_TRANSFORM_SCALE
+                                        : 0u;
+                }
+                else if ( m_editor.gizmoDragIsRotation )
+                {
+                    changedFlags |=
+                        EditorOrientationsDiffer( model.GetOrientation(), m_editor.gizmoDragStartOrientation )
+                            ? REPLAY_EDITOR_TRANSFORM_ROTATE
+                            : 0u;
+                }
+                else
+                {
+                    changedFlags |= EditorPositionsDiffer( model.GetPosition(), m_editor.gizmoDragStartPosition )
+                                        ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
+                                        : 0u;
+                }
+                RecordReplayEditorTransformEvent( m_editor.selectedModelIndex,
+                                                  changedFlags,
+                                                  model,
+                                                  scaleAxis,
+                                                  scaleFactor );
+            }
             m_editor.gizmoDragActive = false;
             m_editor.gizmoDragIsRotation = false;
             m_editor.gizmoDragIsScale = false;
@@ -3032,7 +3116,10 @@ void Run::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
 }
 
 
-void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, const Vector3& terrainPoint )
+bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
+                                           bool fixedObject,
+                                           const Vector3& terrainPoint,
+                                           bool recordReplayEvent )
 {
     const int modelCount = m_cGameModelCollection.GetModelCount();
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
@@ -3042,7 +3129,7 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
-        return;
+        return false;
     }
 
     EnterInteractiveSceneRun();
@@ -3307,4 +3394,15 @@ void Run::PlaceEditorObjectAtTerrainPoint( int objectType, bool fixedObject, con
     }
 
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+    const bool placed = SceneState().modelCount > modelCount;
+    if ( placed && recordReplayEvent )
+    {
+        RecordReplayEditorPlaceEvent( type,
+                                      fixedObject,
+                                      m_editor.autoTerrainAlign,
+                                      modelCount,
+                                      terrainPoint,
+                                      placementScale );
+    }
+    return placed;
 }

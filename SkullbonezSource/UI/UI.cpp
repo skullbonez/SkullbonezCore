@@ -99,8 +99,8 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
 }
 
-constexpr int CAMERA_MODE_OPTION_COUNT = 4;
-const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Free", "Launcher", "Manipulator" };
+constexpr int CAMERA_MODE_OPTION_COUNT = 5;
+const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Scene", "Free", "Launcher", "Manipulator" };
 constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 92.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
@@ -3661,10 +3661,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
         }
-        m_window.minimizedWidth = data.editorModeEnabled
-                                      ? EditorMinimizedWidth( data, screenW )
-                                      : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ),
-                                                   MINIMIZED_RUN_MAX_W );
+        m_window.minimizedWidth =
+            data.editorModeEnabled
+                ? EditorMinimizedWidth( data, screenW )
+                : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ), MINIMIZED_RUN_MAX_W );
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         if ( data.editorModeEnabled )
         {

@@ -16,6 +16,9 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Point joint: Constraint that keeps two local anchor points close together
+    without yet modelling a full hinge, cone, or motor.
+  Sleep island: Connected body group that may deactivate only as a unit.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -112,6 +115,20 @@ class PhysicsWorld
     std::vector<uint8_t> m_sleepIslandHasSupportAnchor;
     std::vector<uint8_t> m_sleepIslandEligible;
     std::vector<uint8_t> m_sleepIslandCanSleep;
+
+    // Point-joint sleep metadata is rebuilt during the sleep pass. It treats
+    // ragdoll joints as connectivity/support edges while still leaving contacts
+    // as the source of collision impulses. The same shape can later host a
+    // generic constraint graph without changing the public sleep API.
+    std::vector<uint8_t> m_sleepPointJointBody;
+    std::vector<uint8_t> m_sleepIslandHasPointJoint;
+    std::vector<uint8_t> m_sleepIslandPointJointsRelaxed;
+
+    // Scratch index for persisted sleep island ids. Contacts are intentionally
+    // pruned for sleeping bodies, so this reconnects a resting pile from its
+    // sleep identity without storing extra prediction state.
+    std::vector<int> m_sleepVisualIslandIds;
+    std::vector<int> m_sleepVisualIslandBodies;
 
     struct PersistentContact
     {
@@ -282,6 +299,11 @@ class PhysicsWorld
     void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
     void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );
     void PropagateSleepSupport( GameObjects::GameModelCollection& collection );
+    void AppendPointJointSupportEdges( int modelCount );
+    void ForgetPersistentContactCacheForBody( int bodyIndex );
+    bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
+    void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
+    void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
     void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
 

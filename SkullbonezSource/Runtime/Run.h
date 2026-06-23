@@ -225,6 +225,7 @@ struct RunSubsystemState
 enum class RunCameraMode
 {
     Demo = 0,
+    Scene,
     Free,
     Launcher,
     Manipulator,
@@ -237,8 +238,6 @@ struct RunCameraState
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
-    bool isFlyMode = false;                                                      // Free-fly camera mode active (toggle with F)
-    bool isLauncherMode = false;                                                 // Launcher camera mode (toggle with N): free camera plus left-click firing
     bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -356,11 +355,13 @@ struct RunReplayScrubberState
     bool dragging = false;
     bool paused = false;
     bool simulationPaused = false;
+    bool branchHovered = false;
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;
     bool pauseRestoreLauncherMode = false;
     bool mouseCaptured = false;
     bool saveHovered = false;
+    bool loadHovered = false;
     bool restoreWasDown = false;
     bool restoreConsumedThisFrame = false;
     RunReplayTrack activeTrack = RunReplayTrack::Solver;
@@ -414,8 +415,6 @@ enum class RunReplayCauseTreeRowKind
 struct RunReplayCameraState
 {
     bool active = false;
-    bool restoreFlyMode = false;
-    bool restoreLauncherMode = false;
     RunCameraMode restoreCameraMode = RunCameraMode::Demo;
     bool hasRestorePose = false;
     bool ownsSimulationPause = false;
@@ -583,6 +582,36 @@ struct RunReplayPoseBackup
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
+struct RunLoadedReplayPresentationState
+{
+    bool enabled = false;
+    std::vector<ReplayPresentationSample> samples;
+    std::size_t bodyDictionaryCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    char path[260] = {};
+};
+
+struct RunReplayV2TargetRestoreResult
+{
+    std::size_t checkpointCount = 0;
+    std::size_t eventCount = 0;
+    std::size_t hashCount = 0;
+    std::size_t eventsApplied = 0;
+    std::size_t bodyCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex checkpointFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    uint32_t eventCursor = 0;
+    uint32_t branchId = 0;
+    uint32_t parentBranchId = 0;
+    uint64_t solverHash = 0;
+    uint64_t presentationHash = 0;
+    bool generatedTopologyRebuilt = false;
+    bool madeLiveBranch = false;
+};
+
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
 {
@@ -592,6 +621,24 @@ struct RunReplayScrubProbeState
     int minSampleCount = 24;
     float minDistanceSquared = 0.0001f;
 };
+
+struct RunReplayRestoreProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    float normalized = 0.25f;
+    int minSampleCount = 24;
+};
+
+struct RunReplaySaveProbeState
+{
+    bool enabled = false;
+    bool completed = false;
+    bool runtimeResetCoverageInjected = false;
+    bool eventCoverageInjected = false;
+    int minSampleCount = 24;
+    char path[260] = {};
+};
 #endif
 
 struct RunEditorPlacementState
@@ -600,8 +647,6 @@ struct RunEditorPlacementState
     bool placementModeEnabled = false;
     bool placeStaticObject = false;
     bool autoTerrainAlign = false;
-    bool restoreFlyModeAfterEditor = false;
-    bool restoreRayTestModeAfterEditor = false;
     RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
     bool viewportLookActive = false;
     bool placementPreviewVisible = false;
@@ -1233,6 +1278,8 @@ class Run
     DiagnosticsController m_diagnostics;                                         // Perf/test logs and queryable physics diagnostic trace
 #ifdef _DEBUG
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
+    RunReplayRestoreProbeState m_replayRestoreProbe;                             // CLI-only solver restore hash self-test state.
+    RunReplaySaveProbeState m_replaySaveProbe;                                   // CLI-only v2 replay artifact save self-test state.
 #endif
     RunRuntimeSettings m_runtimeSettings;                                        // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                                      // Frame/simulation timers and rolling timing values
@@ -1242,6 +1289,10 @@ class Run
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
+    ReplayEventRecorder m_replayEvents;                                          // Bounded intent/event stream kept beside v2 replay tracks.
+    ReplayBranchInfo m_replayBranch;                                             // Current live replay branch provenance.
+    RunLoadedReplayPresentationState
+        m_loadedPresentationReplay;                                              // Optional v2 file-backed presentation samples for smooth scrub playback.
     RunReplayScrubberState m_replayScrubber;
     RunReplayCameraState m_replayCamera;                                         // Runtime Replay Camera focus/restore state for scrub and Cause inspection.
     RunReplayPathVisualizerState
@@ -1315,8 +1366,11 @@ class Run
     const char* CameraModeLabel( RunCameraMode mode ) const;                     // Compact name for UI and transition diagnostics.
     uint32_t CameraModeEnabledMask() const;                                      // One bit per camera mode; disabled modes remain visible in UI.
     bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
+    RunCameraMode NormalizeCameraModeForCurrentScene(
+        RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
+    bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
+    bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.
     bool IsManipulatorCameraMode() const;                                        // True when mouse pickup owns world left-drag semantics.
-    void SyncLegacyCameraModeFlags();                                            // Mirrors RunCameraMode into fly/launcher flags used by older code.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
@@ -1362,6 +1416,7 @@ class Run
     void SetViewingOrientation();                                                // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                                     // Backbuffer capture path; current encoder writes BMP files.
     bool SaveReplayBufferFromScrubber( RunReplayTrack track );                   // Writes one retained in-memory replay track to replays/.
+    bool PromptLoadReplayPresentationArtifact( HWND hwnd );                      // Open a .skreplay picker for a v2 scrub source.
     bool SaveCurrentSceneDefaults();                                             // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                     // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                   // Ordinary Render-tab values persisted to engine.cfg.
@@ -1420,7 +1475,45 @@ class Run
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
-    void ResetReplayTimelineForActiveScene();                                    // Scene/model rebuilds start a fresh in-memory replay branch.
+    void ResetReplayTimelineForActiveScene(
+        bool preserveBranchMetadata = false );                                   // Scene/model rebuilds start a fresh in-memory replay branch.
+    ReplayFrameIndex NextReplayEventFrameIndex() const;                          // Event frame cursor matching the next captured physics tick.
+    void RecordReplayEvent( ReplayEventKind kind,
+                            ReplayFrameIndex frameIndex,
+                            uint32_t flags,
+                            int32_t value0,
+                            int32_t value1,
+                            int32_t value2,
+                            int32_t value3,
+                            uint64_t data0,
+                            const char* text );                                  // Appends a bounded v2 event-stream row when replay is active.
+    void RecordReplayWorldOverrideEvent(
+        float previousGravity,
+        float previousFluidHeight,
+        float previousFluidDensity,
+        float gravity,
+        float fluidHeight,
+        float fluidDensity );                                                    // Records exact world scalar payloads for future event replay.
+    void RecordReplayLauncherConfigEvent(
+        uint32_t changedFlags );                                                 // Records launcher settings that affect future fire events.
+    void RecordReplayLauncherFireEvent(
+        const Math::Vector::Vector3& rayOrigin,
+        const Math::Vector::Vector3& rayDirection,
+        const Math::Vector::Vector3& cameraUp );                                 // Records camera-derived launcher fire payloads.
+    void RecordReplayGeneratedSceneConfigEvent();                                // Records generated-scene object counts and seed metadata.
+    void RecordReplayEditorPlaceEvent(
+        int objectType,
+        bool fixedObject,
+        bool terrainAlign,
+        int modelCountBefore,
+        const Math::Vector::Vector3& terrainPoint,
+        const Math::Vector::Vector3& placementScale );                           // Records editor placement commits for saved v2 replay.
+    void
+    RecordReplayEditorTransformEvent( int modelIndex,
+                                      uint32_t changedFlags,
+                                      const GameObjects::GameModel& model,
+                                      int scaleAxis,
+                                      float scaleFactor );                       // Records committed editor transform/scale gizmo changes.
     void CaptureReplayPhysicsStep();                                             // Capture-only hook after one committed fixed physics tick.
     static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                                     // Post-step hooks that must see committed physics state.
@@ -1430,6 +1523,10 @@ class Run
     static void ApplyMousePickupPhysicsStepThunk( void* userData );
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
+    bool ApplyReplayEventForRestoreTarget(
+        const ReplayEventSample& event,
+        char* outReason,
+        std::size_t reasonSize );                                                // Applies loaded v2 event payloads without recording new replay rows.
     void ClearReplayPathVisualizer();
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     void MarkReplayPredictionDirty();
@@ -1474,6 +1571,10 @@ class Run
                                          const Math::Vector::Vector3& linearVelocity,
                                          const Math::Vector::Vector3& angularVelocity );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
+    bool HasLoadedReplayPresentation() const;
+    const ReplayPresentationSample* LoadedReplayPresentationSampleAtNormalized( float normalized ) const;
+    const ReplayPresentationSample* LoadedReplayPresentationLatestSample() const;
+    void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
     void SetReplaySimulationPaused( bool paused );
     void EnterReplayInspectionCamera();
@@ -1483,6 +1584,10 @@ class Run
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;
     bool IsReplayScrubPaused() const;
+    bool RestoreReplayScrubberSelectionAsLive( double now,
+                                               RunReplayV2TargetRestoreResult* outV2Result = nullptr,
+                                               char* outReason = nullptr,
+                                               std::size_t reasonSize = 0 );
     const ReplayPresentationSample* CurrentReplayScrubSample() const;
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
     void RenderReplayScrubberOverlay();
@@ -1491,6 +1596,17 @@ class Run
     void RestoreReplayPresentationRenderPose();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
     void RestoreReplayLauncherVisualForRender();
+    bool ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
+    bool CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
+                                         uint64_t& outSolverHash,
+                                         uint64_t& outPresentationHash,
+                                         std::size_t& outBodyCount );
+    bool RestoreReplayV2ArtifactTargetState( const char* path,
+                                             ReplayFrameIndex requestedFrame,
+                                             bool makeLiveBranch,
+                                             RunReplayV2TargetRestoreResult& outResult,
+                                             char* outReason,
+                                             std::size_t reasonSize );
     bool
     RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
 
@@ -1518,13 +1634,14 @@ class Run
                                 float maxDistance,
                                 float& outT ) const;                             // Finds the nearest terrain crossing along a launcher ray.
     void FireRayCastTest();                                                      // Dispatches the selected launcher-mode fire action.
+    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            const Math::Vector::Vector3& cameraUp );             // Casts a runtime test ray, draws the laser, and
+                                                                     // applies impulse to the first dynamic hit.
     void
-    FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
-                       const Math::Vector::Vector3& rayDirection );              // Casts a runtime test ray, draws the laser, and
-                                                                    // applies impulse to the first dynamic hit.
-    void FireLauncherProjectile(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection );                             // Shoots a small dynamic sphere from the camera.
+    FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            const Math::Vector::Vector3& cameraUp );             // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                                   // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement(
@@ -1592,16 +1709,19 @@ class Run
         const Math::Vector::Vector3& cameraUp );                                 // Placement ghost, launcher laser, and object gizmo overlays.
     void PlaceEditorObjectAtMouse( int objectType,
                                    bool fixedObject );                           // Place a UI-selected object on the terrain under the mouse
-    void PlaceEditorObjectAtTerrainPoint(
+    bool PlaceEditorObjectAtTerrainPoint(
         int objectType,
         bool fixedObject,
-        const Math::Vector::Vector3& terrainPoint );                             // Places an object at an already-resolved terrain hit
+        const Math::Vector::Vector3& terrainPoint,
+        bool recordReplayEvent = true );                                         // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
     void TickReplayScrubProbe();
+    void TickReplayRestoreProbe();
+    void TickReplaySaveProbe();
     void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
@@ -1628,6 +1748,8 @@ class Run
     void SetReplayRecording( bool enabled,
                              int retentionSeconds,
                              const char* hashLogPath );                          // Enable bounded replay capture from CLI.
+    bool LoadReplayPresentationArtifact( const char* path,
+                                         bool activateScrubber );                // Load a v2 presentation artifact as a scrub source.
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );
@@ -1645,6 +1767,17 @@ class Run
         const char* path,
         bool fixedStepForcedByDiagnostics );                                     // Enable queryable physics diagnostics (CLI --physics-diag)
     void SetReplayScrubProbe( float normalized );                                // Enable CLI-only replay scrub SkullScope probe.
+    void SetReplayRestoreProbe( float normalized );                              // Enable CLI-only replay restore hash probe.
+    void SetReplaySaveProbe( const char* path );                                 // Enable CLI-only v2 replay save probe.
+    void VerifyLoadedReplayPresentationProbe( float normalized );                // Validate runtime scrubbing from a loaded v2 file.
+    void VerifyReplaySolverCheckpointFileProbe(
+        const char* path );                                                      // Validate hash-gated restore from a v2 solver checkpoint.
+    void VerifyReplaySolverTargetFileProbe(
+        const char* path );                                                      // Validate checkpoint-plus-event replay to a saved non-checkpoint target.
+    void VerifyReplaySolverBranchFileProbe(
+        const char* path );                                                      // Validate checkpoint-plus-event replay can become a live branch.
+    void VerifyReplaySolverFailureFileProbe(
+        const char* path );                                                      // Validate saved-file restore failures emit SkullScope diagnostics.
 #endif
 };
 } // namespace Basics

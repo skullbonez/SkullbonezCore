@@ -44,6 +44,8 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     SimulationTickResult result;
     if ( input.isSceneMode && !input.isScenePhysicsEnabled )
     {
+        m_physicsAccumulator = 0.0f;
+        m_fixedStepTickAccumulator = 0.0f;
         return result;
     }
 
@@ -52,8 +54,17 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 
     const bool shouldStepPhysics =
         !input.isFlyMode || input.isLauncherMode || input.isManipulatorMode || input.isStepRequested;
+    const bool canStepPhysics = shouldStepPhysics && input.models;
     if ( input.isFixedStep )
     {
+        if ( !canStepPhysics )
+        {
+            m_physicsAccumulator = 0.0f;
+            m_fixedStepTickAccumulator = 0.0f;
+            result.simulationDt = PHYSICS_FIXED_DT * (std::max)( 0.0f, input.timeScale );
+            return result;
+        }
+
         // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
         // This ignores wall-clock time so fixed-step scenes reproduce exactly.
         m_fixedStepTickAccumulator += (std::max)( 0.0f, input.timeScale );
@@ -61,7 +72,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
                                                FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
         m_fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
 
-        if ( shouldStepPhysics && input.models )
+        if ( ticksThisFrame > 0 )
         {
             PROFILE_BEGIN( "Frame/Physics" );
             for ( int tick = 0; tick < ticksThisFrame; ++tick )
@@ -86,7 +97,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     }
 
     const float scaledDt = static_cast<float>( input.secondsPerFrame ) * input.timeScale;
-    if ( shouldStepPhysics && input.models )
+    if ( canStepPhysics )
     {
         PROFILE_BEGIN( "Frame/Physics" );
         // The impulse solver uses discrete overlap tests and needs small fixed
@@ -117,6 +128,11 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             m_physicsAccumulator = 0.0f;
         }
         PROFILE_END( "Frame/Physics" );
+    }
+    else
+    {
+        m_physicsAccumulator = 0.0f;
+        m_fixedStepTickAccumulator = 0.0f;
     }
 
     result.simulationDt = scaledDt;

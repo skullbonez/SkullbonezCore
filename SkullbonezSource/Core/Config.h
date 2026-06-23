@@ -308,6 +308,7 @@ class EngineConfig
     float sphereDragCoeff = 0.4f;
     float fluidAngularDragMultiplier = 2.0f;
     float frictionCoeff = 0.1f;
+    float objectFrictionCoeff = 0.1f;
     float rollingFrictionCoeff = 0.02f;
     float spinFrictionCoeff = 0.3f;
     float contactRestitutionThreshold = 2.0f;

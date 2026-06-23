@@ -230,18 +230,20 @@ void Run::FireRayCastTest()
         return;
     }
     rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    const Vector3 cameraUp = m_systems.cameras->GetCameraUp();
+    RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
 
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
-        FireLauncherProjectile( rayOrigin, rayDirection );
+        FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
         return;
     }
 
-    FireLauncherLaser( rayOrigin, rayDirection );
+    FireLauncherLaser( rayOrigin, rayDirection, cameraUp );
 }
 
 
-void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirection )
+void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp )
 {
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
@@ -255,7 +257,7 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     const bool hit = modelHit || terrainHit;
     const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
-    m_launcherLaser.Fire( rayOrigin, rayDirection, m_systems.cameras->GetCameraUp(), hitT, hit );
+    m_launcherLaser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
     if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
@@ -290,7 +292,7 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
 }
 
 
-void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDirection )
+void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp )
 {
     if ( !m_systems.terrain || m_cGameModelCollection.GetModelCount() >= ActiveGameModelCapacity() )
     {
@@ -309,7 +311,6 @@ void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDi
                            ? terrainHitT
                            : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Vector3 aimPoint = rayOrigin + rayDirection * hitT;
-    const Vector3 cameraUp = m_systems.cameras ? m_systems.cameras->GetCameraUp() : Vector3( 0.0f, 1.0f, 0.0f );
     Vector3 up = cameraUp;
     const float upLenSq = VectorMagSquared( up );
     up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Vector3( 0.0f, 1.0f, 0.0f );

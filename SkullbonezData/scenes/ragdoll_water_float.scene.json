@@ -1,0 +1,119 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": 18.0,
+      "fluidDensity": 1.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "trackHeight": 105.0
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -80.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": false,
+    "waterFreeze": true,
+    "waterFlat": true,
+    "terrainHidden": false,
+    "waterReflection": "fbo",
+    "physics": {
+      "contacts": true,
+      "sleep": true,
+      "transparent": true,
+      "alpha": 0.24
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "cameras": [
+    {
+      "name": "ragdoll_water_float",
+      "position": [
+        455,
+        98,
+        650
+      ],
+      "view": [
+        500,
+        26,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_water_float_0",
+      "position": [
+        488,
+        64,
+        497
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -12,
+        8
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_water_float_1",
+      "position": [
+        505,
+        85,
+        502
+      ],
+      "scale": 1.0,
+      "euler": [
+        6,
+        23,
+        -14
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "ragdoll_water_float_2",
+      "position": [
+        497,
+        107,
+        515
+      ],
+      "scale": 1.0,
+      "euler": [
+        -8,
+        -34,
+        19
+      ],
+      "sleeping": false
+    }
+  ]
+}

@@ -290,6 +290,12 @@ void GameModel::SetImpulseForce( const Vector3& vForce, const Vector3& vApplicat
 }
 
 
+void GameModel::ClearImpulseForce()
+{
+    m_physicsInfo.ClearImpulseForce();
+}
+
+
 void GameModel::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
 {
     if ( m_isFixed )

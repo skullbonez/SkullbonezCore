@@ -26,6 +26,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdint>
 
@@ -41,6 +42,7 @@ namespace Basics
 class EngineConfig;
 struct ReplayBodyPresentationSample;
 struct ReplayPresentationSample;
+struct ReplaySolverFrameSample;
 struct RunSceneState;
 
 struct RunPerfLogState
@@ -113,6 +115,36 @@ class RuntimeDiagnostics
                                      float preLiveDeltaSquared,
                                      float appliedDeltaSquared,
                                      float restoredDeltaSquared );
+    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
+                                       const RunSceneState& scene,
+                                       const ReplaySolverFrameSample& selected,
+                                       uint64_t restoredSolverHash,
+                                       uint64_t restoredPresentationHash,
+                                       std::size_t restoredBodyCount,
+                                       bool hashCaptured,
+                                       bool hashMatched,
+                                       bool fallbackAttempted,
+                                       bool fallbackRestored );
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
+                                        const RunSceneState& scene,
+                                        const char* restoreSource,
+                                        uint64_t targetReplayFrame,
+                                        int targetSceneFrame,
+                                        uint64_t checkpointReplayFrame,
+                                        uint64_t targetSolverHash,
+                                        uint64_t targetPresentationHash,
+                                        std::size_t targetBodyCount,
+                                        uint64_t restoredSolverHash,
+                                        uint64_t restoredPresentationHash,
+                                        std::size_t restoredBodyCount,
+                                        uint16_t contactCount,
+                                        uint16_t pipelineRecordCount,
+                                        bool checkpointBoundary,
+                                        bool hashCaptured,
+                                        bool hashMatched,
+                                        bool fallbackAttempted,
+                                        bool fallbackRestored,
+                                        const char* failureReason );
     static void
     EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif
