@@ -67,6 +67,7 @@ Related:
 #include "Render/RuntimeRenderer.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
+#include "Scene/SceneAuthoredSetup.h"
 #include "Scene/SceneController.h"
 #include "Scene/SceneGeneratedSetup.h"
 #include "Scene/SceneRuntimeCoordinator.h"
@@ -779,29 +780,6 @@ class RunEditorTracer
     void Render( const Math::Transformation::Matrix4& viewProjection );
 };
 
-struct RunRequiredContactState
-{
-    char nameA[64] = {};
-    char nameB[64] = {};
-    int bodyA = -1;
-    int bodyB = -1;
-    bool touched = false;
-};
-
-struct RunRequiredBroadphaseXCellsState
-{
-    int minCellX = 0;
-    int maxCellX = 0;
-    int cellY = 0;
-    int cellZ = 0;
-    int lastActiveCellCount = 0;
-    int lastObservedMinX = 0;
-    int lastObservedMaxX = 0;
-    int lastMissingCellX = -1;
-    bool hasObservedXRange = false;
-    bool activated = false;
-};
-
 struct RunUIStressState
 {
     bool enabled = false;                                                        // Deterministic scene-driven UI stress runner
@@ -931,6 +909,8 @@ class Run
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
+    SceneAuthoredCameraContext BuildSceneAuthoredCameraContext();
+    SceneAuthoredModelContext BuildSceneAuthoredModelContext();
     SceneGeneratedCameraContext BuildSceneGeneratedCameraContext();
     SceneGeneratedModelContext BuildSceneGeneratedModelContext();
     void StepPhysicsPipelineStage( int direction );                              // direction is a left/right cursor step for pipeline visualization.

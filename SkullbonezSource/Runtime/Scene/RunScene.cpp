@@ -633,6 +633,21 @@ void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::ve
 }
 } // namespace
 
+SceneAuthoredCameraContext Run::BuildSceneAuthoredCameraContext()
+{
+    return SceneAuthoredCameraContext{ m_systems.cameras, *m_systems.terrain };
+}
+
+SceneAuthoredModelContext Run::BuildSceneAuthoredModelContext()
+{
+    return SceneAuthoredModelContext{ SceneState(),
+                                      m_cWorldEnvironment,
+                                      m_systems.terrain.get(),
+                                      m_cGameModelCollection,
+                                      m_requiredSceneContacts,
+                                      m_requiredBroadphaseXCells };
+}
+
 SceneGeneratedCameraContext Run::BuildSceneGeneratedCameraContext()
 {
     return SceneGeneratedCameraContext{ m_systems.cameras, *m_systems.terrain };
@@ -665,357 +680,19 @@ void Run::SetUpSolverObjects( int balls, int boxes )
 
 void Run::SetUpCamerasFromScene( const TestScene& scene )
 {
-    m_systems.cameras = CameraCollection::Instance();
-
-    bool hasFreeCamera = false;
-    Vector3 firstPosition( 900.0f, 110.0f, 900.0f );
-    Vector3 firstView( 313.0f, 31.0f, 282.0f );
-    Vector3 firstUp( 0.0f, 1.0f, 0.0f );
-    for ( int i = 0; i < scene.GetCameraCount(); ++i )
-    {
-        const SceneCamera& cam = scene.GetCamera( i );
-        uint32_t hash = HashStr( cam.name );
-        if ( i == 0 )
-        {
-            firstPosition = cam.m_position;
-            firstView = cam.view;
-            firstUp = cam.up;
-        }
-        hasFreeCamera = hasFreeCamera || hash == CAMERA_FREE;
-        m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
-    }
-    if ( !hasFreeCamera )
-    {
-        m_systems.cameras->AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
-    }
-
-    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
-
-    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
-
-    // lock the m_cameras
-    m_systems.cameras->SetLockedMode( false );
+    SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
 }
 
 
 void Run::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() +
-                              scene.GetBoxStateCount() + scene.GetConvexHullCount() + scene.GetConvexHullStateCount() +
-                              scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
-    m_cGameModelCollection.ClearPointJointConstraints();
-
-    for ( int i = 0; i < scene.GetBallCount(); ++i )
-    {
-        const SceneBall& ball = scene.GetBall( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( ball.posX, ball.posY, ball.posZ ),
-                             Vector3( ball.moment, ball.moment, ball.moment ),
-                             ball.m_mass );
-
-        gameModel.SetCoefficientRestitution( ball.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( ball.name );
-        gameModel.AddBoundingSphere( ball.m_radius );
-        gameModel.SetFixed( ball.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
-
-        // apply initial orientation if specified (euler angles in degrees, XYZ order)
-        if ( ball.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
-        }
-
-        if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
-        {
-            gameModel.SetImpulseForce( Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                       Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
-        }
-
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // ball_state entries: full dynamic state from a snapshot
-    for ( int i = 0; i < scene.GetBallStateCount(); ++i )
-    {
-        const SceneBallState& bs = scene.GetBallState( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( bs.posX, bs.posY, bs.posZ ),
-                             Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
-                             bs.mass );
-
-        gameModel.SetCoefficientRestitution( bs.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( bs.name );
-        gameModel.AddBoundingSphere( bs.radius );
-        gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
-        gameModel.SetFixed( bs.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
-
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( bs.isSleeping && !bs.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    // box entries: rigid box entities
-    for ( int i = 0; i < scene.GetBoxCount(); ++i )
-    {
-        const SceneBox& box = scene.GetBox( i );
-
-        // Box inertia: I = m/3 * (hy^2 + hz^2) etc. for half-extents
-        float hx2 = box.halfX * box.halfX;
-        float hy2 = box.halfY * box.halfY;
-        float hz2 = box.halfZ * box.halfZ;
-        float m3 = box.mass / 3.0f;
-        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( box.posX, box.posY, box.posZ ), inertia, box.mass );
-
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( box.name );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
-
-        if ( box.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
-        }
-
-        if ( box.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        }
-
-        gameModel.SetFixed( box.isFixed );
-
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // box_state entries: full dynamic state from an editable scene snapshot
-    for ( int i = 0; i < scene.GetBoxStateCount(); ++i )
-    {
-        const SceneBoxState& box = scene.GetBoxState( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( box.posX, box.posY, box.posZ ),
-                             Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
-                             box.mass );
-
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( box.name );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
-        gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( box.angVelX, box.angVelY, box.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ) );
-        gameModel.SetFixed( box.isFixed );
-
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( box.isSleeping && !box.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    // convex_hull entries: authored immutable hull assets
-    for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
-    {
-        const SceneConvexHull& hullScene = scene.GetConvexHull( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
-        const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
-        const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
-
-        GameModel gameModel( &m_cWorldEnvironment, authoredPosition, inertia, hullScene.mass );
-
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( hullScene.name );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
-
-        if ( hullScene.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
-        }
-
-        Quaternion hullQuaternion = gameModel.GetOrientation();
-        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
-        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
-
-        if ( hullScene.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        }
-
-        gameModel.SetFixed( hullScene.isFixed );
-
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( hullScene.isSleeping && !hullScene.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    // convex_hull_state entries: full dynamic state from an editable scene
-    // snapshot. The snapshot writer stores GameModel::GetPosition(), which is
-    // the simulated body/COM position, so do not add the authored hull COM here.
-    for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
-    {
-        const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
-                             Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
-                             hullScene.mass );
-
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( hullScene.name );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
-        gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
-        gameModel.SetOrientation(
-            Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
-        gameModel.SetFixed( hullScene.isFixed );
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( hullScene.isSleeping && !hullScene.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    for ( int i = 0; i < scene.GetRagdollCount(); ++i )
-    {
-        const SceneRagdoll& ragdollScene = scene.GetRagdoll( i );
-        RagdollBuildOptions options;
-        options.namePrefix = ragdollScene.name;
-        options.terrainPoint = Vector3( ragdollScene.posX, ragdollScene.posY, ragdollScene.posZ );
-        options.scale = ragdollScene.scale;
-        options.fixed = ragdollScene.isFixed;
-        options.startsAsleep = ragdollScene.startsAsleep;
-        if ( ragdollScene.hasInitOrient )
-        {
-            options.orientation =
-                MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
-        }
-        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
-    }
-
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    auto findModelByName = [&]( const char* name ) -> int
-    {
-        if ( !name || name[0] == '\0' )
-        {
-            return -1;
-        }
-        for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
-        {
-            if ( strcmp( models[static_cast<size_t>( modelIndex )].GetName(), name ) == 0 )
-            {
-                return modelIndex;
-            }
-        }
-        return -1;
-    };
-
-    for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
-    {
-        const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
-        PointJointConstraint joint;
-        joint.bodyA = findModelByName( sceneJoint.bodyA );
-        joint.bodyB = findModelByName( sceneJoint.bodyB );
-        if ( joint.bodyA < 0 || joint.bodyB < 0 )
-        {
-            fprintf( stderr,
-                     "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n",
-                     sceneJoint.bodyA,
-                     sceneJoint.bodyB );
-            continue;
-        }
-        joint.localAnchorA = sceneJoint.localAnchorA;
-        joint.localAnchorB = sceneJoint.localAnchorB;
-        joint.slack = sceneJoint.slack;
-        joint.stiffness = sceneJoint.stiffness;
-        joint.damping = sceneJoint.damping;
-        joint.groupId = sceneJoint.groupId;
-        joint.flags = sceneJoint.flags;
-        if ( IsSimpleRagdollNeckJointName( sceneJoint.bodyA, sceneJoint.bodyB ) )
-        {
-            joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
-        }
-        m_cGameModelCollection.AddPointJointConstraint( joint );
-    }
-
-    for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
-    {
-        const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
-            {
-                model.SetRenderMaterial( material.material );
-            }
-        }
-    }
-
-    SetUpRequiredContactsFromScene( scene );
-    SetUpRequiredBroadphaseXCellsFromScene( scene );
+    SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
 }
-
 
 void Run::SetUpRequiredContactsFromScene( const TestScene& scene )
 {
-    m_requiredSceneContacts.clear();
-    m_requiredSceneContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-
-    auto findModelByName = [&]( const char* name ) -> int
-    {
-        if ( !name || name[0] == '\0' )
-        {
-            return -1;
-        }
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-        {
-            if ( strcmp( models[static_cast<size_t>( i )].GetName(), name ) == 0 )
-            {
-                return i;
-            }
-        }
-        return -1;
-    };
-
-    for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
-    {
-        const SceneRequiredContact& contact = scene.GetRequiredContact( i );
-        RunRequiredContactState state;
-        strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
-        strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
-        state.bodyA = findModelByName( state.nameA );
-        state.bodyB = findModelByName( state.nameB );
-        if ( state.bodyA < 0 || state.bodyB < 0 )
-        {
-            fprintf( stderr, "[scene] required_contact could not resolve '%s' <-> '%s'\n", state.nameA, state.nameB );
-        }
-        m_requiredSceneContacts.push_back( state );
-    }
+    SceneAuthoredSetup::SetUpRequiredContacts( BuildSceneAuthoredModelContext(), scene );
 }
-
 
 void Run::UpdateRequiredSceneContacts()
 {
@@ -1084,20 +761,8 @@ bool Run::RequiredSceneContactsComplete() const
 
 void Run::SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene )
 {
-    m_requiredBroadphaseXCells.clear();
-    m_requiredBroadphaseXCells.reserve( static_cast<size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
-    for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
-    {
-        const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
-        RunRequiredBroadphaseXCellsState state;
-        state.minCellX = sceneCells.minCellX;
-        state.maxCellX = sceneCells.maxCellX;
-        state.cellY = sceneCells.cellY;
-        state.cellZ = sceneCells.cellZ;
-        m_requiredBroadphaseXCells.push_back( state );
-    }
+    SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( BuildSceneAuthoredModelContext(), scene );
 }
-
 
 void Run::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
 {
