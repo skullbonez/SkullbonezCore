@@ -162,6 +162,21 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Godel reported no
   blocking code defect; after the follow-up setter change, Godel confirmed the
   editor velocity-edit ownership leak was fixed.
+- Runtime run decomposition Phase 5 ghost-request slice makes
+  `ReplayRuntime` produce replay prediction ghost draw requests while
+  `RunRender` remains the actual draw-call consumer. The request producer owns
+  prediction-frame sampling, body-id/ragdoll filtering, alpha selection, and
+  request buffer reuse for the ghost overlay path.
+- Phase 5 ghost-request validation: final format 6.62s, final Profile build
+  117.34s
+  (`TestOutput\validation\phase5_replay_ghost_requests_profile_build_rerun.log`),
+  and full gate 131.89s
+  (`TestOutput\validation\phase5_replay_ghost_requests_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Dirac found no behavior
+  defect in sampling, alpha, body filtering, or draw-state restore path; the
+  suggested request-buffer reserve was added before validation.
 
 ## Current Work Items
 

@@ -107,34 +107,13 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                         const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !m_replayRuntime.Prediction().enabled || !m_replayRuntime.Prediction().ragdollVisualsEnabled ||
-         m_replayRuntime.Prediction().frames.size() < 2 )
-    {
-        return;
-    }
-
     const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-    bool hasRagdollPart = false;
-    for ( const GameObjects::GameModel& model : models )
-    {
-        if ( ReplayModelIsRagdollPart( model ) )
-        {
-            hasRagdollPart = true;
-            break;
-        }
-    }
-    if ( !hasRagdollPart )
+    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models ) )
     {
         return;
     }
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    const std::size_t lastIndex = m_replayRuntime.Prediction().frames.size() - 1;
-    const std::size_t stride =
-        (std::max)( static_cast<std::size_t>( 1 ),
-                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
-    const ReplayFrameIndex lastFrame = m_replayRuntime.Prediction().frames.back().frameIndex;
-
     RenderHelper::DrawBoxBatchBegin( frame.baseView,
                                      frame.projection,
                                      frame.lightPosition,
@@ -143,63 +122,25 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                      shadow,
                                      1.0f );
 
-    auto appendGhostFrame = [&]( std::size_t index )
+    for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
     {
-        const RunReplayPredictionFrame& predictionFrame = m_replayRuntime.Prediction().frames[index];
-        if ( predictionFrame.frameIndex == 0 )
+        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( models.size() ) )
         {
-            return;
+            continue;
         }
 
-        const float t =
-            lastFrame > 0
-                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
-                              0.0f,
-                              1.0f )
-                : 1.0f;
-        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
-
-        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        const GameObjects::GameModel& model = models[static_cast<std::size_t>( request.modelIndex )];
+        const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
+        if ( !box )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-            {
-                continue;
-            }
-
-            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-            if ( model.GetReplayBodyId() != body.id.value || !ReplayModelIsRagdollPart( model ) )
-            {
-                continue;
-            }
-
-            const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
-            if ( !box )
-            {
-                continue;
-            }
-
-            Math::Orientation::Quaternion orientation = body.orientation;
-            orientation.Normalise();
-            Rendering::RenderMaterial material = model.GetRenderMaterial();
-            material.baseColor[3] = alpha;
-            const Matrix4 modelMatrix = box->GetModelMatrix( body.position, Matrix4::FromQuaternion( orientation ) );
-            RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+            continue;
         }
-    };
 
-    std::size_t farIndex = lastIndex;
-    if ( farIndex % stride != 0 )
-    {
-        appendGhostFrame( farIndex );
-        farIndex = ( farIndex / stride ) * stride;
-    }
-    for ( std::size_t index = farIndex; index >= stride; index -= stride )
-    {
-        appendGhostFrame( index );
-        if ( index == stride )
-        {
-            break;
-        }
+        Rendering::RenderMaterial material = model.GetRenderMaterial();
+        material.baseColor[3] = request.alpha;
+        const Matrix4 modelMatrix =
+            box->GetModelMatrix( request.position, Matrix4::FromQuaternion( request.orientation ) );
+        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
     }
 
     RenderHelper::DrawBoxBatchEnd();

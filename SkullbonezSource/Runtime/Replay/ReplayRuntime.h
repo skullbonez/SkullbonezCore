@@ -19,12 +19,15 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
+class GameModel;
 class GameModelCollection;
 } // namespace GameObjects
 
 namespace Basics
 {
 struct ReplayV2SaveResult;
+
+inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 
 enum class RunReplayTrack
 {
@@ -216,6 +219,14 @@ struct RunReplayPredictionFrame
     std::vector<Physics::PhysicsDebugContact> debugContacts;
 };
 
+struct ReplayPredictionGhostDrawRequest
+{
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    float alpha = 1.0f;
+};
+
 struct RunReplayPredictionState
 {
     bool enabled = false;
@@ -357,6 +368,8 @@ class ReplayRuntime
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
     void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
+    const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
     bool HasLauncherVisualBackup() const;
@@ -395,6 +408,7 @@ class ReplayRuntime
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     std::vector<RenderPoseBackup> m_renderPoseBackups;
+    std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;
     bool m_launcherVisualBackupActive = false;

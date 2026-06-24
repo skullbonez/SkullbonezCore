@@ -15,6 +15,12 @@ namespace SkullbonezCore::Basics
 {
 namespace
 {
+bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModel& model )
+{
+    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
+}
+
+
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
     if ( presentationPath.empty() )
@@ -437,6 +443,97 @@ void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collect
     }
     m_renderPoseBackups.clear();
     collection.InvalidatePhysicsStreams();
+}
+
+bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
+{
+    m_predictionGhostDrawRequests.clear();
+    if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || m_prediction.frames.size() < 2 )
+    {
+        return false;
+    }
+
+    bool hasRagdollPart = false;
+    for ( const GameObjects::GameModel& model : models )
+    {
+        if ( ReplayRuntimeModelIsRagdollPart( model ) )
+        {
+            hasRagdollPart = true;
+            break;
+        }
+    }
+    if ( !hasRagdollPart )
+    {
+        return false;
+    }
+
+    const std::size_t lastIndex = m_prediction.frames.size() - 1;
+    const std::size_t stride =
+        (std::max)( static_cast<std::size_t>( 1 ),
+                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
+    const ReplayFrameIndex lastFrame = m_prediction.frames.back().frameIndex;
+    m_predictionGhostDrawRequests.reserve(
+        (std::min)( m_prediction.frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) * models.size() );
+
+    auto appendGhostFrame = [&]( std::size_t index )
+    {
+        const RunReplayPredictionFrame& predictionFrame = m_prediction.frames[index];
+        if ( predictionFrame.frameIndex == 0 )
+        {
+            return;
+        }
+
+        const float t =
+            lastFrame > 0
+                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
+                              0.0f,
+                              1.0f )
+                : 1.0f;
+        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
+
+        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        {
+            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            {
+                continue;
+            }
+
+            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+            if ( model.GetReplayBodyId() != body.id.value || !ReplayRuntimeModelIsRagdollPart( model ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionGhostDrawRequest request;
+            request.modelIndex = body.modelIndex;
+            request.position = body.position;
+            request.orientation = body.orientation;
+            request.orientation.Normalise();
+            request.alpha = alpha;
+            m_predictionGhostDrawRequests.push_back( request );
+        }
+    };
+
+    std::size_t farIndex = lastIndex;
+    if ( farIndex % stride != 0 )
+    {
+        appendGhostFrame( farIndex );
+        farIndex = ( farIndex / stride ) * stride;
+    }
+    for ( std::size_t index = farIndex; index >= stride; index -= stride )
+    {
+        appendGhostFrame( index );
+        if ( index == stride )
+        {
+            break;
+        }
+    }
+    return !m_predictionGhostDrawRequests.empty();
+}
+
+const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGhostDrawRequests() const
+{
+    return m_predictionGhostDrawRequests;
 }
 
 std::vector<uint8_t>& ReplayRuntime::FocusModelMask()
