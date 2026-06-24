@@ -360,7 +360,7 @@ Run::~Run()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
-    m_diagnosticsRuntime.Diagnostics().ClosePerfLog();
+    m_diagnosticsRuntime.ClosePerfLog();
     m_replayRuntime.FlushHashLogs();
     if ( m_replayRuntime.IsPresentationEnabled() )
     {
@@ -1675,16 +1675,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
 #ifdef _DEBUG
-    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
-                                               SceneState(),
-                                               sample,
-                                               restoredSolverHash,
-                                               restoredPresentationHash,
-                                               restoredBodyCount,
-                                               hashCaptured,
-                                               hashMatched,
-                                               !hashMatched && hasLiveBackup,
-                                               fallbackRestored );
+    m_diagnosticsRuntime.LogReplayRestoreProbe( SceneState(),
+                                                sample,
+                                                restoredSolverHash,
+                                                restoredPresentationHash,
+                                                restoredBodyCount,
+                                                hashCaptured,
+                                                hashMatched,
+                                                !hashMatched && hasLiveBackup,
+                                                fallbackRestored );
 #endif
 
     if ( !hashCaptured )
@@ -1799,22 +1798,19 @@ void Run::SetPhysicsDebugContactLingerOverride( float seconds )
 #ifdef _DEBUG
 void Run::SetPhysicsRegressionLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnosticsRuntime.Diagnostics().PerfLog(), path );
+    m_diagnosticsRuntime.SetPhysicsRegressionLogOverride( path );
 }
 
 
 void Run::SetPhysicsCollisionTimeLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_diagnosticsRuntime.Diagnostics().PerfLog(), path );
+    m_diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( path );
 }
 
 
 void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
-    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
-                                                   m_cGameModelCollection,
-                                                   path,
-                                                   fixedStepForcedByDiagnostics );
+    m_diagnosticsRuntime.SetPhysicsDiagnosticsPath( m_cGameModelCollection, path, fixedStepForcedByDiagnostics );
 }
 #endif
 
@@ -1923,28 +1919,25 @@ void Run::LogSceneFinished( const char* reason )
         scenePath = currentScenePath->c_str();
     }
 
-    RuntimeDiagnostics::LogSceneFinished( SceneState(),
-                                          scenePath,
-                                          IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                                          reason );
+    m_diagnosticsRuntime.LogSceneFinished( SceneState(),
+                                           scenePath,
+                                           IsGfxReady() ? Gfx().GetRendererName() : "unknown",
+                                           reason );
 }
 
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
-                                                    m_cGameModelCollection,
-                                                    SceneState(),
-                                                    Cfg(),
-                                                    scenePath,
-                                                    IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
+    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
+                                                     SceneState(),
+                                                     Cfg(),
+                                                     scenePath,
+                                                     IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
 }
 
 
 void Run::EndPhysicsDiagnosticsRun( const char* status )
 {
-    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
-                                                  SceneState(),
-                                                  status );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), status );
 }
 #endif

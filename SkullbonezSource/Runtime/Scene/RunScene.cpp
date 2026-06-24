@@ -1004,31 +1004,31 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
 
     // Close previous perf log if open
-    if ( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile )
+    if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
     {
         LogPerfMemory( "end" );
-        if ( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogWritesSinceFlush > 0 )
+        if ( m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush > 0 )
         {
-            fflush( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile );
-            m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogWritesSinceFlush = 0;
+            fflush( m_diagnosticsRuntime.PerfLog().perfLogFile );
+            m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
         }
-        fclose( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile );
-        m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile = nullptr;
+        fclose( m_diagnosticsRuntime.PerfLog().perfLogFile );
+        m_diagnosticsRuntime.PerfLog().perfLogFile = nullptr;
     }
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
-    m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfTest = false;
-    m_diagnosticsRuntime.Diagnostics().PerfLog().perfHeaderWritten = false;
+    m_diagnosticsRuntime.PerfLog().isPerfTest = false;
+    m_diagnosticsRuntime.PerfLog().perfHeaderWritten = false;
     m_simulation.Reset();
     m_diagnosticsRuntime.Capture().ResetScreenshot();
-    m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogPath[0] = '\0';
-    m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfLogFlushEnabled = false;
-    m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFlushInterval = 0;
-    m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogWritesSinceFlush = 0;
+    m_diagnosticsRuntime.PerfLog().perfLogPath[0] = '\0';
+    m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = false;
+    m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = 0;
+    m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_uiStress = RunUIStressState{};
+    m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
     m_requiredSceneContacts.clear();
 
     m_systems.cameras->Reset();
@@ -1148,8 +1148,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                                        : m_startupWorkerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
+        m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
@@ -1199,7 +1199,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
 #ifdef _DEBUG
-        isAutomationScene = isAutomationScene || m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics().isEnabled;
+        isAutomationScene = isAutomationScene || m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
         if ( !preserveUIState )
         {
@@ -1290,15 +1290,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         if ( UIOptions.hasStress )
         {
-            m_uiStress.enabled = UIOptions.stressEnabled;
+            m_diagnosticsRuntime.UIStress().enabled = UIOptions.stressEnabled;
         }
         if ( UIOptions.hasStressSeed )
         {
-            m_uiStress.randomState = UIOptions.stressSeed;
+            m_diagnosticsRuntime.UIStress().randomState = UIOptions.stressSeed;
         }
         if ( UIOptions.hasStressActions )
         {
-            m_uiStress.actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
+            m_diagnosticsRuntime.UIStress().actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
         }
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
@@ -1327,17 +1327,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfTest = true;
-            strcpy_s( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogPath,
-                      sizeof( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogPath ),
+            m_diagnosticsRuntime.PerfLog().isPerfTest = true;
+            strcpy_s( m_diagnosticsRuntime.PerfLog().perfLogPath,
+                      sizeof( m_diagnosticsRuntime.PerfLog().perfLogPath ),
                       pPerfPath );
             const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile,
-                     m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogPath,
-                     mode );
-            if ( m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogFile )
+            fopen_s( &m_diagnosticsRuntime.PerfLog().perfLogFile, m_diagnosticsRuntime.PerfLog().perfLogPath, mode );
+            if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
             {
-                m_diagnosticsRuntime.Diagnostics().PerfLog().perfLogWritesSinceFlush = 0;
+                m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
                 LogPerfMemory( "start" );
             }
         }
@@ -1416,13 +1414,12 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_cGameModelCollection.SetPhysicsRegressionLogPath(
-            m_diagnosticsRuntime.Diagnostics().PerfLog().physicsRegressionLogOverride );
+            m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
         m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
-            m_diagnosticsRuntime.Diagnostics().PerfLog().physicsCollisionTimeLogOverride );
-        if ( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics().isEnabled )
+            m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
+        if ( m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_cGameModelCollection.SetPhysicsDiagnosticsPath(
-                m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics().path );
+            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
@@ -1444,7 +1441,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
         const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState() &&
-                                              !m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics().isEnabled;
+                                              !m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #else
         const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
@@ -1529,9 +1526,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
     if ( m_cmdUIStress )
     {
-        m_uiStress.enabled = true;
-        m_uiStress.randomState = m_cmdUIStressSeed;
-        m_uiStress.actionsPerFrame = m_cmdUIStressActions;
+        m_diagnosticsRuntime.UIStress().enabled = true;
+        m_diagnosticsRuntime.UIStress().randomState = m_cmdUIStressSeed;
+        m_diagnosticsRuntime.UIStress().actionsPerFrame = m_cmdUIStressActions;
         m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
         m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
     }
@@ -2434,7 +2431,7 @@ void Run::UpdateWorldTerrainBounds()
 bool Run::AdvanceScene()
 {
     const bool preserveInteractiveUI = SceneState().isInteractiveRun;
-    return m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfTest,
+    return m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
                                             sPerfPass,
                                             preserveInteractiveUI );
 }

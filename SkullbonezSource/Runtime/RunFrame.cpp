@@ -443,10 +443,9 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
-    const bool physicsCapture =
-        m_diagnosticsRuntime.Diagnostics().PerfLog().physicsRegressionLogOverride[0] != '\0' ||
-        m_diagnosticsRuntime.Diagnostics().PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
-        m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics().isEnabled;
+    const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
+                                m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
+                                m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #else
     constexpr bool physicsCapture = false;
 #endif
@@ -931,19 +930,18 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    RuntimeDiagnostics::LogReplayScrubProbe( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
-                                             SceneState(),
-                                             *selected,
-                                             *live,
-                                             *selectedBody,
-                                             *liveBody,
-                                             m_replayScrubProbe.normalized,
-                                             bestDistanceSquared,
-                                             applied,
-                                             restored,
-                                             preLiveDeltaSquared,
-                                             appliedDeltaSquared,
-                                             restoredDeltaSquared );
+    m_diagnosticsRuntime.LogReplayScrubProbe( SceneState(),
+                                              *selected,
+                                              *live,
+                                              *selectedBody,
+                                              *liveBody,
+                                              m_replayScrubProbe.normalized,
+                                              bestDistanceSquared,
+                                              applied,
+                                              restored,
+                                              preLiveDeltaSquared,
+                                              appliedDeltaSquared,
+                                              restoredDeltaSquared );
 
     m_replayScrubProbe.completed = true;
     printf(
@@ -1374,8 +1372,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         const ReplayFrameIndex targetFrame =
             diagnosticTarget ? diagnosticTarget->frameIndex
                              : ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET ? 0 : requestedFrame );
-        RuntimeDiagnostics::LogReplayRestoreResult(
-            m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
+        m_diagnosticsRuntime.LogReplayRestoreResult(
             SceneState(),
             restoreSource,
             targetFrame,
@@ -2225,10 +2222,10 @@ void Run::TickAutoCycle()
 
 void Run::TickPerfLog()
 {
-    m_diagnosticsRuntime.Diagnostics().TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
-                                                                            SceneState().currentFrame + 1,
-                                                                            m_timers.physicsTime,
-                                                                            m_timers.renderTime } );
+    m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+                                                              SceneState().currentFrame + 1,
+                                                              m_timers.physicsTime,
+                                                              m_timers.renderTime } );
 
     if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {
@@ -2354,7 +2351,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnosticsRuntime.Diagnostics().PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnosticsRuntime.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG

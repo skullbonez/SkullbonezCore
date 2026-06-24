@@ -244,6 +244,26 @@ audits when it is still useful.
   defect and confirmed EngineContext lifetimes, screenshot automation,
   perf-log open/close/flush behavior, SkullScope path flow, and project/filter
   metadata stayed behavior-preserving.
+- Runtime run decomposition Phase 7 diagnostics-facade/UI-stress slice moves
+  deterministic UI stress state into `DiagnosticsRuntime` and routes
+  perf-log, screenshot, replay-probe, and SkullScope diagnostic entry points
+  through the diagnostics owner. `RuntimeDiagnostics` static helpers are now
+  hidden behind diagnostics-layer methods for `Run` call sites.
+- Phase 7 diagnostics-facade/UI-stress validation: final format 6.74s, final
+  Profile build 118.90s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_profile_build_rerun.log`),
+  full gate 132.26s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_full.log`),
+  UI stress gate 15.86s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_ui_stress.log`),
+  and demo stress gate 16.86s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_demo_stress.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`; both stress gates reported DX12 validation
+  errors 0. Rubber-duck reviewer Ohm found no blocking defect and confirmed the
+  UI stress LCG/action path and scene/CLI stress setup stayed mechanically
+  equivalent.
 
 ## Current Work Items
 

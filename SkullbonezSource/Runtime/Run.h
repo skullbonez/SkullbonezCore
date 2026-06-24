@@ -345,14 +345,6 @@ struct RunReplaySaveProbeState
 };
 #endif
 
-struct RunUIStressState
-{
-    bool enabled = false;                                                        // Deterministic scene-driven UI stress runner
-    unsigned int randomState = 0x7F4A7C15u;                                      // LCG state, seeded from scene UI options
-    int actionsPerFrame = 4;                                                     // Cheap UI state mutations per rendered frame
-    int framesRun = 0;                                                           // Stress-run frame counter independent of scene resets
-};
-
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -428,7 +420,6 @@ class Run
     RuntimeTools m_runtimeTools;                                                 // Launcher, editor, manipulator state, and transient render feedback.
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
-    RunUIStressState m_uiStress;                                                 // Deterministic UI stress run state
     Physics::BroadphaseVisualizer m_broadphaseVisualizer;                        // Spatial grid debug overlay (G key toggle)
     Physics::CollisionVisualizer m_collisionVisualizer;                          // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer

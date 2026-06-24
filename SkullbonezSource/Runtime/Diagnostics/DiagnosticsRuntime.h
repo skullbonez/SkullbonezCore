@@ -39,9 +39,87 @@ class DiagnosticsRuntime
     DiagnosticsController& Diagnostics();
     const DiagnosticsController& Diagnostics() const;
 
+    RunPerfLogState& PerfLog();
+    const RunPerfLogState& PerfLog() const;
+
+    void ClosePerfLog();
+    void LogPerfMemory( int pass, const char* checkpoint );
+    void TickPerfLog( const RuntimePerfTickContext& context );
+
+#ifdef _DEBUG
+    RunPhysicsDiagnosticsState& PhysicsDiagnostics();
+    const RunPhysicsDiagnosticsState& PhysicsDiagnostics() const;
+    bool PhysicsDiagnosticsEnabled() const;
+
+    void SetPhysicsRegressionLogOverride( const char* path );
+    void SetPhysicsCollisionTimeLogOverride( const char* path );
+    void SetPhysicsDiagnosticsPath( GameObjects::GameModelCollection& models,
+                                    const char* path,
+                                    bool fixedStepForcedByDiagnostics );
+    void LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
+    void BeginPhysicsDiagnosticsRun( GameObjects::GameModelCollection& models,
+                                     const RunSceneState& scene,
+                                     const EngineConfig& config,
+                                     const char* scenePath,
+                                     const char* rendererName );
+    void LogReplayScrubProbe( const RunSceneState& scene,
+                              const ReplayPresentationSample& selected,
+                              const ReplayPresentationSample& live,
+                              const ReplayBodyPresentationSample& selectedBody,
+                              const ReplayBodyPresentationSample& liveBody,
+                              float normalized,
+                              float distanceSquared,
+                              bool applied,
+                              bool restored,
+                              float preLiveDeltaSquared,
+                              float appliedDeltaSquared,
+                              float restoredDeltaSquared );
+    void LogReplayRestoreProbe( const RunSceneState& scene,
+                                const ReplaySolverFrameSample& selected,
+                                uint64_t restoredSolverHash,
+                                uint64_t restoredPresentationHash,
+                                std::size_t restoredBodyCount,
+                                bool hashCaptured,
+                                bool hashMatched,
+                                bool fallbackAttempted,
+                                bool fallbackRestored );
+    void LogReplayRestoreResult( const RunSceneState& scene,
+                                 const char* restoreSource,
+                                 uint64_t targetReplayFrame,
+                                 int targetSceneFrame,
+                                 uint64_t checkpointReplayFrame,
+                                 uint64_t targetSolverHash,
+                                 uint64_t targetPresentationHash,
+                                 std::size_t targetBodyCount,
+                                 uint64_t restoredSolverHash,
+                                 uint64_t restoredPresentationHash,
+                                 std::size_t restoredBodyCount,
+                                 uint16_t contactCount,
+                                 uint16_t pipelineRecordCount,
+                                 bool checkpointBoundary,
+                                 bool hashCaptured,
+                                 bool hashMatched,
+                                 bool fallbackAttempted,
+                                 bool fallbackRestored,
+                                 const char* failureReason );
+    void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
+#endif
+
+    struct UIStressState
+    {
+        bool enabled = false;                   // Deterministic scene-driven UI stress runner
+        unsigned int randomState = 0x7F4A7C15u; // LCG state, seeded from scene UI options
+        int actionsPerFrame = 4;                // Cheap UI state mutations per rendered frame
+        int framesRun = 0;                      // Stress-run frame counter independent of scene resets
+    };
+
+    UIStressState& UIStress();
+    const UIStressState& UIStress() const;
+
   private:
-    CaptureController m_capture;         // Screenshot trigger and capture automation
-    DiagnosticsController m_diagnostics; // Perf/test logs and queryable physics diagnostic trace
+    CaptureController m_capture;                // Screenshot trigger and capture automation
+    DiagnosticsController m_diagnostics;        // Perf/test logs and queryable physics diagnostic trace
+    UIStressState m_uiStress;                   // Deterministic UI stress run state
 };
 } // namespace Basics
 } // namespace SkullbonezCore
