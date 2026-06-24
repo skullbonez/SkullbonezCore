@@ -68,7 +68,7 @@ Json Vec3Json( float x, float y, float z )
     return Json::array( { x, y, z } );
 }
 
-Json OrientationJson( GameModel& model )
+Json OrientationJson( const GameModel& model )
 {
     float qx = 0.0f;
     float qy = 0.0f;
@@ -157,7 +157,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                                 float flatSlopeX,
                                 float flatSlopeZ )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    const std::vector<GameModel>& m_gameModels = collection.Models();
     const std::vector<uint8_t>& sleepStates = collection.GetSleepStates();
 
     std::ofstream output;

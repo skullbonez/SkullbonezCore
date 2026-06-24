@@ -67,7 +67,7 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 
 void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, GameModelCollection& collection )
 {
-    auto& m_gameModels = collection.m_gameModels;
+    const std::vector<GameModel>& m_gameModels = collection.Models();
     auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;
     auto& m_sleepState = world.m_sleepState;
     auto& m_sleepInhibitedThisFrame = world.m_sleepInhibitedThisFrame;
@@ -153,7 +153,7 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection,
                                                 float availableTime )
 {
 #ifdef _DEBUG
-    auto& m_gameModels = collection.m_gameModels;
+    const std::vector<GameModel>& m_gameModels = collection.Models();
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
     {
         return;

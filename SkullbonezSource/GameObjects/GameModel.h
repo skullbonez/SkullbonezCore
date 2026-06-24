@@ -218,7 +218,7 @@ class GameModel
     Math::Vector::Vector3
     CalculateBuoyancyRightingTorque( float buoyancyForce,
                                      float submergedVolumePercent );        // Water stability torque from principal inertia.
-    float GetMass();
+    float GetMass() const;
     float GetInvertedMass();                                                // Immutable inverse mass cache; fixed bodies use zero.
     float GetVolume();
     void CalculateProjectedSurfaceArea();                                   // Refreshes fluid-drag area from the current collision shape.
@@ -304,9 +304,9 @@ class GameModel
     float GetBoundingRadius();                                              // Conservative broadphase radius; convex hulls and boxes are not sphere geometry.
     Math::Vector::Vector3 GetOrientationUp();                               // Local +Y axis rotated into world space by the visual orientation.
     const Math::Orientation::Quaternion& GetOrientation() const;
-    const Math::Vector::Vector3& GetRotationalInertia();
+    const Math::Vector::Vector3& GetRotationalInertia() const;
     const Math::Vector::Vector3& GetInvertedRotationalInertia();            // Component-wise inverse inertia cache for solver rows.
-    float GetCoefficientRestitution();
+    float GetCoefficientRestitution() const;
     const Math::CollisionDetection::CollisionShape&
     GetCollisionShape() const;                                              // Authoritative shape variant for narrowphase manifold dispatch.
     void SetLinearVelocity( const Math::Vector::Vector3& v );

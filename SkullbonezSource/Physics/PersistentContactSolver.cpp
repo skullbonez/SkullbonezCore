@@ -68,8 +68,9 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
     using SolverBodyState = PhysicsWorld::SolverBodyState;
 
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaIsFixed = collection.m_soaCache.isFixed;
+    auto& m_gameModels = collection.PhysicsModels();
+    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const uint8_t* m_soaIsFixed = bodyStream.isFixed;
     auto& m_candidatePairs = world.m_candidatePairs;
     auto& m_sleepState = world.m_sleepState;
     auto& m_sleepSupportEdges = world.m_sleepSupportEdges;

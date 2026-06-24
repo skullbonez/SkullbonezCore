@@ -41,7 +41,7 @@ void SleepIslandSystem::PropagateSupport( PhysicsWorld& world, GameModelCollecti
     // B can be considered supported too. Repeating that rule lets a whole tower
     // become one stable sleep island instead of requiring every object to touch
     // terrain directly.
-    auto& m_gameModels = collection.m_gameModels;
+    const std::vector<GameModel>& m_gameModels = collection.PhysicsModels();
     auto& m_sleepState = world.m_sleepState;
     auto& m_sleepSupportEdges = world.m_sleepSupportEdges;
     auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;

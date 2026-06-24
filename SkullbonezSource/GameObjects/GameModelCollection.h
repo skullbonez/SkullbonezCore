@@ -44,7 +44,6 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelRenderer;
-class SceneSnapshotWriter;
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
@@ -59,10 +58,6 @@ class GameModelCollection : public Rendering::IRenderSceneView
 {
   private:
     friend class SkullScope;
-    friend class SceneSnapshotWriter;
-    friend class Physics::PhysicsDiagnosticsSink;
-    friend class Physics::PersistentContactSolver;
-    friend class Physics::SleepIslandSystem;
 
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
