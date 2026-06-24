@@ -2732,7 +2732,7 @@ void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
 
 void Run::HandleEditorKeyboardShortcuts()
 {
-    m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
+    m_replayRuntime.SetVelocityEditAltKeyDown( Input::IsKeyDown( VK_MENU ) );
     if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::ToggleEditorTool, VK_MENU ) )
     {
         ToggleEditorPlacementMode( RuntimeInputActionSource::Keyboard );

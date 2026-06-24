@@ -211,13 +211,15 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 
 bool Run::HasActiveReplayInteractionState() const
 {
-    return m_replayCamera.active || m_replayCamera.focusKind != RunReplayCameraFocusKind::None ||
-           m_replayScrubber.dragging || m_replayScrubber.paused || m_replayScrubber.simulationPaused ||
-           m_replayScrubber.mouseCaptured || m_replayPathVisualizer.hasTarget ||
-           !m_replayPathVisualizer.targets.empty() || m_replayPrediction.enabled ||
-           m_replayPrediction.horizonDragging || m_replayPrediction.building || m_replayVelocityEdit.enabled ||
-           m_replayVelocityEdit.dragging || m_replayVelocityEdit.mouseCaptured || m_replayCauseTree.draggingWindow ||
-           m_replayCauseTree.resizingWindow || m_replayCauseTree.selectedRow >= 0 || !m_replayCauseTree.rows.empty();
+    return m_replayRuntime.Camera().active || m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None ||
+           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ||
+           m_replayRuntime.Scrubber().simulationPaused || m_replayRuntime.Scrubber().mouseCaptured ||
+           m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
+           m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().horizonDragging ||
+           m_replayRuntime.Prediction().building || m_replayRuntime.VelocityEdit().enabled ||
+           m_replayRuntime.VelocityEdit().dragging || m_replayRuntime.VelocityEdit().mouseCaptured ||
+           m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ||
+           m_replayRuntime.CauseTree().selectedRow >= 0 || !m_replayRuntime.CauseTree().rows.empty();
 }
 
 
@@ -237,41 +239,41 @@ bool Run::InspectGizmoInteractionActive() const
 
 void Run::ClearReplayInteractionForRuntimeTransition()
 {
-    if ( m_replayScrubber.mouseCaptured || m_replayVelocityEdit.mouseCaptured || m_replayCauseTree.draggingWindow ||
-         m_replayCauseTree.resizingWindow )
+    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
+         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
     {
         UI::InputControl::EndMouseCapture();
     }
 
-    m_replayScrubber.simulationPaused = false;
-    m_replayCamera.ownsSimulationPause = false;
+    m_replayRuntime.Scrubber().simulationPaused = false;
+    m_replayRuntime.Camera().ownsSimulationPause = false;
     ResetReplayScrubber();
-    ReplayScrubberSetAllTrackPositions( m_replayScrubber, 1.0f );
-    m_replayScrubber.visible = false;
-    m_replayScrubber.dragging = false;
-    m_replayScrubber.mouseCaptured = false;
-    m_replayScrubber.branchHovered = false;
-    m_replayScrubber.pauseHovered = false;
-    m_replayScrubber.saveHovered = false;
-    m_replayScrubber.loadHovered = false;
+    ReplayScrubberSetAllTrackPositions( m_replayRuntime.Scrubber(), 1.0f );
+    m_replayRuntime.Scrubber().visible = false;
+    m_replayRuntime.Scrubber().dragging = false;
+    m_replayRuntime.Scrubber().mouseCaptured = false;
+    m_replayRuntime.Scrubber().branchHovered = false;
+    m_replayRuntime.Scrubber().pauseHovered = false;
+    m_replayRuntime.Scrubber().saveHovered = false;
+    m_replayRuntime.Scrubber().loadHovered = false;
 
     ClearReplayPathVisualizer();
-    m_replayPrediction.enabled = false;
-    m_replayPrediction.checkboxHovered = false;
-    m_replayPrediction.decreaseHovered = false;
-    m_replayPrediction.increaseHovered = false;
-    m_replayPrediction.horizonHovered = false;
-    m_replayPrediction.horizonDragging = false;
+    m_replayRuntime.Prediction().enabled = false;
+    m_replayRuntime.Prediction().checkboxHovered = false;
+    m_replayRuntime.Prediction().decreaseHovered = false;
+    m_replayRuntime.Prediction().increaseHovered = false;
+    m_replayRuntime.Prediction().horizonHovered = false;
+    m_replayRuntime.Prediction().horizonDragging = false;
     ClearReplayPredictionCache();
 
-    m_replayVelocityEdit = RunReplayVelocityEditState{};
-    m_replayCauseTree.hoveredRow = -1;
-    m_replayCauseTree.selectedRow = -1;
-    m_replayCauseTree.draggingWindow = false;
-    m_replayCauseTree.resizingWindow = false;
-    m_replayCauseTree.leftWasDown = false;
-    m_replayCauseTree.scrollY = 0.0f;
-    m_replayCauseTree.rows.clear();
+    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
+    m_replayRuntime.CauseTree().hoveredRow = -1;
+    m_replayRuntime.CauseTree().selectedRow = -1;
+    m_replayRuntime.CauseTree().draggingWindow = false;
+    m_replayRuntime.CauseTree().resizingWindow = false;
+    m_replayRuntime.CauseTree().leftWasDown = false;
+    m_replayRuntime.CauseTree().scrollY = 0.0f;
+    m_replayRuntime.CauseTree().rows.clear();
 
     ExitReplayInspectionCamera();
     ApplyCursorOwnership();
@@ -526,7 +528,8 @@ void Run::CycleCameraMode()
 
 bool Run::ReplayInspectionActive() const
 {
-    return m_replayCamera.active || m_replayScrubber.paused || m_replayScrubber.simulationPaused;
+    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().paused ||
+           m_replayRuntime.Scrubber().simulationPaused;
 }
 
 
@@ -637,34 +640,34 @@ void Run::TakeInput()
     if ( !Input::IsAppFocused() )
     {
         Input::SetSystemCursorVisible( true );
-        if ( m_replayScrubber.mouseCaptured )
+        if ( m_replayRuntime.Scrubber().mouseCaptured )
         {
             UI::InputControl::EndMouseCapture();
         }
         ResetReplayScrubber();
-        m_replayPrediction.checkboxHovered = false;
-        m_replayPrediction.decreaseHovered = false;
-        m_replayPrediction.increaseHovered = false;
-        m_replayPrediction.horizonHovered = false;
-        m_replayPrediction.horizonDragging = false;
-        m_replayVelocityEdit.toggleHovered = false;
-        m_replayVelocityEdit.keyboardAltWasDown = false;
-        m_replayVelocityEdit.dragging = false;
-        m_replayVelocityEdit.draggingAngular = false;
-        m_replayVelocityEdit.activeAxis = -1;
-        m_replayVelocityEdit.hotLinearAxis = -1;
-        m_replayVelocityEdit.hotAngularAxis = -1;
-        if ( m_replayVelocityEdit.mouseCaptured )
+        m_replayRuntime.Prediction().checkboxHovered = false;
+        m_replayRuntime.Prediction().decreaseHovered = false;
+        m_replayRuntime.Prediction().increaseHovered = false;
+        m_replayRuntime.Prediction().horizonHovered = false;
+        m_replayRuntime.Prediction().horizonDragging = false;
+        m_replayRuntime.VelocityEdit().toggleHovered = false;
+        m_replayRuntime.VelocityEdit().keyboardAltWasDown = false;
+        m_replayRuntime.VelocityEdit().dragging = false;
+        m_replayRuntime.VelocityEdit().draggingAngular = false;
+        m_replayRuntime.VelocityEdit().activeAxis = -1;
+        m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
+        m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
+        if ( m_replayRuntime.VelocityEdit().mouseCaptured )
         {
             UI::InputControl::EndMouseCapture();
-            m_replayVelocityEdit.mouseCaptured = false;
+            m_replayRuntime.VelocityEdit().mouseCaptured = false;
         }
         CancelMousePickup();
-        if ( m_replayCauseTree.draggingWindow || m_replayCauseTree.resizingWindow )
+        if ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
         {
             UI::InputControl::EndMouseCapture();
-            m_replayCauseTree.draggingWindow = false;
-            m_replayCauseTree.resizingWindow = false;
+            m_replayRuntime.CauseTree().draggingWindow = false;
+            m_replayRuntime.CauseTree().resizingWindow = false;
         }
         ResetEditorUnfocusedInputState();
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
@@ -744,7 +747,7 @@ void Run::TakeInput()
             if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                               RuntimeInputAction::WriteLauncherReproSnapshot,
                                                               VK_RETURN ) &&
-                 IsLauncherCameraMode() && !m_replayScrubber.restoreConsumedThisFrame )
+                 IsLauncherCameraMode() && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
             {
                 WriteLauncherReproSnapshot();
             }
@@ -758,11 +761,11 @@ void Run::TakeInput()
         else
         {
             const bool altDown = Input::IsKeyDown( VK_MENU );
-            if ( altDown && !m_replayVelocityEdit.keyboardAltWasDown )
+            if ( altDown && !m_replayRuntime.VelocityEdit().keyboardAltWasDown )
             {
-                SetReplayVelocityEditEnabled( !m_replayVelocityEdit.enabled );
+                SetReplayVelocityEditEnabled( !m_replayRuntime.VelocityEdit().enabled );
             }
-            m_replayVelocityEdit.keyboardAltWasDown = altDown;
+            m_replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
             m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
             m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
             m_editor.altShortcutWasDown = altDown;
@@ -981,7 +984,7 @@ void Run::TakeInput()
         AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
-        m_replayVelocityEdit.keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
+        m_replayRuntime.VelocityEdit().keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
         m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
         m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         m_editor.tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
@@ -1564,7 +1567,7 @@ void Run::TakeInput()
         m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                                                       Input::IsKeyDown( VK_SPACE ),
                                                                       IsReplayScrubPaused(),
-                                                                      m_replayScrubber.simulationPaused,
+                                                                      m_replayRuntime.Scrubber().simulationPaused,
                                                                       Input::IsRightMouseDown(),
                                                                       m_editor.viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),

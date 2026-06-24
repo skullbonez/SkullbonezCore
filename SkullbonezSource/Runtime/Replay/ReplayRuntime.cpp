@@ -72,6 +72,81 @@ const ReplayBranchInfo& ReplayRuntime::Branch() const
     return m_branch;
 }
 
+RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation()
+{
+    return m_loadedPresentation;
+}
+
+const RunLoadedReplayPresentationState& ReplayRuntime::LoadedPresentation() const
+{
+    return m_loadedPresentation;
+}
+
+RunReplayScrubberState& ReplayRuntime::Scrubber()
+{
+    return m_scrubber;
+}
+
+const RunReplayScrubberState& ReplayRuntime::Scrubber() const
+{
+    return m_scrubber;
+}
+
+RunReplayCameraState& ReplayRuntime::Camera()
+{
+    return m_camera;
+}
+
+const RunReplayCameraState& ReplayRuntime::Camera() const
+{
+    return m_camera;
+}
+
+RunReplayPathVisualizerState& ReplayRuntime::PathVisualizer()
+{
+    return m_pathVisualizer;
+}
+
+const RunReplayPathVisualizerState& ReplayRuntime::PathVisualizer() const
+{
+    return m_pathVisualizer;
+}
+
+RunReplayPredictionState& ReplayRuntime::Prediction()
+{
+    return m_prediction;
+}
+
+const RunReplayPredictionState& ReplayRuntime::Prediction() const
+{
+    return m_prediction;
+}
+
+RunReplayCauseTreeState& ReplayRuntime::CauseTree()
+{
+    return m_causeTree;
+}
+
+const RunReplayCauseTreeState& ReplayRuntime::CauseTree() const
+{
+    return m_causeTree;
+}
+
+RunReplayVelocityEditState& ReplayRuntime::VelocityEdit()
+{
+    return m_velocityEdit;
+}
+
+const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
+{
+    return m_velocityEdit;
+}
+
+void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
+{
+    m_velocityEdit.keyboardAltWasDown = isDown;
+}
+
 ReplayRuntime::RecordingConfigResult
 ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {

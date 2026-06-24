@@ -107,8 +107,8 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                         const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !m_replayPrediction.enabled || !m_replayPrediction.ragdollVisualsEnabled ||
-         m_replayPrediction.frames.size() < 2 )
+    if ( !m_replayRuntime.Prediction().enabled || !m_replayRuntime.Prediction().ragdollVisualsEnabled ||
+         m_replayRuntime.Prediction().frames.size() < 2 )
     {
         return;
     }
@@ -129,11 +129,11 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
     }
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    const std::size_t lastIndex = m_replayPrediction.frames.size() - 1;
+    const std::size_t lastIndex = m_replayRuntime.Prediction().frames.size() - 1;
     const std::size_t stride =
         (std::max)( static_cast<std::size_t>( 1 ),
                     ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
-    const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
+    const ReplayFrameIndex lastFrame = m_replayRuntime.Prediction().frames.back().frameIndex;
 
     RenderHelper::DrawBoxBatchBegin( frame.baseView,
                                      frame.projection,
@@ -145,7 +145,7 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
 
     auto appendGhostFrame = [&]( std::size_t index )
     {
-        const RunReplayPredictionFrame& predictionFrame = m_replayPrediction.frames[index];
+        const RunReplayPredictionFrame& predictionFrame = m_replayRuntime.Prediction().frames[index];
         if ( predictionFrame.frameIndex == 0 )
         {
             return;
@@ -631,7 +631,7 @@ void Run::RebuildRegisteredRenderResources()
 
 void Run::SetViewingOrientation()
 {
-    if ( m_replayCamera.active )
+    if ( m_replayRuntime.Camera().active )
     {
         PROFILE_SCOPED( "Frame/Replay/Camera" );
         m_camera.cameraTime = 0.0f;

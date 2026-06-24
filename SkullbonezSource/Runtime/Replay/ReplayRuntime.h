@@ -11,6 +11,8 @@ Mental model:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "../RuntimeCameraMode.h"
+#include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 
 namespace SkullbonezCore
@@ -23,6 +25,167 @@ class GameModelCollection;
 namespace Basics
 {
 struct ReplayV2SaveResult;
+
+enum class RunReplayTrack
+{
+    Presentation,
+    Solver
+};
+
+struct RunReplayScrubberState
+{
+    bool visible = false;
+    bool dragging = false;
+    bool paused = false;
+    bool simulationPaused = false;
+    bool branchHovered = false;
+    bool pauseHovered = false;
+    bool pauseRestoreFlyMode = false;
+    bool pauseRestoreLauncherMode = false;
+    bool mouseCaptured = false;
+    bool saveHovered = false;
+    bool loadHovered = false;
+    bool restoreWasDown = false;
+    bool restoreConsumedThisFrame = false;
+    RunReplayTrack activeTrack = RunReplayTrack::Solver;
+    RunReplayTrack saveHoveredTrack = RunReplayTrack::Solver;
+    RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
+    bool leftWasDown = false;
+    float position = 1.0f;         // 0 = oldest retained sample, 1 = live edge.
+    float presentationPosition = 1.0f;
+    float solverPosition = 1.0f;
+    int mouseX = 0;
+    int mouseY = 0;
+    double visibleUntil = 0.0;
+    double saveMessageUntil = 0.0;
+    char saveMessage[96] = {};
+};
+
+struct RunReplayPathTraceNode
+{
+    ReplayBodyId id;
+    ReplayBodyId parentId;
+    ReplayFrameIndex firstFrame = 0;
+    Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
+    int depth = 0;
+};
+
+struct RunReplayPathTarget
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    char name[64] = {};
+};
+
+enum class RunReplayCameraFocusKind
+{
+    None,
+    Body,
+    Manifold,
+    SolverRow,
+    PredictionContact
+};
+
+enum class RunReplayCauseTreeRowKind
+{
+    Body,
+    Manifold,
+    SolverRow,
+    PredictionContact
+};
+
+struct RunReplayCameraState
+{
+    bool active = false;
+    RunCameraMode restoreCameraMode = RunCameraMode::Demo;
+    bool hasRestorePose = false;
+    bool ownsSimulationPause = false;
+    uint32_t restoreCameraHash = CAMERA_FREE;
+    Math::Vector::Vector3 restoreEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 restoreView = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 restoreUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
+    ReplayBodyId focusedId;
+    ReplayBodyId counterpartId;
+    int focusedRow = -1;
+    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 impulseVector = Math::Vector::ZERO_VECTOR;
+    float targetRadius = 1.0f;
+    RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
+    int focusModelIndex = -1;
+    int focusCounterpartModelIndex = -1;
+    int focusContactIndex = -1;
+    int focusSolverRowIndex = -1;
+    int focusFeatureId = 0;
+    bool focusTerrain = false;
+};
+
+struct RunReplayCauseTreeRow
+{
+    RunReplayCauseTreeRowKind kind = RunReplayCauseTreeRowKind::Body;
+    ReplayBodyId id;
+    ReplayBodyId parentId;
+    ReplayBodyId counterpartId;
+    ReplayFrameIndex firstFrame = 0;
+    int depth = 0;
+    int modelIndex = -1;
+    int counterpartModelIndex = -1;
+    int contactIndex = -1;
+    int solverRowIndex = -1;
+    int pipelineIndex = -1;
+    int featureId = 0;
+    int manifoldPointCount = 0;
+    float penetration = 0.0f;
+    float normalImpulse = 0.0f;
+    float tangentImpulse = 0.0f;
+    float warmStartImpulse = 0.0f;
+    float bias = 0.0f;
+    float effectiveMass = 0.0f;
+    float frictionLimit = 0.0f;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 normal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 impulse = Math::Vector::ZERO_VECTOR;
+    bool prediction = false;
+    bool terrain = false;
+    bool warmStarted = false;
+    char name[64] = {};
+    char detail[160] = {};
+};
+
+struct RunReplayCauseTreeState
+{
+    std::vector<RunReplayCauseTreeRow> rows;
+    int hoveredRow = -1;
+    int selectedRow = -1;
+    ReplayBodyId focusedId;
+    bool hasWindowPlacement = false;
+    int x = 0;
+    int y = 0;
+    int width = 380;
+    int height = 420;
+    float scrollY = 0.0f;
+    bool draggingWindow = false;
+    bool resizingWindow = false;
+    bool leftWasDown = false;
+    int dragOffsetX = 0;
+    int dragOffsetY = 0;
+    int resizeStartMouseX = 0;
+    int resizeStartMouseY = 0;
+    int resizeStartWidth = 0;
+    int resizeStartHeight = 0;
+};
+
+struct RunReplayPathVisualizerState
+{
+    bool hasTarget = false;
+    ReplayBodyId targetId;
+    int targetModelIndex = -1;
+    char targetName[64] = {};
+    std::vector<RunReplayPathTraceNode> futureNodes;
+    std::vector<RunReplayPathTarget> targets;
+};
 
 struct RunReplayPredictionBodyBackup
 {
@@ -53,6 +216,84 @@ struct RunReplayPredictionFrame
     std::vector<Physics::PhysicsDebugContact> debugContacts;
 };
 
+struct RunReplayPredictionState
+{
+    bool enabled = false;
+    bool checkboxHovered = false;
+    bool ragdollVisualsEnabled = true;
+    bool ragdollVisualsHovered = false;
+    bool decreaseHovered = false;
+    bool increaseHovered = false;
+    bool horizonHovered = false;
+    bool horizonDragging = false;
+    bool dirty = true;
+    bool building = false;
+    bool complete = false;
+    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
+    int targetModelIndex = -1;
+    int nextTick = 1;
+    int targetTickCount = 0;
+    ReplayBodyId targetId;
+    ReplayFrameIndex sourceFrameIndex = 0;
+    uint64_t sourceSolverHash = 0;
+    double sourceSimulationSeconds = 0.0;
+    double lastBuildTime = 0.0;
+    ReplaySolverWorldSnapshot predictionWorld;
+    ReplaySolverWorldSnapshot liveRestoreWorld;
+    std::vector<RunReplayPredictionBodyBackup> predictionBodies;
+    std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
+    std::vector<RunReplayPredictionFrame> frames;
+    std::vector<RunReplayPathTraceNode> futureNodes;
+};
+
+struct RunReplayVelocityEditState
+{
+    bool enabled = false;
+    bool toggleHovered = false;
+    bool keyboardAltWasDown = false;
+    bool dragging = false;
+    bool draggingAngular = false;
+    bool mouseCaptured = false;
+    bool leftWasDown = false;
+    int hotLinearAxis = -1;
+    int hotAngularAxis = -1;
+    int activeAxis = -1;
+    float dragStartAxisT = 0.0f;
+    float dragStartAngle = 0.0f;
+    Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+struct RunLoadedReplayPresentationState
+{
+    bool enabled = false;
+    std::vector<ReplayPresentationSample> samples;
+    std::size_t bodyDictionaryCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex firstFrame = 0;
+    ReplayFrameIndex lastFrame = 0;
+    char path[260] = {};
+};
+
+struct RunReplayV2TargetRestoreResult
+{
+    std::size_t checkpointCount = 0;
+    std::size_t eventCount = 0;
+    std::size_t hashCount = 0;
+    std::size_t eventsApplied = 0;
+    std::size_t bodyCount = 0;
+    std::size_t fileBytes = 0;
+    ReplayFrameIndex checkpointFrame = 0;
+    ReplayFrameIndex targetFrame = 0;
+    uint32_t eventCursor = 0;
+    uint32_t branchId = 0;
+    uint32_t parentBranchId = 0;
+    uint64_t solverHash = 0;
+    uint64_t presentationHash = 0;
+    bool generatedTopologyRebuilt = false;
+    bool madeLiveBranch = false;
+};
+
 class ReplayRuntime
 {
   public:
@@ -76,6 +317,28 @@ class ReplayRuntime
 
     ReplayBranchInfo& Branch();
     const ReplayBranchInfo& Branch() const;
+
+    RunLoadedReplayPresentationState& LoadedPresentation();
+    const RunLoadedReplayPresentationState& LoadedPresentation() const;
+
+    RunReplayScrubberState& Scrubber();
+    const RunReplayScrubberState& Scrubber() const;
+
+    RunReplayCameraState& Camera();
+    const RunReplayCameraState& Camera() const;
+
+    RunReplayPathVisualizerState& PathVisualizer();
+    const RunReplayPathVisualizerState& PathVisualizer() const;
+
+    RunReplayPredictionState& Prediction();
+    const RunReplayPredictionState& Prediction() const;
+
+    RunReplayCauseTreeState& CauseTree();
+    const RunReplayCauseTreeState& CauseTree() const;
+
+    RunReplayVelocityEditState& VelocityEdit();
+    const RunReplayVelocityEditState& VelocityEdit() const;
+    void SetVelocityEditAltKeyDown( bool isDown );
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();
@@ -124,6 +387,13 @@ class ReplayRuntime
     ReplaySolverRecorder m_solver; // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;     // Current live replay branch provenance.
+    RunLoadedReplayPresentationState m_loadedPresentation;
+    RunReplayScrubberState m_scrubber;
+    RunReplayCameraState m_camera;
+    RunReplayPathVisualizerState m_pathVisualizer;
+    RunReplayPredictionState m_prediction;
+    RunReplayCauseTreeState m_causeTree;
+    RunReplayVelocityEditState m_velocityEdit;
     std::vector<RenderPoseBackup> m_renderPoseBackups;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;

@@ -439,7 +439,7 @@ void Run::TickPhysics( double secondsPerFrame )
         return;
     }
 
-    const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
+    const bool replaySimulationPaused = m_replayRuntime.Scrubber().simulationPaused;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
@@ -1282,10 +1282,10 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
 
     printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
-            m_loadedPresentationReplay.path,
-            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
+            m_replayRuntime.LoadedPresentation().path,
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
             static_cast<unsigned long long>( selected->frameIndex ),
             static_cast<unsigned long long>( latest->frameIndex ),
             selectedBody->id.value,
@@ -2036,9 +2036,9 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     {
         throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    m_replayScrubber.paused = true;
-    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, 1.0f );
+    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};

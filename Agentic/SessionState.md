@@ -145,6 +145,23 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Carver reported no
   blocking code defect and identified the full gate as the only required
   evidence before commit.
+- Runtime run decomposition Phase 5 replay-state-owner slice moves replay
+  interaction state definitions and stored instances into `ReplayRuntime`.
+  `Run` call sites now reach loaded presentation, scrubber, camera/path,
+  prediction, cause tree, and velocity-edit state through replay-runtime
+  accessors; `RuntimeCameraMode.h` holds the shared camera mode needed by
+  replay camera restore state.
+- Phase 5 replay-state-owner validation: final Profile build 37.34s
+  (`TestOutput\validation\phase5_replay_state_owner_profile_build_final.log`),
+  final format 6.56s, final project-filter check 0.69s, fast gate 119.24s
+  (`TestOutput\validation\phase5_replay_state_owner_validate_fast.log`), and
+  full gate 24.39s
+  (`TestOutput\validation\phase5_replay_state_owner_validate_full.log`). Full
+  gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Godel reported no
+  blocking code defect; after the follow-up setter change, Godel confirmed the
+  editor velocity-edit ownership leak was fixed.
 
 ## Current Work Items
 

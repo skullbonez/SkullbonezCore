@@ -173,6 +173,7 @@ RUNTIME_PREFIXES = (
     "RunStress",
     "RunUiTextPass",
     "RuntimeCommandQueue",
+    "RuntimeCameraMode",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
     "RuntimeInteractionController",
