@@ -288,7 +288,7 @@ class EngineConfig
     float skyboxScale = 10.0f;
 
     // Threading
-    int gameModelCapacity = 1024;
+    int gameModelCapacity = 4000;
     int workerThreads = -1;
     bool physicsParallel = true;
     bool physicsParallelApplyForces = true;
