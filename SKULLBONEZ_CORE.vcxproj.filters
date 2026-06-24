@@ -590,10 +590,16 @@
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">

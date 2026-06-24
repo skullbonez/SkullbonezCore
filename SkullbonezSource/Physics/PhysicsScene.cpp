@@ -23,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsScene.h
 */
 #include "PhysicsScene.h"
+#include "PhysicsApi.h"
 
 #include "../GameObjects/GameModelCollection.h"
 

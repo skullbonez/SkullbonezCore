@@ -302,8 +302,10 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
