@@ -106,6 +106,52 @@ bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLe
 
     return false;
 }
+
+void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
+                                                  const std::vector<GameModel>& existingModels,
+                                                  int newModelIndex )
+{
+    if ( gameModel.GetRuntimeCollectionKind() != GameModelCollectionKind::None )
+    {
+        return;
+    }
+
+    const char* sourceName = gameModel.GetName();
+    size_t sourcePrefixLength = 0;
+    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
+    {
+        return;
+    }
+
+    int rootModelIndex = newModelIndex;
+    int partIndex = 0;
+    for ( int i = 0; i < static_cast<int>( existingModels.size() ); ++i )
+    {
+        const GameModel& existing = existingModels[static_cast<size_t>( i )];
+        if ( existing.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree )
+        {
+            continue;
+        }
+
+        size_t existingPrefixLength = 0;
+        const char* existingName = existing.GetName();
+        if ( !TryGetEditorTreeInstancePrefixLength( existingName, existingPrefixLength ) ||
+             existingPrefixLength != sourcePrefixLength ||
+             strncmp( existingName, sourceName, sourcePrefixLength ) != 0 )
+        {
+            continue;
+        }
+
+        rootModelIndex = existing.GetRuntimeCollectionRootModelIndex();
+        if ( rootModelIndex < 0 || rootModelIndex >= newModelIndex )
+        {
+            rootModelIndex = i;
+        }
+        partIndex = (std::max)( partIndex, existing.GetRuntimeCollectionPartIndex() + 1 );
+    }
+
+    gameModel.SetRuntimeCollection( GameModelCollectionKind::ReleasableTree, rootModelIndex, partIndex );
+}
 } // namespace
 
 
@@ -128,6 +174,7 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
         throw std::runtime_error(
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
+    AssignRuntimeCollectionFromConstructionName( gameModel, m_gameModels, static_cast<int>( m_gameModels.size() ) );
     if ( gameModel.GetReplayBodyId() == 0 )
     {
         gameModel.SetReplayBodyId( m_nextReplayBodyId++ );
@@ -467,10 +514,12 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         return;
     }
 
-    const char* sourceName = m_gameModels[static_cast<size_t>( sourceIndex )].GetName();
+    const int sourceRootModelIndex =
+        m_gameModels[static_cast<size_t>( sourceIndex )].GetRuntimeCollectionRootModelIndex();
     const float sourceY = m_gameModels[static_cast<size_t>( sourceIndex )].GetPosition().y;
-    size_t sourcePrefixLength = 0;
-    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
+    if ( m_gameModels[static_cast<size_t>( sourceIndex )].GetRuntimeCollectionKind() !=
+             GameModelCollectionKind::ReleasableTree ||
+         sourceRootModelIndex < 0 )
     {
         return;
     }
@@ -483,10 +532,8 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         }
 
         GameModel& model = m_gameModels[static_cast<size_t>( i )];
-        const char* modelName = model.GetName();
-        size_t modelPrefixLength = 0;
-        if ( !TryGetEditorTreeInstancePrefixLength( modelName, modelPrefixLength ) ||
-             modelPrefixLength != sourcePrefixLength || strncmp( modelName, sourceName, sourcePrefixLength ) != 0 )
+        if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree ||
+             model.GetRuntimeCollectionRootModelIndex() != sourceRootModelIndex )
         {
             continue;
         }

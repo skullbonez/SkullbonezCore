@@ -421,6 +421,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s", prefix, parts[i].suffix );
         model.SetName( name );
+        model.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, firstBody + PART_TORSO, i );
         model.SetFixed( options.fixed );
 
         collection.AddGameModel( std::move( model ) );

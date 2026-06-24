@@ -303,64 +303,14 @@ inline float ReplayScrubberPredictionNormalizedFromTrack( float position, float 
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 
-inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso, std::size_t* outPrefixLength = nullptr )
-{
-    static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
-                                                        "head",
-                                                        "upper_arm_l",
-                                                        "lower_arm_l",
-                                                        "upper_arm_r",
-                                                        "lower_arm_r",
-                                                        "upper_leg_l",
-                                                        "lower_leg_l",
-                                                        "upper_leg_r",
-                                                        "lower_leg_r" };
-    outTorso = false;
-    if ( outPrefixLength )
-    {
-        *outPrefixLength = 0;
-    }
-    if ( !name || name[0] == '\0' )
-    {
-        return false;
-    }
-
-    const std::size_t nameLength = std::strlen( name );
-    for ( const char* suffix : RAGDOLL_SUFFIXES )
-    {
-        const std::size_t suffixLength = std::strlen( suffix );
-        if ( nameLength <= suffixLength + 1 )
-        {
-            continue;
-        }
-
-        const std::size_t suffixStart = nameLength - suffixLength;
-        if ( name[suffixStart - 1] != '_' || std::strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
-        {
-            continue;
-        }
-
-        outTorso = std::strcmp( suffix, "torso" ) == 0;
-        const std::size_t prefixLength = suffixStart - 1;
-        if ( outPrefixLength )
-        {
-            *outPrefixLength = prefixLength;
-        }
-        return prefixLength > 0;
-    }
-    return false;
-}
-
 inline bool ReplayModelIsRagdollPart( const GameModel& model )
 {
-    bool torso = false;
-    return ReplayRagdollPartNameInfo( model.GetName(), torso );
+    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
 }
 
 inline bool ReplayModelIsRagdollTorso( const GameModel& model )
 {
-    bool torso = false;
-    return ReplayRagdollPartNameInfo( model.GetName(), torso ) && torso;
+    return ReplayModelIsRagdollPart( model ) && model.GetRuntimeCollectionPartIndex() == 0;
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )

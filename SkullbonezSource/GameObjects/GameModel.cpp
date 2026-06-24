@@ -111,6 +111,9 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_releasesFromFixedOnContact = false;
     m_contactReleaseImpulseThreshold = 1.0f;
     m_replayBodyId = 0;
+    m_collectionKind = GameModelCollectionKind::None;
+    m_collectionRootModelIndex = -1;
+    m_collectionPartIndex = -1;
     m_name[0] = '\0';
 }
 
@@ -355,6 +358,32 @@ void GameModel::SetReplayBodyId( uint32_t id )
 uint32_t GameModel::GetReplayBodyId() const
 {
     return m_replayBodyId;
+}
+
+
+void GameModel::SetRuntimeCollection( GameModelCollectionKind kind, int rootModelIndex, int partIndex )
+{
+    m_collectionKind = kind;
+    m_collectionRootModelIndex = rootModelIndex;
+    m_collectionPartIndex = partIndex;
+}
+
+
+GameModelCollectionKind GameModel::GetRuntimeCollectionKind() const
+{
+    return m_collectionKind;
+}
+
+
+int GameModel::GetRuntimeCollectionRootModelIndex() const
+{
+    return m_collectionRootModelIndex;
+}
+
+
+int GameModel::GetRuntimeCollectionPartIndex() const
+{
+    return m_collectionPartIndex;
 }
 
 

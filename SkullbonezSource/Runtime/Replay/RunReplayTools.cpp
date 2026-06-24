@@ -49,6 +49,7 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+using SkullbonezCore::GameObjects::GameModelCollectionKind;
 
 namespace
 {
@@ -290,6 +291,15 @@ ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, i
         return id;
     }
 
+    if ( modelIndex < static_cast<int>( sample.bodies.size() ) )
+    {
+        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
+        if ( body.modelIndex == modelIndex )
+        {
+            return body.id;
+        }
+    }
+
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         if ( body.modelIndex == modelIndex )
@@ -321,6 +331,15 @@ const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const
         return nullptr;
     }
 
+    if ( modelIndex < static_cast<int>( frame.bodies.size() ) )
+    {
+        const RunReplayPredictionBodySample& body = frame.bodies[static_cast<std::size_t>( modelIndex )];
+        if ( body.modelIndex == modelIndex )
+        {
+            return &body;
+        }
+    }
+
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
         if ( body.modelIndex == modelIndex )
@@ -339,12 +358,9 @@ ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame
         return id;
     }
 
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
     {
-        if ( body.modelIndex == modelIndex )
-        {
-            return body.id;
-        }
+        return body->id;
     }
     return id;
 }
@@ -363,29 +379,17 @@ int ReplayRagdollTorsoModelIndexForPart( const std::vector<GameModel>& models, i
     }
 
     const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
-    bool isTorso = false;
-    std::size_t prefixLength = 0;
-    if ( !ReplayRagdollPartNameInfo( model.GetName(), isTorso, &prefixLength ) )
-    {
-        return modelIndex;
-    }
-    if ( isTorso )
+    if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
     {
         return modelIndex;
     }
 
-    const char* prefix = model.GetName();
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    const int rootModelIndex = model.GetRuntimeCollectionRootModelIndex();
+    if ( rootModelIndex >= 0 && rootModelIndex < static_cast<int>( models.size() ) &&
+         models[static_cast<std::size_t>( rootModelIndex )].GetRuntimeCollectionKind() ==
+             GameModelCollectionKind::SimpleRagdoll )
     {
-        bool candidateTorso = false;
-        std::size_t candidatePrefixLength = 0;
-        const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        if ( ReplayRagdollPartNameInfo( candidate.GetName(), candidateTorso, &candidatePrefixLength ) &&
-             candidateTorso && candidatePrefixLength == prefixLength &&
-             std::strncmp( candidate.GetName(), prefix, prefixLength ) == 0 )
-        {
-            return i;
-        }
+        return rootModelIndex;
     }
 
     return modelIndex;
@@ -418,6 +422,15 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
 
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
+    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
+    {
+        const ReplaySolverBodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
+        if ( body.modelIndex == modelIndex )
+        {
+            return &body;
+        }
+    }
+
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         if ( body.modelIndex == modelIndex )
@@ -2906,6 +2919,24 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         if ( modelName && modelName[0] != '\0' )
         {
             strncpy_s( pickedName, sizeof( pickedName ), modelName, _TRUNCATE );
+        }
+    }
+
+    if ( pickedIndex >= 0 && pickedIndex < static_cast<int>( models.size() ) )
+    {
+        const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( models, pickedIndex );
+        if ( collectionIndex >= 0 && collectionIndex < static_cast<int>( models.size() ) &&
+             collectionIndex != pickedIndex )
+        {
+            const GameModel& rootModel = models[static_cast<std::size_t>( collectionIndex )];
+            pickedIndex = collectionIndex;
+            pickedId.value = rootModel.GetReplayBodyId();
+            pickedName[0] = '\0';
+            const char* rootName = rootModel.GetName();
+            if ( rootName && rootName[0] != '\0' )
+            {
+                strncpy_s( pickedName, sizeof( pickedName ), rootName, _TRUNCATE );
+            }
         }
     }
 
