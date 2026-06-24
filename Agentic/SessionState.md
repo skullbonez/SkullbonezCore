@@ -45,6 +45,10 @@ audits when it is still useful.
   joint/sleep commands through `Physics::PhysicsEngine`; ragdoll body creation
   still uses `GameModelCollection` until model construction itself is lifted out
   of collection ownership.
+- Runtime run decomposition Phase 4C launcher migration added
+  `PhysicsEngine::ApplyBodyImpulse()` and routes launcher laser/projectile wake
+  operations through the physics facade while preserving collection-backed body
+  storage.
 
 ## Current Work Items
 

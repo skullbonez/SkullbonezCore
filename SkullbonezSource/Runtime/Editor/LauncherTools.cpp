@@ -277,8 +277,10 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
-    m_cGameModelCollection.WakeModel( modelHitIndex );
+    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( m_cGameModelCollection,
+                                                                modelHitIndex,
+                                                                rayDirection * m_rayCastTest.impulseStrength,
+                                                                hitPoint - model.GetPosition() );
     const float mass = (std::max)( 0.001f, model.GetMass() );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
     m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex,
@@ -333,7 +335,7 @@ void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDi
 
     const int projectileIndex = m_cGameModelCollection.GetModelCount();
     m_cGameModelCollection.AddGameModel( std::move( projectile ) );
-    m_cGameModelCollection.WakeModel( projectileIndex );
+    m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, projectileIndex );
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }
 

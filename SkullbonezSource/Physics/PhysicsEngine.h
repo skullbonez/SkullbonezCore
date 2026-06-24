@@ -46,6 +46,10 @@ class PhysicsEngine
     void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
     void WakeBody( GameObjects::GameModelCollection& collection, int bodyIndex );
     void SeedBodyAsleep( GameObjects::GameModelCollection& collection, int bodyIndex );
+    void ApplyBodyImpulse( GameObjects::GameModelCollection& collection,
+                           int bodyIndex,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

@@ -80,6 +80,16 @@ void PhysicsEngine::SeedBodyAsleep( GameModelCollection& collection, int bodyInd
 }
 
 
+void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection,
+                                      int bodyIndex,
+                                      const Math::Vector::Vector3& impulse,
+                                      const Math::Vector::Vector3& localApplicationPoint )
+{
+    collection.GetModelAtIndex( bodyIndex ).SetImpulseForce( impulse, localApplicationPoint );
+    WakeBody( collection, bodyIndex );
+}
+
+
 void PhysicsEngine::SetSleepEnabled( bool enabled )
 {
     m_scene.SetPhysicsSleepEnabled( enabled );
