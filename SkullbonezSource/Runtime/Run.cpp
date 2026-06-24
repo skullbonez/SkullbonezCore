@@ -170,7 +170,95 @@ LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample
 } // namespace
 
 
-Run::Run( std::vector<std::string> sceneQueue ) : m_sceneController( std::move( sceneQueue ) ), m_renderer( *this )
+RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
+{
+    RuntimeRenderHostBindings bindings;
+    bindings.systems = &m_systems;
+    bindings.debug = &m_debug;
+    bindings.timers = &m_timers;
+    bindings.runtimeSettings = &m_runtimeSettings;
+    bindings.gameModelCollection = &m_cGameModelCollection;
+    bindings.worldEnvironment = &m_cWorldEnvironment;
+    bindings.collisionVisualizer = &m_collisionVisualizer;
+    bindings.broadphaseVisualizer = &m_broadphaseVisualizer;
+    bindings.physicsDebugVisualizer = &m_physicsDebugVisualizer;
+    bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
+    bindings.rayCastTest = &m_rayCastTest;
+    bindings.editor = &m_editor;
+    bindings.mousePickup = &m_mousePickup;
+    bindings.replayScrubber = &m_replayScrubber;
+    bindings.replayPrediction = &m_replayPrediction;
+    bindings.replayFocusModelMask = &m_replayFocusModelMask;
+    bindings.replayPathVisualizer = &m_replayPathVisualizer;
+    bindings.replayCamera = &m_replayCamera;
+    bindings.replayVelocityEdit = &m_replayVelocityEdit;
+    bindings.launcherLaser = &m_launcherLaser;
+    bindings.ui = &m_UI;
+    bindings.runtimeInput = &m_runtimeInput;
+    bindings.camera = &m_camera;
+    bindings.runtimeViewModel = &m_runtimeViewModel;
+    bindings.sceneController = &m_sceneController;
+    bindings.sceneBrowserNamePtrs = &m_sceneBrowserNamePtrs;
+    bindings.selectedCineModeSceneIndex = &m_selectedCineModeSceneIndex;
+    return bindings;
+}
+
+
+RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
+{
+    RuntimeRenderHostCallbacks callbacks;
+    callbacks.user = this;
+    callbacks.activeCinematicConfig = []( void* user ) -> CinematicRenderConfig&
+    { return static_cast<Run*>( user )->ActiveCinematicConfig(); };
+    callbacks.isCinematicRenderingEnabled = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->IsCinematicRenderingEnabled(); };
+    callbacks.isLauncherCameraMode = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
+    callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t
+    { return static_cast<Run*>( user )->TextureHandle( textureHash ); };
+    callbacks.selectRenderTexture = []( void* user, uint32_t textureHash )
+    { static_cast<Run*>( user )->SelectRenderTexture( textureHash ); };
+    callbacks.windowScreenWidth = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenWidth(); };
+    callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
+    callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
+    { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
+    callbacks.currentReplayScrubSample = []( void* user ) -> const ReplayPresentationSample*
+    { return static_cast<Run*>( user )->CurrentReplayScrubSample(); };
+    callbacks.currentReplaySolverScrubSample = []( void* user ) -> const ReplaySolverFrameSample*
+    { return static_cast<Run*>( user )->CurrentReplaySolverScrubSample(); };
+    callbacks.currentReplayPredictionScrubFrame = []( void* user ) -> const RunReplayPredictionFrame*
+    { return static_cast<Run*>( user )->CurrentReplayPredictionScrubFrame(); };
+    callbacks.renderEditorOverlay = []( void* user,
+                                        const Math::Transformation::Matrix4& viewProjection,
+                                        const Math::Vector::Vector3& cameraEye,
+                                        const Math::Vector::Vector3& cameraUp )
+    { static_cast<Run*>( user )->RenderEditorOverlay( viewProjection, cameraEye, cameraUp ); };
+    callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
+    callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
+    callbacks.shouldRenderReplayScrubber = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->ShouldRenderReplayScrubber(); };
+    callbacks.renderReplayScrubberOverlay = []( void* user )
+    { static_cast<Run*>( user )->RenderReplayScrubberOverlay(); };
+    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
+    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
+    callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
+    { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
+    callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
+    { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
+    callbacks.buildReplayFocusModelMask = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->BuildReplayFocusModelMask(); };
+    callbacks.renderReplayPredictionGhosts = []( void* user,
+                                                 const RenderFrameContext& frame,
+                                                 const CinematicRenderConfig* cinematic,
+                                                 const Rendering::ShadowFrameData* shadow )
+    { static_cast<Run*>( user )->RenderReplayPredictionGhosts( frame, cinematic, shadow ); };
+    return callbacks;
+}
+
+
+Run::Run( std::vector<std::string> sceneQueue )
+    : m_sceneController( std::move( sceneQueue ) ),
+      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();

@@ -724,11 +724,9 @@ void Run::RenderReplayCauseTreeOverlay()
 
 bool UiTextPass::ShouldRender() const
 {
-    return m_run.RenderPassAccess().m_debug.isTextOnly || !m_run.RenderPassAccess().SceneState().isSceneMode ||
-           m_run.RenderPassAccess().SceneState().isSceneText ||
-           m_run.RenderPassAccess().m_debug.overlayMode != OverlayMode::None ||
-           m_run.RenderPassAccess().m_UI.IsVisible() || m_run.RenderPassAccess().ShouldRenderReplayScrubber() ||
-           m_run.RenderPassAccess().m_replayPathVisualizer.hasTarget;
+    return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
+           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
+           m_host.ShouldRenderReplayScrubber() || m_host.m_replayPathVisualizer.hasTarget;
 }
 
 
@@ -738,46 +736,44 @@ void UiTextPass::Render( double dSecondsPerFrame )
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
-    m_run.RenderPassAccess().m_timers.updateTimer.StopTimer();
-    m_run.RenderPassAccess().m_timers.timeSinceLastRender +=
-        static_cast<float>( m_run.RenderPassAccess().m_timers.updateTimer.GetElapsedTime() );
-    m_run.RenderPassAccess().m_timers.updateTimer.StartTimer();
+    m_host.m_timers.updateTimer.StopTimer();
+    m_host.m_timers.timeSinceLastRender += static_cast<float>( m_host.m_timers.updateTimer.GetElapsedTime() );
+    m_host.m_timers.updateTimer.StartTimer();
 
-    const double currentSceneEnergy = m_run.RenderPassAccess().m_cGameModelCollection.GetSceneKineticEnergy();
-    m_run.RenderPassAccess().m_timers.sceneEnergyAccumulator += currentSceneEnergy;
-    ++m_run.RenderPassAccess().m_timers.sceneEnergySampleCount;
+    const double currentSceneEnergy = m_host.m_cGameModelCollection.GetSceneKineticEnergy();
+    m_host.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++m_host.m_timers.sceneEnergySampleCount;
 
-    if ( m_run.RenderPassAccess().m_timers.timeSinceLastRender > 0.5f )
+    if ( m_host.m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
         {
-            m_run.RenderPassAccess().m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
-            m_run.RenderPassAccess().m_timers.rollingPhysicsTime = m_run.RenderPassAccess().m_timers.physicsTime;
-            m_run.RenderPassAccess().m_timers.rollingRenderTime = m_run.RenderPassAccess().m_timers.renderTime;
+            m_host.m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
+            m_host.m_timers.rollingPhysicsTime = m_host.m_timers.physicsTime;
+            m_host.m_timers.rollingRenderTime = m_host.m_timers.renderTime;
         }
-        if ( m_run.RenderPassAccess().m_timers.sceneEnergySampleCount > 0 )
+        if ( m_host.m_timers.sceneEnergySampleCount > 0 )
         {
-            m_run.RenderPassAccess().m_timers.rollingSceneEnergy =
-                static_cast<float>( m_run.RenderPassAccess().m_timers.sceneEnergyAccumulator /
-                                    static_cast<double>( m_run.RenderPassAccess().m_timers.sceneEnergySampleCount ) );
-            m_run.RenderPassAccess().m_timers.sceneEnergyAccumulator = 0.0;
-            m_run.RenderPassAccess().m_timers.sceneEnergySampleCount = 0;
+            m_host.m_timers.rollingSceneEnergy =
+                static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
+                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
+            m_host.m_timers.sceneEnergyAccumulator = 0.0;
+            m_host.m_timers.sceneEnergySampleCount = 0;
         }
-        m_run.RenderPassAccess().m_timers.timeSinceLastRender = 0.0f;
+        m_host.m_timers.timeSinceLastRender = 0.0f;
     }
 
-    float sceneEnergyForDisplay = m_run.RenderPassAccess().m_timers.rollingSceneEnergy;
-    if ( m_run.RenderPassAccess().m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    float sceneEnergyForDisplay = m_host.m_timers.rollingSceneEnergy;
+    if ( m_host.m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
     {
-        sceneEnergyForDisplay =
-            static_cast<float>( m_run.RenderPassAccess().m_timers.sceneEnergyAccumulator /
-                                static_cast<double>( m_run.RenderPassAccess().m_timers.sceneEnergySampleCount ) );
+        sceneEnergyForDisplay = static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
+                                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
     }
 
     const char* rendererName = Gfx().GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-    if ( m_run.RenderPassAccess().m_debug.isTextOnly )
+    if ( m_host.m_debug.isTextOnly )
     {
         // Dark background covering the full viewport
         Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
@@ -806,7 +802,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( m_run.RenderPassAccess().IsLauncherCameraMode() )
+    if ( m_host.IsLauncherCameraMode() )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;
@@ -821,17 +817,16 @@ void UiTextPass::Render( double dSecondsPerFrame )
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
         const char* fireModeLabel =
-            m_run.RenderPassAccess().m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
+            m_host.m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
 #ifdef _DEBUG
-        if ( m_run.RenderPassAccess().m_debug.reproSnapshotMessage[0] != '\0' &&
-             m_run.RenderPassAccess().m_timers.simulationTimer.GetTimeSinceLastStart() <=
-                 m_run.RenderPassAccess().m_debug.reproSnapshotMessageUntil )
+        if ( m_host.m_debug.reproSnapshotMessage[0] != '\0' &&
+             m_host.m_timers.simulationTimer.GetTimeSinceLastStart() <= m_host.m_debug.reproSnapshotMessageUntil )
         {
             const float msgSz = 0.014f;
-            float msgW = Text2d::MeasureText( msgSz, m_run.RenderPassAccess().m_debug.reproSnapshotMessage );
+            float msgW = Text2d::MeasureText( msgSz, m_host.m_debug.reproSnapshotMessage );
             Text2d::Render2dTextColor( -msgW * 0.5f,
                                        -0.065f,
                                        msgSz,
@@ -839,89 +834,80 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                        0.92f,
                                        1.0f,
                                        "%s",
-                                       m_run.RenderPassAccess().m_debug.reproSnapshotMessage );
+                                       m_host.m_debug.reproSnapshotMessage );
         }
 #endif
     }
 
-    m_run.RenderPassAccess().RefreshRuntimeViewModel();
-    const RuntimeViewModel& view = m_run.RenderPassAccess().m_runtimeViewModel;
+    m_host.RefreshRuntimeViewModel();
+    const RuntimeViewModel& view = m_host.m_runtimeViewModel;
 
     const char* sceneName = "";
-    if ( view.sceneMode && m_run.RenderPassAccess().m_sceneController.HasCurrentEntry() )
+    if ( view.sceneMode && m_host.m_sceneController.HasCurrentEntry() )
     {
-        sceneName = FileNameFromPath( m_run.RenderPassAccess().m_sceneController.CurrentPath()->c_str() );
+        sceneName = FileNameFromPath( m_host.m_sceneController.CurrentPath()->c_str() );
     }
 
-    if ( m_run.RenderPassAccess().m_UI.IsVisible() )
+    if ( m_host.m_UI.IsVisible() )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
-        UIData.screenW = m_run.RenderPassAccess().WindowScreenWidth();
-        UIData.screenH = m_run.RenderPassAccess().WindowScreenHeight();
-        if ( m_run.RenderPassAccess().m_debug.isUITestPattern )
+        UIData.screenW = m_host.WindowScreenWidth();
+        UIData.screenH = m_host.WindowScreenHeight();
+        if ( m_host.m_debug.isUITestPattern )
         {
             DrawUITestPattern( UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
-        UIData.sceneOptions = m_run.RenderPassAccess().m_sceneBrowserNamePtrs.empty()
-                                  ? nullptr
-                                  : m_run.RenderPassAccess().m_sceneBrowserNamePtrs.data();
-        UIData.sceneOptionCount = static_cast<int>( m_run.RenderPassAccess().m_sceneBrowserNamePtrs.size() );
-        UIData.selectedSceneOption = m_run.RenderPassAccess().CurrentSceneBrowserIndex();
-        UIData.selectedCineModeSceneOption = m_run.RenderPassAccess().m_selectedCineModeSceneIndex;
-        UIData.UIDrawCalls = m_run.RenderPassAccess().m_timers.lastUIDrawCalls;
-        UIData.fps = m_run.RenderPassAccess().m_timers.rollingFpsTime > 0.0f
-                         ? m_run.RenderPassAccess().m_timers.rollingFpsTime
+        UIData.sceneOptions = m_host.m_sceneBrowserNamePtrs.empty() ? nullptr : m_host.m_sceneBrowserNamePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_host.m_sceneBrowserNamePtrs.size() );
+        UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
+        UIData.selectedCineModeSceneOption = m_host.m_selectedCineModeSceneIndex;
+        UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
+        UIData.fps = m_host.m_timers.rollingFpsTime > 0.0f
+                         ? m_host.m_timers.rollingFpsTime
                          : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
-        UIData.renderMs = ( m_run.RenderPassAccess().m_timers.rollingRenderTime > 0.0f
-                                ? m_run.RenderPassAccess().m_timers.rollingRenderTime
-                                : m_run.RenderPassAccess().m_timers.renderTime ) *
+        UIData.renderMs = ( m_host.m_timers.rollingRenderTime > 0.0f ? m_host.m_timers.rollingRenderTime
+                                                                     : m_host.m_timers.renderTime ) *
                           1000.0f;
-        UIData.physicsMs = ( m_run.RenderPassAccess().m_timers.rollingPhysicsTime > 0.0f
-                                 ? m_run.RenderPassAccess().m_timers.rollingPhysicsTime
-                                 : m_run.RenderPassAccess().m_timers.physicsTime ) *
+        UIData.physicsMs = ( m_host.m_timers.rollingPhysicsTime > 0.0f ? m_host.m_timers.rollingPhysicsTime
+                                                                       : m_host.m_timers.physicsTime ) *
                            1000.0f;
-        UIData.cpuFrameMs = m_run.RenderPassAccess().m_timers.cpuFrameWorkMs;
-        UIData.gpuFrameMs = m_run.RenderPassAccess().m_timers.gpuFrameWorkMs;
+        UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
-        UIData.rngSeed = m_run.RenderPassAccess().SceneState().rngSeed;
-        UIData.solverBallCount = m_run.RenderPassAccess().SceneState().solverBallCount;
-        UIData.solverBoxCount = m_run.RenderPassAccess().SceneState().solverBoxCount;
+        UIData.rngSeed = m_host.SceneState().rngSeed;
+        UIData.solverBallCount = m_host.SceneState().solverBallCount;
+        UIData.solverBoxCount = m_host.SceneState().solverBoxCount;
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
-        UIData.now = m_run.RenderPassAccess().m_timers.simulationTimer.GetTotalTime();
+        UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
         UIData.sceneTextEnabled = view.sceneText;
-        UIData.textOnly = m_run.RenderPassAccess().m_debug.isTextOnly;
+        UIData.textOnly = m_host.m_debug.isTextOnly;
         UIData.fixedStep = view.fixedStep;
-        UIData.exitOnComplete = m_run.RenderPassAccess().SceneState().isExitOnComplete;
-        UIData.testComplete = m_run.RenderPassAccess().SceneState().isTestComplete;
-        UIData.vsyncEnabled = m_run.RenderPassAccess().m_runtimeSettings.isVsyncEnabled;
-        UIData.pipelineSyncEnabled = m_run.RenderPassAccess().m_runtimeSettings.isPipelineSyncEnabled;
+        UIData.exitOnComplete = m_host.SceneState().isExitOnComplete;
+        UIData.testComplete = m_host.SceneState().isTestComplete;
+        UIData.vsyncEnabled = m_host.m_runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = m_host.m_runtimeSettings.isPipelineSyncEnabled;
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
-        UIData.trackHeight = m_run.RenderPassAccess().m_camera.trackBallIndex >= 0
-                                 ? m_run.RenderPassAccess().m_camera.trackHeight
-                                 : 0.0f;
-        UIData.autoCycleInterval = m_run.RenderPassAccess().m_camera.autoCycleInterval > 0.0f
-                                       ? m_run.RenderPassAccess().m_camera.autoCycleInterval
-                                       : 0.0f;
-        UIData.worldGravity = m_run.RenderPassAccess().m_cWorldEnvironment.GetGravity();
-        UIData.worldFluidHeight = m_run.RenderPassAccess().m_cWorldEnvironment.GetFluidSurfaceHeight();
-        UIData.worldFluidDensity = m_run.RenderPassAccess().m_cWorldEnvironment.GetFluidDensity();
-        UIData.physicsDebugFlags = m_run.RenderPassAccess().m_debug.physicsDebugFlags;
+        UIData.trackHeight = m_host.m_camera.trackBallIndex >= 0 ? m_host.m_camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = m_host.m_camera.autoCycleInterval > 0.0f ? m_host.m_camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = m_host.m_cWorldEnvironment.GetGravity();
+        UIData.worldFluidHeight = m_host.m_cWorldEnvironment.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = m_host.m_cWorldEnvironment.GetFluidDensity();
+        UIData.physicsDebugFlags = m_host.m_debug.physicsDebugFlags;
         {
             const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-            int stageIndex =
-                stageCount > 0 ? m_run.RenderPassAccess().m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            int stageIndex = stageCount > 0 ? m_host.m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
             if ( stageIndex < 0 )
             {
                 stageIndex += stageCount;
@@ -931,51 +917,50 @@ void UiTextPass::Render( double dSecondsPerFrame )
             UIData.physicsPipelineStageIndex = stageIndex;
             UIData.physicsPipelineStageCount = stageCount;
         }
-        UIData.physicsDebugAlpha = m_run.RenderPassAccess().m_debug.physicsDebugAlpha;
-        UIData.physicsDebugContactLinger = m_run.RenderPassAccess().m_debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = m_run.RenderPassAccess().m_runtimeSettings.isPhysicsSleepEnabled;
-        UIData.collisionVisualizer = m_run.RenderPassAccess().m_debug.isCollisionVisualizer;
-        UIData.physicsDebugTransparent = m_run.RenderPassAccess().m_debug.isPhysicsDebugTransparent;
-        UIData.broadphaseOverlay = m_run.RenderPassAccess().m_debug.isBroadphaseOverlay;
-        UIData.tornadoEnabled = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.enabled;
-        UIData.tornadoVisualShell = m_run.RenderPassAccess().m_runtimeSettings.tornadoVisual.enabled &&
-                                    m_run.RenderPassAccess().m_runtimeSettings.tornadoField.enabled;
-        UIData.tornadoFieldVectors = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.visualizeVelocityField;
-        UIData.tornadoRadius = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.radius;
-        UIData.tornadoHeight = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.height;
-        UIData.tornadoInwardAcceleration = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.inwardAcceleration;
-        UIData.tornadoSwirlAcceleration = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.swirlAcceleration;
-        UIData.tornadoLiftAcceleration = m_run.RenderPassAccess().m_runtimeSettings.tornadoField.liftAcceleration;
-        UIData.rayCastVisualization = m_run.RenderPassAccess().m_rayCastTest.visualizeRays;
-        UIData.rayCastImpulseStrength = m_run.RenderPassAccess().m_rayCastTest.impulseStrength;
-        UIData.launcherProjectileSpeed = m_run.RenderPassAccess().m_rayCastTest.projectileSpeed;
-        UIData.waterFreezeDebug = m_run.RenderPassAccess().m_debug.isWaterFreezeDebug;
-        UIData.waterFlatDebug = m_run.RenderPassAccess().m_debug.isWaterFlatDebug;
-        UIData.terrainHidden = m_run.RenderPassAccess().m_debug.isTerrainHidden;
-        UIData.waterHidden = m_run.RenderPassAccess().m_debug.isWaterHidden;
-        UIData.waterNoReflect = m_run.RenderPassAccess().m_debug.isWaterNoReflect;
-        UIData.waterRTReflect = m_run.RenderPassAccess().m_debug.isWaterRTReflect;
-        const RuntimeInputMode runtimeInputMode = m_run.RenderPassAccess().m_runtimeInput.CurrentMode();
-        UIData.cameraModeIndex = static_cast<int>( m_run.RenderPassAccess().m_camera.mode );
-        UIData.cameraModeEnabledMask = m_run.RenderPassAccess().CameraModeEnabledMask();
-        UIData.runtimeInputModeLabel =
-            m_run.RenderPassAccess().CameraModeLabel( m_run.RenderPassAccess().m_camera.mode );
+        UIData.physicsDebugAlpha = m_host.m_debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = m_host.m_debug.physicsDebugContactLinger;
+        UIData.physicsSleepEnabled = m_host.m_runtimeSettings.isPhysicsSleepEnabled;
+        UIData.collisionVisualizer = m_host.m_debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = m_host.m_debug.isPhysicsDebugTransparent;
+        UIData.broadphaseOverlay = m_host.m_debug.isBroadphaseOverlay;
+        UIData.tornadoEnabled = m_host.m_runtimeSettings.tornadoField.enabled;
+        UIData.tornadoVisualShell =
+            m_host.m_runtimeSettings.tornadoVisual.enabled && m_host.m_runtimeSettings.tornadoField.enabled;
+        UIData.tornadoFieldVectors = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField;
+        UIData.tornadoRadius = m_host.m_runtimeSettings.tornadoField.radius;
+        UIData.tornadoHeight = m_host.m_runtimeSettings.tornadoField.height;
+        UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
+        UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
+        UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
+        UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
+        UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
+        UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
+        UIData.waterFreezeDebug = m_host.m_debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = m_host.m_debug.isWaterFlatDebug;
+        UIData.terrainHidden = m_host.m_debug.isTerrainHidden;
+        UIData.waterHidden = m_host.m_debug.isWaterHidden;
+        UIData.waterNoReflect = m_host.m_debug.isWaterNoReflect;
+        UIData.waterRTReflect = m_host.m_debug.isWaterRTReflect;
+        const RuntimeInputMode runtimeInputMode = m_host.m_runtimeInput.CurrentMode();
+        UIData.cameraModeIndex = static_cast<int>( m_host.m_camera.mode );
+        UIData.cameraModeEnabledMask = m_host.CameraModeEnabledMask();
+        UIData.runtimeInputModeLabel = m_host.CameraModeLabel( m_host.m_camera.mode );
         UIData.cameraMouseActive =
             ( runtimeInputMode == RuntimeInputMode::FlyCamera || runtimeInputMode == RuntimeInputMode::Launcher ||
               runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&
-            !m_run.RenderPassAccess().m_UI.BlocksCameraMouse();
+            !m_host.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.editorModeEnabled = m_run.RenderPassAccess().m_editor.editorModeEnabled;
-        UIData.editorPlacementMode = m_run.RenderPassAccess().m_editor.placementModeEnabled;
-        UIData.editorPlaceStatic = m_run.RenderPassAccess().m_editor.placeStaticObject;
-        UIData.editorTerrainAlign = m_run.RenderPassAccess().m_editor.autoTerrainAlign;
-        UIData.editorViewportLookActive = m_run.RenderPassAccess().m_editor.viewportLookActive;
-        UIData.editorObjectType = m_run.RenderPassAccess().m_editor.objectType;
-        UIData.canSaveSceneDefaults = view.sceneMode && m_run.RenderPassAccess().m_sceneController.HasCurrentEntry() &&
-                                      !m_run.RenderPassAccess().m_sceneController.CurrentPath()->empty();
-        UIData.cinematicRendering = m_run.RenderPassAccess().IsCinematicRenderingEnabled();
+        UIData.editorModeEnabled = m_host.m_editor.editorModeEnabled;
+        UIData.editorPlacementMode = m_host.m_editor.placementModeEnabled;
+        UIData.editorPlaceStatic = m_host.m_editor.placeStaticObject;
+        UIData.editorTerrainAlign = m_host.m_editor.autoTerrainAlign;
+        UIData.editorViewportLookActive = m_host.m_editor.viewportLookActive;
+        UIData.editorObjectType = m_host.m_editor.objectType;
+        UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
+                                      !m_host.m_sceneController.CurrentPath()->empty();
+        UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
         UIData.ordinaryRender = Cfg().ordinaryRender;
-        UIData.cinematic = m_run.RenderPassAccess().ActiveCinematicConfig();
+        UIData.cinematic = m_host.ActiveCinematicConfig();
         {
             auto addPreview = [&]( const char* label,
                                    uint32_t textureHandle,
@@ -1019,7 +1004,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
                             hdr );
             };
 
-            const RunRenderPassResources& passes = m_run.RenderPassAccess().m_systems.renderPasses;
+            const RunRenderPassResources& passes = m_host.m_systems.renderPasses;
             const bool shadowsAvailable =
                 UIData.cinematicRendering ? UIData.cinematic.shadowsEnabled : UIData.ordinaryRender.shadowsEnabled;
             const bool cinematicTargetsAvailable = UIData.cinematicRendering;
@@ -1059,8 +1044,8 @@ void UiTextPass::Render( double dSecondsPerFrame )
             const uint32_t dxrReflection = IsGfxReady() ? Gfx().GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
-                        m_run.RenderPassAccess().WindowScreenWidth() * 2,
-                        m_run.RenderPassAccess().WindowScreenHeight() * 2,
+                        m_host.WindowScreenWidth() * 2,
+                        m_host.WindowScreenHeight() * 2,
                         UIData.waterRTReflect && !UIData.waterNoReflect,
                         false,
                         false );
@@ -1074,21 +1059,21 @@ void UiTextPass::Render( double dSecondsPerFrame )
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_run.RenderPassAccess().m_UI.Draw( UIData );
+        m_host.m_UI.Draw( UIData );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         return;
     }
 
     // --- Overlay: None ---
-    if ( m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::None )
+    if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText();
@@ -1097,7 +1082,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
     }
 
     // --- Overlay: Scene telemetry ---
-    if ( m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::SceneStats )
+    if ( m_host.m_debug.overlayMode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.012f;
@@ -1125,7 +1110,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    0.85f,
                                    "Model Count: %d",
-                                   m_run.RenderPassAccess().SceneState().modelCount );
+                                   m_host.SceneState().modelCount );
         Text2d::Render2dTextColor( panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH * 2.0f,
                                    entrySz,
@@ -1134,7 +1119,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText();
@@ -1144,8 +1129,8 @@ void UiTextPass::Render( double dSecondsPerFrame )
 
     // --- Overlay: Visual profiler bars (normalized or absolute) ---
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::BarsNormalized ||
-         m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::BarsAbsolute )
+    if ( m_host.m_debug.overlayMode == OverlayMode::BarsNormalized ||
+         m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute )
     {
         // Panel anchored bottom-left, filling most of the width. Height kept modest - leave vertical
         // space above for future multi-core stacked rows.
@@ -1153,9 +1138,9 @@ void UiTextPass::Render( double dSecondsPerFrame )
         const float panH = ( hh - mY ) * 2.0f * 0.22f; // 22% of screen height
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
-        const bool absolute = ( m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::BarsAbsolute );
+        const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
-        m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText();
@@ -1165,7 +1150,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
 #endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
-    if ( m_run.RenderPassAccess().m_debug.overlayMode == OverlayMode::Keys )
+    if ( m_host.m_debug.overlayMode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
@@ -1243,7 +1228,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText();
@@ -1264,11 +1249,11 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                             -( hh - mY ) - padY,
                                             lineH,
                                             profFSz,
-                                            m_run.RenderPassAccess().m_timers.rollingFpsTime );
+                                            m_host.m_timers.rollingFpsTime );
     }
 #endif
 
-    m_run.RenderPassAccess().RenderReplayScrubberOverlay();
+    m_host.RenderReplayScrubberOverlay();
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText();

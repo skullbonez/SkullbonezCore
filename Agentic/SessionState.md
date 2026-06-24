@@ -14,7 +14,7 @@ audits when it is still useful.
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 render-input plumbing is covered by `tools\validate_fast.bat` and direct `python tools\validate_project_filters.py`; logs are in `Agentic\Logs\runtime_run_phase1_validate_fast.log` and `Agentic\Logs\runtime_run_phase1_validate_project_filters.log`. Phase 2A render pass contract promotion is covered by `tools\validate_fast.bat`, direct `python tools\validate_project_filters.py`, and `tools\validate_dx12_renderer.bat` using the freshly built Profile binary; logs are in `Agentic\Logs\runtime_run_phase2a_validate_fast.log`, `Agentic\Logs\runtime_run_phase2a_validate_project_filters.log`, and `Agentic\Logs\runtime_run_phase2a_validate_dx12_renderer_prebuilt.log`. Phase 2B RuntimeRenderer ownership is covered by `tools\validate_full.bat`; log is in `Agentic\Logs\runtime_run_phase2b_validate_full.log`. |
+| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 render-input plumbing is covered by `tools\validate_fast.bat` and direct `python tools\validate_project_filters.py`; logs are in `Agentic\Logs\runtime_run_phase1_validate_fast.log` and `Agentic\Logs\runtime_run_phase1_validate_project_filters.log`. Phase 2A render pass contract promotion is covered by `tools\validate_fast.bat`, direct `python tools\validate_project_filters.py`, and `tools\validate_dx12_renderer.bat` using the freshly built Profile binary; logs are in `Agentic\Logs\runtime_run_phase2a_validate_fast.log`, `Agentic\Logs\runtime_run_phase2a_validate_project_filters.log`, and `Agentic\Logs\runtime_run_phase2a_validate_dx12_renderer_prebuilt.log`. Phase 2B RuntimeRenderer ownership is covered by `tools\validate_full.bat`; log is in `Agentic\Logs\runtime_run_phase2b_validate_full.log`. Phase 2C render dependency narrowing is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase2c_profile_build.log`, `TestOutput\validation\phase2c_project_filters.log`, `TestOutput\validation\phase2c_validate_format.log`, and `TestOutput\validation\phase2c_validate_full.log`. |
 
 ## Active Notes
 
@@ -36,6 +36,11 @@ audits when it is still useful.
   answer or handoff.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md`.
+- Runtime run decomposition Phase 2C removed direct `Run&` ownership from
+  `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
+  still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,
+  timing, world, and model state. Later phases should narrow those services
+  instead of treating the host as a final renderer boundary.
 
 ## Current Work Items
 

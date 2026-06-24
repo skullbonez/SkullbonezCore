@@ -62,6 +62,7 @@ Related:
 #include "EngineContext.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
+#include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
 #include "RuntimeViewModel.h"
@@ -920,6 +921,7 @@ class Run
     EngineContext m_engineContext;                                               // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                         // Scalar runtime snapshot for presentation/diagnostics.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
+    RuntimeRenderHost m_renderHost;                                              // Explicit render-facing service view over Run-owned state.
     RuntimeRenderer m_renderer;                                                  // Owns runtime render passes and frame render ordering.
 
     inline static int sPerfPass = 0;
@@ -990,12 +992,10 @@ class Run
                                         const std::string& relativePath );       // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
     void DrawPrimitives();                                                       // Thin compatibility wrapper around RuntimeRenderer::RenderFrame().
+    RuntimeRenderHostBindings BuildRuntimeRenderHostBindings();
+    RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
     RuntimeRenderServices BuildRuntimeRenderServices();
     RuntimeRenderInputs BuildRuntimeRenderInputs();
-    RenderFrameContext BuildRenderFrameContext(
-        const RuntimeRenderInputs& renderInputs,
-        bool cinematicRender,
-        const CinematicRenderConfig& renderConfig );                             // Names per-frame camera/light inputs consumed by render passes
     CinematicRenderConfig& ActiveCinematicConfig();                              // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                  // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                    // True when the HDR/post stack should wrap the main scene
@@ -1329,162 +1329,6 @@ class Run
 #endif
 
   public:
-    // Temporary Phase 2 bridge: render passes still borrow Run while their
-    // declarations move out of this header. Phase 2B/2C should narrow and remove
-    // this mutable view as RuntimeRenderer receives explicit services.
-    class RenderPassAccessView
-    {
-      public:
-        explicit RenderPassAccessView( Run& run )
-            : m_run( run ), m_systems( run.m_systems ), m_debug( run.m_debug ), m_timers( run.m_timers ),
-              m_runtimeSettings( run.m_runtimeSettings ), m_cGameModelCollection( run.m_cGameModelCollection ),
-              m_cWorldEnvironment( run.m_cWorldEnvironment ), m_collisionVisualizer( run.m_collisionVisualizer ),
-              m_broadphaseVisualizer( run.m_broadphaseVisualizer ),
-              m_physicsDebugVisualizer( run.m_physicsDebugVisualizer ),
-              m_dxrReflectionTransforms( run.m_dxrReflectionTransforms ), m_rayCastTest( run.m_rayCastTest ),
-              m_editor( run.m_editor ), m_mousePickup( run.m_mousePickup ), m_replayScrubber( run.m_replayScrubber ),
-              m_replayPrediction( run.m_replayPrediction ), m_replayFocusModelMask( run.m_replayFocusModelMask ),
-              m_replayPathVisualizer( run.m_replayPathVisualizer ), m_replayCamera( run.m_replayCamera ),
-              m_replayVelocityEdit( run.m_replayVelocityEdit ), m_launcherLaser( run.m_launcherLaser ),
-              m_UI( run.m_UI ), m_runtimeInput( run.m_runtimeInput ), m_camera( run.m_camera ),
-              m_runtimeViewModel( run.m_runtimeViewModel ), m_sceneController( run.m_sceneController ),
-              m_sceneBrowserNamePtrs( run.m_sceneBrowserNamePtrs ),
-              m_selectedCineModeSceneIndex( run.m_selectedCineModeSceneIndex )
-        {
-        }
-
-        CinematicRenderConfig& ActiveCinematicConfig()
-        {
-            return m_run.ActiveCinematicConfig();
-        }
-        bool IsCinematicRenderingEnabled() const
-        {
-            return m_run.IsCinematicRenderingEnabled();
-        }
-        bool IsLauncherCameraMode() const
-        {
-            return m_run.IsLauncherCameraMode();
-        }
-        uint32_t TextureHandle( uint32_t textureHash )
-        {
-            return m_run.TextureHandle( textureHash );
-        }
-        void SelectRenderTexture( uint32_t textureHash )
-        {
-            m_run.SelectRenderTexture( textureHash );
-        }
-        int WindowScreenWidth() const
-        {
-            return m_run.WindowScreenWidth();
-        }
-        int WindowScreenHeight() const
-        {
-            return m_run.WindowScreenHeight();
-        }
-        void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
-        {
-            m_run.LogRenderResourceLifecycleStep( phase, step );
-        }
-        const ReplayPresentationSample* CurrentReplayScrubSample() const
-        {
-            return m_run.CurrentReplayScrubSample();
-        }
-        const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const
-        {
-            return m_run.CurrentReplaySolverScrubSample();
-        }
-        const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const
-        {
-            return m_run.CurrentReplayPredictionScrubFrame();
-        }
-        void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection,
-                                  const Math::Vector::Vector3& cameraEye,
-                                  const Math::Vector::Vector3& cameraUp )
-        {
-            m_run.RenderEditorOverlay( viewProjection, cameraEye, cameraUp );
-        }
-        void RefreshRuntimeViewModel()
-        {
-            m_run.RefreshRuntimeViewModel();
-        }
-        const RunSceneState& SceneState() const
-        {
-            return m_run.SceneState();
-        }
-        bool ShouldRenderReplayScrubber() const
-        {
-            return m_run.ShouldRenderReplayScrubber();
-        }
-        void RenderReplayScrubberOverlay()
-        {
-            m_run.RenderReplayScrubberOverlay();
-        }
-        int CurrentSceneBrowserIndex() const
-        {
-            return m_run.CurrentSceneBrowserIndex();
-        }
-        uint32_t CameraModeEnabledMask() const
-        {
-            return m_run.CameraModeEnabledMask();
-        }
-        const char* CameraModeLabel( RunCameraMode mode ) const
-        {
-            return m_run.CameraModeLabel( mode );
-        }
-        RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
-                                                    bool cinematicRender,
-                                                    const CinematicRenderConfig& renderConfig )
-        {
-            return m_run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
-        }
-        bool BuildReplayFocusModelMask()
-        {
-            return m_run.BuildReplayFocusModelMask();
-        }
-        void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
-                                           const CinematicRenderConfig* cinematic,
-                                           const Rendering::ShadowFrameData* shadow )
-        {
-            m_run.RenderReplayPredictionGhosts( frame, cinematic, shadow );
-        }
-
-        RunSubsystemState& m_systems;
-        RunDebugState& m_debug;
-        RunTimerState& m_timers;
-        RunRuntimeSettings& m_runtimeSettings;
-        GameObjects::GameModelCollection& m_cGameModelCollection;
-        Environment::WorldEnvironment& m_cWorldEnvironment;
-        Physics::CollisionVisualizer& m_collisionVisualizer;
-        Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
-        Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-        std::array<float, MAX_GAME_MODELS * 16>& m_dxrReflectionTransforms;
-        RunRayCastTestState& m_rayCastTest;
-        RunEditorPlacementState& m_editor;
-        RunMousePickupState& m_mousePickup;
-        RunReplayScrubberState& m_replayScrubber;
-        RunReplayPredictionState& m_replayPrediction;
-        std::vector<uint8_t>& m_replayFocusModelMask;
-        RunReplayPathVisualizerState& m_replayPathVisualizer;
-        RunReplayCameraState& m_replayCamera;
-        RunReplayVelocityEditState& m_replayVelocityEdit;
-        LauncherLaser& m_launcherLaser;
-        UI::InGameUI& m_UI;
-        RuntimeInputContext& m_runtimeInput;
-        RunCameraState& m_camera;
-        RuntimeViewModel& m_runtimeViewModel;
-        SceneController& m_sceneController;
-        std::vector<const char*>& m_sceneBrowserNamePtrs;
-        int& m_selectedCineModeSceneIndex;
-
-      private:
-        Run& m_run;
-    };
-
-    RenderPassAccessView RenderPassAccess()
-    {
-        return RenderPassAccessView( *this );
-    }
-
     Run( std::vector<std::string> sceneQueue );                                  // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                           // Initialises shared resources and loads first scene

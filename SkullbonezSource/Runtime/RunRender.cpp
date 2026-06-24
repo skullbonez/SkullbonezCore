@@ -32,7 +32,8 @@ Invariants:
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h declares pass contracts and resources.
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
+  - SkullbonezSource/Runtime/Run.h owns the runtime state borrowed by RuntimeRenderHost.
   - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
@@ -426,9 +427,9 @@ RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
 }
 
 
-RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
-                                                 bool cinematicRender,
-                                                 const CinematicRenderConfig& renderConfig )
+RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                             bool cinematicRender,
+                                                             const CinematicRenderConfig& renderConfig ) const
 {
     const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
@@ -469,11 +470,11 @@ RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& rend
 }
 
 
-RuntimeRenderer::RuntimeRenderer( Run& run )
-    : m_run( run ), m_fullscreenQuadPass( run ), m_skyPass( run ), m_sceneTargetPass( run ), m_shadowPass( run ),
-      m_reflectionPass( run ), m_objectPass( run ), m_terrainPass( run ), m_waterPass( run ),
-      m_tornadoVisualPass( run ), m_debugOverlayPass( run ), m_volumetricPass( run ), m_tonemapPass( run ),
-      m_uiTextPass( run )
+RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
+    : m_host( host ), m_fullscreenQuadPass( host ), m_skyPass( host ), m_sceneTargetPass( host ), m_shadowPass( host ),
+      m_reflectionPass( host ), m_objectPass( host ), m_terrainPass( host ), m_waterPass( host ),
+      m_tornadoVisualPass( host ), m_debugOverlayPass( host ), m_volumetricPass( host ), m_tonemapPass( host ),
+      m_uiTextPass( host )
 {
 }
 
@@ -482,13 +483,12 @@ void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInp
                                             bool cinematicRender,
                                             const CinematicRenderConfig& renderConfig )
 {
-    Run::RenderPassAccessView run = m_run.RenderPassAccess();
     if ( cinematicRender )
     {
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
-        RenderFrameContext preFrame = run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+        RenderFrameContext preFrame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
         m_fullscreenQuadPass.EnsureGpuResources( preFrame );
         m_skyPass.EnsureGpuResources( preFrame );
         m_sceneTargetPass.EnsureGpuResources( preFrame );
@@ -500,9 +500,9 @@ void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInp
 
 void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
-    Run::RenderPassAccessView run = m_run.RenderPassAccess();
-    const bool cinematicRender = run.IsCinematicRenderingEnabled();
-    const CinematicRenderConfig& renderConfig = run.ActiveCinematicConfig();
+    RuntimeRenderHost& host = m_host;
+    const bool cinematicRender = host.IsCinematicRenderingEnabled();
+    const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
@@ -518,7 +518,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !run.m_debug.isTextOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !host.m_debug.isTextOnly;
 
     EnsureFrameResources( renderInputs, cinematicRender, renderConfig );
 
@@ -532,10 +532,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
-    RenderFrameContext frame = run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+    RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    run.m_cGameModelCollection.PrepareRenderStreams();
+    host.m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
@@ -560,18 +560,19 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
-    const bool collisionStateColorsVisible = run.m_debug.isCollisionVisualizer;
-    const bool debugTransparentBodyPass = run.m_debug.isPhysicsDebugTransparent && run.m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = run.m_replayPrediction.enabled;
+    const bool collisionStateColorsVisible = host.m_debug.isCollisionVisualizer;
+    const bool debugTransparentBodyPass =
+        host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
+    const bool replayPredictionOverlayActive = host.m_replayPrediction.enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
-                                       !debugTransparentBodyPass && run.BuildReplayFocusModelMask();
-    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &run.m_replayFocusModelMask : nullptr;
+                                       !debugTransparentBodyPass && host.BuildReplayFocusModelMask();
+    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &host.m_replayFocusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
-    const float bodyRenderAlpha = debugTransparentBodyPass ? run.m_debug.physicsDebugAlpha : 1.0f;
+    const float bodyRenderAlpha = debugTransparentBodyPass ? host.m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
-    const bool waterVisibleThisFrame = !run.m_debug.isWaterHidden && !waterModeOff;
-    const bool reflectionPassNeeded = waterVisibleThisFrame && !run.m_debug.isWaterNoReflect;
+    const bool waterVisibleThisFrame = !host.m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !host.m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -630,11 +631,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     m_waterPass.Render( { frame,
                           reflection,
                           activeCinematic,
-                          run.m_debug.isWaterHidden,
-                          run.m_debug.isWaterFlatDebug,
-                          run.m_debug.isWaterNoReflect,
-                          run.m_debug.isWaterFreezeDebug,
-                          run.m_debug.frozenWaterTime } );
+                          host.m_debug.isWaterHidden,
+                          host.m_debug.isWaterFlatDebug,
+                          host.m_debug.isWaterNoReflect,
+                          host.m_debug.isWaterFreezeDebug,
+                          host.m_debug.frozenWaterTime } );
 
     const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
 
@@ -663,7 +664,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                false } );
     }
 
-    run.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
+    host.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
 
     m_debugOverlayPass.Render( { frame } );
 
@@ -682,7 +683,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;
     frameSnapshot.objectTransparentPass = transparentBodyPass;
-    frameSnapshot.terrainPassRendered = !run.m_debug.isTerrainHidden;
+    frameSnapshot.terrainPassRendered = !host.m_debug.isTerrainHidden;
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =

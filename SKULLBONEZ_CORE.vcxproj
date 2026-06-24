@@ -329,6 +329,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.h" />

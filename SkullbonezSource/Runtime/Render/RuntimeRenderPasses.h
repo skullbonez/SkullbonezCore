@@ -4,18 +4,17 @@ Purpose:
   Declares the named runtime render pass contracts.
 
 Mental model:
-  Runtime render passes are small frame-order units that still borrow Run during
-  extraction. The declarations live outside Run so ownership can move to
-  RuntimeRenderer without making Run.h grow for each pass.
+  Runtime render passes are small frame-order units that borrow the explicit
+  RuntimeRenderHost service view. The declarations live outside Run so pass
+  ownership stays with RuntimeRenderer instead of growing Run.h.
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
-  - Pass constructors may temporarily receive Run& until RuntimeRenderer owns
-    explicit render services.
+  - Pass constructors receive RuntimeRenderHost so non-render dependencies stay named.
   - Pass order is owned by RuntimeRenderer::RenderFrame.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/RunPasses.cpp
   - SkullbonezSource/Runtime/RunRender.cpp
   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -36,7 +35,7 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-class Run;
+class RuntimeRenderHost;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
@@ -212,7 +211,7 @@ struct ShadowPassOutput
 class FullscreenQuadPass
 {
   public:
-    explicit FullscreenQuadPass( Run& run ) : m_run( run )
+    explicit FullscreenQuadPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -221,7 +220,7 @@ class FullscreenQuadPass
     uint32_t QuadVB() const;
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- SkyPass
@@ -234,7 +233,7 @@ class FullscreenQuadPass
 class SkyPass
 {
   public:
-    explicit SkyPass( Run& run ) : m_run( run )
+    explicit SkyPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -245,7 +244,7 @@ class SkyPass
   private:
     void RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view );
 
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- SceneTargetPass
@@ -258,7 +257,7 @@ class SkyPass
 class SceneTargetPass
 {
   public:
-    explicit SceneTargetPass( Run& run ) : m_run( run )
+    explicit SceneTargetPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -268,7 +267,7 @@ class SceneTargetPass
     void Begin( const RenderFrameContext& frame, SkyPass& skyPass );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- ShadowPass
@@ -281,7 +280,7 @@ class SceneTargetPass
 class ShadowPass
 {
   public:
-    explicit ShadowPass( Run& run ) : m_run( run )
+    explicit ShadowPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -304,7 +303,7 @@ class ShadowPass
                           Rendering::IRenderSceneView& scene,
                           const Rendering::ShadowCasterBatches* objectCasters );
 
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- ReflectionPass
@@ -317,7 +316,7 @@ class ShadowPass
 class ReflectionPass
 {
   public:
-    explicit ReflectionPass( Run& run ) : m_run( run )
+    explicit ReflectionPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -326,7 +325,7 @@ class ReflectionPass
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs, SkyPass& skyPass );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- ObjectPass
@@ -339,7 +338,7 @@ class ReflectionPass
 class ObjectPass
 {
   public:
-    explicit ObjectPass( Run& run ) : m_run( run )
+    explicit ObjectPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -348,7 +347,7 @@ class ObjectPass
     void Render( const ObjectPassInputs& inputs );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- TerrainPass
@@ -360,7 +359,7 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    explicit TerrainPass( Run& run ) : m_run( run )
+    explicit TerrainPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -369,7 +368,7 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- WaterPass
@@ -381,7 +380,7 @@ class TerrainPass
 class WaterPass
 {
   public:
-    explicit WaterPass( Run& run ) : m_run( run )
+    explicit WaterPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -394,7 +393,7 @@ class WaterPass
     }
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
     WaterPassDebugInfo m_debugInfo;
 };
 
@@ -407,7 +406,7 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( Run& run ) : m_run( run )
+    explicit TornadoVisualPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -416,7 +415,7 @@ class TornadoVisualPass
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
@@ -434,7 +433,7 @@ class TornadoVisualPass
 class DebugOverlayPass
 {
   public:
-    explicit DebugOverlayPass( Run& run ) : m_run( run )
+    explicit DebugOverlayPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -445,7 +444,7 @@ class DebugOverlayPass
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
 
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- VolumetricPass
@@ -457,7 +456,7 @@ class DebugOverlayPass
 class VolumetricPass
 {
   public:
-    explicit VolumetricPass( Run& run ) : m_run( run )
+    explicit VolumetricPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -466,7 +465,7 @@ class VolumetricPass
     bool Render( const RenderFrameContext& frame );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- TonemapPass
@@ -479,7 +478,7 @@ class VolumetricPass
 class TonemapPass
 {
   public:
-    explicit TonemapPass( Run& run ) : m_run( run )
+    explicit TonemapPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -488,7 +487,7 @@ class TonemapPass
     void Render( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 /* -- UiTextPass
@@ -501,7 +500,7 @@ class TonemapPass
 class UiTextPass
 {
   public:
-    explicit UiTextPass( Run& run ) : m_run( run )
+    explicit UiTextPass( RuntimeRenderHost& host ) : m_host( host )
     {
     }
 
@@ -511,7 +510,7 @@ class UiTextPass
     void Render( double secondsPerFrame );
 
   private:
-    Run& m_run;
+    RuntimeRenderHost& m_host;
 };
 
 } // namespace Basics

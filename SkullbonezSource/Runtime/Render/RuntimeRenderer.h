@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   RuntimeRenderer is the Phase 2 ownership shell around the existing pass graph.
-  It owns pass objects and the frame pass order, while the passes temporarily
-  borrow Run through the migration bridge until Phase 2C narrows those inputs.
+  It owns pass objects and the frame pass order, while the passes borrow named
+  services through RuntimeRenderHost.
 
 Invariants:
   - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
@@ -20,6 +20,7 @@ Related:
 */
 #pragma once
 
+#include "RuntimeRenderHost.h"
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
 
@@ -27,12 +28,10 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-class Run;
-
 class RuntimeRenderer
 {
   public:
-    explicit RuntimeRenderer( Run& run );
+    explicit RuntimeRenderer( RuntimeRenderHost& host );
 
     void EnsureFrameResources( const RuntimeRenderInputs& renderInputs,
                                bool cinematicRender,
@@ -45,7 +44,11 @@ class RuntimeRenderer
     void RenderUiText( double dSecondsPerFrame );
 
   private:
-    Run& m_run;
+    RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                bool cinematicRender,
+                                                const CinematicRenderConfig& renderConfig ) const;
+
+    RuntimeRenderHost& m_host;
     FullscreenQuadPass m_fullscreenQuadPass; // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                       // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;       // Cinematic HDR scene-target begin/release pass.

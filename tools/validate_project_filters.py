@@ -194,6 +194,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RuntimeRenderHost",
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",
     "RuntimeRenderer",
