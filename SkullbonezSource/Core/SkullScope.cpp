@@ -128,7 +128,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     }
 
     auto& m_gameModels = collection.m_gameModels;
-    auto& physicsWorld = collection.m_physicsScene.DiagnosticsWorldForSkullScope();
+    auto& physicsWorld = collection.m_physicsEngine.DiagnosticsWorldForSkullScope();
     auto& m_persistentContacts = physicsWorld.m_persistentContacts;
     auto& m_persistentContactSolverStats = physicsWorld.m_persistentContactSolverStats;
     auto& m_sleepIslandParent = physicsWorld.m_sleepIslandParent;

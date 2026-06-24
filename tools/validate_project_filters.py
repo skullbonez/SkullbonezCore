@@ -87,6 +87,7 @@ PHYSICS_PREFIXES = (
     "PhysicsApi",
     "PhysicsBodyStore",
     "PhysicsDiagnosticsSink",
+    "PhysicsEngine",
     "PhysicsHandles",
     "PhysicsMass",
     "Ragdoll",

@@ -192,7 +192,7 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_soaCache.Clear();
-    m_physicsScene.Clear();
+    m_physicsEngine.Clear();
     m_nextReplayBodyId = 1;
 }
 
@@ -410,14 +410,14 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
 
 void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
 {
-    m_physicsScene.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
+    m_physicsEngine.CaptureReplaySolverSnapshot( outSnapshot, static_cast<int>( m_gameModels.size() ) );
 }
 
 
 bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
 {
     const bool restored =
-        m_physicsScene.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
+        m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
     if ( restored )
     {
         InvalidateSoA();
@@ -440,22 +440,22 @@ GameModelRenderStream GameModelCollection::GetRenderStream()
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    m_physicsScene.RefreshBodyStore( *this );
-    return m_physicsScene.BodyStore();
+    m_physicsEngine.RefreshBodyStore( *this );
+    return m_physicsEngine.BodyStore();
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    m_physicsScene.RefreshColliderStore( *this );
-    return m_physicsScene.Colliders();
+    m_physicsEngine.RefreshColliderStore( *this );
+    return m_physicsEngine.Colliders();
 }
 
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    m_physicsScene.RefreshRenderStore( *this );
-    return m_physicsScene.RenderInstances();
+    m_physicsEngine.RefreshRenderStore( *this );
+    return m_physicsEngine.RenderInstances();
 }
 
 
@@ -559,97 +559,97 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    m_physicsScene.RunPhysics( *this, fChangeInTime );
+    m_physicsEngine.Step( *this, fChangeInTime );
 }
 
 
 void GameModelCollection::WakeModel( int index )
 {
-    m_physicsScene.WakeModel( *this, index );
+    m_physicsEngine.WakeBody( *this, index );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    m_physicsScene.SeedModelAsleep( *this, index );
+    m_physicsEngine.SeedBodyAsleep( *this, index );
 }
 
 
 void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 {
-    m_physicsScene.SetPhysicsSleepEnabled( enabled );
+    m_physicsEngine.SetSleepEnabled( enabled );
 }
 
 
 void GameModelCollection::ClearPointJointConstraints()
 {
-    m_physicsScene.ClearPointJointConstraints();
+    m_physicsEngine.ClearPointJointConstraints();
 }
 
 
 void GameModelCollection::AddPointJointConstraint( const Physics::PointJointConstraint& constraint )
 {
-    m_physicsScene.AddPointJointConstraint( constraint );
+    m_physicsEngine.AddPointJointConstraint( constraint );
 }
 
 
 void GameModelCollection::BeginCollisionVisualFrame()
 {
-    m_physicsScene.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );
+    m_physicsEngine.BeginCollisionVisualFrame( static_cast<int>( m_gameModels.size() ) );
 }
 
 
 void GameModelCollection::EndCollisionVisualFrame()
 {
-    m_physicsScene.EndCollisionVisualFrame();
+    m_physicsEngine.EndCollisionVisualFrame();
 }
 
 
 void GameModelCollection::SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config )
 {
-    m_physicsScene.SetTornadoFieldConfig( config );
+    m_physicsEngine.SetTornadoFieldConfig( config );
 }
 
 
 void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config )
 {
-    m_physicsScene.SetTornadoSystemConfig( config );
+    m_physicsEngine.SetTornadoSystemConfig( config );
 }
 
 
 void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
 {
-    m_physicsScene.RenderTornadoFieldVectors( viewProj );
+    m_physicsEngine.RenderTornadoFieldVectors( viewProj );
 }
 
 
 #ifdef _DEBUG
 void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 {
-    m_physicsScene.SetPhysicsRegressionLogPath( path );
+    m_physicsEngine.SetPhysicsRegressionLogPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsCollisionTimeLogPath( const char* path )
 {
-    m_physicsScene.SetPhysicsCollisionTimeLogPath( path );
+    m_physicsEngine.SetPhysicsCollisionTimeLogPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
-    m_physicsScene.SetPhysicsDiagnosticsPath( path );
+    m_physicsEngine.SetPhysicsDiagnosticsPath( path );
 }
 
 
 void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
 {
-    m_physicsScene.SetPhysicsDiagnosticsRunId( runId );
+    m_physicsEngine.SetPhysicsDiagnosticsRunId( runId );
 }
 
 
 bool GameModelCollection::SetPhysicsDiagnosticsSuppressed( bool suppressed )
 {
-    return m_physicsScene.SetDiagnosticsSuppressed( suppressed );
+    return m_physicsEngine.SetDiagnosticsSuppressed( suppressed );
 }
 #endif

@@ -1,36 +1,26 @@
 /*
-File: SkullbonezSource/Physics/PhysicsScene.h
+File: SkullbonezSource/Physics/PhysicsEngine.h
 Purpose:
-  Owns deterministic physics-scene state and store snapshots.
+  Exposes the public physics facade while preserving the existing PhysicsScene implementation.
 
 Mental model:
-  PhysicsScene is the boundary between the compatibility GameModelCollection
-  facade and the future authoritative physics/render stores. PhysicsWorld
-  remains the solver owner for now, while stores mirror the same model order for
-  replay, diagnostics, and migration checks.
-
-Glossary:
-  Solver: Physics step that integrates bodies and resolves contacts.
-  Store: Ordered snapshot for one concern, such as bodies, colliders, or render
-    instances.
-  SkullScope: Queryable physics diagnostics trace workflow.
-  Determinism: Same inputs produce byte-exact validation output.
+  PhysicsEngine is the runtime-facing physics boundary. During migration it owns
+  PhysicsScene and forwards old GameModelCollection-backed operations in the
+  same order, so later scene/tool/replay callers can move to named physics
+  commands without touching solver internals directly.
 
 Invariants:
-  - Body, collider, render, replay, and diagnostics ordering stays aligned.
-  - PhysicsWorld remains authoritative until store migration has its own gate.
+  - Forwarders must not reorder solver, store-refresh, replay, or diagnostics calls.
+  - PhysicsScene and PhysicsWorld remain implementation details behind this facade.
 
 Related:
-  - SkullbonezSource/Physics/PhysicsScene.cpp
-  - SkullbonezSource/Physics/PhysicsWorld.h
-  - Agentic/Plans/physics-playground-refactor-and-file-prefix-cleanup-plan.md
+  - SkullbonezSource/Physics/PhysicsEngine.cpp
+  - SkullbonezSource/Physics/PhysicsApi.h
+  - SkullbonezSource/Physics/PhysicsScene.h
 */
 #pragma once
 
-#include "ColliderStore.h"
-#include "PhysicsBodyStore.h"
-#include "PhysicsWorld.h"
-#include "../Rendering/RenderInstanceStore.h"
+#include "PhysicsScene.h"
 
 namespace SkullbonezCore
 {
@@ -42,10 +32,10 @@ class SkullScope;
 
 namespace Physics
 {
-class PhysicsScene
+class PhysicsEngine
 {
   public:
-    PhysicsScene() = default;
+    PhysicsEngine() = default;
 
     void Clear();
     void RefreshStores( GameObjects::GameModelCollection& collection );
@@ -53,10 +43,10 @@ class PhysicsScene
     void RefreshBodyStore( GameObjects::GameModelCollection& collection );
     void RefreshColliderStore( GameObjects::GameModelCollection& collection );
     void RefreshRenderStore( GameObjects::GameModelCollection& collection );
-    void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
-    void WakeModel( GameObjects::GameModelCollection& collection, int index );
-    void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
-    void SetPhysicsSleepEnabled( bool enabled );
+    void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
+    void WakeBody( GameObjects::GameModelCollection& collection, int bodyIndex );
+    void SeedBodyAsleep( GameObjects::GameModelCollection& collection, int bodyIndex );
+    void SetSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
@@ -93,16 +83,12 @@ class PhysicsScene
 #endif
 
   private:
-    friend class PhysicsEngine;                           // Same-subsystem facade owns the temporary SkullScope diagnostics bridge.
     friend class GameObjects::SkullScope;
 
     PhysicsWorld& DiagnosticsWorldForSkullScope();
     const PhysicsWorld& DiagnosticsWorldForSkullScope() const;
 
-    PhysicsWorld m_world;                                 // Existing deterministic solver and debug state.
-    PhysicsBodyStore m_bodyStore;                         // Body snapshot in model/replay order.
-    ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
-    Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
+    PhysicsScene m_scene;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -161,6 +161,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
@@ -305,6 +306,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
