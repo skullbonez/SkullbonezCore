@@ -198,6 +198,9 @@ class RuntimeInputContext
     static constexpr int TRANSITION_HISTORY_COUNT = 8;
     static constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>( RuntimeInputAction::Count );
 
+    void ResetMouseButtons();
+    void SyncMouseButtons( bool leftDown, bool rightDown );
+
     RuntimeInputMode m_currentMode = RuntimeInputMode::Scene;
     RuntimeInputMode m_previousMode = RuntimeInputMode::Scene;
     bool m_appFocused = true;

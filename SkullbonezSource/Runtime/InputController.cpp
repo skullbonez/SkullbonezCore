@@ -57,8 +57,18 @@ void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bo
 void RuntimeInputContext::ResetEdges()
 {
     m_actionDown.fill( false );
-    m_leftMouseWasDown = false;
-    m_rightMouseWasDown = false;
+    ResetMouseButtons();
+}
+
+void RuntimeInputContext::ResetMouseButtons()
+{
+    SyncMouseButtons( false, false );
+}
+
+void RuntimeInputContext::SyncMouseButtons( bool leftDown, bool rightDown )
+{
+    m_leftMouseWasDown = leftDown;
+    m_rightMouseWasDown = rightDown;
 }
 
 bool RuntimeInputContext::CaptureActionPress( RuntimeInputAction action, int virtualKey )
@@ -115,6 +125,7 @@ void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction act
     {
         ++m_transitionCount;
     }
+    SyncMouseButtons( Hardware::Input::IsLeftMouseDown(), Hardware::Input::IsRightMouseDown() );
 }
 
 RuntimeInputMode RuntimeInputContext::CurrentMode() const

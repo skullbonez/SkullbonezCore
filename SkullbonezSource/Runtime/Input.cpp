@@ -303,7 +303,7 @@ bool Input::IsLeftMouseDown()
         return false;
     }
 
-    return ( ( GetKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+    return ( ( GetAsyncKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 
@@ -314,7 +314,7 @@ bool Input::IsRightMouseDown()
         return false;
     }
 
-    return ( ( GetKeyState( VK_RBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+    return ( ( GetAsyncKeyState( VK_RBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 
@@ -325,7 +325,7 @@ bool Input::IsMiddleMouseDown()
         return false;
     }
 
-    return ( ( GetKeyState( VK_MBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+    return ( ( GetAsyncKeyState( VK_MBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 

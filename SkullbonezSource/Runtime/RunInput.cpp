@@ -552,7 +552,12 @@ bool Run::MouseLookOwnsCursor() const
         return ReplayInspectionMouseLookActive();
     }
 
-    return IsFlyCameraMode() && m_camera.mode != RunCameraMode::Manipulator;
+    if ( m_camera.mode == RunCameraMode::Manipulator )
+    {
+        return Input::IsRightMouseDown();
+    }
+
+    return IsFlyCameraMode();
 }
 
 
