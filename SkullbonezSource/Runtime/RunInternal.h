@@ -98,12 +98,13 @@ inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 542.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 630.0f;
 inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
+inline constexpr float REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH = 78.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
@@ -212,6 +213,12 @@ inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
     return { control.x + 8.0f, control.y + 7.0f, (std::max)( 40.0f, control.w - 44.0f ), 8.0f };
 }
 
+inline UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { predict.x + predict.w + 8.0f, predict.y, REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH, predict.h };
+}
+
 inline float ReplayPredictionHorizonT( float seconds )
 {
     return std::clamp(
@@ -296,7 +303,7 @@ inline float ReplayScrubberPredictionNormalizedFromTrack( float position, float 
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 
-inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso )
+inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso, std::size_t* outPrefixLength = nullptr )
 {
     static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
                                                         "head",
@@ -309,6 +316,10 @@ inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso )
                                                         "upper_leg_r",
                                                         "lower_leg_r" };
     outTorso = false;
+    if ( outPrefixLength )
+    {
+        *outPrefixLength = 0;
+    }
     if ( !name || name[0] == '\0' )
     {
         return false;
@@ -330,7 +341,12 @@ inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso )
         }
 
         outTorso = std::strcmp( suffix, "torso" ) == 0;
-        return suffixStart > 1;
+        const std::size_t prefixLength = suffixStart - 1;
+        if ( outPrefixLength )
+        {
+            *outPrefixLength = prefixLength;
+        }
+        return prefixLength > 0;
     }
     return false;
 }

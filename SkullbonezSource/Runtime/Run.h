@@ -552,6 +552,8 @@ struct RunReplayPredictionState
 {
     bool enabled = false;
     bool checkboxHovered = false;
+    bool ragdollVisualsEnabled = true;
+    bool ragdollVisualsHovered = false;
     bool decreaseHovered = false;
     bool increaseHovered = false;
     bool horizonHovered = false;

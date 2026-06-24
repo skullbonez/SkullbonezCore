@@ -281,7 +281,8 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                         const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !m_replayPrediction.enabled || m_replayPrediction.frames.size() < 2 )
+    if ( !m_replayPrediction.enabled || !m_replayPrediction.ragdollVisualsEnabled ||
+         m_replayPrediction.frames.size() < 2 )
     {
         return;
     }
@@ -308,7 +309,15 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                     ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
     const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
 
-    auto drawGhostFrame = [&]( std::size_t index )
+    RenderHelper::DrawBoxBatchBegin( frame.baseView,
+                                     frame.projection,
+                                     frame.lightPosition,
+                                     true,
+                                     cinematic,
+                                     shadow,
+                                     1.0f );
+
+    auto appendGhostFrame = [&]( std::size_t index )
     {
         const RunReplayPredictionFrame& predictionFrame = m_replayPrediction.frames[index];
         if ( predictionFrame.frameIndex == 0 )
@@ -323,14 +332,6 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                               1.0f )
                 : 1.0f;
         const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
-
-        RenderHelper::DrawBoxBatchBegin( frame.baseView,
-                                         frame.projection,
-                                         frame.lightPosition,
-                                         true,
-                                         cinematic,
-                                         shadow,
-                                         1.0f );
 
         for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
         {
@@ -358,24 +359,24 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
             const Matrix4 modelMatrix = box->GetModelMatrix( body.position, Matrix4::FromQuaternion( orientation ) );
             RenderHelper::DrawBoxBatchModel( modelMatrix, material );
         }
-
-        RenderHelper::DrawBoxBatchEnd();
     };
 
     std::size_t farIndex = lastIndex;
     if ( farIndex % stride != 0 )
     {
-        drawGhostFrame( farIndex );
+        appendGhostFrame( farIndex );
         farIndex = ( farIndex / stride ) * stride;
     }
     for ( std::size_t index = farIndex; index >= stride; index -= stride )
     {
-        drawGhostFrame( index );
+        appendGhostFrame( index );
         if ( index == stride )
         {
             break;
         }
     }
+
+    RenderHelper::DrawBoxBatchEnd();
 }
 
 
@@ -555,16 +556,16 @@ void Run::DrawPrimitives()
 
     const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
     const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayFocusFadeActive =
-        !collisionStateColorsVisible && !debugTransparentBodyPass && BuildReplayFocusModelMask();
+    const bool replayPredictionOverlayActive = m_replayPrediction.enabled;
+    const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
+                                       !debugTransparentBodyPass && BuildReplayFocusModelMask();
     const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &m_replayFocusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
-    // Lifetime: reflection is produced before water decides whether to draw.
-    // Keeping the target alive here avoids coupling debug water visibility to
-    // GPU resource lifetime or resize behavior.
-    m_reflectionPass.EnsureGpuResources( frame );
+    const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
+    const bool waterVisibleThisFrame = !m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -579,14 +580,20 @@ void Run::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
-    ReflectionPassOutput reflection = m_reflectionPass.Render( { frame,
-                                                                 activeCinematic,
-                                                                 objectShadowFrame,
-                                                                 collisionStateColorsVisible,
-                                                                 debugTransparentBodyPass,
-                                                                 collisionVisualizerAlphaOverride,
-                                                                 bodyRenderAlpha },
-                                                               m_skyPass );
+    ReflectionPassOutput reflection;
+    reflection.reflectionSampleViewProjection = frame.reflectionViewProjection;
+    if ( reflectionPassNeeded )
+    {
+        m_reflectionPass.EnsureGpuResources( frame );
+        reflection = m_reflectionPass.Render( { frame,
+                                                activeCinematic,
+                                                objectShadowFrame,
+                                                collisionStateColorsVisible,
+                                                debugTransparentBodyPass,
+                                                collisionVisualizerAlphaOverride,
+                                                bodyRenderAlpha },
+                                              m_skyPass );
+    }
 
     if ( useCinematicTarget )
     {

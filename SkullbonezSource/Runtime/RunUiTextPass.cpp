@@ -371,8 +371,10 @@ void Run::RenderReplayScrubberOverlay()
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
+    const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const bool predictHover = m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging;
     const bool predictEnabled = m_replayPrediction.enabled;
+    const bool ragdollVisualsEnabled = m_replayPrediction.ragdollVisualsEnabled;
     const float predictSeconds =
         std::clamp( m_replayPrediction.horizonSeconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
     const float predictBackR = predictEnabled ? 0.08f : 0.055f;
@@ -467,6 +469,38 @@ void Run::RenderReplayScrubberOverlay()
                predictEnabled ? 1.0f : 0.74f,
                predictEnabled ? 0.88f : 0.76f,
                predictSecondsLabel );
+
+    draw.RoundedRect( ragdollVisualToggle.x,
+                      ragdollVisualToggle.y,
+                      ragdollVisualToggle.w,
+                      ragdollVisualToggle.h,
+                      4.0f,
+                      ragdollVisualsEnabled ? 0.12f : 0.055f,
+                      ragdollVisualsEnabled ? 0.20f : 0.08f,
+                      ragdollVisualsEnabled ? 0.26f : 0.105f,
+                      0.88f );
+    draw.Outline( ragdollVisualToggle.x,
+                  ragdollVisualToggle.y,
+                  ragdollVisualToggle.w,
+                  ragdollVisualToggle.h,
+                  0.56f,
+                  0.76f,
+                  0.92f,
+                  m_replayPrediction.ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f );
+    const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
+    const float ragdollCheckY = ragdollVisualToggle.y + 5.0f;
+    draw.Outline( ragdollCheckX, ragdollCheckY, 10.0f, 10.0f, 0.72f, 0.86f, 0.98f, 0.82f );
+    if ( ragdollVisualsEnabled )
+    {
+        draw.Rect( ragdollCheckX + 2.0f, ragdollCheckY + 2.0f, 6.0f, 6.0f, 0.42f, 0.82f, 1.0f, 0.95f );
+    }
+    draw.Text( ragdollVisualToggle.x + 23.0f,
+               ragdollVisualToggle.y + 4.5f,
+               9.0f,
+               ragdollVisualsEnabled ? 0.76f : 0.58f,
+               ragdollVisualsEnabled ? 0.92f : 0.68f,
+               ragdollVisualsEnabled ? 1.0f : 0.74f,
+               "RAGDOLL" );
 
     Text2d::FlushQuads();
     Text2d::FlushText();

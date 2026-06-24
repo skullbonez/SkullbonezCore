@@ -349,6 +349,62 @@ ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame
     return id;
 }
 
+bool ReplayModelIndexIsRagdollPart( const std::vector<GameModel>& models, int modelIndex )
+{
+    return modelIndex >= 0 && modelIndex < static_cast<int>( models.size() ) &&
+           ReplayModelIsRagdollPart( models[static_cast<std::size_t>( modelIndex )] );
+}
+
+int ReplayRagdollTorsoModelIndexForPart( const std::vector<GameModel>& models, int modelIndex )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
+    {
+        return modelIndex;
+    }
+
+    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    bool isTorso = false;
+    std::size_t prefixLength = 0;
+    if ( !ReplayRagdollPartNameInfo( model.GetName(), isTorso, &prefixLength ) )
+    {
+        return modelIndex;
+    }
+    if ( isTorso )
+    {
+        return modelIndex;
+    }
+
+    const char* prefix = model.GetName();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        bool candidateTorso = false;
+        std::size_t candidatePrefixLength = 0;
+        const GameModel& candidate = models[static_cast<std::size_t>( i )];
+        if ( ReplayRagdollPartNameInfo( candidate.GetName(), candidateTorso, &candidatePrefixLength ) &&
+             candidateTorso && candidatePrefixLength == prefixLength &&
+             std::strncmp( candidate.GetName(), prefix, prefixLength ) == 0 )
+        {
+            return i;
+        }
+    }
+
+    return modelIndex;
+}
+
+ReplayBodyId ReplayCollectionBodyIdForModelIndex( const ReplaySolverFrameSample& sample,
+                                                  const std::vector<GameModel>& models,
+                                                  int modelIndex )
+{
+    return ReplayBodyIdForModelIndex( sample, ReplayRagdollTorsoModelIndexForPart( models, modelIndex ) );
+}
+
+ReplayBodyId ReplayPredictionCollectionBodyIdForModelIndex( const RunReplayPredictionFrame& frame,
+                                                            const std::vector<GameModel>& models,
+                                                            int modelIndex )
+{
+    return ReplayPredictionBodyIdForModelIndex( frame, ReplayRagdollTorsoModelIndexForPart( models, modelIndex ) );
+}
+
 Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
 {
     const float magSq = VectorMagSquared( value );
@@ -489,8 +545,10 @@ void CaptureReplayPathBounds( const ReplaySolverFrameSample& sample, void* userD
 struct ReplayPathFutureContext
 {
     RunReplayPathVisualizerState* visualizer = nullptr;
+    const std::vector<GameModel>* models = nullptr;
     ReplayBodyId rootId;
     ReplayFrameIndex presentFrame = 0;
+    bool includeRagdollVisuals = true;
 };
 
 bool TryGetReplayFutureDepth( const ReplayPathFutureContext& context,
@@ -592,17 +650,23 @@ void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userDa
 
     for ( const PhysicsDebugContact& contact : sample.worldSnapshot.debugContacts )
     {
-        const ReplayBodyId idA = ReplayBodyIdForModelIndex( sample, contact.bodyA );
-        const ReplayBodyId idB = ReplayBodyIdForModelIndex( sample, contact.bodyB );
+        const bool ragdollA = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyA );
+        const bool ragdollB = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyB );
+        const ReplayBodyId idA = context.models
+                                     ? ReplayCollectionBodyIdForModelIndex( sample, *context.models, contact.bodyA )
+                                     : ReplayBodyIdForModelIndex( sample, contact.bodyA );
+        const ReplayBodyId idB = context.models
+                                     ? ReplayCollectionBodyIdForModelIndex( sample, *context.models, contact.bodyB )
+                                     : ReplayBodyIdForModelIndex( sample, contact.bodyB );
         int depthA = -1;
         int depthB = -1;
         const bool activeA = TryGetReplayFutureDepth( context, idA, sample.frameIndex, depthA );
         const bool activeB = TryGetReplayFutureDepth( context, idB, sample.frameIndex, depthB );
-        if ( activeA && !activeB )
+        if ( activeA && !activeB && ( context.includeRagdollVisuals || !ragdollB ) )
         {
             AddReplayFutureNode( context, idA, idB, sample.frameIndex, contact.point, contact.normal, depthA + 1 );
         }
-        else if ( activeB && !activeA )
+        else if ( activeB && !activeA && ( context.includeRagdollVisuals || !ragdollA ) )
         {
             AddReplayFutureNode( context,
                                  idB,
@@ -860,7 +924,9 @@ void AddReplayFutureContactMarkers( const RunReplayPathVisualizerState& visualiz
 struct ReplayPredictionFutureContext
 {
     RunReplayPredictionState* prediction = nullptr;
+    const std::vector<GameModel>* models = nullptr;
     ReplayBodyId rootId;
+    bool includeRagdollVisuals = true;
 };
 
 bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& context,
@@ -930,13 +996,19 @@ void BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame, Re
 {
     for ( const PhysicsDebugContact& contact : frame.debugContacts )
     {
-        const ReplayBodyId idA = ReplayPredictionBodyIdForModelIndex( frame, contact.bodyA );
-        const ReplayBodyId idB = ReplayPredictionBodyIdForModelIndex( frame, contact.bodyB );
+        const bool ragdollA = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyA );
+        const bool ragdollB = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyB );
+        const ReplayBodyId idA =
+            context.models ? ReplayPredictionCollectionBodyIdForModelIndex( frame, *context.models, contact.bodyA )
+                           : ReplayPredictionBodyIdForModelIndex( frame, contact.bodyA );
+        const ReplayBodyId idB =
+            context.models ? ReplayPredictionCollectionBodyIdForModelIndex( frame, *context.models, contact.bodyB )
+                           : ReplayPredictionBodyIdForModelIndex( frame, contact.bodyB );
         int depthA = -1;
         int depthB = -1;
         const bool activeA = TryGetReplayPredictionFutureDepth( context, idA, frame.frameIndex, depthA );
         const bool activeB = TryGetReplayPredictionFutureDepth( context, idB, frame.frameIndex, depthB );
-        if ( activeA && !activeB )
+        if ( activeA && !activeB && ( context.includeRagdollVisuals || !ragdollB ) )
         {
             AddReplayPredictionFutureNode( context,
                                            idA,
@@ -946,7 +1018,7 @@ void BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame, Re
                                            contact.normal,
                                            depthA + 1 );
         }
-        else if ( activeB && !activeA )
+        else if ( activeB && !activeA && ( context.includeRagdollVisuals || !ragdollA ) )
         {
             AddReplayPredictionFutureNode( context,
                                            idB,
@@ -1305,6 +1377,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             ResetReplayScrubber();
         }
         m_replayPrediction.checkboxHovered = false;
+        m_replayPrediction.ragdollVisualsHovered = false;
         m_replayPrediction.decreaseHovered = false;
         m_replayPrediction.increaseHovered = false;
         m_replayPrediction.horizonHovered = false;
@@ -1329,6 +1402,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect predictControl = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
+    const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
@@ -1347,7 +1421,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overVelocityEditToggle = solverToolsEnabled && velocityEditToggle.Contains( mouse.x, mouse.y );
     const bool overPredictControl = solverToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
     const bool overPredictToggle = solverToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
-    const bool overPredictUi = overPredictControl || overPredictToggle;
+    const bool overRagdollVisualToggle = solverToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
+    const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle;
     const bool overPredictHorizon =
         solverToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
                                 ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
@@ -1377,6 +1452,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     m_replayScrubber.pauseHovered = solverToolsEnabled && overPauseButton && predictionControlVisible;
     m_replayVelocityEdit.toggleHovered = solverToolsEnabled && overVelocityEditToggle && predictionControlVisible;
     m_replayPrediction.checkboxHovered = solverToolsEnabled && overPredictToggle && predictionControlVisible;
+    m_replayPrediction.ragdollVisualsHovered =
+        solverToolsEnabled && overRagdollVisualToggle && predictionControlVisible;
     m_replayPrediction.decreaseHovered = false;
     m_replayPrediction.increaseHovered = false;
     m_replayPrediction.horizonHovered = solverToolsEnabled && overPredictHorizon && predictionControlVisible;
@@ -1424,6 +1501,14 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayScrubber.visibleUntil >= now )
     {
         SetReplayVelocityEditEnabled( !m_replayVelocityEdit.enabled );
+        m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayScrubber.visible = true;
+        consumesMouse = true;
+    }
+    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overRagdollVisualToggle &&
+              m_replayScrubber.visibleUntil >= now )
+    {
+        m_replayPrediction.ragdollVisualsEnabled = !m_replayPrediction.ragdollVisualsEnabled;
         m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayScrubber.visible = true;
         consumesMouse = true;
@@ -3230,7 +3315,10 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    DrawReplayPredictionRagdollTorsoTrails( m_replayPrediction, models, tracer );
+    if ( m_replayPrediction.ragdollVisualsEnabled )
+    {
+        DrawReplayPredictionRagdollTorsoTrails( m_replayPrediction, models, tracer );
+    }
 
     if ( !m_replayPathVisualizer.hasTarget || m_replayPathVisualizer.targetId.value == 0 )
     {
@@ -3243,7 +3331,9 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
         m_replayPrediction.futureNodes.clear();
         ReplayPredictionFutureContext futureContext;
         futureContext.prediction = &m_replayPrediction;
+        futureContext.models = &models;
         futureContext.rootId = m_replayPathVisualizer.targetId;
+        futureContext.includeRagdollVisuals = m_replayPrediction.ragdollVisualsEnabled;
         for ( const RunReplayPredictionFrame& frame : m_replayPrediction.frames )
         {
             BuildReplayPredictionFutureNodes( frame, futureContext );
@@ -3446,8 +3536,10 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/BuildTree" );
             ReplayPathFutureContext futureContext;
             futureContext.visualizer = &targetVisualizer;
+            futureContext.models = &models;
             futureContext.rootId = target.id;
             futureContext.presentFrame = presentFrame;
+            futureContext.includeRagdollVisuals = m_replayPrediction.ragdollVisualsEnabled;
             m_solverReplay.ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
         }
 
