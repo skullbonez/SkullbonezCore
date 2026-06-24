@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-23rd-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime interaction controller is retained on `nightrunner-23rd-june`; the humanoid ragdoll constraints experiment was rolled back after user review. Simple ragdolls now keep fixed part colors, have a small neck swing stop, and explicit wakes spread through sleeping support piles/tree parts. |
-| Active objective | None. `runtime-interaction-controller-plan.md` remains archived; `humanoid-ragdoll-constraints-plan.md` is restored to `Agentic/Plans/` for a future rethink instead of being treated as done. |
-| Pending work | Do not delete legacy replay exporters yet. Runtime input follow-up: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Runtime interaction controller is retained on `nightrunner-24th-june`; the humanoid ragdoll constraints experiment was rolled back after user review. Simple ragdolls now keep fixed part colors, have a small neck swing stop, and explicit wakes spread through sleeping support piles/tree parts. |
+| Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
+| Pending work | Runtime run decomposition is active. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime interaction controller slice is covered by `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_full.bat`. Ragdoll rollback is covered by `tools\validate_fast.bat` and `tools\validate_full.bat`; logs are in `TestOutput\agent_logs\2026-06-24_validate_fast_revert_ragdoll_constraints.log` and `TestOutput\agent_logs\2026-06-24_validate_full_revert_ragdoll_constraints.log`. Ragdoll head/color/wake fixes are covered by `tools\validate_physics.bat` and `tools\validate_full.bat`; logs are in `Agentic\Logs\ragdoll_wake_validate_physics.log` and `Agentic\Logs\ragdoll_wake_validate_full_final.log`. |
+| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 expected gate is `tools\validate_fast.bat` unless the implementation touches render output paths, in which case escalate to `tools\validate_dx12_renderer.bat`. |
 
 ## Active Notes
 
