@@ -128,6 +128,8 @@ class GameModelCollection : public Rendering::IRenderSceneView
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
+    Physics::PhysicsEngine& GetPhysicsEngine();
+    const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();

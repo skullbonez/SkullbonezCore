@@ -438,6 +438,18 @@ GameModelRenderStream GameModelCollection::GetRenderStream()
 }
 
 
+SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine()
+{
+    return m_physicsEngine;
+}
+
+
+const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEngine() const
+{
+    return m_physicsEngine;
+}
+
+
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
     m_physicsEngine.RefreshBodyStore( *this );

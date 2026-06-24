@@ -644,6 +644,7 @@ SceneAuthoredModelContext Run::BuildSceneAuthoredModelContext()
                                       m_cWorldEnvironment,
                                       m_systems.terrain.get(),
                                       m_cGameModelCollection,
+                                      m_cGameModelCollection.GetPhysicsEngine(),
                                       m_requiredSceneContacts,
                                       m_requiredBroadphaseXCells };
 }

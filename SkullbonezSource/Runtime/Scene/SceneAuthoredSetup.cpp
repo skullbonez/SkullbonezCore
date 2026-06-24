@@ -24,6 +24,7 @@ Related:
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/ConvexHullShape.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Scene/TestScene.h"
 #include "../../World/Terrain.h"
@@ -234,7 +235,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                     scene.GetBoxStateCount() + scene.GetConvexHullCount() +
                                     scene.GetConvexHullStateCount() +
                                     scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
-    context.models.ClearPointJointConstraints();
+    context.physics.ClearPointJointConstraints();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -291,7 +292,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( bs.isSleeping && !bs.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            context.physics.SeedBodyAsleep( context.models, modelIndex );
         }
     }
 
@@ -352,7 +353,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( box.isSleeping && !box.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            context.physics.SeedBodyAsleep( context.models, modelIndex );
         }
     }
 
@@ -393,7 +394,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            context.physics.SeedBodyAsleep( context.models, modelIndex );
         }
     }
 
@@ -425,7 +426,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            context.physics.SeedBodyAsleep( context.models, modelIndex );
         }
     }
 
@@ -472,7 +473,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         {
             joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
         }
-        context.models.AddPointJointConstraint( joint );
+        context.physics.AddPointJointConstraint( joint );
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )

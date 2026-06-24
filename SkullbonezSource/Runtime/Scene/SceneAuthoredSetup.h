@@ -35,6 +35,10 @@ namespace GameObjects
 {
 class GameModelCollection;
 }
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Geometry
 {
 class Terrain;
@@ -79,6 +83,7 @@ struct SceneAuthoredModelContext
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
     GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
     std::vector<RunRequiredContactState>& requiredContacts;
     std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells;
 };
