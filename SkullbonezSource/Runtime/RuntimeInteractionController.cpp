@@ -159,7 +159,12 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     {
         policy.cameraLook = CameraLookState::RightMouseLook;
     }
-    else if ( input.rightMouseLookHeld && ( WorkspaceUsesInspectControls( m_workspace ) || policy.manipulatorActive ) )
+    else if ( m_workspace == RuntimeWorkspace::Inspect )
+    {
+        policy.cameraLook = CameraLookState::RightMouseLook;
+    }
+    else if ( input.rightMouseLookHeld && ( m_workspace == RuntimeWorkspace::Edit ||
+                                            m_workspace == RuntimeWorkspace::Replay || policy.manipulatorActive ) )
     {
         policy.cameraLook = CameraLookState::RightMouseLook;
     }
