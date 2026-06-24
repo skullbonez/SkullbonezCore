@@ -194,6 +194,7 @@ RUNTIME_SCENE_PREFIXES = (
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayRecorder",
+    "ReplayRuntime",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "RunReplayTools",

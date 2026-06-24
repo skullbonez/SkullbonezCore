@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run decomposition is committed through the Phase 4C scene-caller slice on `nightrunner-24th-june-refactor`: generated/authored scene setup lives in scene helpers, public physics handle/API scaffolding is in place, `PhysicsEngine` owns the existing `PhysicsScene`, and authored scene sleep/joint setup routes direct physics mutations through `PhysicsEngine`. |
+| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay-owner slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders plus live branch provenance while `Run` keeps compatibility accessors. |
 | Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
-| Pending work | Runtime run decomposition is active. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Pending work | Runtime run decomposition is active. Phase 5 still needs replay capture/event helper migration, render-pose mutation consolidation, replay-owned selection/prediction/velocity state extraction, and render-facing replay data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
@@ -92,6 +92,18 @@ audits when it is still useful.
   completed with advisory whole-frame `physics_bench` warnings; reviewed markers
   show `Frame/Physics` at -4.2% avg and persistent contacts at +3.3% avg,
   within noise for the touched solver path.
+- Runtime run decomposition Phase 5 replay-owner slice introduces
+  `Runtime\Replay\ReplayRuntime` as the owner of the presentation replay,
+  solver replay, event recorder, and live branch provenance. `Run` no longer
+  stores those recorder fields directly; compatibility accessors keep legacy
+  replay callers stable for later extraction slices. The project-filter
+  validator now recognizes `ReplayRuntime` under `Runtime\Replay`.
+- Phase 5 replay-owner validation: Profile build 12.96s
+  (`TestOutput\validation\phase5_replay_runtime_owner_profile_build_rerun.log`),
+  project filters 0.72s, format 6.54s, fast gate 234.78s, and full gate 24.81s
+  (`TestOutput\validation\phase5_replay_runtime_owner_validate_full_rerun.log`).
+  Initial checks caught and fixed missed multi-line replay exporter references
+  and the missing project-filter rule before the final gates passed.
 
 ## Current Work Items
 

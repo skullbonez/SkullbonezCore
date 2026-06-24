@@ -307,6 +307,46 @@ const RunSceneState& Run::SceneState() const
     return m_sceneController.State();
 }
 
+ReplayRecorder& Run::PresentationReplay()
+{
+    return m_replayRuntime.Presentation();
+}
+
+const ReplayRecorder& Run::PresentationReplay() const
+{
+    return m_replayRuntime.Presentation();
+}
+
+ReplaySolverRecorder& Run::SolverReplay()
+{
+    return m_replayRuntime.Solver();
+}
+
+const ReplaySolverRecorder& Run::SolverReplay() const
+{
+    return m_replayRuntime.Solver();
+}
+
+ReplayEventRecorder& Run::ReplayEvents()
+{
+    return m_replayRuntime.Events();
+}
+
+const ReplayEventRecorder& Run::ReplayEvents() const
+{
+    return m_replayRuntime.Events();
+}
+
+ReplayBranchInfo& Run::ReplayBranch()
+{
+    return m_replayRuntime.Branch();
+}
+
+const ReplayBranchInfo& Run::ReplayBranch() const
+{
+    return m_replayRuntime.Branch();
+}
+
 
 void Run::BindEngineContext()
 {
@@ -338,11 +378,11 @@ Run::~Run()
 #endif
 
     m_diagnostics.ClosePerfLog();
-    m_replay.FlushHashLog();
-    m_solverReplay.FlushHashLog();
-    if ( m_replay.IsEnabled() )
+    PresentationReplay().FlushHashLog();
+    SolverReplay().FlushHashLog();
+    if ( PresentationReplay().IsEnabled() )
     {
-        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        const ReplayRecorderStats replayStats = PresentationReplay().GetStats();
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -352,9 +392,9 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.checkpointCapacity ),
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
-    if ( m_solverReplay.IsEnabled() )
+    if ( SolverReplay().IsEnabled() )
     {
-        const ReplayRecorderStats replayStats = m_solverReplay.GetStats();
+        const ReplayRecorderStats replayStats = SolverReplay().GetStats();
         printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -777,18 +817,18 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
         replayConfig.hashLogPath = hashLogPath;
     }
 
-    m_replay.Configure( replayConfig );
+    PresentationReplay().Configure( replayConfig );
     ReplayRecorderConfig solverReplayConfig = replayConfig;
     solverReplayConfig.checkpointIntervalFrames = 60;
     solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
-    m_solverReplay.Configure( solverReplayConfig );
-    m_replayEvents.Configure( replayConfig );
+    SolverReplay().Configure( solverReplayConfig );
+    ReplayEvents().Configure( replayConfig );
     ResetReplayScrubber();
-    if ( m_replay.IsEnabled() )
+    if ( PresentationReplay().IsEnabled() )
     {
-        const ReplayRecorderStats replayStats = m_replay.GetStats();
-        const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-        const ReplayEventRecorderStats eventReplayStats = m_replayEvents.GetStats();
+        const ReplayRecorderStats replayStats = PresentationReplay().GetStats();
+        const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
+        const ReplayEventRecorderStats eventReplayStats = ReplayEvents().GetStats();
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
                 "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
                 replayConfig.retentionSeconds,
@@ -880,7 +920,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
     if ( !preserveBranchMetadata )
     {
-        m_replayBranch = ReplayBranchInfo();
+        ReplayBranch() = ReplayBranchInfo();
     }
     if ( m_replayScrubber.simulationPaused )
     {
@@ -894,16 +934,16 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         UI::InputControl::EndMouseCapture();
     }
     m_replayVelocityEdit = RunReplayVelocityEditState{};
-    if ( !m_replay.IsEnabled() )
+    if ( !PresentationReplay().IsEnabled() )
     {
         return;
     }
 
     const std::string* scenePath = CurrentSceneQueuePath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    m_replay.ResetTimeline( sceneLabel );
-    m_solverReplay.ResetTimeline( sceneLabel );
-    m_replayEvents.ResetTimeline( sceneLabel );
+    PresentationReplay().ResetTimeline( sceneLabel );
+    SolverReplay().ResetTimeline( sceneLabel );
+    ReplayEvents().ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     RecordReplayGeneratedSceneConfigEvent();
     m_solverReplayMismatchReports = 0;
@@ -912,13 +952,13 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 
 ReplayFrameIndex Run::NextReplayEventFrameIndex() const
 {
-    const ReplayRecorderStats solverStats = m_solverReplay.GetStats();
+    const ReplayRecorderStats solverStats = SolverReplay().GetStats();
     if ( solverStats.enabled )
     {
         return solverStats.nextFrameIndex;
     }
 
-    const ReplayRecorderStats presentationStats = m_replay.GetStats();
+    const ReplayRecorderStats presentationStats = PresentationReplay().GetStats();
     return presentationStats.nextFrameIndex;
 }
 
@@ -933,14 +973,14 @@ void Run::RecordReplayEvent( ReplayEventKind kind,
                              uint64_t data0,
                              const char* text )
 {
-    if ( !m_replayEvents.IsEnabled() )
+    if ( !ReplayEvents().IsEnabled() )
     {
         return;
     }
 
     ReplayEventInput input;
     input.frameIndex = frameIndex;
-    input.branch = m_replayBranch;
+    input.branch = ReplayBranch();
     input.kind = kind;
     input.flags = flags;
     input.value0 = value0;
@@ -949,7 +989,7 @@ void Run::RecordReplayEvent( ReplayEventKind kind,
     input.value3 = value3;
     input.data0 = data0;
     input.text = text;
-    m_replayEvents.RecordEvent( input );
+    ReplayEvents().RecordEvent( input );
 }
 
 
@@ -1303,7 +1343,7 @@ bool Run::ShouldRenderReplayScrubber() const
     }
 
     const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+    const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     return ( loadedPresentation || solverReplayAvailable ) &&
            ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
@@ -1326,7 +1366,7 @@ bool Run::IsReplayScrubPaused() const
 
     const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
     const float presentT = m_replayScrubber.activeTrack == RunReplayTrack::Solver
-                               ? ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction )
+                               ? ReplayScrubberPresentTrackPosition( SolverReplay().GetStats(), m_replayPrediction )
                                : 1.0f;
     if ( ReplayScrubberAtPresentTrackPosition( position, presentT ) )
     {
@@ -1335,7 +1375,7 @@ bool Run::IsReplayScrubPaused() const
 
     if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
     {
-        return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
+        return PresentationReplay().IsEnabled() && PresentationReplay().SampleAtNormalized( position ) != nullptr;
     }
 
     if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
@@ -1343,7 +1383,7 @@ bool Run::IsReplayScrubPaused() const
         return CurrentReplayPredictionScrubFrame() != nullptr;
     }
 
-    return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized(
+    return SolverReplay().IsEnabled() && SolverReplay().SampleAtNormalized(
                                              ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
@@ -1368,7 +1408,8 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
         return nullptr;
     }
 
-    return m_replay.SampleAtNormalized( ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) );
+    return PresentationReplay().SampleAtNormalized(
+        ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) );
 }
 
 
@@ -1380,13 +1421,13 @@ const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
     }
 
     const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    const float presentT = ReplayScrubberPresentTrackPosition( SolverReplay().GetStats(), m_replayPrediction );
     if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    return m_solverReplay.SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
+    return SolverReplay().SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
 }
 
 
@@ -1399,7 +1440,7 @@ const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
     }
 
     const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    const float presentT = ReplayScrubberPresentTrackPosition( SolverReplay().GetStats(), m_replayPrediction );
     if ( !ReplayScrubberTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
@@ -1424,10 +1465,12 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved =
-            track == RunReplayTrack::Solver
-                ? ReplayExporter::Save( m_solverReplay, path )
-                : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, m_replayEvents, path );
+        saved = track == RunReplayTrack::Solver
+                    ? ReplayExporter::Save( SolverReplay(), path )
+                    : ReplayV2Artifact::SavePresentationWithSolverHashes( PresentationReplay(),
+                                                                          SolverReplay(),
+                                                                          ReplayEvents(),
+                                                                          path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
@@ -1649,7 +1692,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = SolverReplay().LatestSample() )
     {
         if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
         {
@@ -1706,14 +1749,14 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
 
     const uint32_t parentBranchId = sample.branch.branchId != 0
                                         ? sample.branch.branchId
-                                        : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+                                        : ( ReplayBranch().branchId != 0 ? ReplayBranch().branchId : 1u );
     ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+    restoredBranch.branchId = (std::max)( ReplayBranch().branchId, parentBranchId ) + 1u;
     restoredBranch.parentBranchId = parentBranchId;
     restoredBranch.startFrame = 0;
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
-    m_replayBranch = restoredBranch;
+    ReplayBranch() = restoredBranch;
     ResetReplayTimelineForActiveScene( true );
     RecordReplayEvent( ReplayEventKind::BranchRestore,
                        0,

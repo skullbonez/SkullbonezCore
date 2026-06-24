@@ -66,7 +66,7 @@ Related:
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
 #include "RuntimeViewModel.h"
-#include "Replay/ReplayRecorder.h"
+#include "Replay/ReplayRuntime.h"
 #include "Scene/SceneAuthoredSetup.h"
 #include "Scene/SceneController.h"
 #include "Scene/SceneGeneratedSetup.h"
@@ -854,10 +854,7 @@ class Run
     RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
-    ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
-    ReplaySolverRecorder m_solverReplay;                                         // Bounded same-tick solver-state recorder kept in tandem with presentation replay.
-    ReplayEventRecorder m_replayEvents;                                          // Bounded intent/event stream kept beside v2 replay tracks.
-    ReplayBranchInfo m_replayBranch;                                             // Current live replay branch provenance.
+    ReplayRuntime m_replayRuntime;                                               // Owns replay recorders and live branch provenance.
     RunLoadedReplayPresentationState
         m_loadedPresentationReplay;                                              // Optional v2 file-backed presentation samples for smooth scrub playback.
     RunReplayScrubberState m_replayScrubber;
@@ -902,6 +899,18 @@ class Run
     void Render();                                                               // Skips 3D in text-only runs, then records passes for the current camera state.
     RunSceneState& SceneState();                                                 // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                                     // Read-only scene-run state owned by SceneController
+    ReplayRecorder& PresentationReplay();                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    const ReplayRecorder&
+    PresentationReplay() const;                                                  // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    ReplaySolverRecorder& SolverReplay();                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    const ReplaySolverRecorder&
+    SolverReplay() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    ReplayEventRecorder& ReplayEvents();                                         // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    const ReplayEventRecorder&
+    ReplayEvents() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    ReplayBranchInfo& ReplayBranch();                                            // Compatibility accessor while replay behavior moves behind ReplayRuntime.
+    const ReplayBranchInfo&
+    ReplayBranch() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
     void BindEngineContext();                                                    // Binds runtime-owned systems into EngineContext
     void RefreshRuntimeViewModel();                                              // Rebuilds scalar presentation state from EngineContext
     void RelativeUpdateCamera( uint32_t hash );                                  // Keeps non-selected relative cameras inside terrain height limits.
