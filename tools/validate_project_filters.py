@@ -193,6 +193,10 @@ RUNTIME_REPLAY_PREFIXES = (
     "RunReplayTools",
 )
 
+RUNTIME_RENDER_PREFIXES = (
+    "RuntimeRenderInputs",
+)
+
 RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorHullAssets",
@@ -219,6 +223,7 @@ AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
+    ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),

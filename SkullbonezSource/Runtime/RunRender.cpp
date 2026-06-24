@@ -407,12 +407,34 @@ void Run::RestoreReplayLauncherVisualForRender()
 }
 
 
-Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig )
+RuntimeRenderServices Run::BuildRuntimeRenderServices()
 {
+    return RuntimeRenderServices{ *m_systems.textures,
+                                  m_cGameModelCollection,
+                                  m_cWorldEnvironment,
+                                  m_systems.terrain.get(),
+                                  *m_systems.cameras,
+                                  *m_systems.window,
+                                  m_UI,
+                                  m_systems.skyBox };
+}
+
+
+RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
+{
+    return RuntimeRenderInputs{ BuildRuntimeRenderServices() };
+}
+
+
+Run::RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                      bool cinematicRender,
+                                                      const CinematicRenderConfig& renderConfig )
+{
+    const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    frame.scene = &m_cGameModelCollection;
+    frame.scene = &services.models;
 
     // Ordinary and cinematic rendering both use a directional sun (w = 0).
     // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map
@@ -430,13 +452,13 @@ Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, cons
     // transitions, the selected camera and render camera can differ; all passes
     // must consume the interpolated render camera so reflection, sky, and water
     // sample the same view.
-    frame.baseView = m_systems.cameras->GetViewMatrix();
-    frame.projection = m_systems.window->GetProjectionMatrix();
+    frame.baseView = services.cameras.GetViewMatrix();
+    frame.projection = services.window.GetProjectionMatrix();
     frame.viewProjection = frame.projection * frame.baseView;
-    frame.eye = m_systems.cameras->GetRenderCameraTranslation();
-    frame.viewCenter = m_systems.cameras->GetRenderCameraView();
-    frame.up = m_systems.cameras->GetRenderCameraUp();
-    frame.waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    frame.eye = services.cameras.GetRenderCameraTranslation();
+    frame.viewCenter = services.cameras.GetRenderCameraView();
+    frame.up = services.cameras.GetRenderCameraUp();
+    frame.waterY = services.world.GetFluidSurfaceHeight();
     frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
     frame.reflectionCenter =
         Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
@@ -505,13 +527,14 @@ void Run::DrawPrimitives()
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
     const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
+    RuntimeRenderInputs renderInputs = BuildRuntimeRenderInputs();
 
     if ( cinematicRender )
     {
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
-        RenderFrameContext preFrame = BuildRenderFrameContext( cinematicRender, renderConfig );
+        RenderFrameContext preFrame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
         m_fullscreenQuadPass.EnsureGpuResources( preFrame );
         m_skyPass.EnsureGpuResources( preFrame );
         m_sceneTargetPass.EnsureGpuResources( preFrame );
@@ -528,7 +551,7 @@ void Run::DrawPrimitives()
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
-    RenderFrameContext frame = BuildRenderFrameContext( cinematicRender, renderConfig );
+    RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderStreams();

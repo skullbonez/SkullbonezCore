@@ -14,7 +14,7 @@ audits when it is still useful.
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 expected gate is `tools\validate_fast.bat` unless the implementation touches render output paths, in which case escalate to `tools\validate_dx12_renderer.bat`. |
+| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 render-input plumbing is covered by `tools\validate_fast.bat` and direct `python tools\validate_project_filters.py`; logs are in `Agentic\Logs\runtime_run_phase1_validate_fast.log` and `Agentic\Logs\runtime_run_phase1_validate_project_filters.log`. |
 
 ## Active Notes
 

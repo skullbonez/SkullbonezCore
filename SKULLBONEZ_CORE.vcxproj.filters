@@ -104,6 +104,9 @@
     <Filter Include="Header Files\Runtime\Replay">
       <UniqueIdentifier>{1C1A6BBE-6900-B61D-300B-0B1F40D267C3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Runtime\Render">
+      <UniqueIdentifier>{34E24A5B-6F8A-46D1-B470-8E15931C4243}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{60EB4C01-8FF8-4911-AD94-AA50E1EFAD02}</UniqueIdentifier>
     </Filter>
@@ -670,6 +673,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
       <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h">
+      <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
       <Filter>Header Files\Runtime</Filter>

@@ -62,6 +62,7 @@ Related:
 #include "EngineContext.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
+#include "Render/RuntimeRenderInputs.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneController.h"
@@ -1476,7 +1477,10 @@ class Run
                                         const std::string& relativePath );       // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
     void DrawPrimitives();                                                       // Orders terrain, object, helper, water, post, and overlay passes for one frame.
+    RuntimeRenderServices BuildRuntimeRenderServices();
+    RuntimeRenderInputs BuildRuntimeRenderInputs();
     RenderFrameContext BuildRenderFrameContext(
+        const RuntimeRenderInputs& renderInputs,
         bool cinematicRender,
         const CinematicRenderConfig& renderConfig );                             // Names per-frame camera/light inputs consumed by render passes
     CinematicRenderConfig& ActiveCinematicConfig();                              // Mutable cinematic style config for the active scene/run
