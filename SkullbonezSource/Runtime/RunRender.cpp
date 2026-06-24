@@ -426,9 +426,9 @@ RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
 }
 
 
-Run::RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
-                                                      bool cinematicRender,
-                                                      const CinematicRenderConfig& renderConfig )
+RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                 bool cinematicRender,
+                                                 const CinematicRenderConfig& renderConfig )
 {
     const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;

@@ -677,6 +677,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
