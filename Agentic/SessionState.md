@@ -49,6 +49,10 @@ audits when it is still useful.
   `PhysicsEngine::ApplyBodyImpulse()` and routes launcher laser/projectile wake
   operations through the physics facade while preserving collection-backed body
   storage.
+- Runtime run decomposition Phase 4C editor-tool migration routes mouse-pickup
+  impulses, gizmo motion wakeups, and placement wake/sleep commands through
+  `PhysicsEngine`; editor shape/pose mutation still happens on `GameModel`
+  during this compatibility slice.
 
 ## Current Work Items
 

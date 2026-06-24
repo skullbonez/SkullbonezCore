@@ -22,6 +22,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../../Assets/AssetSystem.h"
 #include "../InputController.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../RuntimeFileWriter.h"
@@ -2439,6 +2440,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                    SkullbonezCore::Physics::PhysicsEngine& physics,
                                     int index,
                                     GameModel& model )
 {
@@ -2446,7 +2448,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     if ( !model.IsFixed() )
     {
-        collection.WakeModel( index );
+        physics.WakeBody( collection, index );
     }
 }
 
@@ -4250,8 +4252,10 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    model.SetImpulseForce( impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    m_cGameModelCollection.WakeModel( m_mousePickup.modelIndex );
+    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( m_cGameModelCollection,
+                                                                m_mousePickup.modelIndex,
+                                                                impulse,
+                                                                SkullbonezCore::Math::Vector::ZERO_VECTOR );
     m_cGameModelCollection.InvalidatePhysicsStreams();
     m_mousePickup.lastImpulse = impulse;
 }
@@ -4482,14 +4486,20 @@ void Run::MoveSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Vec
             GameModel& groupModel = m_cGameModelCollection.GetModelAtIndex( modelIndex );
             groupModel.SetPosition( m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] +
                                     delta );
-            ResetEditorModelMotionAndWake( m_cGameModelCollection, modelIndex, groupModel );
+            ResetEditorModelMotionAndWake( m_cGameModelCollection,
+                                           m_cGameModelCollection.GetPhysicsEngine(),
+                                           modelIndex,
+                                           groupModel );
         }
     }
     else
     {
         const Vector3 newPosition = m_editor.gizmoDragStartPosition + delta;
         model.SetPosition( newPosition );
-        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
+        ResetEditorModelMotionAndWake( m_cGameModelCollection,
+                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                       index,
+                                       model );
     }
 }
 
@@ -4524,7 +4534,10 @@ void Run::ScaleSelectedEditorObjectAlongAxis( const Vector3& rayOrigin, const Ve
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
     if ( model.ScaleCollisionShapeAxisFromBase( m_editor.gizmoDragStartShape, m_editor.activeGizmoAxis, factor ) )
     {
-        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
+        ResetEditorModelMotionAndWake( m_cGameModelCollection,
+                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                       index,
+                                       model );
     }
 }
 
@@ -4568,7 +4581,10 @@ void Run::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const 
             groupModel.SetPosition( m_editor.gizmoDragStartPosition +
                                     RotatePointAboutArbitrary( angleDelta, axisVector, startOffset ) );
             groupModel.SetOrientation( orientation );
-            ResetEditorModelMotionAndWake( m_cGameModelCollection, modelIndex, groupModel );
+            ResetEditorModelMotionAndWake( m_cGameModelCollection,
+                                           m_cGameModelCollection.GetPhysicsEngine(),
+                                           modelIndex,
+                                           groupModel );
         }
     }
     else
@@ -4577,7 +4593,10 @@ void Run::RotateSelectedEditorObjectAroundAxis( const Vector3& rayOrigin, const 
         orientation.RotateAboutAxis( axisVector, angleDelta );
         GameModel& model = m_cGameModelCollection.GetModelAtIndex( index );
         model.SetOrientation( orientation );
-        ResetEditorModelMotionAndWake( m_cGameModelCollection, index, model );
+        ResetEditorModelMotionAndWake( m_cGameModelCollection,
+                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                       index,
+                                       model );
     }
 }
 
@@ -4783,11 +4802,11 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         {
             if ( modelStartsAsleep )
             {
-                m_cGameModelCollection.SeedModelAsleep( index );
+                m_cGameModelCollection.GetPhysicsEngine().SeedBodyAsleep( m_cGameModelCollection, index );
             }
             else
             {
-                m_cGameModelCollection.WakeModel( index );
+                m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, index );
             }
         }
     };
