@@ -47,14 +47,6 @@ namespace
 using Json = nlohmann::ordered_json;
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
-int NextSceneRand( unsigned int& state )
-{
-    // Match the MSVC CRT sequence so seeded scene layouts stay stable while avoiding
-    // global RNG state.
-    state = state * 214013u + 2531011u;
-    return static_cast<int>( ( state >> 16 ) & 0x7fffu );
-}
-
 void ApplySceneWorkerThreadSetting( int requestedWorkerThreads )
 {
     const int clampedWorkerThreads =
@@ -641,93 +633,24 @@ void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::ve
 }
 } // namespace
 
+SceneGeneratedCameraContext Run::BuildSceneGeneratedCameraContext()
+{
+    return SceneGeneratedCameraContext{ m_systems.cameras, *m_systems.terrain };
+}
+
+SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
+{
+    return SceneGeneratedModelContext{ SceneState(),
+                                       Cfg(),
+                                       m_cWorldEnvironment,
+                                       m_systems.terrain.get(),
+                                       m_cGameModelCollection,
+                                       m_generatedObjectTypeOverride };
+}
+
 void Run::SetUpGameModels( int count )
 {
-    SceneState().modelCount = count;
-    SceneState().solverBallCount = 0;
-    SceneState().solverBoxCount = 0;
-
-    const EngineConfig& cfg = Cfg();
-
-    auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
-    auto randSigned = [&]( int range ) -> float
-    {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
-        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
-    };
-    auto randSign = [&]() -> float { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
-    for ( int x = 0; x < SceneState().modelCount; ++x )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        bool makeBox = false;
-        if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-        {
-            makeBox = true;
-        }
-        else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
-        {
-            makeBox = false;
-        }
-        else
-        {
-            // ~30% of generated objects are boxes, giving the default demo a
-            // mixed collision workload without requiring explicit scene bodies.
-            makeBox = ( NextSceneRand( SceneState().rngState ) % 10 ) < 3;
-        }
-
-        if ( makeBox )
-        {
-            float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
-            float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-            float hy = halfExtent;
-            float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-
-            // Box inertia: I = m/3 * (hy^2 + hz^2) etc.
-            float hx2 = hx * hx;
-            float hy2 = hy * hy;
-            float hz2 = hz * hz;
-            float m3 = mass / 3.0f;
-            Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-            GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( m_systems.terrain.get() );
-            gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-            gameModel.SetImpulseForce( force, forcePos );
-
-            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        }
-        else
-        {
-            float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-            float radius =
-                ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
-
-            GameModel gameModel( &m_cWorldEnvironment,
-                                 Vector3( posX, posY, posZ ),
-                                 Vector3( moment, moment, moment ),
-                                 mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( m_systems.terrain.get() );
-            gameModel.AddBoundingSphere( radius );
-            gameModel.SetImpulseForce( force, forcePos );
-
-            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        }
-    }
+    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), count );
 }
 
 
@@ -736,101 +659,7 @@ void Run::SetUpGameModels( int count )
 // deterministic for benchmark scenes.
 void Run::SetUpSolverObjects( int balls, int boxes )
 {
-    balls = (std::max)( 0, balls );
-    boxes = (std::max)( 0, boxes );
-    const int totalObjects = balls + boxes;
-    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
-    {
-        balls = totalObjects;
-        boxes = 0;
-    }
-    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-    {
-        balls = 0;
-        boxes = totalObjects;
-    }
-
-    SceneState().modelCount = balls + boxes;
-    SceneState().solverBallCount = balls;
-    SceneState().solverBoxCount = boxes;
-
-    const EngineConfig& cfg = Cfg();
-
-    auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
-    auto randSigned = [&]( int range ) -> float
-    {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
-        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
-    };
-    auto randSign = [&]() -> float { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
-    // --- Sphere pass ---
-    for ( int i = 0; i < balls; ++i )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius =
-            ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( posX, posY, posZ ),
-                             Vector3( moment, moment, moment ),
-                             mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.AddBoundingSphere( radius );
-        gameModel.SetImpulseForce( force, forcePos );
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // --- Box pass ---
-    // Box inertia tensor (solid cuboid about centre of mass):
-    //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
-    // where hx, hy, hz are the full extents (2 * half-extents).
-    // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
-    for ( int i = 0; i < boxes; ++i )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
-        float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-        float hy = halfExtent;
-        float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-
-        float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
-        float m3 = mass / 3.0f;
-        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        gameModel.SetImpulseForce( force, forcePos );
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    SceneState().modelCount = balls + boxes;
+    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), balls, boxes );
 }
 
 

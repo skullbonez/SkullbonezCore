@@ -68,6 +68,7 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneController.h"
+#include "Scene/SceneGeneratedSetup.h"
 #include "Scene/SceneRuntimeCoordinator.h"
 #include "SimulationController.h"
 #include "../Assets/TextureCollection.h"
@@ -809,13 +810,6 @@ struct RunUIStressState
     int framesRun = 0;                                                           // Stress-run frame counter independent of scene resets
 };
 
-enum class GeneratedObjectTypeOverride
-{
-    Mixed,
-    AllBalls,
-    AllBoxes
-};
-
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -937,6 +931,8 @@ class Run
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
+    SceneGeneratedCameraContext BuildSceneGeneratedCameraContext();
+    SceneGeneratedModelContext BuildSceneGeneratedModelContext();
     void StepPhysicsPipelineStage( int direction );                              // direction is a left/right cursor step for pipeline visualization.
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
