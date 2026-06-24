@@ -14,9 +14,20 @@ Mental model:
 
 namespace SkullbonezCore::Basics
 {
+struct ReplayV2SaveResult;
+
 class ReplayRuntime
 {
   public:
+    struct RecordingConfigResult
+    {
+        ReplayRecorderConfig presentationConfig;
+        ReplayRecorderConfig solverConfig;
+        ReplayRecorderStats presentationStats;
+        ReplayRecorderStats solverStats;
+        ReplayEventRecorderStats eventStats;
+    };
+
     ReplayRecorder& Presentation();
     const ReplayRecorder& Presentation() const;
 
@@ -28,6 +39,29 @@ class ReplayRuntime
 
     ReplayBranchInfo& Branch();
     const ReplayBranchInfo& Branch() const;
+
+    RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
+    void FlushHashLogs();
+    void ResetBranch();
+    void ResetTimeline( const char* sceneLabel );
+    bool IsPresentationEnabled() const;
+    bool IsCaptureEnabled() const;
+    ReplayRecorderStats PresentationStats() const;
+    ReplayRecorderStats SolverStats() const;
+    ReplayEventRecorderStats EventStats() const;
+    ReplayFrameIndex NextEventFrameIndex() const;
+    void CaptureFrame( ReplayCaptureInput input );
+    void RecordEvent( ReplayEventKind kind,
+                      ReplayFrameIndex frameIndex,
+                      uint32_t flags,
+                      int32_t value0,
+                      int32_t value1,
+                      int32_t value2,
+                      int32_t value3,
+                      uint64_t data0,
+                      const char* text );
+    bool SaveSolverReplay( const char* path ) const;
+    bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
     ReplayRecorder m_presentation; // Bounded replay presentation recorder for recent-frame inspection.

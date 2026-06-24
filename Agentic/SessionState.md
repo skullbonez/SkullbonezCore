@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay-owner slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders plus live branch provenance while `Run` keeps compatibility accessors. |
+| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay capture/event slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders, live branch provenance, recording configuration, timeline reset, per-step capture, event stamping, and replay save/export delegation while `Run` keeps compatibility accessors for scrub/restore/render/path slices. |
 | Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
-| Pending work | Runtime run decomposition is active. Phase 5 still needs replay capture/event helper migration, render-pose mutation consolidation, replay-owned selection/prediction/velocity state extraction, and render-facing replay data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Pending work | Runtime run decomposition is active. Phase 5 still needs render-pose mutation consolidation, replay-owned selection/prediction/velocity state extraction, and render-facing replay data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
@@ -104,6 +104,19 @@ audits when it is still useful.
   (`TestOutput\validation\phase5_replay_runtime_owner_validate_full_rerun.log`).
   Initial checks caught and fixed missed multi-line replay exporter references
   and the missing project-filter rule before the final gates passed.
+- Runtime run decomposition Phase 5 capture/event slice moves recording
+  configuration, solver hash-log path derivation, timeline reset, branch/event
+  stamping for capture, event recording, and replay save/export delegation into
+  `ReplayRuntime`. `Run` still builds scene/world/model capture inputs and still
+  has compatibility recorder accessors for scrub/restore/render/path code that
+  will move in later Phase 5 slices.
+- Phase 5 capture/event validation: Profile build 37.40s
+  (`TestOutput\validation\phase5_replay_runtime_capture_profile_build.log`),
+  format 6.61s, and full gate 247.38s
+  (`TestOutput\validation\phase5_replay_runtime_capture_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
 
 ## Current Work Items
 

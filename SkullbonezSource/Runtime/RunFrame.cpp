@@ -441,7 +441,7 @@ void Run::TickPhysics( double secondsPerFrame )
 
     const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
-    const bool replayCapture = PresentationReplay().IsEnabled() || SolverReplay().IsEnabled();
+    const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnostics.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnostics.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
@@ -515,7 +515,7 @@ void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
 void Run::AfterPhysicsStep()
 {
     RestoreMousePickupAngularVelocity();
-    if ( PresentationReplay().IsEnabled() || SolverReplay().IsEnabled() )
+    if ( m_replayRuntime.IsCaptureEnabled() )
     {
         CaptureReplayPhysicsStep();
     }
@@ -530,8 +530,6 @@ void Run::CaptureReplayPhysicsStep()
         BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
-        input.branch = ReplayBranch();
-        input.eventCursor = ReplayEvents().GetStats().nextSequence;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
         input.physicsDt = PHYSICS_FIXED_DT;
@@ -544,8 +542,7 @@ void Run::CaptureReplayPhysicsStep()
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
         input.launcherVisual = &launcherVisual;
-        PresentationReplay().CaptureFrame( input );
-        SolverReplay().CaptureFrame( input );
+        m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples();
     }
 #ifdef _DEBUG
@@ -1074,11 +1071,7 @@ void Run::TickReplaySaveProbe()
     }
 
     ReplayV2SaveResult result;
-    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( PresentationReplay(),
-                                                              SolverReplay(),
-                                                              ReplayEvents(),
-                                                              m_replaySaveProbe.path,
-                                                              &result ) )
+    if ( !m_replayRuntime.SavePresentationWithSolverHashes( m_replaySaveProbe.path, &result ) )
     {
         throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
     }

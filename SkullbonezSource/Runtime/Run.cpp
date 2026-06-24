@@ -27,7 +27,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
-#include "Replay/ReplayExporter.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
@@ -136,22 +135,6 @@ void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Qua
     AppendReplayFloatHex( cursor, remaining, y );
     AppendReplayFloatHex( cursor, remaining, z );
     AppendReplayFloatHex( cursor, remaining, w );
-}
-
-std::string SolverReplayHashLogPath( const std::string& presentationPath )
-{
-    if ( presentationPath.empty() )
-    {
-        return {};
-    }
-
-    const std::size_t slash = presentationPath.find_last_of( "/\\" );
-    const std::size_t dot = presentationPath.find_last_of( '.' );
-    if ( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) )
-    {
-        return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
-    }
-    return presentationPath + ".solver";
 }
 
 const ReplayPresentationSample*
@@ -378,11 +361,10 @@ Run::~Run()
 #endif
 
     m_diagnostics.ClosePerfLog();
-    PresentationReplay().FlushHashLog();
-    SolverReplay().FlushHashLog();
-    if ( PresentationReplay().IsEnabled() )
+    m_replayRuntime.FlushHashLogs();
+    if ( m_replayRuntime.IsPresentationEnabled() )
     {
-        const ReplayRecorderStats replayStats = PresentationReplay().GetStats();
+        const ReplayRecorderStats replayStats = m_replayRuntime.PresentationStats();
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -392,9 +374,9 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.checkpointCapacity ),
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
-    if ( SolverReplay().IsEnabled() )
+    if ( m_replayRuntime.SolverStats().enabled )
     {
-        const ReplayRecorderStats replayStats = SolverReplay().GetStats();
+        const ReplayRecorderStats replayStats = m_replayRuntime.SolverStats();
         printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -808,39 +790,25 @@ void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
 
 void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {
-    ReplayRecorderConfig replayConfig;
-    replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
-    replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
-    replayConfig.checkpointIntervalFrames = 30;
-    if ( hashLogPath && hashLogPath[0] != '\0' )
-    {
-        replayConfig.hashLogPath = hashLogPath;
-    }
-
-    PresentationReplay().Configure( replayConfig );
-    ReplayRecorderConfig solverReplayConfig = replayConfig;
-    solverReplayConfig.checkpointIntervalFrames = 60;
-    solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
-    SolverReplay().Configure( solverReplayConfig );
-    ReplayEvents().Configure( replayConfig );
+    const ReplayRuntime::RecordingConfigResult replayConfig =
+        m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath );
     ResetReplayScrubber();
-    if ( PresentationReplay().IsEnabled() )
+    if ( replayConfig.presentationStats.enabled )
     {
-        const ReplayRecorderStats replayStats = PresentationReplay().GetStats();
-        const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
-        const ReplayEventRecorderStats eventReplayStats = ReplayEvents().GetStats();
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
                 "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
-                replayConfig.retentionSeconds,
-                static_cast<unsigned long long>( replayStats.sampleCapacity ),
-                replayConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( solverReplayStats.sampleCapacity ),
-                solverReplayConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( eventReplayStats.eventCapacity ),
-                replayConfig.hashLogPath.empty() ? "" : " hash_log=",
-                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str(),
-                solverReplayConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
-                solverReplayConfig.hashLogPath.empty() ? "" : solverReplayConfig.hashLogPath.c_str() );
+                replayConfig.presentationConfig.retentionSeconds,
+                static_cast<unsigned long long>( replayConfig.presentationStats.sampleCapacity ),
+                replayConfig.presentationConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.solverStats.sampleCapacity ),
+                replayConfig.solverConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.eventStats.eventCapacity ),
+                replayConfig.presentationConfig.hashLogPath.empty() ? "" : " hash_log=",
+                replayConfig.presentationConfig.hashLogPath.empty()
+                    ? ""
+                    : replayConfig.presentationConfig.hashLogPath.c_str(),
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
 }
 
@@ -920,7 +888,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
     if ( !preserveBranchMetadata )
     {
-        ReplayBranch() = ReplayBranchInfo();
+        m_replayRuntime.ResetBranch();
     }
     if ( m_replayScrubber.simulationPaused )
     {
@@ -934,16 +902,14 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         UI::InputControl::EndMouseCapture();
     }
     m_replayVelocityEdit = RunReplayVelocityEditState{};
-    if ( !PresentationReplay().IsEnabled() )
+    if ( !m_replayRuntime.IsPresentationEnabled() )
     {
         return;
     }
 
     const std::string* scenePath = CurrentSceneQueuePath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    PresentationReplay().ResetTimeline( sceneLabel );
-    SolverReplay().ResetTimeline( sceneLabel );
-    ReplayEvents().ResetTimeline( sceneLabel );
+    m_replayRuntime.ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     RecordReplayGeneratedSceneConfigEvent();
     m_solverReplayMismatchReports = 0;
@@ -952,14 +918,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 
 ReplayFrameIndex Run::NextReplayEventFrameIndex() const
 {
-    const ReplayRecorderStats solverStats = SolverReplay().GetStats();
-    if ( solverStats.enabled )
-    {
-        return solverStats.nextFrameIndex;
-    }
-
-    const ReplayRecorderStats presentationStats = PresentationReplay().GetStats();
-    return presentationStats.nextFrameIndex;
+    return m_replayRuntime.NextEventFrameIndex();
 }
 
 
@@ -973,23 +932,7 @@ void Run::RecordReplayEvent( ReplayEventKind kind,
                              uint64_t data0,
                              const char* text )
 {
-    if ( !ReplayEvents().IsEnabled() )
-    {
-        return;
-    }
-
-    ReplayEventInput input;
-    input.frameIndex = frameIndex;
-    input.branch = ReplayBranch();
-    input.kind = kind;
-    input.flags = flags;
-    input.value0 = value0;
-    input.value1 = value1;
-    input.value2 = value2;
-    input.value3 = value3;
-    input.data0 = data0;
-    input.text = text;
-    ReplayEvents().RecordEvent( input );
+    m_replayRuntime.RecordEvent( kind, frameIndex, flags, value0, value1, value2, value3, data0, text );
 }
 
 
@@ -1465,12 +1408,8 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved = track == RunReplayTrack::Solver
-                    ? ReplayExporter::Save( SolverReplay(), path )
-                    : ReplayV2Artifact::SavePresentationWithSolverHashes( PresentationReplay(),
-                                                                          SolverReplay(),
-                                                                          ReplayEvents(),
-                                                                          path );
+        saved = track == RunReplayTrack::Solver ? m_replayRuntime.SaveSolverReplay( path )
+                                                : m_replayRuntime.SavePresentationWithSolverHashes( path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
