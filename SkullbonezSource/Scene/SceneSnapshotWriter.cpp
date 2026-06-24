@@ -28,10 +28,13 @@ Related:
 #include "../Physics/ConvexHullShape.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "../Rendering/RenderMaterial.h"
 #include "../Runtime/RuntimeFileWriter.h"
 #include "../World/WorldEnvironment.h"
 
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <variant>
 #include <vector>
@@ -73,6 +76,66 @@ Json OrientationJson( GameModel& model )
     float qw = 1.0f;
     model.GetOrientation().GetComponents( qx, qy, qz, qw );
     return Json::array( { qx, qy, qz, qw } );
+}
+
+bool SceneMaterialFloatDiffers( float a, float b )
+{
+    return std::fabs( a - b ) > 1.0e-5f;
+}
+
+bool ShouldSaveRenderMaterial( const SkullbonezCore::Rendering::RenderMaterial& material )
+{
+    const SkullbonezCore::Rendering::RenderMaterial defaults = {};
+    return material.name[0] != '\0' || material.kind != defaults.kind ||
+           SceneMaterialFloatDiffers( material.baseColor[0], defaults.baseColor[0] ) ||
+           SceneMaterialFloatDiffers( material.baseColor[1], defaults.baseColor[1] ) ||
+           SceneMaterialFloatDiffers( material.baseColor[2], defaults.baseColor[2] ) ||
+           SceneMaterialFloatDiffers( material.roughness, defaults.roughness ) ||
+           SceneMaterialFloatDiffers( material.metallic, defaults.metallic ) ||
+           SceneMaterialFloatDiffers( material.specular, defaults.specular ) ||
+           SceneMaterialFloatDiffers( material.transmission, defaults.transmission ) ||
+           SceneMaterialFloatDiffers( material.stylization, defaults.stylization ) ||
+           SceneMaterialFloatDiffers( material.emissiveColor[0], defaults.emissiveColor[0] ) ||
+           SceneMaterialFloatDiffers( material.emissiveColor[1], defaults.emissiveColor[1] ) ||
+           SceneMaterialFloatDiffers( material.emissiveColor[2], defaults.emissiveColor[2] ) ||
+           SceneMaterialFloatDiffers( material.emissiveStrength, defaults.emissiveStrength ) ||
+           SceneMaterialFloatDiffers( material.textureMode, defaults.textureMode ) || material.flags != defaults.flags;
+}
+
+Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::RenderMaterial& material )
+{
+    Json materialJson = {
+        { "target", target ? target : "" },
+        { "color", Vec3Json( material.baseColor[0], material.baseColor[1], material.baseColor[2] ) },
+        { "roughness", material.roughness },
+        { "metallic", material.metallic },
+        { "specular", material.specular },
+        { "transmission", material.transmission },
+        { "stylization", material.stylization },
+    };
+    if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Textured )
+    {
+        materialJson["mode"] = material.textureMode;
+    }
+    else
+    {
+        materialJson["mode"] = SkullbonezCore::Rendering::RenderMaterialKindName( material.kind );
+    }
+    if ( material.name[0] != '\0' )
+    {
+        materialJson["name"] = material.name;
+    }
+    if ( material.kind == SkullbonezCore::Rendering::RenderMaterialKind::Emissive || material.emissiveStrength > 0.0f )
+    {
+        materialJson["emissive"] =
+            Vec3Json( material.emissiveColor[0], material.emissiveColor[1], material.emissiveColor[2] );
+        materialJson["strength"] = material.emissiveStrength;
+    }
+    if ( material.flags != 0 )
+    {
+        materialJson["flags"] = material.flags;
+    }
+    return materialJson;
 }
 } // namespace
 
@@ -146,6 +209,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         { "up", Vec3Json( camUp ) },
     } );
     scene["objects"] = Json::array();
+    Json objectMaterials = Json::array();
 
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
@@ -238,6 +302,18 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             }
             scene["objects"].push_back( hullState );
         }
+
+        const SkullbonezCore::Rendering::RenderMaterial& material = m_gameModels[i].GetRenderMaterial();
+        if ( m_gameModels[i].GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll &&
+             ShouldSaveRenderMaterial( material ) )
+        {
+            objectMaterials.push_back( RenderMaterialJson( name, material ) );
+        }
+    }
+
+    if ( !objectMaterials.empty() )
+    {
+        scene["objectMaterials"] = objectMaterials;
     }
 
     const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints =
