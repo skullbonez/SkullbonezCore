@@ -41,6 +41,10 @@ audits when it is still useful.
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,
   timing, world, and model state. Later phases should narrow those services
   instead of treating the host as a final renderer boundary.
+- Runtime run decomposition Phase 4C now routes authored scene setup and ragdoll
+  joint/sleep commands through `Physics::PhysicsEngine`; ragdoll body creation
+  still uses `GameModelCollection` until model construction itself is lifted out
+  of collection ownership.
 
 ## Current Work Items
 

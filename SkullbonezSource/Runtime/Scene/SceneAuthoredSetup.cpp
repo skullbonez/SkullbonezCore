@@ -444,7 +444,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             options.orientation =
                 MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
         }
-        Ragdoll::AddSimpleHumanoid( context.models, context.world, context.terrain, options );
+        Ragdoll::AddSimpleHumanoid( context.models, context.physics, context.world, context.terrain, options );
     }
 
     const std::vector<GameModel>& models = context.models.Models();

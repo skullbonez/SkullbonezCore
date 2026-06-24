@@ -21,6 +21,7 @@ Related:
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
+#include "PhysicsEngine.h"
 #include "PhysicsMass.h"
 
 #include <algorithm>
@@ -392,6 +393,7 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
 }
 
 void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
+                                 PhysicsEngine& physics,
                                  WorldEnvironment& worldEnvironment,
                                  SkullbonezCore::Geometry::Terrain* terrain,
                                  const RagdollBuildOptions& options )
@@ -441,14 +443,14 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         constraint.damping = 0.35f;
         constraint.groupId = groupId;
         constraint.flags = joints[i].flags;
-        collection.AddPointJointConstraint( constraint );
+        physics.AddPointJointConstraint( constraint );
     }
 
     if ( options.startsAsleep && !options.fixed )
     {
         for ( int i = 0; i < PART_COUNT; ++i )
         {
-            collection.SeedModelAsleep( firstBody + i );
+            physics.SeedBodyAsleep( collection, firstBody + i );
         }
     }
 }

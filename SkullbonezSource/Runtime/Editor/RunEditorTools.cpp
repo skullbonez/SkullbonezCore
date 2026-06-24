@@ -5028,7 +5028,11 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         options.scale = placementScale.x;
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
-        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
+        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection,
+                                    m_cGameModelCollection.GetPhysicsEngine(),
+                                    m_cWorldEnvironment,
+                                    m_systems.terrain.get(),
+                                    options );
     };
 
     switch ( type )
