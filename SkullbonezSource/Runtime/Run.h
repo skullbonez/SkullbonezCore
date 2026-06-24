@@ -68,6 +68,7 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneController.h"
+#include "Scene/SceneRuntimeCoordinator.h"
 #include "SimulationController.h"
 #include "../Assets/TextureCollection.h"
 #include "Window.h"
@@ -825,6 +826,7 @@ class Run
 
   private:
     SceneController m_sceneController;                                           // Owns scene queue and current scene-run state
+    SceneRuntimeCoordinator m_sceneCoordinator;                                  // Owns scene load/reset/advance selection decisions.
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
     std::vector<const char*> m_sceneBrowserNamePtrs;
@@ -934,6 +936,7 @@ class Run
     void UpdateLogic( float simulationDt, float cameraDt );                      // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
+    SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
     void StepPhysicsPipelineStage( int direction );                              // direction is a left/right cursor step for pipeline visualization.
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,

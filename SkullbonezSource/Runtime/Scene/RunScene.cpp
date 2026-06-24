@@ -2571,46 +2571,13 @@ bool Run::CreateSceneFromUI( const char* requestedName )
 
 void Run::LoadSceneFromBrowserIndex( int index )
 {
-    SceneController& runtime = m_sceneController;
-    if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
-    {
-        return;
-    }
-
-    EnterInteractiveSceneRun();
-
-    const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
-    const int queuedIndex = runtime.FindNormalizedPath( selectedPath );
-    if ( queuedIndex >= 0 )
-    {
-        if ( queuedIndex != runtime.CurrentIndex() )
-        {
-            LoadScene( queuedIndex, true, true );
-        }
-        else
-        {
-            SceneState().isExitOnComplete = false;
-            m_capture.Screenshot().isScreenshotAndExit = false;
-        }
-        return;
-    }
-
-    LoadScene( runtime.Append( selectedPath ), true, true );
+    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowserPaths );
 }
 
 
 void Run::LoadDemoSceneFromUI()
 {
-    SceneController& runtime = m_sceneController;
-    EnterInteractiveSceneRun();
-    const int demoIndex = runtime.FindGeneratedDemo();
-    if ( demoIndex >= 0 )
-    {
-        LoadScene( demoIndex, true, true );
-        return;
-    }
-
-    LoadScene( runtime.Append( "" ), true, true );
+    m_sceneCoordinator.LoadDemoSceneFromUI();
 }
 
 
@@ -2757,129 +2724,21 @@ void Run::ApplyDemoHeroStyleOverride()
 
 bool Run::ApplyAdjacentCinematicMode( int direction )
 {
-    if ( direction == 0 )
-    {
-        return false;
-    }
-
-    std::vector<int> cineIndices;
-    cineIndices.reserve( m_sceneBrowserPaths.size() );
-    int currentPosition = -1;
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
-    {
-        if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
-        {
-            if ( i == m_selectedCineModeSceneIndex )
-            {
-                currentPosition = static_cast<int>( cineIndices.size() );
-            }
-            cineIndices.push_back( i );
-        }
-    }
-
-    if ( cineIndices.empty() )
-    {
-        return false;
-    }
-
-    const int currentSceneIndex = CurrentSceneBrowserIndex();
-    if ( currentPosition < 0 && currentSceneIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentSceneIndex] ) )
-    {
-        for ( int i = 0; i < static_cast<int>( cineIndices.size() ); ++i )
-        {
-            if ( cineIndices[i] == currentSceneIndex )
-            {
-                currentPosition = i;
-                break;
-            }
-        }
-    }
-
-    const bool cineContext =
-        currentPosition >= 0 || m_selectedCineModeSceneIndex >= 0 || m_UI.GetActiveTab() == InGameUITab::Cinematic;
-    if ( !cineContext )
-    {
-        return false;
-    }
-
-    const int cineCount = static_cast<int>( cineIndices.size() );
-    const int nextPosition = currentPosition < 0
-                                 ? ( direction < 0 ? cineCount - 1 : 0 )
-                                 : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-    return ApplyCinematicModeFromBrowserIndex( cineIndices[nextPosition] );
+    return m_sceneCoordinator.ApplyAdjacentCinematicMode( direction,
+                                                          m_sceneBrowserPaths,
+                                                          m_selectedCineModeSceneIndex );
 }
 
 
 void Run::LoadAdjacentSceneFromBrowser( int direction )
 {
-    SceneController& runtime = m_sceneController;
-    if ( direction == 0 )
-    {
-        return;
-    }
-
-    if ( runtime.CurrentQueueIsCinematicDeck() )
-    {
-        LoadScene( runtime.AdjacentQueueIndex( direction ), true, true );
-        return;
-    }
-
-    const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
-    if ( sceneCount <= 0 )
-    {
-        return;
-    }
-
-    const int currentIndex = CurrentSceneBrowserIndex();
-    if ( currentIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentIndex] ) )
-    {
-        std::vector<int> cineIndices;
-        cineIndices.reserve( m_sceneBrowserPaths.size() );
-        int currentCinePosition = -1;
-        for ( int i = 0; i < sceneCount; ++i )
-        {
-            if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
-            {
-                if ( i == currentIndex )
-                {
-                    currentCinePosition = static_cast<int>( cineIndices.size() );
-                }
-                cineIndices.push_back( i );
-            }
-        }
-        if ( !cineIndices.empty() && currentCinePosition >= 0 )
-        {
-            const int cineCount = static_cast<int>( cineIndices.size() );
-            const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-            LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
-            return;
-        }
-    }
-
-    int nextIndex = 0;
-    if ( currentIndex < 0 )
-    {
-        nextIndex = direction < 0 ? sceneCount - 1 : 0;
-    }
-    else
-    {
-        nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
-    }
-
-    LoadSceneFromBrowserIndex( nextIndex );
+    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowserPaths );
 }
 
 
 void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    SceneController& runtime = m_sceneController;
-    if ( !runtime.HasCurrentEntry() )
-    {
-        return;
-    }
-
-    runtime.MarkManualReset();
-    LoadScene( runtime.CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState );
+    m_sceneCoordinator.ResetCurrentScene( preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
@@ -3071,25 +2930,6 @@ void Run::UpdateWorldTerrainBounds()
 
 bool Run::AdvanceScene()
 {
-    SceneController& runtime = m_sceneController;
     const bool preserveInteractiveUI = SceneState().isInteractiveRun;
-
-    // For perf tests with 2 passes, the second pass re-runs the same scene
-    if ( m_diagnostics.PerfLog().isPerfTest && sPerfPass == 0 )
-    {
-        sPerfPass = 1;
-        LoadScene( runtime.CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
-        return true;
-    }
-
-    sPerfPass = 0;
-
-    const int nextIndex = runtime.NextIndex();
-    if ( !runtime.HasEntry( nextIndex ) )
-    {
-        return false;
-    }
-
-    LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI );
-    return true;
+    return m_sceneCoordinator.AdvanceScene( m_diagnostics.PerfLog().isPerfTest, sPerfPass, preserveInteractiveUI );
 }
