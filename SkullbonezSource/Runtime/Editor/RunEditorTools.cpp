@@ -4660,7 +4660,7 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
     const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
     if ( rayLinger > 0.0f )
     {
-        for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+        for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
         {
             if ( line.active && line.ageSeconds < rayLinger )
             {
@@ -4728,7 +4728,7 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
     RenderReplayCauseFocusOverlay( m_editorTracer );
     RenderReplayVelocityEditOverlay( m_editorTracer );
     m_editorTracer.Render( viewProjection );
-    m_launcherLaser.Render( viewProjection, cameraEye, cameraUp );
+    m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
 }
 
 

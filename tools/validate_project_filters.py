@@ -216,6 +216,10 @@ RUNTIME_EDITOR_PREFIXES = (
     "RunEditorTools",
 )
 
+RUNTIME_TOOLS_PREFIXES = (
+    "RuntimeTools",
+)
+
 CORE_PREFIXES = (
     "AmortizedTask",
     "Common",
@@ -236,6 +240,7 @@ AREA_PREFIXES = (
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
+    ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),

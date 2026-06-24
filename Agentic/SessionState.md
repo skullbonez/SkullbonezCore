@@ -177,6 +177,23 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Dirac found no behavior
   defect in sampling, alpha, body filtering, or draw-state restore path; the
   suggested request-buffer reserve was added before validation.
+- Runtime run decomposition Phase 6 launcher/ray-test slice adds
+  `RuntimeTools` and moves launcher ray-test state plus `LauncherLaser`
+  ownership out of `Run`. Existing launcher, replay visual capture/restore,
+  render-host binding, and backend resource reset behavior remains on the
+  compatibility path through `RuntimeTools` accessors.
+- Phase 6 launcher/ray-test validation: final format 6.64s, project-filter
+  check 0.71s, final Profile build 118.23s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_profile_build_rerun.log`),
+  fast gate 120.48s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_validate_fast.log`), and
+  full gate 25.22s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Socrates found no
+  behavior defect and confirmed the slice satisfies the first one-tool-at-a-time
+  Phase 6 extraction while manipulator/editor ownership remains for later slices.
 
 ## Current Work Items
 

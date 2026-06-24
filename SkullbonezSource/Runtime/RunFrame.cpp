@@ -474,7 +474,7 @@ void Run::TickPhysics( double secondsPerFrame )
                              ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
                              this } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
-    m_launcherLaser.Update( static_cast<float>( secondsPerFrame ) );
+    m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
@@ -556,14 +556,15 @@ void Run::CaptureReplayPhysicsStep()
 void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
     outSample = ReplayLauncherVisualSample();
-    outSample.nextRayLine = m_rayCastTest.nextLine;
-    outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile
-                                                                                   : ReplayLauncherFireMode::Laser;
-    outSample.visualizeRays = m_rayCastTest.visualizeRays;
-    outSample.impulseStrength = m_rayCastTest.impulseStrength;
-    outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
+    outSample.nextRayLine = m_runtimeTools.RayCastTest().nextLine;
+    outSample.fireMode = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile
+                             ? ReplayLauncherFireMode::Projectile
+                             : ReplayLauncherFireMode::Laser;
+    outSample.visualizeRays = m_runtimeTools.RayCastTest().visualizeRays;
+    outSample.impulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
+    outSample.projectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
     outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
     {
         ReplayRayCastLineSample sample;
         sample.start = line.start;
@@ -573,7 +574,7 @@ void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample
         sample.hit = line.hit;
         outSample.rayLines.push_back( sample );
     }
-    m_launcherLaser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
+    m_runtimeTools.Laser().CaptureShots( outSample.laserShots, outSample.nextLaserShot );
 }
 
 bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
@@ -631,8 +632,8 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         WriteReplayProbeReason( outReason, reasonSize, "applied world override" );
         return true;
     case ReplayEventKind::LauncherConfig:
-        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value0 );
-        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
+        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
         WriteReplayProbeReason( outReason, reasonSize, "applied launcher config" );
         return true;
     case ReplayEventKind::LauncherFire:
@@ -645,12 +646,12 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
             WriteReplayProbeReason( outReason, reasonSize, "invalid launcher fire payload" );
             return false;
         }
-        m_rayCastTest.fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
-                                     ? RunLauncherFireMode::Projectile
-                                     : RunLauncherFireMode::Laser;
-        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value1 );
-        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value2 );
-        if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+        m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                                    ? RunLauncherFireMode::Projectile
+                                                    : RunLauncherFireMode::Laser;
+        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
+        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+        if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
         {
             FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
         }
@@ -1061,7 +1062,7 @@ void Run::TickReplaySaveProbe()
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
         }
-        m_rayCastTest.projectileSpeed += 1.0f;
+        m_runtimeTools.RayCastTest().projectileSpeed += 1.0f;
         RecordReplayLauncherConfigEvent( 2u );
         FireRayCastTest();
     }
@@ -1752,7 +1753,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
 
             TickRayCastTestLines( PHYSICS_FIXED_DT );
-            m_launcherLaser.Update( PHYSICS_FIXED_DT );
+            m_runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
             m_cGameModelCollection.EndCollisionVisualFrame();
             ++currentSceneFrame;
             SceneState().currentFrame = currentSceneFrame;

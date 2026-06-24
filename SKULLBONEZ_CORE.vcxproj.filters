@@ -104,6 +104,12 @@
     <Filter Include="Header Files\Runtime\Replay">
       <UniqueIdentifier>{1C1A6BBE-6900-B61D-300B-0B1F40D267C3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Tools">
+      <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Tools">
+      <UniqueIdentifier>{6235A5A7-2210-4586-B9C4-8635E2A1BB0A}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\Runtime\Render">
       <UniqueIdentifier>{34E24A5B-6F8A-46D1-B470-8E15931C4243}</UniqueIdentifier>
     </Filter>
@@ -213,6 +219,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -751,6 +760,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
       <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h">
       <Filter>Header Files\Runtime</Filter>

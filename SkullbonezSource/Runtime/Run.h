@@ -89,7 +89,7 @@ Related:
 #include "../Physics/Debug/BroadphaseVisualizer.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
-#include "Editor/LauncherLaser.h"
+#include "Tools/RuntimeTools.h"
 #include "../UI/UI.h"
 
 
@@ -315,33 +315,6 @@ struct RunDebugState
     char reproSnapshotMessage[128] = {};                                         // Short HUD confirmation after launcher-mode repro dump
     double reproSnapshotMessageUntil = 0.0;                                      // Simulation timer value after which the HUD message expires
 #endif
-};
-
-struct RunRayCastTestLine
-{
-    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
-    float ageSeconds = 0.0f;
-    bool active = false;
-    bool hit = false;
-};
-
-enum class RunLauncherFireMode
-{
-    Laser,
-    Projectile
-};
-
-struct RunRayCastTestState
-{
-    static constexpr std::size_t MAX_LINES = 64;
-
-    std::array<RunRayCastTestLine, MAX_LINES> lines = {};
-    int nextLine = 0;
-    RunLauncherFireMode fireMode = RunLauncherFireMode::Laser;
-    bool visualizeRays = false;
-    float impulseStrength = 1800.0f;
-    float projectileSpeed = 160.0f;
 };
 
 struct RunMousePickupState
@@ -577,7 +550,7 @@ class Run
     RunLiveStyleControlState m_liveStyle;                                        // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles
-    RunRayCastTestState m_rayCastTest;                                           // Launcher-mode firing state and fading debug lines
+    RuntimeTools m_runtimeTools;                                                 // Launcher/ray-test state and transient render feedback.
     RunMousePickupState m_mousePickup;                                           // Manipulator-mode click-drag physics pickup state.
     RunEditorPlacementState m_editor;                                            // Object placement and selection editor state
     RunEditorTracer m_editorTracer;                                              // Render-only ray tests, ghost previews, and editor gizmo lines
@@ -588,7 +561,6 @@ class Run
     Physics::CollisionVisualizer m_collisionVisualizer;                          // Solid collision/sleep model visualizer (V key toggle)
     Physics::PhysicsDebugVisualizer
         m_physicsDebugVisualizer;                                                // Line overlay for object axes, contact manifolds, and sleep state
-    LauncherLaser m_launcherLaser;                                               // Visible launcher-mode laser shots; render-only feedback.
     Environment::WorldEnvironment m_cWorldEnvironment;                           // Fluid, gravity, and terrain bounds shared by physics and water.
     GameObjects::GameModelCollection m_cGameModelCollection;                     // Scene bodies plus solver-visible object state.
     RuntimeCommandQueue m_runtimeCommands;                                       // Deferred runtime/tool command intent.

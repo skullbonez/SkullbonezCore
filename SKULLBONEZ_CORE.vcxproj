@@ -207,6 +207,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunStress.cpp" />
@@ -355,6 +356,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />

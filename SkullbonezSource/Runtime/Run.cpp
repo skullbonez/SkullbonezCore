@@ -190,7 +190,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.broadphaseVisualizer = &m_broadphaseVisualizer;
     bindings.physicsDebugVisualizer = &m_physicsDebugVisualizer;
     bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
-    bindings.rayCastTest = &m_rayCastTest;
+    bindings.rayCastTest = &m_runtimeTools.RayCastTest();
     bindings.editor = &m_editor;
     bindings.mousePickup = &m_mousePickup;
     bindings.replayScrubber = &m_replayRuntime.Scrubber();
@@ -199,7 +199,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.replayPathVisualizer = &m_replayRuntime.PathVisualizer();
     bindings.replayCamera = &m_replayRuntime.Camera();
     bindings.replayVelocityEdit = &m_replayRuntime.VelocityEdit();
-    bindings.launcherLaser = &m_launcherLaser;
+    bindings.launcherLaser = &m_runtimeTools.Laser();
     bindings.ui = &m_UI;
     bindings.runtimeInput = &m_runtimeInput;
     bindings.camera = &m_camera;
@@ -491,7 +491,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            m_launcherLaser.ResetResources();
+            m_runtimeTools.Laser().ResetResources();
             break;
         }
 
@@ -980,14 +980,14 @@ void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
     }
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, m_rayCastTest.impulseStrength );
-    HashReplayFloat( hash, m_rayCastTest.projectileSpeed );
+    HashReplayFloat( hash, m_runtimeTools.RayCastTest().impulseStrength );
+    HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
 
     RecordReplayEvent( ReplayEventKind::LauncherConfig,
                        NextReplayEventFrameIndex(),
                        changedFlags,
-                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
-                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
                        0,
                        0,
                        hash,
@@ -1025,14 +1025,14 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
     HashReplayFloat( hash, cameraUp.y );
     HashReplayFloat( hash, cameraUp.z );
 
-    const bool projectile = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile;
+    const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
     const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
     RecordReplayEvent( ReplayEventKind::LauncherFire,
                        NextReplayEventFrameIndex(),
                        flags,
                        projectile ? 1 : 0,
-                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
-                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
                        m_cGameModelCollection.GetModelCount(),
                        hash,
                        payload );
@@ -1449,28 +1449,29 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
 
 void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
 {
-    m_rayCastTest.lines = {};
+    m_runtimeTools.RayCastTest().lines = {};
     const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
     for ( std::size_t i = 0; i < lineCount; ++i )
     {
-        RunRayCastTestLine& line = m_rayCastTest.lines[i];
+        RunRayCastTestLine& line = m_runtimeTools.RayCastTest().lines[i];
         line.start = sample.rayLines[i].start;
         line.end = sample.rayLines[i].end;
         line.ageSeconds = sample.rayLines[i].ageSeconds;
         line.active = sample.rayLines[i].active;
         line.hit = sample.rayLines[i].hit;
     }
-    m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
-    if ( m_rayCastTest.nextLine < 0 )
+    m_runtimeTools.RayCastTest().nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
+    if ( m_runtimeTools.RayCastTest().nextLine < 0 )
     {
-        m_rayCastTest.nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
+        m_runtimeTools.RayCastTest().nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
     }
-    m_rayCastTest.fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile ? RunLauncherFireMode::Projectile
-                                                                                   : RunLauncherFireMode::Laser;
-    m_rayCastTest.visualizeRays = sample.visualizeRays;
-    m_rayCastTest.impulseStrength = sample.impulseStrength;
-    m_rayCastTest.projectileSpeed = sample.projectileSpeed;
-    m_launcherLaser.RestoreShots( sample.laserShots, sample.nextLaserShot );
+    m_runtimeTools.RayCastTest().fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile
+                                                ? RunLauncherFireMode::Projectile
+                                                : RunLauncherFireMode::Laser;
+    m_runtimeTools.RayCastTest().visualizeRays = sample.visualizeRays;
+    m_runtimeTools.RayCastTest().impulseStrength = sample.impulseStrength;
+    m_runtimeTools.RayCastTest().projectileSpeed = sample.projectileSpeed;
+    m_runtimeTools.Laser().RestoreShots( sample.laserShots, sample.nextLaserShot );
 }
 
 
