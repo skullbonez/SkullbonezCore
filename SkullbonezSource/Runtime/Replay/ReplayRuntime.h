@@ -94,6 +94,12 @@ class ReplayRuntime
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
     void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    std::vector<uint8_t>& FocusModelMask();
+    const std::vector<uint8_t>& FocusModelMask() const;
+    bool HasLauncherVisualBackup() const;
+    void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
+    const ReplayLauncherVisualSample& LauncherVisualBackup() const;
+    void ClearLauncherVisualBackup();
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
                       uint32_t flags,
@@ -119,6 +125,9 @@ class ReplayRuntime
     ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;     // Current live replay branch provenance.
     std::vector<RenderPoseBackup> m_renderPoseBackups;
+    std::vector<uint8_t> m_focusModelMask;
+    ReplayLauncherVisualSample m_launcherVisualBackup;
+    bool m_launcherVisualBackupActive = false;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

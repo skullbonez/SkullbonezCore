@@ -131,6 +131,20 @@ audits when it is still useful.
   gate passed project filters, Profile/Debug builds with 0 warnings/errors,
   DX12 validation errors 0 with screenshots matching baselines, and byte-exact
   `physics_regression_solver.csv`.
+- Runtime run decomposition Phase 5 render-owned-state slice moves replay focus
+  mask storage and replay launcher visual backup storage into `ReplayRuntime`.
+  `Run` still computes the mask and copies live launcher visual state as the
+  compatibility bridge while the remaining scrub/prediction state moves later
+  in Phase 5.
+- Phase 5 render-owned-state validation: Profile build 37.11s
+  (`TestOutput\validation\phase5_replay_render_owned_state_profile_build.log`),
+  format 6.54s, and full gate 55.22s
+  (`TestOutput\validation\phase5_replay_render_owned_state_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Carver reported no
+  blocking code defect and identified the full gate as the only required
+  evidence before commit.
 
 ## Current Work Items
 

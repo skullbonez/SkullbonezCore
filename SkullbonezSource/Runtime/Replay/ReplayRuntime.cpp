@@ -364,6 +364,38 @@ void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collect
     collection.InvalidatePhysicsStreams();
 }
 
+std::vector<uint8_t>& ReplayRuntime::FocusModelMask()
+{
+    return m_focusModelMask;
+}
+
+const std::vector<uint8_t>& ReplayRuntime::FocusModelMask() const
+{
+    return m_focusModelMask;
+}
+
+bool ReplayRuntime::HasLauncherVisualBackup() const
+{
+    return m_launcherVisualBackupActive;
+}
+
+void ReplayRuntime::StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample )
+{
+    m_launcherVisualBackup = sample;
+    m_launcherVisualBackupActive = true;
+}
+
+const ReplayLauncherVisualSample& ReplayRuntime::LauncherVisualBackup() const
+{
+    return m_launcherVisualBackup;
+}
+
+void ReplayRuntime::ClearLauncherVisualBackup()
+{
+    m_launcherVisualBackup = ReplayLauncherVisualSample();
+    m_launcherVisualBackupActive = false;
+}
+
 void ReplayRuntime::RecordEvent( ReplayEventKind kind,
                                  ReplayFrameIndex frameIndex,
                                  uint32_t flags,

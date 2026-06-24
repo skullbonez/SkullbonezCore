@@ -195,7 +195,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.mousePickup = &m_mousePickup;
     bindings.replayScrubber = &m_replayScrubber;
     bindings.replayPrediction = &m_replayPrediction;
-    bindings.replayFocusModelMask = &m_replayFocusModelMask;
+    bindings.replayFocusModelMask = &m_replayRuntime.FocusModelMask();
     bindings.replayPathVisualizer = &m_replayPathVisualizer;
     bindings.replayCamera = &m_replayCamera;
     bindings.replayVelocityEdit = &m_replayVelocityEdit;

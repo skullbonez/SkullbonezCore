@@ -828,9 +828,6 @@ class Run
     RunReplayPredictionState m_replayPrediction;                                 // Optional live solver lookahead for the selected replay path target.
     RunReplayCauseTreeState m_replayCauseTree;                                   // Right-side object hierarchy for the active replay cause/effect chain.
     RunReplayVelocityEditState m_replayVelocityEdit;                             // Alt-enabled live velocity handles feeding the prediction cache.
-    std::vector<uint8_t> m_replayFocusModelMask;                                 // Render-only body mask for selected replay prediction chains.
-    ReplayLauncherVisualSample m_replayLauncherVisualBackup;
-    bool m_replayLauncherVisualBackupActive = false;
     uint32_t m_solverReplayMismatchReports = 0;
     bool m_solverReplayMismatchSuppressed = false;
     CaptureController m_capture;                                                 // Screenshot trigger and capture state

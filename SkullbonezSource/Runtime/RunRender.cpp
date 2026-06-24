@@ -208,27 +208,27 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
 
 void Run::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
 {
-    if ( m_replayLauncherVisualBackupActive )
+    if ( m_replayRuntime.HasLauncherVisualBackup() )
     {
         return;
     }
 
-    BuildReplayLauncherVisualSample( m_replayLauncherVisualBackup );
-    m_replayLauncherVisualBackupActive = true;
+    ReplayLauncherVisualSample liveSample;
+    BuildReplayLauncherVisualSample( liveSample );
+    m_replayRuntime.StoreLauncherVisualBackup( liveSample );
     RestoreReplayLauncherVisualSample( sample );
 }
 
 
 void Run::RestoreReplayLauncherVisualForRender()
 {
-    if ( !m_replayLauncherVisualBackupActive )
+    if ( !m_replayRuntime.HasLauncherVisualBackup() )
     {
         return;
     }
 
-    RestoreReplayLauncherVisualSample( m_replayLauncherVisualBackup );
-    m_replayLauncherVisualBackup = ReplayLauncherVisualSample();
-    m_replayLauncherVisualBackupActive = false;
+    RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+    m_replayRuntime.ClearLauncherVisualBackup();
 }
 
 

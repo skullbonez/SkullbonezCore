@@ -3257,13 +3257,14 @@ bool Run::BuildReplayFocusModelMask()
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
     const int modelCount = m_cGameModelCollection.GetModelCount();
+    std::vector<uint8_t>& replayFocusModelMask = m_replayRuntime.FocusModelMask();
     if ( !m_replayPathVisualizer.hasTarget || m_replayPathVisualizer.targetId.value == 0 || modelCount <= 0 )
     {
-        m_replayFocusModelMask.clear();
+        replayFocusModelMask.clear();
         return false;
     }
 
-    m_replayFocusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
+    replayFocusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     int markedCount = 0;
     const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
@@ -3293,7 +3294,7 @@ bool Run::BuildReplayFocusModelMask()
 
         if ( resolvedIndex >= 0 )
         {
-            uint8_t& mask = m_replayFocusModelMask[static_cast<std::size_t>( resolvedIndex )];
+            uint8_t& mask = replayFocusModelMask[static_cast<std::size_t>( resolvedIndex )];
             if ( mask == 0 )
             {
                 mask = 1;
@@ -3323,7 +3324,7 @@ bool Run::BuildReplayFocusModelMask()
 
     if ( markedCount <= 0 || markedCount >= modelCount )
     {
-        m_replayFocusModelMask.clear();
+        replayFocusModelMask.clear();
         return false;
     }
     return true;
