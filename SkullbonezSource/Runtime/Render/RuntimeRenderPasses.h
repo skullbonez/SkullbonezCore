@@ -12,7 +12,7 @@ Invariants:
   - Pass input/output structs borrow data for one frame only.
   - Pass constructors may temporarily receive Run& until RuntimeRenderer owns
     explicit render services.
-  - Pass order remains owned by Run::DrawPrimitives until Phase 2B.
+  - Pass order is owned by RuntimeRenderer::RenderFrame.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -40,7 +40,7 @@ class Run;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
-// DrawPrimitives() still owns pass order, but each pass receives a named
+// RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
 // input bundle and returns only the data later passes need. References and
 // pointers here are borrowed for one frame; long-lived GPU resources live in
 // RunRenderPassResources instead.
@@ -60,7 +60,7 @@ struct RenderFrameContext
 {
     // Shared inputs for the ordered world-render passes. This is a borrowed
     // per-frame contract: every value is rebuilt after SetCamera(), consumed
-    // during DrawPrimitives(), and discarded before the next frame.
+    // during RuntimeRenderer::RenderFrame(), and discarded before the next frame.
     Math::Transformation::Matrix4 baseView;
     Math::Transformation::Matrix4 projection;
     Math::Transformation::Matrix4 viewProjection;

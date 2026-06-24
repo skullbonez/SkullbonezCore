@@ -9,7 +9,7 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Render pass: A named slice of DrawPrimitives() with explicit inputs,
+  Render pass: A named slice of RuntimeRenderer::RenderFrame() with explicit inputs,
   outputs, and resource ownership.
   Render target: Texture the renderer draws into before another pass samples or
   presents it.
@@ -32,7 +32,7 @@ Glossary:
 Invariants:
   - RunRenderPassResources owns backend/device resources and must be reset
     while the renderer backend is still alive.
-  - Pass input structs borrow frame data only for the current DrawPrimitives()
+  - Pass input structs borrow frame data only for the current render-frame
     call; no pass may store those references after it returns.
   - Shadow receiver pointers are valid only until the next shadow reset or the
     next frame rebuilds ShadowPassResources.
@@ -63,7 +63,7 @@ Related:
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "Render/RuntimeRenderInputs.h"
-#include "Render/RuntimeRenderPasses.h"
+#include "Render/RuntimeRenderer.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneController.h"
@@ -920,19 +920,7 @@ class Run
     EngineContext m_engineContext;                                               // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                         // Scalar runtime snapshot for presentation/diagnostics.
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
-    FullscreenQuadPass m_fullscreenQuadPass;                                     // Shared full-screen vertex buffer pass used by sky/post effects
-    SkyPass m_skyPass;                                                           // Background sky pass, reused by reflection and scene target passes
-    SceneTargetPass m_sceneTargetPass;                                           // Cinematic HDR scene-target begin/release pass
-    ShadowPass m_shadowPass;                                                     // Terrain/object shadow-map producer pass
-    ReflectionPass m_reflectionPass;                                             // Water reflection texture producer pass
-    ObjectPass m_objectPass;                                                     // Production body and collision-solid pass
-    TerrainPass m_terrainPass;                                                   // Terrain material/shadow receiver pass
-    WaterPass m_waterPass;                                                       // Calm/ocean water pass
-    TornadoVisualPass m_tornadoVisualPass;                                       // Sparse alpha tornado shell/dust pass
-    DebugOverlayPass m_debugOverlayPass;                                         // Broadphase and physics debug overlay pass
-    VolumetricPass m_volumetricPass;                                             // Half-resolution cinematic light-shaft pass
-    TonemapPass m_tonemapPass;                                                   // HDR-to-backbuffer resolve pass
-    UiTextPass m_uiTextPass;                                                     // HUD/UI/text pass
+    RuntimeRenderer m_renderer;                                                  // Owns runtime render passes and frame render ordering.
 
     inline static int sPerfPass = 0;
     void Render();                                                               // Skips 3D in text-only runs, then records passes for the current camera state.
@@ -1001,7 +989,7 @@ class Run
                                         const char* logicalName,
                                         const std::string& relativePath );       // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
-    void DrawPrimitives();                                                       // Orders terrain, object, helper, water, post, and overlay passes for one frame.
+    void DrawPrimitives();                                                       // Thin compatibility wrapper around RuntimeRenderer::RenderFrame().
     RuntimeRenderServices BuildRuntimeRenderServices();
     RuntimeRenderInputs BuildRuntimeRenderInputs();
     RenderFrameContext BuildRenderFrameContext(
@@ -1355,6 +1343,7 @@ class Run
               m_physicsDebugVisualizer( run.m_physicsDebugVisualizer ),
               m_dxrReflectionTransforms( run.m_dxrReflectionTransforms ), m_rayCastTest( run.m_rayCastTest ),
               m_editor( run.m_editor ), m_mousePickup( run.m_mousePickup ), m_replayScrubber( run.m_replayScrubber ),
+              m_replayPrediction( run.m_replayPrediction ), m_replayFocusModelMask( run.m_replayFocusModelMask ),
               m_replayPathVisualizer( run.m_replayPathVisualizer ), m_replayCamera( run.m_replayCamera ),
               m_replayVelocityEdit( run.m_replayVelocityEdit ), m_launcherLaser( run.m_launcherLaser ),
               m_UI( run.m_UI ), m_runtimeInput( run.m_runtimeInput ), m_camera( run.m_camera ),
@@ -1442,6 +1431,22 @@ class Run
         {
             return m_run.CameraModeLabel( mode );
         }
+        RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                    bool cinematicRender,
+                                                    const CinematicRenderConfig& renderConfig )
+        {
+            return m_run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+        }
+        bool BuildReplayFocusModelMask()
+        {
+            return m_run.BuildReplayFocusModelMask();
+        }
+        void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
+                                           const CinematicRenderConfig* cinematic,
+                                           const Rendering::ShadowFrameData* shadow )
+        {
+            m_run.RenderReplayPredictionGhosts( frame, cinematic, shadow );
+        }
 
         RunSubsystemState& m_systems;
         RunDebugState& m_debug;
@@ -1457,6 +1462,8 @@ class Run
         RunEditorPlacementState& m_editor;
         RunMousePickupState& m_mousePickup;
         RunReplayScrubberState& m_replayScrubber;
+        RunReplayPredictionState& m_replayPrediction;
+        std::vector<uint8_t>& m_replayFocusModelMask;
         RunReplayPathVisualizerState& m_replayPathVisualizer;
         RunReplayCameraState& m_replayCamera;
         RunReplayVelocityEditState& m_replayVelocityEdit;

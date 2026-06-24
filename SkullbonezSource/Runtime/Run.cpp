@@ -170,11 +170,7 @@ LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample
 } // namespace
 
 
-Run::Run( std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
-      m_sceneTargetPass( *this ), m_shadowPass( *this ), m_reflectionPass( *this ), m_objectPass( *this ),
-      m_terrainPass( *this ), m_waterPass( *this ), m_tornadoVisualPass( *this ), m_debugOverlayPass( *this ),
-      m_volumetricPass( *this ), m_tonemapPass( *this ), m_uiTextPass( *this )
+Run::Run( std::vector<std::string> sceneQueue ) : m_sceneController( std::move( sceneQueue ) ), m_renderer( *this )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
@@ -334,18 +330,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_UI.ResetResources();
             break;
         case BackendResourceStep::RenderPassResources:
-            // Lifetime: release pass-owned GPU resources while the renderer
-            // backend is still alive. The order keeps consumers ahead of their
-            // producers, so cached handles are invalidated before targets die.
-            m_tonemapPass.ReleaseGpuResources();
-            m_volumetricPass.ReleaseGpuResources();
-            m_tornadoVisualPass.ReleaseGpuResources();
-            m_sceneTargetPass.ReleaseGpuResources();
-            m_shadowPass.ReleaseGpuResources();
-            m_reflectionPass.ReleaseGpuResources();
-            m_skyPass.ReleaseGpuResources();
-            m_fullscreenQuadPass.ReleaseGpuResources();
-            m_uiTextPass.ReleaseGpuResources();
+            m_renderer.ReleaseBackendOwnedResources();
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -1758,7 +1743,7 @@ void Run::Initialise()
     }
 
     // Init font (HDC, font)
-    m_uiTextPass.EnsureGpuResources();
+    m_renderer.EnsureUiTextResources();
 
     // Init cameras singleton (shared across scenes, Reset() between loads)
     m_systems.cameras = CameraCollection::Instance();

@@ -697,7 +697,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     Gfx().Clear( true, true );
 
     // Shadow depth writes must be opaque and depth-only. Save the caller's
-    // blend/depth state because this pass runs in the middle of DrawPrimitives()
+    // blend/depth state because this pass runs in the middle of RenderFrame()
     // before reflection, world rendering, water, UI, and debug overlays.
     const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
     const bool blendWasEnabled = Gfx().IsBlendEnabled();

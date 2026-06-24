@@ -196,6 +196,7 @@ RUNTIME_REPLAY_PREFIXES = (
 RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",
+    "RuntimeRenderer",
 )
 
 RUNTIME_EDITOR_PREFIXES = (

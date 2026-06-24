@@ -331,6 +331,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />

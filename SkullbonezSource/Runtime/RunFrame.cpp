@@ -347,13 +347,13 @@ void Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            if ( m_uiTextPass.ShouldRender() )
+            if ( m_renderer.ShouldRenderUiText() )
             {
                 const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_uiTextPass.Render( secondsPerFrame );
+                    m_renderer.RenderUiText( secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();

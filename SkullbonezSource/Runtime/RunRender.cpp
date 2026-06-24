@@ -24,7 +24,7 @@ Glossary:
   before reflection rays are dispatched.
 
 Invariants:
-  - DrawPrimitives() owns pass order. Pass classes may bind targets and
+  - RuntimeRenderer::RenderFrame() owns pass order. Pass classes may bind targets and
     restore local render state, but they must not present or advance the frame.
   - Pass resource reset hooks run while the renderer backend is alive, because
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
@@ -469,48 +469,40 @@ RenderFrameContext Run::BuildRenderFrameContext( const RuntimeRenderInputs& rend
 }
 
 
-void Run::Render()
+RuntimeRenderer::RuntimeRenderer( Run& run )
+    : m_run( run ), m_fullscreenQuadPass( run ), m_skyPass( run ), m_sceneTargetPass( run ), m_shadowPass( run ),
+      m_reflectionPass( run ), m_objectPass( run ), m_terrainPass( run ), m_waterPass( run ),
+      m_tornadoVisualPass( run ), m_debugOverlayPass( run ), m_volumetricPass( run ), m_tonemapPass( run ),
+      m_uiTextPass( run )
 {
-    // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
-    if ( m_debug.isTextOnly )
-    {
-        return;
-    }
-
-    // Update the active camera selection and any transition/tween state before
-    // rendering asks for view matrices.
-    SetViewingOrientation();
-
-    // Selected camera state is copied into the camera collection so render code below
-    // reads one coherent eye/view/up triple for this frame.
-    m_systems.cameras->SetCamera();
-
-    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
-    {
-        ApplyReplayPredictionFrameForRender( *predictionFrame );
-    }
-    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
-    {
-        ApplyReplayPresentationSampleForRender( *replaySample );
-    }
-    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
-    {
-        ApplyReplaySolverSampleForRender( *solverSample );
-        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-    }
-
-    // DrawPrimitives is now the frame story: it chooses the optional cinematic
-    // target, then runs named passes in the same order the image is produced.
-    DrawPrimitives();
-    RestoreReplayPresentationRenderPose();
-    RestoreReplayLauncherVisualForRender();
 }
 
 
-void Run::DrawPrimitives()
+void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInputs,
+                                            bool cinematicRender,
+                                            const CinematicRenderConfig& renderConfig )
 {
-    const bool cinematicRender = IsCinematicRenderingEnabled();
-    const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
+    Run::RenderPassAccessView run = m_run.RenderPassAccess();
+    if ( cinematicRender )
+    {
+        // Lifetime: cinematic resources are lazy. A window resize or backend
+        // rebuild drops them; the next cinematic frame recreates the targets and
+        // shader objects with the current window dimensions.
+        RenderFrameContext preFrame = run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+        m_fullscreenQuadPass.EnsureGpuResources( preFrame );
+        m_skyPass.EnsureGpuResources( preFrame );
+        m_sceneTargetPass.EnsureGpuResources( preFrame );
+        m_volumetricPass.EnsureGpuResources( preFrame );
+        m_tonemapPass.EnsureGpuResources( preFrame );
+    }
+}
+
+
+void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
+{
+    Run::RenderPassAccessView run = m_run.RenderPassAccess();
+    const bool cinematicRender = run.IsCinematicRenderingEnabled();
+    const CinematicRenderConfig& renderConfig = run.ActiveCinematicConfig();
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
@@ -526,21 +518,10 @@ void Run::DrawPrimitives()
     ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
-    RuntimeRenderInputs renderInputs = BuildRuntimeRenderInputs();
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !run.m_debug.isTextOnly;
 
-    if ( cinematicRender )
-    {
-        // Lifetime: cinematic resources are lazy. A window resize or backend
-        // rebuild drops them; the next cinematic frame recreates the targets and
-        // shader objects with the current window dimensions.
-        RenderFrameContext preFrame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
-        m_fullscreenQuadPass.EnsureGpuResources( preFrame );
-        m_skyPass.EnsureGpuResources( preFrame );
-        m_sceneTargetPass.EnsureGpuResources( preFrame );
-        m_volumetricPass.EnsureGpuResources( preFrame );
-        m_tonemapPass.EnsureGpuResources( preFrame );
-    }
+    EnsureFrameResources( renderInputs, cinematicRender, renderConfig );
+
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
     if ( cinematicRender && !useCinematicTarget )
     {
@@ -551,10 +532,10 @@ void Run::DrawPrimitives()
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
-    RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+    RenderFrameContext frame = run.BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    m_cGameModelCollection.PrepareRenderStreams();
+    run.m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
@@ -579,18 +560,18 @@ void Run::DrawPrimitives()
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
-    const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
-    const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = m_replayPrediction.enabled;
+    const bool collisionStateColorsVisible = run.m_debug.isCollisionVisualizer;
+    const bool debugTransparentBodyPass = run.m_debug.isPhysicsDebugTransparent && run.m_debug.physicsDebugAlpha < 1.0f;
+    const bool replayPredictionOverlayActive = run.m_replayPrediction.enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
-                                       !debugTransparentBodyPass && BuildReplayFocusModelMask();
-    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &m_replayFocusModelMask : nullptr;
+                                       !debugTransparentBodyPass && run.BuildReplayFocusModelMask();
+    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &run.m_replayFocusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
-    const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
+    const float bodyRenderAlpha = debugTransparentBodyPass ? run.m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
-    const bool waterVisibleThisFrame = !m_debug.isWaterHidden && !waterModeOff;
-    const bool reflectionPassNeeded = waterVisibleThisFrame && !m_debug.isWaterNoReflect;
+    const bool waterVisibleThisFrame = !run.m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !run.m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -649,11 +630,11 @@ void Run::DrawPrimitives()
     m_waterPass.Render( { frame,
                           reflection,
                           activeCinematic,
-                          m_debug.isWaterHidden,
-                          m_debug.isWaterFlatDebug,
-                          m_debug.isWaterNoReflect,
-                          m_debug.isWaterFreezeDebug,
-                          m_debug.frozenWaterTime } );
+                          run.m_debug.isWaterHidden,
+                          run.m_debug.isWaterFlatDebug,
+                          run.m_debug.isWaterNoReflect,
+                          run.m_debug.isWaterFreezeDebug,
+                          run.m_debug.frozenWaterTime } );
 
     const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
 
@@ -682,7 +663,7 @@ void Run::DrawPrimitives()
                                false } );
     }
 
-    RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
+    run.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
 
     m_debugOverlayPass.Render( { frame } );
 
@@ -701,7 +682,7 @@ void Run::DrawPrimitives()
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;
     frameSnapshot.objectTransparentPass = transparentBodyPass;
-    frameSnapshot.terrainPassRendered = !m_debug.isTerrainHidden;
+    frameSnapshot.terrainPassRendered = !run.m_debug.isTerrainHidden;
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
@@ -709,6 +690,83 @@ void Run::DrawPrimitives()
     frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
     frameSnapshot.volumetricReady = volumetricReady;
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
+}
+
+
+void RuntimeRenderer::ReleaseBackendOwnedResources()
+{
+    // Lifetime: release pass-owned GPU resources while the renderer backend is
+    // still alive. The order keeps consumers ahead of their producers, so cached
+    // handles are invalidated before targets die.
+    m_tonemapPass.ReleaseGpuResources();
+    m_volumetricPass.ReleaseGpuResources();
+    m_tornadoVisualPass.ReleaseGpuResources();
+    m_sceneTargetPass.ReleaseGpuResources();
+    m_shadowPass.ReleaseGpuResources();
+    m_reflectionPass.ReleaseGpuResources();
+    m_skyPass.ReleaseGpuResources();
+    m_fullscreenQuadPass.ReleaseGpuResources();
+    m_uiTextPass.ReleaseGpuResources();
+}
+
+
+void RuntimeRenderer::EnsureUiTextResources()
+{
+    m_uiTextPass.EnsureGpuResources();
+}
+
+
+bool RuntimeRenderer::ShouldRenderUiText() const
+{
+    return m_uiTextPass.ShouldRender();
+}
+
+
+void RuntimeRenderer::RenderUiText( double dSecondsPerFrame )
+{
+    m_uiTextPass.Render( dSecondsPerFrame );
+}
+
+
+void Run::Render()
+{
+    // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
+    if ( m_debug.isTextOnly )
+    {
+        return;
+    }
+
+    // Update the active camera selection and any transition/tween state before
+    // rendering asks for view matrices.
+    SetViewingOrientation();
+
+    // Selected camera state is copied into the camera collection so render code below
+    // reads one coherent eye/view/up triple for this frame.
+    m_systems.cameras->SetCamera();
+
+    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
+    {
+        ApplyReplayPredictionFrameForRender( *predictionFrame );
+    }
+    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
+    {
+        ApplyReplayPresentationSampleForRender( *replaySample );
+    }
+    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
+    {
+        ApplyReplaySolverSampleForRender( *solverSample );
+        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
+    }
+
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
+    RestoreReplayPresentationRenderPose();
+    RestoreReplayLauncherVisualForRender();
+}
+
+
+void Run::DrawPrimitives()
+{
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
 }
 
 
