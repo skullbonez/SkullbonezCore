@@ -305,6 +305,8 @@ class PhysicsWorld
     bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
+    void
+    WakeRestingContactIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
     void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
 

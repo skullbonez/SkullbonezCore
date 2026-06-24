@@ -85,8 +85,77 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
     return orientation;
 }
 
+
+bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
+{
+    if ( !name || !suffix )
+    {
+        return false;
+    }
+    const size_t nameLength = strlen( name );
+    const size_t suffixLength = strlen( suffix );
+    if ( nameLength <= suffixLength || name[nameLength - suffixLength - 1] != '_' )
+    {
+        return false;
+    }
+    return strcmp( name + nameLength - suffixLength, suffix ) == 0;
+}
+
+
+bool IsSimpleRagdollPartName( const char* name )
+{
+    static const char* partSuffixes[] = {
+        "torso",
+        "head",
+        "upper_arm_l",
+        "lower_arm_l",
+        "upper_arm_r",
+        "lower_arm_r",
+        "upper_leg_l",
+        "lower_leg_l",
+        "upper_leg_r",
+        "lower_leg_r",
+    };
+    for ( const char* suffix : partSuffixes )
+    {
+        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool TryGetSimpleRagdollPartPrefixLength( const char* name, const char* suffix, size_t& outPrefixLength )
+{
+    outPrefixLength = 0;
+    if ( !SceneNameEndsWithPartSuffix( name, suffix ) )
+    {
+        return false;
+    }
+
+    outPrefixLength = strlen( name ) - strlen( suffix );
+    return true;
+}
+
+
+bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
+{
+    size_t torsoPrefixLength = 0;
+    size_t headPrefixLength = 0;
+    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) &&
+           TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) &&
+           torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
+}
+
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
+    if ( IsSimpleRagdollPartName( model.GetName() ) )
+    {
+        return false;
+    }
     if ( strcmp( material.target, "all" ) == 0 )
     {
         return true;
@@ -985,6 +1054,11 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         joint.stiffness = sceneJoint.stiffness;
         joint.damping = sceneJoint.damping;
         joint.groupId = sceneJoint.groupId;
+        joint.flags = sceneJoint.flags;
+        if ( IsSimpleRagdollNeckJointName( sceneJoint.bodyA, sceneJoint.bodyB ) )
+        {
+            joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
+        }
         m_cGameModelCollection.AddPointJointConstraint( joint );
     }
 
@@ -2385,7 +2459,11 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
     {
         for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
         {
-            m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( !IsSimpleRagdollPartName( model.GetName() ) )
+            {
+                model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+            }
         }
     };
 
@@ -2459,7 +2537,11 @@ void Run::ApplyLiveStyleScene( const TestScene& styleScene )
 
     for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
     {
-        m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+        if ( !IsSimpleRagdollPartName( model.GetName() ) )
+        {
+            model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+        }
     }
 
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )

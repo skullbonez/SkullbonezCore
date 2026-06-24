@@ -137,6 +137,7 @@ struct ScenePointJointConstraint
     float stiffness = 0.22f;
     float damping = 0.35f;
     uint32_t groupId = 0;
+    uint8_t flags = 0;
 };
 
 struct SceneBox

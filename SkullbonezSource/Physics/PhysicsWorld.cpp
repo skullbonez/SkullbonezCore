@@ -63,6 +63,8 @@ constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
 constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
+constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
+constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
@@ -676,6 +678,7 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
         collection.InvalidatePhysicsStreams();
         WakeSleepVisualIsland( collection, index, 0.0f, false );
         WakePointJointIsland( collection, index, 0.0f, false );
+        WakeRestingContactIsland( collection, index, 0.0f, false );
     }
 }
 
@@ -1278,6 +1281,83 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
             continue;
         }
         changed = WakeDynamicBodyState( collection, i, dt, applyForces ) || changed;
+    }
+
+    if ( changed )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+}
+
+
+void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+{
+    auto& models = collection.PhysicsModels();
+    const int modelCount = static_cast<int>( models.size() );
+    if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) )
+    {
+        return;
+    }
+
+    GameModelBodyStream bodyStream = collection.GetBodyStream();
+    std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
+    std::vector<int> wakeQueue;
+    wakeQueue.reserve( static_cast<size_t>( modelCount ) );
+    visited[static_cast<size_t>( index )] = 1;
+    wakeQueue.push_back( index );
+
+    auto hasPersistentContactEdge = [&]( int a, int b ) -> bool
+    {
+        for ( const PersistentContact& contact : m_persistentContacts )
+        {
+            if ( ( contact.bodyA == a && contact.bodyB == b ) || ( contact.bodyA == b && contact.bodyB == a ) )
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    auto isLikelyRestingNeighbor = [&]( int a, int b ) -> bool
+    {
+        const Vector3 posA = models[static_cast<size_t>( a )].GetPosition();
+        const Vector3 posB = models[static_cast<size_t>( b )].GetPosition();
+        const float radiusA = (std::max)( 0.01f, models[static_cast<size_t>( a )].GetBoundingRadius() );
+        const float radiusB = (std::max)( 0.01f, models[static_cast<size_t>( b )].GetBoundingRadius() );
+        if ( posB.y + radiusB + EXPLICIT_WAKE_VERTICAL_SLOP < posA.y - radiusA )
+        {
+            return false;
+        }
+
+        const float range = radiusA + radiusB + EXPLICIT_WAKE_NEIGHBOR_SLOP;
+        const Vector3 delta = posB - posA;
+        return delta * delta <= range * range;
+    };
+
+    bool changed = false;
+    for ( size_t cursor = 0; cursor < wakeQueue.size(); ++cursor )
+    {
+        const int current = wakeQueue[cursor];
+        for ( int candidate = 0; candidate < modelCount; ++candidate )
+        {
+            if ( visited[static_cast<size_t>( candidate )] || candidate >= static_cast<int>( m_sleepState.size() ) ||
+                 m_sleepState[candidate] == 0 || bodyStream.isFixed[candidate] )
+            {
+                continue;
+            }
+            if ( IsUnderwaterSleepLocked( collection, bodyStream, candidate ) )
+            {
+                continue;
+            }
+            if ( !hasPersistentContactEdge( current, candidate ) && !isLikelyRestingNeighbor( current, candidate ) )
+            {
+                continue;
+            }
+
+            visited[static_cast<size_t>( candidate )] = 1;
+            wakeQueue.push_back( candidate );
+            changed = WakeDynamicBodyState( collection, candidate, dt, applyForces ) || changed;
+        }
     }
 
     if ( changed )

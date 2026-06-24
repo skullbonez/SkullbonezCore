@@ -83,19 +83,28 @@ bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLe
         }
     }
 
-    if ( marker == nameLength )
+    if ( marker != nameLength )
     {
-        return false;
+        const size_t prefixLength = marker + 5;
+        if ( !IsReleasableEditorTreePartSuffix( name + prefixLength ) )
+        {
+            return false;
+        }
+
+        outPrefixLength = prefixLength;
+        return true;
     }
 
-    const size_t prefixLength = marker + 5;
-    if ( !IsReleasableEditorTreePartSuffix( name + prefixLength ) )
+    for ( size_t i = 0; i + 1 < nameLength; ++i )
     {
-        return false;
+        if ( name[i] == '_' && IsReleasableEditorTreePartSuffix( name + i + 1 ) )
+        {
+            outPrefixLength = i + 1;
+            return true;
+        }
     }
 
-    outPrefixLength = prefixLength;
-    return true;
+    return false;
 }
 } // namespace
 

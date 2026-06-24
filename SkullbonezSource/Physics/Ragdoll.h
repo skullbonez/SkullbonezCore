@@ -45,6 +45,8 @@ namespace Physics
 {
 struct PointJointConstraint
 {
+    static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
+
     int bodyA = -1;
     int bodyB = -1;
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
@@ -53,6 +55,7 @@ struct PointJointConstraint
     float stiffness = 0.22f;
     float damping = 0.35f;
     uint32_t groupId = 0;
+    uint8_t flags = 0;
 };
 
 struct RagdollBuildOptions

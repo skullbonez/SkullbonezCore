@@ -137,7 +137,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
     void ReleaseAttachedFixedTreeParts(
         int sourceIndex,
         const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes same-tree parts at or above a released break point.
+        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes/releases same-tree parts at or above a break point.
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );

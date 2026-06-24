@@ -2333,6 +2333,10 @@ class TestSceneParser
         {
             joint.groupId = static_cast<uint32_t>( (std::max)( 0, ReadInt( *group, path, "ragdollJoint.groupId" ) ) );
         }
+        if ( const Json* flags = FindMember( jointJson, "flags" ) )
+        {
+            joint.flags = static_cast<uint8_t>( std::clamp( ReadInt( *flags, path, "ragdollJoint.flags" ), 0, 255 ) );
+        }
         m_scene.m_pointJointConstraints.push_back( joint );
     }
 

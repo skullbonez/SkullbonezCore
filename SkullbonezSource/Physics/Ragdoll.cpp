@@ -46,6 +46,10 @@ constexpr float RAGDOLL_JOINT_MAX_BIAS_SPEED = 28.0f;
 constexpr float RAGDOLL_JOINT_MAX_POSITION_CORRECTION = 0.35f;
 constexpr float RAGDOLL_JOINT_MAX_LINEAR_SPEED = 70.0f;
 constexpr float RAGDOLL_JOINT_MAX_ANGULAR_SPEED = 18.0f;
+constexpr float RAGDOLL_NECK_MAX_SWING_RADIANS = 0.52359878f;
+constexpr float RAGDOLL_NECK_MAX_SWING_COSINE = 0.86602539f;
+constexpr float RAGDOLL_NECK_MAX_CORRECTION_RADIANS = 0.20f;
+constexpr float RAGDOLL_NECK_ANGULAR_DAMPING = 0.45f;
 constexpr int RAGDOLL_SOLVER_ITERATIONS = 4;
 
 enum SimplePart
@@ -83,6 +87,7 @@ struct SimpleJointDef
     Vector3 localAnchorA;
     Vector3 localAnchorB;
     float slack;
+    uint8_t flags;
 };
 
 Vector3 ScaleVector( const Vector3& value, float scale )
@@ -119,23 +124,40 @@ const SimplePartDef* SimpleParts()
 const SimpleJointDef* SimpleJoints( int& outCount )
 {
     static const SimpleJointDef joints[] = {
-        { PART_TORSO, PART_HEAD, Vector3( 0.0f, 3.2f, 0.0f ), Vector3( 0.0f, -1.2f, 0.0f ), 0.28f },
-        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
-        { PART_LEFT_UPPER_ARM, PART_LEFT_LOWER_ARM, Vector3( 0.0f, -2.2f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.30f },
-        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f },
+        { PART_TORSO,
+          PART_HEAD,
+          Vector3( 0.0f, 3.2f, 0.0f ),
+          Vector3( 0.0f, -1.2f, 0.0f ),
+          0.28f,
+          PointJointConstraint::FLAG_LIMIT_NECK_SWING },
+        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
+        { PART_LEFT_UPPER_ARM,
+          PART_LEFT_LOWER_ARM,
+          Vector3( 0.0f, -2.2f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.30f,
+          0 },
+        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
         { PART_RIGHT_UPPER_ARM,
           PART_RIGHT_LOWER_ARM,
           Vector3( 0.0f, -2.2f, 0.0f ),
           Vector3( 0.0f, 2.2f, 0.0f ),
-          0.30f },
-        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
-        { PART_LEFT_UPPER_LEG, PART_LEFT_LOWER_LEG, Vector3( 0.0f, -2.4f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.30f },
-        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f },
+          0.30f,
+          0 },
+        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
+        { PART_LEFT_UPPER_LEG,
+          PART_LEFT_LOWER_LEG,
+          Vector3( 0.0f, -2.4f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.30f,
+          0 },
+        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
         { PART_RIGHT_UPPER_LEG,
           PART_RIGHT_LOWER_LEG,
           Vector3( 0.0f, -2.4f, 0.0f ),
           Vector3( 0.0f, 2.4f, 0.0f ),
-          0.30f },
+          0.30f,
+          0 },
     };
     outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
     return joints;
@@ -257,6 +279,69 @@ void ApplyConstraintImpulse( GameModel& a,
     }
 }
 
+
+bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
+{
+    return bodyIndex >= 0 && bodyIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyIndex] != 0;
+}
+
+
+bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
+                           const std::vector<PointJointConstraint>& constraints,
+                           const std::vector<uint8_t>& sleepState )
+{
+    const int modelCount = static_cast<int>( models.size() );
+    bool changed = false;
+    for ( const PointJointConstraint& constraint : constraints )
+    {
+        if ( ( constraint.flags & PointJointConstraint::FLAG_LIMIT_NECK_SWING ) == 0 )
+        {
+            continue;
+        }
+        if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA >= modelCount ||
+             constraint.bodyB >= modelCount )
+        {
+            continue;
+        }
+
+        GameModel& torso = models[static_cast<size_t>( constraint.bodyA )];
+        GameModel& head = models[static_cast<size_t>( constraint.bodyB )];
+        if ( head.IsFixed() || IsBodySleeping( constraint.bodyB, sleepState ) )
+        {
+            continue;
+        }
+
+        const RotationMatrix torsoRot = BodyRotation( torso );
+        const RotationMatrix headRot = BodyRotation( head );
+        Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
+        Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
+        torsoUp.Normalise();
+        headUp.Normalise();
+
+        const float dot = std::clamp( headUp * torsoUp, -1.0f, 1.0f );
+        if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
+        {
+            continue;
+        }
+
+        Vector3 correctionAxis = CrossProduct( headUp, torsoUp );
+        if ( VectorMag( correctionAxis ) <= TOLERANCE )
+        {
+            correctionAxis = torsoRot * Vector3( 1.0f, 0.0f, 0.0f );
+        }
+        correctionAxis.Normalise();
+
+        const float correctionAngle =
+            (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS, RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
+        Quaternion orientation = head.GetOrientation();
+        orientation.RotateAboutAxis( correctionAxis, correctionAngle );
+        head.SetOrientation( orientation );
+        head.SetAngularVelocity( head.GetAngularVelocity() * RAGDOLL_NECK_ANGULAR_DAMPING );
+        changed = true;
+    }
+    return changed;
+}
+
 } // namespace
 
 float Ragdoll::DefaultEditorScale()
@@ -354,6 +439,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         constraint.stiffness = 0.22f;
         constraint.damping = 0.35f;
         constraint.groupId = groupId;
+        constraint.flags = joints[i].flags;
         collection.AddPointJointConstraint( constraint );
     }
 
@@ -461,5 +547,6 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
         }
     }
 
+    ApplyNeckSwingLimits( models, constraints, sleepState );
     collection.InvalidatePhysicsStreams();
 }

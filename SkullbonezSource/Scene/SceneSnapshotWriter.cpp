@@ -252,7 +252,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             {
                 continue;
             }
-            scene["ragdollJoints"].push_back( {
+            Json jointJson = {
                 { "bodyA", m_gameModels[static_cast<size_t>( joint.bodyA )].GetName() },
                 { "bodyB", m_gameModels[static_cast<size_t>( joint.bodyB )].GetName() },
                 { "localAnchorA", Vec3Json( joint.localAnchorA ) },
@@ -261,7 +261,12 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "stiffness", joint.stiffness },
                 { "damping", joint.damping },
                 { "groupId", joint.groupId },
-            } );
+            };
+            if ( joint.flags != 0 )
+            {
+                jointJson["flags"] = static_cast<int>( joint.flags );
+            }
+            scene["ragdollJoints"].push_back( jointJson );
         }
     }
 
