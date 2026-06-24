@@ -665,37 +665,6 @@ SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
                                        m_generatedObjectTypeOverride };
 }
 
-void Run::SetUpGameModels( int count )
-{
-    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), count );
-}
-
-
-// Spawns exact sphere/box counts using the same random parameter ranges as the
-// mixed generated scene path. Spheres are spawned first so fixed seeds remain
-// deterministic for benchmark scenes.
-void Run::SetUpSolverObjects( int balls, int boxes )
-{
-    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), balls, boxes );
-}
-
-
-void Run::SetUpCamerasFromScene( const TestScene& scene )
-{
-    SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
-}
-
-
-void Run::SetUpGameModelsFromScene( const TestScene& scene )
-{
-    SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
-}
-
-void Run::SetUpRequiredContactsFromScene( const TestScene& scene )
-{
-    SceneAuthoredSetup::SetUpRequiredContacts( BuildSceneAuthoredModelContext(), scene );
-}
-
 void Run::UpdateRequiredSceneContacts()
 {
     if ( m_requiredSceneContacts.empty() )
@@ -760,11 +729,6 @@ bool Run::RequiredSceneContactsComplete() const
     return true;
 }
 
-
-void Run::SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene )
-{
-    SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( BuildSceneAuthoredModelContext(), scene );
-}
 
 void Run::UpdateRequiredSceneBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
 {
@@ -1120,12 +1084,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         SetUpCameras();
         if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ),
-                                (std::max)( 0, m_UISolverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     (std::max)( 0, m_UISolverBallCountOverride ),
+                                                     (std::max)( 0, m_UISolverBoxCountOverride ) );
         }
         else
         {
-            SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext(),
+                m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
         }
         ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
@@ -1390,25 +1357,28 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SetUpCamerasFromScene( scene );
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
 
         if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ),
-                                (std::max)( 0, m_UISolverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     (std::max)( 0, m_UISolverBallCountOverride ),
+                                                     (std::max)( 0, m_UISolverBoxCountOverride ) );
         }
         else if ( m_UIModelCountOverride >= 0 )
         {
-            SetUpGameModels( m_UIModelCountOverride );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_UIModelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
-            SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     scene.GetSolverBallCount(),
+                                                     scene.GetSolverBoxCount() );
         }
         else
         {
-            SetUpGameModelsFromScene( scene );
+            SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
@@ -2272,7 +2242,7 @@ void Run::ApplyUIModelCountOverride( int count )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SetUpGameModels( m_UIModelCountOverride );
+    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_UIModelCountOverride );
     if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
     {
         m_camera.trackBallIndex = m_UIModelCountOverride - 1;
@@ -2311,7 +2281,9 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
+    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                             m_UISolverBallCountOverride,
+                                             m_UISolverBoxCountOverride );
     if ( SceneState().modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;

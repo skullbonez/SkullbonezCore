@@ -354,6 +354,9 @@ class Run
 {
 
   private:
+    // Composition-root state: these members either own a top-level subsystem for
+    // process lifetime/order, or keep launch/session choices that coordinate
+    // multiple subsystems and therefore do not have one narrower owner yet.
     SceneController m_sceneController;                                           // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                                  // Owns scene load/reset/advance selection decisions.
     std::vector<std::string> m_sceneBrowserPaths;
@@ -362,6 +365,8 @@ class Run
     bool m_leftSceneCycleWasDown = false;
     bool m_rightSceneCycleWasDown = false;
     double m_lastEscapeTapTime = -1000.0;
+    // CLI and UI overrides stay in Run while they cut across scene load,
+    // diagnostics, replay, world defaults, and renderer presentation policy.
     float m_cmdTimeScaleOverride = 0.0f;                                         // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;                                                 // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;                                          // CLI --seed override applied after each scene load (0 = not set)
@@ -398,6 +403,8 @@ class Run
     bool m_cmdHasPhysicsDebugContactLingerOverride = false;
     float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
 
+    // Subsystem owners below are ordered by lifetime dependency. EngineContext
+    // and render-host bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                     // Capture, perf, and queryable physics diagnostics owner.
 #ifdef _DEBUG
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
@@ -437,18 +444,6 @@ class Run
     void Render();                                                               // Skips 3D in text-only runs, then records passes for the current camera state.
     RunSceneState& SceneState();                                                 // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                                     // Read-only scene-run state owned by SceneController
-    ReplayRecorder& PresentationReplay();                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    const ReplayRecorder&
-    PresentationReplay() const;                                                  // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    ReplaySolverRecorder& SolverReplay();                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    const ReplaySolverRecorder&
-    SolverReplay() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    ReplayEventRecorder& ReplayEvents();                                         // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    const ReplayEventRecorder&
-    ReplayEvents() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    ReplayBranchInfo& ReplayBranch();                                            // Compatibility accessor while replay behavior moves behind ReplayRuntime.
-    const ReplayBranchInfo&
-    ReplayBranch() const;                                                        // Compatibility accessor while replay behavior moves behind ReplayRuntime.
     void BindEngineContext();                                                    // Binds runtime-owned systems into EngineContext
     void RefreshRuntimeViewModel();                                              // Rebuilds scalar presentation state from EngineContext
     void RelativeUpdateCamera( uint32_t hash );                                  // Keeps non-selected relative cameras inside terrain height limits.
@@ -496,14 +491,6 @@ class Run
                           RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
-    void SetUpCamerasFromScene(
-        const TestScene& scene );                                                // Applies authored camera records without disturbing scene automation gates.
-    void SetUpGameModels( int count );                                           // Populates generated mixed-object scenes for legacy launch paths.
-    void SetUpSolverObjects( int balls, int boxes );                             // Populates deterministic solver scenes with exact ball/box counts.
-    void SetUpGameModelsFromScene(
-        const TestScene& scene );                                                // Converts authored scene models into runtime objects and solver bodies.
-    void SetUpRequiredContactsFromScene( const TestScene& scene );
-    void SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene );
     void UpdateRequiredSceneContacts();                                          // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.
     void UpdateRequiredSceneBroadphaseXCells(

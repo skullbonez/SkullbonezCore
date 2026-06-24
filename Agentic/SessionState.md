@@ -264,6 +264,30 @@ audits when it is still useful.
   errors 0. Rubber-duck reviewer Ohm found no blocking defect and confirmed the
   UI stress LCG/action path and scene/CLI stress setup stayed mechanically
   equivalent.
+- Runtime run decomposition Phase 8 boundary-lock slice removes remaining pure
+  `Run` forwarding wrappers for replay recorders and scene object population,
+  documents the remaining composition-root state in `Run.h`, and adds
+  `tools\validate_runtime_boundaries.bat` plus
+  `tools\check_runtime_boundaries.py`. `validate_fast`, `validate_full`, and
+  `validate_select runtime-boundaries` now fail if `Run.h` regains render pass
+  classes, replay recorder fields, tool transient fields, scene population
+  helper declarations, or if runtime subsystem headers store `Run` directly.
+- Phase 8 boundary-lock validation: final runtime-boundary check 0.17s
+  (`TestOutput\validation\phase8_runtime_boundaries_post_review_fix_rerun.log`),
+  expanded synthetic boundary self-test caught the wrapped field declarations
+  and stored `Run` pointer/reference forms reviewers called out, final fast gate
+  12.64s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_fast_final.log`),
+  `validate_select runtime-boundaries` 3.59s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_select_runtime_boundaries_final.log`),
+  and final full gate 22.14s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_full_final.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds
+  with 0 warnings/errors, DX12 validation errors 0 with screenshots matching
+  baselines, and byte-exact `physics_regression_solver.csv`. Rubber-duck
+  reviewers Mendel, Popper, and Hegel found no remaining blocking defect after
+  Popper's false-negative findings were fixed. Residual include cleanup remains
+  limited by current by-value composition-root members.
 
 ## Current Work Items
 

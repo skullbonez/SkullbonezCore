@@ -51,7 +51,7 @@ void Run::RenderReplayScrubberOverlay()
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
     const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
+    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     if ( screenW <= 0 || screenH <= 0 ||
          ( !loadedPresentation && ( !solverReplayStats.enabled || solverReplayStats.sampleCount < 2 ) ) )
     {
@@ -70,9 +70,10 @@ void Run::RenderReplayScrubberOverlay()
         loadedPresentation ? LoadedReplayPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
         loadedPresentation ? LoadedReplayPresentationLatestSample() : nullptr;
-    const ReplaySolverFrameSample* selected =
-        ( loadedPresentation || futureSelected ) ? nullptr : SolverReplay().SampleAtNormalized( solverSampleT );
-    const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : SolverReplay().LatestSample();
+    const ReplaySolverFrameSample* selected = ( loadedPresentation || futureSelected )
+                                                  ? nullptr
+                                                  : m_replayRuntime.Solver().SampleAtNormalized( solverSampleT );
+    const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : m_replayRuntime.Solver().LatestSample();
     const RunReplayPredictionFrame* selectedPrediction = futureSelected ? CurrentReplayPredictionScrubFrame() : nullptr;
     const double selectedSeconds = selected ? selected->simulationSeconds : 0.0;
     const double latestSeconds = latest ? latest->simulationSeconds : 0.0;

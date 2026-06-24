@@ -1375,7 +1375,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
+    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
@@ -3131,7 +3131,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t 
 
     m_replayRuntime.Prediction().sourceFrameIndex = sourceFrameIndex;
     m_replayRuntime.Prediction().sourceSolverHash = sourceSolverHash;
-    if ( const ReplaySolverFrameSample* latest = SolverReplay().LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
     {
         m_replayRuntime.Prediction().sourceSimulationSeconds = latest->simulationSeconds;
     }
@@ -3383,7 +3383,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer )
         return;
     }
 
-    const ReplaySolverFrameSample* latest = SolverReplay().LatestSample();
+    const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample();
     const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
     const uint64_t latestHash = latest ? latest->solverHash : 0;
     const double now = m_timers.simulationTimer.GetTotalTime();
@@ -3576,7 +3576,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         return;
     }
 
-    if ( !SolverReplay().IsEnabled() )
+    if ( !m_replayRuntime.Solver().IsEnabled() )
     {
         return;
     }
@@ -3596,7 +3596,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     const ReplaySolverFrameSample* presentSample = CurrentReplaySolverScrubSample();
     if ( !presentSample )
     {
-        presentSample = SolverReplay().LatestSample();
+        presentSample = m_replayRuntime.Solver().LatestSample();
     }
     if ( !presentSample )
     {
@@ -3604,14 +3604,14 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     }
 
     ReplayPathBoundsContext bounds;
-    SolverReplay().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
+    m_replayRuntime.Solver().ForEachSampleChronological( CaptureReplayPathBounds, &bounds );
     if ( !bounds.hasSample )
     {
         return;
     }
 
     const ReplayFrameIndex presentFrame = std::clamp( presentSample->frameIndex, bounds.firstFrame, bounds.lastFrame );
-    const ReplayRecorderStats stats = SolverReplay().GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( stats.sampleCount );
 
     m_replayRuntime.PathVisualizer().futureNodes.clear();
@@ -3635,7 +3635,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             futureContext.rootId = target.id;
             futureContext.presentFrame = presentFrame;
             futureContext.includeRagdollVisuals = m_replayRuntime.Prediction().ragdollVisualsEnabled;
-            SolverReplay().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
+            m_replayRuntime.Solver().ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
         }
 
         {
@@ -3647,7 +3647,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             rootDraw.presentFrame = presentFrame;
             rootDraw.lastFrame = bounds.lastFrame;
             rootDraw.sampleStride = sampleStride;
-            SolverReplay().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
+            m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayRootPath, &rootDraw );
         }
 
         ReplayPathChildDrawContext childDraw;
@@ -3664,7 +3664,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         if ( childDraw.nodeCount > 0 )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawChildren" );
-            SolverReplay().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
+            m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
             AddReplayFutureContactMarkers( targetVisualizer, tracer );
         }
 

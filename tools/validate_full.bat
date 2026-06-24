@@ -47,6 +47,12 @@ if errorlevel 1 (
     echo VALIDATE_FULL: FAILED at project filter validation.
     exit /b 1
 )
+call "%~dp0validate_runtime_boundaries.bat"
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at runtime boundary validation.
+    exit /b 1
+)
 
 echo === Phase 1: Build Required Configurations ===
 call "%~dp0validate_build.bat" Profile

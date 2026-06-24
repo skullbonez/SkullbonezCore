@@ -790,8 +790,8 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
 
 void Run::CompareLatestReplaySamples()
 {
-    const ReplayPresentationSample* presentation = PresentationReplay().LatestSample();
-    const ReplaySolverFrameSample* solver = SolverReplay().LatestSample();
+    const ReplayPresentationSample* presentation = m_replayRuntime.Presentation().LatestSample();
+    const ReplaySolverFrameSample* solver = m_replayRuntime.Solver().LatestSample();
     if ( !presentation || !solver )
     {
         return;
@@ -845,14 +845,15 @@ void Run::TickReplayScrubProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = PresentationReplay().GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
     if ( stats.sampleCount < static_cast<std::size_t>( m_replayScrubProbe.minSampleCount ) )
     {
         return;
     }
 
-    const ReplayPresentationSample* selected = PresentationReplay().SampleAtNormalized( m_replayScrubProbe.normalized );
-    const ReplayPresentationSample* live = PresentationReplay().LatestSample();
+    const ReplayPresentationSample* selected =
+        m_replayRuntime.Presentation().SampleAtNormalized( m_replayScrubProbe.normalized );
+    const ReplayPresentationSample* live = m_replayRuntime.Presentation().LatestSample();
     if ( !selected || !live || selected->frameIndex >= live->frameIndex )
     {
         throw std::runtime_error( "replay scrub probe could not select an older replay sample" );
@@ -960,15 +961,15 @@ void Run::TickReplayRestoreProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = SolverReplay().GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
     if ( stats.sampleCount < static_cast<std::size_t>( m_replayRestoreProbe.minSampleCount ) )
     {
         return;
     }
 
     const ReplaySolverFrameSample* selectedSample =
-        SolverReplay().SampleAtNormalized( m_replayRestoreProbe.normalized );
-    const ReplaySolverFrameSample* latestSample = SolverReplay().LatestSample();
+        m_replayRuntime.Solver().SampleAtNormalized( m_replayRestoreProbe.normalized );
+    const ReplaySolverFrameSample* latestSample = m_replayRuntime.Solver().LatestSample();
     if ( !selectedSample || !latestSample )
     {
         throw std::runtime_error( "replay restore probe could not select retained solver samples" );
@@ -1015,7 +1016,7 @@ void Run::TickReplaySaveProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = PresentationReplay().GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
     if ( !m_replaySaveProbe.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
     {
         m_replaySaveProbe.runtimeResetCoverageInjected = true;
@@ -1528,7 +1529,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = SolverReplay().LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
     {
         liveBackup = *latest;
         hasLiveBackup = true;
@@ -1626,11 +1627,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
         if ( exactSolverCounts || uiSolverCounts )
         {
-            SetUpSolverObjects( event.value1, event.value2 );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), event.value1, event.value2 );
         }
         else
         {
-            SetUpGameModels( event.value0 );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
 
@@ -1936,16 +1937,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     if ( makeLiveBranch )
     {
-        const uint32_t parentBranchId = checkpoint->branch.branchId != 0
-                                            ? checkpoint->branch.branchId
-                                            : ( ReplayBranch().branchId != 0 ? ReplayBranch().branchId : 1u );
+        const uint32_t parentBranchId =
+            checkpoint->branch.branchId != 0
+                ? checkpoint->branch.branchId
+                : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
         ReplayBranchInfo restoredBranch;
-        restoredBranch.branchId = (std::max)( ReplayBranch().branchId, parentBranchId ) + 1u;
+        restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
         restoredBranch.parentBranchId = parentBranchId;
         restoredBranch.startFrame = 0;
         restoredBranch.sourceFrame = target->frameIndex;
         restoredBranch.sourceSolverHash = target->solverHash;
-        ReplayBranch() = restoredBranch;
+        m_replayRuntime.Branch() = restoredBranch;
         ResetReplayTimelineForActiveScene( true );
         RecordReplayEvent( ReplayEventKind::BranchRestore,
                            0,
