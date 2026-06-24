@@ -777,7 +777,7 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
         if ( !model.IsFixed() )
         {
-            m_cGameModelCollection.WakeModel( event.value0 );
+            m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
         WriteReplayProbeReason( outReason, reasonSize, "applied editor transform" );
@@ -1765,7 +1765,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            m_cGameModelCollection.GetPhysicsEngine().Step( m_cGameModelCollection, PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );

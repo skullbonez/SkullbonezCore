@@ -53,6 +53,10 @@ audits when it is still useful.
   impulses, gizmo motion wakeups, and placement wake/sleep commands through
   `PhysicsEngine`; editor shape/pose mutation still happens on `GameModel`
   during this compatibility slice.
+- Runtime run decomposition Phase 4C frame migration routes replay-applied
+  editor transform wakeups and restore-target physics stepping through
+  `PhysicsEngine`, leaving broader replay snapshot ownership for the replay
+  runtime phase.
 
 ## Current Work Items
 
