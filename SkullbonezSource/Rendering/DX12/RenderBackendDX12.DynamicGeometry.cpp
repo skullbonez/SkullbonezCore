@@ -150,12 +150,21 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
     EnsureCommandListOpen();
 
-    // Lazy-init shader and LINE_LIST PSO
+    // Lazy-init shader and LINE_LIST PSO. The PSO must match the active render
+    // target format; cinematic mode draws these lines into the HDR scene target
+    // instead of the ordinary swapchain backbuffer.
     if ( !m_gridLineShader )
     {
         m_gridLineShader = CreateShader( "shaders/grid_line" );
     }
-    if ( !m_gridLinePSO )
+
+    ID3D12PipelineState* gridLinePSO = nullptr;
+    auto psoIt = m_gridLinePSOs.find( m_currentRTVFormat );
+    if ( psoIt != m_gridLinePSOs.end() )
+    {
+        gridLinePSO = psoIt->second;
+    }
+    else
     {
         ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
 
@@ -185,11 +194,16 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         psoDesc.SampleMask = UINT_MAX;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        psoDesc.RTVFormats[0] = m_currentRTVFormat;
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.SampleDesc.Count = 1;
-        m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &m_gridLinePSO ) );
-        NameDx12Object( m_gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+        HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+        if ( FAILED( hr ) )
+        {
+            throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
+        }
+        NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+        m_gridLinePSOs[m_currentRTVFormat] = gridLinePSO;
     }
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is
@@ -199,7 +213,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
-    m_commandList->SetPipelineState( m_gridLinePSO );
+    m_commandList->SetPipelineState( gridLinePSO );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
 
@@ -230,6 +244,50 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
     RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
     m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
+}
+
+
+void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
+                                                       int vertexCount,
+                                                       const float* viewProjMatrix16 )
+{
+    if ( vertexCount <= 0 || !data || !viewProjMatrix16 )
+    {
+        return;
+    }
+
+    EnsureCommandListOpen();
+
+    if ( !m_transientColorShader )
+    {
+        m_transientColorShader = CreateShader( "shaders/tornado_fx" );
+    }
+    ShaderDX12* shader = static_cast<ShaderDX12*>( m_transientColorShader.get() );
+    shader->Use();
+    shader->SetMat4( "uViewProj", Matrix4( viewProjMatrix16 ) );
+
+    DynamicVBDX12 vertexLayout = {};
+    vertexLayout.numAttribs = 3;
+    vertexLayout.attribComponents[0] = 3;
+    vertexLayout.attribComponents[1] = 4;
+    vertexLayout.attribComponents[2] = 4;
+    vertexLayout.floatsPerVertex = 11;
+    vertexLayout.stride = 11 * static_cast<int>( sizeof( float ) );
+
+    const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
+    const D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
+    memcpy( GetUploadPtr( vbAddress ), data, static_cast<size_t>( dataSize ) );
+
+    PrepareDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout );
+
+    D3D12_VERTEX_BUFFER_VIEW vbView = {};
+    vbView.BufferLocation = vbAddress;
+    vbView.SizeInBytes = static_cast<UINT>( dataSize );
+    vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
+    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+
+    RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "TornadoVisual", vertexCount, 1 } );
+    m_commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
 
 

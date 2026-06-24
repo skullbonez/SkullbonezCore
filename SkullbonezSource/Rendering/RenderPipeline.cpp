@@ -211,6 +211,12 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         addTargetWrite( waterPass );
     }
 
+    if ( snapshot.tornadoVisualRendered )
+    {
+        const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass" );
+        addTargetWrite( tornadoPass );
+    }
+
     if ( snapshot.objectTransparentPass )
     {
         const uint32_t objectPass = graph.AddPass( "ObjectTransparentPass" );

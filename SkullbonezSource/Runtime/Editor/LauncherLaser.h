@@ -118,6 +118,7 @@ class LauncherLaser
                float distance,
                bool hit );
     void Update( float dt );
+    bool HasActiveShots() const;
     void CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const;
     void RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot );
     void Render( const Math::Transformation::Matrix4& viewProjection,

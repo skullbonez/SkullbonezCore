@@ -298,6 +298,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
@@ -662,6 +665,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
@@ -923,6 +929,9 @@
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\tornado_fx.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\lit_textured.hlsl">

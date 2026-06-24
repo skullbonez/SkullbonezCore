@@ -40,6 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "../Core/PlatformProfiler.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -54,6 +55,9 @@ constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
 constexpr unsigned int RENDER_TEXTURE_SLOT_3 = 1u << 3;
+constexpr std::size_t TORNADO_VISUAL_FLOATS_PER_VERTEX = 11u;
+constexpr float TORNADO_FX_KIND_RIBBON = 0.0f;
+constexpr float TORNADO_FX_KIND_DUST = 1.0f;
 
 void ClearRenderTextureSlotsExcept( unsigned int keptSlots )
 {
@@ -82,6 +86,83 @@ void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uin
     {
         Gfx().BindTexture( handles[slot], slot );
     }
+}
+
+float Clamp01( float value )
+{
+    return std::clamp( value, 0.0f, 1.0f );
+}
+
+float HashUnitFloat( uint32_t value )
+{
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    return static_cast<float>( value & 0x00ffffffu ) / static_cast<float>( 0x01000000u );
+}
+
+Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
+{
+    if ( VectorMagSquared( value ) <= 1.0e-8f )
+    {
+        return fallback;
+    }
+    value.Normalise();
+    return value;
+}
+
+Vector3 CylindricalOffset( float radius, float angle )
+{
+    return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
+}
+
+void EmitFxVertex( std::vector<float>& vertices,
+                   const Vector3& position,
+                   float r,
+                   float g,
+                   float b,
+                   float a,
+                   float u,
+                   float v,
+                   float fxKind,
+                   float terrainY )
+{
+    vertices.push_back( position.x );
+    vertices.push_back( position.y );
+    vertices.push_back( position.z );
+    vertices.push_back( r );
+    vertices.push_back( g );
+    vertices.push_back( b );
+    vertices.push_back( a );
+    vertices.push_back( u );
+    vertices.push_back( v );
+    vertices.push_back( fxKind );
+    vertices.push_back( terrainY );
+}
+
+void EmitFxQuad( std::vector<float>& vertices,
+                 const Vector3& a,
+                 const Vector3& b,
+                 const Vector3& c,
+                 const Vector3& d,
+                 float r,
+                 float g,
+                 float blue,
+                 float alpha,
+                 float fxKind,
+                 float terrainA,
+                 float terrainB,
+                 float terrainC,
+                 float terrainD )
+{
+    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
+    EmitFxVertex( vertices, b, r, g, blue, alpha, 1.0f, 0.0f, fxKind, terrainB );
+    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
+    EmitFxVertex( vertices, a, r, g, blue, alpha, 0.0f, 0.0f, fxKind, terrainA );
+    EmitFxVertex( vertices, c, r, g, blue, alpha, 1.0f, 1.0f, fxKind, terrainC );
+    EmitFxVertex( vertices, d, r, g, blue, alpha, 0.0f, 1.0f, fxKind, terrainD );
 }
 
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
@@ -920,8 +1001,14 @@ Run::ReflectionPassOutput Run::ReflectionPass::Render( const ReflectionPassInput
 
 void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
 {
-    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Balls" );
+    const bool transparentPass = inputs.mode == ObjectPassMode::Transparent;
+    const char* passName = transparentPass ? "Frame/Render/TransparentBalls" : "Frame/Render/Balls";
+    const uint32_t passHash =
+        transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    GpuProfilerScope profileScope( passName, passHash );
+#endif
+    Rendering::DrawCallTraceScope drawTraceScope( passName, passHash );
 
     if ( inputs.collisionStateColorsVisible )
     {
@@ -956,8 +1043,6 @@ void Run::ObjectPass::Render( const ObjectPassInputs& inputs )
                                               inputs.drawMaskedModels );
         }
     }
-
-    PROFILE_GPU_END( "Frame/Render/Balls" );
 }
 
 
@@ -1081,24 +1166,372 @@ void Run::WaterPass::ReleaseGpuResources()
 }
 
 
+void Run::TornadoVisualPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
+{
+    const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
+    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
+    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
+    constexpr int dustBands = 3;
+    constexpr int dustSegments = 56;
+    const int authoredVortexCount =
+        m_run.m_runtimeSettings.tornadoSystem.enabled
+            ? (std::max)( 1, static_cast<int>( m_run.m_runtimeSettings.tornadoSystem.vortices.size() ) )
+            : 1;
+    const int vertexCount =
+        authoredVortexCount * ( ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6 );
+    const std::size_t floatCapacity =
+        static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * TORNADO_VISUAL_FLOATS_PER_VERTEX;
+    if ( m_vertices.capacity() < floatCapacity )
+    {
+        m_vertices.reserve( floatCapacity );
+    }
+}
+
+
+void Run::TornadoVisualPass::ReleaseGpuResources()
+{
+    m_vertices.clear();
+    m_vertices.shrink_to_fit();
+    m_activeVisualVortices.clear();
+    m_activeVisualVortices.shrink_to_fit();
+    m_liveVisualTimeSeconds = 0.0f;
+    m_lastLiveVisualSourceSeconds = 0.0;
+    m_hasLiveVisualTime = false;
+}
+
+
+bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
+{
+    const TornadoVisualSettings& visual = m_run.m_runtimeSettings.tornadoVisual;
+    if ( !visual.enabled || !IsGfxReady() )
+    {
+        return false;
+    }
+
+    const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
+    const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
+    const int particleCount = std::clamp( visual.particleCount, 0, 256 );
+    const float shellAlpha = std::clamp( visual.shellAlpha, 0.0f, 0.30f );
+    const float dustAlpha = std::clamp( visual.dustAlpha, 0.0f, 0.30f );
+    if ( ( ribbonCount <= 0 || shellAlpha <= 0.0f ) && dustAlpha <= 0.0f )
+    {
+        return false;
+    }
+
+    const float twoPi = 6.28318530718f;
+    const auto* replaySample = m_run.CurrentReplayScrubSample();
+    const auto* solverSample = replaySample ? nullptr : m_run.CurrentReplaySolverScrubSample();
+    const bool useReplayTime = replaySample != nullptr || solverSample != nullptr;
+    const bool useTornadoSystem =
+        m_run.m_runtimeSettings.tornadoSystem.enabled && !m_run.m_runtimeSettings.tornadoSystem.vortices.empty();
+    const double sourceSeconds = m_run.m_timers.simulationTimer.GetTimeSinceLastStart();
+    if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
+    {
+        m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
+        m_hasLiveVisualTime = true;
+    }
+    else if ( !useReplayTime && !m_run.m_replayScrubber.simulationPaused )
+    {
+        m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
+    }
+    m_lastLiveVisualSourceSeconds = sourceSeconds;
+
+    float time = m_liveVisualTimeSeconds;
+    if ( replaySample )
+    {
+        time = static_cast<float>( replaySample->simulationSeconds );
+    }
+    else if ( solverSample )
+    {
+        time = static_cast<float>( solverSample->simulationSeconds );
+    }
+    else if ( useTornadoSystem )
+    {
+        time = m_run.m_cGameModelCollection.GetTornadoSystemElapsedSeconds();
+    }
+
+    m_activeVisualVortices.clear();
+    if ( useTornadoSystem )
+    {
+        Physics::TornadoSystem::BuildActiveVortices( m_run.m_runtimeSettings.tornadoSystem,
+                                                     time,
+                                                     m_activeVisualVortices );
+    }
+    else
+    {
+        const Physics::TornadoFieldConfig& field = m_run.m_runtimeSettings.tornadoField;
+        if ( field.enabled && field.radius > 1.0f && field.height > 1.0f )
+        {
+            Physics::TornadoActiveVortex active;
+            active.field = field;
+            active.strength = 1.0f;
+            active.ageSeconds = time;
+            active.sourceIndex = 0;
+            m_activeVisualVortices.push_back( active );
+        }
+    }
+    if ( m_activeVisualVortices.empty() )
+    {
+        return false;
+    }
+
+    m_vertices.clear();
+    const Vector3 cameraForward =
+        NormalizeOr( inputs.frame.viewCenter - inputs.frame.eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+    const Vector3 cameraUp = NormalizeOr( inputs.frame.up, Vector3( 0.0f, 1.0f, 0.0f ) );
+    const Vector3 cameraRight = NormalizeOr( CrossProduct( cameraForward, cameraUp ), Vector3( 1.0f, 0.0f, 0.0f ) );
+    const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
+    const auto terrainHeightFor = [&]( const Vector3& position )
+    {
+        if ( m_run.m_systems.terrain && m_run.m_systems.terrain->IsInBounds( position.x, position.z ) )
+        {
+            return m_run.m_systems.terrain->GetTerrainHeightAt( position.x, position.z );
+        }
+        return position.y - 64.0f;
+    };
+
+    for ( const Physics::TornadoActiveVortex& activeVortex : m_activeVisualVortices )
+    {
+        const Physics::TornadoFieldConfig& field = activeVortex.field;
+        const float rotation = time * visual.rotationSpeed + static_cast<float>( activeVortex.sourceIndex ) * 1.73f;
+        const float radius = field.radius;
+        const float height = field.height;
+
+        if ( shellAlpha > 0.0f )
+        {
+            constexpr float shellTurns = 2.85f;
+            for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
+            {
+                const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
+                const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) +
+                                    rotation + ribbonSeed * 0.45f;
+                for ( int segment = 0; segment < ribbonSegments; ++segment )
+                {
+                    const float t0 = static_cast<float>( segment ) / static_cast<float>( ribbonSegments );
+                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( ribbonSegments );
+                    const float angle0 = phase + t0 * shellTurns * twoPi;
+                    const float angle1 = phase + t1 * shellTurns * twoPi;
+                    const float radius0 =
+                        radius * ( 0.32f + 0.46f * t0 + 0.035f * sinf( angle0 * 1.7f + ribbonSeed * twoPi ) );
+                    const float radius1 =
+                        radius * ( 0.32f + 0.46f * t1 + 0.035f * sinf( angle1 * 1.7f + ribbonSeed * twoPi ) );
+                    const Vector3 p0 =
+                        field.center + CylindricalOffset( radius0, angle0 ) + Vector3( 0.0f, t0 * height, 0.0f );
+                    const Vector3 p1 =
+                        field.center + CylindricalOffset( radius1, angle1 ) + Vector3( 0.0f, t1 * height, 0.0f );
+                    const Vector3 segmentCenter = ( p0 + p1 ) * 0.5f;
+                    const Vector3 viewDir = NormalizeOr( inputs.frame.eye - segmentCenter, -cameraForward );
+                    const Vector3 tangent = NormalizeOr( p1 - p0, Vector3( 0.0f, 1.0f, 0.0f ) );
+                    const Vector3 side = NormalizeOr( CrossProduct( viewDir, tangent ), cameraRight );
+                    const float width = (std::max)( 1.0f, visual.ribbonWidth * ( 0.78f + 0.34f * t0 ) );
+                    const float baseFade = Clamp01( t0 / 0.16f );
+                    const float topFade = Clamp01( ( 1.0f - t0 ) / 0.18f );
+                    const float gapFade = 0.72f + 0.28f * sinf( phase + t0 * twoPi * 4.0f );
+                    const float alpha = shellAlpha * baseFade * topFade * gapFade;
+                    const float cool = 0.72f + 0.08f * t0;
+                    EmitFxQuad( m_vertices,
+                                p0 - side * width,
+                                p1 - side * width,
+                                p1 + side * width,
+                                p0 + side * width,
+                                cool,
+                                0.78f,
+                                0.84f,
+                                alpha,
+                                TORNADO_FX_KIND_RIBBON,
+                                0.0f,
+                                0.0f,
+                                0.0f,
+                                0.0f );
+                }
+            }
+        }
+
+        if ( dustAlpha > 0.0f )
+        {
+            constexpr int dustBands = 3;
+            constexpr int dustSegments = 56;
+            for ( int band = 0; band < dustBands; ++band )
+            {
+                const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
+                const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
+                for ( int segment = 0; segment < dustSegments; ++segment )
+                {
+                    if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
+                    {
+                        continue;
+                    }
+                    const float t0 = static_cast<float>( segment ) / static_cast<float>( dustSegments );
+                    const float t1 = static_cast<float>( segment + 1 ) / static_cast<float>( dustSegments );
+                    const float angle0 = phase + t0 * twoPi * 1.18f;
+                    const float angle1 = phase + t1 * twoPi * 1.18f;
+                    const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
+                    const float innerRadius = bandRadius - radius * 0.015f;
+                    const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
+                    const float y0 =
+                        field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
+                    const float y1 =
+                        field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
+                    const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
+                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                    const Vector3 b = field.center + CylindricalOffset( innerRadius, angle1 ) +
+                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                    const Vector3 c = field.center + CylindricalOffset( outerRadius, angle1 ) +
+                                      Vector3( 0.0f, y1 - field.center.y, 0.0f );
+                    const Vector3 d = field.center + CylindricalOffset( outerRadius, angle0 ) +
+                                      Vector3( 0.0f, y0 - field.center.y, 0.0f );
+                    const float alpha = dustAlpha * ( 0.42f - 0.08f * bandT );
+                    EmitFxQuad( m_vertices,
+                                a,
+                                b,
+                                c,
+                                d,
+                                0.58f,
+                                0.47f,
+                                0.31f,
+                                alpha,
+                                TORNADO_FX_KIND_DUST,
+                                terrainHeightFor( a ),
+                                terrainHeightFor( b ),
+                                terrainHeightFor( c ),
+                                terrainHeightFor( d ) );
+                }
+            }
+
+            for ( int particle = 0; particle < particleCount; ++particle )
+            {
+                const uint32_t seed = 0x9e3779b9u + static_cast<uint32_t>( particle ) * 0x85ebca6bu;
+                const float h0 = HashUnitFloat( seed );
+                const float h1 = HashUnitFloat( seed ^ 0x68bc21ebu );
+                const float h2 = HashUnitFloat( seed ^ 0x02e5be93u );
+                const float heightT = powf( h0, 1.45f );
+                const float angularSpeed = 0.65f + heightT * 1.25f;
+                const float angle = h1 * twoPi + rotation * angularSpeed + heightT * twoPi * 2.2f;
+                const float particleRadius = radius * ( 0.55f + 0.43f * h2 );
+                const Vector3 center =
+                    field.center + CylindricalOffset( particleRadius, angle ) + Vector3( 0.0f, height * heightT, 0.0f );
+                const float size = std::clamp( radius * ( 0.010f + 0.020f * ( 1.0f - heightT ) ), 2.0f, 9.0f );
+                const float alpha = dustAlpha * ( 0.38f + 0.42f * ( 1.0f - heightT ) ) * ( 0.55f + 0.45f * h1 );
+                const Vector3 right = cameraRight * size;
+                const Vector3 up = billboardUp * ( size * ( 0.70f + 0.50f * h2 ) );
+                const Vector3 a = center - right - up;
+                const Vector3 b = center + right - up;
+                const Vector3 c = center + right + up;
+                const Vector3 d = center - right + up;
+                EmitFxQuad( m_vertices,
+                            a,
+                            b,
+                            c,
+                            d,
+                            0.68f,
+                            0.52f,
+                            0.34f,
+                            alpha,
+                            TORNADO_FX_KIND_DUST,
+                            terrainHeightFor( a ),
+                            terrainHeightFor( b ),
+                            terrainHeightFor( c ),
+                            terrainHeightFor( d ) );
+            }
+        }
+    }
+
+    if ( m_vertices.empty() )
+    {
+        return false;
+    }
+
+    PROFILE_GPU_BEGIN( "Frame/Render/TornadoVisual" );
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/TornadoVisual" );
+    ClearAllRenderTextureSlots();
+    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
+    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
+    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
+    Gfx().GetBlendFunc( blendSrc, blendDst );
+
+    Gfx().SetDepthTest( true );
+    Gfx().SetDepthWrite( false );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    Gfx().SetCullFace( false );
+    Gfx().DrawTransientColoredTriangles( m_vertices.data(),
+                                         static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
+                                         inputs.frame.viewProjection.Data() );
+    Gfx().SetCullFace( cullWasEnabled );
+    Gfx().SetBlendFunc( blendSrc, blendDst );
+    Gfx().SetBlend( blendWasEnabled );
+    Gfx().SetDepthWrite( depthWriteWasEnabled );
+    Gfx().SetDepthTest( depthTestWasEnabled );
+    PROFILE_GPU_END( "Frame/Render/TornadoVisual" );
+    return true;
+}
+
+
 void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 {
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
+    if ( !HasOverlayWork( inputs ) )
+    {
+        return;
+    }
+
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
+    }
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/DebugOverlay" );
     if ( m_run.m_debug.isBroadphaseOverlay )
     {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/Broadphase" );
+        }
         DRAW_CALL_TRACE_SCOPE( "Broadphase" );
         m_run.m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/DebugOverlay/Broadphase" );
+        }
     }
 
-    if ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField )
+    const auto tornadoSystemVectorsVisible = []( const Physics::TornadoSystemConfig& config )
     {
-        DRAW_CALL_TRACE_SCOPE( "TornadoField" );
+        if ( config.visualizeVelocityField )
+        {
+            return true;
+        }
+        for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+        {
+            if ( vortex.field.visualizeVelocityField )
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    const bool tornadoVectorsVisible = m_run.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+                                       tornadoSystemVectorsVisible( m_run.m_runtimeSettings.tornadoSystem );
+    if ( tornadoVectorsVisible )
+    {
         if ( inputs.frame.scene )
         {
+            if ( detailMarkers )
+            {
+                PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
+            }
+            DRAW_CALL_TRACE_SCOPE( "TornadoField" );
             inputs.frame.scene->RenderTornadoFieldVectors( inputs.frame.viewProjection );
+            if ( detailMarkers )
+            {
+                PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
+            }
         }
     }
 
@@ -1106,6 +1539,10 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/PhysicsDebug" );
+        }
         DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
         m_run.m_physicsDebugVisualizer.SetFlags( m_run.m_debug.physicsDebugFlags );
         m_run.m_physicsDebugVisualizer.SetPipelineStageCursor( m_run.m_debug.physicsDebugPipelineStageCursor );
@@ -1115,7 +1552,71 @@ void Run::DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                                     inputs.frame.viewProjection,
                                                     m_run.m_systems.terrain.get() );
         }
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/DebugOverlay/PhysicsDebug" );
+        }
     }
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/DebugOverlay" );
+    }
+}
+
+
+bool Run::DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) const
+{
+    if ( m_run.m_debug.isBroadphaseOverlay )
+    {
+        return true;
+    }
+    if ( ( m_run.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+           m_run.m_runtimeSettings.tornadoSystem.visualizeVelocityField ) &&
+         inputs.frame.scene )
+    {
+        return true;
+    }
+    if ( m_run.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        return true;
+    }
+
+    const float rayLinger = (std::max)( 0.0f, m_run.m_debug.physicsDebugContactLinger );
+    if ( rayLinger > 0.0f )
+    {
+        for ( const RunRayCastTestLine& line : m_run.m_rayCastTest.lines )
+        {
+            if ( line.active && line.ageSeconds < rayLinger )
+            {
+                return true;
+            }
+        }
+    }
+
+    const bool placementPreview = m_run.m_editor.editorModeEnabled && m_run.m_editor.placementModeEnabled &&
+                                  m_run.m_editor.placementPreviewVisible;
+    const bool editorSelection = m_run.m_editor.editorModeEnabled && !m_run.m_editor.placementModeEnabled &&
+                                 m_run.m_editor.selectedModelIndex >= 0 &&
+                                 m_run.m_editor.selectedModelIndex < m_run.m_cGameModelCollection.GetModelCount();
+    if ( placementPreview || editorSelection )
+    {
+        return true;
+    }
+    if ( m_run.m_mousePickup.active && m_run.m_mousePickup.modelIndex >= 0 &&
+         m_run.m_mousePickup.modelIndex < m_run.m_cGameModelCollection.GetModelCount() )
+    {
+        return true;
+    }
+
+    if ( m_run.m_replayPathVisualizer.hasTarget || m_run.m_replayCamera.focusKind != RunReplayCameraFocusKind::None )
+    {
+        return true;
+    }
+    if ( m_run.m_replayVelocityEdit.enabled && !m_run.m_editor.editorModeEnabled )
+    {
+        return true;
+    }
+    return m_run.m_launcherLaser.HasActiveShots();
 }
 
 
@@ -1182,7 +1683,6 @@ void Run::VolumetricPass::ReleaseGpuResources()
 
 bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
 {
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/VolumetricLight" );
     const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
@@ -1193,6 +1693,12 @@ bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
         return false;
     }
 
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight" );
+    }
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/VolumetricLight" );
     // Invariant: unbind the full-size scene target before sampling it. The
     // volumetric pass reads scene color/depth and writes a separate soft light
     // texture, so read and write targets must be different resources.
@@ -1208,19 +1714,37 @@ bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
-    volumetric.shader->Use();
-    BindVolumetricPassParams( *volumetric.shader, cinematic );
-    // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
-    // depth. The shader uses depth to tell sky pixels from solid geometry so
-    // rays pass through sky and fade when they cross hills/balls.
-    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(), scene.hdrTarget->GetDepthTextureHandle(), 0, 0 );
-    DrawFullscreenQuad( fullscreen.quadVB );
+    {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight/Draw" );
+        }
+        DRAW_CALL_TRACE_SCOPE( "Draw" );
+        volumetric.shader->Use();
+        BindVolumetricPassParams( *volumetric.shader, cinematic );
+        // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
+        // depth. The shader uses depth to tell sky pixels from solid geometry so
+        // rays pass through sky and fade when they cross hills/balls.
+        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                                scene.hdrTarget->GetDepthTextureHandle(),
+                                0,
+                                0 );
+        DrawFullscreenQuad( fullscreen.quadVB );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/VolumetricLight/Draw" );
+        }
+    }
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
     volumetric.target->Unbind();
     Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/VolumetricLight" );
+    }
     return true;
 }
 
@@ -1250,7 +1774,6 @@ void Run::TonemapPass::ReleaseGpuResources()
 
 void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAlreadyUnbound, bool volumetricReady )
 {
-    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
     TonemapPassResources& tonemap = m_run.m_systems.renderPasses.tonemap;
@@ -1260,6 +1783,12 @@ void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAl
         return;
     }
 
+    const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Tonemap" );
+    }
+    DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     if ( !sceneAlreadyUnbound )
     {
         scene.hdrTarget->Unbind();
@@ -1275,20 +1804,35 @@ void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAl
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes
     // normal display color and where bloom/fog/rays are layered in.
-    tonemap.shader->Use();
-    const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
-    BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
-    // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
-    // and slot 2 is either the volumetric-light texture or a harmless fallback
-    // when that pass is disabled.
-    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
-                            scene.hdrTarget->GetDepthTextureHandle(),
-                            volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
-                                                                 : scene.hdrTarget->GetColorTextureHandle(),
-                            0 );
-    DrawFullscreenQuad( fullscreen.quadVB );
+    {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_BEGIN( "Frame/Render/Tonemap/Draw" );
+        }
+        DRAW_CALL_TRACE_SCOPE( "Draw" );
+        tonemap.shader->Use();
+        const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
+        BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
+        // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
+        // and slot 2 is either the volumetric-light texture or a harmless fallback
+        // when that pass is disabled.
+        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                                scene.hdrTarget->GetDepthTextureHandle(),
+                                volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
+                                                                     : scene.hdrTarget->GetColorTextureHandle(),
+                                0 );
+        DrawFullscreenQuad( fullscreen.quadVB );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/Tonemap/Draw" );
+        }
+    }
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
+    if ( detailMarkers )
+    {
+        PROFILE_GPU_END( "Frame/Render/Tonemap" );
+    }
 }

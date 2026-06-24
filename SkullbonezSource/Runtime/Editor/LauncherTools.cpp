@@ -266,7 +266,6 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
-    bool releasedFromFixed = false;
     if ( model.IsFixed() )
     {
         if ( !model.ReleasesFromFixedOnContact() ||
@@ -275,20 +274,16 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
             return;
         }
         model.SetFixed( false );
-        releasedFromFixed = true;
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
     model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
     m_cGameModelCollection.WakeModel( modelHitIndex );
-    if ( releasedFromFixed )
-    {
-        const float mass = (std::max)( 0.001f, model.GetMass() );
-        const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
-        m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex,
-                                                              rayDirection * releaseSpeed,
-                                                              SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    }
+    const float mass = (std::max)( 0.001f, model.GetMass() );
+    const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
+    m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex,
+                                                          rayDirection * releaseSpeed,
+                                                          SkullbonezCore::Math::Vector::ZERO_VECTOR );
 }
 
 

@@ -49,7 +49,7 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 30,
+static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 31,
                "Update editor placement scale classification when adding editor object types." );
 } // namespace
 
@@ -125,6 +125,7 @@ bool EditorPlacementUsesTreeScaleLock( int objectType )
     case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
     case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
     case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+    case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
         return true;
     default:
         return false;

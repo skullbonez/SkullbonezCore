@@ -154,9 +154,10 @@ class Profiler
     void
     RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks );
 
-    // GPU scopes still record CPU elapsed time internally, but emit platform
-    // profiler GPU annotations through the active backend instead of duplicating
-    // CPU marker ranges.
+    // GPU scopes keep their in-engine marker identity. Explicit platform
+    // captures add CPU `_Record` mirrors and backend `_GPU` events so PIX lanes
+    // distinguish command recording from GPU execution without perturbing
+    // default validation timing.
     void GpuBegin( const char* fullPath, uint32_t hash );
     void GpuEnd( const char* fullPath, uint32_t hash );
 
@@ -248,6 +249,9 @@ class Profiler
     int m_workerCoreSampleCount;
 
     int m_stackIndices[MAX_DEPTH];               // marker indices currently open (top of stack at [m_stackTop-1])
+    bool m_platformProfilerCpuOpen[MAX_DEPTH];
+    bool m_platformProfilerGpuRecordOpen[MAX_DEPTH];
+    bool m_platformProfilerGpuEventOpen[MAX_DEPTH];
     int m_stackTop;
 
     int64_t m_qpcFrequency;
@@ -313,6 +317,7 @@ class WorkerProfilerScope
     uint32_t m_hash;
     int m_workerIndex;
     int64_t m_startTicks;
+    bool m_platformProfilerOpen;
 };
 
 } // namespace Basics

@@ -265,6 +265,12 @@ bool TestScene::IsFixedStep() const
 }
 
 
+bool TestScene::ShouldPauseSnapshotState() const
+{
+    return m_sceneOptions.pauseSnapshotState;
+}
+
+
 uint32_t TestScene::GetPhysicsDebugFlags() const
 {
     return m_sceneOptions.physicsDebugFlags;
@@ -588,6 +594,18 @@ float TestScene::GetWorldFluidHeight() const
 float TestScene::GetWorldFluidDensity() const
 {
     return m_worldOverride.worldFluidDensity;
+}
+
+
+bool TestScene::HasTornadoSystem() const
+{
+    return m_tornadoSystem.hasTornadoSystem;
+}
+
+
+const SkullbonezCore::Physics::TornadoSystemConfig& TestScene::GetTornadoSystemConfig() const
+{
+    return m_tornadoSystem.config;
 }
 
 

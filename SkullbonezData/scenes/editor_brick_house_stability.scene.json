@@ -1,0 +1,1833 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "simulation": {
+    "seed": 62028,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": -100.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "frames": 720,
+    "fixedStep": true,
+    "exitOnComplete": true,
+    "pauseSnapshotState": false
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "physics": {
+      "contacts": false,
+      "sleep": false,
+      "transparent": false
+    }
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "house_stability",
+      "position": [
+        500.0,
+        70.0,
+        620.0
+      ],
+      "view": [
+        500.0,
+        9.0,
+        500.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "fovDegrees": 52.0
+    }
+  ],
+  "objects": [
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_foundation",
+      "position": [
+        500.0,
+        0.4,
+        500.0
+      ],
+      "halfExtents": [
+        23.5,
+        0.38,
+        16.0
+      ],
+      "mass": 1028.736,
+      "restitution": 0.08,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        87834.98849280001,
+        277158.624,
+        189422.66849280003
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_upper_floor",
+      "position": [
+        500.0,
+        7.539999999999999,
+        500.0
+      ],
+      "halfExtents": [
+        22.8,
+        0.4,
+        15.2
+      ],
+      "mass": 998.0928,
+      "restitution": 0.07,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        76919.68512,
+        249815.973888,
+        173002.752
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_roof",
+      "position": [
+        500.0,
+        14.77,
+        500.0
+      ],
+      "halfExtents": [
+        24.6,
+        0.43,
+        17.0
+      ],
+      "mass": 1294.7472000000002,
+      "restitution": 0.06,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        124807.11318576003,
+        385903.7187840001,
+        261256.20476976005
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_lower_left",
+      "position": [
+        485.2,
+        3.94,
+        484.55
+      ],
+      "halfExtents": [
+        7.2,
+        3.2,
+        0.55
+      ],
+      "mass": 91.23840000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        320.6269440000001,
+        1585.7994240000005,
+        1888.0266240000005
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_lower_right",
+      "position": [
+        514.8,
+        3.94,
+        484.55
+      ],
+      "halfExtents": [
+        7.2,
+        3.2,
+        0.55
+      ],
+      "mass": 91.23840000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        320.6269440000001,
+        1585.7994240000005,
+        1888.0266240000005
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_door_lintel",
+      "position": [
+        500.0,
+        6.39,
+        484.55
+      ],
+      "halfExtents": [
+        6.8,
+        0.75,
+        0.55
+      ],
+      "mass": 20.196,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        5.82318,
+        313.32410999999996,
+        315.07442999999995
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_upper_left",
+      "position": [
+        485.0,
+        11.139999999999999,
+        484.55
+      ],
+      "halfExtents": [
+        5.6,
+        3.2,
+        0.55
+      ],
+      "mass": 70.9632,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        249.37651200000005,
+        748.9574399999998,
+        984.0230399999998
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_upper_center",
+      "position": [
+        500.0,
+        11.139999999999999,
+        484.55
+      ],
+      "halfExtents": [
+        4.2,
+        3.2,
+        0.55
+      ],
+      "mass": 53.22240000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        187.03238400000006,
+        318.31430400000005,
+        494.61350400000015
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_upper_right",
+      "position": [
+        515.0,
+        11.139999999999999,
+        484.55
+      ],
+      "halfExtents": [
+        5.6,
+        3.2,
+        0.55
+      ],
+      "mass": 70.9632,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        249.37651200000005,
+        748.9574399999998,
+        984.0230399999998
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_lower_left",
+      "position": [
+        485.2,
+        3.94,
+        515.45
+      ],
+      "halfExtents": [
+        7.2,
+        3.2,
+        0.55
+      ],
+      "mass": 91.23840000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        320.6269440000001,
+        1585.7994240000005,
+        1888.0266240000005
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_lower_center",
+      "position": [
+        500.0,
+        3.94,
+        515.45
+      ],
+      "halfExtents": [
+        6.8,
+        3.2,
+        0.55
+      ],
+      "mass": 86.16960000000002,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        302.81433600000014,
+        1336.8495360000002,
+        1622.2863360000001
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_lower_right",
+      "position": [
+        514.8,
+        3.94,
+        515.45
+      ],
+      "halfExtents": [
+        7.2,
+        3.2,
+        0.55
+      ],
+      "mass": 91.23840000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        320.6269440000001,
+        1585.7994240000005,
+        1888.0266240000005
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_upper_left",
+      "position": [
+        485.0,
+        11.139999999999999,
+        515.45
+      ],
+      "halfExtents": [
+        5.6,
+        3.2,
+        0.55
+      ],
+      "mass": 70.9632,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        249.37651200000005,
+        748.9574399999998,
+        984.0230399999998
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_upper_center",
+      "position": [
+        500.0,
+        11.139999999999999,
+        515.45
+      ],
+      "halfExtents": [
+        4.2,
+        3.2,
+        0.55
+      ],
+      "mass": 53.22240000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        187.03238400000006,
+        318.31430400000005,
+        494.61350400000015
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_upper_right",
+      "position": [
+        515.0,
+        11.139999999999999,
+        515.45
+      ],
+      "halfExtents": [
+        5.6,
+        3.2,
+        0.55
+      ],
+      "mass": 70.9632,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        249.37651200000005,
+        748.9574399999998,
+        984.0230399999998
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_west_lower_front",
+      "position": [
+        477.55,
+        3.94,
+        490.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_west_lower_back",
+      "position": [
+        477.55,
+        3.94,
+        510.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_east_lower_front",
+      "position": [
+        522.45,
+        3.94,
+        490.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_east_lower_back",
+      "position": [
+        522.45,
+        3.94,
+        510.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_west_upper_front",
+      "position": [
+        477.55,
+        11.139999999999999,
+        490.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_west_upper_back",
+      "position": [
+        477.55,
+        11.139999999999999,
+        510.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_east_upper_front",
+      "position": [
+        522.45,
+        11.139999999999999,
+        490.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_east_upper_back",
+      "position": [
+        522.45,
+        11.139999999999999,
+        510.0
+      ],
+      "halfExtents": [
+        0.55,
+        3.2,
+        5.0
+      ],
+      "mass": 63.36000000000001,
+      "restitution": 0.1,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        744.2688,
+        534.3888,
+        222.65760000000006
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_door",
+      "position": [
+        500.0,
+        3.19,
+        483.96
+      ],
+      "halfExtents": [
+        2.4,
+        2.45,
+        0.2
+      ],
+      "mass": 8.4672,
+      "restitution": 0.08,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        17.054352000000005,
+        16.36992,
+        33.19848
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_window_left",
+      "position": [
+        493.2,
+        11.12,
+        483.95
+      ],
+      "halfExtents": [
+        1.25,
+        1.25,
+        0.16
+      ],
+      "mass": 1.8,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        0.95286,
+        0.95286,
+        1.875
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_front_window_right",
+      "position": [
+        506.8,
+        11.12,
+        483.95
+      ],
+      "halfExtents": [
+        1.25,
+        1.25,
+        0.16
+      ],
+      "mass": 1.8,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        0.95286,
+        0.95286,
+        1.875
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_window_left",
+      "position": [
+        493.2,
+        11.12,
+        516.05
+      ],
+      "halfExtents": [
+        1.25,
+        1.25,
+        0.16
+      ],
+      "mass": 1.8,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        0.95286,
+        0.95286,
+        1.875
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_back_window_right",
+      "position": [
+        506.8,
+        11.12,
+        516.05
+      ],
+      "halfExtents": [
+        1.25,
+        1.25,
+        0.16
+      ],
+      "mass": 1.8,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        0.95286,
+        0.95286,
+        1.875
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_west_window",
+      "position": [
+        476.95,
+        3.94,
+        500.0
+      ],
+      "halfExtents": [
+        0.16,
+        1.2,
+        1.35
+      ],
+      "mass": 1.8662400000000003,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        2.0295360000000002,
+        1.1496660480000003,
+        0.9117204480000001
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_east_window",
+      "position": [
+        523.05,
+        3.94,
+        500.0
+      ],
+      "halfExtents": [
+        0.16,
+        1.2,
+        1.35
+      ],
+      "mass": 1.8662400000000003,
+      "restitution": 0.04,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        2.0295360000000002,
+        1.1496660480000003,
+        0.9117204480000001
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_porch",
+      "position": [
+        500.0,
+        0.30000000000000004,
+        479.8
+      ],
+      "halfExtents": [
+        7.0,
+        0.28,
+        3.6
+      ],
+      "mass": 50.80320000000001,
+      "restitution": 0.08,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        220.79748096000006,
+        1049.2554240000002,
+        831.1132569600002
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_porch_post_left",
+      "position": [
+        494.8,
+        3.0,
+        479.8
+      ],
+      "halfExtents": [
+        0.34,
+        2.42,
+        0.34
+      ],
+      "mass": 2.0142144000000006,
+      "restitution": 0.06,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        4.0096294656000016,
+        0.1552287897600001,
+        4.0096294656000016
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_porch_post_right",
+      "position": [
+        505.2,
+        3.0,
+        479.8
+      ],
+      "halfExtents": [
+        0.34,
+        2.42,
+        0.34
+      ],
+      "mass": 2.0142144000000006,
+      "restitution": 0.06,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        4.0096294656000016,
+        0.1552287897600001,
+        4.0096294656000016
+      ],
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "sleeping_brick_house_stability_chimney",
+      "position": [
+        513.0,
+        16.57,
+        507.6
+      ],
+      "halfExtents": [
+        0.82,
+        1.37,
+        0.82
+      ],
+      "mass": 6.6325536,
+      "restitution": 0.08,
+      "fixed": false,
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "inertia": [
+        5.63612296416,
+        2.9731526937599995,
+        5.63612296416
+      ],
+      "sleeping": true
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "sleeping_brick_house_stability_foundation",
+      "mode": "stone",
+      "color": [
+        0.4,
+        0.37,
+        0.32
+      ],
+      "roughness": 0.98,
+      "specular": 0.07,
+      "stylization": 0.58,
+      "name": "editor_house_foundation"
+    },
+    {
+      "target": "sleeping_brick_house_stability_upper_floor",
+      "mode": "bark",
+      "color": [
+        0.3,
+        0.19,
+        0.11
+      ],
+      "roughness": 0.9,
+      "specular": 0.08,
+      "stylization": 0.4,
+      "name": "editor_house_floor"
+    },
+    {
+      "target": "sleeping_brick_house_stability_roof",
+      "mode": "stone",
+      "color": [
+        0.13,
+        0.17,
+        0.22
+      ],
+      "roughness": 0.94,
+      "specular": 0.1,
+      "stylization": 0.62,
+      "name": "editor_house_slate_roof"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_lower_left",
+      "mode": "stone",
+      "color": [
+        0.55,
+        0.22,
+        0.17
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_lower_right",
+      "mode": "stone",
+      "color": [
+        0.55,
+        0.22,
+        0.17
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_door_lintel",
+      "mode": "stone",
+      "color": [
+        0.55,
+        0.22,
+        0.17
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_upper_left",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_upper_center",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_upper_right",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.72,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_lower_left",
+      "mode": "stone",
+      "color": [
+        0.5,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_lower_center",
+      "mode": "stone",
+      "color": [
+        0.5,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_lower_right",
+      "mode": "stone",
+      "color": [
+        0.5,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_upper_left",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_upper_center",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_upper_right",
+      "mode": "stone",
+      "color": [
+        0.52,
+        0.2,
+        0.16
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_west_lower_front",
+      "mode": "stone",
+      "color": [
+        0.49,
+        0.18,
+        0.14
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_west_lower_back",
+      "mode": "stone",
+      "color": [
+        0.49,
+        0.18,
+        0.14
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_east_lower_front",
+      "mode": "stone",
+      "color": [
+        0.49,
+        0.18,
+        0.14
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_east_lower_back",
+      "mode": "stone",
+      "color": [
+        0.49,
+        0.18,
+        0.14
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_west_upper_front",
+      "mode": "stone",
+      "color": [
+        0.51,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_west_upper_back",
+      "mode": "stone",
+      "color": [
+        0.51,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_east_upper_front",
+      "mode": "stone",
+      "color": [
+        0.51,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_east_upper_back",
+      "mode": "stone",
+      "color": [
+        0.51,
+        0.19,
+        0.15
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_brick"
+    },
+    {
+      "target": "sleeping_brick_house_stability_door",
+      "mode": "bark",
+      "color": [
+        0.28,
+        0.16,
+        0.075
+      ],
+      "roughness": 0.86,
+      "specular": 0.1,
+      "stylization": 0.38,
+      "name": "editor_house_front_door"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_window_left",
+      "mode": "glass",
+      "color": [
+        0.4,
+        0.68,
+        0.92
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_front_window_right",
+      "mode": "glass",
+      "color": [
+        0.4,
+        0.68,
+        0.92
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_window_left",
+      "mode": "glass",
+      "color": [
+        0.38,
+        0.64,
+        0.86
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_back_window_right",
+      "mode": "glass",
+      "color": [
+        0.38,
+        0.64,
+        0.86
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_west_window",
+      "mode": "glass",
+      "color": [
+        0.36,
+        0.62,
+        0.84
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_east_window",
+      "mode": "glass",
+      "color": [
+        0.36,
+        0.62,
+        0.84
+      ],
+      "roughness": 0.08,
+      "specular": 0.88,
+      "stylization": 0.18,
+      "name": "editor_house_window"
+    },
+    {
+      "target": "sleeping_brick_house_stability_porch",
+      "mode": "stone",
+      "color": [
+        0.44,
+        0.4,
+        0.34
+      ],
+      "roughness": 0.97,
+      "specular": 0.07,
+      "stylization": 0.58,
+      "name": "editor_house_porch"
+    },
+    {
+      "target": "sleeping_brick_house_stability_porch_post_left",
+      "mode": "bark",
+      "color": [
+        0.3,
+        0.18,
+        0.09
+      ],
+      "roughness": 0.88,
+      "specular": 0.08,
+      "stylization": 0.42,
+      "name": "editor_house_porch_post"
+    },
+    {
+      "target": "sleeping_brick_house_stability_porch_post_right",
+      "mode": "bark",
+      "color": [
+        0.3,
+        0.18,
+        0.09
+      ],
+      "roughness": 0.88,
+      "specular": 0.08,
+      "stylization": 0.42,
+      "name": "editor_house_porch_post"
+    },
+    {
+      "target": "sleeping_brick_house_stability_chimney",
+      "mode": "stone",
+      "color": [
+        0.42,
+        0.18,
+        0.14
+      ],
+      "roughness": 0.96,
+      "specular": 0.07,
+      "stylization": 0.7,
+      "name": "editor_house_chimney"
+    }
+  ]
+}

@@ -100,7 +100,11 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
 }
 
 constexpr int CAMERA_MODE_OPTION_COUNT = 5;
-const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo", "Scene", "Free", "Launcher", "Manipulator" };
+const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo",
+                                                                   "Scene",
+                                                                   "Inspect",
+                                                                   "Launcher",
+                                                                   "Manipulator" };
 constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 92.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
@@ -226,6 +230,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.physicsDebugTransparent );
     hash = HashBool( hash, data.broadphaseOverlay );
     hash = HashBool( hash, data.tornadoEnabled );
+    hash = HashBool( hash, data.tornadoVisualShell );
     hash = HashBool( hash, data.tornadoFieldVectors );
     hash = HashBool( hash, data.rayCastVisualization );
     hash = HashFloat( hash, data.tornadoRadius, 100.0f );
@@ -689,6 +694,7 @@ constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
     { EditorTab::OBJECT_ROCK_LUMP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_BRICK_HOUSE_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_PLACEMENT_FIXED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
     { EditorTab::OBJECT_TREE_BIG_SLEEP, EDITOR_MINI_TREE_PLACEMENT_SLEEPING, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
     { EditorTab::OBJECT_TREE_BIG_ROOTED, EDITOR_MINI_TREE_PLACEMENT_ROOTED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
@@ -1815,6 +1821,16 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
         draw.Rect( cx - r * 0.66f, cy - r * 0.86f, r * 1.42f, r * 1.42f, color.r, color.g, color.b, alpha * 0.48f );
         draw.Rect( cx - r * 0.92f, cy - r * 0.58f, r * 1.48f, r * 1.48f, color.r, color.g, color.b, alpha );
         draw.Rect( cx + r * 0.56f, cy - r * 0.38f, r * 0.22f, r * 1.26f, color.r, color.g, color.b, alpha * 0.56f );
+        return;
+    }
+    if ( type == EditorTab::OBJECT_BRICK_HOUSE_SLEEP )
+    {
+        draw.Rect( cx - r * 0.92f, cy - r * 0.12f, r * 1.84f, r * 1.06f, color.r, color.g, color.b, alpha );
+        draw.Rect( cx - r * 0.62f, cy + r * 0.28f, r * 0.36f, r * 0.66f, color.r, color.g, color.b, alpha * 0.42f );
+        draw.Rect( cx + r * 0.24f, cy + r * 0.24f, r * 0.36f, r * 0.34f, color.r, color.g, color.b, alpha * 0.46f );
+        draw.Rect( cx - r * 0.98f, cy - r * 0.34f, r * 1.96f, r * 0.34f, color.r, color.g, color.b, alpha * 0.70f );
+        draw.Rect( cx - r * 0.56f, cy - r * 0.82f, r * 1.12f, r * 0.54f, color.r, color.g, color.b, alpha * 0.56f );
+        draw.Rect( cx + r * 0.42f, cy - r * 1.00f, r * 0.26f, r * 0.46f, color.r, color.g, color.b, alpha * 0.86f );
         return;
     }
     if ( type == EditorTab::OBJECT_RAGDOLL || type == EditorTab::OBJECT_RAGDOLL_SLEEP )

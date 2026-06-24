@@ -179,7 +179,7 @@ void RenderBackendDX12::WaitForGpu()
 
 void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason ) const
 {
-    if ( m_platformProfilerGpuDepth == 0 || !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
+    if ( m_platformProfilerGpuDepth == 0 )
     {
         return;
     }
@@ -1493,13 +1493,15 @@ void RenderBackendDX12::Shutdown()
     }
     m_psoCache.clear();
 
-    // Grid line overlay resources
-    if ( m_gridLinePSO )
+    // Grid line overlay resources. These PSOs are keyed by RTV format because
+    // cinematic HDR and ordinary swapchain draws bind different color formats.
+    for ( auto& pair : m_gridLinePSOs )
     {
-        m_gridLinePSO->Release();
-        m_gridLinePSO = nullptr;
+        pair.second->Release();
     }
+    m_gridLinePSOs.clear();
     m_gridLineShader.reset();
+    m_transientColorShader.reset();
 
     // Instanced meshes
     for ( auto& im : m_instancedMeshes )

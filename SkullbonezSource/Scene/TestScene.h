@@ -35,6 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
 #include <vector>
@@ -136,6 +137,7 @@ struct ScenePointJointConstraint
     float stiffness = 0.22f;
     float damping = 0.35f;
     uint32_t groupId = 0;
+    uint8_t flags = 0;
 };
 
 struct SceneBox
@@ -275,6 +277,7 @@ struct SceneOptions
     int workerThreads = -2;                                   // -2 = use startup/config worker count, -1 = auto, 0 = disabled, >0 = explicit workers
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
+    bool pauseSnapshotState = true;                           // Start authored body-state scenes paused for inspection
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Physics debug overlay mask.
     bool physicsDebugTransparent = false;                     // Translucent collision volumes while physics debug is visible.
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
@@ -339,6 +342,12 @@ struct SceneWorldOverride
     float worldGravity = 0.0f;
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
+};
+
+struct SceneTornadoSystem
+{
+    bool hasTornadoSystem = false;
+    Physics::TornadoSystemConfig config;
 };
 
 struct SceneUIOptions
@@ -422,6 +431,7 @@ class TestScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SceneTornadoSystem m_tornadoSystem;
     SceneUIOptions m_UIOptions;
 
   public:
@@ -454,6 +464,7 @@ class TestScene
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;
     bool IsFixedStep() const;
+    bool ShouldPauseSnapshotState() const;
     uint32_t GetPhysicsDebugFlags() const;
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
@@ -510,6 +521,8 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    bool HasTornadoSystem() const;
+    const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;
 };
 } // namespace Basics

@@ -216,6 +216,29 @@ uint64_t HashTornadoConfig( uint64_t hash, const Physics::TornadoFieldConfig& co
     return hash;
 }
 
+
+uint64_t HashTornadoSystemConfig( uint64_t hash, const Physics::TornadoSystemConfig& config )
+{
+    hash = HashBool( hash, config.enabled );
+    hash = HashBool( hash, config.visualizeVelocityField );
+    hash = HashSize( hash, config.vortices.size() );
+    for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+    {
+        hash = HashTornadoConfig( hash, vortex.field );
+        hash = HashFloat( hash, vortex.spawnSeconds );
+        hash = HashFloat( hash, vortex.timeToLiveSeconds );
+        hash = HashFloat( hash, vortex.growSeconds );
+        hash = HashFloat( hash, vortex.shrinkSeconds );
+        hash = HashFloat( hash, vortex.driftRadius );
+        hash = HashFloat( hash, vortex.driftSpeed );
+        hash = HashFloat( hash, vortex.driftPhase );
+        hash = HashFloat( hash, vortex.repulsionRadius );
+        hash = HashFloat( hash, vortex.repulsionStrength );
+    }
+    return hash;
+}
+
+
 uint64_t HashLauncherVisual( uint64_t hash, const ReplayLauncherVisualSample& visual )
 {
     hash = HashInt( hash, visual.nextRayLine );
@@ -456,6 +479,11 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
     hash = HashBool( hash, snapshot.sleepEnabled );
     hash = HashBool( hash, snapshot.collisionVisualFrameActive );
     hash = HashTornadoConfig( hash, snapshot.tornadoConfig );
+    if ( snapshot.version >= 2 )
+    {
+        hash = HashTornadoSystemConfig( hash, snapshot.tornadoSystemConfig );
+        hash = HashFloat( hash, snapshot.tornadoSystemElapsedSeconds );
+    }
     hash = HashFloatVector( hash, snapshot.timeRemaining );
     hash = HashUint8Vector( hash, snapshot.sleepSupportedThisFrame );
     hash = HashUint8Vector( hash, snapshot.sleepInhibitedThisFrame );

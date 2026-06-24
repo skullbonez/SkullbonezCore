@@ -1,0 +1,4280 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "styles": [
+    "low_poly_art_style"
+  ],
+  "assetLibraries": [
+    "low_poly_nature"
+  ],
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -50,
+      "fluidHeight": -500,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "physics"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "exitOnComplete": false,
+    "trackHeight": 150
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "physics": {
+      "contacts": false,
+      "sleep": false,
+      "transparent": false
+    }
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "cinematic": {
+    "skyAtmosphere": true,
+    "clouds": false,
+    "fog": false,
+    "exposure": 1.08,
+    "gamma": 2.2,
+    "sunIntensity": 32,
+    "sunScreenX": 0.42,
+    "sunScreenY": 0.2,
+    "skyHorizonR": 0.48,
+    "skyHorizonG": 0.72,
+    "skyHorizonB": 1,
+    "skyZenithR": 0.1,
+    "skyZenithG": 0.38,
+    "skyZenithB": 0.95,
+    "cloudCoverage": 0,
+    "cloudIntensity": 0,
+    "fogColorR": 0.42,
+    "fogColorG": 0.65,
+    "fogColorB": 0.95,
+    "fogStart": 330,
+    "fogEnd": 1450,
+    "fogDensity": 0.0034
+  },
+  "tornadoSystem": {
+    "enabled": true,
+    "visualizeVelocityField": false,
+    "vortices": [
+      {
+        "center": [
+          370,
+          0,
+          455
+        ],
+        "spawnSeconds": 5,
+        "timeToLiveSeconds": 30,
+        "growSeconds": 4.8,
+        "shrinkSeconds": 5,
+        "driftRadius": 58,
+        "driftSpeed": 0.16,
+        "driftPhase": 0.4,
+        "repulsionRadius": 165,
+        "repulsionStrength": 0.28,
+        "radius": 108,
+        "height": 140,
+        "inwardAcceleration": 185,
+        "swirlAcceleration": 255,
+        "liftAcceleration": 118,
+        "ejectAcceleration": 82,
+        "ejectUpAcceleration": 50,
+        "ejectBand": 0.11,
+        "minCaptureSeconds": 6.2,
+        "ejectCooldownSeconds": 8.4,
+        "maxDeltaVelocity": 9.5
+      },
+      {
+        "center": [
+          715,
+          0,
+          455
+        ],
+        "spawnSeconds": 10,
+        "timeToLiveSeconds": 30,
+        "growSeconds": 5,
+        "shrinkSeconds": 5,
+        "driftRadius": 62,
+        "driftSpeed": 0.15,
+        "driftPhase": 2.35,
+        "repulsionRadius": 170,
+        "repulsionStrength": 0.3,
+        "radius": 112,
+        "height": 145,
+        "inwardAcceleration": 195,
+        "swirlAcceleration": 270,
+        "liftAcceleration": 125,
+        "ejectAcceleration": 86,
+        "ejectUpAcceleration": 52,
+        "ejectBand": 0.11,
+        "minCaptureSeconds": 6.5,
+        "ejectCooldownSeconds": 8.8,
+        "maxDeltaVelocity": 9.5
+      },
+      {
+        "center": [
+          545,
+          0,
+          690
+        ],
+        "spawnSeconds": 15,
+        "timeToLiveSeconds": 30,
+        "growSeconds": 5.2,
+        "shrinkSeconds": 5,
+        "driftRadius": 60,
+        "driftSpeed": 0.17,
+        "driftPhase": 4.2,
+        "repulsionRadius": 170,
+        "repulsionStrength": 0.29,
+        "radius": 110,
+        "height": 142,
+        "inwardAcceleration": 190,
+        "swirlAcceleration": 262,
+        "liftAcceleration": 122,
+        "ejectAcceleration": 84,
+        "ejectUpAcceleration": 52,
+        "ejectBand": 0.11,
+        "minCaptureSeconds": 6.3,
+        "ejectCooldownSeconds": 8.6,
+        "maxDeltaVelocity": 9.5
+      }
+    ]
+  },
+  "cameras": [
+    {
+      "name": "tornado_village",
+      "position": [
+        545,
+        235,
+        1035
+      ],
+      "view": [
+        540,
+        42,
+        548
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 54
+    },
+    {
+      "name": "street_level",
+      "position": [
+        420,
+        80,
+        760
+      ],
+      "view": [
+        520,
+        30,
+        555
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fovDegrees": 60
+    }
+  ],
+  "objects": [
+    {
+      "type": "boxState",
+      "name": "house_west_floor_1",
+      "position": [
+        392,
+        1,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        24,
+        1,
+        23
+      ],
+      "mass": 38,
+      "restitution": 0.08,
+      "inertia": [
+        6713.3333,
+        13996.6667,
+        7308.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_left_wall_1",
+      "position": [
+        366.6,
+        13,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 24,
+      "restitution": 0.08,
+      "inertia": [
+        5200,
+        4247.68,
+        983.68
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_right_wall_1",
+      "position": [
+        417.4,
+        13,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 24,
+      "restitution": 0.08,
+      "inertia": [
+        5200,
+        4247.68,
+        983.68
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_second_floor",
+      "position": [
+        392,
+        25,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        24,
+        1,
+        23
+      ],
+      "mass": 36,
+      "restitution": 0.08,
+      "inertia": [
+        6360,
+        13260,
+        6924
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_left_wall_2",
+      "position": [
+        366.6,
+        37,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 22,
+      "restitution": 0.08,
+      "inertia": [
+        4766.6667,
+        3893.7067,
+        901.7067
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_right_wall_2",
+      "position": [
+        417.4,
+        37,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 22,
+      "restitution": 0.08,
+      "inertia": [
+        4766.6667,
+        3893.7067,
+        901.7067
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_roof",
+      "position": [
+        392,
+        50,
+        438
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        28,
+        2,
+        25.5
+      ],
+      "mass": 34,
+      "restitution": 0.08,
+      "inertia": [
+        7414.8333,
+        16254.8333,
+        8930.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_couch_seat",
+      "position": [
+        383,
+        4,
+        427.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        2,
+        3
+      ],
+      "mass": 5.5,
+      "restitution": 0.12,
+      "inertia": [
+        23.8333,
+        133.8333,
+        124.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_couch_back",
+      "position": [
+        383,
+        8,
+        424
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        4,
+        1.2
+      ],
+      "mass": 4.5,
+      "restitution": 0.1,
+      "inertia": [
+        26.16,
+        98.16,
+        120
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_couch_arm_l",
+      "position": [
+        374,
+        6,
+        427.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.2,
+        3.6,
+        3.4
+      ],
+      "mass": 2.4,
+      "restitution": 0.1,
+      "inertia": [
+        19.616,
+        10.4,
+        11.52
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_couch_arm_r",
+      "position": [
+        392,
+        6,
+        427.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.2,
+        3.6,
+        3.4
+      ],
+      "mass": 2.4,
+      "restitution": 0.1,
+      "inertia": [
+        19.616,
+        10.4,
+        11.52
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_upstairs_bed",
+      "position": [
+        402,
+        28,
+        449
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        2,
+        5
+      ],
+      "mass": 6.5,
+      "restitution": 0.12,
+      "inertia": [
+        62.8333,
+        192.8333,
+        147.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_west_toy_box",
+      "position": [
+        402,
+        4,
+        450
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        2,
+        3
+      ],
+      "mass": 4,
+      "restitution": 0.16,
+      "inertia": [
+        17.3333,
+        33.3333,
+        26.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_floor",
+      "position": [
+        696,
+        1,
+        430
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        22,
+        1,
+        22
+      ],
+      "mass": 34,
+      "restitution": 0.08,
+      "inertia": [
+        5496.6667,
+        10970.6667,
+        5496.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_left_wall",
+      "position": [
+        672.6,
+        12,
+        430
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.25,
+        10,
+        22
+      ],
+      "mass": 21,
+      "restitution": 0.08,
+      "inertia": [
+        4088,
+        3398.9375,
+        710.9375
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_right_wall",
+      "position": [
+        719.4,
+        12,
+        430
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.25,
+        10,
+        22
+      ],
+      "mass": 21,
+      "restitution": 0.08,
+      "inertia": [
+        4088,
+        3398.9375,
+        710.9375
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_roof",
+      "position": [
+        696,
+        24,
+        430
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        25,
+        2,
+        24
+      ],
+      "mass": 28,
+      "restitution": 0.08,
+      "inertia": [
+        5413.3333,
+        11209.3333,
+        5870.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_couch_seat",
+      "position": [
+        690,
+        4,
+        422
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        7,
+        2,
+        3
+      ],
+      "mass": 5,
+      "restitution": 0.12,
+      "inertia": [
+        21.6667,
+        96.6667,
+        88.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_couch_back",
+      "position": [
+        690,
+        8,
+        418.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        7,
+        4,
+        1.2
+      ],
+      "mass": 4.2,
+      "restitution": 0.1,
+      "inertia": [
+        24.416,
+        70.616,
+        91
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_east_coffee_table",
+      "position": [
+        704,
+        3,
+        435
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        1,
+        3
+      ],
+      "mass": 3,
+      "restitution": 0.16,
+      "inertia": [
+        10,
+        34,
+        26
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_floor_1",
+      "position": [
+        520,
+        1,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        24,
+        1,
+        23
+      ],
+      "mass": 38,
+      "restitution": 0.08,
+      "inertia": [
+        6713.3333,
+        13996.6667,
+        7308.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_left_wall_1",
+      "position": [
+        494.6,
+        13,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 24,
+      "restitution": 0.08,
+      "inertia": [
+        5200,
+        4247.68,
+        983.68
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_right_wall_1",
+      "position": [
+        545.4,
+        13,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 24,
+      "restitution": 0.08,
+      "inertia": [
+        5200,
+        4247.68,
+        983.68
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_second_floor",
+      "position": [
+        520,
+        25,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        24,
+        1,
+        23
+      ],
+      "mass": 36,
+      "restitution": 0.08,
+      "inertia": [
+        6360,
+        13260,
+        6924
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_left_wall_2",
+      "position": [
+        494.6,
+        37,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 22,
+      "restitution": 0.08,
+      "inertia": [
+        4766.6667,
+        3893.7067,
+        901.7067
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_right_wall_2",
+      "position": [
+        545.4,
+        37,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.4,
+        11,
+        23
+      ],
+      "mass": 22,
+      "restitution": 0.08,
+      "inertia": [
+        4766.6667,
+        3893.7067,
+        901.7067
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_roof",
+      "position": [
+        520,
+        50,
+        675
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        28,
+        2,
+        25.5
+      ],
+      "mass": 34,
+      "restitution": 0.08,
+      "inertia": [
+        7414.8333,
+        16254.8333,
+        8930.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_couch_seat",
+      "position": [
+        511,
+        4,
+        664.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        2,
+        3
+      ],
+      "mass": 5.5,
+      "restitution": 0.12,
+      "inertia": [
+        23.8333,
+        133.8333,
+        124.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_couch_back",
+      "position": [
+        511,
+        8,
+        661
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        4,
+        1.2
+      ],
+      "mass": 4.5,
+      "restitution": 0.1,
+      "inertia": [
+        26.16,
+        98.16,
+        120
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_couch_arm_l",
+      "position": [
+        502,
+        6,
+        664.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.2,
+        3.6,
+        3.4
+      ],
+      "mass": 2.4,
+      "restitution": 0.1,
+      "inertia": [
+        19.616,
+        10.4,
+        11.52
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_couch_arm_r",
+      "position": [
+        520,
+        6,
+        664.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.2,
+        3.6,
+        3.4
+      ],
+      "mass": 2.4,
+      "restitution": 0.1,
+      "inertia": [
+        19.616,
+        10.4,
+        11.52
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_upstairs_bed",
+      "position": [
+        530,
+        28,
+        686
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        2,
+        5
+      ],
+      "mass": 6.5,
+      "restitution": 0.12,
+      "inertia": [
+        62.8333,
+        192.8333,
+        147.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_north_toy_box",
+      "position": [
+        530,
+        4,
+        687
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        2,
+        3
+      ],
+      "mass": 4,
+      "restitution": 0.16,
+      "inertia": [
+        17.3333,
+        33.3333,
+        26.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_floor",
+      "position": [
+        620,
+        1,
+        620
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        22,
+        1,
+        22
+      ],
+      "mass": 34,
+      "restitution": 0.08,
+      "inertia": [
+        5496.6667,
+        10970.6667,
+        5496.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_left_wall",
+      "position": [
+        596.6,
+        12,
+        620
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.25,
+        10,
+        22
+      ],
+      "mass": 21,
+      "restitution": 0.08,
+      "inertia": [
+        4088,
+        3398.9375,
+        710.9375
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_right_wall",
+      "position": [
+        643.4,
+        12,
+        620
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1.25,
+        10,
+        22
+      ],
+      "mass": 21,
+      "restitution": 0.08,
+      "inertia": [
+        4088,
+        3398.9375,
+        710.9375
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_roof",
+      "position": [
+        620,
+        24,
+        620
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        25,
+        2,
+        24
+      ],
+      "mass": 28,
+      "restitution": 0.08,
+      "inertia": [
+        5413.3333,
+        11209.3333,
+        5870.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_couch_seat",
+      "position": [
+        614,
+        4,
+        612
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        7,
+        2,
+        3
+      ],
+      "mass": 5,
+      "restitution": 0.12,
+      "inertia": [
+        21.6667,
+        96.6667,
+        88.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_couch_back",
+      "position": [
+        614,
+        8,
+        608.5
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        7,
+        4,
+        1.2
+      ],
+      "mass": 4.2,
+      "restitution": 0.1,
+      "inertia": [
+        24.416,
+        70.616,
+        91
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "house_south_coffee_table",
+      "position": [
+        628,
+        3,
+        625
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        1,
+        3
+      ],
+      "mass": 3,
+      "restitution": 0.16,
+      "inertia": [
+        10,
+        34,
+        26
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_west_1",
+      "position": [
+        318,
+        4.2,
+        510
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_west_2",
+      "position": [
+        318,
+        12.6,
+        510
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_west_3",
+      "position": [
+        318,
+        21,
+        510
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_west_4",
+      "position": [
+        318,
+        29.4,
+        510
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_west_5",
+      "position": [
+        318,
+        37.8,
+        510
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_east_1",
+      "position": [
+        764,
+        4.2,
+        522
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_east_2",
+      "position": [
+        764,
+        12.6,
+        522
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_east_3",
+      "position": [
+        764,
+        21,
+        522
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_east_4",
+      "position": [
+        764,
+        29.4,
+        522
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_east_5",
+      "position": [
+        764,
+        37.8,
+        522
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.2,
+        4.2,
+        4.2
+      ],
+      "mass": 4,
+      "restitution": 0.18,
+      "inertia": [
+        47.04,
+        47.04,
+        47.04
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_1",
+      "position": [
+        540,
+        4,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_2",
+      "position": [
+        540,
+        12,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_3",
+      "position": [
+        540,
+        20,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_4",
+      "position": [
+        540,
+        28,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_5",
+      "position": [
+        540,
+        36,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_square_6",
+      "position": [
+        540,
+        44,
+        512
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4,
+        4,
+        4
+      ],
+      "mass": 3.8,
+      "restitution": 0.18,
+      "inertia": [
+        40.5333,
+        40.5333,
+        40.5333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_market_1",
+      "position": [
+        420,
+        4.6,
+        610
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_market_2",
+      "position": [
+        420,
+        13.8,
+        610
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_market_3",
+      "position": [
+        420,
+        23,
+        610
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_market_4",
+      "position": [
+        420,
+        32.2,
+        610
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_backlot_1",
+      "position": [
+        705,
+        4.6,
+        690
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_backlot_2",
+      "position": [
+        705,
+        13.8,
+        690
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_backlot_3",
+      "position": [
+        705,
+        23,
+        690
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "crate_tower_backlot_4",
+      "position": [
+        705,
+        32.2,
+        690
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        4.6,
+        4.6,
+        4.6
+      ],
+      "mass": 4.2,
+      "restitution": 0.18,
+      "inertia": [
+        59.248,
+        59.248,
+        59.248
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_1",
+      "position": [
+        344,
+        1.4,
+        590
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_2",
+      "position": [
+        350,
+        1.75,
+        590
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_3",
+      "position": [
+        356,
+        1.4,
+        590
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_4",
+      "position": [
+        344,
+        1.75,
+        594
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_5",
+      "position": [
+        350,
+        1.4,
+        594
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_6",
+      "position": [
+        356,
+        1.75,
+        594
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_west_7",
+      "position": [
+        344,
+        1.4,
+        598
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_1",
+      "position": [
+        714,
+        1.4,
+        595
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_2",
+      "position": [
+        720,
+        1.75,
+        595
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_3",
+      "position": [
+        726,
+        1.4,
+        595
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_4",
+      "position": [
+        714,
+        1.75,
+        599
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_5",
+      "position": [
+        720,
+        1.4,
+        599
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_6",
+      "position": [
+        726,
+        1.75,
+        599
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "loose_board_east_7",
+      "position": [
+        714,
+        1.4,
+        603
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        8,
+        0.7,
+        1.6
+      ],
+      "mass": 2.4,
+      "restitution": 0.22,
+      "inertia": [
+        2.44,
+        53.248,
+        51.592
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "market_stall_counter",
+      "position": [
+        482,
+        3,
+        555
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        13,
+        3,
+        4
+      ],
+      "mass": 10,
+      "restitution": 0.15,
+      "inertia": [
+        83.3333,
+        616.6667,
+        593.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "market_stall_awning_left",
+      "position": [
+        475,
+        12,
+        555
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1,
+        7,
+        5
+      ],
+      "mass": 4,
+      "restitution": 0.12,
+      "inertia": [
+        98.6667,
+        34.6667,
+        66.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "market_stall_awning_right",
+      "position": [
+        489,
+        12,
+        555
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        1,
+        7,
+        5
+      ],
+      "mass": 4,
+      "restitution": 0.12,
+      "inertia": [
+        98.6667,
+        34.6667,
+        66.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "market_stall_roof",
+      "position": [
+        482,
+        19,
+        555
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        16,
+        1,
+        7
+      ],
+      "mass": 8,
+      "restitution": 0.12,
+      "inertia": [
+        133.3333,
+        813.3333,
+        685.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "porch_step_west",
+      "position": [
+        392,
+        2,
+        409
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        15,
+        2,
+        4
+      ],
+      "mass": 8,
+      "restitution": 0.16,
+      "inertia": [
+        53.3333,
+        642.6667,
+        610.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "porch_step_east",
+      "position": [
+        696,
+        2,
+        401
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        14,
+        2,
+        4
+      ],
+      "mass": 8,
+      "restitution": 0.16,
+      "inertia": [
+        53.3333,
+        565.3333,
+        533.3333
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "well_ring_left",
+      "position": [
+        468,
+        3,
+        487
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        3,
+        2
+      ],
+      "mass": 5,
+      "restitution": 0.2,
+      "inertia": [
+        21.6667,
+        48.3333,
+        56.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "well_ring_right",
+      "position": [
+        480,
+        3,
+        487
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        5,
+        3,
+        2
+      ],
+      "mass": 5,
+      "restitution": 0.2,
+      "inertia": [
+        21.6667,
+        48.3333,
+        56.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "well_roof",
+      "position": [
+        474,
+        12,
+        487
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "halfExtents": [
+        9,
+        1,
+        5
+      ],
+      "mass": 5,
+      "restitution": 0.12,
+      "inertia": [
+        43.3333,
+        176.6667,
+        136.6667
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ballState",
+      "name": "yard_ball_red",
+      "position": [
+        362,
+        4,
+        472
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 4,
+      "mass": 3,
+      "restitution": 0.4,
+      "inertia": [
+        19.2,
+        19.2,
+        19.2
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ballState",
+      "name": "yard_ball_blue",
+      "position": [
+        735,
+        4,
+        468
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 4,
+      "mass": 3,
+      "restitution": 0.4,
+      "inertia": [
+        19.2,
+        19.2,
+        19.2
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ballState",
+      "name": "yard_ball_green",
+      "position": [
+        556,
+        4,
+        604
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 4,
+      "mass": 3,
+      "restitution": 0.4,
+      "inertia": [
+        19.2,
+        19.2,
+        19.2
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ballState",
+      "name": "yard_ball_yellow",
+      "position": [
+        612,
+        3.5,
+        705
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 3.5,
+      "mass": 2.4,
+      "restitution": 0.4,
+      "inertia": [
+        11.76,
+        11.76,
+        11.76
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ballState",
+      "name": "yard_ball_tiny",
+      "position": [
+        463,
+        3,
+        705
+      ],
+      "velocity": [
+        0,
+        0,
+        0
+      ],
+      "angularVelocity": [
+        0,
+        0,
+        0
+      ],
+      "orientation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "radius": 3,
+      "mass": 2,
+      "restitution": 0.4,
+      "inertia": [
+        7.2,
+        7.2,
+        7.2
+      ],
+      "fixed": false,
+      "sleeping": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "west_house_ground_floor_person",
+      "position": [
+        385,
+        2,
+        426
+      ],
+      "scale": 0.78,
+      "sleeping": true,
+      "euler": [
+        0,
+        80,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "west_house_upstairs_person",
+      "position": [
+        404,
+        26,
+        448
+      ],
+      "scale": 0.68,
+      "sleeping": true,
+      "euler": [
+        0,
+        -35,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "east_house_person",
+      "position": [
+        703,
+        2,
+        419
+      ],
+      "scale": 0.78,
+      "sleeping": true,
+      "euler": [
+        0,
+        170,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "north_house_ground_person",
+      "position": [
+        511,
+        2,
+        664
+      ],
+      "scale": 0.78,
+      "sleeping": true,
+      "euler": [
+        0,
+        -85,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "north_house_upstairs_person",
+      "position": [
+        532,
+        26,
+        686
+      ],
+      "scale": 0.68,
+      "sleeping": true,
+      "euler": [
+        0,
+        20,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "south_house_person",
+      "position": [
+        626,
+        2,
+        610
+      ],
+      "scale": 0.78,
+      "sleeping": true,
+      "euler": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "field_person_picnic",
+      "position": [
+        548,
+        0,
+        552
+      ],
+      "scale": 0.82,
+      "sleeping": true,
+      "euler": [
+        0,
+        35,
+        0
+      ]
+    },
+    {
+      "type": "ragdoll",
+      "name": "field_person_tower_watch",
+      "position": [
+        677,
+        0,
+        566
+      ],
+      "scale": 0.82,
+      "sleeping": true,
+      "euler": [
+        0,
+        -55,
+        0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_west_lane",
+      "position": [
+        306,
+        0,
+        452
+      ],
+      "euler": [
+        0,
+        18,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_west_house",
+      "position": [
+        346,
+        0,
+        390
+      ],
+      "euler": [
+        0,
+        -34,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_north_lane",
+      "position": [
+        500,
+        0,
+        765
+      ],
+      "euler": [
+        0,
+        4,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_east_lane",
+      "position": [
+        795,
+        0,
+        500
+      ],
+      "euler": [
+        0,
+        62,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_south_lane",
+      "position": [
+        610,
+        0,
+        356
+      ],
+      "euler": [
+        0,
+        -16,
+        0
+      ]
+    },
+    {
+      "asset": "tree.pine_shedding_rooted",
+      "name": "pine_shed_backlot",
+      "position": [
+        742,
+        0,
+        724
+      ],
+      "euler": [
+        0,
+        42,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "small_tree_fixed_center",
+      "position": [
+        468,
+        0,
+        628
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "small_tree_fixed_east",
+      "position": [
+        742,
+        0,
+        390
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -22,
+        0
+      ]
+    },
+    {
+      "asset": "tree.small_stack",
+      "name": "small_tree_fixed_south",
+      "position": [
+        520,
+        0,
+        388
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        31,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "cedar_fixed_west",
+      "position": [
+        330,
+        0,
+        680
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        -28,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "cedar_fixed_north",
+      "position": [
+        570,
+        0,
+        742
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        14,
+        0
+      ]
+    },
+    {
+      "asset": "tree.cedar_stack",
+      "name": "cedar_fixed_east",
+      "position": [
+        770,
+        0,
+        650
+      ],
+      "fixed": true,
+      "euler": [
+        0,
+        38,
+        0
+      ]
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "house_west_floor_1",
+      "mode": "matte",
+      "color": [
+        0.72,
+        0.58,
+        0.38
+      ],
+      "roughness": 0.9
+    },
+    {
+      "target": "house_west_second_floor",
+      "mode": "matte",
+      "color": [
+        0.72,
+        0.58,
+        0.38
+      ],
+      "roughness": 0.9
+    },
+    {
+      "target": "house_west_roof",
+      "mode": "matte",
+      "color": [
+        0.78,
+        0.24,
+        0.18
+      ],
+      "roughness": 0.82
+    },
+    {
+      "target": "house_north_floor_1",
+      "mode": "matte",
+      "color": [
+        0.62,
+        0.66,
+        0.42
+      ],
+      "roughness": 0.9
+    },
+    {
+      "target": "house_north_second_floor",
+      "mode": "matte",
+      "color": [
+        0.62,
+        0.66,
+        0.42
+      ],
+      "roughness": 0.9
+    },
+    {
+      "target": "house_north_roof",
+      "mode": "matte",
+      "color": [
+        0.24,
+        0.54,
+        0.32
+      ],
+      "roughness": 0.82
+    },
+    {
+      "target": "house_east_roof",
+      "mode": "matte",
+      "color": [
+        0.18,
+        0.44,
+        0.68
+      ],
+      "roughness": 0.82
+    },
+    {
+      "target": "house_south_roof",
+      "mode": "matte",
+      "color": [
+        0.88,
+        0.56,
+        0.18
+      ],
+      "roughness": 0.82
+    },
+    {
+      "target": "house_west_couch_seat",
+      "mode": "toon",
+      "color": [
+        0.34,
+        0.48,
+        0.78
+      ],
+      "roughness": 0.65
+    },
+    {
+      "target": "house_east_couch_seat",
+      "mode": "toon",
+      "color": [
+        0.74,
+        0.32,
+        0.48
+      ],
+      "roughness": 0.65
+    },
+    {
+      "target": "house_north_couch_seat",
+      "mode": "toon",
+      "color": [
+        0.28,
+        0.58,
+        0.46
+      ],
+      "roughness": 0.65
+    },
+    {
+      "target": "house_south_couch_seat",
+      "mode": "toon",
+      "color": [
+        0.62,
+        0.42,
+        0.78
+      ],
+      "roughness": 0.65
+    },
+    {
+      "target": "market_stall_roof",
+      "mode": "matte",
+      "color": [
+        0.88,
+        0.24,
+        0.22
+      ],
+      "roughness": 0.78
+    },
+    {
+      "target": "crate_tower_west_5",
+      "mode": "matte",
+      "color": [
+        0.9,
+        0.62,
+        0.28
+      ],
+      "roughness": 0.8
+    },
+    {
+      "target": "crate_tower_east_5",
+      "mode": "matte",
+      "color": [
+        0.76,
+        0.48,
+        0.22
+      ],
+      "roughness": 0.8
+    },
+    {
+      "target": "crate_tower_square_6",
+      "mode": "matte",
+      "color": [
+        0.72,
+        0.52,
+        0.3
+      ],
+      "roughness": 0.8
+    },
+    {
+      "target": "yard_ball_red",
+      "mode": "toon",
+      "color": [
+        0.95,
+        0.12,
+        0.08
+      ],
+      "roughness": 0.35
+    },
+    {
+      "target": "yard_ball_blue",
+      "mode": "toon",
+      "color": [
+        0.08,
+        0.28,
+        0.96
+      ],
+      "roughness": 0.35
+    },
+    {
+      "target": "yard_ball_green",
+      "mode": "toon",
+      "color": [
+        0.1,
+        0.78,
+        0.32
+      ],
+      "roughness": 0.35
+    },
+    {
+      "target": "yard_ball_yellow",
+      "mode": "toon",
+      "color": [
+        0.95,
+        0.82,
+        0.12
+      ],
+      "roughness": 0.35
+    }
+  ]
+}

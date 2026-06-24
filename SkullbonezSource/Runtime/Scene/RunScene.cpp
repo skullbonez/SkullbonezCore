@@ -68,8 +68,94 @@ void ApplySceneWorkerThreadSetting( int requestedWorkerThreads )
     }
 }
 
+Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
+{
+    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
+    const float xHalf = eulerXDeg * DEG2RAD * 0.5f;
+    const float yHalf = eulerYDeg * DEG2RAD * 0.5f;
+    const float zHalf = eulerZDeg * DEG2RAD * 0.5f;
+
+    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+
+    Quaternion orientation;
+    orientation *= xRotation * yRotation * zRotation;
+    orientation.Normalise();
+    return orientation;
+}
+
+
+bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
+{
+    if ( !name || !suffix )
+    {
+        return false;
+    }
+    const size_t nameLength = strlen( name );
+    const size_t suffixLength = strlen( suffix );
+    if ( nameLength <= suffixLength || name[nameLength - suffixLength - 1] != '_' )
+    {
+        return false;
+    }
+    return strcmp( name + nameLength - suffixLength, suffix ) == 0;
+}
+
+
+bool IsSimpleRagdollPartName( const char* name )
+{
+    static const char* partSuffixes[] = {
+        "torso",
+        "head",
+        "upper_arm_l",
+        "lower_arm_l",
+        "upper_arm_r",
+        "lower_arm_r",
+        "upper_leg_l",
+        "lower_leg_l",
+        "upper_leg_r",
+        "lower_leg_r",
+    };
+    for ( const char* suffix : partSuffixes )
+    {
+        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool TryGetSimpleRagdollPartPrefixLength( const char* name, const char* suffix, size_t& outPrefixLength )
+{
+    outPrefixLength = 0;
+    if ( !SceneNameEndsWithPartSuffix( name, suffix ) )
+    {
+        return false;
+    }
+
+    outPrefixLength = strlen( name ) - strlen( suffix );
+    return true;
+}
+
+
+bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
+{
+    size_t torsoPrefixLength = 0;
+    size_t headPrefixLength = 0;
+    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) &&
+           TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) &&
+           torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
+}
+
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
+    if ( IsSimpleRagdollPartName( model.GetName() ) )
+    {
+        return false;
+    }
     if ( strcmp( material.target, "all" ) == 0 )
     {
         return true;
@@ -925,9 +1011,8 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         options.startsAsleep = ragdollScene.startsAsleep;
         if ( ragdollScene.hasInitOrient )
         {
-            options.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), ragdollScene.eulerX * _PI / 180.0f );
-            options.orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), ragdollScene.eulerY * _PI / 180.0f );
-            options.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), ragdollScene.eulerZ * _PI / 180.0f );
+            options.orientation =
+                MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
         }
         Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
     }
@@ -969,6 +1054,11 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         joint.stiffness = sceneJoint.stiffness;
         joint.damping = sceneJoint.damping;
         joint.groupId = sceneJoint.groupId;
+        joint.flags = sceneJoint.flags;
+        if ( IsSimpleRagdollNeckJointName( sceneJoint.bodyA, sceneJoint.bodyB ) )
+        {
+            joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
+        }
         m_cGameModelCollection.AddPointJointConstraint( joint );
     }
 
@@ -1380,6 +1470,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
+    m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
@@ -1434,6 +1525,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         rngSeed = 1;
     }
+    bool hasSceneTornadoSystem = false;
+    TornadoSystemConfig sceneTornadoSystem;
 
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
@@ -1479,6 +1572,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         SceneState().isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
+        hasSceneTornadoSystem = scene.HasTornadoSystem();
+        if ( hasSceneTornadoSystem )
+        {
+            sceneTornadoSystem = scene.GetTornadoSystemConfig();
+        }
         Cfg().gameModelCapacity =
             scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
         ApplySceneWorkerThreadSetting( scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads()
@@ -1768,19 +1866,20 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes start paused in free camera mode; user presses F to
-        // resume simulation. Physics diagnostics need deterministic frame rows
-        // immediately, so leave diagnostic launches in normal scene playback.
+        // Snapshot scenes start paused in Inspect by default; authored live scenes
+        // may opt out when body-state entries are just stable initial poses.
         const bool hasSnapshotState =
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
-        const bool shouldPauseSnapshotState = hasSnapshotState && !m_diagnostics.PhysicsDiagnostics().isEnabled;
+        const bool shouldPauseSnapshotState =
+            hasSnapshotState && scene.ShouldPauseSnapshotState() && !m_diagnostics.PhysicsDiagnostics().isEnabled;
 #else
-        const bool shouldPauseSnapshotState = hasSnapshotState;
+        const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_camera.mode = RunCameraMode::Free;
+            m_interaction.EnterInspect();
+            m_camera.mode = RunCameraMode::Inspect;
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
@@ -1819,15 +1918,35 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     if ( !shouldPreserveRuntimeState )
     {
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
+        m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
         ApplyTornadoDefaultsForActiveScene();
+        if ( hasSceneTornadoSystem )
+        {
+            m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
+            m_runtimeSettings.tornadoField.enabled = false;
+            m_runtimeSettings.tornadoVisual.enabled = true;
+        }
     }
     if ( m_cmdHasTornadoOverride )
     {
-        m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+        if ( m_runtimeSettings.tornadoSystem.enabled || !m_runtimeSettings.tornadoSystem.vortices.empty() )
+        {
+            m_runtimeSettings.tornadoSystem.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoField.enabled = false;
+        }
+        else
+        {
+            m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+        }
+        if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+        {
+            m_runtimeSettings.tornadoVisual.enabled = m_cmdTornadoEnabled;
+        }
     }
     if ( m_cmdTornadoVectors )
     {
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
+        m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
     SyncTornadoFieldToPhysics();
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
@@ -2340,7 +2459,11 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
     {
         for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
         {
-            m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( !IsSimpleRagdollPartName( model.GetName() ) )
+            {
+                model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+            }
         }
     };
 
@@ -2414,7 +2537,11 @@ void Run::ApplyLiveStyleScene( const TestScene& styleScene )
 
     for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
     {
-        m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+        if ( !IsSimpleRagdollPartName( model.GetName() ) )
+        {
+            model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+        }
     }
 
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
@@ -2719,11 +2846,11 @@ void Run::ApplyTornadoDefaultsForActiveScene()
 
     field.center =
         Vector3( cinematic.basinCenterX, m_cWorldEnvironment.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
-    field.radius = std::clamp( basinRadius * 1.08f, 150.0f, 280.0f );
+    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
     field.height = (std::max)( 130.0f, field.radius * 0.66f );
-    field.inwardAcceleration = 120.0f;
-    field.swirlAcceleration = 170.0f;
-    field.liftAcceleration = 78.0f;
+    field.inwardAcceleration = 150.0f;
+    field.swirlAcceleration = 185.0f;
+    field.liftAcceleration = 64.0f;
     m_runtimeSettings.tornadoField = field;
 }
 
@@ -2731,6 +2858,7 @@ void Run::ApplyTornadoDefaultsForActiveScene()
 void Run::SyncTornadoFieldToPhysics()
 {
     m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
+    m_cGameModelCollection.SetTornadoSystemConfig( m_runtimeSettings.tornadoSystem );
 }
 
 

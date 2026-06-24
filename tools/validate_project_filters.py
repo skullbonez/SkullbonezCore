@@ -172,6 +172,7 @@ RUNTIME_PREFIXES = (
     "RuntimeCommandQueue",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
+    "RuntimeInteractionController",
     "RuntimeTuning",
     "RuntimeViewModel",
     "SimulationController",

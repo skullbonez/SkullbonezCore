@@ -195,6 +195,63 @@ bool Run::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sampl
 }
 
 
+bool Run::ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame )
+{
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    m_replayPoseBackups.clear();
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
+
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+
+        Math::Orientation::Quaternion orientation = body.orientation;
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
+    }
+
+    if ( !m_replayPoseBackups.empty() )
+    {
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+    }
+    return !m_replayPoseBackups.empty();
+}
+
+
 void Run::RestoreReplayPresentationRenderPose()
 {
     if ( m_replayPoseBackups.empty() )
@@ -216,6 +273,110 @@ void Run::RestoreReplayPresentationRenderPose()
     }
     m_replayPoseBackups.clear();
     m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
+void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
+                                        const CinematicRenderConfig* cinematic,
+                                        const Rendering::ShadowFrameData* shadow )
+{
+    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
+    if ( !m_replayPrediction.enabled || !m_replayPrediction.ragdollVisualsEnabled ||
+         m_replayPrediction.frames.size() < 2 )
+    {
+        return;
+    }
+
+    const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
+    bool hasRagdollPart = false;
+    for ( const GameObjects::GameModel& model : models )
+    {
+        if ( ReplayModelIsRagdollPart( model ) )
+        {
+            hasRagdollPart = true;
+            break;
+        }
+    }
+    if ( !hasRagdollPart )
+    {
+        return;
+    }
+
+    SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
+    const std::size_t lastIndex = m_replayPrediction.frames.size() - 1;
+    const std::size_t stride =
+        (std::max)( static_cast<std::size_t>( 1 ),
+                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
+    const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
+
+    RenderHelper::DrawBoxBatchBegin( frame.baseView,
+                                     frame.projection,
+                                     frame.lightPosition,
+                                     true,
+                                     cinematic,
+                                     shadow,
+                                     1.0f );
+
+    auto appendGhostFrame = [&]( std::size_t index )
+    {
+        const RunReplayPredictionFrame& predictionFrame = m_replayPrediction.frames[index];
+        if ( predictionFrame.frameIndex == 0 )
+        {
+            return;
+        }
+
+        const float t =
+            lastFrame > 0
+                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
+                              0.0f,
+                              1.0f )
+                : 1.0f;
+        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
+
+        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        {
+            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            {
+                continue;
+            }
+
+            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+            if ( model.GetReplayBodyId() != body.id.value || !ReplayModelIsRagdollPart( model ) )
+            {
+                continue;
+            }
+
+            const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
+            if ( !box )
+            {
+                continue;
+            }
+
+            Math::Orientation::Quaternion orientation = body.orientation;
+            orientation.Normalise();
+            Rendering::RenderMaterial material = model.GetRenderMaterial();
+            material.baseColor[3] = alpha;
+            const Matrix4 modelMatrix = box->GetModelMatrix( body.position, Matrix4::FromQuaternion( orientation ) );
+            RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+        }
+    };
+
+    std::size_t farIndex = lastIndex;
+    if ( farIndex % stride != 0 )
+    {
+        appendGhostFrame( farIndex );
+        farIndex = ( farIndex / stride ) * stride;
+    }
+    for ( std::size_t index = farIndex; index >= stride; index -= stride )
+    {
+        appendGhostFrame( index );
+        if ( index == stride )
+        {
+            break;
+        }
+    }
+
+    RenderHelper::DrawBoxBatchEnd();
 }
 
 
@@ -300,7 +461,11 @@ void Run::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
+    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
+    {
+        ApplyReplayPredictionFrameForRender( *predictionFrame );
+    }
+    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
     {
         ApplyReplayPresentationSampleForRender( *replaySample );
     }
@@ -373,6 +538,7 @@ void Run::DrawPrimitives()
     m_objectPass.EnsureGpuResources( frame );
     m_terrainPass.EnsureGpuResources( frame );
     m_waterPass.EnsureGpuResources( frame );
+    m_tornadoVisualPass.EnsureGpuResources( frame );
     m_debugOverlayPass.EnsureGpuResources( frame );
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
@@ -390,16 +556,16 @@ void Run::DrawPrimitives()
 
     const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
     const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayFocusFadeActive =
-        !collisionStateColorsVisible && !debugTransparentBodyPass && BuildReplayFocusModelMask();
+    const bool replayPredictionOverlayActive = m_replayPrediction.enabled;
+    const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
+                                       !debugTransparentBodyPass && BuildReplayFocusModelMask();
     const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &m_replayFocusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
-    // Lifetime: reflection is produced before water decides whether to draw.
-    // Keeping the target alive here avoids coupling debug water visibility to
-    // GPU resource lifetime or resize behavior.
-    m_reflectionPass.EnsureGpuResources( frame );
+    const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
+    const bool waterVisibleThisFrame = !m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -414,14 +580,20 @@ void Run::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
-    ReflectionPassOutput reflection = m_reflectionPass.Render( { frame,
-                                                                 activeCinematic,
-                                                                 objectShadowFrame,
-                                                                 collisionStateColorsVisible,
-                                                                 debugTransparentBodyPass,
-                                                                 collisionVisualizerAlphaOverride,
-                                                                 bodyRenderAlpha },
-                                                               m_skyPass );
+    ReflectionPassOutput reflection;
+    reflection.reflectionSampleViewProjection = frame.reflectionViewProjection;
+    if ( reflectionPassNeeded )
+    {
+        m_reflectionPass.EnsureGpuResources( frame );
+        reflection = m_reflectionPass.Render( { frame,
+                                                activeCinematic,
+                                                objectShadowFrame,
+                                                collisionStateColorsVisible,
+                                                debugTransparentBodyPass,
+                                                collisionVisualizerAlphaOverride,
+                                                bodyRenderAlpha },
+                                              m_skyPass );
+    }
 
     if ( useCinematicTarget )
     {
@@ -458,6 +630,8 @@ void Run::DrawPrimitives()
                           m_debug.isWaterFreezeDebug,
                           m_debug.frozenWaterTime } );
 
+    const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
+
     if ( debugTransparentBodyPass )
     {
         m_objectPass.Render( { frame,
@@ -483,6 +657,8 @@ void Run::DrawPrimitives()
                                false } );
     }
 
+    RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
+
     m_debugOverlayPass.Render( { frame } );
 
     bool volumetricReady = false;
@@ -505,6 +681,7 @@ void Run::DrawPrimitives()
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
+    frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
     frameSnapshot.volumetricReady = volumetricReady;
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
 }

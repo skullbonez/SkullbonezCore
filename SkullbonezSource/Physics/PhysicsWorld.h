@@ -264,6 +264,7 @@ class PhysicsWorld
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
     TornadoField m_tornadoField;
+    TornadoSystem m_tornadoSystem;
     PersistentContactSolver m_contactSolver;
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
@@ -304,6 +305,8 @@ class PhysicsWorld
     bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
+    void
+    WakeRestingContactIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
     void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
 
@@ -322,6 +325,9 @@ class PhysicsWorld
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
+    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
+    const TornadoSystemConfig& GetTornadoSystemConfig() const;
+    float GetTornadoSystemElapsedSeconds() const;
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );

@@ -173,8 +173,8 @@ LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample
 Run::Run( std::vector<std::string> sceneQueue )
     : m_sceneController( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
       m_sceneTargetPass( *this ), m_shadowPass( *this ), m_reflectionPass( *this ), m_objectPass( *this ),
-      m_terrainPass( *this ), m_waterPass( *this ), m_debugOverlayPass( *this ), m_volumetricPass( *this ),
-      m_tonemapPass( *this ), m_uiTextPass( *this )
+      m_terrainPass( *this ), m_waterPass( *this ), m_tornadoVisualPass( *this ), m_debugOverlayPass( *this ),
+      m_volumetricPass( *this ), m_tonemapPass( *this ), m_uiTextPass( *this )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
@@ -339,6 +339,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             // producers, so cached handles are invalidated before targets die.
             m_tonemapPass.ReleaseGpuResources();
             m_volumetricPass.ReleaseGpuResources();
+            m_tornadoVisualPass.ReleaseGpuResources();
             m_sceneTargetPass.ReleaseGpuResources();
             m_shadowPass.ReleaseGpuResources();
             m_reflectionPass.ReleaseGpuResources();
@@ -484,6 +485,10 @@ void Run::RegisterBuiltInAssets()
                                                 "shaders/launcher_laser",
                                                 Assets::ShaderProgramKind::DebugLine,
                                                 contract( false, false, false, false, false ) );
+    m_systems.assets.RegisterShaderSourceAsset( "shader.tornado_fx",
+                                                "shaders/tornado_fx",
+                                                Assets::ShaderProgramKind::DebugLine,
+                                                contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur",
                                                 "shaders/UIBackdropBlur",
                                                 Assets::ShaderProgramKind::UI,
@@ -606,6 +611,10 @@ void Run::SetTornadoOverride( bool enabled )
     m_cmdHasTornadoOverride = true;
     m_cmdTornadoEnabled = enabled;
     m_runtimeSettings.tornadoField.enabled = enabled;
+    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+    {
+        m_runtimeSettings.tornadoVisual.enabled = enabled;
+    }
     SyncTornadoFieldToPhysics();
 }
 
@@ -1148,6 +1157,7 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     }
 
     ClearReplayPathVisualizer();
+    m_interaction.EnterReplay();
     m_replayPrediction.enabled = false;
     m_replayPrediction.horizonDragging = false;
     m_replayVelocityEdit = RunReplayVelocityEditState{};
@@ -1216,7 +1226,10 @@ bool Run::IsReplayScrubPaused() const
     }
 
     const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
-    if ( position >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+    const float presentT = m_replayScrubber.activeTrack == RunReplayTrack::Solver
+                               ? ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction )
+                               : 1.0f;
+    if ( ReplayScrubberAtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
@@ -1226,7 +1239,13 @@ bool Run::IsReplayScrubPaused() const
         return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
     }
 
-    return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized( position ) != nullptr;
+    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return CurrentReplayPredictionScrubFrame() != nullptr;
+    }
+
+    return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized(
+                                             ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
 
@@ -1261,7 +1280,38 @@ const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
         return nullptr;
     }
 
-    return m_solverReplay.SampleAtNormalized( ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver ) );
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
+    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return nullptr;
+    }
+
+    return m_solverReplay.SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
+}
+
+
+const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
+{
+    if ( m_replayScrubber.activeTrack != RunReplayTrack::Solver || !m_replayScrubber.paused ||
+         !m_replayPrediction.enabled || m_replayPrediction.frames.size() < 2 )
+    {
+        return nullptr;
+    }
+
+    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
+    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    if ( !ReplayScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return nullptr;
+    }
+
+    const float predictionT = ReplayScrubberPredictionNormalizedFromTrack( position, presentT );
+    const std::size_t frameCount = m_replayPrediction.frames.size();
+    const std::size_t frameIndex =
+        (std::min)( frameCount - 1,
+                    static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
+    return &m_replayPrediction.frames[frameIndex];
 }
 
 bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
@@ -1341,7 +1391,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     };
 
-    if ( sample.worldSnapshot.version != 1 )
+    if ( sample.worldSnapshot.version < 1 || sample.worldSnapshot.version > 2 )
     {
         writeReason( "unsupported snapshot version" );
         return false;
@@ -1391,7 +1441,6 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
-        orientation.Normalise();
         model.SetFixed( body.fixed );
         model.SetPosition( body.position );
         model.SetOrientation( orientation );
@@ -1417,6 +1466,12 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
     m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
     m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
+    m_runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;
+    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
+    {
+        m_runtimeSettings.tornadoVisual.enabled =
+            m_runtimeSettings.tornadoField.enabled || m_runtimeSettings.tornadoSystem.enabled;
+    }
 
     if ( m_systems.cameras )
     {

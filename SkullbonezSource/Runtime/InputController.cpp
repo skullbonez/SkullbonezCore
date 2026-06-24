@@ -388,6 +388,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "TogglePhysicsDebugFlags";
     case RuntimeInputAction::ToggleTornado:
         return "ToggleTornado";
+    case RuntimeInputAction::ToggleTornadoVisualShell:
+        return "ToggleTornadoVisualShell";
     case RuntimeInputAction::ToggleTornadoFieldVectors:
         return "ToggleTornadoFieldVectors";
     case RuntimeInputAction::ToggleRayCastVisualization:

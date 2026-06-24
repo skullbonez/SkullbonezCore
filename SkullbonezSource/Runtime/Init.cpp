@@ -588,7 +588,7 @@ struct ParsedArgs
     int uiStressActions = 5;
     bool replayRecording = true;
     bool replayExplicit = false;
-    int replaySeconds = 30;
+    int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
     bool replayRestoreProbe = false;
@@ -637,6 +637,7 @@ struct ParsedArgs
 #else
     bool platformProfilerMarkers = false;
 #endif
+    bool platformProfilerMarkersExplicit = false;
 };
 
 struct CliFlagDirective
@@ -751,11 +752,19 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "[overlay] Profiler HUD enabled at startup." },
         { "--platform-profiler-markers",
           "--platform-profiler",
-          []( ParsedArgs& args ) { args.platformProfilerMarkers = true; },
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
           "[platform-profiler] Platform profiler marker emission requested." },
         { "--pix-markers",
           "--pix",
-          []( ParsedArgs& args ) { args.platformProfilerMarkers = true; },
+          []( ParsedArgs& args )
+          {
+              args.platformProfilerMarkers = true;
+              args.platformProfilerMarkersExplicit = true;
+          },
           "[platform-profiler] PIX marker compatibility alias requested." },
         { "--hide-top-text",
           "--no-top-text",
@@ -2210,6 +2219,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
          ParseEnvironmentBool( envPlatformProfilerValue, envPlatformProfilerMarkers ) )
     {
         out.platformProfilerMarkers = envPlatformProfilerMarkers;
+        out.platformProfilerMarkersExplicit = true;
         if ( envPlatformProfilerMarkers )
         {
             fprintf( stdout,
@@ -2225,6 +2235,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
          ParseEnvironmentBool( envPixValue, envPixMarkers ) )
     {
         out.platformProfilerMarkers = envPixMarkers;
+        out.platformProfilerMarkersExplicit = true;
         if ( envPixMarkers )
         {
             fprintf(
@@ -2296,6 +2307,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     }
 
     PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
+    PlatformProfiler::SetDetailedRangesEnabled( out.platformProfilerMarkers && out.platformProfilerMarkersExplicit );
     if ( out.platformProfilerMarkers )
     {
         fprintf( stdout,

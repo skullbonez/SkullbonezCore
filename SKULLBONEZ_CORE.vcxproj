@@ -177,6 +177,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\GeometricMath.cpp" />
@@ -326,6 +327,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
@@ -405,6 +407,7 @@
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
+    <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />
     <None Include="SkullbonezData\hulls\pyramid.hull" />

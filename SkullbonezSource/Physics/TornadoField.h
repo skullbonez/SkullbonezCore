@@ -43,15 +43,44 @@ struct TornadoFieldConfig
     Math::Vector::Vector3 center = Math::Vector::Vector3( 620.0f, 25.0f, 615.0f );
     float radius = 210.0f;
     float height = 140.0f;
-    float inwardAcceleration = 120.0f;
-    float swirlAcceleration = 170.0f;
-    float liftAcceleration = 78.0f;
+    float inwardAcceleration = 150.0f;
+    float swirlAcceleration = 185.0f;
+    float liftAcceleration = 64.0f;
     float ejectAcceleration = 260.0f;
     float ejectUpAcceleration = 70.0f;
-    float ejectBand = 0.78f;
-    float minCaptureSeconds = 0.65f;
-    float ejectCooldownSeconds = 1.15f;
+    float ejectBand = 0.96f;
+    float minCaptureSeconds = 2.50f;
+    float ejectCooldownSeconds = 3.50f;
     float maxDeltaVelocity = 24.0f;
+};
+
+struct TornadoVortexConfig
+{
+    TornadoFieldConfig field;
+    float spawnSeconds = 0.0f;
+    float timeToLiveSeconds = 0.0f;
+    float growSeconds = 2.0f;
+    float shrinkSeconds = 2.0f;
+    float driftRadius = 0.0f;
+    float driftSpeed = 0.0f;
+    float driftPhase = 0.0f;
+    float repulsionRadius = 0.0f;
+    float repulsionStrength = 0.0f;
+};
+
+struct TornadoSystemConfig
+{
+    bool enabled = false;
+    bool visualizeVelocityField = false;
+    std::vector<TornadoVortexConfig> vortices;
+};
+
+struct TornadoActiveVortex
+{
+    TornadoFieldConfig field;
+    float strength = 0.0f;
+    float ageSeconds = 0.0f;
+    int sourceIndex = -1;
 };
 
 class TornadoField
@@ -65,12 +94,50 @@ class TornadoField
         return m_config;
     }
 
+    static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
+                                                              const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     void RenderVectors( const Math::Transformation::Matrix4& viewProj );
 
   private:
     TornadoFieldConfig m_config;
     std::vector<float> m_lineData;
+};
+
+class TornadoSystem
+{
+  public:
+    void SetConfig( const TornadoSystemConfig& config );
+    const TornadoSystemConfig& GetConfig() const
+    {
+        return m_config;
+    }
+    bool IsEnabled() const;
+    void ResetElapsedSeconds();
+    void SetElapsedSeconds( float seconds );
+    float GetElapsedSeconds() const
+    {
+        return m_elapsedSeconds;
+    }
+    void Tick( float dt );
+    const std::vector<TornadoActiveVortex>& ActiveVortices() const
+    {
+        return m_activeVortices;
+    }
+    Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
+    void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+
+    static void BuildActiveVortices( const TornadoSystemConfig& config,
+                                     float elapsedSeconds,
+                                     std::vector<TornadoActiveVortex>& outVortices );
+
+  private:
+    TornadoSystemConfig m_config;
+    float m_elapsedSeconds = 0.0f;
+    std::vector<TornadoActiveVortex> m_activeVortices;
+    TornadoField m_debugField;
+
+    void RebuildActiveVortices();
 };
 } // namespace Physics
 } // namespace SkullbonezCore

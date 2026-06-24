@@ -137,7 +137,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
     void ReleaseAttachedFixedTreeParts(
         int sourceIndex,
         const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes same-tree parts at or above a released break point.
+        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes/releases same-tree parts at or above a break point.
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );
@@ -150,6 +150,15 @@ class GameModelCollection : public Rendering::IRenderSceneView
     const Physics::TornadoFieldConfig& GetTornadoFieldConfig() const
     {
         return m_physicsScene.GetTornadoFieldConfig();
+    }
+    void SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config );
+    const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const
+    {
+        return m_physicsScene.GetTornadoSystemConfig();
+    }
+    float GetTornadoSystemElapsedSeconds() const
+    {
+        return m_physicsScene.GetTornadoSystemElapsedSeconds();
     }
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      const Math::Transformation::Matrix4& view,

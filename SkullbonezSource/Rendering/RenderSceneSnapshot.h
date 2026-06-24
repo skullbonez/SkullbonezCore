@@ -44,6 +44,7 @@ struct RenderSceneSnapshot
     bool terrainPassRendered = false;    // Terrain pass actually drew terrain this frame.
     bool waterPassRendered = false;      // Water pass actually drew fluid this frame.
     bool waterSamplesReflection = false; // Water sampled a non-zero reflection texture handle.
+    bool tornadoVisualRendered = false;  // Sparse tornado production visual drew after water with depth write disabled.
     bool volumetricReady = false;        // Volumetric light target was produced for tonemap.
 };
 

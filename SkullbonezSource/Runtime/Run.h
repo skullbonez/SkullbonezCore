@@ -60,6 +60,7 @@ Related:
 #include "CaptureController.h"
 #include "DiagnosticsController.h"
 #include "EngineContext.h"
+#include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRecorder.h"
@@ -94,6 +95,19 @@ namespace RunInternal
 struct SceneRuntimeResetSnapshot;
 }
 
+struct TornadoVisualSettings
+{
+    bool enabled = true;                                                         // Render-only sparse funnel shell; physics force state remains separate.
+    bool autoEnableWithTornado = true;                                           // UI/CLI tornado toggles keep the production visual paired by default.
+    float shellAlpha = 0.14f;
+    float dustAlpha = 0.20f;
+    float ribbonWidth = 5.5f;
+    int ribbonCount = 7;
+    int ribbonSegments = 48;
+    int particleCount = 96;
+    float rotationSpeed = 1.25f;
+};
+
 struct RunRuntimeSettings
 {
     bool isVsyncEnabled = true;                                                  // Swap-chain sync interval (true = vsync)
@@ -101,6 +115,8 @@ struct RunRuntimeSettings
     bool isPhysicsSleepEnabled =
         true;                                                                    // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
     Physics::TornadoFieldConfig tornadoField;                                    // Live vortex force/debug vector field controlled by CLI/UI
+    Physics::TornadoSystemConfig tornadoSystem;                                  // Scene-authored multi-vortex schedule and motion.
+    TornadoVisualSettings tornadoVisual;                                         // Render-only tornado art tuning outside deterministic physics state.
 };
 
 struct RunTimerState
@@ -226,7 +242,7 @@ enum class RunCameraMode
 {
     Demo = 0,
     Scene,
-    Free,
+    Inspect,
     Launcher,
     Manipulator,
     Count
@@ -238,6 +254,7 @@ struct RunCameraState
 
     int selectedCamera = 0;                                                      // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
+    RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect;                   // N returns to the last non-launcher workspace.
     bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -521,6 +538,7 @@ struct RunReplayPredictionBodySample
     ReplayBodyId id;
     int modelIndex = -1;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 struct RunReplayPredictionFrame
@@ -534,6 +552,8 @@ struct RunReplayPredictionState
 {
     bool enabled = false;
     bool checkboxHovered = false;
+    bool ragdollVisualsEnabled = true;
+    bool ragdollVisualsHovered = false;
     bool decreaseHovered = false;
     bool increaseHovered = false;
     bool horizonHovered = false;
@@ -541,7 +561,7 @@ struct RunReplayPredictionState
     bool dirty = true;
     bool building = false;
     bool complete = false;
-    float horizonSeconds = 10.0f;
+    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
     int targetModelIndex = -1;
     int nextTick = 1;
     int targetTickCount = 0;
@@ -930,6 +950,13 @@ class Run
         int styleWaterMode = -1;
     };
 
+    struct TornadoVisualPassInputs
+    {
+        // Production tornado art uses the final world view/depth after opaque
+        // objects, terrain, and water. Physics field state is read-only shape input.
+        const RenderFrameContext& frame;
+    };
+
     struct DebugOverlayPassInputs
     {
         // Debug overlays draw after production geometry and use the final world
@@ -1151,6 +1178,32 @@ class Run
         WaterPassDebugInfo m_debugInfo;
     };
 
+    /* -- TornadoVisualPass
+    -------------------------------------------------------------------------------------------------------------------------------------
+
+        Draws sparse production tornado ribbons and dust after opaque world
+        depth exists, while leaving debug field vectors in DebugOverlayPass.
+    -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    class TornadoVisualPass
+    {
+      public:
+        explicit TornadoVisualPass( Run& run ) : m_run( run )
+        {
+        }
+
+        void EnsureGpuResources( const RenderFrameContext& frame );
+        void ReleaseGpuResources();
+        bool Render( const TornadoVisualPassInputs& inputs );
+
+      private:
+        Run& m_run;
+        std::vector<float> m_vertices;
+        std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
+        float m_liveVisualTimeSeconds = 0.0f;
+        double m_lastLiveVisualSourceSeconds = 0.0;
+        bool m_hasLiveVisualTime = false;
+    };
+
     /* -- DebugOverlayPass
     --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1170,6 +1223,8 @@ class Run
         void Render( const DebugOverlayPassInputs& inputs );
 
       private:
+        bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
+
         Run& m_run;
     };
 
@@ -1292,6 +1347,7 @@ class Run
     RunTimerState m_timers;                                                      // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                                                 // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
+    RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRecorder m_replay;                                                     // Bounded replay presentation recorder for recent-frame inspection.
@@ -1343,6 +1399,7 @@ class Run
     ObjectPass m_objectPass;                                                     // Production body and collision-solid pass
     TerrainPass m_terrainPass;                                                   // Terrain material/shadow receiver pass
     WaterPass m_waterPass;                                                       // Calm/ocean water pass
+    TornadoVisualPass m_tornadoVisualPass;                                       // Sparse alpha tornado shell/dust pass
     DebugOverlayPass m_debugOverlayPass;                                         // Broadphase and physics debug overlay pass
     VolumetricPass m_volumetricPass;                                             // Half-resolution cinematic light-shaft pass
     TonemapPass m_tonemapPass;                                                   // HDR-to-backbuffer resolve pass
@@ -1362,6 +1419,18 @@ class Run
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                                       // Records the mode transition caused by one runtime/tool action.
+    RuntimeInteractionTransition EnterInteractionForCameraMode(
+        RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
+    void ApplyRuntimeInteractionTransitionCleanup(
+        const RuntimeInteractionTransition&
+            transition );                                                        // Clears stale tool ownership before the new mode consumes input.
+    void ClearReplayInteractionForRuntimeTransition();                           // Clears replay-owned scrub, prediction, velocity, cause, and
+                                                       // path state.
+    void ClearEditorInteractionForRuntimeTransition(
+        bool clearSelection );                                                   // Clears editor placement/gizmo ownership before leaving Edit.
+    bool HasActiveReplayInteractionState() const;                                // True when replay owns transient input or historical presentation.
+    bool HasActiveEditorInteractionState() const;                                // True when editor owns placement/gizmo/input state.
+    bool InspectGizmoInteractionActive() const;                                  // True when Inspect owns live transform-gizmo interaction.
     bool ReplayInspectionActive() const;                                         // True when replay owns inspection camera semantics.
     bool ReplayInspectionMouseLookActive() const;                                // True when replay inspection is consuming mouse-look.
     bool MouseLookOwnsCursor() const;                                            // True when camera/editor/replay mouse-look should hide the system cursor.
@@ -1546,6 +1615,9 @@ class Run
     bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
     void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
+    void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
+                                       const CinematicRenderConfig* cinematic,
+                                       const Rendering::ShadowFrameData* shadow );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool BuildReplayFocusModelMask();
     bool BuildReplayCauseTreeRows();
@@ -1598,9 +1670,11 @@ class Run
                                                std::size_t reasonSize = 0 );
     const ReplayPresentationSample* CurrentReplayScrubSample() const;
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
+    const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const;
     void RenderReplayScrubberOverlay();
     bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
     bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
+    bool ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame );
     void RestoreReplayPresentationRenderPose();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
     void RestoreReplayLauncherVisualForRender();

@@ -181,7 +181,7 @@ Scene files are JSON objects with `format: "skullbonez.scene.json"` and `version
 
 | Area | JSON fields |
 |------|------------|
-| Playback | `playback.frames`, `playback.exitOnComplete`, `playback.screenshotAndExit`, `playback.fixedStep` |
+| Playback | `playback.frames`, `playback.exitOnComplete`, `playback.screenshotAndExit`, `playback.fixedStep`, `playback.pauseSnapshotState` |
 | Capture | `capture.screenshot`, `capture.screenshotInterval` |
 | Logging | `logging.perfLog`, `logging.perfLogFlush`, `logging.perfLogFlushInterval` |
 | Simulation | `simulation.physics`, `simulation.timeScale`, `simulation.seed`, `simulation.world` |

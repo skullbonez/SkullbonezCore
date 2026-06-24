@@ -98,18 +98,21 @@ inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
 inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
 inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 542.0f;
+inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 630.0f;
 inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
 inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
 inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
+inline constexpr float REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH = 78.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
-inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
+inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
+inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
@@ -210,6 +213,12 @@ inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
     return { control.x + 8.0f, control.y + 7.0f, (std::max)( 40.0f, control.w - 44.0f ), 8.0f };
 }
 
+inline UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH )
+{
+    const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
+    return { predict.x + predict.w + 8.0f, predict.y, REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH, predict.h };
+}
+
 inline float ReplayPredictionHorizonT( float seconds )
 {
     return std::clamp(
@@ -225,6 +234,83 @@ inline float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& hor
     const float seconds =
         REPLAY_PREDICTION_MIN_SECONDS + t * ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS );
     return std::clamp( std::round( seconds ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+}
+
+inline float ReplayScrubberRetainedPastSeconds( const ReplayRecorderStats& stats )
+{
+    if ( !stats.enabled || stats.sampleCount < 2 )
+    {
+        return PHYSICS_FIXED_DT;
+    }
+    return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
+}
+
+inline float ReplayPredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
+{
+    if ( !prediction.enabled || prediction.frames.size() < 2 )
+    {
+        return 0.0f;
+    }
+    return static_cast<float>( prediction.frames.back().frameIndex ) * PHYSICS_FIXED_DT;
+}
+
+inline float ReplayScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
+                                                 const RunReplayPredictionState& prediction )
+{
+    const float pastSeconds = (std::max)( PHYSICS_FIXED_DT, ReplayScrubberRetainedPastSeconds( stats ) );
+    const float futureSeconds = ReplayPredictionAvailableFutureSeconds( prediction );
+    if ( futureSeconds <= PHYSICS_FIXED_DT )
+    {
+        return 1.0f;
+    }
+    return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
+}
+
+inline bool ReplayScrubberTimelineHasFuture( float presentT )
+{
+    return presentT < REPLAY_SCRUBBER_LIVE_THRESHOLD;
+}
+
+inline bool ReplayScrubberAtPresentTrackPosition( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return position >= REPLAY_SCRUBBER_LIVE_THRESHOLD;
+    }
+    return fabsf( position - presentT ) <= REPLAY_SCRUBBER_PRESENT_EPSILON;
+}
+
+inline bool ReplayScrubberTrackPositionIsFuture( float position, float presentT )
+{
+    return ReplayScrubberTimelineHasFuture( presentT ) && position > presentT + REPLAY_SCRUBBER_PRESENT_EPSILON;
+}
+
+inline float ReplayScrubberSolverNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return std::clamp( position, 0.0f, 1.0f );
+    }
+    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
+}
+
+inline float ReplayScrubberPredictionNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return 0.0f;
+    }
+    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
+}
+
+inline bool ReplayModelIsRagdollPart( const GameModel& model )
+{
+    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
+}
+
+inline bool ReplayModelIsRagdollTorso( const GameModel& model )
+{
+    return ReplayModelIsRagdollPart( model ) && model.GetRuntimeCollectionPartIndex() == 0;
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )

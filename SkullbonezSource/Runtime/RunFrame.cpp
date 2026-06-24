@@ -403,7 +403,11 @@ void Run::Execute()
                     ::HashStr( "Frame/Render/Balls" ),
                     ::HashStr( "Frame/Render/Terrain" ),
                     ::HashStr( "Frame/Render/Water" ),
+                    ::HashStr( "Frame/Render/TornadoVisual" ),
                     ::HashStr( "Frame/Render/TransparentBalls" ),
+                    ::HashStr( "Frame/Render/DebugOverlay" ),
+                    ::HashStr( "Frame/Render/VolumetricLight" ),
+                    ::HashStr( "Frame/Render/Tonemap" ),
                     ::HashStr( "Frame/UI/Draw" ),
                 };
                 float gpuMs = 0.0f;
@@ -437,7 +441,6 @@ void Run::TickPhysics( double secondsPerFrame )
 
     const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
-    const bool manipulatorPhysics = m_camera.mode == RunCameraMode::Manipulator;
     const bool replayCapture = m_replay.IsEnabled() || m_solverReplay.IsEnabled();
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnostics.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
@@ -446,15 +449,24 @@ void Run::TickPhysics( double secondsPerFrame )
 #else
     constexpr bool physicsCapture = false;
 #endif
+    const RuntimeInteractionFramePolicy policy =
+        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                                                      stepRequested,
+                                                                      false,
+                                                                      replaySimulationPaused,
+                                                                      Input::IsRightMouseDown(),
+                                                                      m_editor.viewportLookActive,
+                                                                      ReplayInspectionMouseLookActive(),
+                                                                      physicsCapture,
+                                                                      SceneState().timeScale } );
+    const bool manipulatorPhysics = policy.manipulatorActive;
     const SimulationTickResult tick = m_simulation.Tick(
         SimulationTickInput{ secondsPerFrame,
-                             replaySimulationPaused && !stepRequested ? 0.0f : SceneState().timeScale,
+                             policy.physicsTimeScale,
                              SceneState().isSceneMode,
                              SceneState().isScenePhysics,
                              SceneState().isFixedStep,
-                             ( IsFlyCameraMode() && !physicsCapture ) || replaySimulationPaused,
-                             IsLauncherCameraMode(),
-                             manipulatorPhysics,
+                             policy.physicsAdvance,
                              stepRequested,
                              &m_cGameModelCollection,
                              manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,

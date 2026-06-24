@@ -1,0 +1,778 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 42,
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": -32.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "visible": true,
+    "minimized": true,
+    "tab": "editor"
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true,
+    "trackHeight": 260.0
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "physics": {
+      "contacts": false,
+      "sleep": true
+    }
+  },
+  "editor": {
+    "editableScene": true
+  },
+  "cameras": [
+    {
+      "name": "skyscraper_overview",
+      "position": [
+        500,
+        150,
+        820
+      ],
+      "view": [
+        500,
+        105,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "street_level",
+      "position": [
+        500,
+        45,
+        700
+      ],
+      "view": [
+        500,
+        50,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "roofline",
+      "position": [
+        430,
+        250,
+        720
+      ],
+      "view": [
+        500,
+        135,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "skyscraper_plaza",
+      "position": [
+        500,
+        0.25,
+        500
+      ],
+      "halfExtents": [
+        76.0,
+        0.25,
+        64.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_01",
+      "position": [
+        500,
+        1.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_02",
+      "position": [
+        500,
+        23.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_03",
+      "position": [
+        500,
+        45.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_04",
+      "position": [
+        500,
+        67.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_05",
+      "position": [
+        500,
+        89.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_06",
+      "position": [
+        500,
+        111.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_07",
+      "position": [
+        500,
+        133.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_08",
+      "position": [
+        500,
+        155.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_09",
+      "position": [
+        500,
+        177.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_floor_10",
+      "position": [
+        500,
+        199.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        0.8,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_roof",
+      "position": [
+        500,
+        222.0,
+        500
+      ],
+      "halfExtents": [
+        28.0,
+        1.0,
+        22.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.05,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_column_nw",
+      "position": [
+        472,
+        111,
+        478
+      ],
+      "halfExtents": [
+        1.5,
+        111.0,
+        1.5
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_column_ne",
+      "position": [
+        528,
+        111,
+        478
+      ],
+      "halfExtents": [
+        1.5,
+        111.0,
+        1.5
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_column_sw",
+      "position": [
+        472,
+        111,
+        522
+      ],
+      "halfExtents": [
+        1.5,
+        111.0,
+        1.5
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_column_se",
+      "position": [
+        528,
+        111,
+        522
+      ],
+      "halfExtents": [
+        1.5,
+        111.0,
+        1.5
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_wall_west",
+      "position": [
+        471.5,
+        111,
+        500
+      ],
+      "halfExtents": [
+        0.8,
+        111.0,
+        20.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_wall_east",
+      "position": [
+        528.5,
+        111,
+        500
+      ],
+      "halfExtents": [
+        0.8,
+        111.0,
+        20.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "skyscraper_wall_rear",
+      "position": [
+        500,
+        111,
+        477.5
+      ],
+      "halfExtents": [
+        26.0,
+        111.0,
+        0.8
+      ],
+      "mass": 1000.0,
+      "restitution": 0.04,
+      "fixed": true
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_01_dude",
+      "position": [
+        486,
+        1.8,
+        512
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        8,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_02_dude",
+      "position": [
+        514,
+        23.8,
+        510
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -12,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_03_dude",
+      "position": [
+        492,
+        45.8,
+        507
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        16,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_04_dude",
+      "position": [
+        508,
+        67.8,
+        514
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -20,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_05_dude",
+      "position": [
+        486,
+        89.8,
+        506
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        28,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_06_dude",
+      "position": [
+        515,
+        111.8,
+        513
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -32,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_07_dude",
+      "position": [
+        492,
+        133.8,
+        511
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        36,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_08_dude",
+      "position": [
+        508,
+        155.8,
+        507
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -44,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_09_dude",
+      "position": [
+        486,
+        177.8,
+        514
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        52,
+        0
+      ],
+      "sleeping": false
+    },
+    {
+      "type": "ragdoll",
+      "name": "floor_10_dude",
+      "position": [
+        514,
+        199.8,
+        509
+      ],
+      "scale": 1.0,
+      "euler": [
+        0,
+        -58,
+        0
+      ],
+      "sleeping": false
+    }
+  ],
+  "objectMaterials": [
+    {
+      "target": "skyscraper_plaza",
+      "mode": "matte",
+      "color": [
+        0.28,
+        0.30,
+        0.32
+      ],
+      "roughness": 0.88
+    },
+    {
+      "target": "skyscraper_floor_01",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_02",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_03",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_04",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_05",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_06",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_07",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_08",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_09",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_floor_10",
+      "mode": "matte",
+      "color": [
+        0.58,
+        0.60,
+        0.64
+      ],
+      "roughness": 0.86
+    },
+    {
+      "target": "skyscraper_roof",
+      "mode": "matte",
+      "color": [
+        0.44,
+        0.47,
+        0.52
+      ],
+      "roughness": 0.82
+    },
+    {
+      "target": "skyscraper_column_nw",
+      "mode": "matte",
+      "color": [
+        0.40,
+        0.43,
+        0.48
+      ],
+      "roughness": 0.78
+    },
+    {
+      "target": "skyscraper_column_ne",
+      "mode": "matte",
+      "color": [
+        0.40,
+        0.43,
+        0.48
+      ],
+      "roughness": 0.78
+    },
+    {
+      "target": "skyscraper_column_sw",
+      "mode": "matte",
+      "color": [
+        0.40,
+        0.43,
+        0.48
+      ],
+      "roughness": 0.78
+    },
+    {
+      "target": "skyscraper_column_se",
+      "mode": "matte",
+      "color": [
+        0.40,
+        0.43,
+        0.48
+      ],
+      "roughness": 0.78
+    },
+    {
+      "target": "skyscraper_wall_west",
+      "mode": "matte",
+      "color": [
+        0.22,
+        0.38,
+        0.52
+      ],
+      "roughness": 0.42
+    },
+    {
+      "target": "skyscraper_wall_east",
+      "mode": "matte",
+      "color": [
+        0.22,
+        0.38,
+        0.52
+      ],
+      "roughness": 0.42
+    },
+    {
+      "target": "skyscraper_wall_rear",
+      "mode": "matte",
+      "color": [
+        0.22,
+        0.38,
+        0.52
+      ],
+      "roughness": 0.42
+    }
+  ]
+}

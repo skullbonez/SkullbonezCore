@@ -195,6 +195,36 @@ struct EditorTreeDefinition
 };
 
 
+struct EditorHousePartDefinition
+{
+    const char* suffix;
+    float offsetX;
+    float offsetY;
+    float offsetZ;
+    float halfX;
+    float halfY;
+    float halfZ;
+    float restitution;
+    SkullbonezCore::Rendering::RenderMaterialKind materialKind;
+    const char* materialName;
+    float colorR;
+    float colorG;
+    float colorB;
+    float roughness;
+    float specular;
+    float stylization;
+};
+
+
+struct EditorHouseDefinition
+{
+    const char* label;
+    const EditorHousePartDefinition* parts;
+    int partCount;
+    bool seedAsleep = true;
+};
+
+
 constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset,
                                                        const char* suffix,
                                                        float offsetX,
@@ -230,6 +260,42 @@ constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset
              startsFixed,
              contactReleaseOnImpact || EditorHullAssetDefaultsToContactRelease( hullAsset ),
              contactReleaseImpulseThreshold };
+}
+
+
+constexpr EditorHousePartDefinition MakeEditorHousePart( const char* suffix,
+                                                         float offsetX,
+                                                         float offsetY,
+                                                         float offsetZ,
+                                                         float halfX,
+                                                         float halfY,
+                                                         float halfZ,
+                                                         float restitution,
+                                                         SkullbonezCore::Rendering::RenderMaterialKind materialKind,
+                                                         const char* materialName,
+                                                         float colorR,
+                                                         float colorG,
+                                                         float colorB,
+                                                         float roughness,
+                                                         float specular,
+                                                         float stylization )
+{
+    return { suffix,
+             offsetX,
+             offsetY,
+             offsetZ,
+             halfX,
+             halfY,
+             halfZ,
+             restitution,
+             materialKind,
+             materialName,
+             colorR,
+             colorG,
+             colorB,
+             roughness,
+             specular,
+             stylization };
 }
 
 
@@ -617,6 +683,560 @@ constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding
                                                              true };
 
 
+constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
+    MakeEditorHousePart( "foundation",
+                         0.0f,
+                         0.38f,
+                         0.0f,
+                         23.5f,
+                         0.38f,
+                         16.0f,
+                         0.08f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_foundation",
+                         0.40f,
+                         0.37f,
+                         0.32f,
+                         0.98f,
+                         0.07f,
+                         0.58f ),
+    MakeEditorHousePart( "upper_floor",
+                         0.0f,
+                         7.52f,
+                         0.0f,
+                         22.8f,
+                         0.40f,
+                         15.2f,
+                         0.07f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                         "editor_house_floor",
+                         0.30f,
+                         0.19f,
+                         0.11f,
+                         0.90f,
+                         0.08f,
+                         0.40f ),
+    MakeEditorHousePart( "roof",
+                         0.0f,
+                         14.75f,
+                         0.0f,
+                         24.6f,
+                         0.43f,
+                         17.0f,
+                         0.06f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_slate_roof",
+                         0.13f,
+                         0.17f,
+                         0.22f,
+                         0.94f,
+                         0.10f,
+                         0.62f ),
+    MakeEditorHousePart( "front_lower_left",
+                         -14.8f,
+                         3.92f,
+                         -15.45f,
+                         7.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.55f,
+                         0.22f,
+                         0.17f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "front_lower_right",
+                         14.8f,
+                         3.92f,
+                         -15.45f,
+                         7.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.55f,
+                         0.22f,
+                         0.17f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "front_door_lintel",
+                         0.0f,
+                         6.37f,
+                         -15.45f,
+                         6.8f,
+                         0.75f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.55f,
+                         0.22f,
+                         0.17f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "front_upper_left",
+                         -15.0f,
+                         11.12f,
+                         -15.45f,
+                         5.6f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "front_upper_center",
+                         0.0f,
+                         11.12f,
+                         -15.45f,
+                         4.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "front_upper_right",
+                         15.0f,
+                         11.12f,
+                         -15.45f,
+                         5.6f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.72f ),
+    MakeEditorHousePart( "back_lower_left",
+                         -14.8f,
+                         3.92f,
+                         15.45f,
+                         7.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.50f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "back_lower_center",
+                         0.0f,
+                         3.92f,
+                         15.45f,
+                         6.8f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.50f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "back_lower_right",
+                         14.8f,
+                         3.92f,
+                         15.45f,
+                         7.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.50f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "back_upper_left",
+                         -15.0f,
+                         11.12f,
+                         15.45f,
+                         5.6f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "back_upper_center",
+                         0.0f,
+                         11.12f,
+                         15.45f,
+                         4.2f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "back_upper_right",
+                         15.0f,
+                         11.12f,
+                         15.45f,
+                         5.6f,
+                         3.20f,
+                         0.55f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.52f,
+                         0.20f,
+                         0.16f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "west_lower_front",
+                         -22.45f,
+                         3.92f,
+                         -10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.49f,
+                         0.18f,
+                         0.14f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "west_lower_back",
+                         -22.45f,
+                         3.92f,
+                         10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.49f,
+                         0.18f,
+                         0.14f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "east_lower_front",
+                         22.45f,
+                         3.92f,
+                         -10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.49f,
+                         0.18f,
+                         0.14f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "east_lower_back",
+                         22.45f,
+                         3.92f,
+                         10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.49f,
+                         0.18f,
+                         0.14f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "west_upper_front",
+                         -22.45f,
+                         11.12f,
+                         -10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.51f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "west_upper_back",
+                         -22.45f,
+                         11.12f,
+                         10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.51f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "east_upper_front",
+                         22.45f,
+                         11.12f,
+                         -10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.51f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "east_upper_back",
+                         22.45f,
+                         11.12f,
+                         10.0f,
+                         0.55f,
+                         3.20f,
+                         5.0f,
+                         0.10f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_brick",
+                         0.51f,
+                         0.19f,
+                         0.15f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+    MakeEditorHousePart( "door",
+                         0.0f,
+                         3.17f,
+                         -16.04f,
+                         2.4f,
+                         2.45f,
+                         0.20f,
+                         0.08f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                         "editor_house_front_door",
+                         0.28f,
+                         0.16f,
+                         0.075f,
+                         0.86f,
+                         0.10f,
+                         0.38f ),
+    MakeEditorHousePart( "front_window_left",
+                         -6.8f,
+                         11.10f,
+                         -16.05f,
+                         1.25f,
+                         1.25f,
+                         0.16f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.40f,
+                         0.68f,
+                         0.92f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "front_window_right",
+                         6.8f,
+                         11.10f,
+                         -16.05f,
+                         1.25f,
+                         1.25f,
+                         0.16f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.40f,
+                         0.68f,
+                         0.92f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "back_window_left",
+                         -6.8f,
+                         11.10f,
+                         16.05f,
+                         1.25f,
+                         1.25f,
+                         0.16f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.38f,
+                         0.64f,
+                         0.86f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "back_window_right",
+                         6.8f,
+                         11.10f,
+                         16.05f,
+                         1.25f,
+                         1.25f,
+                         0.16f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.38f,
+                         0.64f,
+                         0.86f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "west_window",
+                         -23.05f,
+                         3.92f,
+                         0.0f,
+                         0.16f,
+                         1.20f,
+                         1.35f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.36f,
+                         0.62f,
+                         0.84f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "east_window",
+                         23.05f,
+                         3.92f,
+                         0.0f,
+                         0.16f,
+                         1.20f,
+                         1.35f,
+                         0.04f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Glass,
+                         "editor_house_window",
+                         0.36f,
+                         0.62f,
+                         0.84f,
+                         0.08f,
+                         0.88f,
+                         0.18f ),
+    MakeEditorHousePart( "porch",
+                         0.0f,
+                         0.28f,
+                         -20.2f,
+                         7.0f,
+                         0.28f,
+                         3.6f,
+                         0.08f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_porch",
+                         0.44f,
+                         0.40f,
+                         0.34f,
+                         0.97f,
+                         0.07f,
+                         0.58f ),
+    MakeEditorHousePart( "porch_post_left",
+                         -5.2f,
+                         2.98f,
+                         -20.2f,
+                         0.34f,
+                         2.42f,
+                         0.34f,
+                         0.06f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                         "editor_house_porch_post",
+                         0.30f,
+                         0.18f,
+                         0.09f,
+                         0.88f,
+                         0.08f,
+                         0.42f ),
+    MakeEditorHousePart( "porch_post_right",
+                         5.2f,
+                         2.98f,
+                         -20.2f,
+                         0.34f,
+                         2.42f,
+                         0.34f,
+                         0.06f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                         "editor_house_porch_post",
+                         0.30f,
+                         0.18f,
+                         0.09f,
+                         0.88f,
+                         0.08f,
+                         0.42f ),
+    MakeEditorHousePart( "chimney",
+                         13.0f,
+                         16.55f,
+                         7.6f,
+                         0.82f,
+                         1.37f,
+                         0.82f,
+                         0.08f,
+                         SkullbonezCore::Rendering::RenderMaterialKind::Stone,
+                         "editor_house_chimney",
+                         0.42f,
+                         0.18f,
+                         0.14f,
+                         0.96f,
+                         0.07f,
+                         0.70f ),
+};
+constexpr int EDITOR_BRICK_HOUSE_PART_COUNT =
+    static_cast<int>( sizeof( EDITOR_BRICK_HOUSE_PARTS ) / sizeof( EDITOR_BRICK_HOUSE_PARTS[0] ) );
+constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house",
+                                                             EDITOR_BRICK_HOUSE_PARTS,
+                                                             EDITOR_BRICK_HOUSE_PART_COUNT,
+                                                             true };
+
+
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
@@ -648,6 +1268,19 @@ const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
         return &EDITOR_TREE_CEDAR_ROOTED;
     case SkullbonezCore::UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
         return &EDITOR_TREE_PINE_SHEDDING;
+    default:
+        return nullptr;
+    }
+}
+
+
+const EditorHouseDefinition* EditorHouseDefinitionForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    switch ( type )
+    {
+    case SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
+        return &EDITOR_BRICK_HOUSE_SLEEP;
     default:
         return nullptr;
     }
@@ -814,6 +1447,52 @@ bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree,
 }
 
 
+void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part,
+                                       const Vector3& terrainPoint,
+                                       const RotationMatrix& orientation,
+                                       Vector3& outMin,
+                                       Vector3& outMax )
+{
+    const Vector3 base = terrainPoint + orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+    const Vector3 center = base + orientation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
+    const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
+    for ( int x = -1; x <= 1; x += 2 )
+    {
+        for ( int y = -1; y <= 1; y += 2 )
+        {
+            for ( int z = -1; z <= 1; z += 2 )
+            {
+                const Vector3 corner = center + orientation * Vector3( halfExtents.x * static_cast<float>( x ),
+                                                                       halfExtents.y * static_cast<float>( y ),
+                                                                       halfExtents.z * static_cast<float>( z ) );
+                outMin.x = (std::min)( outMin.x, corner.x );
+                outMin.y = (std::min)( outMin.y, corner.y );
+                outMin.z = (std::min)( outMin.z, corner.z );
+                outMax.x = (std::max)( outMax.x, corner.x );
+                outMax.y = (std::max)( outMax.y, corner.y );
+                outMax.z = (std::max)( outMax.z, corner.z );
+            }
+        }
+    }
+}
+
+
+bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house,
+                                       const Vector3& terrainPoint,
+                                       const RotationMatrix& orientation,
+                                       Vector3& outMin,
+                                       Vector3& outMax )
+{
+    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
+    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    for ( int partIndex = 0; partIndex < house.partCount; ++partIndex )
+    {
+        ExpandEditorHousePartWorldBounds( house.parts[partIndex], terrainPoint, orientation, outMin, outMax );
+    }
+    return outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
+}
+
+
 float EditorTreeVerticalSize( int objectType )
 {
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
@@ -827,7 +1506,41 @@ float EditorTreeVerticalSize( int objectType )
 }
 
 
+float EditorHouseVerticalSize( int objectType )
+{
+    const EditorHouseDefinition* house = EditorHouseDefinitionForType( objectType );
+    if ( !house )
+    {
+        return 1.0f;
+    }
+    float minY = FLT_MAX;
+    float maxY = -FLT_MAX;
+    for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
+    {
+        const EditorHousePartDefinition& part = house->parts[partIndex];
+        minY = (std::min)( minY, part.offsetY - part.halfY );
+        maxY = (std::max)( maxY, part.offsetY + part.halfY );
+    }
+    return minY == FLT_MAX ? 1.0f : (std::max)( 1.0f, maxY - minY );
+}
+
+
 SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
+{
+    SkullbonezCore::Rendering::RenderMaterial material =
+        SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR,
+                                                                     part.colorG,
+                                                                     part.colorB,
+                                                                     static_cast<float>( part.materialKind ) );
+    strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
+    material.roughness = part.roughness;
+    material.specular = part.specular;
+    material.stylization = part.stylization;
+    return material;
+}
+
+
+SkullbonezCore::Rendering::RenderMaterial EditorHousePartMaterial( const EditorHousePartDefinition& part )
 {
     SkullbonezCore::Rendering::RenderMaterial material =
         SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR,
@@ -964,6 +1677,10 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         if ( EditorTreeDefinitionForType( type ) )
         {
             return EditorTreeVerticalSize( type );
+        }
+        if ( EditorHouseDefinitionForType( type ) )
+        {
+            return EditorHouseVerticalSize( type );
         }
         ConvexHullShape hull;
         return TryBuildScaledEditorHullForType( type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
@@ -1528,6 +2245,9 @@ void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
 {
     EnterInteractiveSceneRun();
     m_editor.placementModeEnabled = m_editor.editorModeEnabled && !m_editor.placementModeEnabled;
+    m_interaction.SetWorldInteractionOwner(
+        m_editor.placementModeEnabled ? WorldInteractionOwner::EditorPlacement : WorldInteractionOwner::EditorGizmo,
+        InteractionExitReason::EnterEdit );
     m_editor.viewportLookActive = false;
     ClearEditorManipulationState();
     ReleaseMouseToUI();
@@ -1572,6 +2292,8 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         {
             EnterInteractiveSceneRun();
             m_editor.placementModeEnabled = true;
+            m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::EditorPlacement,
+                                                    InteractionExitReason::EnterEdit );
             m_editor.viewportLookActive = false;
             ReleaseMouseToUI();
             ApplyCursorOwnership();
@@ -1584,16 +2306,19 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         EnterInteractiveSceneRun();
         const RuntimeInputActionSource toggleEditorSource =
             keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard : RuntimeInputActionSource::UI;
-        m_editor.editorModeEnabled = !m_editor.editorModeEnabled;
-        if ( m_editor.editorModeEnabled )
+        const bool enteringEditor = !m_editor.editorModeEnabled;
+        if ( enteringEditor )
         {
+            const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
             const bool wasFlyMode = IsFlyCameraMode();
+            m_editor.editorModeEnabled = true;
             m_editor.placementModeEnabled = true;
             m_editor.viewportLookActive = false;
             ClearEditorManipulationState();
             m_editor.restoreCameraModeAfterEditor = NormalizeCameraModeForCurrentScene( m_camera.mode );
             CancelMousePickup();
-            m_camera.mode = RunCameraMode::Free;
+            m_camera.mode = RunCameraMode::Inspect;
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -1606,7 +2331,12 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         }
         else
         {
+            const RunCameraMode restoreMode =
+                NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
+            const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( restoreMode );
+            ApplyRuntimeInteractionTransitionCleanup( transition );
             const bool wasFlyMode = IsFlyCameraMode();
+            m_editor.editorModeEnabled = false;
             m_editor.viewportLookActive = false;
             m_editor.placementPreviewVisible = false;
             m_editor.placementModeEnabled = false;
@@ -1621,7 +2351,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_editor.placementScaleStart = m_editor.placementScale;
             m_editor.placementAltitudeSteps = 0;
             m_editor.placementYawRadians = 0.0f;
-            m_camera.mode = NormalizeCameraModeForCurrentScene( m_editor.restoreCameraModeAfterEditor );
+            m_camera.mode = restoreMode;
             m_editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
             if ( wasFlyMode && !IsFlyCameraMode() )
             {
@@ -1848,8 +2578,14 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
     if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame )
     {
-        const bool editorScaleMode =
-            m_editor.editorModeEnabled && !m_editor.placementModeEnabled && Input::IsKeyDown( VK_CONTROL );
+        const bool inspectGizmoActive = InspectGizmoInteractionActive();
+        const bool transformGizmoActive =
+            ( m_editor.editorModeEnabled || inspectGizmoActive ) && !m_editor.placementModeEnabled;
+        const WorldInteractionOwner transformOwner =
+            inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo;
+        const InteractionExitReason transformReason =
+            inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+        const bool editorScaleMode = transformGizmoActive && Input::IsKeyDown( VK_CONTROL );
         if ( editorScaleMode && m_editor.selectedModelIndex >= 0 &&
              m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() && m_editor.hotGizmoAxis >= 0 )
         {
@@ -1860,6 +2596,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_editor.selectedModelIndex );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = false;
@@ -1876,8 +2613,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
-             m_editor.selectedModelIndex >= 0 && m_editor.hotRotationAxis >= 0 )
+        if ( transformGizmoActive && !editorScaleMode && m_editor.selectedModelIndex >= 0 &&
+             m_editor.hotRotationAxis >= 0 )
         {
             Vector3 rayOrigin;
             Vector3 rayDirection;
@@ -1886,6 +2623,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorRotationRayAngle( m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = true;
                 m_editor.gizmoDragIsScale = false;
@@ -1905,8 +2643,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( !consumedWorldClick && m_editor.editorModeEnabled && !m_editor.placementModeEnabled && !editorScaleMode &&
-             m_editor.selectedModelIndex >= 0 && m_editor.hotGizmoAxis >= 0 )
+        if ( !consumedWorldClick && transformGizmoActive && !editorScaleMode && m_editor.selectedModelIndex >= 0 &&
+             m_editor.hotGizmoAxis >= 0 )
         {
             Vector3 rayOrigin;
             Vector3 rayDirection;
@@ -1915,6 +2653,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
+                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                 m_editor.gizmoDragActive = true;
                 m_editor.gizmoDragIsRotation = false;
                 m_editor.gizmoDragIsScale = false;
@@ -1935,7 +2674,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             }
         }
 
-        if ( !consumedWorldClick && m_editor.editorModeEnabled )
+        if ( !consumedWorldClick && ( m_editor.editorModeEnabled || inspectGizmoActive ) )
         {
             if ( m_editor.placementModeEnabled )
             {
@@ -1961,10 +2700,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
                      TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
                 {
+                    m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
                     m_editor.selectedModelIndex = pickedIndex;
                 }
                 else
                 {
+                    m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::None, transformReason );
                     m_editor.selectedModelIndex = -1;
                 }
             }
@@ -2202,6 +2943,23 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
                           ghostG,
                           ghostB );
             }
+        }
+        return;
+    }
+    if ( const EditorHouseDefinition* house = EditorHouseDefinitionForType( type ) )
+    {
+        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
+        {
+            const EditorHousePartDefinition& part = house->parts[partIndex];
+            const Vector3 partCenter = base + rotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
+            EmitBox( partCenter,
+                     rotation * Vector3( part.halfX, 0.0f, 0.0f ),
+                     rotation * Vector3( 0.0f, part.halfY, 0.0f ),
+                     rotation * Vector3( 0.0f, 0.0f, part.halfZ ),
+                     ghostR,
+                     ghostG,
+                     ghostB );
         }
         return;
     }
@@ -2680,6 +3438,18 @@ bool Run::TryComputeEditorObjectCenter( int objectType,
         Vector3 minV;
         Vector3 maxV;
         if ( !tree || !TryComputeEditorTreeWorldBounds( *tree, terrainPoint, rotation, minV, maxV ) )
+        {
+            return false;
+        }
+        outCenter = ( minV + maxV ) * 0.5f;
+        return true;
+    }
+    case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
+    {
+        const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
+        Vector3 minV;
+        Vector3 maxV;
+        if ( !house || !TryComputeEditorHouseWorldBounds( *house, terrainPoint, rotation, minV, maxV ) )
         {
             return false;
         }
@@ -3316,12 +4086,13 @@ void Run::UpdateEditorInteractionPreview()
         return;
     }
 
-    if ( !m_editor.editorModeEnabled )
+    const bool inspectGizmoActive = InspectGizmoInteractionActive();
+    if ( !m_editor.editorModeEnabled && !inspectGizmoActive )
     {
         return;
     }
 
-    if ( m_editor.placementModeEnabled )
+    if ( m_editor.editorModeEnabled && m_editor.placementModeEnabled )
     {
         m_editor.placementPreviewVisible = TryComputeEditorPlacementPreview( m_editor.objectType );
     }
@@ -3382,8 +4153,8 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                           m_editor.placementOrientation );
     }
 
-    if ( m_editor.editorModeEnabled && !m_editor.placementModeEnabled && m_editor.selectedModelIndex >= 0 &&
-         m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    if ( ( m_editor.editorModeEnabled || InspectGizmoInteractionActive() ) && !m_editor.placementModeEnabled &&
+         m_editor.selectedModelIndex >= 0 && m_editor.selectedModelIndex < m_cGameModelCollection.GetModelCount() )
     {
         const std::vector<GameModel>& models = m_cGameModelCollection.Models();
         Vector3 gizmoOrigin;
@@ -3455,8 +4226,10 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     const int modelCount = m_cGameModelCollection.GetModelCount();
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+    const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
-    const int requiredModelCount = isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( tree ? tree->partCount : 1 );
+    const int requiredModelCount =
+        isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) );
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
@@ -3480,7 +4253,10 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
     const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
     const char* modePrefix =
-        placementFixed ? "static" : ( ( tree && tree->seedAsleep ) || ragdollStartsAsleep ? "sleeping" : "dynamic" );
+        placementFixed
+            ? "static"
+            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) || ragdollStartsAsleep ? "sleeping"
+                                                                                                      : "dynamic" );
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
@@ -3632,6 +4408,31 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         }
     };
 
+    auto addHouse = [&]( const EditorHouseDefinition& houseDefinition )
+    {
+        const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        for ( int partIndex = 0; partIndex < houseDefinition.partCount; ++partIndex )
+        {
+            const EditorHousePartDefinition& part = houseDefinition.parts[partIndex];
+            const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
+            const float mass = CalculateBoxMass( halfExtents );
+            const Vector3 center = base + placementRotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
+            GameModel model( &m_cWorldEnvironment,
+                             center,
+                             CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
+                             mass );
+            model.SetTerrain( m_systems.terrain.get() );
+            model.SetCoefficientRestitution( part.restitution );
+            model.AddBoundingBox( halfExtents );
+            model.SetOrientation( placementOrientation );
+            model.SetRenderMaterial( EditorHousePartMaterial( part ) );
+            char name[64];
+            sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
+            model.SetName( name );
+            addModel( std::move( model ), placementFixed, houseDefinition.seedAsleep && !placementFixed );
+        }
+    };
+
     auto addRagdoll = [&]()
     {
         RagdollBuildOptions options;
@@ -3714,6 +4515,12 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         if ( tree )
         {
             addTree( *tree );
+        }
+        break;
+    case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
+        if ( house )
+        {
+            addHouse( *house );
         }
         break;
     case UI::EditorTab::OBJECT_RAGDOLL:

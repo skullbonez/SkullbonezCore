@@ -53,7 +53,8 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     result.cameraDt = static_cast<float>( input.secondsPerFrame );
 
     const bool shouldStepPhysics =
-        !input.isFlyMode || input.isLauncherMode || input.isManipulatorMode || input.isStepRequested;
+        input.physicsAdvance == PhysicsAdvanceState::Running ||
+        ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld && input.isStepRequested );
     const bool canStepPhysics = shouldStepPhysics && input.models;
     if ( input.isFixedStep )
     {

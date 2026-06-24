@@ -1,9 +1,9 @@
 # Tornado Visualization Plan
 
-Status: planning draft
+Status: implemented on `nightrunner-23rd-june`
 Created: 2026-06-23
 Scope: DX12 tornado visual effect, render pass ordering, UI/runtime controls, scene defaults, validation
-Implementation status: plan only, no code changes in this pass
+Implementation status: render-only tornado visual pass, DX12 transient colored triangle path, shader asset, UI/runtime controls, and plan-local rubber duck review completed on 2026-06-23. Validation: `tools\validate_dx12_renderer.bat` reported `VALIDATE_DX12_RENDERER: ALL PASSED`.
 
 ## Goal
 
@@ -435,4 +435,3 @@ The formal validation scripts remain PR/commit gates. Do not claim validation su
 - DX12 validation reports zero validation errors.
 - Any screenshot baseline changes are intentional and tied to a focused tornado visual scene or existing renderer suite update.
 - Perf remains stable for the default generated demo.
-

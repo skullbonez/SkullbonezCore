@@ -104,6 +104,7 @@ enum class RuntimeInputAction
     TogglePhysicsSleepPolicy,
     TogglePhysicsDebugFlags,
     ToggleTornado,
+    ToggleTornadoVisualShell,
     ToggleTornadoFieldVectors,
     ToggleRayCastVisualization,
     ApplyTornadoSettings,

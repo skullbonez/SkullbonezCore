@@ -20,6 +20,8 @@ Related:
 */
 #pragma once
 
+#include "../Runtime/RuntimeInteractionController.h"
+
 namespace SkullbonezCore
 {
 namespace GameObjects
@@ -38,9 +40,7 @@ struct SimulationTickInput
     bool isSceneMode = false;
     bool isScenePhysicsEnabled = true;
     bool isFixedStep = false;
-    bool isFlyMode = false;
-    bool isLauncherMode = false;
-    bool isManipulatorMode = false;
+    PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     bool isStepRequested = false;
     GameObjects::GameModelCollection* models = nullptr;
     PhysicsStepCallback beforePhysicsStep = nullptr;

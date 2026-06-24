@@ -68,6 +68,7 @@ const char* const kEditorObjectOptions[] = {
     "Pine shedding",
     "Ragdoll",
     "Ragdoll sleep",
+    "Brick house sleep",
 };
 static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) ==
                SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );

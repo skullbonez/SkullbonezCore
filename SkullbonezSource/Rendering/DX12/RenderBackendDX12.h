@@ -372,8 +372,9 @@ class RenderBackendDX12 : public IRenderBackend
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;
-    ID3D12PipelineState* m_gridLinePSO = nullptr;
+    std::unordered_map<DXGI_FORMAT, ID3D12PipelineState*> m_gridLinePSOs;
     int m_gridLineVBCapacity = 0;
+    std::unique_ptr<IShader> m_transientColorShader;
 
     bool m_renderingToFBO = false;
     bool m_backBufferIsRT = false;                                 // True if back buffer is in RENDER_TARGET state
@@ -595,6 +596,7 @@ class RenderBackendDX12 : public IRenderBackend
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
+    void DrawTransientColoredTriangles( const float* data, int vertexCount, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,

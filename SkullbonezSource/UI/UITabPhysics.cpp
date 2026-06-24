@@ -89,6 +89,7 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     SetToggleBounds( state, 9, 4, 1, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 10, 5, 0, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 11, 5, 1, col1, col2, firstToggleY, colW );
+    SetToggleBounds( state, 12, 6, 1, col1, col2, firstToggleY, colW );
     SetPipelineStepButtonBounds( state.pipelinePrevButton,
                                  state.pipelineNextButton,
                                  contentX,
@@ -191,9 +192,13 @@ bool HandleContentClick( UIPhysicsTabState& state,
     }
     else if ( state.toggles[10].HitTest( mouseX, mouseY ) )
     {
-        result.commands.physics.toggleTornadoFieldVectors = true;
+        result.commands.physics.toggleTornadoVisualShell = true;
     }
     else if ( state.toggles[11].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.toggleTornadoFieldVectors = true;
+    }
+    else if ( state.toggles[12].HitTest( mouseX, mouseY ) )
     {
         result.commands.physics.toggleRayCastVisualization = true;
     }
@@ -622,14 +627,23 @@ void Draw( UIPhysicsTabState& state,
                        col1,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
                        colW,
-                       "Field vectors",
-                       data.tornadoFieldVectors );
+                       "Visual shell",
+                       data.tornadoVisualShell );
     DrawContentToggle( draw,
                        contentY,
                        contentH,
                        state.toggles[11],
                        col2,
                        scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f,
+                       colW,
+                       "Field vectors",
+                       data.tornadoFieldVectors );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.toggles[12],
+                       col2,
+                       scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 6.0f,
                        colW,
                        "Ray visual",
                        data.rayCastVisualization );

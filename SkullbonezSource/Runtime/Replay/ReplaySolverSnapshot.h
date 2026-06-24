@@ -91,12 +91,14 @@ struct ReplaySolverStatsSample
 
 struct ReplaySolverWorldSnapshot
 {
-    uint32_t version = 1;
+    uint32_t version = 2;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
     Physics::TornadoFieldConfig tornadoConfig;
+    Physics::TornadoSystemConfig tornadoSystemConfig;
+    float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<float> timeRemaining;
     std::vector<uint8_t> sleepSupportedThisFrame;
     std::vector<uint8_t> sleepInhibitedThisFrame;
