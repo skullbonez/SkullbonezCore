@@ -259,13 +259,17 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
         }
 
-        if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
-        {
-            gameModel.SetImpulseForce( Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                       Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
-        }
-
+        const bool hasInitialImpulse =
+            !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
+        const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( gameModel ) );
+        if ( hasInitialImpulse )
+        {
+            context.physics.SetPendingBodyImpulse( context.models,
+                                                   modelIndex,
+                                                   Vector3( ball.forceX, ball.forceY, ball.forceZ ),
+                                                   Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
+        }
     }
 
     // ball_state entries: full dynamic state from a snapshot

@@ -661,6 +661,7 @@ SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
                                        m_cWorldEnvironment,
                                        m_systems.terrain.get(),
                                        m_cGameModelCollection,
+                                       m_cGameModelCollection.GetPhysicsEngine(),
                                        m_generatedObjectTypeOverride };
 }
 

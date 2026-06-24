@@ -61,6 +61,10 @@ audits when it is still useful.
   restore, solver snapshot capture/restore, prediction stepping, velocity-edit
   wakeups, and prediction diagnostics suppression through `PhysicsEngine`; a
   dedicated `ReplayRuntime` remains the Phase 5 owner boundary.
+- Runtime run decomposition Phase 4C scene initial impulse migration added
+  `PhysicsEngine::SetPendingBodyImpulse()` and routes authored/generated scene
+  initial force setup through the physics facade while preserving model creation
+  order and collection-backed body storage.
 
 ## Current Work Items
 

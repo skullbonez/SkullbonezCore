@@ -19,6 +19,7 @@ Related:
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -133,9 +134,10 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetCoefficientRestitution( restitution );
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-            gameModel.SetImpulseForce( force, forcePos );
 
+            const int modelIndex = context.models.GetModelCount();
             context.models.AddGameModel( std::move( gameModel ) );
+            context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
         }
         else
         {
@@ -150,9 +152,10 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetCoefficientRestitution( restitution );
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingSphere( radius );
-            gameModel.SetImpulseForce( force, forcePos );
 
+            const int modelIndex = context.models.GetModelCount();
             context.models.AddGameModel( std::move( gameModel ) );
+            context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
         }
     }
 }
@@ -214,8 +217,9 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingSphere( radius );
-        gameModel.SetImpulseForce( force, forcePos );
+        const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( gameModel ) );
+        context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
     }
 
     // --- Box pass ---
@@ -250,8 +254,9 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        gameModel.SetImpulseForce( force, forcePos );
+        const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( gameModel ) );
+        context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
     }
 
     context.scene.modelCount = balls + boxes;

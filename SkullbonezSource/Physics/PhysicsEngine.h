@@ -50,6 +50,10 @@ class PhysicsEngine
                            int bodyIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
+    void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection,
+                                int bodyIndex,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
