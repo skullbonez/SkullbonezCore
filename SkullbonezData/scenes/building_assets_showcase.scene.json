@@ -1,0 +1,104 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "assetLibraries": [
+    "buildings"
+  ],
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "modelCapacity": 640,
+    "world": {
+      "gravity": -0.35,
+      "fluidHeight": -100.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "cameras": [
+    {
+      "name": "overview",
+      "position": [
+        0.0,
+        38.0,
+        -105.0
+      ],
+      "view": [
+        0.0,
+        10.0,
+        0.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "building.brick_house_low",
+      "name": "bhl",
+      "position": [
+        -52.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "building.brick_house_high",
+      "name": "bhh",
+      "position": [
+        -18.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "building.cute_house_low",
+      "name": "chl",
+      "position": [
+        20.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "building.cute_house_high",
+      "name": "chh",
+      "position": [
+        52.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "asset": "building.triple_decker_low",
+      "name": "tdl",
+      "position": [
+        -26.0,
+        0.0,
+        36.0
+      ]
+    },
+    {
+      "asset": "building.triple_decker_high",
+      "name": "tdh",
+      "position": [
+        28.0,
+        0.0,
+        36.0
+      ]
+    }
+  ]
+}

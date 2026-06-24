@@ -711,6 +711,10 @@ class TestSceneParser
         {
             ReadBool( *fixed, path, "asset.fixed" );
         }
+        if ( const Json* sleeping = FindMember( asset, "sleeping" ) )
+        {
+            ReadBool( *sleeping, path, "asset.sleeping" );
+        }
         if ( const Json* offset = FindMember( asset, "offset" ) )
         {
             float x = 0.0f, y = 0.0f, z = 0.0f;
@@ -859,6 +863,8 @@ class TestSceneParser
                                    bool hasInstanceEuler,
                                    bool hasFixedOverride,
                                    bool fixedOverride,
+                                   bool hasSleepingOverride,
+                                   bool sleepingOverride,
                                    bool hasInstanceVelocity,
                                    float instanceVelX,
                                    float instanceVelY,
@@ -906,6 +912,16 @@ class TestSceneParser
             fixed = fixedOverride;
         }
 
+        bool sleeping = false;
+        if ( const Json* sleepingValue = FindMember( asset, "sleeping" ) )
+        {
+            sleeping = ReadBool( *sleepingValue, path, "asset.sleeping" );
+        }
+        if ( hasSleepingOverride )
+        {
+            sleeping = sleepingOverride;
+        }
+
         Json object = Json::object();
         object["name"] = objectName;
         object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
@@ -917,6 +933,7 @@ class TestSceneParser
         object["restitution"] =
             ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
         object["fixed"] = fixed;
+        object["sleeping"] = sleeping;
         if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
         {
             object["contactReleaseOnImpact"] = ReadBool( *release, path, "asset.contactReleaseOnImpact" );
@@ -970,6 +987,14 @@ class TestSceneParser
             fixedOverride = ReadBool( *fixed, path, "assetInstance.fixed" );
         }
 
+        bool hasSleepingOverride = false;
+        bool sleepingOverride = false;
+        if ( const Json* sleeping = FindMember( instance, "sleeping" ) )
+        {
+            hasSleepingOverride = true;
+            sleepingOverride = ReadBool( *sleeping, path, "assetInstance.sleeping" );
+        }
+
         bool hasInstanceEuler = false;
         float instanceEulerX = 0.0f, instanceEulerY = 0.0f, instanceEulerZ = 0.0f;
         if ( const Json* euler = FindMember( instance, "euler" ) )
@@ -1001,6 +1026,8 @@ class TestSceneParser
                                       hasInstanceEuler,
                                       hasFixedOverride,
                                       fixedOverride,
+                                      hasSleepingOverride,
+                                      sleepingOverride,
                                       hasInstanceVelocity,
                                       instanceVelX,
                                       instanceVelY,
@@ -1028,6 +1055,8 @@ class TestSceneParser
                                           hasInstanceEuler,
                                           hasFixedOverride,
                                           fixedOverride,
+                                          hasSleepingOverride,
+                                          sleepingOverride,
                                           hasInstanceVelocity,
                                           instanceVelX,
                                           instanceVelY,
@@ -2030,6 +2059,10 @@ class TestSceneParser
         if ( const Json* fixed = FindMember( object, "fixed" ) )
         {
             hull.isFixed = ReadBool( *fixed, path, "convexHull.fixed" );
+        }
+        if ( const Json* sleeping = FindMember( object, "sleeping" ) )
+        {
+            hull.isSleeping = ReadBool( *sleeping, path, "convexHull.sleeping" );
         }
         if ( const Json* release = FindMember( object, "contactReleaseOnImpact" ) )
         {

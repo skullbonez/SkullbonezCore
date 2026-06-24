@@ -965,7 +965,13 @@ void Run::SetUpGameModelsFromScene( const TestScene& scene )
         }
 
         gameModel.SetFixed( hullScene.isFixed );
+
+        const int modelIndex = m_cGameModelCollection.GetModelCount();
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( hullScene.isSleeping && !hullScene.isFixed )
+        {
+            m_cGameModelCollection.SeedModelAsleep( modelIndex );
+        }
     }
 
     // convex_hull_state entries: full dynamic state from an editable scene

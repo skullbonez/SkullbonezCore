@@ -167,6 +167,7 @@ struct SceneConvexHull
     bool hasInitOrient;
     bool hasInitVelocity;
     bool isFixed;
+    bool isSleeping;
     bool contactReleaseOnImpact;
 };
 
