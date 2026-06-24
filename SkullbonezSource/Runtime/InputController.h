@@ -130,6 +130,7 @@ enum class RuntimeInputAction
     SelectCinematicScene,
     ToggleCinematicFeature,
     ApplyCinematicParam,
+    SaveSkyDefaults,
     Count
 };
 

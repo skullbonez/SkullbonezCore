@@ -1499,6 +1499,7 @@ class Run
     bool SaveCurrentSceneDefaults();                                             // UI-controlled scene defaults persisted to the active scene file.
     bool SaveCurrentEditableSceneSnapshot();                                     // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                                   // Ordinary Render-tab values persisted to engine.cfg.
+    bool SaveSkyDefaults();                                                      // Sky-tab cinematic values persisted to engine.cfg.
     void RefreshSceneBrowserList();                                              // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                        // Selected discovered-scene dropdown index.
     bool CreateSceneFromUI( const char* requestedName );                         // Creates and loads a flat starter scene from the Scene tab.

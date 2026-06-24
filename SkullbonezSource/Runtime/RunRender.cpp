@@ -37,6 +37,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RuntimeTuning.h"
 #include "../Rendering/RenderPipeline.h"
 
 using namespace SkullbonezCore::Basics;
@@ -418,9 +419,10 @@ Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, cons
     // visibility block the same light contribution.
     if ( frame.cinematicEnabled )
     {
-        frame.lightPosition[0] = -0.68f;
-        frame.lightPosition[1] = 0.22f;
-        frame.lightPosition[2] = -0.70f;
+        const Vector3 sunDirection = CinematicSkySunDirection( renderConfig );
+        frame.lightPosition[0] = sunDirection.x;
+        frame.lightPosition[1] = sunDirection.y;
+        frame.lightPosition[2] = sunDirection.z;
         frame.lightPosition[3] = 0.0f;
     }
 

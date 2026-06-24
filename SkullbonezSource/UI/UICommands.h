@@ -269,6 +269,7 @@ struct UICinematicCommands
     // requestedModeSceneIndex uses sceneOptions indexing for concept/cine style
     // scenes; -1 = Demo Scene/default style, -2 = no request this frame.
     bool toggleRendering = false;
+    bool saveSkyDefaults = false;
     int requestedModeSceneIndex = -2;
     UICinematicFeature requestedFeature = UICinematicFeature::None;
     UICinematicParam requestedParam = UICinematicParam::None;

@@ -4331,7 +4331,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( m_activeTab == InGameUITab::Sky )
     {
-        SkyTab::Draw( m_skyTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
+        SkyTab::Draw( m_skyTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_mouseX, m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Cinematic )
     {

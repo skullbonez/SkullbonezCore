@@ -44,7 +44,8 @@ enum class RuntimeCommandType
     SaveSceneDefaults,
     SaveRenderDefaults,
     AdvanceScene,
-    Quit
+    Quit,
+    SaveSkyDefaults
 };
 
 struct RuntimeCommand

@@ -600,6 +600,7 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         case RuntimeCommandType::SaveScreenshot:
         case RuntimeCommandType::SaveSceneDefaults:
         case RuntimeCommandType::SaveRenderDefaults:
+        case RuntimeCommandType::SaveSkyDefaults:
         case RuntimeCommandType::Quit:
         case RuntimeCommandType::None:
             WriteReplayProbeReason( outReason, reasonSize, "ignored non-solver runtime command" );

@@ -29,6 +29,8 @@ namespace
 {
 
 constexpr int UI_SKY_SLIDER_BASE = 7000;
+constexpr float UI_SKY_SAVE_BUTTON_W = 92.0f;
+constexpr float UI_SKY_SAVE_BUTTON_H = 24.0f;
 constexpr float UI_SKY_FEATURE_START_Y = 58.0f;
 constexpr float UI_SKY_START_Y = 146.0f;
 constexpr float UI_SKY_SECTION_H = 28.0f;
@@ -139,6 +141,12 @@ float SkyFeatureY( int index, float baseY )
 float SkyFeatureX( int index, float contentX, float colW )
 {
     return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
+}
+
+SkullbonezCore::UI::UIRect SkySaveButtonBounds( float contentX, float scrolledY, float contentW )
+{
+    const float saveX = (std::max)( contentX, contentX + contentW - UI_SKY_SAVE_BUTTON_W );
+    return { saveX, scrolledY + 12.0f, UI_SKY_SAVE_BUTTON_W, UI_SKY_SAVE_BUTTON_H };
 }
 
 bool SkyFeatureEnabled( const CinematicRenderConfig& cinematic, SkullbonezCore::UI::UICinematicFeature feature )
@@ -260,6 +268,14 @@ bool HandleContentClick( UISkyTabState& state,
                          float scrolledY,
                          float contentW )
 {
+    const UIRect saveBounds = SkySaveButtonBounds( contentX, scrolledY, contentW );
+    state.saveButton.SetBounds( saveBounds.x, saveBounds.y, saveBounds.w, saveBounds.h );
+    if ( state.saveButton.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.cinematic.saveSkyDefaults = true;
+        return false;
+    }
+
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     const float featureBaseY = scrolledY + UI_SKY_FEATURE_START_Y + 26.0f;
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
@@ -306,8 +322,13 @@ bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InG
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB )
+void DrawHitboxes( const UISkyTabState& state,
+                   const UIDrawContext& draw,
+                   float contentR,
+                   float contentG,
+                   float contentB )
 {
+    DrawHitboxRect( draw, state.saveButton.Bounds(), contentR, contentG, contentB );
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
     {
         DrawHitboxRect( draw, state.featureToggles[i].Bounds(), contentR, contentG, contentB );
@@ -325,12 +346,20 @@ void Draw( UISkyTabState& state,
            float contentY,
            float contentW,
            float contentH,
-           float scrolledY )
+           float scrolledY,
+           int mouseX,
+           int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
+    const UIRect saveBounds = SkySaveButtonBounds( contentX, scrolledY, contentW );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Sky" );
+    state.saveButton.SetBounds( saveBounds.x, saveBounds.y, saveBounds.w, saveBounds.h );
+    if ( IsRowVisible( contentY, contentH, saveBounds.y, saveBounds.h ) )
+    {
+        state.saveButton.Draw( draw, "Save Sky", mouseX, mouseY );
+    }
     if ( IsRowVisible( contentY, contentH, scrolledY + UI_SKY_FEATURE_START_Y, 18.0f ) )
     {
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_SKY_FEATURE_START_Y, 12.0f, "Passes" );

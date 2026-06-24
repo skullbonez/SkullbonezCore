@@ -95,6 +95,8 @@ const char* ReplayRuntimeCommandName( RuntimeCommandType type )
         return "SaveSceneDefaults";
     case RuntimeCommandType::SaveRenderDefaults:
         return "SaveRenderDefaults";
+    case RuntimeCommandType::SaveSkyDefaults:
+        return "SaveSkyDefaults";
     case RuntimeCommandType::AdvanceScene:
         return "AdvanceScene";
     case RuntimeCommandType::Quit:
@@ -1424,6 +1426,11 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicRendering,
                                                RuntimeInputActionSource::UI );
         }
+        if ( uiCommands.cinematic.saveSkyDefaults )
+        {
+            m_runtimeCommands.Push( RuntimeCommand{ RuntimeCommandType::SaveSkyDefaults } );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SaveSkyDefaults, RuntimeInputActionSource::UI );
+        }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
             ApplyCinematicModeFromBrowserIndex( uiCommands.cinematic.requestedModeSceneIndex );
@@ -1677,6 +1684,9 @@ bool Run::DrainRuntimeCommands()
             break;
         case RuntimeCommandType::SaveRenderDefaults:
             SaveRenderDefaults();
+            break;
+        case RuntimeCommandType::SaveSkyDefaults:
+            SaveSkyDefaults();
             break;
         case RuntimeCommandType::AdvanceScene:
             if ( !AdvanceScene() )

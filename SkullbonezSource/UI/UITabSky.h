@@ -14,6 +14,7 @@ Related:
 */
 #pragma once
 
+#include "UIButton.h"
 #include "UICheckBox.h"
 #include "UICommands.h"
 #include "UIDraw.h"
@@ -36,6 +37,7 @@ constexpr int UI_SKY_FEATURE_COUNT = 4;
 
 struct UISkyTabState
 {
+    UIButton saveButton;
     UICheckBox featureToggles[UI_SKY_FEATURE_COUNT];
     UISlider sliders[UI_SKY_SLIDER_COUNT];
 };
@@ -52,7 +54,11 @@ bool HandleContentClick( UISkyTabState& state,
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
-void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB );
+void DrawHitboxes( const UISkyTabState& state,
+                   const UIDrawContext& draw,
+                   float contentR,
+                   float contentG,
+                   float contentB );
 void Draw( UISkyTabState& state,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
@@ -60,7 +66,9 @@ void Draw( UISkyTabState& state,
            float contentY,
            float contentW,
            float contentH,
-           float scrolledY );
+           float scrolledY,
+           int mouseX,
+           int mouseY );
 
 } // namespace SkyTab
 } // namespace UI

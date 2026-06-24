@@ -441,6 +441,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleRenderShadows";
     case RuntimeInputAction::SaveRenderDefaults:
         return "SaveRenderDefaults";
+    case RuntimeInputAction::SaveSkyDefaults:
+        return "SaveSkyDefaults";
     case RuntimeInputAction::ApplyRenderTuning:
         return "ApplyRenderTuning";
     case RuntimeInputAction::ToggleCinematicRendering:

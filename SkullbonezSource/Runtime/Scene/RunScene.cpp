@@ -552,6 +552,44 @@ size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
     return lines.size();
 }
 
+size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
+{
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
+        {
+            size_t sectionBody = i + 1;
+            while ( sectionBody < lines.size() &&
+                    ( lines[sectionBody].empty() ||
+                      lines[sectionBody].find(
+                          "# ---------------------------------------------------------------------------" ) !=
+                          std::string::npos ) )
+            {
+                ++sectionBody;
+            }
+
+            for ( size_t j = sectionBody; j < lines.size(); ++j )
+            {
+                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
+                     std::string::npos )
+                {
+                    return j;
+                }
+            }
+            return lines.size();
+        }
+    }
+
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Physics" ) != std::string::npos )
+        {
+            return i > 1 ? i - 1 : i;
+        }
+    }
+    return lines.size();
+}
+
 void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
 {
     if ( missing.empty() )
@@ -574,6 +612,31 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
     insertLines.push_back( "" );
 
     const size_t insertIndex = OrdinaryConfigInsertIndex( lines );
+    lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
+}
+
+void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
+{
+    if ( missing.empty() )
+    {
+        return;
+    }
+
+    std::vector<std::string> insertLines;
+    const bool hasCinematicSection = std::any_of( lines.begin(),
+                                                  lines.end(),
+                                                  []( const std::string& line )
+                                                  { return line.find( "Cinematic rendering" ) != std::string::npos; } );
+    if ( !hasCinematicSection )
+    {
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+        insertLines.push_back( "# Cinematic rendering" );
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+    }
+    insertLines.insert( insertLines.end(), missing.begin(), missing.end() );
+    insertLines.push_back( "" );
+
+    const size_t insertIndex = CinematicConfigInsertIndex( lines );
     lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
 }
 } // namespace
@@ -2289,6 +2352,101 @@ bool Run::SaveRenderDefaults()
     setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
 
     AppendMissingOrdinaryConfigLines( lines, missing );
+
+    std::ofstream output( configPath, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
+    for ( const std::string& outLine : lines )
+    {
+        output << outLine << '\n';
+    }
+    return output.good();
+}
+
+bool Run::SaveSkyDefaults()
+{
+    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    std::ifstream input( configPath );
+    if ( !input )
+    {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        if ( !line.empty() && line.back() == '\r' )
+        {
+            line.pop_back();
+        }
+        lines.push_back( line );
+    }
+
+    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    std::vector<std::string> missing;
+    char buf[128] = {};
+
+    const auto setText = [&]( const char* key, const char* value )
+    {
+        const std::string lineText = std::string( key ) + " = " + value;
+        if ( !ReplaceConfigLine( lines, key, value ) )
+        {
+            missing.push_back( lineText );
+        }
+    };
+    const auto setBool = [&]( const char* key, bool value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
+        setText( key, buf );
+    };
+    const auto setInt = [&]( const char* key, int value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value );
+        setText( key, buf );
+    };
+    const auto setFloat = [&]( const char* key, float value, const char* format )
+    {
+        snprintf( buf, sizeof( buf ), format, value );
+        setText( key, buf );
+    };
+
+    setBool( "cinematic_sky_atmosphere", cinematic.skyAtmosphereEnabled );
+    setBool( "cinematic_clouds", cinematic.cloudsEnabled );
+    setBool( "cinematic_god_rays", cinematic.godRaysEnabled );
+    setBool( "cinematic_volumetric_lighting", cinematic.volumetricLightingEnabled );
+    setFloat( "cinematic_exposure", cinematic.exposure, "%.2f" );
+    setFloat( "cinematic_gamma", cinematic.gamma, "%.2f" );
+    setFloat( "cinematic_sun_screen_x", cinematic.sunScreenX, "%.3f" );
+    setFloat( "cinematic_sun_screen_y", cinematic.sunScreenY, "%.3f" );
+    setFloat( "cinematic_sun_color_r", cinematic.sunColorR, "%.2f" );
+    setFloat( "cinematic_sun_color_g", cinematic.sunColorG, "%.2f" );
+    setFloat( "cinematic_sun_color_b", cinematic.sunColorB, "%.2f" );
+    setFloat( "cinematic_sun_intensity", cinematic.sunIntensity, "%.2f" );
+    setFloat( "cinematic_sky_horizon_r", cinematic.skyHorizonR, "%.2f" );
+    setFloat( "cinematic_sky_horizon_g", cinematic.skyHorizonG, "%.2f" );
+    setFloat( "cinematic_sky_horizon_b", cinematic.skyHorizonB, "%.2f" );
+    setFloat( "cinematic_sky_zenith_r", cinematic.skyZenithR, "%.2f" );
+    setFloat( "cinematic_sky_zenith_g", cinematic.skyZenithG, "%.2f" );
+    setFloat( "cinematic_sky_zenith_b", cinematic.skyZenithB, "%.2f" );
+    setFloat( "cinematic_sky_glow_strength", cinematic.skyGlowStrength, "%.2f" );
+    setFloat( "cinematic_cloud_coverage", cinematic.cloudCoverage, "%.2f" );
+    setFloat( "cinematic_cloud_softness", cinematic.cloudSoftness, "%.2f" );
+    setFloat( "cinematic_cloud_scale", cinematic.cloudScale, "%.2f" );
+    setFloat( "cinematic_cloud_intensity", cinematic.cloudIntensity, "%.2f" );
+    setFloat( "cinematic_sun_shaft_strength", cinematic.sunShaftStrength, "%.2f" );
+    setFloat( "cinematic_sun_shaft_falloff", cinematic.sunShaftFalloff, "%.2f" );
+    setFloat( "cinematic_volumetric_strength", cinematic.volumetricStrength, "%.2f" );
+    setFloat( "cinematic_volumetric_density", cinematic.volumetricDensity, "%.2f" );
+    setFloat( "cinematic_volumetric_decay", cinematic.volumetricDecay, "%.3f" );
+    setInt( "cinematic_sky_mode", cinematic.skyMode );
+    setFloat( "cinematic_style_saturation", cinematic.styleSaturation, "%.2f" );
+    setFloat( "cinematic_style_contrast", cinematic.styleContrast, "%.2f" );
+    setFloat( "cinematic_style_vignette", cinematic.styleVignette, "%.2f" );
+
+    AppendMissingCinematicConfigLines( lines, missing );
 
     std::ofstream output( configPath, std::ios::trunc );
     if ( !output )

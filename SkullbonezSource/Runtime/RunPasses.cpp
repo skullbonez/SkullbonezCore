@@ -40,6 +40,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RuntimeTuning.h"
 #include "../Core/PlatformProfiler.h"
 
 using namespace SkullbonezCore::Basics;
@@ -179,18 +180,6 @@ Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 }
 
 
-Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
-{
-    constexpr float twoPi = 6.28318530718f;
-    const float azimuth = Clamp01( cinematic.sunScreenX ) * twoPi;
-    const float elevation = -0.08f + Clamp01( cinematic.sunScreenY ) * 1.13f;
-    const float cosElevation = cosf( elevation );
-    Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
-    direction.Normalise();
-    return direction;
-}
-
-
 struct ScreenSunPosition
 {
     float x = -10.0f;
@@ -198,9 +187,8 @@ struct ScreenSunPosition
 };
 
 
-ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye,
-                                               const Matrix4& viewProjection,
-                                               const CinematicRenderConfig& cinematic )
+ScreenSunPosition
+ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4& viewProjection, const CinematicRenderConfig& cinematic )
 {
     const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
     const Matrix4& vp = viewProjection;
