@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay capture/event slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders, live branch provenance, recording configuration, timeline reset, per-step capture, event stamping, and replay save/export delegation while `Run` keeps compatibility accessors for scrub/restore/render/path slices. |
+| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay render-state slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders, live branch provenance, recording configuration, timeline reset, per-step capture, event stamping, replay save/export delegation, and render pose override/restore state while `Run` keeps compatibility accessors for remaining scrub/restore/path/UI slices. |
 | Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
-| Pending work | Runtime run decomposition is active. Phase 5 still needs render-pose mutation consolidation, replay-owned selection/prediction/velocity state extraction, and render-facing replay data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Pending work | Runtime run decomposition is active. Phase 5 still needs replay-owned selection/prediction/velocity state extraction and render-facing replay focus/ghost data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
@@ -115,6 +115,20 @@ audits when it is still useful.
   format 6.61s, and full gate 247.38s
   (`TestOutput\validation\phase5_replay_runtime_capture_validate_full.log`).
   Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
+- Runtime run decomposition Phase 5 render-state slice moves presentation,
+  solver, and prediction render pose override/restore logic into
+  `ReplayRuntime`, including the hidden-unmatched-body behavior and render pose
+  backups. `Run::Render()` now has one replay render-state apply call and one
+  restore call around `RuntimeRenderer::RenderFrame()`. The replay prediction
+  body/frame structs also live in the replay subsystem header so
+  `ReplayRuntime` can consume prediction poses directly.
+- Phase 5 render-state validation: Profile build 37.68s
+  (`TestOutput\validation\phase5_replay_render_state_profile_build.log`),
+  format 6.65s, and full gate 56.92s
+  (`TestOutput\validation\phase5_replay_render_state_validate_full.log`). Full
+  gate passed project filters, Profile/Debug builds with 0 warnings/errors,
   DX12 validation errors 0 with screenshots matching baselines, and byte-exact
   `physics_regression_solver.csv`.
 

@@ -6,6 +6,8 @@ Purpose:
 #include "ReplayRuntime.h"
 #include "ReplayExporter.h"
 #include "ReplayV2Artifact.h"
+#include "../../GameObjects/GameModel.h"
+#include "../../GameObjects/GameModelCollection.h"
 
 #include <algorithm>
 
@@ -160,6 +162,206 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     input.eventCursor = m_events.GetStats().nextSequence;
     m_presentation.CaptureFrame( input );
     m_solver.CaptureFrame( input );
+}
+
+bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+                                                      const ReplayPresentationSample& sample )
+{
+    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    m_renderPoseBackups.clear();
+    m_renderPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
+
+    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
+    }
+
+    if ( !m_renderPoseBackups.empty() )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+    return !m_renderPoseBackups.empty();
+}
+
+bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+                                                const ReplaySolverFrameSample& sample )
+{
+    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    m_renderPoseBackups.clear();
+    m_renderPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
+
+    for ( const ReplaySolverBodySample& body : sample.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+
+        Math::Orientation::Quaternion orientation( body.orientation[0],
+                                                   body.orientation[1],
+                                                   body.orientation[2],
+                                                   body.orientation[3] );
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
+    }
+
+    if ( !m_renderPoseBackups.empty() )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+    return !m_renderPoseBackups.empty();
+}
+
+bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+                                                   const RunReplayPredictionFrame& frame )
+{
+    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    m_renderPoseBackups.clear();
+    m_renderPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
+
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+
+        Math::Orientation::Quaternion orientation = body.orientation;
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RenderPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_renderPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
+    }
+
+    if ( !m_renderPoseBackups.empty() )
+    {
+        collection.InvalidatePhysicsStreams();
+    }
+    return !m_renderPoseBackups.empty();
+}
+
+void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collection )
+{
+    if ( m_renderPoseBackups.empty() )
+    {
+        return;
+    }
+
+    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    for ( const RenderPoseBackup& backup : m_renderPoseBackups )
+    {
+        if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
+        model.SetPosition( backup.position );
+        model.SetOrientation( backup.orientation );
+    }
+    m_renderPoseBackups.clear();
+    collection.InvalidatePhysicsStreams();
 }
 
 void ReplayRuntime::RecordEvent( ReplayEventKind kind,

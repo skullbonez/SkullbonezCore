@@ -527,35 +527,6 @@ struct RunReplayPathVisualizerState
     std::vector<RunReplayPathTarget> targets;
 };
 
-struct RunReplayPredictionBodyBackup
-{
-    ReplayBodyId id;
-    int modelIndex = -1;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-    float fixedContactHighlightSeconds = 0.0f;
-    bool fixed = false;
-};
-
-struct RunReplayPredictionBodySample
-{
-    ReplayBodyId id;
-    int modelIndex = -1;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-};
-
-struct RunReplayPredictionFrame
-{
-    ReplayFrameIndex frameIndex = 0;
-    double simulationSeconds = 0.0;
-    float tornadoSystemElapsedSeconds = 0.0f;
-    std::vector<RunReplayPredictionBodySample> bodies;
-    std::vector<Physics::PhysicsDebugContact> debugContacts;
-};
-
 struct RunReplayPredictionState
 {
     bool enabled = false;
@@ -602,13 +573,6 @@ struct RunReplayVelocityEditState
     float dragStartAngle = 0.0f;
     Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
-};
-
-struct RunReplayPoseBackup
-{
-    int modelIndex = -1;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 struct RunLoadedReplayPresentationState
@@ -865,7 +829,6 @@ class Run
     RunReplayCauseTreeState m_replayCauseTree;                                   // Right-side object hierarchy for the active replay cause/effect chain.
     RunReplayVelocityEditState m_replayVelocityEdit;                             // Alt-enabled live velocity handles feeding the prediction cache.
     std::vector<uint8_t> m_replayFocusModelMask;                                 // Render-only body mask for selected replay prediction chains.
-    std::vector<RunReplayPoseBackup> m_replayPoseBackups;
     ReplayLauncherVisualSample m_replayLauncherVisualBackup;
     bool m_replayLauncherVisualBackupActive = false;
     uint32_t m_solverReplayMismatchReports = 0;
@@ -1181,10 +1144,8 @@ class Run
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const;
     void RenderReplayScrubberOverlay();
-    bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
-    bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
-    bool ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame );
-    void RestoreReplayPresentationRenderPose();
+    void ApplyReplayRenderStateForFrame();
+    void RestoreReplayRenderStateForFrame();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
     void RestoreReplayLauncherVisualForRender();
     bool ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );

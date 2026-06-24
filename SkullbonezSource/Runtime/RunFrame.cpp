@@ -906,7 +906,7 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe live model did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
@@ -915,11 +915,11 @@ void Run::TickReplayScrubProbe()
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe did not move the live model to the selected replay sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
@@ -1153,7 +1153,7 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe live model did not match the loaded v2 live sample" );
     }
 
-    const bool applied = ApplyReplayPresentationSampleForRender( selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
@@ -1162,11 +1162,11 @@ void Run::TickReplaySaveProbe()
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe did not move the live model to the loaded v2 sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
@@ -1258,7 +1258,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     SkullbonezCore::GameObjects::GameModel& probedModel =
         physicsModels[static_cast<std::size_t>( selectedBody->modelIndex )];
     const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
-    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
@@ -1268,11 +1268,11 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe did not move the model to the selected loaded v2 sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )

@@ -11,10 +11,47 @@ Mental model:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "../../Maths/Quaternion.h"
 
-namespace SkullbonezCore::Basics
+namespace SkullbonezCore
+{
+namespace GameObjects
+{
+class GameModelCollection;
+} // namespace GameObjects
+
+namespace Basics
 {
 struct ReplayV2SaveResult;
+
+struct RunReplayPredictionBodyBackup
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float fixedContactHighlightSeconds = 0.0f;
+    bool fixed = false;
+};
+
+struct RunReplayPredictionBodySample
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+};
+
+struct RunReplayPredictionFrame
+{
+    ReplayFrameIndex frameIndex = 0;
+    double simulationSeconds = 0.0;
+    float tornadoSystemElapsedSeconds = 0.0f;
+    std::vector<RunReplayPredictionBodySample> bodies;
+    std::vector<Physics::PhysicsDebugContact> debugContacts;
+};
 
 class ReplayRuntime
 {
@@ -51,6 +88,12 @@ class ReplayRuntime
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
     void CaptureFrame( ReplayCaptureInput input );
+    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& models,
+                                           const ReplayPresentationSample& sample );
+    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& models, const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
+                                        const RunReplayPredictionFrame& frame );
+    void RestoreRenderPose( GameObjects::GameModelCollection& models );
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
                       uint32_t flags,
@@ -64,9 +107,18 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
+    struct RenderPoseBackup
+    {
+        int modelIndex = -1;
+        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    };
+
     ReplayRecorder m_presentation; // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver; // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
     ReplayBranchInfo m_branch;     // Current live replay branch provenance.
+    std::vector<RenderPoseBackup> m_renderPoseBackups;
 };
-} // namespace SkullbonezCore::Basics
+} // namespace Basics
+} // namespace SkullbonezCore

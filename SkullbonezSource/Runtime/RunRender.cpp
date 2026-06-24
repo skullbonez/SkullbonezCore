@@ -77,204 +77,28 @@ bool Run::IsCinematicRenderingEnabled() const
 }
 
 
-bool Run::ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample )
+void Run::ApplyReplayRenderStateForFrame()
 {
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
+        m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
     }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
+    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
     {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
+        m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
     }
-
-    if ( !m_replayPoseBackups.empty() )
+    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
     {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
+        m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
+        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
     }
-    return !m_replayPoseBackups.empty();
 }
 
 
-bool Run::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample )
+void Run::RestoreReplayRenderStateForFrame()
 {
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
-    }
-
-    if ( !m_replayPoseBackups.empty() )
-    {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-    }
-    return !m_replayPoseBackups.empty();
-}
-
-
-bool Run::ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame )
-{
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation = body.orientation;
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
-    }
-
-    if ( !m_replayPoseBackups.empty() )
-    {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-    }
-    return !m_replayPoseBackups.empty();
-}
-
-
-void Run::RestoreReplayPresentationRenderPose()
-{
-    if ( m_replayPoseBackups.empty() )
-    {
-        return;
-    }
-
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    for ( const RunReplayPoseBackup& backup : m_replayPoseBackups )
-    {
-        if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
-        model.SetPosition( backup.position );
-        model.SetOrientation( backup.orientation );
-    }
-    m_replayPoseBackups.clear();
-    m_cGameModelCollection.InvalidatePhysicsStreams();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    RestoreReplayLauncherVisualForRender();
 }
 
 
@@ -745,23 +569,10 @@ void Run::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
-    {
-        ApplyReplayPredictionFrameForRender( *predictionFrame );
-    }
-    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
-    {
-        ApplyReplayPresentationSampleForRender( *replaySample );
-    }
-    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
-    {
-        ApplyReplaySolverSampleForRender( *solverSample );
-        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-    }
+    ApplyReplayRenderStateForFrame();
 
     m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
-    RestoreReplayPresentationRenderPose();
-    RestoreReplayLauncherVisualForRender();
+    RestoreReplayRenderStateForFrame();
 }
 
 

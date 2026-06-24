@@ -1507,7 +1507,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
