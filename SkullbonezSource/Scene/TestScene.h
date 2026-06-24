@@ -409,6 +409,8 @@ class TestScene
 {
 
   private:
+    // Parser-local construction helpers populate the immutable scene record in
+    // one pass; runtime systems use public read-only access below.
     friend TestScene LoadTestSceneFromFileImpl( const char* path );
     friend TestScene LoadStyleSceneFromFileImpl( const char* path );
     friend class TestSceneParser;

@@ -68,9 +68,10 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, GameModelCollection& collection )
 {
     const std::vector<GameModel>& m_gameModels = collection.Models();
-    auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;
-    auto& m_sleepState = world.m_sleepState;
-    auto& m_sleepInhibitedThisFrame = world.m_sleepInhibitedThisFrame;
+    const PhysicsWorld::DiagnosticsView diagnosticsView = world.GetDiagnosticsView();
+    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
+    const auto& m_sleepState = diagnosticsView.sleepState;
+    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
 
     if ( m_physicsRegressionLogPath[0] == '\0' )
     {

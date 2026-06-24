@@ -82,6 +82,16 @@ audits when it is still useful.
   `object_friction_coeff` runtime diagnostics config field to stored query
   summaries. SkullScope trace accounting is logged in
   `TestOutput\validation\phase4d_skullscope_view_query_sizes.log`.
+- Runtime run decomposition Phase 4D solver-context cleanup removes the remaining
+  `PhysicsWorld` helper friendships by passing explicit persistent-solver and
+  sleep-propagation contexts, and by routing regression diagnostics through
+  `PhysicsWorld::DiagnosticsView`.
+- Phase 4D solver-context validation: Profile build 56.02s
+  (`TestOutput\validation\phase4d_solver_context_profile_build.log`), format
+  6.54s, physics 234.55s, full 22.24s, and perf 19.69s. `validate_perf`
+  completed with advisory whole-frame `physics_bench` warnings; reviewed markers
+  show `Frame/Physics` at -4.2% avg and persistent contacts at +3.3% avg,
+  within noise for the touched solver path.
 
 ## Current Work Items
 

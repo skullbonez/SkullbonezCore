@@ -525,6 +525,55 @@ void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& reco
 }
 
 
+PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext()
+{
+    return PersistentContactSolverContext{ m_candidatePairs,
+                                           m_sleepState,
+                                           m_sleepSupportEdges,
+                                           m_persistentContacts,
+                                           m_persistentContactCache,
+                                           m_persistentContactSolverStats,
+                                           m_persistentContactCounts,
+                                           m_persistentRestingContactCounts,
+                                           m_solverBodies,
+                                           m_physicsDebugContacts,
+                                           m_terrainContactManifolds,
+                                           m_terrainRestApplied,
+                                           m_sleepSupportedThisFrame,
+                                           *this };
+}
+
+
+SleepSupportPropagationContext PhysicsWorld::CreateSleepSupportPropagationContext()
+{
+    return SleepSupportPropagationContext{ m_sleepState, m_sleepSupportEdges, m_sleepSupportedThisFrame };
+}
+
+
+void PersistentContactSolverContext::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const
+{
+    world.RecordSolverPhysicsPipelineStage( record );
+}
+
+
+void PersistentContactSolverContext::MarkCollisionVisualContact( int index ) const
+{
+    world.MarkSolverCollisionVisualContact( index );
+}
+
+
+void PersistentContactSolverContext::MarkFixedContact( GameModelCollection& collection, int index ) const
+{
+    world.MarkSolverFixedContact( collection, index );
+}
+
+
+void PersistentContactSolverContext::WakeModel( GameModelCollection& collection, int index ) const
+{
+    world.WakeModel( collection, index );
+}
+
+
 void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
 {
     m_collisionVisualContacts.assign( modelCount, 0 );
@@ -1055,7 +1104,8 @@ void PhysicsWorld::EmitPhysicsCollisionTime( GameModelCollection& collection,
 
 void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )
 {
-    m_sleepIslandSystem.PropagateSupport( *this, collection );
+    SleepSupportPropagationContext context = CreateSleepSupportPropagationContext();
+    m_sleepIslandSystem.PropagateSupport( context, collection );
 }
 
 
@@ -2399,7 +2449,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
 
-    m_contactSolver.Solve( *this, collection, dt );
+    PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext();
+    m_contactSolver.Solve( solverContext, collection, dt );
     WakePointJointConnectedBodies( collection, dt );
     Ragdoll::SolvePointJoints( collection, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( modelCount );
