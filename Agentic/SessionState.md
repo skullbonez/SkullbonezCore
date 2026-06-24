@@ -225,6 +225,25 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Gauss found no blocking
   defect and confirmed the render-host lifetime, input mode resolution, replay
   overlay, and editor placement restore paths stayed behavior-preserving.
+- Runtime run decomposition Phase 7 diagnostics-owner slice adds
+  `DiagnosticsRuntime` as the owner for the existing capture and diagnostics
+  controllers. `Run` now reaches screenshot automation, perf logging, and
+  SkullScope physics diagnostics through `m_diagnosticsRuntime` while preserving
+  existing controller APIs, artifact formatting, output paths, and
+  `EngineContext` borrowed binding types.
+- Phase 7 diagnostics-owner validation: final format 6.56s, project-filter
+  check 0.69s, final Profile build 117.93s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_profile_build_rerun.log`),
+  fast gate 120.57s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_validate_fast.log`),
+  and full gate 24.79s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Boole found no blocking
+  defect and confirmed EngineContext lifetimes, screenshot automation,
+  perf-log open/close/flush behavior, SkullScope path flow, and project/filter
+  metadata stayed behavior-preserving.
 
 ## Current Work Items
 

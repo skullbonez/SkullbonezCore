@@ -162,7 +162,7 @@ SceneRuntimeCoordinatorCallbacks Run::BuildSceneRuntimeCoordinatorCallbacks()
     {
         Run& run = *static_cast<Run*>( user );
         run.SceneState().isExitOnComplete = false;
-        run.m_capture.Screenshot().isScreenshotAndExit = false;
+        run.m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
     };
     callbacks.loadScene =
         []( void* user, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
@@ -335,8 +335,8 @@ void Run::BindEngineContext()
 {
     m_engineContext.Bind( EngineContextBindings{ &m_sceneController,
                                                  &m_simulation,
-                                                 &m_capture,
-                                                 &m_diagnostics,
+                                                 &m_diagnosticsRuntime.Capture(),
+                                                 &m_diagnosticsRuntime.Diagnostics(),
                                                  &m_runtimeCommands,
                                                  &m_systems,
                                                  &m_runtimeSettings,
@@ -360,7 +360,7 @@ Run::~Run()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
-    m_diagnostics.ClosePerfLog();
+    m_diagnosticsRuntime.Diagnostics().ClosePerfLog();
     m_replayRuntime.FlushHashLogs();
     if ( m_replayRuntime.IsPresentationEnabled() )
     {
@@ -1675,7 +1675,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
 #ifdef _DEBUG
-    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(),
+    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
                                                SceneState(),
                                                sample,
                                                restoredSolverHash,
@@ -1799,19 +1799,19 @@ void Run::SetPhysicsDebugContactLingerOverride( float seconds )
 #ifdef _DEBUG
 void Run::SetPhysicsRegressionLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnostics.PerfLog(), path );
+    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnosticsRuntime.Diagnostics().PerfLog(), path );
 }
 
 
 void Run::SetPhysicsCollisionTimeLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_diagnostics.PerfLog(), path );
+    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_diagnosticsRuntime.Diagnostics().PerfLog(), path );
 }
 
 
 void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
-    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(),
+    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
                                                    m_cGameModelCollection,
                                                    path,
                                                    fixedStepForcedByDiagnostics );
@@ -1932,7 +1932,7 @@ void Run::LogSceneFinished( const char* reason )
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
+    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
                                                     m_cGameModelCollection,
                                                     SceneState(),
                                                     Cfg(),
@@ -1943,6 +1943,8 @@ void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 
 void Run::EndPhysicsDiagnosticsRun( const char* status )
 {
-    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), SceneState(), status );
+    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnosticsRuntime.Diagnostics().PhysicsDiagnostics(),
+                                                  SceneState(),
+                                                  status );
 }
 #endif

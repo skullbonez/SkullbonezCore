@@ -110,6 +110,12 @@
     <Filter Include="Header Files\Runtime\Tools">
       <UniqueIdentifier>{6235A5A7-2210-4586-B9C4-8635E2A1BB0A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Diagnostics">
+      <UniqueIdentifier>{1022D32A-48D7-48D8-822B-81E3F17F4BEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Diagnostics">
+      <UniqueIdentifier>{A55B726A-B5C3-408A-A364-7C84BEDE0B82}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\Runtime\Render">
       <UniqueIdentifier>{34E24A5B-6F8A-46D1-B470-8E15931C4243}</UniqueIdentifier>
     </Filter>
@@ -324,6 +330,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -703,6 +712,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
       <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
       <Filter>Header Files\Runtime</Filter>

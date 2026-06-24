@@ -33,5 +33,5 @@ void Run::SaveScreenshot( const char* path )
 
 void Run::LogPerfMemory( const char* checkpoint )
 {
-    m_diagnostics.LogPerfMemory( sPerfPass + 1, checkpoint );
+    m_diagnosticsRuntime.Diagnostics().LogPerfMemory( sPerfPass + 1, checkpoint );
 }

@@ -57,8 +57,7 @@ Related:
 #include "../Core/Timer.h"
 #include "Input.h"
 #include "InputController.h"
-#include "CaptureController.h"
-#include "DiagnosticsController.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
 #include "EngineContext.h"
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
@@ -407,7 +406,7 @@ class Run
     bool m_cmdHasPhysicsDebugContactLingerOverride = false;
     float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
 
-    DiagnosticsController m_diagnostics;                                         // Perf/test logs and queryable physics diagnostic trace
+    DiagnosticsRuntime m_diagnosticsRuntime;                                     // Capture, perf, and queryable physics diagnostics owner.
 #ifdef _DEBUG
     RunReplayScrubProbeState m_replayScrubProbe;                                 // CLI-only SkullScope replay scrub self-test state.
     RunReplayRestoreProbeState m_replayRestoreProbe;                             // CLI-only solver restore hash self-test state.
@@ -423,7 +422,6 @@ class Run
     ReplayRuntime m_replayRuntime;                                               // Owns replay recorders, branch provenance, and replay interaction state.
     uint32_t m_solverReplayMismatchReports = 0;
     bool m_solverReplayMismatchSuppressed = false;
-    CaptureController m_capture;                                                 // Screenshot trigger and capture state
     RunLiveStyleControlState m_liveStyle;                                        // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles

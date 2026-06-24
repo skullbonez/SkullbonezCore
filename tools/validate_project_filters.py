@@ -220,6 +220,10 @@ RUNTIME_TOOLS_PREFIXES = (
     "RuntimeTools",
 )
 
+RUNTIME_DIAGNOSTICS_PREFIXES = (
+    "DiagnosticsRuntime",
+)
+
 CORE_PREFIXES = (
     "AmortizedTask",
     "Common",
@@ -241,6 +245,7 @@ AREA_PREFIXES = (
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
     ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
+    ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),
