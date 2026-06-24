@@ -265,6 +265,12 @@ bool TestScene::IsFixedStep() const
 }
 
 
+bool TestScene::ShouldPauseSnapshotState() const
+{
+    return m_sceneOptions.pauseSnapshotState;
+}
+
+
 uint32_t TestScene::GetPhysicsDebugFlags() const
 {
     return m_sceneOptions.physicsDebugFlags;

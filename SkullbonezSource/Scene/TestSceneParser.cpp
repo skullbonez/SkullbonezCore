@@ -1092,6 +1092,11 @@ class TestSceneParser
         {
             m_scene.m_sceneOptions.isFixedStep = ReadBool( *fixedStep, path, "playback.fixedStep" );
         }
+        if ( const Json* pauseSnapshotState = FindMember( playback, "pauseSnapshotState" ) )
+        {
+            m_scene.m_sceneOptions.pauseSnapshotState =
+                ReadBool( *pauseSnapshotState, path, "playback.pauseSnapshotState" );
+        }
         if ( const Json* exitOnComplete = FindMember( playback, "exitOnComplete" ) )
         {
             m_scene.m_sceneOptions.exitOnComplete = ReadBool( *exitOnComplete, path, "playback.exitOnComplete" );

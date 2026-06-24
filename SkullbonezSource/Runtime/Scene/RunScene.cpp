@@ -1866,15 +1866,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes start paused in Inspect; user presses F to
-        // resume simulation. Physics diagnostics need deterministic frame rows
-        // immediately, so leave diagnostic launches in normal scene playback.
+        // Snapshot scenes start paused in Inspect by default; authored live scenes
+        // may opt out when body-state entries are just stable initial poses.
         const bool hasSnapshotState =
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
-        const bool shouldPauseSnapshotState = hasSnapshotState && !m_diagnostics.PhysicsDiagnostics().isEnabled;
+        const bool shouldPauseSnapshotState =
+            hasSnapshotState && scene.ShouldPauseSnapshotState() && !m_diagnostics.PhysicsDiagnostics().isEnabled;
 #else
-        const bool shouldPauseSnapshotState = hasSnapshotState;
+        const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
         if ( shouldPauseSnapshotState )
         {
