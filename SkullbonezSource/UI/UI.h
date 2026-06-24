@@ -43,6 +43,7 @@ Related:
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
+#include "UITabSky.h"
 #include <cstdint>
 #include <memory>
 
@@ -61,6 +62,7 @@ enum class InGameUITab
     Render,
     Targets,
     Keys,
+    Sky,
     Cinematic,
     Count
 };
@@ -269,6 +271,7 @@ class InGameUI
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;
     SceneTab::UISceneTabState m_sceneTab;
+    SkyTab::UISkyTabState m_skyTab;
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;

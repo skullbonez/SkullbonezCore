@@ -2831,6 +2831,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, m_controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Sky:
+        SkyTab::DrawHitboxes( m_skyTab, draw, contentR, contentG, contentB );
+        break;
     case InGameUITab::Cinematic:
         CinematicTab::DrawHitboxes( m_cinematicTab, draw, data, contentR, contentG, contentB );
         break;
@@ -2878,6 +2881,8 @@ int InGameUI::ContentHeight() const
         return RenderContentHeight();
     case InGameUITab::Targets:
         return RenderTargetsContentHeight();
+    case InGameUITab::Sky:
+        return SkyTab::ContentHeight();
     case InGameUITab::Cinematic:
         return CinematicTab::ContentHeight();
     default:
@@ -3630,6 +3635,29 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                 m_renderTargetCombo.Close();
             }
         }
+        else if ( inContent && m_activeTab == InGameUITab::Sky )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            const bool capturedSlider = SkyTab::HandleContentClick( m_skyTab,
+                                                                    result,
+                                                                    m_activeSlider,
+                                                                    m_mouseX,
+                                                                    m_mouseY,
+                                                                    contentX,
+                                                                    scrolledY,
+                                                                    contentW );
+
+            if ( capturedSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_renderTargetCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Cinematic )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -3750,7 +3778,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             }
             else
             {
-                if ( !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
+                if ( !SkyTab::UpdateActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
+                     !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
                     ControlsTab::UpdateActiveSlider( m_controlsTab,
                                                      m_activeSlider,
@@ -3814,7 +3843,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             }
             else
             {
-                if ( !CinematicTab::CommitActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
+                if ( !SkyTab::CommitActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
+                     !CinematicTab::CommitActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
                     ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
                 }
@@ -4036,7 +4066,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Cine" };
+        { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -4298,6 +4328,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                       m_mouseY,
                                       m_lastRenderTargetDisabledMask );
         }
+    }
+    else if ( m_activeTab == InGameUITab::Sky )
+    {
+        SkyTab::Draw( m_skyTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
     }
     else if ( m_activeTab == InGameUITab::Cinematic )
     {

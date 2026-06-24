@@ -179,6 +179,44 @@ Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 }
 
 
+Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
+{
+    constexpr float twoPi = 6.28318530718f;
+    const float azimuth = Clamp01( cinematic.sunScreenX ) * twoPi;
+    const float elevation = -0.08f + Clamp01( cinematic.sunScreenY ) * 1.13f;
+    const float cosElevation = cosf( elevation );
+    Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
+    direction.Normalise();
+    return direction;
+}
+
+
+struct ScreenSunPosition
+{
+    float x = -10.0f;
+    float y = -10.0f;
+};
+
+
+ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye,
+                                               const Matrix4& viewProjection,
+                                               const CinematicRenderConfig& cinematic )
+{
+    const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
+    const Matrix4& vp = viewProjection;
+    const float clipX = vp.m[0] * sunPoint.x + vp.m[4] * sunPoint.y + vp.m[8] * sunPoint.z + vp.m[12];
+    const float clipY = vp.m[1] * sunPoint.x + vp.m[5] * sunPoint.y + vp.m[9] * sunPoint.z + vp.m[13];
+    const float clipW = vp.m[3] * sunPoint.x + vp.m[7] * sunPoint.y + vp.m[11] * sunPoint.z + vp.m[15];
+    if ( clipW <= 0.0001f )
+    {
+        return {};
+    }
+
+    const float invW = 1.0f / clipW;
+    return { clipX * invW * 0.5f + 0.5f, clipY * invW * 0.5f + 0.5f };
+}
+
+
 constexpr float FULLSCREEN_QUAD_VERTS[] = {
     -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,  1.0f, 1.0f, 1.0f,
     -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
@@ -214,14 +252,18 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
 }
 
-void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader, const CinematicRenderConfig& cinematic )
+void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
+                               const Vector3& eye,
+                               const Matrix4& viewProjection,
+                               const CinematicRenderConfig& cinematic )
 {
+    const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
     shader.SetInt( "uSceneTex", 0 );
     shader.SetInt( "uDepthTex", 1 );
     shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
     shader.SetVec4( "uSunShaftParams",
-                    cinematic.sunScreenX,
-                    cinematic.sunScreenY,
+                    sunScreen.x,
+                    sunScreen.y,
                     cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
                     cinematic.sunShaftFalloff );
     shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
@@ -238,9 +280,12 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader, const
 }
 
 void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
+                            const Vector3& eye,
+                            const Matrix4& viewProjection,
                             const CinematicRenderConfig& cinematic,
                             bool volumetricReady )
 {
+    const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
     shader.SetInt( "uSceneTex", 0 );
     shader.SetInt( "uDepthTex", 1 );
     shader.SetInt( "uVolumetricTex", 2 );
@@ -254,8 +299,8 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
     shader.SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
     shader.SetVec4( "uSunShaftParams",
-                    cinematic.sunScreenX,
-                    cinematic.sunScreenY,
+                    sunScreen.x,
+                    sunScreen.y,
                     cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
                     cinematic.sunShaftFalloff );
     shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
@@ -1689,7 +1734,7 @@ void Run::VolumetricPass::ReleaseGpuResources()
 }
 
 
-bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
+bool Run::VolumetricPass::Render( const RenderFrameContext& frame )
 {
     const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
@@ -1729,7 +1774,7 @@ bool Run::VolumetricPass::Render( const RenderFrameContext& /*frame*/ )
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         volumetric.shader->Use();
-        BindVolumetricPassParams( *volumetric.shader, cinematic );
+        BindVolumetricPassParams( *volumetric.shader, frame.eye, frame.viewProjection, cinematic );
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
@@ -1780,7 +1825,7 @@ void Run::TonemapPass::ReleaseGpuResources()
 }
 
 
-void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAlreadyUnbound, bool volumetricReady )
+void Run::TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady )
 {
     CinematicScenePassResources& scene = m_run.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_run.m_systems.renderPasses.volumetricLight;
@@ -1820,7 +1865,7 @@ void Run::TonemapPass::Render( const RenderFrameContext& /*frame*/, bool sceneAl
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         tonemap.shader->Use();
         const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
-        BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
+        BindTonemapPassParams( *tonemap.shader, frame.eye, frame.viewProjection, cinematic, volumetricReady );
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.

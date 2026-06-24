@@ -23,17 +23,18 @@ Related:
 #pragma pack_matrix(column_major)
 
 // =============================================================================
-// CINEMATIC SKY ATMOSPHERE SHADER (DirectX)
+// WORLD-SPACE CINEMATIC SKY (DirectX)
 // =============================================================================
 //
-// This is the canonical DX12 sky pass. It draws the sunset sky as a procedural
-// full-screen background: horizon-to-zenith color, bright sun disk,
-// warm glow, and hand-placed cloud banks.
+// The sky is a procedural, world-stable background. Every pixel is converted
+// into a world-space view ray, then shaded from a normalized sun direction,
+// low-poly horizon/zenith palette, procedural clouds, and distant stylized
+// ridges. No external sky textures are required.
 // =============================================================================
 
 cbuffer Uniforms : register(b0)
 {
-    float4 uSunParams;
+    float4 uSunParams;    // azimuth 0..1, elevation 0..1, intensity, glow
     float3 uSunColor;
     float _padding0;
     float3 uHorizonColor;
@@ -59,11 +60,12 @@ struct VS_OUT
     float2 texCoord : TEXCOORD0;
 };
 
+static const float PI = 3.14159265359f;
+static const float TWO_PI = 6.28318530718f;
+
 VS_OUT main_vs(VS_IN input)
 {
     VS_OUT output;
-    // Full-screen sky pass: position is already in clip space, and UV tells the
-    // pixel shader where this pixel sits on the screen.
     output.position = float4(input.position, 0.0f, 1.0f);
     output.texCoord = input.texCoord;
     return output;
@@ -71,8 +73,6 @@ VS_OUT main_vs(VS_IN input)
 
 float Hash21(float2 p)
 {
-    // Tiny deterministic random number generator. Same input gives same output,
-    // which is important because clouds should not flicker frame to frame.
     p = frac(p * float2(123.34f, 456.21f));
     p += dot(p, p + 45.32f);
     return frac(p.x * p.y);
@@ -80,7 +80,6 @@ float Hash21(float2 p)
 
 float ValueNoise(float2 p)
 {
-    // Smooth random field. This is one ingredient for soft cloud interiors.
     float2 i = floor(p);
     float2 f = frac(p);
     float2 u = f * f * (3.0f - 2.0f * f);
@@ -93,64 +92,16 @@ float ValueNoise(float2 p)
 
 float CloudFBM(float2 p)
 {
-    // Fractal noise: stack several noise layers at different scales. This gives
-    // clouds broad forms plus smaller wispy variation.
     float v = 0.0f;
-    float amp = 0.5f;
+    float amp = 0.52f;
     [unroll]
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         v += ValueNoise(p) * amp;
-        p *= 2.07f;
-        amp *= 0.5f;
+        p = p * 2.03f + float2(3.17f, 1.73f);
+        amp *= 0.52f;
     }
     return v;
-}
-
-float CloudLobe(float2 uv, float2 center, float2 radius, float seed)
-{
-    // One soft oval cloud puff. Several lobes are combined below to build the
-    // large backlit cloud banks seen near the sun.
-    float2 q = (uv - center) / radius;
-    float broad = length(q * float2(0.88f, 1.12f));
-    float cap = length((uv - center + float2(0.04f, -0.025f)) / (radius * float2(0.78f, 0.86f)));
-    float ragged = (sin((uv.x + seed) * 31.0f) + sin((uv.y - seed) * 37.0f)) * 0.018f;
-    float body = 1.0f - smoothstep(0.72f, 1.24f, broad + ragged);
-    float crown = 1.0f - smoothstep(0.45f, 1.06f, cap + ragged * 0.45f);
-    return saturate(body * 0.72f + crown * 0.28f);
-}
-
-float LowPolyCloudStreak(float2 uv, float2 center, float2 size, float skew)
-{
-    float2 q = uv - center;
-    q.x += q.y * skew;
-    float diamond = abs(q.x) / max(size.x, 0.001f) + abs(q.y) / max(size.y, 0.001f);
-    float mask = 1.0f - smoothstep(0.76f, 1.02f, diamond);
-    return floor(saturate(mask) * 3.0f + 0.5f) / 3.0f;
-}
-
-float HeroCloudMask(float2 uv)
-{
-    // These are deliberate screen-space cloud placements, not random clouds.
-    // That makes the first cinematic view read like the reference composition.
-    float mask = 0.0f;
-    mask = max(mask, CloudLobe(uv, float2(0.20f, 0.64f), float2(0.28f, 0.105f), 2.1f) * 0.84f);
-    mask = max(mask, CloudLobe(uv, float2(0.40f, 0.68f), float2(0.22f, 0.090f), 5.7f) * 0.62f);
-    mask = max(mask, CloudLobe(uv, float2(0.66f, 0.78f), float2(0.26f, 0.090f), 8.6f) * 0.48f);
-    mask = max(mask, CloudLobe(uv, float2(0.84f, 0.64f), float2(0.30f, 0.110f), 12.3f) * 0.54f);
-    mask = max(mask, CloudLobe(uv, float2(0.55f, 0.55f), float2(0.26f, 0.080f), 17.2f) * 0.36f);
-    mask = max(mask, CloudLobe(uv, float2(0.10f, 0.55f), float2(0.24f, 0.080f), 21.4f) * 0.46f);
-    mask = max(mask, CloudLobe(uv, float2(0.74f, 0.58f), float2(0.34f, 0.095f), 24.9f) * 0.42f);
-    mask = max(mask, CloudLobe(uv, float2(0.96f, 0.54f), float2(0.22f, 0.080f), 28.5f) * 0.38f);
-    return saturate(mask);
-}
-
-float LowPolyRidgeHeight(float x, float baseY, float amplitude, float frequency, float phase)
-{
-    float primary = 1.0f - abs(frac(x * frequency + phase) * 2.0f - 1.0f);
-    float secondary = 1.0f - abs(frac(x * frequency * 1.73f + phase * 1.91f + 0.17f) * 2.0f - 1.0f);
-    float broad = 1.0f - abs(frac(x * frequency * 0.48f + phase * 0.63f + 0.41f) * 2.0f - 1.0f);
-    return baseY + amplitude * (primary * 0.62f + secondary * 0.28f + broad * 0.22f);
 }
 
 float3 SkyWorldDirection(float2 screenUv)
@@ -162,280 +113,123 @@ float3 SkyWorldDirection(float2 screenUv)
     return normalize(worldDir.xyz);
 }
 
-float2 SkyboxCoord(float2 screenUv)
+float3 SunDirection()
 {
-    float3 dir = SkyWorldDirection(screenUv);
-    float longitude = atan2(dir.x, dir.z);
-    // Repeat the painted panorama over a half-turn so the authored cloud and
-    // ridge shapes remain visible through a normal gameplay FOV.
-    float u = frac(longitude / 3.14159265359f + 0.47f);
-    float v = saturate(dir.y * 0.74f + 0.58f);
-    return float2(u, v);
+    float azimuth = frac(uSunParams.x) * TWO_PI;
+    float elevation = lerp(-0.08f, 1.05f, saturate(uSunParams.y));
+    float cosElevation = cos(elevation);
+    return normalize(float3(sin(azimuth) * cosElevation, sin(elevation), cos(azimuth) * cosElevation));
 }
 
-float CloudLayerMask(float2 uv, out float cloudShape)
+float2 DirectionCoord(float3 dir)
 {
-    // Build a cloud mask. Coverage moves the threshold up/down, softness controls
-    // edge width, and intensity is applied later when mixing cloud color.
-    float2 lowerUV = float2(uv.x * 1.28f + 0.12f, uv.y * 2.55f + 0.18f) * max(uCloudParams.z, 0.001f);
-    lowerUV.x += sin(uv.y * 5.0f) * 0.07f;
-    float broad = CloudFBM(lowerUV);
-    float detail = CloudFBM(lowerUV * 2.45f + float2(6.8f, 1.7f));
-    float erosion = CloudFBM(lowerUV * 4.20f + float2(11.4f, 5.7f));
-    cloudShape = broad * 0.80f + detail * 0.20f - (erosion - 0.42f) * 0.12f;
+    float longitude = frac(atan2(dir.x, dir.z) / TWO_PI + 0.50f);
+    float height = saturate(dir.y * 0.64f + 0.50f);
+    return float2(longitude, height);
+}
 
-    float coverage = saturate(uCloudParams.x);
-    float threshold = lerp(0.76f, 0.34f, coverage);
-    float softness = max(uCloudParams.y * 1.55f, 0.001f);
-    float lowerMask = smoothstep(threshold, threshold + softness, cloudShape);
-    lowerMask *= smoothstep(0.18f, 0.82f, 1.0f - erosion * 0.34f);
-    float lowerBand = smoothstep(0.34f, 0.50f, uv.y) * (1.0f - smoothstep(0.76f, 0.92f, uv.y));
+float LowPolyRidgeHeight(float x, float baseY, float amplitude, float frequency, float phase)
+{
+    float primary = 1.0f - abs(frac(x * frequency + phase) * 2.0f - 1.0f);
+    float secondary = 1.0f - abs(frac(x * frequency * 1.61f + phase * 1.87f + 0.19f) * 2.0f - 1.0f);
+    float broad = 1.0f - abs(frac(x * frequency * 0.43f + phase * 0.71f + 0.37f) * 2.0f - 1.0f);
+    return baseY + amplitude * (primary * 0.58f + secondary * 0.28f + broad * 0.20f);
+}
 
-    float hero = HeroCloudMask(uv);
-    return saturate(max(lowerMask * lowerBand * 0.0f, hero * 1.0f));
+float RidgeMask(float2 coord, float baseY, float amplitude, float frequency, float phase)
+{
+    float ridge = LowPolyRidgeHeight(coord.x, baseY, amplitude, frequency, phase);
+    float mask = 1.0f - smoothstep(ridge - 0.010f, ridge + 0.030f, coord.y);
+    mask *= smoothstep(ridge - 0.20f, ridge - 0.050f, coord.y);
+    mask *= smoothstep(0.08f, 0.25f, coord.y) * (1.0f - smoothstep(0.52f, 0.70f, coord.y));
+    return floor(saturate(mask) * 4.0f + 0.5f) / 4.0f;
+}
+
+float CloudMask(float2 coord, float3 dir, out float cloudShape)
+{
+    float scale = max(uCloudParams.z, 0.05f);
+    float2 p = float2(coord.x * 2.0f, coord.y * 1.42f);
+    p.x += dir.x * 0.15f + sin(coord.y * 5.4f) * 0.055f;
+    p *= scale;
+
+    float broad = CloudFBM(p * float2(0.52f, 0.82f) + float2(0.1f, 2.7f));
+    float detail = CloudFBM(p * float2(1.24f, 1.78f) + float2(7.4f, 1.9f));
+    float erosion = CloudFBM(p * float2(2.58f, 2.12f) + float2(12.3f, 6.1f));
+    cloudShape = broad * 0.72f + detail * 0.24f - (erosion - 0.42f) * 0.18f;
+
+    float threshold = lerp(0.78f, 0.34f, saturate(uCloudParams.x));
+    float softness = max(uCloudParams.y, 0.001f) * 1.45f;
+    float mask = smoothstep(threshold, threshold + softness, cloudShape);
+    float band = smoothstep(0.30f, 0.46f, coord.y) * (1.0f - smoothstep(0.78f, 0.94f, coord.y));
+    float streakBand = smoothstep(0.46f, 0.60f, coord.y) * (1.0f - smoothstep(0.88f, 0.98f, coord.y));
+    float streak = 1.0f - smoothstep(0.035f, 0.16f, abs(frac(coord.x * 7.0f + coord.y * 1.65f) - 0.5f));
+    streak *= streakBand * 0.34f;
+    mask = saturate(max(mask * band, streak));
+
+    return floor(mask * 5.0f + 0.5f) / 5.0f;
+}
+
+float3 ApplyLowPolyGrade(float3 color, float posterizeAmount)
+{
+    float3 poster = floor(saturate(color) * 18.0f + 0.5f) / 18.0f;
+    return lerp(color, poster, posterizeAmount);
 }
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
-    int mode = uSkyMode;
-    float2 skyCoord = mode == 11 ? SkyboxCoord(input.texCoord) : input.texCoord;
+    float3 dir = SkyWorldDirection(input.texCoord);
+    float3 sunDir = SunDirection();
+    float2 coord = DirectionCoord(dir);
+    int styleMode = uSkyMode;
 
-    // Vertical gradient: warm/orange near the horizon and darker higher up.
-    float height = saturate(skyCoord.y);
-    float vertical = pow(height, 0.65f);
-    float3 skyColor = lerp(uHorizonColor, uZenithColor, vertical);
+    float height = saturate((dir.y + 0.05f) / 1.05f);
+    float bandedHeight = floor(height * 11.0f + 0.5f) / 11.0f;
+    float vertical = lerp(pow(height, 0.72f), pow(bandedHeight, 0.78f), styleMode == 11 ? 0.42f : 0.24f);
 
-    // The sun is made from a hard disk plus two exponential glows. The glow is
-    // intentionally larger than the disk to create the blown-out sunset feel.
-    float sunDistance = distance(skyCoord, uSunParams.xy);
-    float sunDisk = 1.0f - smoothstep(0.018f, 0.045f, sunDistance);
-    float innerGlow = exp(-sunDistance * 18.0f);
-    float outerGlow = exp(-sunDistance * 4.6f);
-    float horizonScatter = exp(-abs(skyCoord.y - uSunParams.y) * 3.4f) *
-                           (1.0f - smoothstep(0.08f, 0.65f, sunDistance));
+    float3 horizon = clamp(uHorizonColor, 0.0f, 2.2f);
+    float3 zenith = clamp(uZenithColor, 0.0f, 2.2f);
+    float3 midSky = clamp(lerp(horizon, zenith, 0.62f) + float3(-0.02f, 0.04f, 0.10f), 0.0f, 2.2f);
+    float3 skyColor = lerp(horizon, midSky, smoothstep(0.05f, 0.48f, vertical));
+    skyColor = lerp(skyColor, zenith, smoothstep(0.34f, 0.88f, vertical));
 
-    float3 sun = uSunColor * (sunDisk * uSunParams.z +
-                              innerGlow * uSunParams.w +
-                              outerGlow * (uSunParams.w * 0.35f) +
-                              horizonScatter * 0.8f);
+    float horizonWarmth = exp(-abs(dir.y) * 4.2f);
+    skyColor += horizon * horizonWarmth * 0.085f;
 
-    // Clouds are darker on their bodies but pick up strong orange light on edges
-    // that face the sun. This is the "silver lining" effect, just warmer.
+    float sunDot = dot(dir, sunDir);
+    float sunForward = saturate(sunDot);
+    float sunDisk = smoothstep(0.99940f, 0.99992f, sunDot);
+    float innerGlow = pow(sunForward, 96.0f);
+    float outerGlow = pow(sunForward, 10.0f);
+    float lowHaze = exp(-abs(dir.y - sunDir.y) * 3.2f) * pow(sunForward, 1.55f);
+    float3 sunColor = clamp(uSunColor, 0.0f, 3.2f);
+    float3 sun = sunColor * (sunDisk * uSunParams.z + innerGlow * uSunParams.w * 0.86f +
+                             outerGlow * uSunParams.w * 0.24f + lowHaze * 0.36f);
+
+    float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.2f, 0.10f);
+    float midRidge = RidgeMask(coord, 0.30f, 0.105f, 4.6f, 0.36f);
+    float nearRidge = RidgeMask(coord, 0.26f, 0.092f, 6.1f, 0.68f);
+    float3 farColor = clamp(lerp(zenith, horizon, 0.36f) * float3(0.42f, 0.55f, 0.68f), 0.0f, 1.8f);
+    float3 midColor = clamp(lerp(zenith, horizon, 0.46f) * float3(0.38f, 0.48f, 0.58f), 0.0f, 1.8f);
+    float3 nearColor = clamp(lerp(zenith, horizon, 0.62f) * float3(0.28f, 0.38f, 0.40f), 0.0f, 1.6f);
+    skyColor = lerp(skyColor, farColor, farRidge * 0.58f);
+    skyColor = lerp(skyColor, midColor, midRidge * 0.68f);
+    skyColor = lerp(skyColor, nearColor, nearRidge * 0.78f);
+
     float cloudShape = 0.0f;
-    float cloudMask = CloudLayerMask(skyCoord, cloudShape);
-    float sunLit = exp(-sunDistance * 3.2f);
-    float threshold = lerp(0.76f, 0.34f, saturate(uCloudParams.x));
-    float cloudEdge = 1.0f - smoothstep(0.00f, 0.16f, abs(cloudShape - threshold));
-    cloudEdge = max(cloudEdge, smoothstep(0.08f, 0.42f, cloudMask) * (1.0f - smoothstep(0.58f, 0.95f, cloudMask)));
-    float sunEdge = cloudEdge * (0.35f + sunLit * 1.2f);
-    float3 cloudShadow = float3(0.22f, 0.10f, 0.075f);
-    float3 cloudMid = float3(0.68f, 0.27f, 0.10f);
-    float3 cloudLight = float3(2.05f, 1.02f, 0.35f) * (0.68f + sunLit * 0.92f);
-    float3 cloudColor = lerp(cloudShadow, cloudMid, 0.45f + sunLit * 0.22f);
-    cloudColor = lerp(cloudColor, cloudLight, saturate(sunEdge));
-    float cloudAmount = cloudMask * clamp(uCloudParams.w, 0.0f, 1.5f);
-    skyColor = lerp(skyColor, cloudColor, saturate(cloudAmount * 0.42f));
-    // Let clouds dim the sun where they overlap it so the disk can peek through
-    // gaps instead of always drawing on top.
-    float sunOcclusion = cloudAmount * smoothstep(0.42f, 0.04f, sunDistance);
-    sun *= 1.0f - saturate(sunOcclusion * 0.72f + cloudAmount * 0.20f);
+    float cloudMask = CloudMask(coord, dir, cloudShape) * clamp(uCloudParams.w, 0.0f, 1.5f);
+    float sunLit = pow(saturate(dot(normalize(float3(dir.x, max(dir.y, 0.0f), dir.z)), sunDir)), 3.2f);
+    float3 cloudShadow = clamp(lerp(horizon, zenith, 0.20f) * float3(0.54f, 0.40f, 0.46f), 0.0f, 1.8f);
+    float3 cloudMid = clamp(lerp(horizon, sunColor, 0.24f), 0.0f, 2.2f);
+    float3 cloudLight = clamp(lerp(horizon, sunColor, 0.62f) * (0.80f + sunLit * 0.82f), 0.0f, 2.6f);
+    float edge = 1.0f - smoothstep(0.06f, 0.26f, abs(cloudShape - lerp(0.78f, 0.34f, saturate(uCloudParams.x))));
+    float3 cloudColor = lerp(cloudShadow, cloudMid, 0.42f + sunLit * 0.24f);
+    cloudColor = lerp(cloudColor, cloudLight, saturate(edge * 0.72f + sunLit * 0.28f));
+    skyColor = lerp(skyColor, cloudColor, saturate(cloudMask * 0.52f));
+
+    float sunOcclusion = cloudMask * smoothstep(0.9972f, 0.9999f, sunDot);
+    sun *= 1.0f - saturate(sunOcclusion * 0.70f);
 
     float3 finalSky = skyColor + sun;
-    if (mode == 1)
-    {
-        finalSky = lerp(float3(0.15f, 0.16f, 0.15f), float3(0.46f, 0.43f, 0.36f), pow(1.0f - height, 1.8f)) + cloudMask * float3(0.10f, 0.09f, 0.07f);
-    }
-    else if (mode == 2)
-    {
-        finalSky = lerp(float3(0.035f, 0.038f, 0.042f), float3(0.42f, 0.45f, 0.48f), pow(1.0f - height, 2.2f));
-    }
-    else if (mode == 3 || mode == 15)
-    {
-        float scan = pow(max(0.0f, 1.0f - abs(skyCoord.y - 0.18f) * 8.0f), 2.0f);
-        finalSky = float3(0.004f, 0.008f, 0.018f) + float3(0.0f, 0.80f, 1.0f) * scan * 0.45f + float3(1.0f, 0.0f, 0.75f) * pow(max(0.0f, 1.0f - abs(skyCoord.x - 0.75f) * 3.0f), 4.0f) * 0.20f;
-    }
-    else if (mode == 4)
-    {
-        float secondSun = exp(-distance(skyCoord, float2(0.74f, 0.68f)) * 8.0f);
-        finalSky = lerp(float3(0.12f, 0.04f, 0.20f), float3(0.48f, 0.18f, 0.72f), 1.0f - height) + float3(0.20f, 1.20f, 0.72f) * secondSun;
-    }
-    else if (mode == 5)
-    {
-        finalSky = lerp(float3(0.18f, 0.13f, 0.08f), float3(0.76f, 0.48f, 0.20f), pow(1.0f - height, 1.1f)) + cloudMask * float3(0.20f, 0.12f, 0.04f);
-    }
-    else if (mode == 6)
-    {
-        finalSky = floor(finalSky * 5.0f) / 5.0f;
-    }
-    else if (mode == 11)
-    {
-        float3 horizon = clamp(lerp(float3(1.02f, 0.76f, 0.54f), uHorizonColor, 0.54f), 0.0f, 1.8f);
-        float3 zenith = clamp(lerp(float3(0.24f, 0.62f, 1.24f), uZenithColor, 0.96f), 0.0f, 1.8f);
-        float3 middle = clamp(lerp(horizon, zenith, 0.66f) + float3(-0.02f, 0.02f, 0.10f), 0.0f, 1.8f);
-        float3 lowPolySky = lerp(horizon, middle, smoothstep(0.08f, 0.50f, height));
-        lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.30f, 0.74f, height));
-        float band = floor(height * 9.0f) / 9.0f;
-        float3 bandedSky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, band));
-        bandedSky = lerp(bandedSky, zenith, smoothstep(0.30f, 0.74f, band));
-        lowPolySky = lerp(lowPolySky, bandedSky, 0.18f);
-        float upperCool = smoothstep(0.24f, 0.54f, height);
-        lowPolySky = lerp(lowPolySky, clamp(zenith * float3(0.62f, 0.98f, 1.20f), 0.0f, 1.8f), upperCool * 0.78f);
-
-        float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.64f, 0.16f, 3.60f, 0.11f);
-        float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.60f, 0.15f, 5.00f, 0.37f);
-        float nearRidge = LowPolyRidgeHeight(skyCoord.x, 0.55f, 0.14f, 6.40f, 0.68f);
-        float ridgeFade = smoothstep(0.34f, 0.48f, height) * (1.0f - smoothstep(0.78f, 0.92f, height));
-        float farMask = (1.0f - smoothstep(farRidge - 0.012f, farRidge + 0.030f, height)) * ridgeFade;
-        float midMask = (1.0f - smoothstep(midRidge - 0.012f, midRidge + 0.028f, height)) * ridgeFade;
-        float nearMask = (1.0f - smoothstep(nearRidge - 0.010f, nearRidge + 0.026f, height)) * ridgeFade;
-        farMask *= smoothstep(farRidge - 0.22f, farRidge - 0.08f, height);
-        midMask *= smoothstep(midRidge - 0.20f, midRidge - 0.07f, height);
-        nearMask *= smoothstep(nearRidge - 0.18f, nearRidge - 0.06f, height);
-        farMask = floor(farMask * 4.0f + 0.5f) / 4.0f;
-        midMask = floor(midMask * 4.0f + 0.5f) / 4.0f;
-        nearMask = floor(nearMask * 4.0f + 0.5f) / 4.0f;
-        float3 farMountain = clamp(lerp(float3(0.20f, 0.34f, 0.64f), horizon, 0.18f), 0.0f, 1.5f);
-        float3 midMountain = clamp(lerp(float3(0.26f, 0.30f, 0.52f), horizon, 0.16f), 0.0f, 1.5f);
-        float3 nearMountain = clamp(lerp(float3(0.18f, 0.24f, 0.36f), uSunColor, 0.05f), 0.0f, 1.4f);
-        lowPolySky = lerp(lowPolySky, farMountain, clamp(farMask * 0.70f, 0.0f, 0.70f));
-        lowPolySky = lerp(lowPolySky, midMountain, clamp(midMask * 0.78f, 0.0f, 0.78f));
-        lowPolySky = lerp(lowPolySky, nearMountain, clamp(nearMask * 0.86f, 0.0f, 0.86f));
-
-        // Low-poly mode uses deliberate flat cloud cards instead of the broader
-        // cinematic cloud bank. This keeps the sky clean and composed.
-        float cardCloud = 0.0f;
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, float2(0.14f, 0.60f), float2(0.19f, 0.058f), 3.0f));
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, float2(0.35f, 0.66f), float2(0.24f, 0.060f), 6.0f) * 0.98f);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, float2(0.56f, 0.58f), float2(0.23f, 0.055f), 7.4f) * 0.82f);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, float2(0.77f, 0.67f), float2(0.25f, 0.060f), 9.0f) * 0.92f);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, float2(0.92f, 0.55f), float2(0.18f, 0.050f), 12.0f) * 0.78f);
-        cardCloud *= smoothstep(0.32f, 0.41f, height) * (1.0f - smoothstep(0.86f, 0.94f, height));
-        float cloudBand = smoothstep(0.018f, 0.20f, cardCloud);
-        cloudBand = floor(cloudBand * 3.0f + 0.5f) / 3.0f;
-        float3 flatCloudShadow = clamp(lerp(float3(0.90f, 0.58f, 0.48f), uHorizonColor * float3(0.84f, 0.50f, 0.44f), 0.56f), 0.0f, 1.6f);
-        float3 flatCloudLight = clamp(lerp(float3(1.48f, 0.88f, 0.50f), uSunColor * float3(1.52f, 1.00f, 0.66f), 0.58f), 0.0f, 1.9f);
-        float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.58f + 0.42f));
-        lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 1.18f, 0.0f, 1.0f));
-
-        float polyStreak = 0.0f;
-        polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, float2(0.20f, 0.58f), float2(0.24f, 0.030f), -1.00f));
-        polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, float2(0.42f, 0.63f), float2(0.30f, 0.034f), -0.80f) * 0.94f);
-        polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, float2(0.64f, 0.70f), float2(0.24f, 0.030f), -0.72f) * 0.84f);
-        polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, float2(0.80f, 0.56f), float2(0.22f, 0.028f), -1.10f) * 0.72f);
-        polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, float2(0.52f, 0.78f), float2(0.18f, 0.024f), -0.96f) * 0.58f);
-        polyStreak *= smoothstep(0.42f, 0.50f, height) * (1.0f - smoothstep(0.86f, 0.94f, height));
-        float3 streakWarm = clamp(lerp(float3(1.34f, 0.66f, 0.36f), uSunColor * float3(1.18f, 0.78f, 0.50f), 0.66f), 0.0f, 1.9f);
-        float3 streakDust = clamp(lerp(float3(0.80f, 0.48f, 0.56f), uHorizonColor * float3(0.72f, 0.46f, 0.50f), 0.50f), 0.0f, 1.6f);
-        float3 polyStreakColor = lerp(streakDust, streakWarm, saturate(sunLit * 0.36f + 0.44f));
-        lowPolySky = lerp(lowPolySky, polyStreakColor, clamp(polyStreak * 1.36f, 0.0f, 1.0f));
-
-        float sunsetShard = 0.0f;
-        sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, float2(0.19f, 0.54f), float2(0.30f, 0.025f), -0.78f));
-        sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, float2(0.45f, 0.58f), float2(0.34f, 0.030f), -0.62f) * 0.88f);
-        sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, float2(0.71f, 0.55f), float2(0.30f, 0.026f), -0.70f) * 0.74f);
-        sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, float2(0.50f, 0.50f), float2(0.56f, 0.034f), -0.54f) * 0.70f);
-        float steppedSkyX = floor(skyCoord.x * 11.0f) / 11.0f;
-        float horizonShardCenter = 0.53f + (ValueNoise(float2(steppedSkyX * 4.0f, 5.3f)) - 0.5f) * 0.075f;
-        float horizonShardBand = 1.0f - smoothstep(0.018f, 0.065f, abs(height - horizonShardCenter));
-        horizonShardBand *= smoothstep(0.40f, 0.47f, height) * (1.0f - smoothstep(0.64f, 0.76f, height));
-        sunsetShard = max(sunsetShard, horizonShardBand * 0.62f);
-        sunsetShard *= smoothstep(0.42f, 0.48f, height) * (1.0f - smoothstep(0.66f, 0.76f, height));
-        sunsetShard = floor(sunsetShard * 3.0f + 0.5f) / 3.0f;
-        float3 sunsetShardShadow = clamp(lerp(float3(0.78f, 0.36f, 0.50f), uHorizonColor * float3(0.70f, 0.34f, 0.42f), 0.36f), 0.0f, 1.5f);
-        float3 sunsetShardLight = clamp(lerp(float3(1.56f, 0.78f, 0.38f), uSunColor * float3(1.30f, 0.78f, 0.48f), 0.50f), 0.0f, 1.9f);
-        float3 sunsetShardColor = lerp(sunsetShardShadow, sunsetShardLight, saturate(sunLit * 0.44f + 0.38f));
-        lowPolySky = lerp(lowPolySky, sunsetShardColor, clamp(sunsetShard * uCloudParams.w * 1.20f, 0.0f, 0.98f));
-
-        float upperShard = 0.0f;
-        upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, float2(0.19f, 0.80f), float2(0.090f, 0.016f), -1.85f));
-        upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, float2(0.31f, 0.86f), float2(0.115f, 0.018f), -1.70f) * 0.82f);
-        upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, float2(0.47f, 0.82f), float2(0.082f, 0.014f), -1.55f) * 0.62f);
-        upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, float2(0.69f, 0.84f), float2(0.130f, 0.020f), -1.65f) * 0.90f);
-        upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, float2(0.82f, 0.76f), float2(0.100f, 0.016f), -1.80f) * 0.74f);
-        upperShard *= smoothstep(0.55f, 0.64f, height) * (1.0f - smoothstep(0.92f, 0.98f, height));
-        upperShard = floor(upperShard * 3.0f + 0.5f) / 3.0f;
-        float3 shardShadow = clamp(lerp(float3(0.70f, 0.56f, 0.60f), uHorizonColor * float3(0.62f, 0.50f, 0.58f), 0.46f), 0.0f, 1.5f);
-        float3 shardLight = clamp(lerp(float3(1.38f, 0.80f, 0.48f), uSunColor * float3(1.22f, 0.88f, 0.68f), 0.56f), 0.0f, 1.9f);
-        float3 shardColor = lerp(shardShadow, shardLight, saturate(sunLit * 0.46f + 0.46f));
-        lowPolySky = lerp(lowPolySky, shardColor, clamp(upperShard * uCloudParams.w * 0.82f, 0.0f, 0.72f));
-
-        float streakCloud = 0.0f;
-        streakCloud = max(streakCloud, CloudLobe(skyCoord, float2(0.17f, 0.82f), float2(0.10f, 0.026f), 31.0f));
-        streakCloud = max(streakCloud, CloudLobe(skyCoord, float2(0.37f, 0.77f), float2(0.085f, 0.022f), 33.0f) * 0.70f);
-        streakCloud = max(streakCloud, CloudLobe(skyCoord, float2(0.64f, 0.83f), float2(0.12f, 0.028f), 35.0f) * 0.82f);
-        streakCloud = max(streakCloud, CloudLobe(skyCoord, float2(0.86f, 0.74f), float2(0.09f, 0.024f), 37.0f) * 0.62f);
-        streakCloud *= smoothstep(0.69f, 0.75f, height) * (1.0f - smoothstep(0.88f, 0.96f, height));
-        streakCloud = floor(streakCloud * 3.0f + 0.5f) / 3.0f;
-        float3 streakShadow = clamp(lerp(float3(0.62f, 0.62f, 0.78f), uHorizonColor * float3(0.66f, 0.62f, 0.70f), 0.62f), 0.0f, 1.7f);
-        float3 streakLight = clamp(lerp(float3(1.28f, 0.82f, 0.50f), uSunColor * float3(1.22f, 0.90f, 0.70f), 0.62f), 0.0f, 1.9f);
-        float3 streakColor = lerp(streakShadow, streakLight, saturate(sunLit * 0.54f + 0.36f));
-        lowPolySky = lerp(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.66f, 0.0f, 0.58f));
-
-        float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
-        lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.12f);
-        float screenCool = smoothstep(0.46f, 0.96f, input.texCoord.y);
-        float3 coolCeiling = clamp(zenith * float3(0.54f, 0.98f, 1.18f) + float3(0.00f, 0.02f, 0.08f), 0.0f, 1.8f);
-        lowPolySky = lerp(lowPolySky, coolCeiling, screenCool * 0.42f);
-
-        float heroCloud = HeroCloudMask(skyCoord);
-        heroCloud *= smoothstep(0.46f, 0.56f, height) * (1.0f - smoothstep(0.91f, 0.98f, height));
-        heroCloud = smoothstep(0.54f, 0.86f, heroCloud);
-        heroCloud = floor(heroCloud * 4.0f + 0.5f) / 4.0f;
-        float3 heroCloudShadow = clamp(lerp(float3(0.76f, 0.54f, 0.60f), uHorizonColor * float3(0.70f, 0.52f, 0.54f), 0.48f), 0.0f, 1.6f);
-        float3 heroCloudLight = clamp(lerp(float3(1.46f, 0.88f, 0.58f), uSunColor * float3(1.18f, 0.88f, 0.66f), 0.58f), 0.0f, 1.9f);
-        float3 heroCloudColor = lerp(heroCloudShadow, heroCloudLight, saturate(sunLit * 0.46f + 0.42f));
-        lowPolySky = lerp(lowPolySky, heroCloudColor, clamp(heroCloud * uCloudParams.w * 0.48f, 0.0f, 0.54f));
-
-        float lowPolySunDisk = 1.0f - smoothstep(0.014f, 0.034f, sunDistance);
-        float lowPolyInnerGlow = exp(-sunDistance * 38.0f);
-        float lowPolyOuterGlow = exp(-sunDistance * 12.0f);
-        float cleanSun = lowPolySunDisk * 1.06f + lowPolyInnerGlow * 0.12f + lowPolyOuterGlow * 0.014f;
-        float3 lowPolySun = clamp(lerp(float3(1.14f, 1.02f, 0.76f), uSunColor * float3(0.98f, 0.88f, 0.60f), 0.44f), 0.0f, 2.0f);
-        lowPolySky += lowPolySun * cleanSun * 0.46f;
-        finalSky = lowPolySky;
-    }
-    else if (mode == 7)
-    {
-        finalSky = lerp(float3(0.02f, 0.08f, 0.13f), float3(0.95f, 0.38f, 0.16f), pow(1.0f - height, 1.35f)) + sun * 0.35f;
-    }
-    else if (mode == 8)
-    {
-        finalSky = lerp(float3(0.26f, 0.32f, 0.36f), float3(0.58f, 0.62f, 0.62f), 1.0f - height) + cloudMask * float3(0.08f, 0.08f, 0.08f);
-    }
-    else if (mode == 9)
-    {
-        finalSky = lerp(float3(0.02f, 0.18f, 0.38f), float3(0.62f, 0.82f, 1.0f), pow(1.0f - height, 1.4f)) + sun * 0.25f;
-    }
-    else if (mode == 10)
-    {
-        finalSky = lerp(float3(0.020f, 0.023f, 0.026f), float3(0.10f, 0.12f, 0.14f), 1.0f - height);
-    }
-    else if (mode == 12)
-    {
-        float planet = 1.0f - smoothstep(0.19f, 0.205f, distance(skyCoord, float2(0.76f, 0.72f)));
-        finalSky = float3(0.006f, 0.008f, 0.020f) + float3(0.38f, 0.48f, 0.72f) * planet + sun * 0.18f;
-    }
-    else if (mode == 13)
-    {
-        float storm = cloudMask + ValueNoise(skyCoord * 12.0f) * 0.25f;
-        finalSky = lerp(float3(0.045f, 0.050f, 0.055f), float3(0.26f, 0.30f, 0.34f), storm) + uSunColor * sunDisk * 0.8f;
-    }
-    else if (mode == 16)
-    {
-        finalSky = lerp(float3(0.42f, 0.24f, 0.70f), float3(1.0f, 0.58f, 0.82f), 1.0f - height) + float3(0.38f, 0.86f, 1.0f) * outerGlow * 0.28f;
-    }
-    else if (mode == 17)
-    {
-        finalSky = lerp(float3(0.55f, 0.68f, 0.82f), float3(0.94f, 0.96f, 0.98f), pow(1.0f - height, 1.6f));
-    }
-    else if (mode == 18)
-    {
-        finalSky = 0.5f + 0.5f * cos(float3(0.0f, 2.0f, 4.0f) + skyCoord.x * 7.0f + skyCoord.y * 5.0f);
-    }
-    else if (mode == 19)
-    {
-        finalSky = lerp(float3(0.42f, 0.72f, 1.0f), float3(1.0f, 0.74f, 0.42f), pow(1.0f - height, 1.8f)) + sun * 0.18f;
-    }
-
+    finalSky = ApplyLowPolyGrade(finalSky, styleMode == 11 ? 0.32f : 0.18f);
     return float4(finalSky, 1.0f);
 }

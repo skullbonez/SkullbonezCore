@@ -460,11 +460,16 @@ int ParseUITab( const Json& value, const std::string& path )
         { "params", 4 },
         { "render", 5 },
         { "renderer", 5 },
-        { "keys", 6 },
-        { "controls", 6 },
-        { "cinematic", 7 },
-        { "cine", 7 },
-        { "look", 7 },
+        { "targets", 6 },
+        { "render_targets", 6 },
+        { "render-targets", 6 },
+        { "keys", 7 },
+        { "controls", 7 },
+        { "sky", 8 },
+        { "atmosphere", 8 },
+        { "cinematic", 9 },
+        { "cine", 9 },
+        { "look", 9 },
     };
 
     int parsed = 0;

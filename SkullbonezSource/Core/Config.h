@@ -126,51 +126,50 @@ struct CinematicRenderConfig
 
     // Final image controls. Exposure is overall brightness before tonemapping;
     // gamma adjusts how the final color is mapped to the monitor.
-    float exposure = 0.68f;
-    float gamma = 2.05f;
+    float exposure = 1.02f;
+    float gamma = 1.50f;
 
-    // Sun position is in screen coordinates, not world coordinates. 0,0 is the
-    // bottom-left of the image and 1,1 is the top-right. That makes the reference
-    // composition easy to tune.
-    float sunScreenX = 0.28f;
-    float sunScreenY = 0.76f;
+    // Legacy key names keep scene/config compatibility, but these are now
+    // normalized world-sky controls: X is azimuth, Y is elevation.
+    float sunScreenX = 0.50f;
+    float sunScreenY = 0.55f;
 
     // Sun/sky colors are deliberately allowed above normal 0..1 color in the
     // config parser. HDR values make bloom and tonemapping feel like hot sunlight.
-    float sunColorR = 1.0f;
-    float sunColorG = 0.68f;
-    float sunColorB = 0.32f;
-    float sunIntensity = 22.0f;
-    float skyHorizonR = 0.88f;
-    float skyHorizonG = 0.34f;
-    float skyHorizonB = 0.08f;
-    float skyZenithR = 0.26f;
-    float skyZenithG = 0.13f;
-    float skyZenithB = 0.12f;
-    float skyGlowStrength = 2.85f;
+    float sunColorR = 1.56f;
+    float sunColorG = 0.85f;
+    float sunColorB = 0.42f;
+    float sunIntensity = 11.2f;
+    float skyHorizonR = 1.18f;
+    float skyHorizonG = 0.74f;
+    float skyHorizonB = 0.68f;
+    float skyZenithR = 0.16f;
+    float skyZenithG = 0.78f;
+    float skyZenithB = 1.58f;
+    float skyGlowStrength = 0.52f;
 
     // Procedural cloud controls. Coverage decides how much cloud exists, softness
     // controls edge width, scale changes noise size, and intensity is blend amount.
-    float cloudCoverage = 0.66f;
-    float cloudSoftness = 0.19f;
-    float cloudScale = 5.4f;
-    float cloudIntensity = 0.62f;
+    float cloudCoverage = 0.56f;
+    float cloudSoftness = 0.16f;
+    float cloudScale = 5.2f;
+    float cloudIntensity = 1.08f;
 
     // God-ray and volumetric controls. Strength is visible brightness, density is
     // how far each ray marches toward the sun, and decay is how quickly light
     // fades along that march.
-    float sunShaftStrength = 2.28f;
-    float sunShaftFalloff = 1.92f;
-    float volumetricStrength = 1.28f;
-    float volumetricDensity = 1.25f;
+    float sunShaftStrength = 0.34f;
+    float sunShaftFalloff = 2.40f;
+    float volumetricStrength = 0.12f;
+    float volumetricDensity = 0.65f;
     float volumetricDecay = 0.955f;
 
     // Bloom controls. Threshold chooses what is bright enough to glow, knee makes
     // that cutoff soft, strength is glow amount, radius is blur spread.
-    float bloomThreshold = 1.05f;
+    float bloomThreshold = 1.08f;
     float bloomKnee = 0.55f;
-    float bloomStrength = 0.62f;
-    float bloomRadius = 4.2f;
+    float bloomStrength = 0.24f;
+    float bloomRadius = 3.0f;
 
     // Visual-only terrain controls. terrainRelief defaults to 0, so the basin
     // exaggeration is off even though the pass is ready for the slider. These do
@@ -196,47 +195,47 @@ struct CinematicRenderConfig
 
     // Fog/haze controls. Fog is applied from depth in post-processing, so it can
     // make distant terrain and balls disappear into warm sunset air.
-    float fogColorR = 0.86f;
-    float fogColorG = 0.34f;
-    float fogColorB = 0.12f;
-    float fogStart = 70.0f;
-    float fogEnd = 1550.0f;
-    float fogDensity = 0.00145f;
-    float fogMaxOpacity = 0.54f;
+    float fogColorR = 0.82f;
+    float fogColorG = 0.66f;
+    float fogColorB = 0.58f;
+    float fogStart = 360.0f;
+    float fogEnd = 1760.0f;
+    float fogDensity = 0.00038f;
+    float fogMaxOpacity = 0.14f;
 
     // Art-direction presets used by the concept scene pack. These extend the
     // original golden-hour cinematic controls without turning the renderer into a
     // full material graph. Modes are consumed by reusable shaders.
-    int skyMode = 0;     // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
-    int terrainMode = 0; // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
-    int objectStyle = 0; // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
-    int waterMode = 1;   // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
+    int skyMode = 11;    // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
+    int terrainMode = 7; // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
+    int objectStyle = 6; // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
+    int waterMode = 4;   // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
 
-    float styleSaturation = 1.08f;
-    float styleContrast = 1.08f;
-    float styleVignette = 0.76f;
+    float styleSaturation = 1.44f;
+    float styleContrast = 1.34f;
+    float styleVignette = 0.34f;
 
-    float terrainTintR = 0.78f;
-    float terrainTintG = 0.60f;
-    float terrainTintB = 0.38f;
-    float terrainAccentR = 0.20f;
-    float terrainAccentG = 0.09f;
-    float terrainAccentB = 0.02f;
+    float terrainTintR = 0.34f;
+    float terrainTintG = 0.54f;
+    float terrainTintB = 0.16f;
+    float terrainAccentR = 0.06f;
+    float terrainAccentG = 0.18f;
+    float terrainAccentB = 0.045f;
     float terrainGridScale = 46.0f;
     float terrainGridStrength = 0.0f;
 
-    float waterTintR = 0.24f;
+    float waterTintR = 0.018f;
     float waterTintG = 0.13f;
-    float waterTintB = 0.055f;
-    float waterAlpha = 0.94f;
-    float waterReflectionStrength = 0.22f;
-    float waterGlintStrength = 0.28f;
+    float waterTintB = 0.18f;
+    float waterAlpha = 0.92f;
+    float waterReflectionStrength = 0.28f;
+    float waterGlintStrength = 1.18f;
 
     float basinCenterX = 620.0f;
-    float basinCenterZ = 615.0f;
-    float basinRadiusX = 205.0f;
-    float basinRadiusZ = 145.0f;
-    float basinFeather = 0.18f;
+    float basinCenterZ = 650.0f;
+    float basinRadiusX = 250.0f;
+    float basinRadiusZ = 170.0f;
+    float basinFeather = 0.16f;
 };
 
 class EngineConfig
