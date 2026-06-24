@@ -455,7 +455,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                                                       false,
                                                                       replaySimulationPaused,
                                                                       Input::IsRightMouseDown(),
-                                                                      m_editor.viewportLookActive,
+                                                                      m_runtimeTools.Editor().viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),
                                                                       physicsCapture,
                                                                       SceneState().timeScale } );
@@ -690,19 +690,19 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
             return false;
         }
 
-        const Vector3 previousPlacementScale = m_editor.placementScale;
-        const bool previousTerrainAlign = m_editor.autoTerrainAlign;
-        const float previousPlacementYawRadians = m_editor.placementYawRadians;
-        m_editor.placementScale = placementScale;
-        m_editor.autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-        m_editor.placementYawRadians = placementYawRadians;
+        const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
+        const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
+        const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
+        m_runtimeTools.Editor().placementScale = placementScale;
+        m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+        m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
         const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
                                                              ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                              terrainPoint,
                                                              false );
-        m_editor.placementScale = previousPlacementScale;
-        m_editor.autoTerrainAlign = previousTerrainAlign;
-        m_editor.placementYawRadians = previousPlacementYawRadians;
+        m_runtimeTools.Editor().placementScale = previousPlacementScale;
+        m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
+        m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
         if ( !placed )
         {
             WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );
@@ -1033,8 +1033,8 @@ void Run::TickReplaySaveProbe()
         ApplyUIWorldOverride( probeGravity,
                               m_cWorldEnvironment.GetFluidSurfaceHeight(),
                               m_cWorldEnvironment.GetFluidDensity() );
-        m_editor.placementScale = Vector3( 2.0f, 2.0f, 2.0f );
-        m_editor.autoTerrainAlign = false;
+        m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+        m_runtimeTools.Editor().autoTerrainAlign = false;
         const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
         if ( PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) ) )
         {

@@ -183,7 +183,7 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 {
     InputController::ApplyModeAction(
         m_runtimeInput,
-        InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode, m_editor ) ),
+        InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ) ),
         action,
         source );
 }
@@ -225,15 +225,18 @@ bool Run::HasActiveReplayInteractionState() const
 
 bool Run::HasActiveEditorInteractionState() const
 {
-    return m_editor.editorModeEnabled || m_editor.placementModeEnabled || m_editor.viewportLookActive ||
-           m_editor.placementPreviewVisible || m_editor.placementScaleActive || m_editor.gizmoDragActive ||
-           m_editor.hotGizmoAxis >= 0 || m_editor.hotRotationAxis >= 0 || m_editor.activeGizmoAxis >= 0;
+    return m_runtimeTools.Editor().editorModeEnabled || m_runtimeTools.Editor().placementModeEnabled ||
+           m_runtimeTools.Editor().viewportLookActive || m_runtimeTools.Editor().placementPreviewVisible ||
+           m_runtimeTools.Editor().placementScaleActive || m_runtimeTools.Editor().gizmoDragActive ||
+           m_runtimeTools.Editor().hotGizmoAxis >= 0 || m_runtimeTools.Editor().hotRotationAxis >= 0 ||
+           m_runtimeTools.Editor().activeGizmoAxis >= 0;
 }
 
 
 bool Run::InspectGizmoInteractionActive() const
 {
-    return !m_editor.editorModeEnabled && m_camera.mode == RunCameraMode::Inspect && !ReplayInspectionActive();
+    return !m_runtimeTools.Editor().editorModeEnabled && m_camera.mode == RunCameraMode::Inspect &&
+           !ReplayInspectionActive();
 }
 
 
@@ -283,14 +286,14 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
     ClearEditorManipulationState();
-    m_editor.viewportLookActive = false;
-    m_editor.placementModeEnabled = false;
-    m_editor.hotGizmoAxis = -1;
-    m_editor.hotRotationAxis = -1;
-    m_editor.activeGizmoAxis = -1;
+    m_runtimeTools.Editor().viewportLookActive = false;
+    m_runtimeTools.Editor().placementModeEnabled = false;
+    m_runtimeTools.Editor().hotGizmoAxis = -1;
+    m_runtimeTools.Editor().hotRotationAxis = -1;
+    m_runtimeTools.Editor().activeGizmoAxis = -1;
     if ( clearSelection )
     {
-        m_editor.selectedModelIndex = -1;
+        m_runtimeTools.Editor().selectedModelIndex = -1;
     }
     ReleaseMouseToUI();
     ApplyCursorOwnership();
@@ -322,9 +325,9 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
     if ( ( !enteringEdit && HasActiveEditorInteractionState() ) || IsEditorWorldOwner( transition.previousOwner ) )
     {
         ClearEditorInteractionForRuntimeTransition( enteringReplay || enteringTool );
-        if ( m_editor.editorModeEnabled && !enteringEdit )
+        if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )
         {
-            m_editor.editorModeEnabled = false;
+            m_runtimeTools.Editor().editorModeEnabled = false;
         }
     }
 
@@ -473,9 +476,9 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
     }
     m_camera.mode = mode;
-    if ( m_editor.editorModeEnabled )
+    if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        m_editor.restoreCameraModeAfterEditor = mode;
+        m_runtimeTools.Editor().restoreCameraModeAfterEditor = mode;
     }
     if ( mode != RunCameraMode::Manipulator )
     {
@@ -547,9 +550,9 @@ bool Run::MouseLookOwnsCursor() const
         return false;
     }
 
-    if ( m_editor.editorModeEnabled )
+    if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        return m_editor.viewportLookActive;
+        return m_runtimeTools.Editor().viewportLookActive;
     }
 
     if ( ReplayInspectionActive() )
@@ -573,8 +576,9 @@ bool Run::ShouldHideNativeCursor() const
         return true;
     }
 
-    return m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible &&
-           !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
+    return m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
+           m_runtimeTools.Editor().placementPreviewVisible && !m_UI.WantsNativeMouseCursor() &&
+           !m_UI.BlocksCameraMouse();
 }
 
 
@@ -673,7 +677,7 @@ void Run::TakeInput()
         InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
         InputController::BeginFrame( m_runtimeInput,
-                                     BuildRuntimeInputModeState( m_camera.mode, m_editor ),
+                                     BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ),
                                      false,
                                      true,
                                      true );
@@ -686,7 +690,7 @@ void Run::TakeInput()
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     InputController::BeginFrame( m_runtimeInput,
-                                 BuildRuntimeInputModeState( m_camera.mode, m_editor ),
+                                 BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ),
                                  true,
                                  UIBlocksKeyboardBeforeInput,
                                  m_UI.BlocksCameraMouse() );
@@ -755,7 +759,7 @@ void Run::TakeInput()
         }
 #endif
 
-        if ( m_editor.editorModeEnabled )
+        if ( m_runtimeTools.Editor().editorModeEnabled )
         {
             HandleEditorKeyboardShortcuts();
         }
@@ -769,8 +773,8 @@ void Run::TakeInput()
             m_replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
             m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
             m_runtimeInput.SetActionDown( RuntimeInputAction::CycleCameraMode, Input::IsKeyDown( VK_TAB ) );
-            m_editor.altShortcutWasDown = altDown;
-            m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+            m_runtimeTools.Editor().altShortcutWasDown = altDown;
+            m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
         }
 
         // Water m_shader debug toggles
@@ -986,9 +990,9 @@ void Run::TakeInput()
         m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
         m_replayRuntime.VelocityEdit().keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
-        m_editor.altShortcutWasDown = Input::IsKeyDown( VK_MENU );
-        m_editor.tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
-        m_editor.tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
+        m_runtimeTools.Editor().altShortcutWasDown = Input::IsKeyDown( VK_MENU );
+        m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
+        m_runtimeTools.Editor().tildeShortcutWasDown = Input::IsKeyDown( VK_OEM_3 );
     }
 
     bool suppressWorldActionThisFrame = UIBlocksKeyboardBeforeInput;
@@ -1001,11 +1005,11 @@ void Run::TakeInput()
                               static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                               static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
                               m_timers.simulationTimer.GetTotalTime(),
-                              m_editor.editorModeEnabled,
-                              m_editor.placementModeEnabled,
-                              m_editor.placeStaticObject,
-                              m_editor.autoTerrainAlign,
-                              m_editor.objectType,
+                              m_runtimeTools.Editor().editorModeEnabled,
+                              m_runtimeTools.Editor().placementModeEnabled,
+                              m_runtimeTools.Editor().placeStaticObject,
+                              m_runtimeTools.Editor().autoTerrainAlign,
+                              m_runtimeTools.Editor().objectType,
                               static_cast<int>( m_camera.mode ),
                               CameraModeEnabledMask(),
                               m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
@@ -1520,8 +1524,9 @@ void Run::TakeInput()
                                                        mouseEdges,
                                                        suppressWorldActionThisFrame );
         }
-        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame && !m_editor.editorModeEnabled &&
-             !m_UI.WantsNativeMouseCursor() && ( Input::IsKeyDown( VK_CONTROL ) || !IsLauncherCameraMode() ) )
+        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame &&
+             !m_runtimeTools.Editor().editorModeEnabled && !m_UI.WantsNativeMouseCursor() &&
+             ( Input::IsKeyDown( VK_CONTROL ) || !IsLauncherCameraMode() ) )
         {
             const bool additiveReplayPick = Input::IsKeyDown( VK_SHIFT );
             TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
@@ -1574,7 +1579,7 @@ void Run::TakeInput()
                                                                       IsReplayScrubPaused(),
                                                                       m_replayRuntime.Scrubber().simulationPaused,
                                                                       Input::IsRightMouseDown(),
-                                                                      m_editor.viewportLookActive,
+                                                                      m_runtimeTools.Editor().viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),
                                                                       false,
                                                                       SceneState().timeScale } );
@@ -1732,13 +1737,13 @@ bool Run::DrainRuntimeCommands()
 
 void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( IsFlyCameraMode() || m_editor.viewportLookActive )
+    if ( IsFlyCameraMode() || m_runtimeTools.Editor().viewportLookActive )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
         // Mouse look
-        if ( ( !m_editor.editorModeEnabled || m_editor.viewportLookActive ) &&
+        if ( ( !m_runtimeTools.Editor().editorModeEnabled || m_runtimeTools.Editor().viewportLookActive ) &&
              ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 ) )
         {
             m_systems.cameras->RotatePrimary( m_camera.input.xMove * mouseMovementQty,
@@ -1767,7 +1772,7 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !IsFlyCameraMode() && !m_editor.viewportLookActive && !SceneState().isSceneMode )
+    if ( !IsFlyCameraMode() && !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =

@@ -10,11 +10,23 @@ Mental model:
 */
 #pragma once
 
+#include "../../Core/Common.h"
 #include "../Editor/LauncherLaser.h"
+#include "../RuntimeCameraMode.h"
+#include "../../Maths/Matrix4.h"
+#include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../UI/UITabEditor.h"
 
 #include <array>
 #include <cstddef>
+#include <vector>
+
+namespace SkullbonezCore::GameObjects
+{
+class GameModel;
+}
 
 namespace SkullbonezCore::Basics
 {
@@ -58,6 +70,116 @@ struct RunMousePickupState
     Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
 };
 
+struct RunEditorPlacementState
+{
+    static constexpr std::size_t GIZMO_DRAG_GROUP_CAPACITY = 16;
+
+    bool editorModeEnabled = false;
+    bool placementModeEnabled = false;
+    bool placeStaticObject = false;
+    bool autoTerrainAlign = false;
+    RunCameraMode restoreCameraModeAfterEditor = RunCameraMode::Demo;
+    bool viewportLookActive = false;
+    bool placementPreviewVisible = false;
+    bool placementScaleActive = false;
+    bool gizmoDragActive = false;
+    bool gizmoDragIsRotation = false;
+    bool gizmoDragIsScale = false;
+    bool altShortcutWasDown = false;
+    bool tabShortcutWasDown = false;
+    bool tildeShortcutWasDown = false;
+    int objectType = UI::EditorTab::OBJECT_BOX;
+    int placedObjectSerial = 0;
+    int selectedModelIndex = -1;
+    int hotGizmoAxis = -1;
+    int hotRotationAxis = -1;
+    int activeGizmoAxis = -1;
+    float gizmoDragStartAxisT = 0.0f;
+    float gizmoDragStartRotationAngle = 0.0f;
+    float placementYawRadians = 0.0f;
+    int placementAltitudeSteps = 0;
+    int placementScaleWheelSteps = 0;
+    Math::Vector::Vector3 placementTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementCenter = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementRayHit = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScale = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleStart = Math::Vector::Vector3( 6.0f, 6.0f, 6.0f );
+    Math::Vector::Vector3 placementScaleTerrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScaleRayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    POINT placementScaleStartClient = {};
+    Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::CollisionDetection::CollisionShape gizmoDragStartShape;
+    int gizmoDragGroupCount = 0;
+    std::array<int, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupIndices = {};
+    std::array<Math::Vector::Vector3, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartPositions = {};
+    std::array<Math::Orientation::Quaternion, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartOrientations = {};
+};
+
+class RunEditorTracer
+{
+  private:
+    std::vector<float> m_lineData;
+
+    void EmitLine( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
+    void EmitRing( const Math::Vector::Vector3& center, int axis, float radius, float r, float g, float bl );
+    void EmitSphere( const Math::Vector::Vector3& center, float radius, float r, float g, float bl );
+    void EmitBox( const Math::Vector::Vector3& center,
+                  const Math::Vector::Vector3& xAxis,
+                  const Math::Vector::Vector3& yAxis,
+                  const Math::Vector::Vector3& zAxis,
+                  float r,
+                  float g,
+                  float bl );
+
+  public:
+    RunEditorTracer();
+    void Clear();
+    void AddPlacementRay( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& hitPoint );
+    void AddPlacementGhost( int objectType,
+                            const Math::Vector::Vector3& center,
+                            const Math::Vector::Vector3& terrainPoint,
+                            const Math::Vector::Vector3& placementScale,
+                            const Math::Orientation::Quaternion& orientation );
+    void
+    AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
+    void AddReplayPathSegment( const Math::Vector::Vector3& start,
+                               const Math::Vector::Vector3& end,
+                               float r,
+                               float g,
+                               float b );
+    void AddReplayContactMarker( const Math::Vector::Vector3& point,
+                                 const Math::Vector::Vector3& normal,
+                                 float r,
+                                 float g,
+                                 float b );
+    void AddReplayImpulseVector( const Math::Vector::Vector3& point,
+                                 const Math::Vector::Vector3& impulse,
+                                 float r,
+                                 float g,
+                                 float b );
+    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
+    void AddReplayTargetMarker( const GameObjects::GameModel& model );
+    void AddSelectionOutline( const GameObjects::GameModel& model );
+    void AddGizmo( const Math::Vector::Vector3& origin,
+                   float radius,
+                   int hotTranslateAxis,
+                   int hotRotationAxis,
+                   int activeAxis,
+                   bool activeRotation,
+                   bool scaleMode,
+                   bool activeScale );
+    void AddReplayVelocityGizmo( const GameObjects::GameModel& model,
+                                 int hotLinearAxis,
+                                 int hotAngularAxis,
+                                 int activeAxis,
+                                 bool activeAngular );
+    void Render( const Math::Transformation::Matrix4& viewProjection );
+};
+
 class RuntimeTools
 {
   public:
@@ -70,9 +192,17 @@ class RuntimeTools
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
 
+    RunEditorPlacementState& Editor();
+    const RunEditorPlacementState& Editor() const;
+
+    RunEditorTracer& EditorTracer();
+    const RunEditorTracer& EditorTracer() const;
+
   private:
     RunRayCastTestState m_rayCastTest;
     LauncherLaser m_laser;
     RunMousePickupState m_mousePickup;
+    RunEditorPlacementState m_editor;
+    RunEditorTracer m_editorTracer;
 };
 } // namespace SkullbonezCore::Basics

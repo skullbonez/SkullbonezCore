@@ -191,7 +191,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.physicsDebugVisualizer = &m_physicsDebugVisualizer;
     bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
     bindings.rayCastTest = &m_runtimeTools.RayCastTest();
-    bindings.editor = &m_editor;
+    bindings.editor = &m_runtimeTools.Editor();
     bindings.mousePickup = &m_runtimeTools.MousePickup();
     bindings.replayScrubber = &m_replayRuntime.Scrubber();
     bindings.replayPrediction = &m_replayRuntime.Prediction();
@@ -1283,7 +1283,7 @@ void Run::ResetReplayScrubber()
 
 bool Run::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
+    if ( m_runtimeTools.Editor().editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
     {
         return false;
     }

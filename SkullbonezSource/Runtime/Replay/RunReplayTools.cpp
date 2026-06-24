@@ -1373,7 +1373,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool restorePressed = restoreDown && !m_replayRuntime.Scrubber().restoreWasDown;
     m_replayRuntime.Scrubber().restoreWasDown = restoreDown;
 
-    const bool scrubberAllowed = !m_editor.editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
+    const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const bool loadedPresentation = HasLoadedReplayPresentation();
     const ReplayRecorderStats solverReplayStats = SolverReplay().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
@@ -2322,7 +2322,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    if ( m_editor.editorModeEnabled || screenW <= 0 || screenH <= 0 || !BuildReplayCauseTreeRows() )
+    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 || !BuildReplayCauseTreeRows() )
     {
         if ( leftReleased &&
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
@@ -2767,8 +2767,8 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     const bool leftReleased = !leftDown && m_replayRuntime.VelocityEdit().leftWasDown;
     m_replayRuntime.VelocityEdit().leftWasDown = leftDown;
 
-    if ( !m_replayRuntime.VelocityEdit().enabled || m_editor.editorModeEnabled || !SceneState().isScenePhysics ||
-         WindowScreenWidth() <= 0 || WindowScreenHeight() <= 0 )
+    if ( !m_replayRuntime.VelocityEdit().enabled || m_runtimeTools.Editor().editorModeEnabled ||
+         !SceneState().isScenePhysics || WindowScreenWidth() <= 0 || WindowScreenHeight() <= 0 )
     {
         m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
         m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
@@ -2880,7 +2880,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
-    if ( !m_replayRuntime.VelocityEdit().enabled || m_editor.editorModeEnabled )
+    if ( !m_replayRuntime.VelocityEdit().enabled || m_runtimeTools.Editor().editorModeEnabled )
     {
         return;
     }

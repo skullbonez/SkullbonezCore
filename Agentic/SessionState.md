@@ -209,6 +209,22 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Gibbs found no blocking
   defect and confirmed mouse capture release, picking, target update, angular
   velocity preservation, and impulse application stayed mechanically equivalent.
+- Runtime run decomposition Phase 6 editor/tracer slice moves
+  `RunEditorPlacementState` and `RunEditorTracer` ownership into
+  `RuntimeTools`. `Run` now reaches editor placement, gizmo drag/selection,
+  replay overlay suppression, editor tracer lines, and render-host binding
+  through `RuntimeTools` accessors while the render host continues to borrow
+  the same editor state view for draw-time passes.
+- Phase 6 editor/tracer validation: final format 6.56s, final Profile build
+  117.81s
+  (`TestOutput\validation\phase6_runtime_tools_editor_profile_build_rerun.log`),
+  and full gate 131.71s
+  (`TestOutput\validation\phase6_runtime_tools_editor_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Gauss found no blocking
+  defect and confirmed the render-host lifetime, input mode resolution, replay
+  overlay, and editor placement restore paths stayed behavior-preserving.
 
 ## Current Work Items
 

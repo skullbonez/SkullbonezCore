@@ -36,4 +36,24 @@ const RunMousePickupState& RuntimeTools::MousePickup() const
 {
     return m_mousePickup;
 }
+
+RunEditorPlacementState& RuntimeTools::Editor()
+{
+    return m_editor;
+}
+
+const RunEditorPlacementState& RuntimeTools::Editor() const
+{
+    return m_editor;
+}
+
+RunEditorTracer& RuntimeTools::EditorTracer()
+{
+    return m_editorTracer;
+}
+
+const RunEditorTracer& RuntimeTools::EditorTracer() const
+{
+    return m_editorTracer;
+}
 } // namespace SkullbonezCore::Basics
