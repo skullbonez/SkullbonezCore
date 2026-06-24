@@ -2667,7 +2667,7 @@ void Run::ApplyReplayVelocityEditToModel( int modelIndex,
     if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
          VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
     {
-        m_cGameModelCollection.WakeModel( modelIndex );
+        m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, modelIndex );
     }
     m_cGameModelCollection.InvalidatePhysicsStreams();
     MarkReplayPredictionDirty();
@@ -3141,7 +3141,8 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t 
         return false;
     }
 
-    m_cGameModelCollection.CaptureReplaySolverWorldSnapshot( m_replayPrediction.predictionWorld );
+    m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( m_replayPrediction.predictionWorld,
+                                                                           m_cGameModelCollection.GetModelCount() );
     CaptureReplayPredictionFrame( 0 );
     m_replayPrediction.building = true;
 
@@ -3164,10 +3165,12 @@ bool Run::StepReplayPredictionJob( double budgetMilliseconds )
         m_replayPrediction.dirty = true;
         return false;
     }
-    m_cGameModelCollection.CaptureReplaySolverWorldSnapshot( m_replayPrediction.liveRestoreWorld );
+    m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( m_replayPrediction.liveRestoreWorld,
+                                                                           m_cGameModelCollection.GetModelCount() );
 
 #ifdef _DEBUG
-    const bool previousDiagnosticsSuppressed = m_cGameModelCollection.SetPhysicsDiagnosticsSuppressed( true );
+    const bool previousDiagnosticsSuppressed =
+        m_cGameModelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( true );
 #endif
 
     bool jobApplied = false;
@@ -3177,7 +3180,9 @@ bool Run::StepReplayPredictionJob( double budgetMilliseconds )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyJobState" );
         jobApplied = ApplyReplayPredictionBodyState( m_replayPrediction.predictionBodies ) &&
-                     m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( m_replayPrediction.predictionWorld );
+                     m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+                         m_replayPrediction.predictionWorld,
+                         m_cGameModelCollection.GetModelCount() );
         m_cGameModelCollection.InvalidatePhysicsStreams();
     }
 
@@ -3189,7 +3194,7 @@ bool Run::StepReplayPredictionJob( double budgetMilliseconds )
             {
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+                    m_cGameModelCollection.GetPhysicsEngine().Step( m_cGameModelCollection, PHYSICS_FIXED_DT );
                 }
                 CaptureReplayPredictionFrame( static_cast<ReplayFrameIndex>( m_replayPrediction.nextTick ) );
                 ++m_replayPrediction.nextTick;
@@ -3209,20 +3214,24 @@ bool Run::StepReplayPredictionJob( double budgetMilliseconds )
             jobStateCaptured = CaptureReplayPredictionBodyState( m_replayPrediction.predictionBodies );
             if ( jobStateCaptured )
             {
-                m_cGameModelCollection.CaptureReplaySolverWorldSnapshot( m_replayPrediction.predictionWorld );
+                m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
+                    m_replayPrediction.predictionWorld,
+                    m_cGameModelCollection.GetModelCount() );
             }
         }
     }
 
 #ifdef _DEBUG
-    m_cGameModelCollection.SetPhysicsDiagnosticsSuppressed( previousDiagnosticsSuppressed );
+    m_cGameModelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
 #endif
 
     bool liveRestored = false;
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/RestoreLive" );
         liveRestored = ApplyReplayPredictionBodyState( m_replayPrediction.liveRestoreBodies ) &&
-                       m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( m_replayPrediction.liveRestoreWorld );
+                       m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+                           m_replayPrediction.liveRestoreWorld,
+                           m_cGameModelCollection.GetModelCount() );
         m_cGameModelCollection.InvalidatePhysicsStreams();
     }
 

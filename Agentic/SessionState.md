@@ -57,6 +57,10 @@ audits when it is still useful.
   editor transform wakeups and restore-target physics stepping through
   `PhysicsEngine`, leaving broader replay snapshot ownership for the replay
   runtime phase.
+- Runtime run decomposition Phase 4C replay migration routes replay sample
+  restore, solver snapshot capture/restore, prediction stepping, velocity-edit
+  wakeups, and prediction diagnostics suppression through `PhysicsEngine`; a
+  dedicated `ReplayRuntime` remains the Phase 5 owner boundary.
 
 ## Current Work Items
 

@@ -1016,7 +1016,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     sample.pipelineRecordCount = SaturatingUint16( models.GetPhysicsPipelineTrace().size() );
-    models.CaptureReplaySolverWorldSnapshot( sample.worldSnapshot );
+    models.GetPhysicsEngine().CaptureReplaySolverSnapshot( sample.worldSnapshot, static_cast<int>( modelCount ) );
 
     const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
     const std::vector<uint8_t>& sleepSupportedStates = models.GetSleepSupportedStates();

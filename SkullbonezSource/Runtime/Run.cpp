@@ -1548,7 +1548,9 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.ClearImpulseForce();
     }
 
-    if ( !m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( sample.worldSnapshot ) )
+    if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+             sample.worldSnapshot,
+             m_cGameModelCollection.GetModelCount() ) )
     {
         writeReason( "failed to restore solver world snapshot" );
         return false;
