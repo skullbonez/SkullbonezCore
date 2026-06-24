@@ -317,19 +317,6 @@ struct RunDebugState
 #endif
 };
 
-struct RunMousePickupState
-{
-    bool active = false;
-    bool mouseCaptured = false;
-    int modelIndex = -1;
-    Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
-};
-
 #ifdef _DEBUG
 struct RunReplayScrubProbeState
 {
@@ -550,8 +537,7 @@ class Run
     RunLiveStyleControlState m_liveStyle;                                        // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles
-    RuntimeTools m_runtimeTools;                                                 // Launcher/ray-test state and transient render feedback.
-    RunMousePickupState m_mousePickup;                                           // Manipulator-mode click-drag physics pickup state.
+    RuntimeTools m_runtimeTools;                                                 // Launcher/manipulator tool state and transient render feedback.
     RunEditorPlacementState m_editor;                                            // Object placement and selection editor state
     RunEditorTracer m_editorTracer;                                              // Render-only ray tests, ghost previews, and editor gizmo lines
     std::vector<RunRequiredContactState> m_requiredSceneContacts;

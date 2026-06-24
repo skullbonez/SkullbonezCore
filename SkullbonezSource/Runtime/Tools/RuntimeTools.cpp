@@ -26,4 +26,14 @@ const LauncherLaser& RuntimeTools::Laser() const
 {
     return m_laser;
 }
+
+RunMousePickupState& RuntimeTools::MousePickup()
+{
+    return m_mousePickup;
+}
+
+const RunMousePickupState& RuntimeTools::MousePickup() const
+{
+    return m_mousePickup;
+}
 } // namespace SkullbonezCore::Basics

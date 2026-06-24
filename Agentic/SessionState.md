@@ -194,6 +194,21 @@ audits when it is still useful.
   `physics_regression_solver.csv`. Rubber-duck reviewer Socrates found no
   behavior defect and confirmed the slice satisfies the first one-tool-at-a-time
   Phase 6 extraction while manipulator/editor ownership remains for later slices.
+- Runtime run decomposition Phase 6 mouse-pickup/manipulator slice moves
+  `RunMousePickupState` into `RuntimeTools` and routes manipulator picking,
+  target update, capture release, physics-step impulse, angular-velocity
+  preservation, render-host binding, and overlay reads through the
+  compatibility accessor.
+- Phase 6 mouse-pickup validation: final format 6.68s, project-filter check
+  0.70s, final Profile build 117.53s
+  (`TestOutput\validation\phase6_runtime_tools_mouse_pickup_profile_build_rerun.log`),
+  and full gate 132.49s
+  (`TestOutput\validation\phase6_runtime_tools_mouse_pickup_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Gibbs found no blocking
+  defect and confirmed mouse capture release, picking, target update, angular
+  velocity preservation, and impulse application stayed mechanically equivalent.
 
 ## Current Work Items
 

@@ -192,7 +192,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
     bindings.rayCastTest = &m_runtimeTools.RayCastTest();
     bindings.editor = &m_editor;
-    bindings.mousePickup = &m_mousePickup;
+    bindings.mousePickup = &m_runtimeTools.MousePickup();
     bindings.replayScrubber = &m_replayRuntime.Scrubber();
     bindings.replayPrediction = &m_replayRuntime.Prediction();
     bindings.replayFocusModelMask = &m_replayRuntime.FocusModelMask();

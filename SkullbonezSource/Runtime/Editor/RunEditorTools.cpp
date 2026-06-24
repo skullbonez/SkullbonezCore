@@ -4107,11 +4107,11 @@ bool Run::TryPickMousePickupModel( const Vector3& rayOrigin,
 
 void Run::CancelMousePickup()
 {
-    if ( m_mousePickup.mouseCaptured )
+    if ( m_runtimeTools.MousePickup().mouseCaptured )
     {
         UI::InputControl::EndMouseCapture();
     }
-    m_mousePickup = RunMousePickupState{};
+    m_runtimeTools.MousePickup() = RunMousePickupState{};
 }
 
 
@@ -4132,23 +4132,25 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
             return false;
         }
 
-        const float denom = rayDirection * m_mousePickup.planeNormal;
+        const float denom = rayDirection * m_runtimeTools.MousePickup().planeNormal;
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT = ( ( m_mousePickup.planePoint - rayOrigin ) * m_mousePickup.planeNormal ) / denom;
+        const float planeT =
+            ( ( m_runtimeTools.MousePickup().planePoint - rayOrigin ) * m_runtimeTools.MousePickup().planeNormal ) /
+            denom;
         if ( planeT < 0.0f )
         {
             return false;
         }
 
-        m_mousePickup.targetPoint = rayOrigin + rayDirection * planeT;
+        m_runtimeTools.MousePickup().targetPoint = rayOrigin + rayDirection * planeT;
         return true;
     };
 
-    if ( m_mousePickup.active )
+    if ( m_runtimeTools.MousePickup().active )
     {
         if ( mouseEdges.leftReleased || !mouseEdges.leftDown )
         {
@@ -4198,15 +4200,15 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
     const Vector3 grabPoint = rayOrigin + rayDirection * pickedT;
-    m_mousePickup.active = true;
-    m_mousePickup.mouseCaptured = true;
-    m_mousePickup.modelIndex = pickedIndex;
-    m_mousePickup.planePoint = grabPoint;
-    m_mousePickup.planeNormal = cameraNormal;
-    m_mousePickup.grabOffset = grabPoint - picked.GetPosition();
-    m_mousePickup.targetPoint = grabPoint;
-    m_mousePickup.preservedAngularVelocity = picked.GetAngularVelocity();
-    m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    m_runtimeTools.MousePickup().active = true;
+    m_runtimeTools.MousePickup().mouseCaptured = true;
+    m_runtimeTools.MousePickup().modelIndex = pickedIndex;
+    m_runtimeTools.MousePickup().planePoint = grabPoint;
+    m_runtimeTools.MousePickup().planeNormal = cameraNormal;
+    m_runtimeTools.MousePickup().grabOffset = grabPoint - picked.GetPosition();
+    m_runtimeTools.MousePickup().targetPoint = grabPoint;
+    m_runtimeTools.MousePickup().preservedAngularVelocity = picked.GetAngularVelocity();
+    m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     UI::InputControl::BeginMouseCapture( hwnd );
     EnterInteractiveSceneRun();
     UpdatePickupTarget();
@@ -4216,32 +4218,33 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
 
 void Run::ApplyMousePickupPhysicsStep()
 {
-    if ( !m_mousePickup.active )
+    if ( !m_runtimeTools.MousePickup().active )
     {
         return;
     }
 
     std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
+         m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
     {
         CancelMousePickup();
         return;
     }
 
-    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    GameModel& model = models[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
     if ( model.IsFixed() )
     {
         CancelMousePickup();
         return;
     }
-    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+    model.SetAngularVelocity( m_runtimeTools.MousePickup().preservedAngularVelocity );
 
-    const Vector3 grabPoint = model.GetPosition() + m_mousePickup.grabOffset;
-    const Vector3 pull = m_mousePickup.targetPoint - grabPoint;
+    const Vector3 grabPoint = model.GetPosition() + m_runtimeTools.MousePickup().grabOffset;
+    const Vector3 pull = m_runtimeTools.MousePickup().targetPoint - grabPoint;
     const float pullLenSq = VectorMagSquared( pull );
     if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
     {
-        m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         return;
     }
 
@@ -4253,36 +4256,37 @@ void Run::ApplyMousePickupPhysicsStep()
     }
 
     m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( m_cGameModelCollection,
-                                                                m_mousePickup.modelIndex,
+                                                                m_runtimeTools.MousePickup().modelIndex,
                                                                 impulse,
                                                                 SkullbonezCore::Math::Vector::ZERO_VECTOR );
     m_cGameModelCollection.InvalidatePhysicsStreams();
-    m_mousePickup.lastImpulse = impulse;
+    m_runtimeTools.MousePickup().lastImpulse = impulse;
 }
 
 
 void Run::RestoreMousePickupAngularVelocity()
 {
-    if ( !m_mousePickup.active )
+    if ( !m_runtimeTools.MousePickup().active )
     {
         return;
     }
 
     std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    if ( m_mousePickup.modelIndex < 0 || m_mousePickup.modelIndex >= static_cast<int>( models.size() ) )
+    if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
+         m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
     {
         CancelMousePickup();
         return;
     }
 
-    GameModel& model = models[static_cast<size_t>( m_mousePickup.modelIndex )];
+    GameModel& model = models[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
     if ( model.IsFixed() )
     {
         CancelMousePickup();
         return;
     }
 
-    model.SetAngularVelocity( m_mousePickup.preservedAngularVelocity );
+    model.SetAngularVelocity( m_runtimeTools.MousePickup().preservedAngularVelocity );
     m_cGameModelCollection.InvalidatePhysicsStreams();
 }
 
@@ -4710,19 +4714,20 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                      m_editor.gizmoDragIsScale );
         }
     }
-    if ( m_mousePickup.active && m_mousePickup.modelIndex >= 0 &&
-         m_mousePickup.modelIndex < m_cGameModelCollection.GetModelCount() )
+    if ( m_runtimeTools.MousePickup().active && m_runtimeTools.MousePickup().modelIndex >= 0 &&
+         m_runtimeTools.MousePickup().modelIndex < m_cGameModelCollection.GetModelCount() )
     {
-        const GameModel& grabbed = m_cGameModelCollection.Models()[static_cast<size_t>( m_mousePickup.modelIndex )];
-        const Vector3 grabPoint = grabbed.GetPosition() + m_mousePickup.grabOffset;
+        const GameModel& grabbed =
+            m_cGameModelCollection.Models()[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + m_runtimeTools.MousePickup().grabOffset;
         m_editorTracer.AddSelectionOutline( grabbed );
-        m_editorTracer.AddReplayPathSegment( grabPoint, m_mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
-        m_editorTracer.AddReplayContactMarker( m_mousePickup.targetPoint,
-                                               m_mousePickup.planeNormal,
+        m_editorTracer.AddReplayPathSegment( grabPoint, m_runtimeTools.MousePickup().targetPoint, 0.1f, 0.95f, 1.0f );
+        m_editorTracer.AddReplayContactMarker( m_runtimeTools.MousePickup().targetPoint,
+                                               m_runtimeTools.MousePickup().planeNormal,
                                                0.1f,
                                                0.95f,
                                                1.0f );
-        m_editorTracer.AddReplayImpulseVector( grabPoint, m_mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+        m_editorTracer.AddReplayImpulseVector( grabPoint, m_runtimeTools.MousePickup().lastImpulse, 0.1f, 0.95f, 1.0f );
     }
     RenderReplayPathVisualizer( m_editorTracer );
     RenderReplayCauseFocusOverlay( m_editorTracer );

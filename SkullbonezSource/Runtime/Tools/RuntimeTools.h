@@ -45,6 +45,19 @@ struct RunRayCastTestState
     float projectileSpeed = 160.0f;
 };
 
+struct RunMousePickupState
+{
+    bool active = false;
+    bool mouseCaptured = false;
+    int modelIndex = -1;
+    Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 lastImpulse = Math::Vector::ZERO_VECTOR;
+};
+
 class RuntimeTools
 {
   public:
@@ -54,8 +67,12 @@ class RuntimeTools
     LauncherLaser& Laser();
     const LauncherLaser& Laser() const;
 
+    RunMousePickupState& MousePickup();
+    const RunMousePickupState& MousePickup() const;
+
   private:
     RunRayCastTestState m_rayCastTest;
     LauncherLaser m_laser;
+    RunMousePickupState m_mousePickup;
 };
 } // namespace SkullbonezCore::Basics
