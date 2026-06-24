@@ -60,16 +60,26 @@ void Run::RenderReplayScrubberOverlay()
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const float t = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, activeTrack ), 0.0f, 1.0f );
+    const float solverPresentT =
+        loadedPresentation ? 1.0f : ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayPrediction );
+    const bool futureTimelineVisible = !loadedPresentation && ReplayScrubberTimelineHasFuture( solverPresentT );
+    const bool futureSelected = !loadedPresentation && ReplayScrubberTrackPositionIsFuture( t, solverPresentT );
+    const float solverSampleT = ReplayScrubberSolverNormalizedFromTrack( t, solverPresentT );
     const ReplayPresentationSample* selectedPresentation =
         loadedPresentation ? LoadedReplayPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
         loadedPresentation ? LoadedReplayPresentationLatestSample() : nullptr;
-    const ReplaySolverFrameSample* selected = loadedPresentation ? nullptr : m_solverReplay.SampleAtNormalized( t );
+    const ReplaySolverFrameSample* selected =
+        ( loadedPresentation || futureSelected ) ? nullptr : m_solverReplay.SampleAtNormalized( solverSampleT );
     const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : m_solverReplay.LatestSample();
+    const RunReplayPredictionFrame* selectedPrediction = futureSelected ? CurrentReplayPredictionScrubFrame() : nullptr;
     const double selectedSeconds = selected ? selected->simulationSeconds : 0.0;
     const double latestSeconds = latest ? latest->simulationSeconds : 0.0;
     const double selectedPresentationSeconds = selectedPresentation ? selectedPresentation->simulationSeconds : 0.0;
     const double latestPresentationSeconds = latestPresentation ? latestPresentation->simulationSeconds : 0.0;
+    const double futureSeconds = selectedPrediction ? static_cast<double>( selectedPrediction->frameIndex ) *
+                                                          static_cast<double>( PHYSICS_FIXED_DT )
+                                                    : 0.0;
     double secondsBack = 0.0;
     if ( loadedPresentation && latestPresentationSeconds >= selectedPresentationSeconds )
     {
@@ -85,7 +95,11 @@ void Run::RenderReplayScrubberOverlay()
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "END" );
     }
-    else if ( t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused )
+    else if ( selectedPrediction )
+    {
+        sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
+    }
+    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayScrubber.paused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
     }
@@ -96,7 +110,8 @@ void Run::RenderReplayScrubberOverlay()
 
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const bool live = !loadedPresentation && t >= REPLAY_SCRUBBER_LIVE_THRESHOLD && !m_replayScrubber.paused;
+    const bool live =
+        !loadedPresentation && ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayScrubber.paused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
     const bool branchEnabled =
@@ -252,6 +267,18 @@ void Run::RenderReplayScrubberOverlay()
                           rowBack + 0.02f,
                           rowBack + 0.05f,
                           inactiveDuringScrub ? 0.74f : 0.92f );
+        if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
+        {
+            const float presentX = track.x + track.w * solverPresentT;
+            draw.Rect( presentX,
+                       track.y,
+                       (std::max)( 0.0f, track.x + track.w - presentX ),
+                       track.h,
+                       0.09f,
+                       0.26f,
+                       0.20f,
+                       inactiveDuringScrub ? 0.34f : 0.62f );
+        }
         draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, rowFillR, rowFillG, rowFillB, rowFillA );
         draw.RoundedRect( knobX - 6.0f,
                           track.y - 5.0f,
@@ -270,6 +297,13 @@ void Run::RenderReplayScrubberOverlay()
                       outlineG,
                       outlineB,
                       active ? 0.72f : 0.22f );
+        if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
+        {
+            const float presentX = track.x + track.w * solverPresentT;
+            draw.Rect( presentX - 1.0f, track.y - 6.0f, 2.0f, track.h + 12.0f, 0.92f, 1.0f, 0.84f, 0.86f );
+            draw.Rect( presentX - 4.0f, track.y - 8.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, 0.70f );
+            draw.Rect( presentX - 4.0f, track.y + track.h + 6.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, 0.70f );
+        }
 
         draw.RoundedRect( saveButton.x,
                           saveButton.y,

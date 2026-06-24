@@ -538,6 +538,7 @@ struct RunReplayPredictionBodySample
     ReplayBodyId id;
     int modelIndex = -1;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 struct RunReplayPredictionFrame
@@ -558,7 +559,7 @@ struct RunReplayPredictionState
     bool dirty = true;
     bool building = false;
     bool complete = false;
-    float horizonSeconds = 10.0f;
+    float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
     int targetModelIndex = -1;
     int nextTick = 1;
     int targetTickCount = 0;
@@ -1612,6 +1613,9 @@ class Run
     bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
     void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
+    void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
+                                       const CinematicRenderConfig* cinematic,
+                                       const Rendering::ShadowFrameData* shadow );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool BuildReplayFocusModelMask();
     bool BuildReplayCauseTreeRows();
@@ -1664,9 +1668,11 @@ class Run
                                                std::size_t reasonSize = 0 );
     const ReplayPresentationSample* CurrentReplayScrubSample() const;
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
+    const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const;
     void RenderReplayScrubberOverlay();
     bool ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample );
     bool ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample );
+    bool ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame );
     void RestoreReplayPresentationRenderPose();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
     void RestoreReplayLauncherVisualForRender();

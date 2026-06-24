@@ -44,6 +44,9 @@ class GameModelCollection;
 
 namespace Basics
 {
+inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
+inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
+
 using ReplayFrameIndex = uint64_t;
 
 struct ReplayBodyId
@@ -274,7 +277,7 @@ struct ReplayCaptureInput
 struct ReplayRecorderConfig
 {
     bool enabled = false;
-    int retentionSeconds = 30;
+    int retentionSeconds = REPLAY_PAST_BUFFER_SECONDS;
     int checkpointIntervalFrames = 30;
     std::string hashLogPath;
 };

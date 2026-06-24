@@ -588,7 +588,7 @@ struct ParsedArgs
     int uiStressActions = 5;
     bool replayRecording = true;
     bool replayExplicit = false;
-    int replaySeconds = 30;
+    int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
     bool replayScrubProbe = false;
     float replayScrubProbeNormalized = 0.25f;
     bool replayRestoreProbe = false;

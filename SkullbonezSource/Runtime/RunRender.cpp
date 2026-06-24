@@ -195,6 +195,63 @@ bool Run::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sampl
 }
 
 
+bool Run::ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame )
+{
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    m_replayPoseBackups.clear();
+    m_replayPoseBackups.reserve( models.size() );
+    std::vector<uint8_t> bodyMatched( models.size(), 0 );
+
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        {
+            continue;
+        }
+
+        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = body.modelIndex;
+        backup.position = model.GetPosition();
+        backup.orientation = model.GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+
+        Math::Orientation::Quaternion orientation = body.orientation;
+        orientation.Normalise();
+        model.SetPosition( body.position );
+        model.SetOrientation( orientation );
+    }
+
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( std::size_t i = 0; i < models.size(); ++i )
+    {
+        if ( bodyMatched[i] )
+        {
+            continue;
+        }
+
+        RunReplayPoseBackup backup;
+        backup.modelIndex = static_cast<int>( i );
+        backup.position = models[i].GetPosition();
+        backup.orientation = models[i].GetOrientation();
+        m_replayPoseBackups.push_back( backup );
+        models[i].SetPosition( hiddenReplayPosition );
+    }
+
+    if ( !m_replayPoseBackups.empty() )
+    {
+        m_cGameModelCollection.InvalidatePhysicsStreams();
+    }
+    return !m_replayPoseBackups.empty();
+}
+
+
 void Run::RestoreReplayPresentationRenderPose()
 {
     if ( m_replayPoseBackups.empty() )
@@ -216,6 +273,109 @@ void Run::RestoreReplayPresentationRenderPose()
     }
     m_replayPoseBackups.clear();
     m_cGameModelCollection.InvalidatePhysicsStreams();
+}
+
+
+void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
+                                        const CinematicRenderConfig* cinematic,
+                                        const Rendering::ShadowFrameData* shadow )
+{
+    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
+    if ( !m_replayPrediction.enabled || m_replayPrediction.frames.size() < 2 )
+    {
+        return;
+    }
+
+    const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
+    bool hasRagdollPart = false;
+    for ( const GameObjects::GameModel& model : models )
+    {
+        if ( ReplayModelIsRagdollPart( model ) )
+        {
+            hasRagdollPart = true;
+            break;
+        }
+    }
+    if ( !hasRagdollPart )
+    {
+        return;
+    }
+
+    SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
+    const std::size_t lastIndex = m_replayPrediction.frames.size() - 1;
+    const std::size_t stride =
+        (std::max)( static_cast<std::size_t>( 1 ),
+                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
+    const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
+
+    auto drawGhostFrame = [&]( std::size_t index )
+    {
+        const RunReplayPredictionFrame& predictionFrame = m_replayPrediction.frames[index];
+        if ( predictionFrame.frameIndex == 0 )
+        {
+            return;
+        }
+
+        const float t =
+            lastFrame > 0
+                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
+                              0.0f,
+                              1.0f )
+                : 1.0f;
+        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
+
+        RenderHelper::DrawBoxBatchBegin( frame.baseView,
+                                         frame.projection,
+                                         frame.lightPosition,
+                                         true,
+                                         cinematic,
+                                         shadow,
+                                         1.0f );
+
+        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        {
+            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            {
+                continue;
+            }
+
+            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+            if ( model.GetReplayBodyId() != body.id.value || !ReplayModelIsRagdollPart( model ) )
+            {
+                continue;
+            }
+
+            const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
+            if ( !box )
+            {
+                continue;
+            }
+
+            Math::Orientation::Quaternion orientation = body.orientation;
+            orientation.Normalise();
+            Rendering::RenderMaterial material = model.GetRenderMaterial();
+            material.baseColor[3] = alpha;
+            const Matrix4 modelMatrix = box->GetModelMatrix( body.position, Matrix4::FromQuaternion( orientation ) );
+            RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+        }
+
+        RenderHelper::DrawBoxBatchEnd();
+    };
+
+    std::size_t farIndex = lastIndex;
+    if ( farIndex % stride != 0 )
+    {
+        drawGhostFrame( farIndex );
+        farIndex = ( farIndex / stride ) * stride;
+    }
+    for ( std::size_t index = farIndex; index >= stride; index -= stride )
+    {
+        drawGhostFrame( index );
+        if ( index == stride )
+        {
+            break;
+        }
+    }
 }
 
 
@@ -300,7 +460,11 @@ void Run::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
+    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
+    {
+        ApplyReplayPredictionFrameForRender( *predictionFrame );
+    }
+    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
     {
         ApplyReplayPresentationSampleForRender( *replaySample );
     }
@@ -485,6 +649,8 @@ void Run::DrawPrimitives()
                                replayFocusModelMask,
                                false } );
     }
+
+    RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
 
     m_debugOverlayPass.Render( { frame } );
 

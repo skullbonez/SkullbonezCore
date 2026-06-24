@@ -107,9 +107,11 @@ inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
 inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
-inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = 10.0f;
+inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
+inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
@@ -225,6 +227,124 @@ inline float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& hor
     const float seconds =
         REPLAY_PREDICTION_MIN_SECONDS + t * ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS );
     return std::clamp( std::round( seconds ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+}
+
+inline float ReplayScrubberRetainedPastSeconds( const ReplayRecorderStats& stats )
+{
+    if ( !stats.enabled || stats.sampleCount < 2 )
+    {
+        return PHYSICS_FIXED_DT;
+    }
+    return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
+}
+
+inline float ReplayPredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
+{
+    if ( !prediction.enabled || prediction.frames.size() < 2 )
+    {
+        return 0.0f;
+    }
+    return static_cast<float>( prediction.frames.back().frameIndex ) * PHYSICS_FIXED_DT;
+}
+
+inline float ReplayScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
+                                                 const RunReplayPredictionState& prediction )
+{
+    const float pastSeconds = (std::max)( PHYSICS_FIXED_DT, ReplayScrubberRetainedPastSeconds( stats ) );
+    const float futureSeconds = ReplayPredictionAvailableFutureSeconds( prediction );
+    if ( futureSeconds <= PHYSICS_FIXED_DT )
+    {
+        return 1.0f;
+    }
+    return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
+}
+
+inline bool ReplayScrubberTimelineHasFuture( float presentT )
+{
+    return presentT < REPLAY_SCRUBBER_LIVE_THRESHOLD;
+}
+
+inline bool ReplayScrubberAtPresentTrackPosition( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return position >= REPLAY_SCRUBBER_LIVE_THRESHOLD;
+    }
+    return fabsf( position - presentT ) <= REPLAY_SCRUBBER_PRESENT_EPSILON;
+}
+
+inline bool ReplayScrubberTrackPositionIsFuture( float position, float presentT )
+{
+    return ReplayScrubberTimelineHasFuture( presentT ) && position > presentT + REPLAY_SCRUBBER_PRESENT_EPSILON;
+}
+
+inline float ReplayScrubberSolverNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return std::clamp( position, 0.0f, 1.0f );
+    }
+    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
+}
+
+inline float ReplayScrubberPredictionNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
+    {
+        return 0.0f;
+    }
+    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
+}
+
+inline bool ReplayRagdollPartNameInfo( const char* name, bool& outTorso )
+{
+    static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
+                                                        "head",
+                                                        "upper_arm_l",
+                                                        "lower_arm_l",
+                                                        "upper_arm_r",
+                                                        "lower_arm_r",
+                                                        "upper_leg_l",
+                                                        "lower_leg_l",
+                                                        "upper_leg_r",
+                                                        "lower_leg_r" };
+    outTorso = false;
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    const std::size_t nameLength = std::strlen( name );
+    for ( const char* suffix : RAGDOLL_SUFFIXES )
+    {
+        const std::size_t suffixLength = std::strlen( suffix );
+        if ( nameLength <= suffixLength + 1 )
+        {
+            continue;
+        }
+
+        const std::size_t suffixStart = nameLength - suffixLength;
+        if ( name[suffixStart - 1] != '_' || std::strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
+        {
+            continue;
+        }
+
+        outTorso = std::strcmp( suffix, "torso" ) == 0;
+        return suffixStart > 1;
+    }
+    return false;
+}
+
+inline bool ReplayModelIsRagdollPart( const GameModel& model )
+{
+    bool torso = false;
+    return ReplayRagdollPartNameInfo( model.GetName(), torso );
+}
+
+inline bool ReplayModelIsRagdollTorso( const GameModel& model )
+{
+    bool torso = false;
+    return ReplayRagdollPartNameInfo( model.GetName(), torso ) && torso;
 }
 
 inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
