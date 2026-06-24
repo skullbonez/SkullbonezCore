@@ -20,6 +20,7 @@ Related:
 #include "../RunInternal.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
+#include "../../Assets/AssetSystem.h"
 #include "../InputController.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
@@ -27,12 +28,22 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
+#include "../../../ThirdPtySource/nlohmann/json.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cfloat>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cctype>
+#include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -47,6 +58,8 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using Json = nlohmann::ordered_json;
 
 namespace
 {
@@ -223,6 +236,467 @@ struct EditorHouseDefinition
     int partCount;
     bool seedAsleep = true;
 };
+
+
+struct EditorBuildingDefinition
+{
+    int objectType;
+    const char* assetName;
+    const char* label;
+};
+
+
+constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP, "building.brick_house_low", "bhl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, "building.brick_house_high", "bhh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP, "building.cute_house_low", "chl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
+};
+
+
+const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType )
+{
+    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+    for ( const EditorBuildingDefinition& building : EDITOR_BUILDING_ASSETS )
+    {
+        if ( building.objectType == type )
+        {
+            return &building;
+        }
+    }
+    return nullptr;
+}
+
+
+std::string EditorResolveBuildingAssetLibraryPath()
+{
+    const SkullbonezCore::Assets::AssetSystem* assets = SkullbonezCore::Assets::ActiveAssetSystem();
+    if ( assets )
+    {
+        if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library =
+                 assets->FindAssetLibrarySourceAsset( "assetlib.buildings" ) )
+        {
+            return library->resolvedPath;
+        }
+    }
+    return "SkullbonezData/assets/buildings.assets.json";
+}
+
+
+const Json* EditorJsonFindMember( const Json& object, const char* name )
+{
+    if ( !object.is_object() )
+    {
+        return nullptr;
+    }
+    const auto it = object.find( name );
+    return it == object.end() ? nullptr : &*it;
+}
+
+
+const Json* CachedEditorBuildingLibrary()
+{
+    static Json library;
+    static bool loaded = false;
+    static bool valid = false;
+    if ( !loaded )
+    {
+        loaded = true;
+        const std::string path = EditorResolveBuildingAssetLibraryPath();
+        std::ifstream file( path );
+        if ( file )
+        {
+            library = Json::parse( file, nullptr, false );
+            valid = library.is_object() && !library.is_discarded();
+        }
+        if ( !valid )
+        {
+            fprintf( stderr, "[editor] Cannot load building asset library: %s\n", path.c_str() );
+        }
+    }
+    return valid ? &library : nullptr;
+}
+
+
+const Json* CachedEditorBuildingAsset( int objectType )
+{
+    const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( objectType );
+    const Json* library = CachedEditorBuildingLibrary();
+    if ( !building || !library )
+    {
+        return nullptr;
+    }
+
+    const Json* assets = EditorJsonFindMember( *library, "assets" );
+    if ( !assets || !assets->is_array() )
+    {
+        return nullptr;
+    }
+    for ( const Json& asset : *assets )
+    {
+        const Json* name = EditorJsonFindMember( asset, "name" );
+        if ( name && name->is_string() && name->get<std::string>() == building->assetName )
+        {
+            return &asset;
+        }
+    }
+    return nullptr;
+}
+
+
+std::string EditorJsonStringOr( const Json& object, const char* name, const char* fallback )
+{
+    const Json* value = EditorJsonFindMember( object, name );
+    return value && value->is_string() ? value->get<std::string>() : std::string( fallback );
+}
+
+
+float EditorJsonFloatOr( const Json& object, const char* name, float fallback )
+{
+    const Json* value = EditorJsonFindMember( object, name );
+    return value && value->is_number() ? value->get<float>() : fallback;
+}
+
+
+bool EditorJsonBoolOr( const Json& object, const char* name, bool fallback )
+{
+    const Json* value = EditorJsonFindMember( object, name );
+    return value && value->is_boolean() ? value->get<bool>() : fallback;
+}
+
+
+bool TryReadEditorJsonVec3( const Json& value, Vector3& out )
+{
+    if ( !value.is_array() || value.size() < 3 || !value[0].is_number() || !value[1].is_number() ||
+         !value[2].is_number() )
+    {
+        return false;
+    }
+    out = Vector3( value[0].get<float>(), value[1].get<float>(), value[2].get<float>() );
+    return true;
+}
+
+
+Vector3 EditorJsonVec3Or( const Json& object, const char* name, const Vector3& fallback )
+{
+    const Json* value = EditorJsonFindMember( object, name );
+    Vector3 result = fallback;
+    return value && TryReadEditorJsonVec3( *value, result ) ? result : fallback;
+}
+
+
+std::string EditorLowercase( std::string value )
+{
+    std::transform( value.begin(),
+                    value.end(),
+                    value.begin(),
+                    []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+    return value;
+}
+
+
+SkullbonezCore::Rendering::RenderMaterialKind EditorMaterialKindFromAssetToken( const std::string& token )
+{
+    const std::string mode = EditorLowercase( token );
+    if ( mode == "matte" || mode == "solid" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Matte;
+    }
+    if ( mode == "metal" || mode == "chrome" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Metal;
+    }
+    if ( mode == "emissive" || mode == "neon" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Emissive;
+    }
+    if ( mode == "glass" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Glass;
+    }
+    if ( mode == "toon" || mode == "pixar" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Toon;
+    }
+    if ( mode == "lowpoly" || mode == "low_poly" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::LowPoly;
+    }
+    if ( mode == "shadow" || mode == "black" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Shadow;
+    }
+    if ( mode == "foliage" || mode == "leaf" || mode == "leaves" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Foliage;
+    }
+    if ( mode == "bark" || mode == "trunk" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Bark;
+    }
+    if ( mode == "stone" || mode == "rock" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Stone;
+    }
+    if ( mode == "ridge" || mode == "distant" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Ridge;
+    }
+    if ( mode == "shore" || mode == "sand" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Shore;
+    }
+    if ( mode == "pine" || mode == "conifer" )
+    {
+        return SkullbonezCore::Rendering::RenderMaterialKind::Pine;
+    }
+    return SkullbonezCore::Rendering::RenderMaterialKind::Textured;
+}
+
+
+float EditorMaterialLegacyModeFromAsset( const Json& material )
+{
+    const Json* modeValue = EditorJsonFindMember( material, "mode" );
+    if ( !modeValue )
+    {
+        modeValue = EditorJsonFindMember( material, "kind" );
+    }
+    if ( modeValue && modeValue->is_number() )
+    {
+        return modeValue->get<float>();
+    }
+    if ( modeValue && modeValue->is_string() )
+    {
+        const SkullbonezCore::Rendering::RenderMaterialKind kind =
+            EditorMaterialKindFromAssetToken( modeValue->get<std::string>() );
+        return SkullbonezCore::Rendering::RenderMaterialKindLegacyMode( kind );
+    }
+    return SkullbonezCore::Rendering::RenderMaterialKindLegacyMode(
+        SkullbonezCore::Rendering::RenderMaterialKind::Stone );
+}
+
+
+SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json& part )
+{
+    const Json* materialJson = EditorJsonFindMember( part, "material" );
+    Vector3 color( 1.0f, 1.0f, 1.0f );
+    float mode =
+        SkullbonezCore::Rendering::RenderMaterialKindLegacyMode( SkullbonezCore::Rendering::RenderMaterialKind::Stone );
+    if ( materialJson && materialJson->is_object() )
+    {
+        if ( const Json* colorValue = EditorJsonFindMember( *materialJson, "color" ) )
+        {
+            TryReadEditorJsonVec3( *colorValue, color );
+        }
+        else if ( const Json* colourValue = EditorJsonFindMember( *materialJson, "colour" ) )
+        {
+            TryReadEditorJsonVec3( *colourValue, color );
+        }
+        else if ( const Json* tintValue = EditorJsonFindMember( *materialJson, "tint" ) )
+        {
+            TryReadEditorJsonVec3( *tintValue, color );
+        }
+        mode = EditorMaterialLegacyModeFromAsset( *materialJson );
+    }
+
+    SkullbonezCore::Rendering::RenderMaterial material =
+        SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( color.x, color.y, color.z, mode );
+    if ( materialJson && materialJson->is_object() )
+    {
+        material.roughness =
+            std::clamp( EditorJsonFloatOr( *materialJson, "roughness", material.roughness ), 0.0f, 1.0f );
+        material.metallic = std::clamp( EditorJsonFloatOr( *materialJson, "metallic", material.metallic ), 0.0f, 1.0f );
+        material.specular = std::clamp( EditorJsonFloatOr( *materialJson, "specular", material.specular ), 0.0f, 1.0f );
+        material.transmission =
+            std::clamp( EditorJsonFloatOr( *materialJson, "transmission", material.transmission ), 0.0f, 1.0f );
+        material.stylization =
+            std::clamp( EditorJsonFloatOr( *materialJson, "stylization", material.stylization ), 0.0f, 1.0f );
+        if ( const Json* emissive = EditorJsonFindMember( *materialJson, "emissive" ) )
+        {
+            Vector3 emissiveColor;
+            if ( TryReadEditorJsonVec3( *emissive, emissiveColor ) )
+            {
+                material.emissiveColor[0] = emissiveColor.x;
+                material.emissiveColor[1] = emissiveColor.y;
+                material.emissiveColor[2] = emissiveColor.z;
+            }
+        }
+        material.emissiveStrength =
+            (std::max)( 0.0f, EditorJsonFloatOr( *materialJson, "strength", material.emissiveStrength ) );
+        material.flags = static_cast<uint32_t>( (std::max)( 0.0f, EditorJsonFloatOr( *materialJson, "flags", 0.0f ) ) );
+        const std::string name =
+            EditorJsonStringOr( *materialJson,
+                                "name",
+                                SkullbonezCore::Rendering::RenderMaterialKindName( material.kind ) );
+        strncpy_s( material.name, sizeof( material.name ), name.c_str(), _TRUNCATE );
+    }
+    return material;
+}
+
+
+Quaternion EditorQuaternionFromEulerDegrees( const Vector3& eulerDegrees )
+{
+    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
+    const float xHalf = eulerDegrees.x * DEG2RAD * 0.5f;
+    const float yHalf = eulerDegrees.y * DEG2RAD * 0.5f;
+    const float zHalf = eulerDegrees.z * DEG2RAD * 0.5f;
+    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+    Quaternion q;
+    q *= xRotation * yRotation * zRotation;
+    q.Normalise();
+    return q;
+}
+
+
+Quaternion EditorBuildingPartOrientation( const Quaternion& placementOrientation, const Json& part )
+{
+    Quaternion result = placementOrientation;
+    const Vector3 euler = EditorJsonVec3Or( part, "euler", Vector3( 0.0f, 0.0f, 0.0f ) );
+    if ( fabsf( euler.x ) > 1.0e-5f || fabsf( euler.y ) > 1.0e-5f || fabsf( euler.z ) > 1.0e-5f )
+    {
+        result *= EditorQuaternionFromEulerDegrees( euler );
+        result.Normalise();
+    }
+    return result;
+}
+
+
+int EditorBuildingPartCount( int objectType )
+{
+    const Json* asset = CachedEditorBuildingAsset( objectType );
+    if ( !asset )
+    {
+        return 0;
+    }
+    const std::string type = EditorJsonStringOr( *asset, "type", "" );
+    if ( type == "convexHull" )
+    {
+        return 1;
+    }
+    const Json* parts = EditorJsonFindMember( *asset, "parts" );
+    return type == "compound" && parts && parts->is_array() ? static_cast<int>( parts->size() ) : 0;
+}
+
+
+template <typename Fn> bool ForEachEditorBuildingPart( int objectType, Fn&& fn )
+{
+    const Json* asset = CachedEditorBuildingAsset( objectType );
+    if ( !asset )
+    {
+        return false;
+    }
+    const std::string type = EditorJsonStringOr( *asset, "type", "" );
+    if ( type == "convexHull" )
+    {
+        fn( *asset );
+        return true;
+    }
+    const Json* parts = EditorJsonFindMember( *asset, "parts" );
+    if ( type != "compound" || !parts || !parts->is_array() )
+    {
+        return false;
+    }
+    for ( const Json& part : *parts )
+    {
+        if ( !part.is_object() )
+        {
+            return false;
+        }
+        fn( part );
+    }
+    return true;
+}
+
+
+const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
+{
+    static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
+    for ( const auto& entry : hulls )
+    {
+        if ( entry.first == hullPath )
+        {
+            return &entry.second;
+        }
+    }
+    hulls.emplace_back( hullPath, ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ) ) );
+    return &hulls.back().second;
+}
+
+
+float EditorBuildingVerticalSize( int objectType )
+{
+    float minY = FLT_MAX;
+    float maxY = -FLT_MAX;
+    const bool ok = ForEachEditorBuildingPart(
+        objectType,
+        [&]( const Json& part )
+        {
+            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+            const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+            if ( !hull )
+            {
+                return;
+            }
+            const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+            const Quaternion orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
+            Quaternion orientationCopy = orientation;
+            const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+            const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+            for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+            {
+                const float y = offset.y + ( rotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) ).y;
+                minY = (std::min)( minY, y );
+                maxY = (std::max)( maxY, y );
+            }
+        } );
+    return ok && minY != FLT_MAX ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
+}
+
+
+bool TryComputeEditorBuildingWorldBounds( int objectType,
+                                          const Vector3& terrainPoint,
+                                          const Quaternion& placementOrientation,
+                                          Vector3& outMin,
+                                          Vector3& outMax )
+{
+    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
+    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+    Quaternion placementCopy = placementOrientation;
+    const RotationMatrix placementRotation = placementCopy.GetOrientationMatrix();
+    const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+    const bool ok = ForEachEditorBuildingPart(
+        objectType,
+        [&]( const Json& part )
+        {
+            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+            const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+            if ( !hull )
+            {
+                return;
+            }
+            const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+            const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
+            Quaternion partCopy = partOrientation;
+            const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+            const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+            for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+            {
+                const Vector3 world = base + placementRotation * offset +
+                                      partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) );
+                outMin.x = (std::min)( outMin.x, world.x );
+                outMin.y = (std::min)( outMin.y, world.y );
+                outMin.z = (std::min)( outMin.z, world.z );
+                outMax.x = (std::max)( outMax.x, world.x );
+                outMax.y = (std::max)( outMax.y, world.y );
+                outMax.z = (std::max)( outMax.z, world.z );
+            }
+        } );
+    return ok && outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
+}
 
 
 constexpr EditorTreePartDefinition MakeEditorTreePart( EditorHullAsset hullAsset,
@@ -1276,14 +1750,8 @@ const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
 
 const EditorHouseDefinition* EditorHouseDefinitionForType( int objectType )
 {
-    const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    switch ( type )
-    {
-    case SkullbonezCore::UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
-        return &EDITOR_BRICK_HOUSE_SLEEP;
-    default:
-        return nullptr;
-    }
+    (void)objectType;
+    return nullptr;
 }
 
 
@@ -1677,6 +2145,10 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         if ( EditorTreeDefinitionForType( type ) )
         {
             return EditorTreeVerticalSize( type );
+        }
+        if ( EditorBuildingDefinitionForType( type ) )
+        {
+            return EditorBuildingVerticalSize( type );
         }
         if ( EditorHouseDefinitionForType( type ) )
         {
@@ -2946,6 +3418,37 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
         }
         return;
     }
+    if ( EditorBuildingDefinitionForType( type ) )
+    {
+        const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        ForEachEditorBuildingPart(
+            type,
+            [&]( const Json& part )
+            {
+                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                if ( !hull )
+                {
+                    return;
+                }
+                const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+                const Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
+                Quaternion partCopy = partOrientation;
+                const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+                const Vector3 bodyCenter = base + rotation * offset + partRotation * hull->GetAuthoredCenterOfMass();
+                const Vector3 hullCenter = bodyCenter + partRotation * hull->GetPosition();
+                for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+                {
+                    const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+                    EmitLine( hullCenter + partRotation * hull->GetVertex( edge.vertexA ),
+                              hullCenter + partRotation * hull->GetVertex( edge.vertexB ),
+                              ghostR,
+                              ghostG,
+                              ghostB );
+                }
+            } );
+        return;
+    }
     if ( const EditorHouseDefinition* house = EditorHouseDefinitionForType( type ) )
     {
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
@@ -3445,11 +3948,15 @@ bool Run::TryComputeEditorObjectCenter( int objectType,
         return true;
     }
     case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
+    case UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP:
+    case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
+    case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
     {
-        const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
         Vector3 minV;
         Vector3 maxV;
-        if ( !house || !TryComputeEditorHouseWorldBounds( *house, terrainPoint, rotation, minV, maxV ) )
+        if ( !TryComputeEditorBuildingWorldBounds( type, terrainPoint, orientation, minV, maxV ) )
         {
             return false;
         }
@@ -4227,9 +4734,18 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
+    const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
+    const int buildingPartCount = building ? EditorBuildingPartCount( type ) : 0;
     const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+    if ( building && buildingPartCount <= 0 )
+    {
+        fprintf( stderr, "[editor] Cannot place building asset: %s is missing or empty.\n", building->assetName );
+        return false;
+    }
     const int requiredModelCount =
-        isRagdollType ? Ragdoll::SIMPLE_PART_COUNT : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) );
+        isRagdollType
+            ? Ragdoll::SIMPLE_PART_COUNT
+            : ( building ? buildingPartCount : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) ) );
     if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
     {
         fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
@@ -4252,11 +4768,11 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
     const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
-    const char* modePrefix =
-        placementFixed
-            ? "static"
-            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) || ragdollStartsAsleep ? "sleeping"
-                                                                                                      : "dynamic" );
+    const char* modePrefix = placementFixed ? "static"
+                                            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) ||
+                                                        building || ragdollStartsAsleep
+                                                    ? "sleeping"
+                                                    : "dynamic" );
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
@@ -4433,6 +4949,74 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         }
     };
 
+    auto addBuilding = [&]( const EditorBuildingDefinition& buildingDefinition )
+    {
+        bool failed = false;
+        const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+        const bool ok = ForEachEditorBuildingPart(
+            type,
+            [&]( const Json& part )
+            {
+                if ( failed )
+                {
+                    return;
+                }
+                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                if ( !sourceHull )
+                {
+                    failed = true;
+                    return;
+                }
+
+                ConvexHullShape hull = *sourceHull;
+                const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
+                const float restitution = EditorJsonFloatOr( part, "restitution", 0.08f );
+                const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+                const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
+                Quaternion partCopy = partOrientation;
+                const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+                const Vector3 authoredOrigin = base + placementRotation * offset;
+                const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
+                GameModel model( &m_cWorldEnvironment, center, hull.ComputeBoxApproxInertia( mass ), mass );
+                model.SetTerrain( m_systems.terrain.get() );
+                model.SetCoefficientRestitution( restitution );
+                model.SetContactReleaseOnImpact(
+                    EditorJsonBoolOr( part, "contactReleaseOnImpact", false ),
+                    (std::max)( 0.0f, EditorJsonFloatOr( part, "contactReleaseImpulseThreshold", 1.0f ) ) );
+                model.AddConvexHull( hull );
+                model.SetOrientation( partOrientation );
+                model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
+                if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
+                {
+                    Vector3 authoredVelocity;
+                    if ( TryReadEditorJsonVec3( *velocity, authoredVelocity ) )
+                    {
+                        model.SetLinearVelocity( authoredVelocity );
+                    }
+                }
+
+                char name[64];
+                const std::string partName = EditorJsonStringOr( part, "name", "part" );
+                snprintf( name,
+                          sizeof( name ),
+                          "%s_%s_%03d_%s",
+                          modePrefix,
+                          buildingDefinition.label,
+                          serial,
+                          partName.c_str() );
+                name[sizeof( name ) - 1] = '\0';
+                model.SetName( name );
+                const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
+                const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
+                addModel( std::move( model ), partFixed, partSleeping && !partFixed );
+            } );
+        if ( failed || !ok )
+        {
+            fprintf( stderr, "[editor] Cannot place building asset: %s.\n", buildingDefinition.assetName );
+        }
+    };
+
     auto addRagdoll = [&]()
     {
         RagdollBuildOptions options;
@@ -4518,9 +5102,14 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         }
         break;
     case UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP:
-        if ( house )
+    case UI::EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_CUTE_HOUSE_SLEEP:
+    case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
+    case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
+        if ( building )
         {
-            addHouse( *house );
+            addBuilding( *building );
         }
         break;
     case UI::EditorTab::OBJECT_RAGDOLL:

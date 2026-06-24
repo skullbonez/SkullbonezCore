@@ -494,6 +494,94 @@ UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
     return { bounds.x + ( bounds.w - drawW ) * 0.5f, bounds.y + ( bounds.h - drawH ) * 0.5f, drawW, drawH };
 }
 
+
+void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, size_t outSize )
+{
+    if ( !out || outSize == 0 )
+    {
+        return;
+    }
+
+    const int modelCount = (std::max)( 0, data.modelCount );
+    const int modelCapacity = (std::max)( 1, data.modelCapacity );
+    snprintf( out, outSize, "Game objects %d / %d", modelCount, modelCapacity );
+    out[outSize - 1] = '\0';
+}
+
+
+UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
+{
+    const float left =
+        (std::min)( titleButtons.minimize.x, (std::min)( titleButtons.maximize.x, titleButtons.close.x ) );
+    const float top =
+        (std::min)( titleButtons.minimize.y, (std::min)( titleButtons.maximize.y, titleButtons.close.y ) );
+    const float right = (std::max)( titleButtons.minimize.x + titleButtons.minimize.w,
+                                    (std::max)( titleButtons.maximize.x + titleButtons.maximize.w,
+                                                titleButtons.close.x + titleButtons.close.w ) );
+    const float bottom = (std::max)( titleButtons.minimize.y + titleButtons.minimize.h,
+                                     (std::max)( titleButtons.maximize.y + titleButtons.maximize.h,
+                                                 titleButtons.close.y + titleButtons.close.h ) );
+    return { left, top, right - left, bottom - top };
+}
+
+
+void DrawEditorObjectCounter( const UIDrawContext& draw,
+                              const InGameUIFrameData& data,
+                              int screenW,
+                              int screenH,
+                              const UIRect* avoidBounds = nullptr )
+{
+    if ( !data.editorModeEnabled )
+    {
+        return;
+    }
+
+    char counterText[64] = {};
+    BuildEditorObjectCounterText( data, counterText, sizeof( counterText ) );
+
+    constexpr float margin = 14.0f;
+    constexpr float fontSize = 12.0f;
+    constexpr float padX = 12.0f;
+    constexpr float height = 30.0f;
+    const float availableW = (std::max)( 1.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float minW = (std::min)( 140.0f, availableW );
+    const float width = std::clamp( Text2d::MeasureText( fontSize, counterText ) + padX * 2.0f, minW, availableW );
+    UIRect bounds = { static_cast<float>( screenW ) - margin - width, margin, width, height };
+
+    if ( avoidBounds && IntersectRect( bounds, *avoidBounds ).w > 0.0f )
+    {
+        bounds.x = (std::max)( margin, avoidBounds->x - 10.0f - width );
+        if ( IntersectRect( bounds, *avoidBounds ).w > 0.0f )
+        {
+            bounds.x = static_cast<float>( screenW ) - margin - width;
+            const float maxY = (std::max)( margin, static_cast<float>( screenH ) - margin - height );
+            bounds.y = std::clamp( avoidBounds->y + avoidBounds->h + 8.0f, margin, maxY );
+        }
+    }
+
+    const Style::UIPalette& palette = Style::Palette();
+    Style::UIColor fill = palette.windowRaised;
+    fill.a = 0.90f;
+    draw.RoundedRect( bounds.x + 3.0f,
+                      bounds.y + 4.0f,
+                      bounds.w,
+                      bounds.h,
+                      Style::Radii().control,
+                      palette.shadow.r,
+                      palette.shadow.g,
+                      palette.shadow.b,
+                      0.24f );
+    draw.RoundedPanel( bounds, Style::Radii().control, fill, palette.border );
+    draw.Text( bounds.x + padX,
+               bounds.y + 8.0f,
+               fontSize,
+               palette.textPrimary.r,
+               palette.textPrimary.g,
+               palette.textPrimary.b,
+               counterText );
+}
+
+
 void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
 {
     if ( !IsGfxReady() )
@@ -695,6 +783,11 @@ constexpr EditorMiniPaletteEntry kEditorMiniPaletteEntries[] = {
     { EditorTab::OBJECT_ROCK_SHARD, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_ROCK_CHIPPED, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_BRICK_HOUSE_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_CUTE_HOUSE_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
+    { EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, EDITOR_MINI_TREE_PLACEMENT_NONE, EDITOR_MINI_HOLD_MODE_NONE },
     { EditorTab::OBJECT_TREE_BIG, EDITOR_MINI_TREE_PLACEMENT_FIXED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
     { EditorTab::OBJECT_TREE_BIG_SLEEP, EDITOR_MINI_TREE_PLACEMENT_SLEEPING, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
     { EditorTab::OBJECT_TREE_BIG_ROOTED, EDITOR_MINI_TREE_PLACEMENT_ROOTED, EDITOR_MINI_HOLD_MODE_TREE_TYPES },
@@ -1823,7 +1916,9 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
         draw.Rect( cx + r * 0.56f, cy - r * 0.38f, r * 0.22f, r * 1.26f, color.r, color.g, color.b, alpha * 0.56f );
         return;
     }
-    if ( type == EditorTab::OBJECT_BRICK_HOUSE_SLEEP )
+    if ( type == EditorTab::OBJECT_BRICK_HOUSE_SLEEP || type == EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP ||
+         type == EditorTab::OBJECT_CUTE_HOUSE_SLEEP || type == EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP ||
+         type == EditorTab::OBJECT_TRIPLE_DECKER_SLEEP || type == EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP )
     {
         draw.Rect( cx - r * 0.92f, cy - r * 0.12f, r * 1.84f, r * 1.06f, color.r, color.g, color.b, alpha );
         draw.Rect( cx - r * 0.62f, cy + r * 0.28f, r * 0.36f, r * 0.66f, color.r, color.g, color.b, alpha * 0.42f );
@@ -3848,6 +3943,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                     m_mouseY,
                                     cameraModeDisabledMask );
         }
+        DrawEditorObjectCounter( draw, data, screenW, screenH );
         if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
         {
             ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
@@ -3934,11 +4030,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     PROFILE_END( "Frame/UI/Blur" );
 
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
-    Chrome::DrawTitleButtons( draw,
-                              Chrome::GetTitleButtonRects( windowBounds ),
-                              m_window.isMaximized,
-                              m_mouseX,
-                              m_mouseY );
+    const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
+    Chrome::DrawTitleButtons( draw, titleButtons, m_window.isMaximized, m_mouseX, m_mouseY );
+    const UIRect objectCounterAvoidBounds = TitleButtonGroupBounds( titleButtons );
+    DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
         { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Cine" };

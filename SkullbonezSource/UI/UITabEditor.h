@@ -64,7 +64,12 @@ constexpr int OBJECT_TREE_PINE_SHEDDING = 27;
 constexpr int OBJECT_RAGDOLL = 28;
 constexpr int OBJECT_RAGDOLL_SLEEP = 29;
 constexpr int OBJECT_BRICK_HOUSE_SLEEP = 30;
-constexpr int OBJECT_TYPE_COUNT = 31;
+constexpr int OBJECT_BRICK_HOUSE_HIGH_SLEEP = 31;
+constexpr int OBJECT_CUTE_HOUSE_SLEEP = 32;
+constexpr int OBJECT_CUTE_HOUSE_HIGH_SLEEP = 33;
+constexpr int OBJECT_TRIPLE_DECKER_SLEEP = 34;
+constexpr int OBJECT_TRIPLE_DECKER_HIGH_SLEEP = 35;
+constexpr int OBJECT_TYPE_COUNT = 36;
 
 struct UIEditorTabState
 {
