@@ -219,7 +219,7 @@ class GameModel
     CalculateBuoyancyRightingTorque( float buoyancyForce,
                                      float submergedVolumePercent );        // Water stability torque from principal inertia.
     float GetMass() const;
-    float GetInvertedMass();                                                // Immutable inverse mass cache; fixed bodies use zero.
+    float GetInvertedMass() const;                                          // Immutable inverse mass cache; fixed bodies use zero.
     float GetVolume();
     void CalculateProjectedSurfaceArea();                                   // Refreshes fluid-drag area from the current collision shape.
     void CalculateDragCoefficient();                                        // Refreshes fluid-drag coefficient from the current collision shape.

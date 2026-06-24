@@ -767,7 +767,7 @@ float GameModel::GetMass() const
 }
 
 
-float GameModel::GetInvertedMass()
+float GameModel::GetInvertedMass() const
 {
     if ( m_isFixed )
     {

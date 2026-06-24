@@ -27,7 +27,6 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModelCollection;
-class SkullScope;
 } // namespace GameObjects
 
 namespace Physics
@@ -67,6 +66,7 @@ class PhysicsEngine
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    PhysicsWorld::DiagnosticsView GetDiagnosticsView() const;
 
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
@@ -91,11 +91,6 @@ class PhysicsEngine
 #endif
 
   private:
-    friend class GameObjects::SkullScope;
-
-    PhysicsWorld& DiagnosticsWorldForSkullScope();
-    const PhysicsWorld& DiagnosticsWorldForSkullScope() const;
-
     PhysicsScene m_scene;
 };
 } // namespace Physics

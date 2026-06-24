@@ -69,6 +69,19 @@ audits when it is still useful.
   obsolete `GameModelCollection` friendship for snapshot writing, diagnostics,
   persistent contact solving, and sleep propagation by routing those readers
   through named collection APIs.
+- Runtime run decomposition Phase 4D SkullScope diagnostics cleanup replaces
+  SkullScope friendship across `GameModelCollection`, `PhysicsEngine`,
+  `PhysicsScene`, and `PhysicsWorld` with a read-only
+  `PhysicsWorld::DiagnosticsView` exposed through the physics facade.
+- Phase 4D SkullScope diagnostics validation: Profile build 13.74s
+  (`TestOutput\validation\phase4d_skullscope_view_profile_build.log`), format
+  6.52s, physics 69.04s, full 22.33s, SkullScope query baseline refresh 31.90s,
+  and final deep physics 74.10s
+  (`TestOutput\validation\phase4d_skullscope_view_validate_physics_deep.log`).
+  The refreshed `physics_query_varied.json` only adds the existing
+  `object_friction_coeff` runtime diagnostics config field to stored query
+  summaries. SkullScope trace accounting is logged in
+  `TestOutput\validation\phase4d_skullscope_view_query_sizes.log`.
 
 ## Current Work Items
 

@@ -2828,6 +2828,27 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 }
 
 
+PhysicsWorld::DiagnosticsView PhysicsWorld::GetDiagnosticsView() const
+{
+    return DiagnosticsView{ m_persistentContacts,
+                            m_persistentContactSolverStats,
+                            m_sleepIslandParent,
+                            m_sleepSupportedThisFrame,
+                            m_sleepInhibitedThisFrame,
+                            m_sleepState,
+                            m_sleepCounter,
+                            m_sleepIslandEligible,
+                            m_sleepIslandCanSleep,
+                            m_spatialGrid,
+                            m_candidatePairs,
+                            m_collisionCellKeys,
+                            m_sleepSupportEdges,
+                            m_sleepIslandVisualId,
+                            m_physicsPipelineTrace,
+                            m_terrainContactManifolds };
+}
+
+
 const Math::CollisionDetection::SpatialGrid& PhysicsWorld::GetSpatialGrid() const
 {
     return m_spatialGrid;

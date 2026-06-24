@@ -174,6 +174,12 @@ bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 }
 
 
+SkullbonezCore::Physics::PhysicsWorld::DiagnosticsView PhysicsScene::GetDiagnosticsView() const
+{
+    return m_world.GetDiagnosticsView();
+}
+
+
 const PhysicsBodyStore& PhysicsScene::BodyStore() const
 {
     return m_bodyStore;
@@ -189,18 +195,6 @@ const ColliderStore& PhysicsScene::Colliders() const
 const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::RenderInstances() const
 {
     return m_renderInstanceStore;
-}
-
-
-SkullbonezCore::Physics::PhysicsWorld& PhysicsScene::DiagnosticsWorldForSkullScope()
-{
-    return m_world;
-}
-
-
-const SkullbonezCore::Physics::PhysicsWorld& PhysicsScene::DiagnosticsWorldForSkullScope() const
-{
-    return m_world;
 }
 
 

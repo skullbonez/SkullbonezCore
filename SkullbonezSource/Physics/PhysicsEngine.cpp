@@ -178,6 +178,12 @@ bool PhysicsEngine::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot
 }
 
 
+SkullbonezCore::Physics::PhysicsWorld::DiagnosticsView PhysicsEngine::GetDiagnosticsView() const
+{
+    return m_scene.GetDiagnosticsView();
+}
+
+
 const PhysicsBodyStore& PhysicsEngine::BodyStore() const
 {
     return m_scene.BodyStore();
@@ -253,18 +259,6 @@ const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsEngine
 const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsEngine::GetPointJointConstraints() const
 {
     return m_scene.GetPointJointConstraints();
-}
-
-
-SkullbonezCore::Physics::PhysicsWorld& PhysicsEngine::DiagnosticsWorldForSkullScope()
-{
-    return m_scene.DiagnosticsWorldForSkullScope();
-}
-
-
-const SkullbonezCore::Physics::PhysicsWorld& PhysicsEngine::DiagnosticsWorldForSkullScope() const
-{
-    return m_scene.DiagnosticsWorldForSkullScope();
 }
 
 

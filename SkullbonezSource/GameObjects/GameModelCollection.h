@@ -57,8 +57,6 @@ class GameModelRenderer;
 class GameModelCollection : public Rendering::IRenderSceneView
 {
   private:
-    friend class SkullScope;
-
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
     Physics::PhysicsEngine m_physicsEngine;
