@@ -1685,6 +1685,7 @@ void Run::ClearReplayPredictionCache()
     m_replayPrediction.targetId = ReplayBodyId{};
     m_replayPrediction.sourceFrameIndex = 0;
     m_replayPrediction.sourceSolverHash = 0;
+    m_replayPrediction.sourceSimulationSeconds = 0.0;
     m_replayPrediction.lastBuildTime = 0.0;
 }
 
@@ -3063,6 +3064,9 @@ void Run::CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex )
     std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;
+    frame.simulationSeconds = m_replayPrediction.sourceSimulationSeconds +
+                              static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
+    frame.tornadoSystemElapsedSeconds = m_cGameModelCollection.GetTornadoSystemElapsedSeconds();
     frame.bodies.reserve( models.size() );
     for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
     {
@@ -3093,6 +3097,14 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t 
 
     m_replayPrediction.sourceFrameIndex = sourceFrameIndex;
     m_replayPrediction.sourceSolverHash = sourceSolverHash;
+    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    {
+        m_replayPrediction.sourceSimulationSeconds = latest->simulationSeconds;
+    }
+    else
+    {
+        m_replayPrediction.sourceSimulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+    }
     m_replayPrediction.lastBuildTime = m_timers.simulationTimer.GetTotalTime();
 
     if ( m_replayPathVisualizer.hasTarget && m_replayPathVisualizer.targetId.value != 0 )

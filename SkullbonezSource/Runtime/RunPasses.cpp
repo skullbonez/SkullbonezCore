@@ -1222,7 +1222,9 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     const float twoPi = 6.28318530718f;
     const auto* replaySample = m_run.CurrentReplayScrubSample();
     const auto* solverSample = replaySample ? nullptr : m_run.CurrentReplaySolverScrubSample();
-    const bool useReplayTime = replaySample != nullptr || solverSample != nullptr;
+    const auto* predictionFrame =
+        ( replaySample || solverSample ) ? nullptr : m_run.CurrentReplayPredictionScrubFrame();
+    const bool useReplayTime = replaySample != nullptr || solverSample != nullptr || predictionFrame != nullptr;
     const bool useTornadoSystem =
         m_run.m_runtimeSettings.tornadoSystem.enabled && !m_run.m_runtimeSettings.tornadoSystem.vortices.empty();
     const double sourceSeconds = m_run.m_timers.simulationTimer.GetTimeSinceLastStart();
@@ -1244,7 +1246,13 @@ bool Run::TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     }
     else if ( solverSample )
     {
-        time = static_cast<float>( solverSample->simulationSeconds );
+        time = useTornadoSystem ? solverSample->worldSnapshot.tornadoSystemElapsedSeconds
+                                : static_cast<float>( solverSample->simulationSeconds );
+    }
+    else if ( predictionFrame )
+    {
+        time = useTornadoSystem ? predictionFrame->tornadoSystemElapsedSeconds
+                                : static_cast<float>( predictionFrame->simulationSeconds );
     }
     else if ( useTornadoSystem )
     {

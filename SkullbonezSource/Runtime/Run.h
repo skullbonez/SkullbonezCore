@@ -544,6 +544,8 @@ struct RunReplayPredictionBodySample
 struct RunReplayPredictionFrame
 {
     ReplayFrameIndex frameIndex = 0;
+    double simulationSeconds = 0.0;
+    float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<RunReplayPredictionBodySample> bodies;
     std::vector<Physics::PhysicsDebugContact> debugContacts;
 };
@@ -568,6 +570,7 @@ struct RunReplayPredictionState
     ReplayBodyId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
+    double sourceSimulationSeconds = 0.0;
     double lastBuildTime = 0.0;
     ReplaySolverWorldSnapshot predictionWorld;
     ReplaySolverWorldSnapshot liveRestoreWorld;
