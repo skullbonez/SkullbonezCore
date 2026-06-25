@@ -270,6 +270,30 @@ uint32_t ReplayRuntimeCommandFlags( const RuntimeCommand& command )
     return flags;
 }
 
+const char* RuntimeInteractionSelectionScopeName( RuntimeInteractionSelectionScope scope )
+{
+    switch ( scope )
+    {
+    case RuntimeInteractionSelectionScope::Inspect:
+        return "inspect";
+    case RuntimeInteractionSelectionScope::Editor:
+    default:
+        return "editor";
+    }
+}
+
+const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
+{
+    switch ( type )
+    {
+    case RuntimeInteractionEventType::SelectionChanged:
+        return "selection_changed";
+    case RuntimeInteractionEventType::None:
+    default:
+        return "none";
+    }
+}
+
 struct RuntimeInputKeyBinding
 {
     RuntimeInputAction action;
@@ -735,12 +759,35 @@ RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransi
 }
 
 
+void Run::PublishRuntimeInteractionEvent( const RuntimeInteractionEvent& event )
+{
+    switch ( event.type )
+    {
+    case RuntimeInteractionEventType::SelectionChanged:
+        Log().WriteEventf( "runtime_interaction_command_event type=%s scope=%s previous_model=%d model=%d",
+                           RuntimeInteractionEventName( event.type ),
+                           RuntimeInteractionSelectionScopeName( event.selectionScope ),
+                           event.previousModelIndex,
+                           event.modelIndex );
+        break;
+    case RuntimeInteractionEventType::None:
+        break;
+    }
+}
+
+
 bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
 {
     switch ( command.type )
     {
     case RuntimeInteractionCommandType::SetEditorSelection:
     {
+        if ( command.modelIndex < -1 || command.modelIndex >= m_cGameModelCollection.GetModelCount() )
+        {
+            return false;
+        }
+
+        const int previousModelIndex = m_runtimeTools.Editor().selectedModelIndex;
         const bool selectionHit = command.modelIndex >= 0;
         const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
         const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
@@ -750,6 +797,15 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
             inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
         SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
         m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
+        if ( previousModelIndex != command.modelIndex )
+        {
+            RuntimeInteractionEvent event;
+            event.type = RuntimeInteractionEventType::SelectionChanged;
+            event.previousModelIndex = previousModelIndex;
+            event.modelIndex = command.modelIndex;
+            event.selectionScope = command.selectionScope;
+            PublishRuntimeInteractionEvent( event );
+        }
         return true;
     }
     case RuntimeInteractionCommandType::None:

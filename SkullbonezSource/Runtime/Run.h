@@ -100,6 +100,20 @@ struct RuntimeInteractionCommand
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
 };
 
+enum class RuntimeInteractionEventType
+{
+    None,
+    SelectionChanged
+};
+
+struct RuntimeInteractionEvent
+{
+    RuntimeInteractionEventType type = RuntimeInteractionEventType::None;
+    int previousModelIndex = -1;
+    int modelIndex = -1;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+};
+
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -238,6 +252,8 @@ class Run
         InteractionExitReason reason );                                          // Applies tool-owner transitions through runtime cleanup.
     bool ExecuteRuntimeInteractionCommand(
         const RuntimeInteractionCommand& command );                              // Applies synchronous interaction mutations from routed input.
+    void PublishRuntimeInteractionEvent(
+        const RuntimeInteractionEvent& event );                                  // Emits observation-only command-result events after commands succeed.
     void ClearRuntimeInteractionStateForTransition(
         const RuntimeInteractionTransition& transition );                        // Clears state owned by the interaction being exited.
     bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.
