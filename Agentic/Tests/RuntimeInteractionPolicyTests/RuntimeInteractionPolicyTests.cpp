@@ -131,6 +131,20 @@ RuntimeInteractionGesture MakeReplayGesture( RuntimeInteractionGestureKind kind 
 }
 
 
+RuntimeInteractionGesture MakeGizmoGesture( bool angular )
+{
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::GizmoDrag;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = 64;
+    gesture.startY = 96;
+    gesture.modelIndex = 5;
+    gesture.axis = 1;
+    gesture.angular = angular;
+    return gesture;
+}
+
+
 void TestMousePickupDragRunsPhysicsWithoutStepHold()
 {
     RuntimeInteractionController controller;
@@ -378,6 +392,61 @@ void TestReplayToolGesturesCapturePointer()
 }
 
 
+void TestGizmoDragCapturesPointerForEditorAndInspect()
+{
+    struct GizmoCase
+    {
+        RuntimeWorkspace workspace;
+        WorldInteractionOwner owner;
+        bool angular;
+    };
+
+    const GizmoCase cases[] = {
+        { RuntimeWorkspace::Edit, WorldInteractionOwner::EditorGizmo, false },
+        { RuntimeWorkspace::Inspect, WorldInteractionOwner::InspectGizmo, true },
+    };
+
+    for ( const GizmoCase& gizmoCase : cases )
+    {
+        RuntimeInteractionController controller;
+        controller.SetWorldInteractionOwnerInWorkspace( gizmoCase.workspace,
+                                                        gizmoCase.owner,
+                                                        InteractionExitReason::EnterEdit );
+
+        const RuntimeInteractionTransition beginTransition =
+            controller.BeginGesture( MakeGizmoGesture( gizmoCase.angular ),
+                                     RuntimePointerCaptureOwner::ToolGesture,
+                                     InteractionExitReason::BeginGesture );
+
+        EXPECT_TRUE( beginTransition.gestureChanged );
+        EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+        EXPECT_EQ( controller.Workspace(), gizmoCase.workspace );
+        EXPECT_EQ( controller.Owner(), gizmoCase.owner );
+        EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
+        EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::GizmoDrag );
+        EXPECT_EQ( controller.Gesture().axis, 1 );
+        EXPECT_EQ( controller.Gesture().angular, gizmoCase.angular );
+
+        RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
+        input.rightMouseLookHeld = true;
+        input.editorViewportLookActive = true;
+
+        const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+
+        EXPECT_EQ( policy.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+        EXPECT_EQ( policy.gesture, RuntimeInteractionGestureKind::GizmoDrag );
+        EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
+        EXPECT_FALSE( policy.cameraMouseLookActive );
+
+        const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+        EXPECT_TRUE( endTransition.gestureChanged );
+        EXPECT_TRUE( endTransition.pointerCaptureChanged );
+        EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+        EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+    }
+}
+
+
 #ifndef _DEBUG
 void TestInvalidToolGestureWithoutCaptureIsRejected()
 {
@@ -427,6 +496,7 @@ int main()
         { "WorkspaceTransitionClearsCapturedGesture", &TestWorkspaceTransitionClearsCapturedGesture },
         { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
         { "ReplayToolGesturesCapturePointer", &TestReplayToolGesturesCapturePointer },
+        { "GizmoDragCapturesPointerForEditorAndInspect", &TestGizmoDragCapturesPointerForEditorAndInspect },
 #ifndef _DEBUG
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
 #endif

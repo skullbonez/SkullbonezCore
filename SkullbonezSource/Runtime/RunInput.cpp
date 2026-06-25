@@ -398,6 +398,11 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
     const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
     const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
 
+    if ( m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    {
+        return false;
+    }
+
     bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
     if ( !consumedWorldClick )
     {

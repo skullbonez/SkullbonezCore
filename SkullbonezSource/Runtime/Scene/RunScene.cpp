@@ -1000,7 +1000,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
     CancelMousePickup();
     ResetAttachedCamera();
-    m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+    {
+        const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+        ClearRuntimeInteractionStateForTransition( transition );
+        m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+    }
     SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
