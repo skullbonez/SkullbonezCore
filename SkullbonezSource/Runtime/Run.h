@@ -591,13 +591,6 @@ class Run
         bool suppressWorldActionThisFrame );                                     // Handles editor placement, selection, and gizmo mouse ownership.
     void HandleEditorSaveHotkeys();                                              // Handles F2 scene snapshots and F3 screenshot commands.
     void UpdateEditorInteractionPreview();                                       // Refreshes ghost and gizmo hover state before world-click handling
-    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin,
-                             const Math::Vector::Vector3& rayDirection,
-                             int& outIndex ) const;                              // Ray-picks editable objects
-    bool TryPickMousePickupModel( const Math::Vector::Vector3& rayOrigin,
-                                  const Math::Vector::Vector3& rayDirection,
-                                  int& outIndex,
-                                  float& outRayT ) const;                        // Ray-picks movable manipulator objects.
     void CancelMousePickup();                                                    // Releases manipulator drag/capture state.
     bool TickMousePickupInput(
         HWND hwnd,

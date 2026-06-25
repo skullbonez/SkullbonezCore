@@ -3220,13 +3220,22 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             {
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                int pickedIndex = -1;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+                RuntimePickResult result;
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+                {
+                    RuntimePickRequest request;
+                    request.purpose = RuntimePickPurpose::EditorSelection;
+                    request.models = &m_cGameModelCollection.Models();
+                    request.rayOrigin = rayOrigin;
+                    request.rayDirection = rayDirection;
+                    RuntimePickService::TryPickModel( request, result );
+                }
+
+                if ( result.modelIndex >= 0 )
                 {
                     RuntimeInteractionCommand command;
                     command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                    command.modelIndex = pickedIndex;
+                    command.modelIndex = result.modelIndex;
                     command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
                                                                 : RuntimeInteractionSelectionScope::Editor;
                     consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
@@ -4119,51 +4128,6 @@ bool Run::TryComputeEditorPlacementPreview( int objectType )
 }
 
 
-bool Run::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirection, int& outIndex ) const
-{
-    RuntimePickRequest request;
-    request.purpose = RuntimePickPurpose::EditorSelection;
-    request.models = &m_cGameModelCollection.Models();
-    request.rayOrigin = rayOrigin;
-    request.rayDirection = rayDirection;
-
-    RuntimePickResult result;
-    if ( !RuntimePickService::TryPickModel( request, result ) )
-    {
-        outIndex = -1;
-        return false;
-    }
-
-    outIndex = result.modelIndex;
-    return true;
-}
-
-
-bool Run::TryPickMousePickupModel( const Vector3& rayOrigin,
-                                   const Vector3& rayDirection,
-                                   int& outIndex,
-                                   float& outRayT ) const
-{
-    RuntimePickRequest request;
-    request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.models = &m_cGameModelCollection.Models();
-    request.rayOrigin = rayOrigin;
-    request.rayDirection = rayDirection;
-
-    RuntimePickResult result;
-    if ( !RuntimePickService::TryPickModel( request, result ) )
-    {
-        outIndex = -1;
-        outRayT = FLT_MAX;
-        return false;
-    }
-
-    outIndex = result.modelIndex;
-    outRayT = result.rayT;
-    return true;
-}
-
-
 void Run::CancelMousePickup()
 {
     if ( m_runtimeTools.MousePickup().mouseCaptured )
@@ -4240,14 +4204,20 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
         return true;
     }
 
-    int pickedIndex = -1;
-    float pickedT = 0.0f;
-    if ( !TryPickMousePickupModel( rayOrigin, rayDirection, pickedIndex, pickedT ) )
+    RuntimePickRequest request;
+    request.purpose = RuntimePickPurpose::ManipulatorPickup;
+    request.models = &m_cGameModelCollection.Models();
+    request.rayOrigin = rayOrigin;
+    request.rayDirection = rayDirection;
+
+    RuntimePickResult result;
+    if ( !RuntimePickService::TryPickModel( request, result ) )
     {
         return true;
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const int pickedIndex = result.modelIndex;
     if ( pickedIndex < 0 || pickedIndex >= static_cast<int>( models.size() ) )
     {
         return true;
@@ -4262,7 +4232,7 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     }
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
-    const Vector3 grabPoint = rayOrigin + rayDirection * pickedT;
+    const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
     m_runtimeTools.MousePickup().active = true;
     m_runtimeTools.MousePickup().mouseCaptured = true;
     m_runtimeTools.MousePickup().modelIndex = pickedIndex;

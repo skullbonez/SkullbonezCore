@@ -5,6 +5,7 @@ Purpose:
 */
 #include "RunInternal.h"
 #include "RuntimeFileWriter.h"
+#include "RuntimePickService.h"
 
 #pragma warning( push, 0 )
 #include "../../ThirdPtySource/nlohmann/json.hpp"
@@ -537,13 +538,21 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                int pickedIndex = -1;
-                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                     TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) && pickedIndex == modelIndex )
+                if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
                 {
-                    outMouse = inputState.mouseClientPosition;
-                    Input::ClearAutomationState();
-                    return true;
+                    RuntimePickRequest request;
+                    request.purpose = RuntimePickPurpose::EditorSelection;
+                    request.models = &m_cGameModelCollection.Models();
+                    request.rayOrigin = rayOrigin;
+                    request.rayDirection = rayDirection;
+
+                    RuntimePickResult result;
+                    if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex == modelIndex )
+                    {
+                        outMouse = inputState.mouseClientPosition;
+                        Input::ClearAutomationState();
+                        return true;
+                    }
                 }
             }
         }
