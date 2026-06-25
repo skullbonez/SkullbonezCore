@@ -1,7 +1,7 @@
 # Game Model Data Boundary Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan
+Status: Draft follow-up plan; Phase 0 inventory complete
 Impact area: physics, game object storage, rendering streams, replay, scene system, diagnostics
 Validation for this document-only change: none required
 
@@ -89,6 +89,9 @@ GameModelCollection
 ## Phase 0: Inventory Authority And Callers
 
 Purpose: make the migration concrete before changing storage.
+
+Phase 0 inventory is recorded in
+`Agentic/Reports/2026-06-25/game-model-data-boundary-phase0-inventory.md`.
 
 Tasks:
 
