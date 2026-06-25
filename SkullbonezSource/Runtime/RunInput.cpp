@@ -1577,8 +1577,7 @@ void Run::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
-        suppressWorldActionThisFrame =
-            suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
         const bool replayScrubberOwnsMouse =
             TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
         const bool replayCauseTreeOwnsMouse =
@@ -2069,8 +2068,8 @@ void Run::TakeInput()
         TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );
     }
 
-    // Editor, replay, and launcher actions share world clicks. UI hover/capture
-    // suppresses them so panel interaction never mutates the scene.
+    // Editor, replay, and launcher actions share world clicks. UI interaction
+    // and capture suppress them so panel controls never mutate the scene.
     {
         const RuntimeMouseEdges mouseEdges =
             m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
