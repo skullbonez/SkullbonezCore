@@ -97,6 +97,7 @@ enum class InteractionExitReason
     EnterReplay,
     EnterLauncher,
     EnterManipulator,
+    BeginGesture,
     EndGesture,
     ResetScene,
     LoadScene

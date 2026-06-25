@@ -408,6 +408,43 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
 }
 
 
+void Run::CancelCameraLookGesture()
+{
+    if ( m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    {
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+
+void Run::SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
+                                 const RuntimeInteractionFramePolicy& inputPolicy,
+                                 bool mouseLookOwnsCursor )
+{
+    const bool cameraLookCaptured = m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook;
+    const bool wantsCameraLook = inputSnapshot.appFocused && mouseLookOwnsCursor && inputPolicy.cameraMouseLookActive;
+
+    if ( !wantsCameraLook )
+    {
+        CancelCameraLookGesture();
+        return;
+    }
+
+    if ( cameraLookCaptured || m_interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
+         m_interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
+    {
+        return;
+    }
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::CameraLook;
+    gesture.button = inputSnapshot.pointer.rightDown ? RuntimePointerButton::Right : RuntimePointerButton::None;
+    gesture.startX = inputSnapshot.pointer.clientX;
+    gesture.startY = inputSnapshot.pointer.clientY;
+    m_interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::CameraLook, InteractionExitReason::BeginGesture );
+}
+
+
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     mode = NormalizeCameraModeForCurrentScene( mode );
@@ -1307,6 +1344,11 @@ bool Run::ReplayInspectionMouseLookActive() const
 
 bool Run::MouseLookOwnsCursor() const
 {
+    if ( !Input::IsAppFocused() )
+    {
+        return false;
+    }
+
     if ( m_UI.BlocksCameraMouse() )
     {
         return false;
@@ -1400,6 +1442,7 @@ void Run::TakeInput()
 {
     if ( !Input::IsAppFocused() )
     {
+        CancelCameraLookGesture();
         Input::SetSystemCursorVisible( true );
         if ( m_replayRuntime.Scrubber().mouseCaptured )
         {
@@ -2300,6 +2343,7 @@ void Run::TakeInput()
     if ( m_UI.BlocksKeyboard() )
     {
         AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
+        CancelCameraLookGesture();
         InputController::ResetMouseLook( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
@@ -2330,7 +2374,9 @@ void Run::TakeInput()
 
     const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
     const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
-    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor;
+    SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseLookOwnsCursor );
+    const bool cameraMouseLookActive =
+        inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor && inputSnapshot.appFocused;
     const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
     if ( cameraMouseLookActive )
     {

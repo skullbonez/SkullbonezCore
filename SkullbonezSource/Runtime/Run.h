@@ -172,6 +172,10 @@ class Run
     bool
     RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot,
                               const RuntimeMouseEdges& mouseEdges );             // Routes pointer input after snapshot capture.
+    void CancelCameraLookGesture();                                              // Clears controller-owned camera-look pointer capture.
+    void SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
+                                const RuntimeInteractionFramePolicy& inputPolicy,
+                                bool mouseLookOwnsCursor );                      // Mirrors camera-look policy into pointer capture state.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(
