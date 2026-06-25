@@ -36,6 +36,7 @@ namespace Basics
 enum class RuntimePickPurpose
 {
     EditorSelection,
+    AttachCameraTarget,
     ManipulatorPickup
 };
 

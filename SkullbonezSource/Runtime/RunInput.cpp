@@ -19,6 +19,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "InputController.h"
+#include "RuntimePickService.h"
 #include "RuntimeTuning.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
@@ -953,11 +954,23 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
 {
     Vector3 rayOrigin;
     Vector3 rayDirection;
-    int pickedIndex = -1;
-    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-         TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
+    RuntimePickResult result;
+    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
     {
-        SetAttachedCameraTarget( pickedIndex );
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::AttachCameraTarget;
+        request.models = &m_cGameModelCollection.Models();
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
+
+        if ( RuntimePickService::TryPickModel( request, result ) )
+        {
+            SetAttachedCameraTarget( result.modelIndex );
+        }
+        else
+        {
+            ClearAttachedCameraTarget();
+        }
     }
     else
     {

@@ -71,6 +71,7 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
     switch ( request.purpose )
     {
     case RuntimePickPurpose::EditorSelection:
+    case RuntimePickPurpose::AttachCameraTarget:
         break;
     case RuntimePickPurpose::ManipulatorPickup:
         for ( int i = 0; i < static_cast<int>( request.models->size() ); ++i )
