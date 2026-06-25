@@ -2692,10 +2692,10 @@ void Run::ToggleEditorPlacementMode( RuntimeInputActionSource source )
     EnterInteractiveSceneRun();
     m_runtimeTools.Editor().placementModeEnabled =
         m_runtimeTools.Editor().editorModeEnabled && !m_runtimeTools.Editor().placementModeEnabled;
-    m_interaction.SetWorldInteractionOwner( m_runtimeTools.Editor().placementModeEnabled
-                                                ? WorldInteractionOwner::EditorPlacement
-                                                : WorldInteractionOwner::EditorGizmo,
-                                            InteractionExitReason::EnterEdit );
+    SetWorldInteractionOwnerAfterInteractionTransition( m_runtimeTools.Editor().placementModeEnabled
+                                                            ? WorldInteractionOwner::EditorPlacement
+                                                            : WorldInteractionOwner::EditorGizmo,
+                                                        InteractionExitReason::EnterEdit );
     m_runtimeTools.Editor().viewportLookActive = false;
     ClearEditorManipulationState();
     ReleaseMouseToUI();
@@ -2741,8 +2741,8 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
         {
             EnterInteractiveSceneRun();
             m_runtimeTools.Editor().placementModeEnabled = true;
-            m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::EditorPlacement,
-                                                    InteractionExitReason::EnterEdit );
+            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::EditorPlacement,
+                                                                InteractionExitReason::EnterEdit );
             m_runtimeTools.Editor().viewportLookActive = false;
             ReleaseMouseToUI();
             ApplyCursorOwnership();
@@ -3060,7 +3060,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_runtimeTools.Editor().hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
-                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
+                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
                 GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_runtimeTools.Editor().selectedModelIndex );
                 m_runtimeTools.Editor().gizmoDragActive = true;
                 m_runtimeTools.Editor().gizmoDragIsRotation = false;
@@ -3090,7 +3090,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             startAngle ) )
             {
                 EnterInteractiveSceneRun();
-                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
+                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
                 m_runtimeTools.Editor().gizmoDragActive = true;
                 m_runtimeTools.Editor().gizmoDragIsRotation = true;
                 m_runtimeTools.Editor().gizmoDragIsScale = false;
@@ -3124,7 +3124,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                  TryEditorAxisRayParameter( m_runtimeTools.Editor().hotGizmoAxis, rayOrigin, rayDirection, axisT ) )
             {
                 EnterInteractiveSceneRun();
-                m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
+                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
                 m_runtimeTools.Editor().gizmoDragActive = true;
                 m_runtimeTools.Editor().gizmoDragIsRotation = false;
                 m_runtimeTools.Editor().gizmoDragIsScale = false;
@@ -3172,12 +3172,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
                      TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
                 {
-                    m_interaction.SetWorldInteractionOwner( transformOwner, transformReason );
+                    SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
                     m_runtimeTools.Editor().selectedModelIndex = pickedIndex;
                 }
                 else
                 {
-                    m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::None, transformReason );
+                    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::None, transformReason );
                     m_runtimeTools.Editor().selectedModelIndex = -1;
                 }
             }

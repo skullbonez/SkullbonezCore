@@ -613,7 +613,7 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
             m_replayRuntime.Prediction().enabled = action.boolValue;
             m_replayRuntime.Prediction().dirty = true;
-            m_interaction.SetWorldInteractionOwner(
+            SetWorldInteractionOwnerAfterInteractionTransition(
                 action.boolValue ? WorldInteractionOwner::ReplayPrediction : WorldInteractionOwner::None,
                 InteractionExitReason::EnterReplay );
             AppendReportAction( state,

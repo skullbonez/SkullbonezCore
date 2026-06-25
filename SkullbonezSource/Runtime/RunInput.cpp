@@ -650,6 +650,12 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
     const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
     const bool enteringTool =
         transition.owner == WorldInteractionOwner::Launcher || transition.owner == WorldInteractionOwner::Manipulator;
+    const bool editorOwnerSwitchWithinEdit =
+        enteringEdit && IsEditorWorldOwner( transition.previousOwner ) && IsEditorWorldOwner( transition.owner );
+    const bool inspectGizmoClaimWithinInspect = transition.workspace == RuntimeWorkspace::Inspect &&
+                                                transition.owner == WorldInteractionOwner::InspectGizmo &&
+                                                ( transition.previousOwner == WorldInteractionOwner::None ||
+                                                  transition.previousOwner == WorldInteractionOwner::InspectGizmo );
 
     if ( !enteringReplay && ( HasActiveReplayInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
     {
@@ -666,7 +672,9 @@ void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTra
         CancelMousePickup();
     }
 
-    if ( ( !enteringEdit && HasActiveEditorInteractionState() ) || IsEditorWorldOwner( transition.previousOwner ) )
+    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && HasActiveEditorInteractionState() ) ||
+         ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
+           !inspectGizmoClaimWithinInspect ) )
     {
         ClearEditorInteractionForRuntimeTransition( enteringReplay || enteringTool );
         if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )

@@ -1420,7 +1420,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_interaction.EnterInspect();
+            const RuntimeInteractionTransition transition = m_interaction.EnterInspect();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
             SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
