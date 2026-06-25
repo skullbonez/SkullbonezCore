@@ -1,10 +1,28 @@
 # Attached Object Camera Mode Plan
 
 Date: 2026-06-25
-Status: Planned
+Status: Implemented
 Impact area: runtime input, camera control, replay/editor selection, UI/HUD,
 documentation
 Validation for this document-only change: none required
+
+## Implementation Result
+
+Implemented on branch `nightrunner-25th-june` on 2026-06-25.
+
+- Added `Attach` as a top-level camera mode with Fixed Relative,
+  Velocity Forward, and Ragdoll Eyes submodes.
+- Added left-click target selection/clear, F1 submode cycling, and
+  Attach-mode Enter pin/unpin behavior.
+- Kept Attach on Inspect-style interaction policy and kept its target state
+  separate from replay/editor selections.
+- Rubber-duck review initially found a pinned-camera passive clamp/restart
+  issue; `Run::IsManualCameraMode()` now keeps passive generated-demo systems
+  from moving Attach views, including pinned views.
+- Final validation: `tools\validate_full.bat` passed in 66.27s
+  (`TestOutput\validation\attached_camera_validate_full.log`) with Profile and
+  Debug builds at 0 warnings/errors, DX12 validation errors 0, DX12 screenshots
+  matching baselines, and `physics_regression_solver.csv` byte-exact.
 
 ## Goal
 

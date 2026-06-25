@@ -2342,7 +2342,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !SceneState().isSceneMode && !IsFlyCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    if ( !SceneState().isSceneMode && !IsManualCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         LoadScene( SceneState().currentSceneIndex,
                    SceneState().isInteractiveRun,
@@ -2391,6 +2391,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
     MoveCamera( cameraDt * Cfg().keySpeed, CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    TickAttachedCamera();
 
     UpdateWaterHeightControls( simulationDt );
 

@@ -116,6 +116,7 @@ class Run
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
     RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
+    AttachedCameraState m_attachedCamera;                                        // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                               // Owns replay recorders, branch provenance, and replay interaction state.
     RunReplayMismatchState m_solverReplayMismatch;                               // Throttles repeated live-vs-solver replay mismatch reports.
@@ -182,12 +183,29 @@ class Run
     bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
     RunCameraMode NormalizeCameraModeForCurrentScene(
         RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
+    bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.
     bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
     bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.
     bool IsManipulatorCameraMode() const;                                        // True when mouse pickup owns world left-drag semantics.
+    bool IsAttachedCameraMode() const;                                           // True when Attach owns follow/pin camera semantics.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
+    void ResetAttachedCamera();                                                  // Clears non-serialized attach target and camera offsets.
+    bool TryResolveAttachedCameraTarget(
+        int& outModelIndex );                                                    // Revalidates/recover target by index, replay id, or exact name.
+    void SetAttachedCameraTarget( int modelIndex );                              // Stores exact clicked/seeded model identity and captures offset.
+    void ClearAttachedCameraTarget();                                            // Clears follow target but preserves current camera world pose.
+    void SeedAttachedCameraTargetFromSelection();                                // Initializes Attach from replay/editor selection when possible.
+    bool TryPickAttachedCameraTargetFromMouse();                                 // Mouse ray pick that keeps actual ragdoll part hits.
+    bool
+    TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
+                                  bool suppressWorldActionThisFrame );           // Consumes Attach left-click target selection.
+    void CycleAttachedCameraSubmode();                                           // F1 cycles Fixed, Velocity, and available Eyes modes.
+    void ToggleAttachedCameraPin();                                              // Enter pins/unpins camera follow while in Attach.
+    void TickAttachedCamera();                                                   // Applies the active follow solve to CameraCollection.
+    void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
+    bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void UpdateRequiredSceneContacts();                                          // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.

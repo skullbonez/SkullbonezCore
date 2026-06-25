@@ -131,6 +131,34 @@ struct RunCameraState
     int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
 };
 
+enum class AttachedCameraSubmode
+{
+    FixedRelative,
+    VelocityForward,
+    RagdollEyes,
+    Count
+};
+
+struct AttachedCameraTarget
+{
+    int modelIndex = -1;                                       // Fast live lookup; revalidated every frame before use.
+    uint32_t replayBodyId = 0;                                 // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                                        // Human/debug fallback when replay id cannot recover the target.
+};
+
+struct AttachedCameraState
+{
+    AttachedCameraTarget target;                               // Camera-owned target; replay/editor selections are only seeds.
+    AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
+    bool activeFollow = true;                                  // false means pinned in world space with mouse released to UI.
+    bool hasFixedOffset = false;
+    bool hasLastLookDirection = false;
+    Math::Vector::Vector3 localEyeOffset = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+};
+
 struct RunLiveStyleControlState
 {
     bool enabled = false;                                      // Polls a small control folder for live style JSON and screenshot requests

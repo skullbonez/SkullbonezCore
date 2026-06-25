@@ -999,6 +999,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
+    ResetAttachedCamera();
     m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
     ClearRayCastTestLines();
