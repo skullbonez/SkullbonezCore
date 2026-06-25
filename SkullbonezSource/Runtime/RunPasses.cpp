@@ -1268,7 +1268,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
         m_hasLiveVisualTime = true;
     }
-    else if ( !useReplayTime && !m_host.m_replayScrubber.simulationPaused )
+    else if ( !useReplayTime && !m_host.m_replayScrubber.liveAdvanceHeld )
     {
         m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
     }

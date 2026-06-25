@@ -894,9 +894,9 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     {
         m_replayRuntime.ResetBranch();
     }
-    if ( m_replayRuntime.Scrubber().simulationPaused )
+    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplaySimulationPaused( false );
+        SetReplayLiveAdvanceHeld( false );
     }
     ResetReplayScrubber();
     m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
@@ -1234,9 +1234,9 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
         return;
     }
 
-    if ( m_replayRuntime.Scrubber().simulationPaused )
+    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplaySimulationPaused( false );
+        SetReplayLiveAdvanceHeld( false );
     }
     if ( m_replayRuntime.VelocityEdit().mouseCaptured || m_replayRuntime.Scrubber().mouseCaptured )
     {
@@ -1252,7 +1252,7 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, normalized );
     m_replayRuntime.Scrubber().solverPosition = 1.0f;
     m_replayRuntime.Scrubber().dragging = false;
-    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().mouseCaptured = false;
     m_replayRuntime.Scrubber().visible = true;
     m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
@@ -1262,7 +1262,7 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
 
 void Run::ResetReplayScrubber()
 {
-    if ( m_replayRuntime.Camera().active && !m_replayRuntime.Scrubber().simulationPaused )
+    if ( m_replayRuntime.Camera().active && !m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
         ExitReplayInspectionCamera();
     }
@@ -1270,14 +1270,14 @@ void Run::ResetReplayScrubber()
     const bool leftWasDown = m_replayRuntime.Scrubber().leftWasDown;
     const bool restoreWasDown = m_replayRuntime.Scrubber().restoreWasDown;
     const bool restoreConsumedThisFrame = m_replayRuntime.Scrubber().restoreConsumedThisFrame;
-    const bool simulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+    const bool liveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
     const bool pauseRestoreFlyMode = m_replayRuntime.Scrubber().pauseRestoreFlyMode;
     const bool pauseRestoreLauncherMode = m_replayRuntime.Scrubber().pauseRestoreLauncherMode;
     m_replayRuntime.Scrubber() = RunReplayScrubberState{};
     m_replayRuntime.Scrubber().leftWasDown = leftWasDown;
     m_replayRuntime.Scrubber().restoreWasDown = restoreWasDown;
     m_replayRuntime.Scrubber().restoreConsumedThisFrame = restoreConsumedThisFrame;
-    m_replayRuntime.Scrubber().simulationPaused = simulationPaused;
+    m_replayRuntime.Scrubber().liveAdvanceHeld = liveAdvanceHeld;
     m_replayRuntime.Scrubber().pauseRestoreFlyMode = pauseRestoreFlyMode;
     m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
 }
@@ -1295,13 +1295,13 @@ bool Run::ShouldRenderReplayScrubber() const
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     return ( loadedPresentation || solverReplayAvailable ) &&
            ( m_replayRuntime.Scrubber().visible || m_replayRuntime.Scrubber().dragging ||
-             m_replayRuntime.Scrubber().paused || m_replayRuntime.Scrubber().simulationPaused );
+             m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
 }
 
 
 bool Run::IsReplayScrubPaused() const
 {
-    if ( !m_replayRuntime.Scrubber().paused )
+    if ( !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
         return false;
     }
@@ -1349,7 +1349,7 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 
     if ( HasLoadedReplayPresentation() )
     {
-        return m_replayRuntime.Scrubber().paused
+        return m_replayRuntime.Scrubber().historicalSamplePaused
                    ? LoadedReplayPresentationSampleAtNormalized(
                          ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) )
                    : nullptr;
@@ -1386,8 +1386,9 @@ const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
 
 const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
 {
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver || !m_replayRuntime.Scrubber().paused ||
-         !m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().frames.size() < 2 )
+    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver ||
+         !m_replayRuntime.Scrubber().historicalSamplePaused || !m_replayRuntime.Prediction().enabled ||
+         m_replayRuntime.Prediction().frames.size() < 2 )
     {
         return nullptr;
     }

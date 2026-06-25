@@ -443,7 +443,7 @@ class Run
     const ReplayPresentationSample* LoadedReplayPresentationLatestSample() const;
     void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
-    void SetReplaySimulationPaused( bool paused );
+    void SetReplayLiveAdvanceHeld( bool held );
     void EnterReplayInspectionCamera();
     void ExitReplayInspectionCamera();
     void UpdateReplayInspectionCamera();

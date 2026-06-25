@@ -101,7 +101,8 @@ void Run::RenderReplayScrubberOverlay()
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
     }
-    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayRuntime.Scrubber().paused )
+    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) &&
+              !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
     }
@@ -113,12 +114,12 @@ void Run::RenderReplayScrubberOverlay()
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     const bool live = !loadedPresentation && ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) &&
-                      !m_replayRuntime.Scrubber().paused;
+                      !m_replayRuntime.Scrubber().historicalSamplePaused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
-    const bool branchEnabled =
-        m_replayRuntime.Scrubber().paused && ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
-                                               ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
+    const bool branchEnabled = m_replayRuntime.Scrubber().historicalSamplePaused &&
+                               ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
+                                 ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
     draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, sourceLabel );
@@ -163,17 +164,17 @@ void Run::RenderReplayScrubberOverlay()
     if ( !loadedPresentation )
     {
         const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
-        const bool simulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+        const bool liveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
         const bool pauseHover = m_replayRuntime.Scrubber().pauseHovered;
         draw.RoundedRect( pauseButton.x,
                           pauseButton.y,
                           pauseButton.w,
                           pauseButton.h,
                           4.0f,
-                          simulationPaused ? 0.18f : 0.08f,
-                          simulationPaused ? 0.33f : 0.12f,
-                          simulationPaused ? 0.21f : 0.15f,
-                          pauseHover || simulationPaused ? 0.94f : 0.78f );
+                          liveAdvanceHeld ? 0.18f : 0.08f,
+                          liveAdvanceHeld ? 0.33f : 0.12f,
+                          liveAdvanceHeld ? 0.21f : 0.15f,
+                          pauseHover || liveAdvanceHeld ? 0.94f : 0.78f );
         draw.Outline( pauseButton.x,
                       pauseButton.y,
                       pauseButton.w,
@@ -181,14 +182,14 @@ void Run::RenderReplayScrubberOverlay()
                       0.58f,
                       0.92f,
                       0.72f,
-                      pauseHover || simulationPaused ? 0.78f : 0.36f );
+                      pauseHover || liveAdvanceHeld ? 0.78f : 0.36f );
         draw.Text( pauseButton.x + 9.0f,
                    pauseButton.y + 5.0f,
                    9.5f,
-                   simulationPaused ? 0.72f : 0.60f,
-                   simulationPaused ? 1.0f : 0.72f,
-                   simulationPaused ? 0.78f : 0.76f,
-                   simulationPaused ? "PLAY" : "PAUSE" );
+                   liveAdvanceHeld ? 0.72f : 0.60f,
+                   liveAdvanceHeld ? 1.0f : 0.72f,
+                   liveAdvanceHeld ? 0.78f : 0.76f,
+                   liveAdvanceHeld ? "PLAY" : "PAUSE" );
 
         {
             PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
@@ -247,7 +248,7 @@ void Run::RenderReplayScrubberOverlay()
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
         const bool inactiveDuringScrub =
-            ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ) && !active;
+            ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().historicalSamplePaused ) && !active;
         const bool saveHover = saveEnabled && m_replayRuntime.Scrubber().saveHovered &&
                                m_replayRuntime.Scrubber().saveHoveredTrack == trackName;
         const bool saveFeedback =

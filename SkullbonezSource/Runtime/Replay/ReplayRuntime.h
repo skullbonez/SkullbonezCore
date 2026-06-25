@@ -58,8 +58,8 @@ struct RunReplayScrubberState
 {
     bool visible = false;
     bool dragging = false;
-    bool paused = false;
-    bool simulationPaused = false;
+    bool historicalSamplePaused = false;
+    bool liveAdvanceHeld = false;
     bool branchHovered = false;
     bool pauseHovered = false;
     bool pauseRestoreFlyMode = false;

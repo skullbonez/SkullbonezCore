@@ -444,7 +444,7 @@ void Run::TickPhysics( double secondsPerFrame )
         return;
     }
 
-    const bool replaySimulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+    const bool replayLiveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
@@ -458,7 +458,7 @@ void Run::TickPhysics( double secondsPerFrame )
         m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                                                       stepRequested,
                                                                       false,
-                                                                      replaySimulationPaused,
+                                                                      replayLiveAdvanceHeld,
                                                                       Input::IsRightMouseDown(),
                                                                       m_runtimeTools.Editor().viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),
@@ -2042,7 +2042,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     {
         throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
     ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
 

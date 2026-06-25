@@ -382,7 +382,7 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
     snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                                         Input::IsKeyDown( VK_SPACE ),
                                                         IsReplayScrubPaused(),
-                                                        m_replayRuntime.Scrubber().simulationPaused,
+                                                        m_replayRuntime.Scrubber().liveAdvanceHeld,
                                                         mouseEdges.rightDown,
                                                         m_runtimeTools.Editor().viewportLookActive,
                                                         ReplayInspectionMouseLookActive(),
@@ -491,8 +491,8 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 bool Run::HasActiveReplayInteractionState() const
 {
     return m_replayRuntime.Camera().active || m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None ||
-           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ||
-           m_replayRuntime.Scrubber().simulationPaused || m_replayRuntime.Scrubber().mouseCaptured ||
+           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+           m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().mouseCaptured ||
            m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
            m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().horizonDragging ||
            m_replayRuntime.Prediction().building || m_replayRuntime.VelocityEdit().enabled ||
@@ -527,7 +527,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
         UI::InputControl::EndMouseCapture();
     }
 
-    m_replayRuntime.Scrubber().simulationPaused = false;
+    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
     ResetReplayScrubber();
     ReplayScrubberSetAllTrackPositions( m_replayRuntime.Scrubber(), 1.0f );
@@ -1381,8 +1381,8 @@ void Run::CycleCameraMode()
 
 bool Run::ReplayInspectionActive() const
 {
-    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().paused ||
-           m_replayRuntime.Scrubber().simulationPaused;
+    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().historicalSamplePaused ||
+           m_replayRuntime.Scrubber().liveAdvanceHeld;
 }
 
 

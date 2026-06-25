@@ -1336,9 +1336,9 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
 } // namespace
 
-void Run::SetReplaySimulationPaused( bool paused )
+void Run::SetReplayLiveAdvanceHeld( bool held )
 {
-    if ( m_replayRuntime.Scrubber().simulationPaused == paused )
+    if ( m_replayRuntime.Scrubber().liveAdvanceHeld == held )
     {
         return;
     }
@@ -1346,26 +1346,26 @@ void Run::SetReplaySimulationPaused( bool paused )
     // Removing this marker until we can sort out avoiding hitting assert
     // PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
 
-    if ( paused )
+    if ( held )
     {
         EnterInteractiveSceneRun();
         if ( m_interaction.Owner() != WorldInteractionOwner::ReplayVelocityEdit )
         {
             m_interaction.EnterReplay();
         }
-        m_replayRuntime.Scrubber().simulationPaused = true;
+        m_replayRuntime.Scrubber().liveAdvanceHeld = true;
         UpdateReplayInspectionCamera();
         return;
     }
 
-    m_replayRuntime.Scrubber().simulationPaused = false;
+    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
     if ( m_replayRuntime.VelocityEdit().enabled )
     {
         SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
                                                             InteractionExitReason::EnterReplay );
     }
-    else if ( !m_replayRuntime.Scrubber().paused &&
+    else if ( !m_replayRuntime.Scrubber().historicalSamplePaused &&
               m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
     {
         EnterInteractionForCameraMode( m_camera.mode );
@@ -1497,7 +1497,7 @@ void Run::ExitReplayInspectionCamera()
 
 void Run::UpdateReplayInspectionCamera()
 {
-    if ( m_replayRuntime.Scrubber().paused || m_replayRuntime.Scrubber().simulationPaused ||
+    if ( m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
          m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None )
     {
         EnterReplayInspectionCamera();
@@ -1530,7 +1530,7 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     char reason[160] = {};
     bool restored = false;
     RunReplayTrack messageTrack = m_replayRuntime.Scrubber().activeTrack;
-    if ( HasLoadedReplayPresentation() && m_replayRuntime.Scrubber().paused &&
+    if ( HasLoadedReplayPresentation() && m_replayRuntime.Scrubber().historicalSamplePaused &&
          m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
         EnterInteractiveSceneRun();
@@ -1556,7 +1556,8 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
                  reason[0] != '\0' ? ": " : "",
                  reason );
     }
-    else if ( m_replayRuntime.Scrubber().paused && m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
+    else if ( m_replayRuntime.Scrubber().historicalSamplePaused &&
+              m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
     {
         EnterInteractiveSceneRun();
         const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
@@ -1570,7 +1571,7 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     }
     else
     {
-        sprintf_s( reason, sizeof( reason ), "no paused replay branch target selected" );
+        sprintf_s( reason, sizeof( reason ), "no historical replay branch target selected" );
         fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
     }
 
@@ -1719,7 +1720,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
     const bool overLoadButton = replayLoadButton.Contains( mouse.x, mouse.y );
     const bool branchTargetAvailable =
-        m_replayRuntime.Scrubber().paused &&
+        m_replayRuntime.Scrubber().historicalSamplePaused &&
         ( ( loadedPresentation && m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation &&
             CurrentReplayScrubSample() != nullptr ) ||
           ( solverToolsEnabled && m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
@@ -1742,26 +1743,27 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( inHotZone || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
          overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
-         m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().paused ||
-         m_replayRuntime.Scrubber().simulationPaused )
+         m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+         m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     }
     m_replayRuntime.Scrubber().saveHovered =
         overSaveButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-                            m_replayRuntime.Scrubber().paused );
+                            m_replayRuntime.Scrubber().historicalSamplePaused );
     m_replayRuntime.Scrubber().loadHovered =
         overLoadButton && ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-                            m_replayRuntime.Scrubber().paused );
+                            m_replayRuntime.Scrubber().historicalSamplePaused );
     m_replayRuntime.Scrubber().saveHoveredTrack = hoveredTrack;
-    const bool branchControlVisible = m_replayRuntime.Scrubber().visibleUntil >= now ||
-                                      m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ||
-                                      m_replayRuntime.Scrubber().simulationPaused;
+    const bool branchControlVisible =
+        m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
+        m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld;
     m_replayRuntime.Scrubber().branchHovered = branchTargetAvailable && overBranchButton && branchControlVisible;
     const bool predictionControlVisible =
-        solverToolsEnabled && ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
-                                m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().paused ||
-                                m_replayRuntime.Scrubber().simulationPaused );
+        solverToolsEnabled &&
+        ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
+          m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+          m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && predictionControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered =
         solverToolsEnabled && overVelocityEditToggle && predictionControlVisible;
@@ -1807,7 +1809,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( solverToolsEnabled && leftPressed && canTakeMouse && overPauseButton &&
          m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        SetReplaySimulationPaused( !m_replayRuntime.Scrubber().simulationPaused );
+        SetReplayLiveAdvanceHeld( !m_replayRuntime.Scrubber().liveAdvanceHeld );
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
@@ -1861,7 +1863,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             if ( ReplayScrubberTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
             {
                 ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver, 1.0f );
-                m_replayRuntime.Scrubber().paused = false;
+                m_replayRuntime.Scrubber().historicalSamplePaused = false;
             }
             ClearReplayPredictionCache();
         }
@@ -1883,7 +1885,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         consumesMouse = true;
     }
     else if ( leftPressed && canTakeMouse && !overBranchButton && !overPauseButton && !overPredictUi &&
-              !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().paused ) )
+              !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
     {
         EnterInteractiveSceneRun();
         m_interaction.EnterReplay();
@@ -1905,7 +1907,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayRuntime.Scrubber().activeTrack ) );
         if ( loadedPresentation )
         {
-            m_replayRuntime.Scrubber().paused = true;
+            m_replayRuntime.Scrubber().historicalSamplePaused = true;
         }
         else
         {
@@ -1916,11 +1918,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                 ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(),
                                                 m_replayRuntime.Scrubber().activeTrack,
                                                 presentT );
-                m_replayRuntime.Scrubber().paused = false;
+                m_replayRuntime.Scrubber().historicalSamplePaused = false;
             }
             else
             {
-                m_replayRuntime.Scrubber().paused = true;
+                m_replayRuntime.Scrubber().historicalSamplePaused = true;
             }
         }
 
@@ -1947,7 +1949,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             }
         }
     }
-    else if ( !loadedPresentation && !m_replayRuntime.Scrubber().paused )
+    else if ( !loadedPresentation && !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
         ReplayScrubberSetAllTrackPositions(
             m_replayRuntime.Scrubber(),
@@ -1956,7 +1958,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     m_replayRuntime.Scrubber().visible =
         m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
-        m_replayRuntime.Scrubber().paused || m_replayRuntime.Scrubber().simulationPaused ||
+        m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
         m_replayRuntime.Scrubber().visibleUntil >= now;
     UpdateReplayInspectionCamera();
     return consumesMouse;
@@ -2520,9 +2522,9 @@ void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int
 
     EnterInteractiveSceneRun();
     const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
-    if ( !m_replayRuntime.Scrubber().simulationPaused )
+    if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplaySimulationPaused( true );
+        SetReplayLiveAdvanceHeld( true );
         m_replayRuntime.Camera().ownsSimulationPause = true;
     }
     else if ( !hadReplayCameraFocus )
@@ -2587,10 +2589,10 @@ void Run::ClearReplayCameraFocus( bool restoreCamera )
 
     if ( restoreCamera )
     {
-        if ( m_replayRuntime.Camera().ownsSimulationPause && m_replayRuntime.Scrubber().simulationPaused &&
-             !m_replayRuntime.Scrubber().paused )
+        if ( m_replayRuntime.Camera().ownsSimulationPause && m_replayRuntime.Scrubber().liveAdvanceHeld &&
+             !m_replayRuntime.Scrubber().historicalSamplePaused )
         {
-            m_replayRuntime.Scrubber().simulationPaused = false;
+            m_replayRuntime.Scrubber().liveAdvanceHeld = false;
         }
         m_replayRuntime.Camera().ownsSimulationPause = false;
         ExitReplayInspectionCamera();
@@ -2748,7 +2750,7 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
     if ( enabled )
     {
         EnterInteractiveSceneRun();
-        SetReplaySimulationPaused( true );
+        SetReplayLiveAdvanceHeld( true );
         SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
                                                             InteractionExitReason::EnterReplay );
         m_replayRuntime.Prediction().enabled = true;
@@ -3120,7 +3122,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                                                        startAngle ) )
                 {
                     EnterInteractiveSceneRun();
-                    SetReplaySimulationPaused( true );
+                    SetReplayLiveAdvanceHeld( true );
                     m_replayRuntime.Prediction().enabled = true;
                     m_replayRuntime.VelocityEdit().dragging = true;
                     m_replayRuntime.VelocityEdit().draggingAngular = true;
@@ -3145,7 +3147,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                                                         axisT ) )
                 {
                     EnterInteractiveSceneRun();
-                    SetReplaySimulationPaused( true );
+                    SetReplayLiveAdvanceHeld( true );
                     m_replayRuntime.Prediction().enabled = true;
                     m_replayRuntime.VelocityEdit().dragging = true;
                     m_replayRuntime.VelocityEdit().draggingAngular = false;
@@ -3791,7 +3793,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         m_replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
         m_replayRuntime.Prediction().sourceSolverHash != latestHash;
     const bool refreshDue = ( now - m_replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool allowAutomaticRefresh = !m_replayRuntime.Scrubber().simulationPaused;
+    const bool allowAutomaticRefresh = !m_replayRuntime.Scrubber().liveAdvanceHeld;
     if ( m_replayRuntime.Prediction().dirty ||
          ( allowAutomaticRefresh && !m_replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
     {
