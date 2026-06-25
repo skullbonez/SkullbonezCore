@@ -752,7 +752,7 @@ bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, boo
     {
         return false;
     }
-    if ( suppressWorldActionThisFrame || m_UI.WantsNativeMouseCursor() )
+    if ( suppressWorldActionThisFrame )
     {
         return false;
     }
@@ -1086,7 +1086,7 @@ bool Run::ReplayInspectionMouseLookActive() const
 
 bool Run::MouseLookOwnsCursor() const
 {
-    if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
+    if ( m_UI.BlocksCameraMouse() )
     {
         return false;
     }
@@ -2147,7 +2147,7 @@ void Run::TakeInput()
                                                                       SceneState().timeScale } );
     const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
     const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor;
-    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive && mouseLookOwnsCursor;
+    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
     if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
@@ -2300,7 +2300,10 @@ bool Run::DrainRuntimeCommands()
 
 void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( IsFlyCameraMode() || MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive )
+    const bool hasCameraTravelInput = m_camera.input.Get( InputState::Up ) || m_camera.input.Get( InputState::Down ) ||
+                                      m_camera.input.Get( InputState::Left ) || m_camera.input.Get( InputState::Right );
+    if ( IsFlyCameraMode() || MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive ||
+         hasCameraTravelInput )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;

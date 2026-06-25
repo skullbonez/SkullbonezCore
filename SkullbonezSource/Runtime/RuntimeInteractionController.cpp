@@ -20,15 +20,6 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-namespace
-{
-bool WorkspaceUsesInspectControls( RuntimeWorkspace workspace )
-{
-    return workspace == RuntimeWorkspace::Inspect || workspace == RuntimeWorkspace::Edit ||
-           workspace == RuntimeWorkspace::Replay;
-}
-} // namespace
-
 RuntimeWorkspace RuntimeInteractionController::Workspace() const
 {
     return m_workspace;
@@ -165,8 +156,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     }
 
     policy.cameraMouseLookActive = policy.cameraLook != CameraLookState::Passive;
-    policy.cameraKeyboardControlsActive = input.rightMouseLookHeld || WorkspaceUsesInspectControls( m_workspace ) ||
-                                          policy.launcherActive || policy.manipulatorActive;
+    policy.cameraKeyboardControlsActive = true;
 
     return policy;
 }
