@@ -22,6 +22,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../../Assets/AssetSystem.h"
 #include "../InputController.h"
+#include "../RuntimePickService.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
@@ -4090,28 +4091,21 @@ bool Run::TryComputeEditorPlacementPreview( int objectType )
 
 bool Run::TryPickEditorModel( const Vector3& rayOrigin, const Vector3& rayDirection, int& outIndex ) const
 {
-    outIndex = -1;
-    float bestT = FLT_MAX;
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-    {
-        const GameModel& model = models[i];
-        const float radius = EditorModelRadius( model ) + 1.0f;
-        const Vector3 toCenter = model.GetPosition() - rayOrigin;
-        const float rayT = toCenter * rayDirection;
-        if ( rayT < 0.0f || rayT >= bestT )
-        {
-            continue;
-        }
+    RuntimePickRequest request;
+    request.purpose = RuntimePickPurpose::EditorSelection;
+    request.models = &m_cGameModelCollection.Models();
+    request.rayOrigin = rayOrigin;
+    request.rayDirection = rayDirection;
 
-        const Vector3 closest = rayOrigin + rayDirection * rayT;
-        if ( VectorMagSquared( model.GetPosition() - closest ) <= radius * radius )
-        {
-            bestT = rayT;
-            outIndex = i;
-        }
+    RuntimePickResult result;
+    if ( !RuntimePickService::TryPickModel( request, result ) )
+    {
+        outIndex = -1;
+        return false;
     }
-    return outIndex >= 0;
+
+    outIndex = result.modelIndex;
+    return true;
 }
 
 

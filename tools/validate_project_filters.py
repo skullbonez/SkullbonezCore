@@ -180,6 +180,7 @@ RUNTIME_PREFIXES = (
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
     "RuntimeInteractionController",
+    "RuntimePickService",
     "RuntimeTuning",
     "RuntimeViewModel",
     "SimulationController",
