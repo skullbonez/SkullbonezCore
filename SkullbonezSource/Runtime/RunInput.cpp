@@ -370,6 +370,44 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
 }
 
 
+bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, const RuntimeMouseEdges& mouseEdges )
+{
+    const bool leftPressed = inputSnapshot.pointer.leftPressed;
+    const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
+    const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
+
+    bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
+    if ( !consumedWorldClick )
+    {
+        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
+                                                   mouseEdges,
+                                                   suppressWorldAction );
+    }
+    if ( !consumedWorldClick )
+    {
+        consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldAction );
+    }
+    if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
+         !uiWantsNativeMouseCursor && ( inputSnapshot.pointer.controlDown || !IsLauncherCameraMode() ) )
+    {
+        const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
+        TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
+        consumedWorldClick = true;
+    }
+
+    if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldAction &&
+         !uiWantsNativeMouseCursor )
+    {
+        EnterInteractiveSceneRun();
+        FireRayCastTest();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
+        consumedWorldClick = true;
+    }
+
+    return consumedWorldClick;
+}
+
+
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     mode = NormalizeCameraModeForCurrentScene( mode );
@@ -2257,37 +2295,7 @@ void Run::TakeInput()
     const RuntimeMouseEdges mouseEdges =
         m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
     const RuntimeInputSnapshot inputSnapshot = BuildRuntimeInputSnapshot( mouseEdges, suppressWorldActionThisFrame );
-    {
-        const bool leftPressed = inputSnapshot.pointer.leftPressed;
-        const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
-        const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
-        bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldActionThisFrame );
-        if ( !consumedWorldClick )
-        {
-            consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
-                                                       mouseEdges,
-                                                       suppressWorldActionThisFrame );
-        }
-        if ( !consumedWorldClick )
-        {
-            consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldActionThisFrame );
-        }
-        if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
-             !uiWantsNativeMouseCursor && ( inputSnapshot.pointer.controlDown || !IsLauncherCameraMode() ) )
-        {
-            const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
-            TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
-            consumedWorldClick = true;
-        }
-
-        if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldAction &&
-             !uiWantsNativeMouseCursor )
-        {
-            EnterInteractiveSceneRun();
-            FireRayCastTest();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
-        }
-    }
+    RouteRuntimePointerInput( inputSnapshot, mouseEdges );
 
     if ( m_UI.BlocksKeyboard() )
     {

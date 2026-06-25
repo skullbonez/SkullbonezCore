@@ -169,6 +169,9 @@ class Run
     RuntimeInputSnapshot BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
                                                     bool suppressWorldActionThisFrame )
         const;                                                                   // Captures pointer/UI/frame-policy input once for routed world input.
+    bool
+    RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot,
+                              const RuntimeMouseEdges& mouseEdges );             // Routes pointer input after snapshot capture.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(
