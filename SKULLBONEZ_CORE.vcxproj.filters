@@ -301,6 +301,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -1163,6 +1166,18 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\inspect_gizmo_click.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\replay_prediction_click.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json">

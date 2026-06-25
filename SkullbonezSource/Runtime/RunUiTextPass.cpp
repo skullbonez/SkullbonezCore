@@ -853,8 +853,8 @@ void UiTextPass::Render( double dSecondsPerFrame )
         const float detailSz = 0.0105f;
         const float pad = 0.010f;
         const float lineGap = 0.020f;
-        const float textW = (std::max)( Text2d::MeasureText( titleSz, modeLine ),
-                                        Text2d::MeasureText( detailSz, detail ) );
+        const float textW =
+            (std::max)( Text2d::MeasureText( titleSz, modeLine ), Text2d::MeasureText( detailSz, detail ) );
         const float panelW = textW + pad * 2.0f;
         const float panelH = pad * 2.0f + titleSz + lineGap;
         const float x0 = -( hw - mX );
@@ -863,7 +863,14 @@ void UiTextPass::Render( double dSecondsPerFrame )
         Text2d::Render2dQuad( x0, y0, x0 + panelW, y1, 0.018f, 0.024f, 0.032f, 0.78f );
         Text2d::Render2dQuad( x0, y0, x0 + 0.004f, y1, accentR, accentG, accentB, 0.92f );
         Text2d::Render2dTextColor( x0 + pad, y1 - pad - titleSz, titleSz, accentR, accentG, accentB, "%s", modeLine );
-        Text2d::Render2dTextColor( x0 + pad, y1 - pad - titleSz - lineGap, detailSz, 0.86f, 0.90f, 0.92f, "%s", detail );
+        Text2d::Render2dTextColor( x0 + pad,
+                                   y1 - pad - titleSz - lineGap,
+                                   detailSz,
+                                   0.86f,
+                                   0.90f,
+                                   0.92f,
+                                   "%s",
+                                   detail );
     };
 
     renderRuntimeModeBadge();

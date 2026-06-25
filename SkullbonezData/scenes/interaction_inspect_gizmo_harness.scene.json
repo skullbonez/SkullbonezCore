@@ -1,0 +1,69 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": false,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 90,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "inspect_overview",
+      "position": [
+        500,
+        115,
+        620
+      ],
+      "view": [
+        500,
+        80,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "inspect_target",
+      "position": [
+        500,
+        80,
+        500
+      ],
+      "radius": 12.0,
+      "mass": 10.0,
+      "moment": 12.0,
+      "restitution": 0.2,
+      "fixed": true
+    }
+  ]
+}

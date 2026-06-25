@@ -285,6 +285,7 @@ void Run::Execute()
             Gfx().ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
+            TickInteractionAutomationBeforeInput();
             TakeInput();
             TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
@@ -367,6 +368,10 @@ void Run::Execute()
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             TickLiveStyleControlCapture();
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
+
+            PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
+            TickInteractionAutomationAfterRender();
+            PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
 
             if ( TickScreenshots() )
             {

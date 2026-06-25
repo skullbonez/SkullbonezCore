@@ -277,6 +277,91 @@ struct RunInputLatchState
     double lastEscapeTapTime = -1000.0;
 };
 
+enum class RunInteractionAutomationActionType
+{
+    SetCameraMode,
+    ClickObject,
+    ClickReplayControl,
+    SetReplayPredictionEnabled,
+    ShowReplayScrubber,
+    AssertState,
+    Screenshot
+};
+
+enum class RunInteractionAutomationButton
+{
+    Left,
+    Right
+};
+
+enum class RunInteractionAutomationAssertKind
+{
+    SelectedObject,
+    Owner,
+    CameraMode,
+    ReplayPredictionEnabled,
+    ReplayPathTarget,
+    PredictionPathVisible,
+    GizmoVisible
+};
+
+struct RunInteractionAutomationAction
+{
+    int frame = 0;
+    RunInteractionAutomationActionType type = RunInteractionAutomationActionType::AssertState;
+    RunInteractionAutomationButton button = RunInteractionAutomationButton::Left;
+    RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
+    RunCameraMode cameraMode = RunCameraMode::Inspect;
+    bool boolValue = false;
+    char text[128] = {};
+    char path[260] = {};
+    POINT mouse = {};
+    bool hasMouse = false;
+    bool processed = false;
+};
+
+struct RunInteractionAutomationReportAction
+{
+    int frame = 0;
+    char type[64] = {};
+    char target[128] = {};
+    POINT mouse = {};
+    bool hasMouse = false;
+    bool consumed = false;
+    char detail[256] = {};
+};
+
+struct RunInteractionAutomationReportAssertion
+{
+    int frame = 0;
+    char name[64] = {};
+    char expected[128] = {};
+    char actual[128] = {};
+    bool passed = false;
+};
+
+struct RunInteractionAutomationState
+{
+    bool enabled = false;
+    bool scriptLoaded = false;
+    bool failed = false;
+    bool finished = false;
+    bool reportWritten = false;
+    char scriptPath[260] = {};
+    char reportPath[260] = {};
+    char failure[512] = {};
+    std::vector<RunInteractionAutomationAction> actions;
+    std::vector<RunInteractionAutomationReportAction> actionReports;
+    std::vector<RunInteractionAutomationReportAssertion> assertionReports;
+    std::vector<std::string> screenshots;
+    POINT mouseClientPosition = {};
+    bool hasMouseClientPosition = false;
+    bool leftMouseDown = false;
+    bool rightMouseDown = false;
+    int releaseLeftFrame = -1;
+    int releaseRightFrame = -1;
+};
+
 struct RunReplayMismatchState
 {
     uint32_t reports = 0;

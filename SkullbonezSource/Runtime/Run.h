@@ -115,6 +115,8 @@ class Run
     RunSubsystemState m_systems;                                                 // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
     RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
+    RunInteractionAutomationState
+        m_interactionAutomation;                                                 // CLI harness that injects runtime mouse input for regression tests.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
     AttachedCameraState m_attachedCamera;                                        // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
@@ -148,6 +150,12 @@ class Run
     void RelativeUpdateCamera( uint32_t hash );                                  // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                      // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
+    void TickInteractionAutomationBeforeInput();                                 // Applies scripted mouse/button state before normal input routing.
+    void TickInteractionAutomationAfterRender();                                 // Runs assertions/screenshots and finishes scripted automation.
+    void ClearInteractionAutomationInput();                                      // Releases input overrides after completion or failure.
+    void WriteInteractionAutomationReport();                                     // Writes JSON result for --interaction-report.
+    bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
+    bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const;
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
     SceneAuthoredCameraContext BuildSceneAuthoredCameraContext();
@@ -206,7 +214,8 @@ class Run
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );                // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                                   // Applies the active follow solve to CameraCollection.
     void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
-    void CaptureAttachedCameraOrbit( const GameObjects::GameModel& model );      // Seeds upright Attach orbit from the current camera pose.
+    void CaptureAttachedCameraOrbit(
+        const GameObjects::GameModel& model );                                   // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void UpdateRequiredSceneContacts();                                          // Scene automation waits for authored contact gates to appear in live physics
@@ -586,6 +595,9 @@ class Run
     void SetLiveStyleControlDirectory( const char* path );                       // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                                    // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame );          // Enable deterministic UI stress from CLI
+    void SetInteractionAutomation(
+        const char* scriptPath,
+        const char* reportPath );                                                // CLI harness for deterministic world-click interaction scripts.
     void SetReplayRecording( bool enabled,
                              int retentionSeconds,
                              const char* hashLogPath );                          // Enable bounded replay capture from CLI.

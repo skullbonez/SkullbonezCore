@@ -789,6 +789,30 @@ void Run::SetMainMemoryDumpPath( const char* path )
     m_diagnosticsRuntime.SetMainMemoryDumpPath( path );
 }
 
+void Run::SetInteractionAutomation( const char* scriptPath, const char* reportPath )
+{
+    if ( !scriptPath || scriptPath[0] == '\0' )
+    {
+        throw std::runtime_error( "interaction automation requires a script path" );
+    }
+
+    m_interactionAutomation = RunInteractionAutomationState{};
+    strcpy_s( m_interactionAutomation.scriptPath, sizeof( m_interactionAutomation.scriptPath ), scriptPath );
+    if ( reportPath && reportPath[0] != '\0' )
+    {
+        strcpy_s( m_interactionAutomation.reportPath, sizeof( m_interactionAutomation.reportPath ), reportPath );
+    }
+    else
+    {
+        strcpy_s( m_interactionAutomation.reportPath,
+                  sizeof( m_interactionAutomation.reportPath ),
+                  "TestOutput\\interaction\\interaction_report.json" );
+    }
+    m_interactionAutomation.enabled = true;
+    printf( "[interaction] Script: %s\n", m_interactionAutomation.scriptPath );
+    printf( "[interaction] Report: %s\n", m_interactionAutomation.reportPath );
+}
+
 
 #ifdef _DEBUG
 void Run::SetReplayScrubProbe( float normalized )

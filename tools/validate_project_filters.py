@@ -165,6 +165,7 @@ RUNTIME_PREFIXES = (
     "Run",
     "RunCapture",
     "RunFrame",
+    "RunInteractionAutomation",
     "RunInput",
     "RunInternal",
     "RunLiveStyle",
@@ -402,6 +403,8 @@ def expected_filter_for(item: ProjectItem) -> str | None:
         if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):
+            return SCENE_FILTER
+        if lower.startswith("skullbonezdata\\interaction\\") and lower.endswith(".json"):
             return SCENE_FILTER
         if lower.startswith("skullbonezdata\\hulls\\") and suffix == ".hull":
             return SCENE_FILTER

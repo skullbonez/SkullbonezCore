@@ -101,6 +101,15 @@ struct InputState
 class Input
 {
   public:
+    struct AutomationState
+    {
+        bool enabled = false;
+        bool hasMouseClientPosition = false;
+        POINT mouseClientPosition = {};
+        bool leftMouseDown = false;
+        bool rightMouseDown = false;
+    };
+
     static bool IsAppFocused();                                // True when the game window owns foreground input
     static void SetSystemCursorVisible( bool visible );        // Shows or hides the Win32 cursor display counter
     static bool IsSystemCursorVisibleRequested();              // Last requested native cursor ownership state
@@ -121,6 +130,8 @@ class Input
     static bool IsMiddleMouseDown();                           // Polls middle-button state without consuming it.
     static int ConsumeMouseWheelDelta();                       // Moves queued wheel clicks into the caller and resets the frame accumulator.
     static void AccumulateMouseWheelDelta( int delta );        // Adds a Win32 wheel delta to the per-frame queue
+    static void SetAutomationState( const AutomationState& state );
+    static void ClearAutomationState();
 };
 } // namespace Hardware
 } // namespace SkullbonezCore

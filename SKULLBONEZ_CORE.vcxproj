@@ -204,6 +204,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp" />
@@ -498,6 +499,10 @@
     <None Include="SkullbonezData\scenes\collision_demo_box_box.scene.json" />
     <None Include="SkullbonezData\scenes\float_snap_test.scene.json" />
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene.json" />
+    <None Include="SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json" />
+    <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json" />
+    <None Include="SkullbonezData\interaction\inspect_gizmo_click.json" />
+    <None Include="SkullbonezData\interaction\replay_prediction_click.json" />
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json" />
     <None Include="SkullbonezData\scenes\solver_smoke.scene.json" />
     <None Include="SkullbonezData\scenes\perf_1000.scene.json" />
