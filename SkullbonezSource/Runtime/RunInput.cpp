@@ -575,6 +575,18 @@ RunCameraMode Run::NormalizeCameraModeForCurrentScene( RunCameraMode mode ) cons
 }
 
 
+void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
+{
+    const int modeIndex = static_cast<int>( mode );
+    if ( modeIndex < 0 || modeIndex >= static_cast<int>( RunCameraMode::Count ) )
+    {
+        return;
+    }
+
+    m_camera.mode = mode;
+}
+
+
 bool Run::IsFlyCameraMode() const
 {
     return CameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow );
@@ -1133,7 +1145,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     {
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
     }
-    m_camera.mode = mode;
+    SetCameraModeLabelAfterInteractionTransition( mode );
     if ( mode == RunCameraMode::Attach )
     {
         m_attachedCamera.activeFollow = true;

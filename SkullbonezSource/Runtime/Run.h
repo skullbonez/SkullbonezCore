@@ -191,6 +191,8 @@ class Run
     bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
     RunCameraMode NormalizeCameraModeForCurrentScene(
         RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
+    void SetCameraModeLabelAfterInteractionTransition(
+        RunCameraMode mode );                                                    // Applies the camera label after controller workspace/tool ownership is chosen.
     bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.
     bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
     bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.

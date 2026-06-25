@@ -1001,7 +1001,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     CancelMousePickup();
     ResetAttachedCamera();
     m_interaction.ResetForScene( InteractionExitReason::LoadScene );
-    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
+    SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1421,7 +1421,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         if ( shouldPauseSnapshotState )
         {
             m_interaction.EnterInspect();
-            m_camera.mode = RunCameraMode::Inspect;
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;

@@ -2795,7 +2795,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             ClearEditorManipulationState();
             m_runtimeTools.Editor().restoreCameraModeAfterEditor = NormalizeCameraModeForCurrentScene( m_camera.mode );
             CancelMousePickup();
-            m_camera.mode = RunCameraMode::Inspect;
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera();
@@ -2828,7 +2828,7 @@ void Run::ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiC
             m_runtimeTools.Editor().placementScaleStart = m_runtimeTools.Editor().placementScale;
             m_runtimeTools.Editor().placementAltitudeSteps = 0;
             m_runtimeTools.Editor().placementYawRadians = 0.0f;
-            m_camera.mode = restoreMode;
+            SetCameraModeLabelAfterInteractionTransition( restoreMode );
             m_runtimeTools.Editor().restoreCameraModeAfterEditor = RunCameraMode::Demo;
             if ( wasFlyMode && !IsFlyCameraMode() )
             {

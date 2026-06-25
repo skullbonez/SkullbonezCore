@@ -1428,7 +1428,7 @@ void Run::EnterReplayInspectionCamera()
     m_camera.cameraTime = 0.0f;
     CancelMousePickup();
     m_interaction.EnterReplay();
-    m_camera.mode = RunCameraMode::Inspect;
+    SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
     if ( enteringInspectionCamera )
     {
         Input::SetSystemCursorVisible( true );
@@ -1445,7 +1445,8 @@ void Run::ExitReplayInspectionCamera()
     }
 
     m_replayRuntime.Camera().active = false;
-    m_camera.mode = NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode );
+    SetCameraModeLabelAfterInteractionTransition(
+        NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ) );
     if ( m_replayRuntime.VelocityEdit().enabled )
     {
         m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
