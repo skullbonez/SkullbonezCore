@@ -3196,6 +3196,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         {
             if ( m_runtimeTools.Editor().placementModeEnabled )
             {
+                consumedWorldClick = true;
                 if ( m_runtimeTools.Editor().placementPreviewVisible )
                 {
                     m_runtimeTools.Editor().placementScaleActive = true;
@@ -3219,16 +3220,23 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
                      TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) )
                 {
-                    SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
-                    m_runtimeTools.Editor().selectedModelIndex = pickedIndex;
+                    RuntimeInteractionCommand command;
+                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                    command.modelIndex = pickedIndex;
+                    command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
+                                                                : RuntimeInteractionSelectionScope::Editor;
+                    consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
                 }
                 else
                 {
-                    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::None, transformReason );
-                    m_runtimeTools.Editor().selectedModelIndex = -1;
+                    RuntimeInteractionCommand command;
+                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                    command.modelIndex = -1;
+                    command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
+                                                                : RuntimeInteractionSelectionScope::Editor;
+                    consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
                 }
             }
-            consumedWorldClick = true;
         }
     }
 

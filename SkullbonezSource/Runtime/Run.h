@@ -81,6 +81,25 @@ namespace RunInternal
 struct SceneRuntimeResetSnapshot;
 }
 
+enum class RuntimeInteractionCommandType
+{
+    None,
+    SetEditorSelection
+};
+
+enum class RuntimeInteractionSelectionScope
+{
+    Editor,
+    Inspect
+};
+
+struct RuntimeInteractionCommand
+{
+    RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
+    int modelIndex = -1;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+};
+
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -217,6 +236,8 @@ class Run
     RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
         WorldInteractionOwner owner,
         InteractionExitReason reason );                                          // Applies tool-owner transitions through runtime cleanup.
+    bool ExecuteRuntimeInteractionCommand(
+        const RuntimeInteractionCommand& command );                              // Applies synchronous interaction mutations from routed input.
     void ClearRuntimeInteractionStateForTransition(
         const RuntimeInteractionTransition& transition );                        // Clears state owned by the interaction being exited.
     bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.

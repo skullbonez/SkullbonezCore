@@ -735,6 +735,31 @@ RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransi
 }
 
 
+bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
+{
+    switch ( command.type )
+    {
+    case RuntimeInteractionCommandType::SetEditorSelection:
+    {
+        const bool selectionHit = command.modelIndex >= 0;
+        const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
+        const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
+                                                                              : WorldInteractionOwner::EditorGizmo )
+                                                         : WorldInteractionOwner::None;
+        const InteractionExitReason reason =
+            inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+        SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
+        m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
+        return true;
+    }
+    case RuntimeInteractionCommandType::None:
+        break;
+    }
+
+    return false;
+}
+
+
 const char* Run::CameraModeLabel( RunCameraMode mode ) const
 {
     switch ( mode )
