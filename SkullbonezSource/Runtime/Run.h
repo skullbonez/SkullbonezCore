@@ -98,6 +98,7 @@ struct RuntimeInteractionCommand
     RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
     int modelIndex = -1;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+    bool claimSelectionOwner = true;
 };
 
 enum class RuntimeInteractionEventType

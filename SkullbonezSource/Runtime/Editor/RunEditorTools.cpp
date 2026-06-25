@@ -2955,7 +2955,11 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                  m_runtimeTools.Editor().placementTerrainPoint );
                 if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
                 {
-                    m_runtimeTools.Editor().selectedModelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                    RuntimeInteractionCommand command;
+                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                    command.modelIndex = m_cGameModelCollection.GetModelCount() - 1;
+                    command.claimSelectionOwner = false;
+                    ExecuteRuntimeInteractionCommand( command );
                 }
             }
             m_runtimeTools.Editor().placementScaleActive = false;
@@ -4707,7 +4711,13 @@ void Run::UpdateEditorInteractionPreview()
 
     if ( m_runtimeTools.Editor().selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
     {
-        m_runtimeTools.Editor().selectedModelIndex = -1;
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = -1;
+        command.selectionScope =
+            inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect : RuntimeInteractionSelectionScope::Editor;
+        command.claimSelectionOwner = false;
+        ExecuteRuntimeInteractionCommand( command );
         CancelEditorGizmoDragState();
     }
 

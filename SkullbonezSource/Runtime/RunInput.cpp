@@ -666,7 +666,11 @@ void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
     m_runtimeTools.Editor().activeGizmoAxis = -1;
     if ( clearSelection )
     {
-        m_runtimeTools.Editor().selectedModelIndex = -1;
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = -1;
+        command.claimSelectionOwner = false;
+        ExecuteRuntimeInteractionCommand( command );
     }
     ReleaseMouseToUI();
     ApplyCursorOwnership();
@@ -790,12 +794,15 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
         const int previousModelIndex = m_runtimeTools.Editor().selectedModelIndex;
         const bool selectionHit = command.modelIndex >= 0;
         const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
-        const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
-                                                                              : WorldInteractionOwner::EditorGizmo )
-                                                         : WorldInteractionOwner::None;
-        const InteractionExitReason reason =
-            inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
-        SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
+        if ( command.claimSelectionOwner )
+        {
+            const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
+                                                                                  : WorldInteractionOwner::EditorGizmo )
+                                                             : WorldInteractionOwner::None;
+            const InteractionExitReason reason =
+                inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+            SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
+        }
         m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
         if ( previousModelIndex != command.modelIndex )
         {
