@@ -169,7 +169,9 @@ RUNTIME_PREFIXES = (
     "RunInternal",
     "RunLiveStyle",
     "RunPasses",
+    "RunReplayProbeState",
     "RunRender",
+    "RunState",
     "RunStress",
     "RunUiTextPass",
     "RuntimeCommandQueue",
@@ -205,6 +207,7 @@ RUNTIME_RENDER_PREFIXES = (
     "RuntimeRenderHost",
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",
+    "RuntimeRenderResources",
     "RuntimeRenderer",
 )
 

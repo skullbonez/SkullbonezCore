@@ -480,12 +480,12 @@ void Run::WriteLauncherReproSnapshot()
     const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
-    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
         generatedObjectOverride = "all_balls";
         generatedObjectArg = " --all-balls";
     }
-    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    else if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
     {
         generatedObjectOverride = "all_boxes";
         generatedObjectArg = " --all-boxes";
@@ -566,12 +566,12 @@ void Run::WriteLauncherReproSnapshot()
     fprintf( f, "target_frame_count,%d\n", SceneState().targetFrameCount );
     fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
     fprintf( f, "rng_seed,%u\n", SceneState().rngSeed );
-    fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
-    fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
-    fprintf( f, "cmd_no_sleep,%d\n", m_cmdNoSleep ? 1 : 0 );
+    fprintf( f, "cmd_seed_override,%u\n", m_launchOptions.seedOverride );
+    fprintf( f, "cmd_no_water,%d\n", m_launchOptions.noWater ? 1 : 0 );
+    fprintf( f, "cmd_no_sleep,%d\n", m_launchOptions.noSleep ? 1 : 0 );
     fprintf( f, "physics_sleep_enabled,%d\n", m_runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", SceneState().isFixedStep ? 1 : 0 );
-    fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
+    fprintf( f, "cmd_fixed_step_override,%d\n", m_launchOptions.fixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", SceneState().timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
@@ -588,7 +588,7 @@ void Run::WriteLauncherReproSnapshot()
                  SceneState().rngSeed,
                  SceneState().timeScale,
                  SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_cmdNoWater ? " --no-water" : "",
+                 m_launchOptions.noWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
@@ -600,7 +600,7 @@ void Run::WriteLauncherReproSnapshot()
                  SceneState().rngSeed,
                  SceneState().timeScale,
                  SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_cmdNoWater ? " --no-water" : "",
+                 m_launchOptions.noWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }

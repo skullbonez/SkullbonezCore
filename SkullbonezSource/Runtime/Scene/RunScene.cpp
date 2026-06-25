@@ -662,7 +662,7 @@ SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
                                        m_systems.terrain.get(),
                                        m_cGameModelCollection,
                                        m_cGameModelCollection.GetPhysicsEngine(),
-                                       m_generatedObjectTypeOverride };
+                                       m_launchOptions.generatedObjectTypeOverride };
 }
 
 void Run::UpdateRequiredSceneContacts()
@@ -857,10 +857,10 @@ SceneRuntimeResetSnapshot Run::CaptureSceneRuntimeResetSnapshot()
     snapshot.cinematicOverrideMask = SceneState().cinematicOverrideMask;
     snapshot.uiCinematicOverrideMask = SceneState().uiCinematicOverrideMask;
     snapshot.cinematicRender = SceneState().cinematicRender;
-    snapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
-    snapshot.uiModelCountOverride = m_UIModelCountOverride;
-    snapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
-    snapshot.uiSolverBoxCountOverride = m_UISolverBoxCountOverride;
+    snapshot.uiTimeScaleOverride = m_sceneUIOverrides.timeScaleOverride;
+    snapshot.uiModelCountOverride = m_sceneUIOverrides.modelCountOverride;
+    snapshot.uiSolverBallCountOverride = m_sceneUIOverrides.solverBallCountOverride;
+    snapshot.uiSolverBoxCountOverride = m_sceneUIOverrides.solverBoxCountOverride;
     snapshot.trackBallIndex = m_camera.trackBallIndex;
     snapshot.trackHeight = m_camera.trackHeight;
     snapshot.autoCycleInterval = m_camera.autoCycleInterval;
@@ -894,10 +894,10 @@ void Run::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& sna
     SceneState().cinematicOverrideMask = snapshot.cinematicOverrideMask;
     SceneState().uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
     SceneState().cinematicRender = snapshot.cinematicRender;
-    m_UITimeScaleOverride = snapshot.uiTimeScaleOverride;
-    m_UIModelCountOverride = snapshot.uiModelCountOverride;
-    m_UISolverBallCountOverride = snapshot.uiSolverBallCountOverride;
-    m_UISolverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
+    m_sceneUIOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
+    m_sceneUIOverrides.modelCountOverride = snapshot.uiModelCountOverride;
+    m_sceneUIOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
+    m_sceneUIOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
     m_camera.trackHeight = snapshot.trackHeight;
     m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < SceneState().modelCount )
                                   ? snapshot.trackBallIndex
@@ -915,10 +915,10 @@ void Run::ClearSceneRuntimeUIOverrides()
     // Scene changes and the explicit Reset Defaults command must make the scene
     // file/config authoritative again.  UI sliders are live overrides, so clearing
     // them here prevents stale counts or time scale from leaking into unrelated scenes.
-    m_UITimeScaleOverride = 0.0f;
-    m_UIModelCountOverride = -1;
-    m_UISolverBallCountOverride = -1;
-    m_UISolverBoxCountOverride = -1;
+    m_sceneUIOverrides.timeScaleOverride = 0.0f;
+    m_sceneUIOverrides.modelCountOverride = -1;
+    m_sceneUIOverrides.solverBallCountOverride = -1;
+    m_sceneUIOverrides.solverBoxCountOverride = -1;
 }
 
 
@@ -937,7 +937,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         SceneState().isInteractiveRun = true;
     }
-    if ( m_cmdInteractiveSceneRun )
+    if ( m_launchOptions.interactiveSceneRun )
     {
         SceneState().isInteractiveRun = true;
     }
@@ -963,7 +963,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     const std::string& scenePath = runtime.PathAt( index );
     if ( !shouldPreserveRuntimeState )
     {
-        m_selectedCineModeSceneIndex =
+        m_sceneBrowser.selectedCineModeSceneIndex =
             ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
     }
 
@@ -1060,11 +1060,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
-        Cfg().gameModelCapacity = m_startupGameModelCapacity;
-        ApplySceneWorkerThreadSetting( m_startupWorkerThreads );
-        if ( m_cmdSeedOverride > 0 )
+        Cfg().gameModelCapacity = m_startup.gameModelCapacity;
+        ApplySceneWorkerThreadSetting( m_startup.workerThreads );
+        if ( m_launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_cmdSeedOverride;
+            rngSeed = m_launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -1082,17 +1082,18 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneState().isSceneMode = false;
         SetUpCameras();
-        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
             SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_UISolverBallCountOverride ),
-                                                     (std::max)( 0, m_UISolverBoxCountOverride ) );
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels(
-                BuildSceneGeneratedModelContext(),
-                m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
+                                                  m_sceneUIOverrides.modelCountOverride >= 0
+                                                      ? m_sceneUIOverrides.modelCountOverride
+                                                      : DEFAULT_GAME_MODELS );
         }
         ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
@@ -1110,9 +1111,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
         }
         Cfg().gameModelCapacity =
-            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
+            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting( scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads()
-                                                                       : m_startupWorkerThreads );
+                                                                       : m_startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
         m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
@@ -1313,9 +1314,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         {
             rngSeed = scene.GetSeed();
         }
-        if ( m_cmdSeedOverride > 0 )
+        if ( m_launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_cmdSeedOverride;
+            rngSeed = m_launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -1359,15 +1360,16 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
 
-        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
             SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_UISolverBallCountOverride ),
-                                                     (std::max)( 0, m_UISolverBoxCountOverride ) );
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
-        else if ( m_UIModelCountOverride >= 0 )
+        else if ( m_sceneUIOverrides.modelCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_UIModelCountOverride );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
+                                                  m_sceneUIOverrides.modelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
@@ -1442,15 +1444,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
-    if ( m_cmdTimeScaleOverride > 0.0f )
+    if ( m_launchOptions.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_cmdTimeScaleOverride;
+        SceneState().timeScale = m_launchOptions.timeScaleOverride;
     }
-    if ( m_UITimeScaleOverride > 0.0f )
+    if ( m_sceneUIOverrides.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_UITimeScaleOverride;
+        SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
     }
-    if ( m_cmdFixedStep )
+    if ( m_launchOptions.fixedStep )
     {
         SceneState().isFixedStep = true;
     }
@@ -1466,62 +1468,62 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_runtimeSettings.tornadoVisual.enabled = true;
         }
     }
-    if ( m_cmdHasTornadoOverride )
+    if ( m_launchOptions.hasTornadoOverride )
     {
         if ( m_runtimeSettings.tornadoSystem.enabled || !m_runtimeSettings.tornadoSystem.vortices.empty() )
         {
-            m_runtimeSettings.tornadoSystem.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoSystem.enabled = m_launchOptions.tornadoEnabled;
             m_runtimeSettings.tornadoField.enabled = false;
         }
         else
         {
-            m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoField.enabled = m_launchOptions.tornadoEnabled;
         }
         if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
         {
-            m_runtimeSettings.tornadoVisual.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoVisual.enabled = m_launchOptions.tornadoEnabled;
         }
     }
-    if ( m_cmdTornadoVectors )
+    if ( m_launchOptions.tornadoVectors )
     {
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
     SyncTornadoFieldToPhysics();
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
-    if ( m_cmdFrameCountOverride > 0 )
+    if ( m_launchOptions.frameCountOverride > 0 )
     {
-        SceneState().targetFrameCount = m_cmdFrameCountOverride;
+        SceneState().targetFrameCount = m_launchOptions.frameCountOverride;
         SceneState().isExitOnComplete = true;
     }
-    if ( m_cmdUIStress )
+    if ( m_launchOptions.uiStress )
     {
         m_diagnosticsRuntime.UIStress().enabled = true;
-        m_diagnosticsRuntime.UIStress().randomState = m_cmdUIStressSeed;
-        m_diagnosticsRuntime.UIStress().actionsPerFrame = m_cmdUIStressActions;
+        m_diagnosticsRuntime.UIStress().randomState = m_launchOptions.uiStressSeed;
+        m_diagnosticsRuntime.UIStress().actionsPerFrame = m_launchOptions.uiStressActions;
         m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
         m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
     }
-    if ( m_cmdHasCinematicShadowsOverride )
+    if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveCinematicConfig().shadowsEnabled = m_cmdCinematicShadows;
+        ActiveCinematicConfig().shadowsEnabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
-    if ( m_cmdHasPhysicsDebugFlagsOverride )
+    if ( m_launchOptions.hasPhysicsDebugFlagsOverride )
     {
-        m_debug.physicsDebugFlags = m_cmdPhysicsDebugFlagsOverride;
+        m_debug.physicsDebugFlags = m_launchOptions.physicsDebugFlagsOverride;
     }
-    if ( m_cmdHasPhysicsDebugTransparentOverride )
+    if ( m_launchOptions.hasPhysicsDebugTransparentOverride )
     {
-        m_debug.isPhysicsDebugTransparent = m_cmdPhysicsDebugTransparentOverride;
+        m_debug.isPhysicsDebugTransparent = m_launchOptions.physicsDebugTransparentOverride;
     }
-    if ( m_cmdHasPhysicsDebugAlphaOverride )
+    if ( m_launchOptions.hasPhysicsDebugAlphaOverride )
     {
-        m_debug.physicsDebugAlpha = m_cmdPhysicsDebugAlphaOverride;
+        m_debug.physicsDebugAlpha = m_launchOptions.physicsDebugAlphaOverride;
     }
-    if ( m_cmdHasPhysicsDebugContactLingerOverride )
+    if ( m_launchOptions.hasPhysicsDebugContactLingerOverride )
     {
-        m_debug.physicsDebugContactLinger = m_cmdPhysicsDebugContactLingerOverride;
+        m_debug.physicsDebugContactLinger = m_launchOptions.physicsDebugContactLingerOverride;
     }
 
 #ifdef _DEBUG
@@ -1716,13 +1718,13 @@ bool Run::SaveCurrentSceneDefaults()
     world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
     SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
-    if ( m_UIModelCountOverride >= 0 )
+    if ( m_sceneUIOverrides.modelCountOverride >= 0 )
     {
-        simulation["solverBalls"] = m_UIModelCountOverride;
+        simulation["solverBalls"] = m_sceneUIOverrides.modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
-    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 ||
-              m_UISolverBoxCountOverride >= 0 )
+    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 ||
+              m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
     {
         simulation["solverBalls"] = SceneState().solverBallCount;
         simulation["solverBoxes"] = SceneState().solverBoxCount;
@@ -1933,9 +1935,9 @@ bool Run::SaveSkyDefaults()
 
 void Run::RefreshSceneBrowserList()
 {
-    m_sceneBrowserPaths.clear();
-    m_sceneBrowserNames.clear();
-    m_sceneBrowserNamePtrs.clear();
+    m_sceneBrowser.paths.clear();
+    m_sceneBrowser.names.clear();
+    m_sceneBrowser.namePtrs.clear();
 
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
     try
@@ -1951,27 +1953,27 @@ void Run::RefreshSceneBrowserList()
             {
                 continue;
             }
-            m_sceneBrowserPaths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
+            m_sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
         }
     }
     catch ( const std::filesystem::filesystem_error& e )
     {
         Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
-        m_sceneBrowserPaths.clear();
+        m_sceneBrowser.paths.clear();
     }
 
-    std::sort( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() );
-    m_sceneBrowserPaths.erase( std::unique( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() ),
-                               m_sceneBrowserPaths.end() );
-    m_sceneBrowserNames.reserve( m_sceneBrowserPaths.size() );
-    m_sceneBrowserNamePtrs.reserve( m_sceneBrowserPaths.size() );
-    for ( const std::string& path : m_sceneBrowserPaths )
+    std::sort( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() );
+    m_sceneBrowser.paths.erase( std::unique( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() ),
+                                m_sceneBrowser.paths.end() );
+    m_sceneBrowser.names.reserve( m_sceneBrowser.paths.size() );
+    m_sceneBrowser.namePtrs.reserve( m_sceneBrowser.paths.size() );
+    for ( const std::string& path : m_sceneBrowser.paths )
     {
-        m_sceneBrowserNames.emplace_back( FileNameFromPath( path.c_str() ) );
+        m_sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
     }
-    for ( const std::string& name : m_sceneBrowserNames )
+    for ( const std::string& name : m_sceneBrowser.names )
     {
-        m_sceneBrowserNamePtrs.push_back( name.c_str() );
+        m_sceneBrowser.namePtrs.push_back( name.c_str() );
     }
 }
 
@@ -1985,9 +1987,9 @@ int Run::CurrentSceneBrowserIndex() const
     }
 
     const std::string currentPath = NormalizeScenePath( *currentScenePath );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
     {
-        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
+        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == currentPath )
         {
             return i;
         }
@@ -2024,9 +2026,9 @@ bool Run::CreateSceneFromUI( const char* requestedName )
 
     RefreshSceneBrowserList();
     const std::string normalizedPath = NormalizeScenePath( scenePath.generic_string() );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
     {
-        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == normalizedPath )
+        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == normalizedPath )
         {
             LoadSceneFromBrowserIndex( i );
             return true;
@@ -2041,7 +2043,7 @@ bool Run::CreateSceneFromUI( const char* requestedName )
 
 void Run::LoadSceneFromBrowserIndex( int index )
 {
-    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowserPaths );
+    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowser.paths );
 }
 
 
@@ -2054,7 +2056,7 @@ void Run::LoadDemoSceneFromUI()
 bool Run::ApplyCinematicModeFromBrowserIndex( int index )
 {
     EnterInteractiveSceneRun();
-    m_cmdHasCinematicRenderingOverride = false;
+    m_launchOptions.hasCinematicRenderingOverride = false;
 
     auto resetObjectMaterials = [&]()
     {
@@ -2101,16 +2103,16 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
             SceneState().uiCinematicOverrideMask = 0;
         }
         resetObjectMaterials();
-        m_selectedCineModeSceneIndex = -1;
+        m_sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
 
-    if ( index >= static_cast<int>( m_sceneBrowserPaths.size() ) || !IsCineScenePath( m_sceneBrowserPaths[index] ) )
+    if ( index >= static_cast<int>( m_sceneBrowser.paths.size() ) || !IsCineScenePath( m_sceneBrowser.paths[index] ) )
     {
         return false;
     }
 
-    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowserPaths[index].c_str() );
+    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowser.paths[index].c_str() );
     cinematic = m_defaultCinematicRender;
     ApplyCinematicSceneOverrides( cinematic,
                                   lookScene.GetCinematicOverrideMask(),
@@ -2127,14 +2129,14 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
         SceneState().uiCinematicOverrideMask = 0;
     }
     applyObjectMaterials( lookScene );
-    m_selectedCineModeSceneIndex = index;
+    m_sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
 
 
 void Run::ApplyLiveStyleScene( const TestScene& styleScene )
 {
-    m_cmdHasCinematicRenderingOverride = false;
+    m_launchOptions.hasCinematicRenderingOverride = false;
 
     for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
     {
@@ -2174,13 +2176,13 @@ void Run::ApplyLiveStyleScene( const TestScene& styleScene )
         SceneState().cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
         SceneState().uiCinematicOverrideMask = 0;
     }
-    m_selectedCineModeSceneIndex = -1;
+    m_sceneBrowser.selectedCineModeSceneIndex = -1;
 }
 
 
 void Run::ApplyDemoHeroStyleOverride()
 {
-    if ( !m_cmdDemoHeroStyle || SceneState().isSceneMode )
+    if ( !m_launchOptions.demoHeroStyle || SceneState().isSceneMode )
     {
         return;
     }
@@ -2195,14 +2197,14 @@ void Run::ApplyDemoHeroStyleOverride()
 bool Run::ApplyAdjacentCinematicMode( int direction )
 {
     return m_sceneCoordinator.ApplyAdjacentCinematicMode( direction,
-                                                          m_sceneBrowserPaths,
-                                                          m_selectedCineModeSceneIndex );
+                                                          m_sceneBrowser.paths,
+                                                          m_sceneBrowser.selectedCineModeSceneIndex );
 }
 
 
 void Run::LoadAdjacentSceneFromBrowser( int direction )
 {
-    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowserPaths );
+    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowser.paths );
 }
 
 
@@ -2214,9 +2216,9 @@ void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, 
 
 void Run::ApplyUIModelCountOverride( int count )
 {
-    m_UIModelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
-    m_UISolverBallCountOverride = -1;
-    m_UISolverBoxCountOverride = -1;
+    m_sceneUIOverrides.modelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
+    m_sceneUIOverrides.solverBallCountOverride = -1;
+    m_sceneUIOverrides.solverBoxCountOverride = -1;
     if ( !HasCurrentSceneQueueEntry() )
     {
         return;
@@ -2231,7 +2233,7 @@ void Run::ApplyUIModelCountOverride( int count )
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
-    if ( m_UIModelCountOverride <= 0 )
+    if ( m_sceneUIOverrides.modelCountOverride <= 0 )
     {
         SceneState().modelCount = 0;
         m_camera.trackBallIndex = -1;
@@ -2242,10 +2244,10 @@ void Run::ApplyUIModelCountOverride( int count )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_UIModelCountOverride );
-    if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
+    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_sceneUIOverrides.modelCountOverride );
+    if ( m_camera.trackBallIndex >= m_sceneUIOverrides.modelCountOverride )
     {
-        m_camera.trackBallIndex = m_UIModelCountOverride - 1;
+        m_camera.trackBallIndex = m_sceneUIOverrides.modelCountOverride - 1;
     }
     ResetReplayTimelineForActiveScene();
     PROFILE_SCHEDULE_RESET();
@@ -2261,9 +2263,9 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
     {
         boxes = (std::max)( 0, modelCapacity - balls );
     }
-    m_UISolverBallCountOverride = balls;
-    m_UISolverBoxCountOverride = boxes;
-    m_UIModelCountOverride = -1;
+    m_sceneUIOverrides.solverBallCountOverride = balls;
+    m_sceneUIOverrides.solverBoxCountOverride = boxes;
+    m_sceneUIOverrides.modelCountOverride = -1;
     if ( !HasCurrentSceneQueueEntry() )
     {
         return;
@@ -2282,8 +2284,8 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
     SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                             m_UISolverBallCountOverride,
-                                             m_UISolverBoxCountOverride );
+                                             m_sceneUIOverrides.solverBallCountOverride,
+                                             m_sceneUIOverrides.solverBoxCountOverride );
     if ( SceneState().modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;
@@ -2324,7 +2326,7 @@ void Run::ApplyConfiguredWorldEnvironment()
 
 void Run::ApplyNoWaterOverride()
 {
-    if ( !m_cmdNoWater || !m_systems.terrain )
+    if ( !m_launchOptions.noWater || !m_systems.terrain )
     {
         return;
     }

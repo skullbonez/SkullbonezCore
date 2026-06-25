@@ -73,6 +73,7 @@ struct RunReplayPredictionState;
 struct RunReplayScrubberState;
 struct RunReplayVelocityEditState;
 struct RunRuntimeSettings;
+struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunSubsystemState;
 struct RunTimerState;
@@ -105,8 +106,7 @@ struct RuntimeRenderHostBindings
     RunCameraState* camera = nullptr;
     RuntimeViewModel* runtimeViewModel = nullptr;
     SceneController* sceneController = nullptr;
-    std::vector<const char*>* sceneBrowserNamePtrs = nullptr;
-    int* selectedCineModeSceneIndex = nullptr;
+    RunSceneBrowserState* sceneBrowser = nullptr;
 };
 
 struct RuntimeRenderHostCallbacks
@@ -175,8 +175,7 @@ class RuntimeRenderHost
           m_replayVelocityEdit( *bindings.replayVelocityEdit ), m_launcherLaser( *bindings.launcherLaser ),
           m_UI( *bindings.ui ), m_runtimeInput( *bindings.runtimeInput ), m_camera( *bindings.camera ),
           m_runtimeViewModel( *bindings.runtimeViewModel ), m_sceneController( *bindings.sceneController ),
-          m_sceneBrowserNamePtrs( *bindings.sceneBrowserNamePtrs ),
-          m_selectedCineModeSceneIndex( *bindings.selectedCineModeSceneIndex ), m_callbacks( callbacks )
+          m_sceneBrowser( *bindings.sceneBrowser ), m_callbacks( callbacks )
     {
     }
 
@@ -314,8 +313,7 @@ class RuntimeRenderHost
     RunCameraState& m_camera;
     RuntimeViewModel& m_runtimeViewModel;
     SceneController& m_sceneController;
-    std::vector<const char*>& m_sceneBrowserNamePtrs;
-    int& m_selectedCineModeSceneIndex;
+    RunSceneBrowserState& m_sceneBrowser;
 
   private:
     RuntimeRenderHostCallbacks m_callbacks;

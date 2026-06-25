@@ -9,37 +9,21 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Render pass: A named slice of RuntimeRenderer::RenderFrame() with explicit inputs,
-  outputs, and resource ownership.
-  Render target: Texture the renderer draws into before another pass samples or
-  presents it.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
-  HDR (High Dynamic Range): Floating-point scene color that can hold values
-  brighter than display white until tonemapping resolves it.
-  Shadow frame: Per-frame light-space matrices, depth texture handle, and
-  filtering constants consumed by shadow receiver shaders.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
-  SDF (Signed Distance Field): Texture representation used for crisp scalable
-  text rendering.
 
 Invariants:
-  - RunRenderPassResources owns backend/device resources and must be reset
-    while the renderer backend is still alive.
-  - Pass input structs borrow frame data only for the current render-frame
-    call; no pass may store those references after it returns.
-  - Shadow receiver pointers are valid only until the next shadow reset or the
-    next frame rebuilds ShadowPassResources.
+  - Run is the composition root for process-lifetime runtime systems.
+  - Public startup code should configure Run through the small launch surface
+    below instead of reaching into runtime-owned state.
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
-  - SkullbonezSource/Runtime/RunRender.cpp
+  - SkullbonezSource/Runtime/RunState.h
+  - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -48,14 +32,10 @@ Related:
 
 #include <array>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <vector>
 #include "../Core/Common.h"
-#include "../Assets/AssetSystem.h"
 #include "CameraCollection.h"
-#include "../Core/Timer.h"
-#include "Input.h"
 #include "InputController.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "EngineContext.h"
@@ -65,6 +45,8 @@ Related:
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
+#include "RunReplayProbeState.h"
+#include "RunState.h"
 #include "RuntimeViewModel.h"
 #include "Replay/ReplayRuntime.h"
 #include "Scene/SceneAuthoredSetup.h"
@@ -80,10 +62,7 @@ Related:
 #include "../Maths/GeometricMath.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../World/WorldEnvironment.h"
-#include "../Rendering/IFramebuffer.h"
-#include "../Rendering/IShader.h"
 #include "../Rendering/RenderSceneView.h"
-#include "../Rendering/Shadow.h"
 #include "../Scene/TestScene.h"
 #include "../Physics/Debug/BroadphaseVisualizer.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
@@ -101,250 +80,6 @@ namespace RunInternal
 struct SceneRuntimeResetSnapshot;
 }
 
-struct TornadoVisualSettings
-{
-    bool enabled = true;                                                         // Render-only sparse funnel shell; physics force state remains separate.
-    bool autoEnableWithTornado = true;                                           // UI/CLI tornado toggles keep the production visual paired by default.
-    float shellAlpha = 0.14f;
-    float dustAlpha = 0.20f;
-    float ribbonWidth = 5.5f;
-    int ribbonCount = 7;
-    int ribbonSegments = 48;
-    int particleCount = 96;
-    float rotationSpeed = 1.25f;
-};
-
-struct RunRuntimeSettings
-{
-    bool isVsyncEnabled = true;                                                  // Swap-chain sync interval (true = vsync)
-    bool isPipelineSyncEnabled = false;                                          // Force CPU/GPU sync via Finish() before render
-    bool isPhysicsSleepEnabled =
-        true;                                                                    // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
-    Physics::TornadoFieldConfig tornadoField;                                    // Live vortex force/debug vector field controlled by CLI/UI
-    Physics::TornadoSystemConfig tornadoSystem;                                  // Scene-authored multi-vortex schedule and motion.
-    TornadoVisualSettings tornadoVisual;                                         // Render-only tornado art tuning outside deterministic physics state.
-};
-
-struct RunTimerState
-{
-    Environment::Timer frameTimer;
-    Environment::Timer workTimer;
-    Environment::Timer updateTimer;
-    Environment::Timer cameraTimer;
-    Environment::Timer simulationTimer;
-
-    float physicsTime = 0.0f;                                                    // Last frame physics time (seconds)
-    float rollingPhysicsTime = 0.0f;                                             // Smoothed physics time accumulator
-    float renderTime = 0.0f;                                                     // Last frame render time (seconds)
-    float rollingRenderTime = 0.0f;                                              // Smoothed render time accumulator
-    float rollingFpsTime = 0.0f;                                                 // Smoothed FPS time accumulator
-    float rollingSceneEnergy = 0.0f;                                             // Half-second averaged kinetic energy
-    float cpuFrameWorkMs = 0.0f;                                                 // Last frame CPU work before Present/VSync
-    float gpuFrameWorkMs = 0.0f;                                                 // Last available GPU work before Present/VSync
-    float timeSinceLastRender = 0.0f;
-    double sceneEnergyAccumulator = 0.0;
-    int sceneEnergySampleCount = 0;
-    int lastUIDrawCalls = 0;                                                     // Actual UI draw calls measured around Frame/UI last frame
-};
-
-// Concept: pass resource structs name ownership before the frame graph exists.
-//
-// These structs are intentionally small. They do not implement rendering; they
-// make lifetime and ownership visible so each pass can later move behind a
-// cleaner interface without rediscovering which framebuffer, shader, or
-// per-frame payload belongs to it.
-struct ReflectionPassResources
-{
-    // Lifetime: this render target is backend/device-owned. Resize and backend
-    // teardown must reset it before the renderer releases the underlying GPU
-    // resource memory.
-    std::unique_ptr<Rendering::IFramebuffer> target;
-};
-
-struct SkyPassResources
-{
-    // The cube-map skybox is owned by the shared skybox subsystem. This pass
-    // owns only the procedural cinematic atmosphere shader used when cinematic
-    // mode asks the sky pass to draw a generated background.
-    std::unique_ptr<Rendering::IShader> atmosphereShader;
-};
-
-struct CinematicScenePassResources
-{
-    // Full-resolution floating-point scene color/depth. World geometry renders
-    // here first so volumetric light and tonemap can sample the completed scene.
-    std::unique_ptr<Rendering::IFramebuffer> hdrTarget;
-};
-
-struct VolumetricLightPassResources
-{
-    // Half-resolution because light shafts are intentionally soft. The shader
-    // samples the HDR scene and depth, then writes a texture the tonemap pass can
-    // composite over the final image.
-    std::unique_ptr<Rendering::IFramebuffer> target;
-    std::unique_ptr<Rendering::IShader> shader;
-};
-
-struct TonemapPassResources
-{
-    // Final full-screen resolve from HDR scene color to the window backbuffer.
-    // This is also where fog, bloom, grade, and optional volumetric light meet.
-    std::unique_ptr<Rendering::IShader> shader;
-};
-
-struct FullscreenPassResources
-{
-    // Shared dynamic vertex buffer for two-triangle full-screen passes. It
-    // stores only clip-space position and UV; each shader decides what to sample.
-    uint32_t quadVB = 0;
-};
-
-struct ShadowPassResources
-{
-    // Terrain target: broad map centered on terrain bounds. Object target:
-    // tighter map centered near the camera so nearby body shadows keep detail.
-    std::unique_ptr<Rendering::IFramebuffer> terrainTarget;
-    std::unique_ptr<Rendering::IFramebuffer> objectTarget;
-
-    // Lifetime: these payloads borrow texture handles from the targets above.
-    // Reset both payloads whenever either target is destroyed, and rebuild them
-    // every frame before terrain/object receivers read the pointers.
-    Rendering::ShadowFrameData terrainFrame;
-    Rendering::ShadowFrameData objectFrame;
-    Rendering::ShadowCasterBatches objectCasterBatches;
-};
-
-struct RunRenderPassResources
-{
-    // Ownership map for pass-owned renderer resources. Runtime subsystems keep
-    // long-lived world state elsewhere; this aggregate is only for resources
-    // created by named render passes and released through pass reset hooks.
-    ReflectionPassResources reflection;
-    SkyPassResources sky;
-    CinematicScenePassResources cinematicScene;
-    VolumetricLightPassResources volumetricLight;
-    TonemapPassResources tonemap;
-    FullscreenPassResources fullscreen;
-    ShadowPassResources shadows;
-};
-
-struct RunSubsystemState
-{
-    Assets::AssetSystem assets;
-    std::unique_ptr<Geometry::Terrain> terrain;
-    bool isFlatSlopeTerrain = false;
-    // Lifetime: all pass resources are released before backend teardown/rebuild
-    // and lazily recreated by the ensure hooks that own their target size and
-    // shader contracts.
-    RunRenderPassResources renderPasses;
-
-    Environment::CameraCollection* cameras = nullptr;
-    Textures::TextureCollection* textures = nullptr;
-    Window* window = nullptr;
-    Geometry::SkyBox* skyBox = nullptr;
-};
-
-struct RunCameraState
-{
-    Hardware::InputState input = {};                                             // Snapshot consumed by camera controls for this frame.
-
-    int selectedCamera = 0;                                                      // Keeps track of which camera is selected
-    RunCameraMode mode = RunCameraMode::Demo;                                    // Explicit operator camera mode shown in the minimized HUD.
-    RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect;                   // N returns to the last non-launcher workspace.
-    bool needsMouseLookReset = true;                                             // Discard stale absolute mouse deltas after UI/focus/fly transitions
-    bool hasMouseLookLastClient = false;
-    POINT mouseLookLastClient = {};
-    float cameraTime = 0.0f;                                                     // Camera helper clock
-    int trackBallIndex = -1;                                                     // Index of ball to track with camera (-1 = no tracking)
-    float trackHeight = 300.0f;                                                  // Camera height above tracked ball
-    float autoCycleInterval = -1.0f;                                             // Seconds between per-ball auto screenshots (-1 = disabled)
-    float autoCycleAccum = 0.0f;                                                 // Accumulated real-time seconds since last shot
-    int autoCycleShotsTaken = 0;                                                 // Number of per-ball screenshots taken so far
-};
-
-struct RunLiveStyleControlState
-{
-    bool enabled = false;                                                        // Polls a small control folder for live style JSON and screenshot requests
-    char directory[260] = {};                                                    // Folder containing live.style.json, capture.txt, and status.txt
-    char stylePath[300] = {};                                                    // Style descriptor applied without reloading the scene
-    char capturePath[300] = {};                                                  // Text command file used to request one screenshot
-    char statusPath[300] = {};                                                   // Latest harness status for scripts/humans
-    char pendingScreenshotPath[512] = {};                                        // Screenshot path requested by capture.txt
-    uint64_t styleStamp = 0;                                                     // Last applied live.style.json write stamp
-    uint64_t captureStamp = 0;                                                   // Last consumed capture.txt write stamp
-    int styleApplyCount = 0;                                                     // Successful live style applications
-    int captureCount = 0;                                                        // Successful live screenshots
-    bool hasPendingScreenshot = false;                                           // Capture should run after render/UI this frame
-};
-
-enum class OverlayMode
-{
-    None,                                                                        // Clean screen — nothing shown
-    Timers,                                                                      // Renderer name, model count, physics solver, profiler overlay
-    SceneStats,                                                                  // Scene telemetry values used by deterministic tests
-    BarsNormalized,                                                              // Visual profiler bars — segments fill the bar width (relative)
-    BarsAbsolute,                                                                // Visual profiler bars — white = idle/vsync (absolute frame budget)
-    Keys,                                                                        // Keyboard reference panel
-};
-
-struct RunDebugState
-{
-    OverlayMode overlayMode =
-        OverlayMode::None;                                                       // HUD overlay cycle state (0 key advances through timers, scene stats, bars, and keys)
-    bool isWaterFreezeDebug = false;                                             // Freeze ocean animation at current shape (toggle with 1)
-    bool isWaterNoReflect = false;                                               // Disable ocean reflection entirely (2 cycles: FBO→DXR→none)
-    bool isWaterRTReflect = false;                                               // Use DXR ray-traced reflection (2 cycles: FBO→DXR→none; DXR only if supported)
-    bool isWaterFlatDebug = false;                                               // Force ocean mesh fully flat, no displacement (toggle with 3)
-    bool isTerrainHidden = false;                                                // Hide terrain mesh (toggle with 4)
-    bool isWaterHidden = false;                                                  // Hide water mesh (toggle with 5)
-    uint32_t physicsDebugFlags =
-        Physics::PHYSICS_DEBUG_NONE;                                             // Draw object axes, contact manifolds, and sleep state (cycle with C)
-    bool isPhysicsDebugTransparent =
-        false;                                                                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
-    float physicsDebugAlpha = 0.28f;                                             // Translucent debug volume alpha
-    float physicsDebugContactLinger = 0.45f;                                     // Seconds to keep contact manifolds visible after their solver row disappears
-    int physicsDebugPipelineStageCursor = 0;                                     // F7/F8-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
-    bool isCollisionVisualizer = false;                                          // Render solid collision/sleep colours for balls and boxes (toggle with V)
-    bool isTextOnly = false;                                                     // Suppress all 3D rendering; show solid background with large pangram text
-    bool isUITestPattern = false;                                                // Bright 2D backdrop behind UI for visual blur tests
-    bool isTopTextHidden = false;                                                // Hide top-left HUD text while leaving other overlays active
-    bool isBroadphaseOverlay = false;                                            // Broadphase spatial grid visualizer overlay (toggle with G)
-    float frozenWaterTime = 0.0f;                                                // Simulation time captured when freeze was toggled on
-#ifdef _DEBUG
-    char reproSnapshotMessage[128] = {};                                         // Short HUD confirmation after launcher-mode repro dump
-    double reproSnapshotMessageUntil = 0.0;                                      // Simulation timer value after which the HUD message expires
-#endif
-};
-
-#ifdef _DEBUG
-struct RunReplayScrubProbeState
-{
-    bool enabled = false;
-    bool completed = false;
-    float normalized = 0.25f;
-    int minSampleCount = 24;
-    float minDistanceSquared = 0.0001f;
-};
-
-struct RunReplayRestoreProbeState
-{
-    bool enabled = false;
-    bool completed = false;
-    float normalized = 0.25f;
-    int minSampleCount = 24;
-};
-
-struct RunReplaySaveProbeState
-{
-    bool enabled = false;
-    bool completed = false;
-    bool runtimeResetCoverageInjected = false;
-    bool eventCoverageInjected = false;
-    int minSampleCount = 24;
-    char path[260] = {};
-};
-#endif
-
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -359,49 +94,12 @@ class Run
     // multiple subsystems and therefore do not have one narrower owner yet.
     SceneController m_sceneController;                                           // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                                  // Owns scene load/reset/advance selection decisions.
-    std::vector<std::string> m_sceneBrowserPaths;
-    std::vector<std::string> m_sceneBrowserNames;
-    std::vector<const char*> m_sceneBrowserNamePtrs;
-    bool m_leftSceneCycleWasDown = false;
-    bool m_rightSceneCycleWasDown = false;
-    double m_lastEscapeTapTime = -1000.0;
-    // CLI and UI overrides stay in Run while they cut across scene load,
-    // diagnostics, replay, world defaults, and renderer presentation policy.
-    float m_cmdTimeScaleOverride = 0.0f;                                         // CLI --time-scale override applied after each scene load (0 = not set)
-    bool m_cmdFixedStep = false;                                                 // CLI --fixed-step override applied after each scene load
-    unsigned int m_cmdSeedOverride = 0;                                          // CLI --seed override applied after each scene load (0 = not set)
-    bool m_cmdNoWater = false;                                                   // CLI --no-water starts fluid below terrain
-    bool m_cmdNoSleep = false;                                                   // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
-    bool m_cmdHasTornadoOverride = false;
-    bool m_cmdTornadoEnabled = false;
-    bool m_cmdTornadoVectors = false;
-    bool m_cmdHasCinematicRenderingOverride = false;
-    bool m_cmdCinematicRendering = false;
-    bool m_cmdHasCinematicShadowsOverride = false;
-    bool m_cmdCinematicShadows = false;
-    bool m_cmdDemoHeroStyle = false;                                             // CLI --demohero applies the low-poly hero look to generated demo mode
-    bool m_cmdInteractiveSceneRun = false;                                       // CLI --interactive/--hold keeps scene automation from quitting the app
-    int m_cmdFrameCountOverride = -1;                                            // CLI --frames override applied after each scene load
-    bool m_cmdUIStress = false;                                                  // CLI --ui-stress enables generated/demo stress without a scene file
-    unsigned int m_cmdUIStressSeed = 0;                                          // CLI --ui-stress-seed
-    int m_cmdUIStressActions = 5;                                                // CLI --ui-stress-actions
-    int m_selectedCineModeSceneIndex = -1;                                       // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
+    RunSceneBrowserState m_sceneBrowser;                                         // Discovered scene paths and live cine/concept selection.
+    RunInputLatchState m_inputLatches;                                           // Cross-frame key/mouse latches that are not semantic input state.
+    RunLaunchOptions m_launchOptions;                                            // CLI/startup policy reapplied across scene loads.
     CinematicRenderConfig m_defaultCinematicRender;                              // engine.cfg cinematic baseline restored by the Demo Scene cine mode
-    int m_startupGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
-    int m_startupWorkerThreads = -1;
-    GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
-    float m_UITimeScaleOverride = 0.0f;
-    int m_UIModelCountOverride = -1;
-    int m_UISolverBallCountOverride = -1;
-    int m_UISolverBoxCountOverride = -1;
-    bool m_cmdHasPhysicsDebugFlagsOverride = false;
-    uint32_t m_cmdPhysicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
-    bool m_cmdHasPhysicsDebugTransparentOverride = false;
-    bool m_cmdPhysicsDebugTransparentOverride = false;
-    bool m_cmdHasPhysicsDebugAlphaOverride = false;
-    float m_cmdPhysicsDebugAlphaOverride = 0.28f;
-    bool m_cmdHasPhysicsDebugContactLingerOverride = false;
-    float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
+    RunStartupState m_startup;                                                   // engine.cfg startup capacity/thread defaults restored by demo resets.
+    RunSceneUIOverrideState m_sceneUIOverrides;                                  // Live Scene-tab overrides preserved across reset when requested.
 
     // Subsystem owners below are ordered by lifetime dependency. EngineContext
     // and render-host bindings borrow from these objects; they do not own them.
@@ -419,8 +117,7 @@ class Run
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                               // Owns replay recorders, branch provenance, and replay interaction state.
-    uint32_t m_solverReplayMismatchReports = 0;
-    bool m_solverReplayMismatchSuppressed = false;
+    RunReplayMismatchState m_solverReplayMismatch;                               // Throttles repeated live-vs-solver replay mismatch reports.
     RunLiveStyleControlState m_liveStyle;                                        // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                           // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                       // Runtime debug/overlay toggles

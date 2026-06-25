@@ -805,14 +805,14 @@ void Run::CompareLatestReplaySamples()
         return;
     }
 
-    if ( m_solverReplayMismatchReports < 8 )
+    if ( m_solverReplayMismatch.reports < 8 )
     {
-        ++m_solverReplayMismatchReports;
+        ++m_solverReplayMismatch.reports;
         fprintf( stderr,
                  "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
                  "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
                  "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_solverReplayMismatchReports,
+                 m_solverReplayMismatch.reports,
                  static_cast<unsigned long long>( presentation->frameIndex ),
                  static_cast<unsigned long long>( solver->frameIndex ),
                  static_cast<unsigned long long>( presentation->stateHash ),
@@ -821,9 +821,9 @@ void Run::CompareLatestReplaySamples()
                  static_cast<unsigned long long>( presentation->bodies.size() ),
                  static_cast<unsigned long long>( solver->bodies.size() ) );
     }
-    else if ( !m_solverReplayMismatchSuppressed )
+    else if ( !m_solverReplayMismatch.suppressed )
     {
-        m_solverReplayMismatchSuppressed = true;
+        m_solverReplayMismatch.suppressed = true;
         fprintf( stderr,
                  "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
                  "timeline.\n" );
@@ -1620,10 +1620,10 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         m_simulation.Reset();
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
-        m_generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-        m_UIModelCountOverride = uiModelCount ? event.value0 : -1;
-        m_UISolverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-        m_UISolverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+        m_launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
+        m_sceneUIOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
+        m_sceneUIOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+        m_sceneUIOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
         if ( exactSolverCounts || uiSolverCounts )
         {

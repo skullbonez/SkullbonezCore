@@ -871,10 +871,10 @@ void UiTextPass::Render( double dSecondsPerFrame )
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
-        UIData.sceneOptions = m_host.m_sceneBrowserNamePtrs.empty() ? nullptr : m_host.m_sceneBrowserNamePtrs.data();
-        UIData.sceneOptionCount = static_cast<int>( m_host.m_sceneBrowserNamePtrs.size() );
+        UIData.sceneOptions = m_host.m_sceneBrowser.namePtrs.empty() ? nullptr : m_host.m_sceneBrowser.namePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_host.m_sceneBrowser.namePtrs.size() );
         UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
-        UIData.selectedCineModeSceneOption = m_host.m_selectedCineModeSceneIndex;
+        UIData.selectedCineModeSceneOption = m_host.m_sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
         UIData.fps = m_host.m_timers.rollingFpsTime > 0.0f
                          ? m_host.m_timers.rollingFpsTime

@@ -202,8 +202,8 @@ void Run::RunUIStressActions()
             const float timeScale = NextUIStressFloat( 0.10f, 4.00f );
             if ( allowRuntimeChurn )
             {
-                m_UITimeScaleOverride = timeScale;
-                SceneState().timeScale = m_UITimeScaleOverride;
+                m_sceneUIOverrides.timeScaleOverride = timeScale;
+                SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
                 m_simulation.Reset();
             }
             break;

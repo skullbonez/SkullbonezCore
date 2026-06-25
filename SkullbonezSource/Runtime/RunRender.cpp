@@ -69,7 +69,8 @@ bool Run::IsCinematicRenderingEnabled() const
 {
     // Command line switches win over config/scene values. That lets us launch
     // the same scene in plain mode or cinematic mode while debugging.
-    const bool enabled = m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : ActiveCinematicConfig().enabled;
+    const bool enabled = m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering
+                                                                       : ActiveCinematicConfig().enabled;
 
     // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
     // also stay off there. The UI text renderer handles that path by itself.

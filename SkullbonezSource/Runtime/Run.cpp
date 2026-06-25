@@ -205,8 +205,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.camera = &m_camera;
     bindings.runtimeViewModel = &m_runtimeViewModel;
     bindings.sceneController = &m_sceneController;
-    bindings.sceneBrowserNamePtrs = &m_sceneBrowserNamePtrs;
-    bindings.selectedCineModeSceneIndex = &m_selectedCineModeSceneIndex;
+    bindings.sceneBrowser = &m_sceneBrowser;
     return bindings;
 }
 
@@ -274,8 +273,8 @@ Run::Run( std::vector<std::string> sceneQueue )
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
-    m_startupGameModelCapacity = ActiveGameModelCapacity();
-    m_startupWorkerThreads = Cfg().workerThreads;
+    m_startup.gameModelCapacity = ActiveGameModelCapacity();
+    m_startup.workerThreads = Cfg().workerThreads;
 }
 
 
@@ -657,31 +656,31 @@ void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) 
 
 void Run::SetTimeScaleOverride( float scale )
 {
-    m_cmdTimeScaleOverride = scale;
+    m_launchOptions.timeScaleOverride = scale;
 }
 
 
 void Run::SetFixedStepOverride()
 {
-    m_cmdFixedStep = true;
+    m_launchOptions.fixedStep = true;
 }
 
 
 void Run::SetSeedOverride( unsigned int seed )
 {
-    m_cmdSeedOverride = seed;
+    m_launchOptions.seedOverride = seed;
 }
 
 
 void Run::SetNoWaterOverride()
 {
-    m_cmdNoWater = true;
+    m_launchOptions.noWater = true;
 }
 
 
 void Run::SetNoSleepOverride()
 {
-    m_cmdNoSleep = true;
+    m_launchOptions.noSleep = true;
     m_runtimeSettings.isPhysicsSleepEnabled = false;
     m_cGameModelCollection.SetPhysicsSleepEnabled( false );
 }
@@ -689,8 +688,8 @@ void Run::SetNoSleepOverride()
 
 void Run::SetTornadoOverride( bool enabled )
 {
-    m_cmdHasTornadoOverride = true;
-    m_cmdTornadoEnabled = enabled;
+    m_launchOptions.hasTornadoOverride = true;
+    m_launchOptions.tornadoEnabled = enabled;
     m_runtimeSettings.tornadoField.enabled = enabled;
     if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
     {
@@ -702,7 +701,7 @@ void Run::SetTornadoOverride( bool enabled )
 
 void Run::SetTornadoVectorFieldOverride( bool enabled )
 {
-    m_cmdTornadoVectors = enabled;
+    m_launchOptions.tornadoVectors = enabled;
     m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
     SyncTornadoFieldToPhysics();
 }
@@ -710,41 +709,41 @@ void Run::SetTornadoVectorFieldOverride( bool enabled )
 
 void Run::SetCinematicRenderingOverride( bool enabled )
 {
-    m_cmdHasCinematicRenderingOverride = true;
-    m_cmdCinematicRendering = enabled;
+    m_launchOptions.hasCinematicRenderingOverride = true;
+    m_launchOptions.cinematicRendering = enabled;
 }
 
 
 void Run::SetCinematicShadowsOverride( bool enabled )
 {
-    m_cmdHasCinematicShadowsOverride = true;
-    m_cmdCinematicShadows = enabled;
+    m_launchOptions.hasCinematicShadowsOverride = true;
+    m_launchOptions.cinematicShadows = enabled;
 }
 
 
 void Run::SetDemoHeroStyleOverride()
 {
-    m_cmdDemoHeroStyle = true;
+    m_launchOptions.demoHeroStyle = true;
 }
 
 
 void Run::SetInteractiveRunOverride()
 {
-    m_cmdInteractiveSceneRun = true;
+    m_launchOptions.interactiveSceneRun = true;
 }
 
 
 void Run::SetFrameCountOverride( int frames )
 {
-    m_cmdFrameCountOverride = (std::max)( 1, frames );
+    m_launchOptions.frameCountOverride = (std::max)( 1, frames );
 }
 
 
 void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
 {
-    m_cmdUIStress = true;
-    m_cmdUIStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
-    m_cmdUIStressActions = std::clamp( actionsPerFrame, 1, 32 );
+    m_launchOptions.uiStress = true;
+    m_launchOptions.uiStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
+    m_launchOptions.uiStressActions = std::clamp( actionsPerFrame, 1, 32 );
 }
 
 
@@ -875,8 +874,8 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     m_replayRuntime.ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     RecordReplayGeneratedSceneConfigEvent();
-    m_solverReplayMismatchReports = 0;
-    m_solverReplayMismatchSuppressed = false;
+    m_solverReplayMismatch.reports = 0;
+    m_solverReplayMismatch.suppressed = false;
 }
 
 ReplayFrameIndex Run::NextReplayEventFrameIndex() const
@@ -1010,11 +1009,12 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
     flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
                  ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
                  : 0u;
-    flags |= m_UIModelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-    flags |= ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+    flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+    flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
                  ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
                  : 0u;
-    flags |= ( static_cast<uint32_t>( m_generatedObjectTypeOverride ) << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+    flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
+               << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
              REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
@@ -1023,7 +1023,7 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
     HashReplayInt( hash, SceneState().solverBoxCount );
     HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
     HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
-    HashReplayInt( hash, static_cast<int32_t>( m_generatedObjectTypeOverride ) );
+    HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
     RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
                        0,
@@ -1726,35 +1726,35 @@ void Run::SetBroadphaseVisualizerEnabled( bool enabled )
 
 void Run::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
 {
-    m_generatedObjectTypeOverride = objectTypeOverride;
+    m_launchOptions.generatedObjectTypeOverride = objectTypeOverride;
 }
 
 
 void Run::SetPhysicsDebugFlagsOverride( uint32_t flags )
 {
-    m_cmdHasPhysicsDebugFlagsOverride = true;
-    m_cmdPhysicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
+    m_launchOptions.hasPhysicsDebugFlagsOverride = true;
+    m_launchOptions.physicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
 }
 
 
 void Run::SetPhysicsDebugTransparentOverride( bool transparent )
 {
-    m_cmdHasPhysicsDebugTransparentOverride = true;
-    m_cmdPhysicsDebugTransparentOverride = transparent;
+    m_launchOptions.hasPhysicsDebugTransparentOverride = true;
+    m_launchOptions.physicsDebugTransparentOverride = transparent;
 }
 
 
 void Run::SetPhysicsDebugAlphaOverride( float alpha )
 {
-    m_cmdHasPhysicsDebugAlphaOverride = true;
-    m_cmdPhysicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
+    m_launchOptions.hasPhysicsDebugAlphaOverride = true;
+    m_launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
 }
 
 
 void Run::SetPhysicsDebugContactLingerOverride( float seconds )
 {
-    m_cmdHasPhysicsDebugContactLingerOverride = true;
-    m_cmdPhysicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
+    m_launchOptions.hasPhysicsDebugContactLingerOverride = true;
+    m_launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
 }
 
 

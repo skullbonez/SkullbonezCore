@@ -674,7 +674,9 @@ void Run::TakeInput()
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
         ResetEditorUnfocusedInputState();
-        InputController::ResetUnfocusedInput( m_camera, m_leftSceneCycleWasDown, m_rightSceneCycleWasDown );
+        InputController::ResetUnfocusedInput( m_camera,
+                                              m_inputLatches.leftSceneCycleWasDown,
+                                              m_inputLatches.rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
         InputController::BeginFrame( m_runtimeInput,
                                      BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ),
@@ -987,8 +989,8 @@ void Run::TakeInput()
     else
     {
         AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
-        m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
-        m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
+        m_inputLatches.leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
+        m_inputLatches.rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
         m_replayRuntime.VelocityEdit().keyboardAltWasDown = Input::IsKeyDown( VK_MENU );
         m_runtimeTools.Editor().altShortcutWasDown = Input::IsKeyDown( VK_MENU );
         m_runtimeTools.Editor().tabShortcutWasDown = Input::IsKeyDown( VK_TAB );
@@ -1012,8 +1014,8 @@ void Run::TakeInput()
                               m_runtimeTools.Editor().objectType,
                               static_cast<int>( m_camera.mode ),
                               CameraModeEnabledMask(),
-                              m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
-                              static_cast<int>( m_sceneBrowserNamePtrs.size() ),
+                              m_sceneBrowser.namePtrs.empty() ? nullptr : m_sceneBrowser.namePtrs.data(),
+                              static_cast<int>( m_sceneBrowser.namePtrs.size() ),
                               selectedSceneBrowserIndex );
         editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
         const InGameUICommands& uiCommands = UIResult.commands;
@@ -1051,7 +1053,7 @@ void Run::TakeInput()
         {
             constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
             const double UINow = m_timers.simulationTimer.GetTotalTime();
-            if ( UINow - m_lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+            if ( UINow - m_inputLatches.lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
             {
                 PostQuitMessage( 0 );
             }
@@ -1060,7 +1062,7 @@ void Run::TakeInput()
                 EnterInteractiveSceneRun();
                 m_UI.ToggleVisible( UINow );
                 m_debug.overlayMode = OverlayMode::None;
-                m_lastEscapeTapTime = UINow;
+                m_inputLatches.lastEscapeTapTime = UINow;
                 ApplyCursorOwnership();
                 ReleaseMouseToUI();
             }
@@ -1276,7 +1278,7 @@ void Run::TakeInput()
             if ( IsCinematicRenderingEnabled() )
             {
                 const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
-                m_cmdHasCinematicShadowsOverride = false;
+                m_launchOptions.hasCinematicShadowsOverride = false;
                 SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
             }
             else
@@ -1326,8 +1328,9 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
-            m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-            SceneState().timeScale = m_UITimeScaleOverride;
+            m_sceneUIOverrides.timeScaleOverride =
+                std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+            SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetTimeScale, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSeed > 0 )
@@ -1385,8 +1388,8 @@ void Run::TakeInput()
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
-            const int boxes =
-                m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : SceneState().solverBoxCount;
+            const int boxes = m_sceneUIOverrides.solverBoxCountOverride >= 0 ? m_sceneUIOverrides.solverBoxCountOverride
+                                                                             : SceneState().solverBoxCount;
             ApplyUISolverObjectCounts(
                 std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ),
                 boxes );
@@ -1395,8 +1398,9 @@ void Run::TakeInput()
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
-            const int balls =
-                m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : SceneState().solverBallCount;
+            const int balls = m_sceneUIOverrides.solverBallCountOverride >= 0
+                                  ? m_sceneUIOverrides.solverBallCountOverride
+                                  : SceneState().solverBallCount;
             ApplyUISolverObjectCounts(
                 balls,
                 std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) );
@@ -1421,13 +1425,13 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.toggleRendering )
         {
-            // Master Cine switch. Clearing m_cmdHasCinematicRenderingOverride lets
+            // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
             // the runtime toggle become the new source of truth after launch.
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
             const bool currentlyEnabled =
-                m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : cinematic.enabled;
+                m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
-            m_cmdHasCinematicRenderingOverride = false;
+            m_launchOptions.hasCinematicRenderingOverride = false;
             if ( SceneState().isSceneMode )
             {
                 SceneState().hasCinematicRenderingOverride = true;
@@ -1453,7 +1457,7 @@ void Run::TakeInput()
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
-                m_cmdHasCinematicShadowsOverride = false;
+                m_launchOptions.hasCinematicShadowsOverride = false;
             }
             ToggleCinematicUIFeature( cinematic, SceneState(), uiCommands.cinematic.requestedFeature );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleCinematicFeature,
