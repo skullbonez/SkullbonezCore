@@ -1636,12 +1636,15 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         }
     }
 
+    const bool selectedModelValid = m_host.m_editor.selectedModelIndex >= 0 &&
+                                    m_host.m_editor.selectedModelIndex < m_host.m_cGameModelCollection.GetModelCount();
     const bool placementPreview = m_host.m_editor.editorModeEnabled && m_host.m_editor.placementModeEnabled &&
                                   m_host.m_editor.placementPreviewVisible;
-    const bool editorSelection = m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled &&
-                                 m_host.m_editor.selectedModelIndex >= 0 &&
-                                 m_host.m_editor.selectedModelIndex < m_host.m_cGameModelCollection.GetModelCount();
-    if ( placementPreview || editorSelection )
+    const bool editorSelection =
+        m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled && selectedModelValid;
+    const bool inspectSelection =
+        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Inspect && selectedModelValid;
+    if ( placementPreview || editorSelection || inspectSelection )
     {
         return true;
     }
