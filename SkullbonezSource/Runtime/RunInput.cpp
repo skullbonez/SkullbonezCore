@@ -38,6 +38,14 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+constexpr int ATTACHED_CAMERA_WHEEL_DELTA = 120;
+constexpr float ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH = 0.30f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN = -1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
+constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
+constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
+
 bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow )
 {
     return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
@@ -148,7 +156,59 @@ bool IsReplayWorldOwner( WorldInteractionOwner owner )
 
 bool IsEditorWorldOwner( WorldInteractionOwner owner )
 {
-    return owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo;
+    return owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo ||
+           owner == WorldInteractionOwner::InspectGizmo;
+}
+
+float WrapAttachedCameraOrbitYaw( float yaw )
+{
+    while ( yaw > _PI )
+    {
+        yaw -= _2PI;
+    }
+    while ( yaw < -_PI )
+    {
+        yaw += _2PI;
+    }
+    return yaw;
+}
+
+float AttachedCameraOrbitMinDistance( const GameModel& model )
+{
+    return (std::max)( 1.0f, AttachedCameraModelRadius( model ) * ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS );
+}
+
+float AttachedCameraOrbitMaxDistance( const GameModel& model )
+{
+    const float minDistance = AttachedCameraOrbitMinDistance( model );
+    return (std::max)( minDistance + 1.0f,
+                       AttachedCameraModelRadius( model ) * ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS );
+}
+
+float ClampAttachedCameraOrbitDistance( const GameModel& model, float distance )
+{
+    if ( !std::isfinite( distance ) )
+    {
+        distance = AttachedCameraModelRadius( model ) * 8.0f;
+    }
+    return std::clamp( distance, AttachedCameraOrbitMinDistance( model ), AttachedCameraOrbitMaxDistance( model ) );
+}
+
+float ClampAttachedCameraOrbitPitch( float pitch )
+{
+    if ( !std::isfinite( pitch ) )
+    {
+        return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
+    }
+    return std::clamp( pitch,
+                       ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN,
+                       ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX );
+}
+
+Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
+{
+    const float cosPitch = cosf( pitch );
+    return Vector3( sinf( yaw ) * cosPitch * distance, sinf( pitch ) * distance, cosf( yaw ) * cosPitch * distance );
 }
 
 const char* ReplayRuntimeCommandName( RuntimeCommandType type )
@@ -557,6 +617,7 @@ void Run::ClearAttachedCameraTarget()
 {
     m_attachedCamera.target = AttachedCameraTarget{};
     m_attachedCamera.hasFixedOffset = false;
+    m_attachedCamera.hasOrbit = false;
     m_attachedCamera.hasLastLookDirection = false;
 }
 
@@ -660,6 +721,37 @@ void Run::CaptureAttachedCameraFixedOffset( const GameModel& model )
         m_attachedCamera.hasLastLookDirection = true;
     }
     m_attachedCamera.hasFixedOffset = true;
+    CaptureAttachedCameraOrbit( model );
+}
+
+
+void Run::CaptureAttachedCameraOrbit( const GameModel& model )
+{
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    const Vector3 targetPosition = model.GetPosition();
+    Vector3 offset = m_systems.cameras->GetCameraTranslation() - targetPosition;
+    float distance = sqrtf( VectorMagSquared( offset ) );
+    if ( !std::isfinite( distance ) || distance < AttachedCameraOrbitMinDistance( model ) )
+    {
+        Vector3 look = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+        if ( !TryNormalizeVector( look ) )
+        {
+            look = Vector3( 0.0f, 0.0f, 1.0f );
+        }
+        distance = AttachedCameraModelRadius( model ) * 8.0f;
+        offset = -look * distance;
+    }
+
+    const float pitchDistance = (std::max)( distance, 0.001f );
+    const float normalizedY = std::clamp( offset.y / pitchDistance, -1.0f, 1.0f );
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( model, distance );
+    m_attachedCamera.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
+    m_attachedCamera.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );
+    m_attachedCamera.hasOrbit = true;
 }
 
 
@@ -830,7 +922,7 @@ void Run::CycleAttachedCameraSubmode()
     }
 
     m_attachedCamera.submode = next;
-    if ( next == AttachedCameraSubmode::FixedRelative || !m_attachedCamera.hasFixedOffset )
+    if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
     {
         CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
     }
@@ -850,8 +942,7 @@ void Run::ToggleAttachedCameraPin()
     if ( m_attachedCamera.activeFollow )
     {
         int modelIndex = -1;
-        if ( m_attachedCamera.submode == AttachedCameraSubmode::FixedRelative &&
-             TryResolveAttachedCameraTarget( modelIndex ) )
+        if ( TryResolveAttachedCameraTarget( modelIndex ) )
         {
             CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
         }
@@ -863,6 +954,40 @@ void Run::ToggleAttachedCameraPin()
     ApplyCursorOwnership();
     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleAttachedCameraPin,
                                        RuntimeInputActionSource::Keyboard );
+}
+
+
+void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
+{
+    if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow ||
+         m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes || m_UI.BlocksCameraMouse() )
+    {
+        return;
+    }
+
+    const int wheelSteps = unhandledWheelDelta / ATTACHED_CAMERA_WHEEL_DELTA;
+    if ( wheelSteps == 0 )
+    {
+        return;
+    }
+
+    int modelIndex = -1;
+    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
+    {
+        return;
+    }
+
+    const GameModel& target = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    if ( !m_attachedCamera.hasOrbit )
+    {
+        CaptureAttachedCameraOrbit( target );
+    }
+
+    const float nextDistance =
+        m_attachedCamera.orbitDistance * powf( ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR, static_cast<float>( wheelSteps ) );
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, nextDistance );
+    m_attachedCamera.hasOrbit = true;
+    EnterInteractiveSceneRun();
 }
 
 
@@ -904,29 +1029,32 @@ void Run::TickAttachedCamera()
         }
 
         m_attachedCamera.submode = AttachedCameraSubmode::FixedRelative;
-        if ( !m_attachedCamera.hasFixedOffset )
-        {
-            CaptureAttachedCameraFixedOffset( target );
-        }
     }
 
-    const bool userAdjustedCamera = m_camera.input.xMove != 0 || m_camera.input.yMove != 0 ||
-                                    m_camera.input.Get( InputState::Up ) || m_camera.input.Get( InputState::Down ) ||
-                                    m_camera.input.Get( InputState::Left ) || m_camera.input.Get( InputState::Right );
-    if ( m_attachedCamera.submode == AttachedCameraSubmode::FixedRelative &&
-         ( userAdjustedCamera || !m_attachedCamera.hasFixedOffset ) )
+    if ( !m_attachedCamera.hasOrbit )
     {
-        CaptureAttachedCameraFixedOffset( target );
-    }
-    else if ( !m_attachedCamera.hasFixedOffset )
-    {
-        CaptureAttachedCameraFixedOffset( target );
+        CaptureAttachedCameraOrbit( target );
     }
 
-    const RotationMatrix rotation = ModelRotation( target );
-    const Vector3 eye = target.GetPosition() + rotation * m_attachedCamera.localEyeOffset;
-    Vector3 view = target.GetPosition() + rotation * m_attachedCamera.localViewOffset;
-    Vector3 up = NormalizedOr( rotation * m_attachedCamera.localUp, Vector3( 0.0f, 1.0f, 0.0f ) );
+    if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
+    {
+        m_attachedCamera.orbitYawRadians =
+            WrapAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians +
+                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+        m_attachedCamera.orbitPitchRadians =
+            ClampAttachedCameraOrbitPitch( m_attachedCamera.orbitPitchRadians +
+                                           m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    }
+
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, m_attachedCamera.orbitDistance );
+
+    const Vector3 targetPosition = target.GetPosition();
+    const Vector3 eye =
+        targetPosition + AttachedCameraOrbitOffset( m_attachedCamera.orbitYawRadians,
+                                                   m_attachedCamera.orbitPitchRadians,
+                                                   m_attachedCamera.orbitDistance );
+    Vector3 view = targetPosition;
+    Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
     if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward )
     {
         Vector3 direction = target.GetVelocity();
@@ -937,11 +1065,11 @@ void Run::TickAttachedCamera()
                             : m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
             if ( !TryNormalizeVector( direction ) )
             {
-                direction = NormalizedOr( rotation * Vector3( 0.0f, 0.0f, 1.0f ), Vector3( 0.0f, 0.0f, 1.0f ) );
+                direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );
             }
         }
-        view = eye + direction;
-        up = NormalizedOr( rotation * Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ) );
+        view = targetPosition + direction * (std::max)( AttachedCameraModelRadius( target ),
+                                                        m_attachedCamera.orbitDistance * 0.25f );
         m_attachedCamera.lastLookDirection = direction;
         m_attachedCamera.hasLastLookDirection = true;
     }
@@ -2065,6 +2193,7 @@ void Run::TakeInput()
 
         RunUIStressActions();
 
+        TickAttachedCameraOrbitInput( editorUnhandledWheelDelta );
         TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );
     }
 
@@ -2301,8 +2430,12 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
     const bool hasCameraTravelInput = m_camera.input.Get( InputState::Up ) || m_camera.input.Get( InputState::Down ) ||
                                       m_camera.input.Get( InputState::Left ) || m_camera.input.Get( InputState::Right );
-    if ( IsFlyCameraMode() || MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive ||
-         hasCameraTravelInput )
+    const bool attachedOrbitOwnsCamera =
+        IsAttachedCameraMode() && m_attachedCamera.activeFollow &&
+        m_attachedCamera.submode != AttachedCameraSubmode::RagdollEyes;
+    if ( !attachedOrbitOwnsCamera &&
+         ( IsFlyCameraMode() || MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive ||
+           hasCameraTravelInput ) )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;

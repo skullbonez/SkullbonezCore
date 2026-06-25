@@ -163,6 +163,7 @@ class RunEditorTracer
                                  float b );
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
     void AddReplayTargetMarker( const GameObjects::GameModel& model );
+    void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     void AddGizmo( const Math::Vector::Vector3& origin,
                    float radius,

@@ -3607,6 +3607,18 @@ void RunEditorTracer::AddReplayTargetMarker( const GameModel& model )
 }
 
 
+void RunEditorTracer::AddAttachedCameraTargetMarker( const GameModel& model, bool activeFollow )
+{
+    AddSelectionOutline( model );
+    const float radius = (std::max)( 1.0f, EditorModelRadius( model ) * 1.24f );
+    const float r = activeFollow ? 0.16f : 1.0f;
+    const float g = activeFollow ? 1.0f : 0.72f;
+    const float b = activeFollow ? 0.92f : 0.24f;
+    EmitRing( model.GetPosition(), 1, radius, r, g, b );
+    EmitRing( model.GetPosition(), 0, radius * 0.68f, r, g, b );
+}
+
+
 void RunEditorTracer::AddSelectionOutline( const GameModel& model )
 {
     Quaternion orientation = model.GetOrientation();
@@ -4786,6 +4798,16 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
                                                               0.1f,
                                                               0.95f,
                                                               1.0f );
+    }
+    if ( IsAttachedCameraMode() )
+    {
+        int targetIndex = -1;
+        if ( TryResolveAttachedCameraTarget( targetIndex ) && targetIndex >= 0 &&
+             targetIndex < m_cGameModelCollection.GetModelCount() )
+        {
+            const GameModel& target = m_cGameModelCollection.Models()[static_cast<size_t>( targetIndex )];
+            m_runtimeTools.EditorTracer().AddAttachedCameraTargetMarker( target, m_attachedCamera.activeFollow );
+        }
     }
     RenderReplayPathVisualizer( m_runtimeTools.EditorTracer() );
     RenderReplayCauseFocusOverlay( m_runtimeTools.EditorTracer() );

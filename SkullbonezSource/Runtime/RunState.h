@@ -152,7 +152,11 @@ struct AttachedCameraState
     AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
     bool activeFollow = true;                                  // false means pinned in world space with mouse released to UI.
     bool hasFixedOffset = false;
+    bool hasOrbit = false;
     bool hasLastLookDirection = false;
+    float orbitYawRadians = 0.0f;
+    float orbitPitchRadians = 0.30f;
+    float orbitDistance = 8.0f;
     Math::Vector::Vector3 localEyeOffset = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );

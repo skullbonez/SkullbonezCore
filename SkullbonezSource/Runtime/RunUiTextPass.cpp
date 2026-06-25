@@ -737,7 +737,8 @@ bool UiTextPass::ShouldRender() const
 {
     return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
            m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
-           m_host.ShouldRenderReplayScrubber() || m_host.m_replayPathVisualizer.hasTarget;
+           m_host.ShouldRenderReplayScrubber() || m_host.m_replayPathVisualizer.hasTarget ||
+           ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
 }
 
 
@@ -810,6 +811,62 @@ void UiTextPass::Render( double dSecondsPerFrame )
     const float hh = Text2d::HalfH();
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
+
+    const auto renderRuntimeModeBadge = [&]()
+    {
+        if ( m_host.m_camera.mode == RunCameraMode::Demo || m_host.m_camera.mode == RunCameraMode::Scene )
+        {
+            return;
+        }
+
+        char modeLine[128] = {};
+        sprintf_s( modeLine, sizeof( modeLine ), "MODE  %s", m_host.CameraModeLabel( m_host.m_camera.mode ) );
+
+        const char* detail = "RMB look   WASD move";
+        float accentR = 0.66f;
+        float accentG = 0.88f;
+        float accentB = 1.0f;
+        if ( m_host.m_camera.mode == RunCameraMode::Attach )
+        {
+            detail = "LMB target   RMB orbit   Wheel distance   F1 mode   Enter pin";
+            accentR = 0.16f;
+            accentG = 1.0f;
+            accentB = 0.92f;
+        }
+        else if ( m_host.m_camera.mode == RunCameraMode::Manipulator )
+        {
+            detail = "LMB drag object   Hold Space play";
+            accentR = 0.18f;
+            accentG = 0.94f;
+            accentB = 1.0f;
+        }
+        else if ( m_host.m_camera.mode == RunCameraMode::Launcher )
+        {
+            detail = "LMB fire   M fire mode";
+        }
+        else if ( m_host.m_camera.mode == RunCameraMode::Inspect )
+        {
+            detail = "RMB look   WASD move   Hold Space play";
+        }
+
+        const float titleSz = 0.013f;
+        const float detailSz = 0.0105f;
+        const float pad = 0.010f;
+        const float lineGap = 0.020f;
+        const float textW = (std::max)( Text2d::MeasureText( titleSz, modeLine ),
+                                        Text2d::MeasureText( detailSz, detail ) );
+        const float panelW = textW + pad * 2.0f;
+        const float panelH = pad * 2.0f + titleSz + lineGap;
+        const float x0 = -( hw - mX );
+        const float y1 = hh - mY;
+        const float y0 = y1 - panelH;
+        Text2d::Render2dQuad( x0, y0, x0 + panelW, y1, 0.018f, 0.024f, 0.032f, 0.78f );
+        Text2d::Render2dQuad( x0, y0, x0 + 0.004f, y1, accentR, accentG, accentB, 0.92f );
+        Text2d::Render2dTextColor( x0 + pad, y1 - pad - titleSz, titleSz, accentR, accentG, accentB, "%s", modeLine );
+        Text2d::Render2dTextColor( x0 + pad, y1 - pad - titleSz - lineGap, detailSz, 0.86f, 0.90f, 0.92f, "%s", detail );
+    };
+
+    renderRuntimeModeBadge();
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
@@ -1170,7 +1227,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 13;
+        const int nRows = 14;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1204,23 +1261,25 @@ void UiTextPass::Render( double dSecondsPerFrame )
             const char* desc;
         };
         static const KeyEntry kLeft[nRows] = {
+            { "Tab", "Camera mode" },
             { "N", "Launcher mode" },
             { "M", "Launcher fire mode" },
-            { "Enter", "Dump repro" },
+            { "F1", "Attach follow mode" },
+            { "Enter", "Attach pin / repro" },
             { "F", "Fly mode" },
             { "WASD", "Move camera" },
-            { "Mouse", "Look" },
+            { "RMB", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "LMB", "Fire launcher" },
-            { "Q", "Cycle renderer" },
+            { "LMB", "Pick / drag / fire" },
             { "V", "Collision visual" },
-            { "Space", "Step physics" },
+            { "Space", "Play paused scene" },
             { "R/Bksp", "Reset scene" },
             { "F3", "Screenshot" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
             { "Esc Esc", "Quit" },
+            { "Q", "Renderer notice" },
             { "1", "Freeze water" },
             { "2", "Reflection mode" },
             { "3", "Toggle water flat" },

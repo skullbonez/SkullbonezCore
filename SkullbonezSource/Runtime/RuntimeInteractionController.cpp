@@ -116,7 +116,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
         policy.physicsAdvance = PhysicsAdvanceState::Disabled;
         policy.physicsTimeScale = 0.0f;
     }
-    else if ( input.forcePhysicsRunning || policy.launcherActive || policy.manipulatorActive )
+    else if ( input.forcePhysicsRunning || policy.launcherActive )
     {
         policy.physicsAdvance = PhysicsAdvanceState::Running;
     }
@@ -128,8 +128,8 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
             policy.physicsTimeScale = 0.0f;
         }
     }
-    else if ( m_workspace == RuntimeWorkspace::Inspect || m_workspace == RuntimeWorkspace::Edit ||
-              m_workspace == RuntimeWorkspace::Replay )
+    else if ( policy.manipulatorActive || m_workspace == RuntimeWorkspace::Inspect ||
+              m_workspace == RuntimeWorkspace::Edit || m_workspace == RuntimeWorkspace::Replay )
     {
         policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
     }

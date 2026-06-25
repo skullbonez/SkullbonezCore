@@ -197,14 +197,16 @@ class Run
     void SetAttachedCameraTarget( int modelIndex );                              // Stores exact clicked/seeded model identity and captures offset.
     void ClearAttachedCameraTarget();                                            // Clears follow target but preserves current camera world pose.
     void SeedAttachedCameraTargetFromSelection();                                // Initializes Attach from replay/editor selection when possible.
-    bool TryPickAttachedCameraTargetFromMouse();                                 // Mouse ray pick that keeps actual ragdoll part hits.
+    bool TryPickAttachedCameraTargetFromMouse();                                 // Mouse ray pick through the shared editor object picker.
     bool
     TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
                                   bool suppressWorldActionThisFrame );           // Consumes Attach left-click target selection.
     void CycleAttachedCameraSubmode();                                           // F1 cycles Fixed, Velocity, and available Eyes modes.
     void ToggleAttachedCameraPin();                                              // Enter pins/unpins camera follow while in Attach.
+    void TickAttachedCameraOrbitInput( int unhandledWheelDelta );                // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                                   // Applies the active follow solve to CameraCollection.
     void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
+    void CaptureAttachedCameraOrbit( const GameObjects::GameModel& model );      // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void UpdateRequiredSceneContacts();                                          // Scene automation waits for authored contact gates to appear in live physics
