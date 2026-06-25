@@ -587,6 +587,9 @@
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>

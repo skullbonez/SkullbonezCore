@@ -36,6 +36,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+struct MainMemoryGameObjectStats;
+}
+
 namespace Environment
 {
 class WorldEnvironment;
@@ -114,6 +119,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
     const std::vector<GameModel>& Models() const;
+    Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     std::vector<GameModel>& PhysicsModels();
     const std::vector<GameModel>& PhysicsModels() const;
     bool TrimModelsForReplayRestore( int modelCount );

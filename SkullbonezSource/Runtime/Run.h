@@ -269,6 +269,7 @@ class Run
         bool suppressExitOnComplete );                                           // Restores preserved live controls after scene file/defaults rebuild
     void ClearSceneRuntimeUIOverrides();                                         // New scene/defaults should become authoritative again.
     void LogPerfMemory( const char* checkpoint );                                // Log memory usage to perf CSV
+    bool WriteMainMemoryDump( const char* checkpoint );                          // Writes CLI-requested process/replay/object memory JSON.
     void LoadScene(
         int index,
         bool preserveUIState = false,
@@ -586,6 +587,7 @@ class Run
     void SetReplayRecording( bool enabled,
                              int retentionSeconds,
                              const char* hashLogPath );                          // Enable bounded replay capture from CLI.
+    void SetMainMemoryDumpPath( const char* path );                              // Write main-memory JSON at shutdown (CLI --memory-dump).
     bool LoadReplayPresentationArtifact( const char* path,
                                          bool activateScrubber );                // Load a v2 presentation artifact as a scrub source.
     void SetInitialOverlayMode( OverlayMode mode );

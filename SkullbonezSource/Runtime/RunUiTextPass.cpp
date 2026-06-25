@@ -899,6 +899,10 @@ void UiTextPass::Render( double dSecondsPerFrame )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
+        if ( m_host.m_UI.GetActiveTab() == InGameUITab::Profiler )
+        {
+            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now );
+        }
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
         UIData.sceneTextEnabled = view.sceneText;

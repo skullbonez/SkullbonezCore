@@ -30,6 +30,7 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "../RuntimeCameraMode.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 
@@ -404,6 +405,7 @@ class ReplayRuntime
     void StoreLauncherVisualBackup( const ReplayLauncherVisualSample& sample );
     const ReplayLauncherVisualSample& LauncherVisualBackup() const;
     void ClearLauncherVisualBackup();
+    MainMemoryReplayStats CollectMemoryStats() const;
     void RecordEvent( ReplayEventKind kind,
                       ReplayFrameIndex frameIndex,
                       uint32_t flags,

@@ -183,6 +183,17 @@ SkullbonezCore::Physics::PhysicsWorld::DiagnosticsView PhysicsEngine::GetDiagnos
     return m_scene.GetDiagnosticsView();
 }
 
+uint64_t PhysicsEngine::CollectPhysicsWorldMemoryBytes() const
+{
+    return m_scene.CollectPhysicsWorldMemoryBytes();
+}
+
+
+uint64_t PhysicsEngine::CollectDebugAndBroadphaseMemoryBytes() const
+{
+    return m_scene.CollectDebugAndBroadphaseMemoryBytes();
+}
+
 
 const PhysicsBodyStore& PhysicsEngine::BodyStore() const
 {

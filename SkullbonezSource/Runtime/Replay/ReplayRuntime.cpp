@@ -37,6 +37,57 @@ namespace SkullbonezCore::Basics
 {
 namespace
 {
+template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
+{
+    return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
+}
+
+uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+{
+    uint64_t bytes = 0;
+    bytes += VectorCapacityBytes( snapshot.timeRemaining );
+    bytes += VectorCapacityBytes( snapshot.sleepSupportedThisFrame );
+    bytes += VectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
+    bytes += VectorCapacityBytes( snapshot.sleepState );
+    bytes += VectorCapacityBytes( snapshot.sleepCounter );
+    bytes += VectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += VectorCapacityBytes( snapshot.tornadoCaptureSeconds );
+    bytes += VectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
+    bytes += VectorCapacityBytes( snapshot.collisionVisualContacts );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandVisualId );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
+    bytes += VectorCapacityBytes( snapshot.sleepSupportEdges );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandParent );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandRank );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandHasAwake );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandEligible );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandCanSleep );
+    bytes += VectorCapacityBytes( snapshot.persistentContacts );
+    bytes += VectorCapacityBytes( snapshot.persistentContactCache );
+    bytes += VectorCapacityBytes( snapshot.persistentContactCounts );
+    bytes += VectorCapacityBytes( snapshot.persistentRestingContactCounts );
+    bytes += VectorCapacityBytes( snapshot.debugContacts );
+    bytes += VectorCapacityBytes( snapshot.pipelineTrace );
+    bytes += VectorCapacityBytes( snapshot.collisionCellKeys );
+    return bytes;
+}
+
+uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
+{
+    return VectorCapacityBytes( sample.bodies );
+}
+
+uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
+{
+    return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
+}
+
 bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModel& model )
 {
     // SimpleRagdoll children share replay visuals with their collection root.
@@ -592,6 +643,60 @@ void ReplayRuntime::ClearLauncherVisualBackup()
 {
     m_launcherVisualBackup = ReplayLauncherVisualSample();
     m_launcherVisualBackupActive = false;
+}
+
+MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
+{
+    MainMemoryReplayStats stats;
+    const ReplayRecorderStats presentationStats = m_presentation.GetStats();
+    const ReplayRecorderStats solverStats = m_solver.GetStats();
+    const ReplayEventRecorderStats eventStats = m_events.GetStats();
+
+    stats.presentationBytes = m_presentation.CollectMemoryBytes();
+    stats.solverBytes = m_solver.CollectMemoryBytes();
+    stats.eventsBytes = m_events.CollectMemoryBytes();
+    stats.presentationSamples = presentationStats.sampleCount;
+    stats.solverSamples = solverStats.sampleCount;
+    stats.eventSamples = eventStats.eventCount;
+
+    stats.loadedReplayBytes =
+        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) + VectorCapacityBytes( m_loadedPresentation.samples );
+    for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
+    {
+        stats.loadedReplayBytes += PresentationSampleMemoryBytes( sample );
+    }
+    stats.loadedReplaySamples = m_loadedPresentation.samples.size();
+
+    stats.predictionBytes = static_cast<uint64_t>( sizeof( m_prediction ) );
+    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.predictionWorld );
+    stats.predictionBytes += SolverWorldSnapshotMemoryBytes( m_prediction.liveRestoreWorld );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.liveRestoreBodies );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodes );
+    for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
+    {
+        stats.predictionBytes += PredictionFrameMemoryBytes( frame );
+    }
+    stats.predictionFrames = m_prediction.frames.size();
+
+    stats.pathAndCauseBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) );
+    stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );
+    stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.targets );
+    stats.pathAndCauseBytes += VectorCapacityBytes( m_causeTree.rows );
+    stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodes.size();
+    stats.causeRows = m_causeTree.rows.size();
+
+    stats.renderScratchBytes = VectorCapacityBytes( m_renderPoseBackups );
+    stats.renderScratchBytes += VectorCapacityBytes( m_predictionGhostDrawRequests );
+    stats.renderScratchBytes += VectorCapacityBytes( m_focusModelMask );
+    stats.renderScratchBytes += static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) );
+    stats.renderScratchBytes += LauncherVisualMemoryBytes( m_launcherVisualBackup );
+    stats.ghostRequests = m_predictionGhostDrawRequests.size();
+
+    stats.totalBytes = stats.presentationBytes + stats.solverBytes + stats.eventsBytes + stats.loadedReplayBytes +
+                       stats.predictionBytes + stats.pathAndCauseBytes + stats.renderScratchBytes;
+    return stats;
 }
 
 void ReplayRuntime::RecordEvent( ReplayEventKind kind,

@@ -251,6 +251,14 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
     callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
     { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
+    callbacks.refreshMainMemoryStats = []( void* user, double nowSeconds ) -> MainMemoryStats
+    {
+        Run& run = *static_cast<Run*>( user );
+        return run.m_diagnosticsRuntime.RefreshMainMemoryStats( run.m_replayRuntime,
+                                                                run.m_cGameModelCollection,
+                                                                nowSeconds,
+                                                                false );
+    };
     callbacks.buildReplayFocusModelMask = []( void* user ) -> bool
     { return static_cast<Run*>( user )->BuildReplayFocusModelMask(); };
     callbacks.renderReplayPredictionGhosts = []( void* user,
@@ -319,6 +327,10 @@ Run::~Run()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
+    if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
+    {
+        WriteMainMemoryDump( "shutdown" );
+    }
     m_diagnosticsRuntime.ClosePerfLog();
     m_replayRuntime.FlushHashLogs();
     if ( m_replayRuntime.IsPresentationEnabled() )
@@ -769,6 +781,12 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
+}
+
+
+void Run::SetMainMemoryDumpPath( const char* path )
+{
+    m_diagnosticsRuntime.SetMainMemoryDumpPath( path );
 }
 
 

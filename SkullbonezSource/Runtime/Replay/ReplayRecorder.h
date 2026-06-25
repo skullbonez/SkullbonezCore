@@ -330,6 +330,7 @@ class ReplayRecorder
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+    uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const;
     const ReplayPresentationSample* LatestSample() const;
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
@@ -370,6 +371,7 @@ class ReplaySolverRecorder
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+    uint64_t CollectMemoryBytes() const;
     void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
     void ForEachSampleChronological( ReplaySolverSampleVisitor visitor, void* userData ) const;
     const ReplaySolverFrameSample* LatestSample() const;
@@ -410,6 +412,7 @@ class ReplayEventRecorder
     void RecordEvent( const ReplayEventInput& input );
     bool IsEnabled() const;
     ReplayEventRecorderStats GetStats() const;
+    uint64_t CollectMemoryBytes() const;
     void CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const;
 
   private:

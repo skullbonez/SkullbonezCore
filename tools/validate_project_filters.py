@@ -234,6 +234,7 @@ CORE_PREFIXES = (
     "Fence",
     "LockOrderValidator",
     "Log",
+    "MainMemoryStats",
     "PlatformProfiler",
     "Profiler",
     "SkullScope",

@@ -609,6 +609,7 @@ struct ParsedArgs
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
+    char memoryDumpPath[260] = {};
     bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
@@ -1535,6 +1536,19 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 }
 
 
+bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyOptionPath( value, "--memory-dump", args.memoryDumpPath, sizeof( args.memoryDumpPath ) ) )
+    {
+        return false;
+    }
+
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[memory] Dump output: %s\n", args.memoryDumpPath );
+    return true;
+}
+
+
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
     if ( IsOptionValueMissing( value ) )
@@ -1718,6 +1732,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
+        { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
         { "--replay",
           nullptr,
           []( const char* value, ParsedArgs& args ) -> bool
@@ -2396,6 +2411,10 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.uiStress )
         {
             cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+        }
+        if ( args.memoryDumpPath[0] != '\0' )
+        {
+            cRun->SetMainMemoryDumpPath( args.memoryDumpPath );
         }
         const bool replayDefaultAllowed =
             !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';

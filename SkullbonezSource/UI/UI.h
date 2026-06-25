@@ -25,6 +25,7 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
+#include "../Core/MainMemoryStats.h"
 #include "../Rendering/IShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
@@ -100,6 +101,7 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
+    Basics::MainMemoryStats mainMemory;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;

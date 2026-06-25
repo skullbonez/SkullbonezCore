@@ -27,6 +27,7 @@ Related:
 #pragma once
 
 
+#include <cstddef>
 #include <vector>
 #include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
@@ -98,6 +99,7 @@ class TornadoField
                                                               const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    std::size_t DynamicMemoryBytes() const;
 
   private:
     TornadoFieldConfig m_config;
@@ -126,6 +128,7 @@ class TornadoSystem
     }
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    std::size_t DynamicMemoryBytes() const;
 
     static void BuildActiveVortices( const TornadoSystemConfig& config,
                                      float elapsedSeconds,
