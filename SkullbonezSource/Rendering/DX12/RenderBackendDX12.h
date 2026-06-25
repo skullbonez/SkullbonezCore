@@ -59,6 +59,7 @@ Related:
 #include <d3d12.h>
 #include <dxgi1_5.h>
 #include <array>
+#include <cstddef>
 #include <unordered_map>
 #include <vector>
 
@@ -270,8 +271,17 @@ class RenderBackendDX12 : public IRenderBackend
     ID3D12CommandQueue* m_commandQueue = nullptr;
     ID3D12GraphicsCommandList* m_commandList = nullptr;
     ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
+    static constexpr int PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX = 64;
+    static constexpr std::size_t PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS = 256;
+    struct PlatformProfilerGpuScopeDX12
+    {
+        char name[PLATFORM_PROFILER_GPU_MARKER_NAME_CHARS] = {};
+        uint32_t hash = 0;
+    };
+
     bool m_commandListOpen = false;
     int m_platformProfilerGpuDepth = 0;                            // Nesting depth guard for platform GPU marker begin/end balance.
+    std::array<PlatformProfilerGpuScopeDX12, PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX> m_platformProfilerGpuStack = {};
 
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT m_frameIndex = 0;
@@ -448,6 +458,8 @@ class RenderBackendDX12 : public IRenderBackend
     void InitGenMipsPipeline();
     void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
+    int SuspendPlatformProfilerGpuStackForSubmit( const char* reason );
+    void RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth );
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );

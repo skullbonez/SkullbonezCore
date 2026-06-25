@@ -184,6 +184,67 @@ bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 }
 
 
+int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* reason )
+{
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+    if ( m_platformProfilerGpuDepth <= 0 )
+    {
+        return 0;
+    }
+    if ( !m_commandList || !m_commandListOpen )
+    {
+        Log().WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
+                           reason ? reason : "unknown",
+                           m_platformProfilerGpuDepth );
+        return 0;
+    }
+
+    const int suspendedDepth = m_platformProfilerGpuDepth;
+    Log().WriteEventf( "dx12_platform_profiler_gpu_stack_suspended_for_submit reason=%s depth=%d",
+                       reason ? reason : "unknown",
+                       suspendedDepth );
+    for ( int i = suspendedDepth - 1; i >= 0; --i )
+    {
+        PIXEndEvent( m_commandList );
+    }
+    m_platformProfilerGpuDepth = 0;
+    return suspendedDepth;
+#else
+    (void)reason;
+    return 0;
+#endif
+}
+
+
+void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth )
+{
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+    if ( suspendedDepth <= 0 )
+    {
+        return;
+    }
+    if ( !m_commandList || !m_commandListOpen )
+    {
+        Log().WriteEventf( "dx12_platform_profiler_gpu_restore_without_open_command_list depth=%d", suspendedDepth );
+        return;
+    }
+
+    for ( int i = 0; i < suspendedDepth; ++i )
+    {
+        const PlatformProfilerGpuScopeDX12& scope = m_platformProfilerGpuStack[static_cast<std::size_t>( i )];
+        const char* markerName = scope.name[0] != '\0' ? scope.name : "(null)";
+        PIXBeginEvent( m_commandList,
+                       SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, scope.hash ),
+                       "%s",
+                       markerName );
+    }
+    m_platformProfilerGpuDepth = suspendedDepth;
+#else
+    (void)suspendedDepth;
+#endif
+}
+
+
 void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
     if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
@@ -197,6 +258,12 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
         return;
     }
     EnsureCommandListOpen();
+    if ( m_platformProfilerGpuDepth >= PLATFORM_PROFILER_GPU_SCOPE_STACK_MAX )
+    {
+        Log().WriteEventf( "dx12_platform_profiler_gpu_stack_overflow depth=%d", m_platformProfilerGpuDepth );
+        throw std::runtime_error( "DX12 platform profiler GPU stack overflow" );
+    }
+
     char gpuMarkerName[SkullbonezCore::Basics::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
     const char* markerName =
         SkullbonezCore::Basics::PlatformProfiler::AreDetailedRangesEnabled()
@@ -205,6 +272,10 @@ void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t has
                                                                             gpuMarkerName,
                                                                             sizeof( gpuMarkerName ) )
             : name;
+    PlatformProfilerGpuScopeDX12& scope =
+        m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )];
+    _snprintf_s( scope.name, sizeof( scope.name ), _TRUNCATE, "%s", markerName ? markerName : "(null)" );
+    scope.hash = hash;
     PIXBeginEvent( m_commandList,
                    SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ),
                    "%s",
@@ -236,6 +307,7 @@ void RenderBackendDX12::PlatformProfilerGpuEnd()
     }
     PIXEndEvent( m_commandList );
     --m_platformProfilerGpuDepth;
+    m_platformProfilerGpuStack[static_cast<std::size_t>( m_platformProfilerGpuDepth )] = PlatformProfilerGpuScopeDX12();
 #endif
 }
 
