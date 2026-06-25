@@ -161,6 +161,27 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner )
            owner == WorldInteractionOwner::InspectGizmo;
 }
 
+RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, WorldInteractionOwner owner )
+{
+    if ( IsReplayWorldOwner( owner ) )
+    {
+        return RuntimeWorkspace::Replay;
+    }
+    if ( owner == WorldInteractionOwner::InspectGizmo )
+    {
+        return RuntimeWorkspace::Inspect;
+    }
+    if ( owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo )
+    {
+        return RuntimeWorkspace::Edit;
+    }
+    if ( owner == WorldInteractionOwner::Launcher || owner == WorldInteractionOwner::Manipulator )
+    {
+        return RuntimeWorkspace::Live;
+    }
+    return fallback;
+}
+
 float WrapAttachedCameraOrbitYaw( float yaw )
 {
     while ( yaw > _PI )
@@ -558,7 +579,7 @@ void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 }
 
 
-void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
+void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTransition& transition )
 {
     const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
     const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
@@ -588,7 +609,12 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
             m_runtimeTools.Editor().editorModeEnabled = false;
         }
     }
+}
 
+
+void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
+{
+    ClearRuntimeInteractionStateForTransition( transition );
     switch ( transition.owner )
     {
     case WorldInteractionOwner::Launcher:
@@ -616,6 +642,18 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
         }
         break;
     }
+}
+
+
+RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner owner,
+                                                                                      InteractionExitReason reason )
+{
+    const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( m_interaction.Workspace(), owner );
+    const RuntimeInteractionTransition transition =
+        m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    ClearRuntimeInteractionStateForTransition( transition );
+    m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    return transition;
 }
 
 

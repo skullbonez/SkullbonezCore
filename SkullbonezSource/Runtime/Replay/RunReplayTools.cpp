@@ -1362,8 +1362,8 @@ void Run::SetReplaySimulationPaused( bool paused )
     m_replayRuntime.Camera().ownsSimulationPause = false;
     if ( m_replayRuntime.VelocityEdit().enabled )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                            InteractionExitReason::EnterReplay );
     }
     else if ( !m_replayRuntime.Scrubber().paused &&
               m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
@@ -1450,8 +1450,8 @@ void Run::ExitReplayInspectionCamera()
         NormalizeCameraModeForCurrentScene( m_replayRuntime.Camera().restoreCameraMode ) );
     if ( m_replayRuntime.VelocityEdit().enabled )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                            InteractionExitReason::EnterReplay );
     }
     else
     {
@@ -1781,8 +1781,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( branchTargetAvailable &&
          ( restorePressed || ( leftPressed && canTakeMouse && overBranchButton && branchControlVisible ) ) )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayBranchTarget,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayBranchTarget,
+                                                            InteractionExitReason::EnterReplay );
         RestoreReplayScrubberSelectionAsLive( now );
         consumesMouse = true;
         return true;
@@ -1791,8 +1791,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     auto setPredictionHorizonFromMouse = [&]()
     {
         EnterInteractiveSceneRun();
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayPrediction,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayPrediction,
+                                                            InteractionExitReason::EnterReplay );
         const float nextSeconds = ReplayPredictionHorizonFromMouse( mouse.x, predictHorizon );
         if ( nextSeconds != m_replayRuntime.Prediction().horizonSeconds )
         {
@@ -1847,10 +1847,10 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         const float previousPredictionPresentT =
             ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() );
         m_replayRuntime.Prediction().enabled = !m_replayRuntime.Prediction().enabled;
-        m_interaction.SetWorldInteractionOwner( m_replayRuntime.Prediction().enabled
-                                                    ? WorldInteractionOwner::ReplayPrediction
-                                                    : WorldInteractionOwner::ReplayScrub,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( m_replayRuntime.Prediction().enabled
+                                                                ? WorldInteractionOwner::ReplayPrediction
+                                                                : WorldInteractionOwner::ReplayScrub,
+                                                            InteractionExitReason::EnterReplay );
         m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
                                                                   REPLAY_PREDICTION_MIN_SECONDS,
                                                                   REPLAY_PREDICTION_MAX_SECONDS );
@@ -2668,8 +2668,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     if ( wheelDelta != 0 )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayCauseTree,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
+                                                            InteractionExitReason::EnterReplay );
         const float wheelRows = static_cast<float>( wheelDelta ) / 120.0f;
         m_replayRuntime.CauseTree().scrollY -= wheelRows * REPLAY_CAUSE_WINDOW_ROW_HEIGHT * 3.0f;
         ClampReplayCauseWindow( m_replayRuntime.CauseTree(), screenW, screenH );
@@ -2678,8 +2678,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayCauseTree,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
+                                                            InteractionExitReason::EnterReplay );
         m_replayRuntime.CauseTree().resizingWindow = true;
         m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
         m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
@@ -2691,8 +2691,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayCauseTree,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
+                                                            InteractionExitReason::EnterReplay );
         m_replayRuntime.CauseTree().draggingWindow = true;
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
         m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
@@ -2709,8 +2709,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             m_replayRuntime.CauseTree().hoveredRow = rowIndex;
             if ( leftPressed )
             {
-                m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayCauseTree,
-                                                        InteractionExitReason::EnterReplay );
+                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
+                                                                    InteractionExitReason::EnterReplay );
                 ActivateReplayCameraForCauseRow( m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )],
                                                  rowIndex );
             }
@@ -2749,8 +2749,8 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
     {
         EnterInteractiveSceneRun();
         SetReplaySimulationPaused( true );
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayVelocityEdit,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                            InteractionExitReason::EnterReplay );
         m_replayRuntime.Prediction().enabled = true;
         m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
                                                                   REPLAY_PREDICTION_MIN_SECONDS,
@@ -2762,8 +2762,8 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
     }
     else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
     {
-        m_interaction.SetWorldInteractionOwner( WorldInteractionOwner::ReplayScrub,
-                                                InteractionExitReason::EnterReplay );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                            InteractionExitReason::EnterReplay );
     }
 }
 

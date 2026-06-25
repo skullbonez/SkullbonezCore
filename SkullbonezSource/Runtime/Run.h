@@ -203,6 +203,11 @@ class Run
         RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
     void SetCameraModeLabelAfterInteractionTransition(
         RunCameraMode mode );                                                    // Applies the camera label after controller workspace/tool ownership is chosen.
+    RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
+        WorldInteractionOwner owner,
+        InteractionExitReason reason );                                          // Applies tool-owner transitions through runtime cleanup.
+    void ClearRuntimeInteractionStateForTransition(
+        const RuntimeInteractionTransition& transition );                        // Clears state owned by the interaction being exited.
     bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.
     bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
     bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.

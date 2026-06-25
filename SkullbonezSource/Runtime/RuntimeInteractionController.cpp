@@ -159,6 +159,15 @@ RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOw
 }
 
 
+RuntimeInteractionTransition
+RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
+                                                                   WorldInteractionOwner owner,
+                                                                   InteractionExitReason reason )
+{
+    return TransitionTo( workspace, owner, reason );
+}
+
+
 RuntimeInteractionTransition RuntimeInteractionController::BeginGesture( const RuntimeInteractionGesture& gesture,
                                                                          RuntimePointerCaptureOwner captureOwner,
                                                                          InteractionExitReason reason )

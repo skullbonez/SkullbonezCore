@@ -209,6 +209,9 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
     RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason );
+    RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
+                                                                      WorldInteractionOwner owner,
+                                                                      InteractionExitReason reason );
     RuntimeInteractionTransition BeginGesture( const RuntimeInteractionGesture& gesture,
                                                RuntimePointerCaptureOwner captureOwner,
                                                InteractionExitReason reason );

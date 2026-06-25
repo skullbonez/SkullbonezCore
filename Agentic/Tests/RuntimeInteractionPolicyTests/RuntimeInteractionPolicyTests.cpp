@@ -292,6 +292,27 @@ void TestWorkspaceTransitionClearsCapturedGesture()
 }
 
 
+void TestWorkspaceOwnerTransitionKeepsExactReplayOwner()
+{
+    RuntimeInteractionController controller;
+    controller.EnterInspect();
+
+    const RuntimeInteractionTransition transition =
+        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                        WorldInteractionOwner::ReplayCauseTree,
+                                                        InteractionExitReason::EnterReplay );
+
+    EXPECT_TRUE( transition.workspaceChanged );
+    EXPECT_TRUE( transition.ownerChanged );
+    EXPECT_EQ( transition.previousWorkspace, RuntimeWorkspace::Inspect );
+    EXPECT_EQ( transition.workspace, RuntimeWorkspace::Replay );
+    EXPECT_EQ( transition.previousOwner, WorldInteractionOwner::None );
+    EXPECT_EQ( transition.owner, WorldInteractionOwner::ReplayCauseTree );
+    EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Replay );
+    EXPECT_EQ( controller.Owner(), WorldInteractionOwner::ReplayCauseTree );
+}
+
+
 #ifndef _DEBUG
 void TestInvalidToolGestureWithoutCaptureIsRejected()
 {
@@ -339,6 +360,7 @@ int main()
         { "CameraLookReleaseAllowsToolGesture", &TestCameraLookReleaseAllowsToolGesture },
         { "EndGesturePublishesCleanupMetadata", &TestEndGesturePublishesCleanupMetadata },
         { "WorkspaceTransitionClearsCapturedGesture", &TestWorkspaceTransitionClearsCapturedGesture },
+        { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
 #ifndef _DEBUG
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
 #endif
