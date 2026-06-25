@@ -32,6 +32,7 @@ from pathlib import Path
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
+RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
@@ -69,6 +70,26 @@ RUN_STORAGE_RULE = (
     + FIELD_TAIL_PATTERN,
     "Use EngineContext, RuntimeRenderHost, or a subsystem-specific service struct instead.",
 )
+
+CAMERA_MODE_WRITE_RULE = (
+    "camera mode writes must stay behind the interaction bridge",
+    r"\bm_camera\.mode\s*(?<![=!<>])=(?!=)",
+    "Route camera label changes through Run::SetCameraModeLabelAfterInteractionTransition(...).",
+)
+
+WORLD_OWNER_WRITE_RULE = (
+    "world interaction owner writes must stay behind the transition bridge",
+    r"\bm_interaction\.SetWorldInteractionOwner(?:InWorkspace)?\s*\(",
+    "Route owner changes through Run::SetWorldInteractionOwnerAfterInteractionTransition(...).",
+)
+
+ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS = {
+    ( RUN_INPUT_SOURCE, "SetCameraModeLabelAfterInteractionTransition" ),
+}
+
+ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS = {
+    ( RUN_INPUT_SOURCE, "SetWorldInteractionOwnerAfterInteractionTransition" ),
+}
 
 
 @dataclass(frozen=True)
@@ -117,10 +138,88 @@ def check_run_storage(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def find_matching_close_brace(text: str, open_brace_offset: int) -> int:
+    depth = 0
+    for offset in range(open_brace_offset, len(text)):
+        if text[offset] == "{":
+            depth += 1
+        elif text[offset] == "}":
+            depth -= 1
+            if depth == 0:
+                return offset
+    return len(text)
+
+
+def find_run_function_spans(stripped: str) -> dict[str, tuple[int, int]]:
+    spans: dict[str, tuple[int, int]] = {}
+    pattern = re.compile(r"\bRun::([A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?\{", re.S)
+    for match in pattern.finditer(stripped):
+        open_brace_offset = stripped.find("{", match.start(), match.end())
+        if open_brace_offset < 0:
+            continue
+        close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+        spans[match.group(1)] = ( match.start(), close_brace_offset + 1 )
+    return spans
+
+
+def offset_in_allowed_function(
+    relative_path: Path,
+    function_spans: dict[str, tuple[int, int]],
+    offset: int,
+    allowed_functions: set[tuple[Path, str]],
+) -> bool:
+    for allowed_path, function_name in allowed_functions:
+        if relative_path.as_posix() != allowed_path.as_posix():
+            continue
+        span = function_spans.get(function_name)
+        if span is not None and span[0] <= offset < span[1]:
+            return True
+    return False
+
+
+def check_interaction_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    camera_message, camera_pattern, camera_detail = CAMERA_MODE_WRITE_RULE
+    owner_message, owner_pattern, owner_detail = WORLD_OWNER_WRITE_RULE
+
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        relative_path = path.relative_to(repo)
+        text = path.read_text(encoding="utf-8")
+        stripped = strip_cpp_comments(text)
+        function_spans = find_run_function_spans(stripped)
+
+        for match in re.finditer(camera_pattern, stripped):
+            if not offset_in_allowed_function(
+                relative_path,
+                function_spans,
+                match.start(),
+                ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS,
+            ):
+                errors.append(
+                    BoundaryError(path, line_for_offset(stripped, match.start()), camera_message, camera_detail)
+                )
+
+        for match in re.finditer(owner_pattern, stripped):
+            if not offset_in_allowed_function(
+                relative_path,
+                function_spans,
+                match.start(),
+                ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS,
+            ):
+                errors.append(
+                    BoundaryError(path, line_for_offset(stripped, match.start()), owner_message, owner_detail)
+                )
+
+    return errors
+
+
 def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_storage(repo))
+    errors.extend(check_interaction_guardrails(repo))
     return errors
 
 
