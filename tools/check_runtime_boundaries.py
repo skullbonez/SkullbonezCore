@@ -84,6 +84,13 @@ WORLD_OWNER_WRITE_RULE = (
     "Route owner changes through Run::SetWorldInteractionOwnerAfterInteractionTransition(...).",
 )
 
+PICK_HELPER_RULE = (
+    "duplicated runtime pick helper wrappers are blocked",
+    r"\b(?:bool|int|float|double|void|auto|[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*(?:\s*[&*])?)\s+"
+    r"(?:Run::)?TryPick(?:[A-Za-z_]\w*)?Model(?:[A-Za-z_]\w*)?\s*\(",
+    "Use RuntimePickService::TryPickModel(...) with an explicit RuntimePickPurpose instead.",
+)
+
 ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS = {
     ( RUN_INPUT_SOURCE, "SetCameraModeLabelAfterInteractionTransition" ),
 }
@@ -326,6 +333,26 @@ def check_runtime_render_host_guardrails(repo: Path) -> list[BoundaryError]:
     return check_runtime_render_host_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_pick_helper_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = PICK_HELPER_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_pick_helper_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        if path.name in { "RuntimePickService.cpp", "RuntimePickService.h" }:
+            continue
+        errors.extend(check_pick_helper_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def run_self_tests() -> list[str]:
     failures: list[str] = []
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
@@ -397,6 +424,24 @@ def run_self_tests() -> list[str]:
         failures.append("new pointer RuntimeRenderHostCallbacks synthetic typedef was not rejected")
     if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in pointer_errors):
         failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
+
+    pick_service_call = "RuntimePickService::TryPickModel( request, result );"
+    if check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call):
+        failures.append("direct RuntimePickService synthetic call was rejected")
+
+    duplicated_pick_helper = "bool Run::TryPickEditorModel( const Ray& ray ) { return false; }"
+    if not any(
+        error.message == "duplicated runtime pick helper wrappers are blocked"
+        for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), duplicated_pick_helper)
+    ):
+        failures.append("duplicated runtime pick helper synthetic wrapper was not rejected")
+
+    suffixed_pick_helper = "bool Run::TryPickEditorModelFromMouse() { return false; }"
+    if not any(
+        error.message == "duplicated runtime pick helper wrappers are blocked"
+        for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), suffixed_pick_helper)
+    ):
+        failures.append("suffixed runtime pick helper synthetic wrapper was not rejected")
 
     return failures
 
@@ -483,6 +528,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
+    errors.extend(check_pick_helper_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     return errors
 
