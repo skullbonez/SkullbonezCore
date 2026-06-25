@@ -73,6 +73,14 @@ using SkullbonezCore::GameObjects::GameModelCollectionKind;
 
 namespace
 {
+bool IsReplayToolOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+
+
 Vector3 EditorAxisVector( int axis )
 {
     switch ( axis )
@@ -1349,9 +1357,10 @@ void Run::SetReplayLiveAdvanceHeld( bool held )
     if ( held )
     {
         EnterInteractiveSceneRun();
-        if ( m_interaction.Owner() != WorldInteractionOwner::ReplayVelocityEdit )
+        if ( !IsReplayToolOwner( m_interaction.Owner() ) )
         {
-            m_interaction.EnterReplay();
+            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                InteractionExitReason::EnterReplay );
         }
         m_replayRuntime.Scrubber().liveAdvanceHeld = true;
         UpdateReplayInspectionCamera();
@@ -1428,7 +1437,11 @@ void Run::EnterReplayInspectionCamera()
     m_systems.cameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
     m_camera.cameraTime = 0.0f;
     CancelMousePickup();
-    m_interaction.EnterReplay();
+    if ( !IsReplayToolOwner( m_interaction.Owner() ) )
+    {
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                            InteractionExitReason::EnterReplay );
+    }
     SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
     if ( enteringInspectionCamera )
     {
@@ -1672,16 +1685,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const int screenH = WindowScreenHeight();
     if ( !scrubberAllowed || ( !loadedPresentation && !solverReplayAvailable ) || screenW <= 0 || screenH <= 0 )
     {
-        if ( m_replayRuntime.Scrubber().mouseCaptured )
-        {
-            UI::InputControl::EndMouseCapture();
-        }
-        if ( loadedPresentation )
-        {
-            m_replayRuntime.Scrubber().dragging = false;
-            m_replayRuntime.Scrubber().mouseCaptured = false;
-        }
-        else
+        CancelReplayToolDragState();
+        if ( !loadedPresentation )
         {
             ResetReplayScrubber();
         }
@@ -1790,11 +1795,14 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return true;
     }
 
-    auto setPredictionHorizonFromMouse = [&]()
+    auto setPredictionHorizonFromMouse = [&]( bool ensureReplayPredictionOwner )
     {
         EnterInteractiveSceneRun();
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayPrediction,
-                                                            InteractionExitReason::EnterReplay );
+        if ( ensureReplayPredictionOwner )
+        {
+            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayPrediction,
+                                                                InteractionExitReason::EnterReplay );
+        }
         const float nextSeconds = ReplayPredictionHorizonFromMouse( mouse.x, predictHorizon );
         if ( nextSeconds != m_replayRuntime.Prediction().horizonSeconds )
         {
@@ -1835,7 +1843,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         m_replayRuntime.Prediction().horizonDragging = true;
-        setPredictionHorizonFromMouse();
+        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
+                                WorldInteractionOwner::ReplayPrediction,
+                                RuntimePointerButton::Left,
+                                mouse.x,
+                                mouse.y );
+        setPredictionHorizonFromMouse( false );
         if ( !m_replayRuntime.Scrubber().mouseCaptured )
         {
             UI::InputControl::BeginMouseCapture( hwnd );
@@ -1888,7 +1901,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
     {
         EnterInteractiveSceneRun();
-        m_interaction.EnterReplay();
+        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,
+                                WorldInteractionOwner::ReplayScrub,
+                                RuntimePointerButton::Left,
+                                mouse.x,
+                                mouse.y );
         m_replayRuntime.Scrubber().activeTrack = scrubTrack;
         ReplayScrubberSyncActivePosition( m_replayRuntime.Scrubber() );
         m_replayRuntime.Scrubber().dragging = true;
@@ -1929,6 +1946,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         if ( leftReleased )
         {
             m_replayRuntime.Scrubber().dragging = false;
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag );
             if ( m_replayRuntime.Scrubber().mouseCaptured )
             {
                 UI::InputControl::EndMouseCapture();
@@ -1938,10 +1956,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     }
     else if ( m_replayRuntime.Prediction().horizonDragging )
     {
-        setPredictionHorizonFromMouse();
+        setPredictionHorizonFromMouse( false );
         if ( leftReleased )
         {
             m_replayRuntime.Prediction().horizonDragging = false;
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag );
             if ( m_replayRuntime.Scrubber().mouseCaptured )
             {
                 UI::InputControl::EndMouseCapture();
@@ -2621,6 +2640,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
         {
             UI::InputControl::EndMouseCapture();
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
@@ -2642,6 +2662,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         if ( leftReleased )
         {
             UI::InputControl::EndMouseCapture();
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().draggingWindow = false;
         }
         return true;
@@ -2657,6 +2678,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         if ( leftReleased )
         {
             UI::InputControl::EndMouseCapture();
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag );
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
         return true;
@@ -2680,8 +2702,13 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     if ( leftPressed && resize.Contains( mouse.x, mouse.y ) )
     {
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
-                                                            InteractionExitReason::EnterReplay );
+        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                WorldInteractionOwner::ReplayCauseTree,
+                                RuntimePointerButton::Left,
+                                mouse.x,
+                                mouse.y,
+                                -1,
+                                1 );
         m_replayRuntime.CauseTree().resizingWindow = true;
         m_replayRuntime.CauseTree().resizeStartMouseX = mouse.x;
         m_replayRuntime.CauseTree().resizeStartMouseY = mouse.y;
@@ -2693,8 +2720,13 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     if ( leftPressed && title.Contains( mouse.x, mouse.y ) )
     {
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
-                                                            InteractionExitReason::EnterReplay );
+        BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayCauseTreeDrag,
+                                WorldInteractionOwner::ReplayCauseTree,
+                                RuntimePointerButton::Left,
+                                mouse.x,
+                                mouse.y,
+                                -1,
+                                0 );
         m_replayRuntime.CauseTree().draggingWindow = true;
         m_replayRuntime.CauseTree().dragOffsetX = mouse.x - m_replayRuntime.CauseTree().x;
         m_replayRuntime.CauseTree().dragOffsetY = mouse.y - m_replayRuntime.CauseTree().y;
@@ -2739,13 +2771,7 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
     m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
     m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
     m_replayRuntime.VelocityEdit().activeAxis = -1;
-    m_replayRuntime.VelocityEdit().dragging = false;
-    m_replayRuntime.VelocityEdit().draggingAngular = false;
-    if ( m_replayRuntime.VelocityEdit().mouseCaptured )
-    {
-        UI::InputControl::EndMouseCapture();
-        m_replayRuntime.VelocityEdit().mouseCaptured = false;
-    }
+    CancelReplayToolDragState();
 
     if ( enabled )
     {
@@ -3002,8 +3028,15 @@ void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& 
     if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() ||
          m_replayRuntime.VelocityEdit().activeAxis < 0 )
     {
+        EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
         m_replayRuntime.VelocityEdit().dragging = false;
+        m_replayRuntime.VelocityEdit().draggingAngular = false;
         m_replayRuntime.VelocityEdit().activeAxis = -1;
+        if ( m_replayRuntime.VelocityEdit().mouseCaptured )
+        {
+            UI::InputControl::EndMouseCapture();
+            m_replayRuntime.VelocityEdit().mouseCaptured = false;
+        }
         return;
     }
 
@@ -3065,7 +3098,14 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     {
         m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
         m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
-        if ( m_replayRuntime.VelocityEdit().mouseCaptured && !leftDown )
+        if ( m_replayRuntime.VelocityEdit().dragging )
+        {
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+            m_replayRuntime.VelocityEdit().dragging = false;
+            m_replayRuntime.VelocityEdit().draggingAngular = false;
+            m_replayRuntime.VelocityEdit().activeAxis = -1;
+        }
+        if ( m_replayRuntime.VelocityEdit().mouseCaptured )
         {
             UI::InputControl::EndMouseCapture();
             m_replayRuntime.VelocityEdit().mouseCaptured = false;
@@ -3077,6 +3117,18 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     Vector3 rayDirection;
     if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
     {
+        if ( m_replayRuntime.VelocityEdit().dragging && ( leftReleased || !leftDown ) )
+        {
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+            m_replayRuntime.VelocityEdit().dragging = false;
+            m_replayRuntime.VelocityEdit().draggingAngular = false;
+            m_replayRuntime.VelocityEdit().activeAxis = -1;
+            if ( m_replayRuntime.VelocityEdit().mouseCaptured )
+            {
+                UI::InputControl::EndMouseCapture();
+                m_replayRuntime.VelocityEdit().mouseCaptured = false;
+            }
+        }
         return m_replayRuntime.VelocityEdit().dragging;
     }
 
@@ -3088,6 +3140,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
         }
         if ( leftReleased || !leftDown )
         {
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_replayRuntime.VelocityEdit().dragging = false;
             m_replayRuntime.VelocityEdit().draggingAngular = false;
             m_replayRuntime.VelocityEdit().activeAxis = -1;
@@ -3109,6 +3162,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( !uiBlocksMouse && leftPressed )
     {
+        const POINT mouse = Input::GetClientMouseCoordinates();
         const int modelIndex = ResolveReplayVelocityEditModelIndex();
         if ( modelIndex >= 0 && modelIndex < m_cGameModelCollection.GetModelCount() )
         {
@@ -3124,6 +3178,14 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     EnterInteractiveSceneRun();
                     SetReplayLiveAdvanceHeld( true );
                     m_replayRuntime.Prediction().enabled = true;
+                    BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
+                                            WorldInteractionOwner::ReplayVelocityEdit,
+                                            RuntimePointerButton::Left,
+                                            mouse.x,
+                                            mouse.y,
+                                            modelIndex,
+                                            m_replayRuntime.VelocityEdit().hotAngularAxis,
+                                            true );
                     m_replayRuntime.VelocityEdit().dragging = true;
                     m_replayRuntime.VelocityEdit().draggingAngular = true;
                     m_replayRuntime.VelocityEdit().activeAxis = m_replayRuntime.VelocityEdit().hotAngularAxis;
@@ -3149,6 +3211,14 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                     EnterInteractiveSceneRun();
                     SetReplayLiveAdvanceHeld( true );
                     m_replayRuntime.Prediction().enabled = true;
+                    BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
+                                            WorldInteractionOwner::ReplayVelocityEdit,
+                                            RuntimePointerButton::Left,
+                                            mouse.x,
+                                            mouse.y,
+                                            modelIndex,
+                                            m_replayRuntime.VelocityEdit().hotLinearAxis,
+                                            false );
                     m_replayRuntime.VelocityEdit().dragging = true;
                     m_replayRuntime.VelocityEdit().draggingAngular = false;
                     m_replayRuntime.VelocityEdit().activeAxis = m_replayRuntime.VelocityEdit().hotLinearAxis;

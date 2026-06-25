@@ -176,6 +176,17 @@ class Run
     void SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
                                 const RuntimeInteractionFramePolicy& inputPolicy,
                                 bool mouseLookOwnsCursor );                      // Mirrors camera-look policy into pointer capture state.
+    void BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
+                                 WorldInteractionOwner owner,
+                                 RuntimePointerButton button,
+                                 int startX,
+                                 int startY,
+                                 int modelIndex = -1,
+                                 int axis = -1,
+                                 bool angular = false );                         // Captures typed replay drag ownership.
+    void EndReplayToolGesture( RuntimeInteractionGestureKind kind );             // Releases a matching typed replay drag gesture.
+    void CancelReplayToolGesture();                                              // Clears any active replay drag gesture from the controller.
+    void CancelReplayToolDragState();                                            // Releases controller capture and legacy replay drag booleans together.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(

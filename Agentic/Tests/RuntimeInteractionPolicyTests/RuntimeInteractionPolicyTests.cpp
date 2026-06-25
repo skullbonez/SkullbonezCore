@@ -120,6 +120,17 @@ RuntimeInteractionGesture MakeCameraLookGesture()
 }
 
 
+RuntimeInteractionGesture MakeReplayGesture( RuntimeInteractionGestureKind kind )
+{
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = 30;
+    gesture.startY = 50;
+    return gesture;
+}
+
+
 void TestMousePickupDragRunsPhysicsWithoutStepHold()
 {
     RuntimeInteractionController controller;
@@ -313,6 +324,60 @@ void TestWorkspaceOwnerTransitionKeepsExactReplayOwner()
 }
 
 
+void TestReplayToolGesturesCapturePointer()
+{
+    struct ReplayGestureCase
+    {
+        WorldInteractionOwner owner;
+        RuntimeInteractionGestureKind kind;
+    };
+
+    const ReplayGestureCase cases[] = {
+        { WorldInteractionOwner::ReplayScrub, RuntimeInteractionGestureKind::ReplayScrubDrag },
+        { WorldInteractionOwner::ReplayVelocityEdit, RuntimeInteractionGestureKind::ReplayVelocityDrag },
+        { WorldInteractionOwner::ReplayPrediction, RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag },
+        { WorldInteractionOwner::ReplayCauseTree, RuntimeInteractionGestureKind::ReplayCauseTreeDrag },
+    };
+
+    for ( const ReplayGestureCase& replayCase : cases )
+    {
+        RuntimeInteractionController controller;
+        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                        replayCase.owner,
+                                                        InteractionExitReason::EnterReplay );
+
+        const RuntimeInteractionTransition beginTransition =
+            controller.BeginGesture( MakeReplayGesture( replayCase.kind ),
+                                     RuntimePointerCaptureOwner::ToolGesture,
+                                     InteractionExitReason::BeginGesture );
+
+        EXPECT_TRUE( beginTransition.gestureChanged );
+        EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+        EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Replay );
+        EXPECT_EQ( controller.Owner(), replayCase.owner );
+        EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
+        EXPECT_EQ( controller.Gesture().kind, replayCase.kind );
+
+        RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
+        input.rightMouseLookHeld = true;
+        input.replayInspectionLookActive = true;
+
+        const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+
+        EXPECT_EQ( policy.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+        EXPECT_EQ( policy.gesture, replayCase.kind );
+        EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
+        EXPECT_FALSE( policy.cameraMouseLookActive );
+
+        const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+        EXPECT_TRUE( endTransition.gestureChanged );
+        EXPECT_TRUE( endTransition.pointerCaptureChanged );
+        EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+        EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+    }
+}
+
+
 #ifndef _DEBUG
 void TestInvalidToolGestureWithoutCaptureIsRejected()
 {
@@ -361,6 +426,7 @@ int main()
         { "EndGesturePublishesCleanupMetadata", &TestEndGesturePublishesCleanupMetadata },
         { "WorkspaceTransitionClearsCapturedGesture", &TestWorkspaceTransitionClearsCapturedGesture },
         { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
+        { "ReplayToolGesturesCapturePointer", &TestReplayToolGesturesCapturePointer },
 #ifndef _DEBUG
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
 #endif

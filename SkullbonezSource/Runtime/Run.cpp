@@ -894,6 +894,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     {
         m_replayRuntime.ResetBranch();
     }
+    CancelReplayToolDragState();
     if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
         SetReplayLiveAdvanceHeld( false );
@@ -901,10 +902,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     ResetReplayScrubber();
     m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
     ClearReplayPathVisualizer();
-    if ( m_replayRuntime.VelocityEdit().mouseCaptured )
-    {
-        UI::InputControl::EndMouseCapture();
-    }
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     if ( !m_replayRuntime.IsPresentationEnabled() )
     {
@@ -1238,13 +1235,11 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     {
         SetReplayLiveAdvanceHeld( false );
     }
-    if ( m_replayRuntime.VelocityEdit().mouseCaptured || m_replayRuntime.Scrubber().mouseCaptured )
-    {
-        UI::InputControl::EndMouseCapture();
-    }
+    CancelReplayToolDragState();
 
     ClearReplayPathVisualizer();
-    m_interaction.EnterReplay();
+    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                        InteractionExitReason::EnterReplay );
     m_replayRuntime.Prediction().enabled = false;
     m_replayRuntime.Prediction().horizonDragging = false;
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};

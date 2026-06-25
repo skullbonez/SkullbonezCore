@@ -467,6 +467,75 @@ void Run::SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
 }
 
 
+void Run::BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
+                                  WorldInteractionOwner owner,
+                                  RuntimePointerButton button,
+                                  int startX,
+                                  int startY,
+                                  int modelIndex,
+                                  int axis,
+                                  bool angular )
+{
+    SetWorldInteractionOwnerAfterInteractionTransition( owner, InteractionExitReason::BeginGesture );
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = button;
+    gesture.startX = startX;
+    gesture.startY = startY;
+    gesture.modelIndex = modelIndex;
+    gesture.axis = axis;
+    gesture.angular = angular;
+    m_interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );
+}
+
+
+void Run::EndReplayToolGesture( RuntimeInteractionGestureKind kind )
+{
+    if ( m_interaction.Gesture().kind == kind )
+    {
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+
+void Run::CancelReplayToolGesture()
+{
+    switch ( m_interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+        break;
+    default:
+        break;
+    }
+}
+
+
+void Run::CancelReplayToolDragState()
+{
+    CancelReplayToolGesture();
+    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
+         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+
+    m_replayRuntime.Scrubber().dragging = false;
+    m_replayRuntime.Scrubber().mouseCaptured = false;
+    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.VelocityEdit().dragging = false;
+    m_replayRuntime.VelocityEdit().draggingAngular = false;
+    m_replayRuntime.VelocityEdit().activeAxis = -1;
+    m_replayRuntime.VelocityEdit().mouseCaptured = false;
+    m_replayRuntime.CauseTree().draggingWindow = false;
+    m_replayRuntime.CauseTree().resizingWindow = false;
+}
+
+
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     mode = NormalizeCameraModeForCurrentScene( mode );
@@ -521,11 +590,7 @@ bool Run::InspectGizmoInteractionActive() const
 
 void Run::ClearReplayInteractionForRuntimeTransition()
 {
-    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
-         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
-    {
-        UI::InputControl::EndMouseCapture();
-    }
+    CancelReplayToolDragState();
 
     m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
@@ -1494,11 +1559,8 @@ void Run::TakeInput()
     if ( !Input::IsAppFocused() )
     {
         CancelCameraLookGesture();
+        CancelReplayToolDragState();
         Input::SetSystemCursorVisible( true );
-        if ( m_replayRuntime.Scrubber().mouseCaptured )
-        {
-            UI::InputControl::EndMouseCapture();
-        }
         ResetReplayScrubber();
         m_replayRuntime.Prediction().checkboxHovered = false;
         m_replayRuntime.Prediction().decreaseHovered = false;
