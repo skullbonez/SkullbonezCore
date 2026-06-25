@@ -179,6 +179,17 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
     }
 }
 
+Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
+{
+    constexpr float twoPi = 6.28318530718f;
+    const float azimuth = std::clamp( cinematic.sunScreenX, 0.0f, 1.0f ) * twoPi;
+    const float elevation = -0.08f + std::clamp( cinematic.sunScreenY, 0.0f, 1.0f ) * 1.13f;
+    const float cosElevation = cosf( elevation );
+    Vector3 direction( sinf( azimuth ) * cosElevation, sinf( elevation ), cosf( azimuth ) * cosElevation );
+    direction.Normalise();
+    return direction;
+}
+
 void ApplyWorkerThreadCountOverride( int requestedWorkerThreads )
 {
     const int clampedWorkerThreads =

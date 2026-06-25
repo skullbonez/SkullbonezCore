@@ -19,7 +19,6 @@ Related:
 #include "CaptureSystem.h"
 
 #include "../Rendering/IRenderBackend.h"
-#include "Run.h"
 
 #include <cstdint>
 #include <cstdio>

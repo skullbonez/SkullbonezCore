@@ -205,23 +205,9 @@ float HeroCloudMask(float2 screenUV)
 
 float CloudRayOpen(float2 screenUV)
 {
-    // Sky openness at this screen position. 1 means light can pass
-    // through freely; lower values mean a cloud is blocking the ray.
-    float2 lowerUV = float2(screenUV.x * 1.28f + 0.12f, screenUV.y * 2.55f + 0.18f) * max(uCloudParams.z, 0.001f);
-    lowerUV.x += sin(screenUV.y * 5.0f) * 0.07f;
-    float cloudShape = ValueNoise(lowerUV) * 0.50f;
-    cloudShape += ValueNoise(lowerUV * 2.07f + 3.4f) * 0.25f;
-    cloudShape += ValueNoise(lowerUV * 4.28f + 8.1f) * 0.125f;
-    float erosion = ValueNoise(lowerUV * 4.20f + float2(11.4f, 5.7f)) * 0.55f;
-    erosion += ValueNoise(lowerUV * 8.38f + float2(12.9f, 7.1f)) * 0.25f;
-    cloudShape -= (erosion - 0.42f) * 0.12f;
-    float threshold = lerp(0.76f, 0.34f, saturate(uCloudParams.x));
-    float cloud = smoothstep(threshold, threshold + max(uCloudParams.y * 1.55f, 0.001f), cloudShape);
-    cloud *= smoothstep(0.18f, 0.82f, 1.0f - erosion * 0.34f);
-    cloud *= smoothstep(0.34f, 0.50f, screenUV.y) * (1.0f - smoothstep(0.76f, 0.92f, screenUV.y)) * 0.0f;
-    cloud = max(cloud, HeroCloudMask(screenUV) * 1.0f);
-    cloud = saturate(cloud * clamp(uCloudParams.w, 0.0f, 1.5f));
-    return saturate(0.20f + (1.0f - cloud) * 0.80f);
+    // Cloud shape now lives in the world-space sky shader. Keeping this pass
+    // open avoids screen-space blobs sliding over the ray field as the camera pans.
+    return 1.0f;
 }
 
 float SampleSkyTransmittance(float2 uv)

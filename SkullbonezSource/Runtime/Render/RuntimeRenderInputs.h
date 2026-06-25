@@ -1,0 +1,75 @@
+/*
+File: SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
+Purpose:
+  Names the borrowed runtime inputs consumed by frame rendering.
+
+Mental model:
+  Runtime render code should receive a small view of the systems and state it
+  needs for one frame, not the entire Run object. These structs are references
+  only; ownership stays with Run until later extraction phases move it.
+
+Invariants:
+  - RuntimeRenderInputs is rebuilt for the current render call and is not
+    stored by render passes.
+  - References and pointers here do not transfer ownership.
+  - Optional pointers remain nullable to match the current Run-owned subsystem
+    lifetime.
+
+Related:
+  - SkullbonezSource/Runtime/Run.h
+  - SkullbonezSource/Runtime/RunRender.cpp
+  - Agentic/Plans/runtime-run-decomposition-plan.md
+*/
+#pragma once
+
+namespace SkullbonezCore
+{
+namespace Textures
+{
+class TextureCollection;
+}
+
+namespace GameObjects
+{
+class GameModelCollection;
+}
+
+namespace Environment
+{
+class CameraCollection;
+class WorldEnvironment;
+} // namespace Environment
+
+namespace Geometry
+{
+class SkyBox;
+class Terrain;
+} // namespace Geometry
+
+namespace UI
+{
+class InGameUI;
+}
+
+namespace Basics
+{
+class Window;
+
+struct RuntimeRenderServices
+{
+    Textures::TextureCollection& textures;
+    GameObjects::GameModelCollection& models;
+    Environment::WorldEnvironment& world;
+    Geometry::Terrain* terrain;
+    Environment::CameraCollection& cameras;
+    Window& window;
+    UI::InGameUI& ui;
+    Geometry::SkyBox* skyBox;
+};
+
+struct RuntimeRenderInputs
+{
+    RuntimeRenderServices services;
+};
+} // namespace Basics
+} // namespace SkullbonezCore

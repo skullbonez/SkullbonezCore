@@ -26,6 +26,11 @@ Related:
 */
 #pragma once
 
+#include <cstdint>
+
+#include "../Maths/RotationMatrix.h"
+#include "../Maths/Vector3.h"
+
 namespace SkullbonezCore
 {
 namespace GameObjects
@@ -35,12 +40,36 @@ class GameModelCollection;
 
 namespace Physics
 {
-class PhysicsWorld;
+struct PersistentContactSolverContext;
+
+struct PersistentContactCacheEntry
+{
+    // Previous-frame impulse cache. The key encodes the bodies plus feature
+    // id so a contact can find last tick's converged impulse even if rows
+    // are rebuilt from fresh manifolds this tick.
+    int64_t key = 0;
+    float accN = 0.0f;
+    float accT1 = 0.0f;
+    float accT2 = 0.0f;
+};
+
+struct SolverBodyState
+{
+    // Solver scratch copy of dynamic body state. Rows iterate over this
+    // compact representation first, then the final velocities are written
+    // back to GameModel/RigidBody storage after the solve.
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
+    Math::Transformation::RotationMatrix orientation;
+    float invMass = 0.0f;
+    bool useWorldInertia = false;
+};
 
 class PersistentContactSolver
 {
   public:
-    void Solve( PhysicsWorld& world, GameObjects::GameModelCollection& collection, float dt );
+    void Solve( PersistentContactSolverContext& context, GameObjects::GameModelCollection& collection, float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

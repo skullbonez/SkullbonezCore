@@ -47,14 +47,6 @@ namespace
 using Json = nlohmann::ordered_json;
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
-int NextSceneRand( unsigned int& state )
-{
-    // Match the MSVC CRT sequence so seeded scene layouts stay stable while avoiding
-    // global RNG state.
-    state = state * 214013u + 2531011u;
-    return static_cast<int>( ( state >> 16 ) & 0x7fffu );
-}
-
 void ApplySceneWorkerThreadSetting( int requestedWorkerThreads )
 {
     const int clampedWorkerThreads =
@@ -552,6 +544,44 @@ size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
     return lines.size();
 }
 
+size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
+{
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
+        {
+            size_t sectionBody = i + 1;
+            while ( sectionBody < lines.size() &&
+                    ( lines[sectionBody].empty() ||
+                      lines[sectionBody].find(
+                          "# ---------------------------------------------------------------------------" ) !=
+                          std::string::npos ) )
+            {
+                ++sectionBody;
+            }
+
+            for ( size_t j = sectionBody; j < lines.size(); ++j )
+            {
+                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
+                     std::string::npos )
+                {
+                    return j;
+                }
+            }
+            return lines.size();
+        }
+    }
+
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( lines[i].find( "Physics" ) != std::string::npos )
+        {
+            return i > 1 ? i - 1 : i;
+        }
+    }
+    return lines.size();
+}
+
 void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
 {
     if ( missing.empty() )
@@ -576,548 +606,64 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
     const size_t insertIndex = OrdinaryConfigInsertIndex( lines );
     lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
 }
+
+void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
+{
+    if ( missing.empty() )
+    {
+        return;
+    }
+
+    std::vector<std::string> insertLines;
+    const bool hasCinematicSection = std::any_of( lines.begin(),
+                                                  lines.end(),
+                                                  []( const std::string& line )
+                                                  { return line.find( "Cinematic rendering" ) != std::string::npos; } );
+    if ( !hasCinematicSection )
+    {
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+        insertLines.push_back( "# Cinematic rendering" );
+        insertLines.push_back( "# ---------------------------------------------------------------------------" );
+    }
+    insertLines.insert( insertLines.end(), missing.begin(), missing.end() );
+    insertLines.push_back( "" );
+
+    const size_t insertIndex = CinematicConfigInsertIndex( lines );
+    lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
+}
 } // namespace
 
-void Run::SetUpGameModels( int count )
+SceneAuthoredCameraContext Run::BuildSceneAuthoredCameraContext()
 {
-    SceneState().modelCount = count;
-    SceneState().solverBallCount = 0;
-    SceneState().solverBoxCount = 0;
-
-    const EngineConfig& cfg = Cfg();
-
-    auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
-    auto randSigned = [&]( int range ) -> float
-    {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
-        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
-    };
-    auto randSign = [&]() -> float { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
-    for ( int x = 0; x < SceneState().modelCount; ++x )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        bool makeBox = false;
-        if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-        {
-            makeBox = true;
-        }
-        else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
-        {
-            makeBox = false;
-        }
-        else
-        {
-            // ~30% of generated objects are boxes, giving the default demo a
-            // mixed collision workload without requiring explicit scene bodies.
-            makeBox = ( NextSceneRand( SceneState().rngState ) % 10 ) < 3;
-        }
-
-        if ( makeBox )
-        {
-            float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
-            float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-            float hy = halfExtent;
-            float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-
-            // Box inertia: I = m/3 * (hy^2 + hz^2) etc.
-            float hx2 = hx * hx;
-            float hy2 = hy * hy;
-            float hz2 = hz * hz;
-            float m3 = mass / 3.0f;
-            Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-            GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( m_systems.terrain.get() );
-            gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-            gameModel.SetImpulseForce( force, forcePos );
-
-            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        }
-        else
-        {
-            float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-            float radius =
-                ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
-
-            GameModel gameModel( &m_cWorldEnvironment,
-                                 Vector3( posX, posY, posZ ),
-                                 Vector3( moment, moment, moment ),
-                                 mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( m_systems.terrain.get() );
-            gameModel.AddBoundingSphere( radius );
-            gameModel.SetImpulseForce( force, forcePos );
-
-            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        }
-    }
+    return SceneAuthoredCameraContext{ m_systems.cameras, *m_systems.terrain };
 }
 
-
-// Spawns exact sphere/box counts using the same random parameter ranges as the
-// mixed generated scene path. Spheres are spawned first so fixed seeds remain
-// deterministic for benchmark scenes.
-void Run::SetUpSolverObjects( int balls, int boxes )
+SceneAuthoredModelContext Run::BuildSceneAuthoredModelContext()
 {
-    balls = (std::max)( 0, balls );
-    boxes = (std::max)( 0, boxes );
-    const int totalObjects = balls + boxes;
-    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
-    {
-        balls = totalObjects;
-        boxes = 0;
-    }
-    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-    {
-        balls = 0;
-        boxes = totalObjects;
-    }
-
-    SceneState().modelCount = balls + boxes;
-    SceneState().solverBallCount = balls;
-    SceneState().solverBoxCount = boxes;
-
-    const EngineConfig& cfg = Cfg();
-
-    auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( NextSceneRand( SceneState().rngState ) % range ); };
-    auto randSigned = [&]( int range ) -> float
-    {
-        float mag = 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % range );
-        return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? mag : -mag;
-    };
-    auto randSign = [&]() -> float { return ( NextSceneRand( SceneState().rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
-    // --- Sphere pass ---
-    for ( int i = 0; i < balls; ++i )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius =
-            ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( posX, posY, posZ ),
-                             Vector3( moment, moment, moment ),
-                             mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.AddBoundingSphere( radius );
-        gameModel.SetImpulseForce( force, forcePos );
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // --- Box pass ---
-    // Box inertia tensor (solid cuboid about centre of mass):
-    //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
-    // where hx, hy, hz are the full extents (2 * half-extents).
-    // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
-    for ( int i = 0; i < boxes; ++i )
-    {
-        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution =
-            cfg.ballRestitutionMin +
-            static_cast<float>( NextSceneRand( SceneState().rngState ) % cfg.ballRestitutionRange ) / 10.0f;
-        Vector3 force( randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ),
-                       randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos( randSign(), randSign(), randSign() );
-
-        float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 3 ) ) * 0.6f;
-        float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-        float hy = halfExtent;
-        float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( SceneState().rngState ) % 4 ) * 0.2f );
-
-        float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
-        float m3 = mass / 3.0f;
-        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        gameModel.SetImpulseForce( force, forcePos );
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    SceneState().modelCount = balls + boxes;
+    return SceneAuthoredModelContext{ SceneState(),
+                                      m_cWorldEnvironment,
+                                      m_systems.terrain.get(),
+                                      m_cGameModelCollection,
+                                      m_cGameModelCollection.GetPhysicsEngine(),
+                                      m_requiredSceneContacts,
+                                      m_requiredBroadphaseXCells };
 }
 
-
-void Run::SetUpCamerasFromScene( const TestScene& scene )
+SceneGeneratedCameraContext Run::BuildSceneGeneratedCameraContext()
 {
-    m_systems.cameras = CameraCollection::Instance();
-
-    bool hasFreeCamera = false;
-    Vector3 firstPosition( 900.0f, 110.0f, 900.0f );
-    Vector3 firstView( 313.0f, 31.0f, 282.0f );
-    Vector3 firstUp( 0.0f, 1.0f, 0.0f );
-    for ( int i = 0; i < scene.GetCameraCount(); ++i )
-    {
-        const SceneCamera& cam = scene.GetCamera( i );
-        uint32_t hash = HashStr( cam.name );
-        if ( i == 0 )
-        {
-            firstPosition = cam.m_position;
-            firstView = cam.view;
-            firstUp = cam.up;
-        }
-        hasFreeCamera = hasFreeCamera || hash == CAMERA_FREE;
-        m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
-    }
-    if ( !hasFreeCamera )
-    {
-        m_systems.cameras->AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
-    }
-
-    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
-
-    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
-
-    // lock the m_cameras
-    m_systems.cameras->SetLockedMode( false );
+    return SceneGeneratedCameraContext{ m_systems.cameras, *m_systems.terrain };
 }
 
-
-void Run::SetUpGameModelsFromScene( const TestScene& scene )
+SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
 {
-    SceneState().modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() +
-                              scene.GetBoxStateCount() + scene.GetConvexHullCount() + scene.GetConvexHullStateCount() +
-                              scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
-    m_cGameModelCollection.ClearPointJointConstraints();
-
-    for ( int i = 0; i < scene.GetBallCount(); ++i )
-    {
-        const SceneBall& ball = scene.GetBall( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( ball.posX, ball.posY, ball.posZ ),
-                             Vector3( ball.moment, ball.moment, ball.moment ),
-                             ball.m_mass );
-
-        gameModel.SetCoefficientRestitution( ball.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( ball.name );
-        gameModel.AddBoundingSphere( ball.m_radius );
-        gameModel.SetFixed( ball.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
-
-        // apply initial orientation if specified (euler angles in degrees, XYZ order)
-        if ( ball.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
-        }
-
-        if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
-        {
-            gameModel.SetImpulseForce( Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                       Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
-        }
-
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // ball_state entries: full dynamic state from a snapshot
-    for ( int i = 0; i < scene.GetBallStateCount(); ++i )
-    {
-        const SceneBallState& bs = scene.GetBallState( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( bs.posX, bs.posY, bs.posZ ),
-                             Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
-                             bs.mass );
-
-        gameModel.SetCoefficientRestitution( bs.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( bs.name );
-        gameModel.AddBoundingSphere( bs.radius );
-        gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
-        gameModel.SetFixed( bs.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
-
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( bs.isSleeping && !bs.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    // box entries: rigid box entities
-    for ( int i = 0; i < scene.GetBoxCount(); ++i )
-    {
-        const SceneBox& box = scene.GetBox( i );
-
-        // Box inertia: I = m/3 * (hy^2 + hz^2) etc. for half-extents
-        float hx2 = box.halfX * box.halfX;
-        float hy2 = box.halfY * box.halfY;
-        float hz2 = box.halfZ * box.halfZ;
-        float m3 = box.mass / 3.0f;
-        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
-
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( box.posX, box.posY, box.posZ ), inertia, box.mass );
-
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( box.name );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
-
-        if ( box.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
-        }
-
-        if ( box.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        }
-
-        gameModel.SetFixed( box.isFixed );
-
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // box_state entries: full dynamic state from an editable scene snapshot
-    for ( int i = 0; i < scene.GetBoxStateCount(); ++i )
-    {
-        const SceneBoxState& box = scene.GetBoxState( i );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( box.posX, box.posY, box.posZ ),
-                             Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
-                             box.mass );
-
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( box.name );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
-        gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( box.angVelX, box.angVelY, box.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ) );
-        gameModel.SetFixed( box.isFixed );
-
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( box.isSleeping && !box.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    // convex_hull entries: authored immutable hull assets
-    for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
-    {
-        const SceneConvexHull& hullScene = scene.GetConvexHull( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
-        const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
-        const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
-
-        GameModel gameModel( &m_cWorldEnvironment, authoredPosition, inertia, hullScene.mass );
-
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( hullScene.name );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
-
-        if ( hullScene.hasInitOrient )
-        {
-            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
-        }
-
-        Quaternion hullQuaternion = gameModel.GetOrientation();
-        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
-        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
-
-        if ( hullScene.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        }
-
-        gameModel.SetFixed( hullScene.isFixed );
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-    }
-
-    // convex_hull_state entries: full dynamic state from an editable scene
-    // snapshot. The snapshot writer stores GameModel::GetPosition(), which is
-    // the simulated body/COM position, so do not add the authored hull COM here.
-    for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
-    {
-        const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
-        const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
-
-        GameModel gameModel( &m_cWorldEnvironment,
-                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
-                             Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
-                             hullScene.mass );
-
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.SetName( hullScene.name );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
-        gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
-        gameModel.SetOrientation(
-            Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
-        gameModel.SetFixed( hullScene.isFixed );
-        const int modelIndex = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
-        if ( hullScene.isSleeping && !hullScene.isFixed )
-        {
-            m_cGameModelCollection.SeedModelAsleep( modelIndex );
-        }
-    }
-
-    for ( int i = 0; i < scene.GetRagdollCount(); ++i )
-    {
-        const SceneRagdoll& ragdollScene = scene.GetRagdoll( i );
-        RagdollBuildOptions options;
-        options.namePrefix = ragdollScene.name;
-        options.terrainPoint = Vector3( ragdollScene.posX, ragdollScene.posY, ragdollScene.posZ );
-        options.scale = ragdollScene.scale;
-        options.fixed = ragdollScene.isFixed;
-        options.startsAsleep = ragdollScene.startsAsleep;
-        if ( ragdollScene.hasInitOrient )
-        {
-            options.orientation =
-                MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
-        }
-        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection, m_cWorldEnvironment, m_systems.terrain.get(), options );
-    }
-
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    auto findModelByName = [&]( const char* name ) -> int
-    {
-        if ( !name || name[0] == '\0' )
-        {
-            return -1;
-        }
-        for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
-        {
-            if ( strcmp( models[static_cast<size_t>( modelIndex )].GetName(), name ) == 0 )
-            {
-                return modelIndex;
-            }
-        }
-        return -1;
-    };
-
-    for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
-    {
-        const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
-        PointJointConstraint joint;
-        joint.bodyA = findModelByName( sceneJoint.bodyA );
-        joint.bodyB = findModelByName( sceneJoint.bodyB );
-        if ( joint.bodyA < 0 || joint.bodyB < 0 )
-        {
-            fprintf( stderr,
-                     "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n",
-                     sceneJoint.bodyA,
-                     sceneJoint.bodyB );
-            continue;
-        }
-        joint.localAnchorA = sceneJoint.localAnchorA;
-        joint.localAnchorB = sceneJoint.localAnchorB;
-        joint.slack = sceneJoint.slack;
-        joint.stiffness = sceneJoint.stiffness;
-        joint.damping = sceneJoint.damping;
-        joint.groupId = sceneJoint.groupId;
-        joint.flags = sceneJoint.flags;
-        if ( IsSimpleRagdollNeckJointName( sceneJoint.bodyA, sceneJoint.bodyB ) )
-        {
-            joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
-        }
-        m_cGameModelCollection.AddPointJointConstraint( joint );
-    }
-
-    for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
-    {
-        const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
-            {
-                model.SetRenderMaterial( material.material );
-            }
-        }
-    }
-
-    SetUpRequiredContactsFromScene( scene );
-    SetUpRequiredBroadphaseXCellsFromScene( scene );
+    return SceneGeneratedModelContext{ SceneState(),
+                                       Cfg(),
+                                       m_cWorldEnvironment,
+                                       m_systems.terrain.get(),
+                                       m_cGameModelCollection,
+                                       m_cGameModelCollection.GetPhysicsEngine(),
+                                       m_launchOptions.generatedObjectTypeOverride };
 }
-
-
-void Run::SetUpRequiredContactsFromScene( const TestScene& scene )
-{
-    m_requiredSceneContacts.clear();
-    m_requiredSceneContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-
-    auto findModelByName = [&]( const char* name ) -> int
-    {
-        if ( !name || name[0] == '\0' )
-        {
-            return -1;
-        }
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-        {
-            if ( strcmp( models[static_cast<size_t>( i )].GetName(), name ) == 0 )
-            {
-                return i;
-            }
-        }
-        return -1;
-    };
-
-    for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
-    {
-        const SceneRequiredContact& contact = scene.GetRequiredContact( i );
-        RunRequiredContactState state;
-        strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
-        strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
-        state.bodyA = findModelByName( state.nameA );
-        state.bodyB = findModelByName( state.nameB );
-        if ( state.bodyA < 0 || state.bodyB < 0 )
-        {
-            fprintf( stderr, "[scene] required_contact could not resolve '%s' <-> '%s'\n", state.nameA, state.nameB );
-        }
-        m_requiredSceneContacts.push_back( state );
-    }
-}
-
 
 void Run::UpdateRequiredSceneContacts()
 {
@@ -1181,23 +727,6 @@ bool Run::RequiredSceneContactsComplete() const
         }
     }
     return true;
-}
-
-
-void Run::SetUpRequiredBroadphaseXCellsFromScene( const TestScene& scene )
-{
-    m_requiredBroadphaseXCells.clear();
-    m_requiredBroadphaseXCells.reserve( static_cast<size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
-    for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
-    {
-        const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
-        RunRequiredBroadphaseXCellsState state;
-        state.minCellX = sceneCells.minCellX;
-        state.maxCellX = sceneCells.maxCellX;
-        state.cellY = sceneCells.cellY;
-        state.cellZ = sceneCells.cellZ;
-        m_requiredBroadphaseXCells.push_back( state );
-    }
 }
 
 
@@ -1328,10 +857,10 @@ SceneRuntimeResetSnapshot Run::CaptureSceneRuntimeResetSnapshot()
     snapshot.cinematicOverrideMask = SceneState().cinematicOverrideMask;
     snapshot.uiCinematicOverrideMask = SceneState().uiCinematicOverrideMask;
     snapshot.cinematicRender = SceneState().cinematicRender;
-    snapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
-    snapshot.uiModelCountOverride = m_UIModelCountOverride;
-    snapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
-    snapshot.uiSolverBoxCountOverride = m_UISolverBoxCountOverride;
+    snapshot.uiTimeScaleOverride = m_sceneUIOverrides.timeScaleOverride;
+    snapshot.uiModelCountOverride = m_sceneUIOverrides.modelCountOverride;
+    snapshot.uiSolverBallCountOverride = m_sceneUIOverrides.solverBallCountOverride;
+    snapshot.uiSolverBoxCountOverride = m_sceneUIOverrides.solverBoxCountOverride;
     snapshot.trackBallIndex = m_camera.trackBallIndex;
     snapshot.trackHeight = m_camera.trackHeight;
     snapshot.autoCycleInterval = m_camera.autoCycleInterval;
@@ -1365,10 +894,10 @@ void Run::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& sna
     SceneState().cinematicOverrideMask = snapshot.cinematicOverrideMask;
     SceneState().uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
     SceneState().cinematicRender = snapshot.cinematicRender;
-    m_UITimeScaleOverride = snapshot.uiTimeScaleOverride;
-    m_UIModelCountOverride = snapshot.uiModelCountOverride;
-    m_UISolverBallCountOverride = snapshot.uiSolverBallCountOverride;
-    m_UISolverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
+    m_sceneUIOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
+    m_sceneUIOverrides.modelCountOverride = snapshot.uiModelCountOverride;
+    m_sceneUIOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
+    m_sceneUIOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
     m_camera.trackHeight = snapshot.trackHeight;
     m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < SceneState().modelCount )
                                   ? snapshot.trackBallIndex
@@ -1386,10 +915,10 @@ void Run::ClearSceneRuntimeUIOverrides()
     // Scene changes and the explicit Reset Defaults command must make the scene
     // file/config authoritative again.  UI sliders are live overrides, so clearing
     // them here prevents stale counts or time scale from leaking into unrelated scenes.
-    m_UITimeScaleOverride = 0.0f;
-    m_UIModelCountOverride = -1;
-    m_UISolverBallCountOverride = -1;
-    m_UISolverBoxCountOverride = -1;
+    m_sceneUIOverrides.timeScaleOverride = 0.0f;
+    m_sceneUIOverrides.modelCountOverride = -1;
+    m_sceneUIOverrides.solverBallCountOverride = -1;
+    m_sceneUIOverrides.solverBoxCountOverride = -1;
 }
 
 
@@ -1408,7 +937,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         SceneState().isInteractiveRun = true;
     }
-    if ( m_cmdInteractiveSceneRun )
+    if ( m_launchOptions.interactiveSceneRun )
     {
         SceneState().isInteractiveRun = true;
     }
@@ -1434,36 +963,36 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     const std::string& scenePath = runtime.PathAt( index );
     if ( !shouldPreserveRuntimeState )
     {
-        m_selectedCineModeSceneIndex =
+        m_sceneBrowser.selectedCineModeSceneIndex =
             ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
     }
 
     // Close previous perf log if open
-    if ( m_diagnostics.PerfLog().perfLogFile )
+    if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
     {
         LogPerfMemory( "end" );
-        if ( m_diagnostics.PerfLog().perfLogWritesSinceFlush > 0 )
+        if ( m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush > 0 )
         {
-            fflush( m_diagnostics.PerfLog().perfLogFile );
-            m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
+            fflush( m_diagnosticsRuntime.PerfLog().perfLogFile );
+            m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
         }
-        fclose( m_diagnostics.PerfLog().perfLogFile );
-        m_diagnostics.PerfLog().perfLogFile = nullptr;
+        fclose( m_diagnosticsRuntime.PerfLog().perfLogFile );
+        m_diagnosticsRuntime.PerfLog().perfLogFile = nullptr;
     }
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
-    m_diagnostics.PerfLog().isPerfTest = false;
-    m_diagnostics.PerfLog().perfHeaderWritten = false;
+    m_diagnosticsRuntime.PerfLog().isPerfTest = false;
+    m_diagnosticsRuntime.PerfLog().perfHeaderWritten = false;
     m_simulation.Reset();
-    m_capture.ResetScreenshot();
-    m_diagnostics.PerfLog().perfLogPath[0] = '\0';
-    m_diagnostics.PerfLog().isPerfLogFlushEnabled = false;
-    m_diagnostics.PerfLog().perfLogFlushInterval = 0;
-    m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
+    m_diagnosticsRuntime.Capture().ResetScreenshot();
+    m_diagnosticsRuntime.PerfLog().perfLogPath[0] = '\0';
+    m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = false;
+    m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = 0;
+    m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_uiStress = RunUIStressState{};
+    m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
     m_requiredSceneContacts.clear();
 
     m_systems.cameras->Reset();
@@ -1531,11 +1060,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
-        Cfg().gameModelCapacity = m_startupGameModelCapacity;
-        ApplySceneWorkerThreadSetting( m_startupWorkerThreads );
-        if ( m_cmdSeedOverride > 0 )
+        Cfg().gameModelCapacity = m_startup.gameModelCapacity;
+        ApplySceneWorkerThreadSetting( m_startup.workerThreads );
+        if ( m_launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_cmdSeedOverride;
+            rngSeed = m_launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -1553,14 +1082,18 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneState().isSceneMode = false;
         SetUpCameras();
-        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ),
-                                (std::max)( 0, m_UISolverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else
         {
-            SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
+                                                  m_sceneUIOverrides.modelCountOverride >= 0
+                                                      ? m_sceneUIOverrides.modelCountOverride
+                                                      : DEFAULT_GAME_MODELS );
         }
         ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
@@ -1578,13 +1111,13 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
         }
         Cfg().gameModelCapacity =
-            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startupGameModelCapacity;
+            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting( scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads()
-                                                                       : m_startupWorkerThreads );
+                                                                       : m_startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_diagnostics.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_diagnostics.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
+        m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
@@ -1634,7 +1167,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
 #ifdef _DEBUG
-        isAutomationScene = isAutomationScene || m_diagnostics.PhysicsDiagnostics().isEnabled;
+        isAutomationScene = isAutomationScene || m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
         if ( !preserveUIState )
         {
@@ -1725,49 +1258,52 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         if ( UIOptions.hasStress )
         {
-            m_uiStress.enabled = UIOptions.stressEnabled;
+            m_diagnosticsRuntime.UIStress().enabled = UIOptions.stressEnabled;
         }
         if ( UIOptions.hasStressSeed )
         {
-            m_uiStress.randomState = UIOptions.stressSeed;
+            m_diagnosticsRuntime.UIStress().randomState = UIOptions.stressSeed;
         }
         if ( UIOptions.hasStressActions )
         {
-            m_uiStress.actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
+            m_diagnosticsRuntime.UIStress().actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
         }
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        m_capture.Screenshot().screenshotFrame = scene.GetScreenshotFrame();
-        m_capture.Screenshot().screenshotMs = scene.GetScreenshotMs();
-        m_capture.Screenshot().isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
+        m_diagnosticsRuntime.Capture().Screenshot().screenshotFrame = scene.GetScreenshotFrame();
+        m_diagnosticsRuntime.Capture().Screenshot().screenshotMs = scene.GetScreenshotMs();
+        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit =
+            suppressAutomationExit ? false : scene.IsScreenshotAndExit();
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
-            strcpy_s( m_capture.Screenshot().screenshotPath,
-                      sizeof( m_capture.Screenshot().screenshotPath ),
+            strcpy_s( m_diagnosticsRuntime.Capture().Screenshot().screenshotPath,
+                      sizeof( m_diagnosticsRuntime.Capture().Screenshot().screenshotPath ),
                       scene.GetScreenshotPath() );
         }
         // Interval capture: create output directory
-        m_capture.Screenshot().screenshotInterval = scene.GetScreenshotInterval();
+        m_diagnosticsRuntime.Capture().Screenshot().screenshotInterval = scene.GetScreenshotInterval();
         if ( scene.GetScreenshotDir()[0] != '\0' )
         {
-            strcpy_s( m_capture.Screenshot().screenshotDir,
-                      sizeof( m_capture.Screenshot().screenshotDir ),
+            strcpy_s( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir,
+                      sizeof( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir ),
                       scene.GetScreenshotDir() );
-            CreateDirectoryA( m_capture.Screenshot().screenshotDir, nullptr );
+            CreateDirectoryA( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir, nullptr );
         }
 
         // Perf test: open CSV log file
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_diagnostics.PerfLog().isPerfTest = true;
-            strcpy_s( m_diagnostics.PerfLog().perfLogPath, sizeof( m_diagnostics.PerfLog().perfLogPath ), pPerfPath );
+            m_diagnosticsRuntime.PerfLog().isPerfTest = true;
+            strcpy_s( m_diagnosticsRuntime.PerfLog().perfLogPath,
+                      sizeof( m_diagnosticsRuntime.PerfLog().perfLogPath ),
+                      pPerfPath );
             const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_diagnostics.PerfLog().perfLogFile, m_diagnostics.PerfLog().perfLogPath, mode );
-            if ( m_diagnostics.PerfLog().perfLogFile )
+            fopen_s( &m_diagnosticsRuntime.PerfLog().perfLogFile, m_diagnosticsRuntime.PerfLog().perfLogPath, mode );
+            if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
             {
-                m_diagnostics.PerfLog().perfLogWritesSinceFlush = 0;
+                m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
                 LogPerfMemory( "start" );
             }
         }
@@ -1778,9 +1314,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         {
             rngSeed = scene.GetSeed();
         }
-        if ( m_cmdSeedOverride > 0 )
+        if ( m_launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_cmdSeedOverride;
+            rngSeed = m_launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -1822,35 +1358,40 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SetUpCamerasFromScene( scene );
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
 
-        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ),
-                                (std::max)( 0, m_UISolverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
-        else if ( m_UIModelCountOverride >= 0 )
+        else if ( m_sceneUIOverrides.modelCountOverride >= 0 )
         {
-            SetUpGameModels( m_UIModelCountOverride );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
+                                                  m_sceneUIOverrides.modelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
-            SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                                     scene.GetSolverBallCount(),
+                                                     scene.GetSolverBoxCount() );
         }
         else
         {
-            SetUpGameModelsFromScene( scene );
+            SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_diagnostics.PerfLog().physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsRegressionLogPath(
+            m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
         m_cGameModelCollection.SetPhysicsCollisionTimeLogPath(
-            m_diagnostics.PerfLog().physicsCollisionTimeLogOverride );
-        if ( m_diagnostics.PhysicsDiagnostics().isEnabled )
+            m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
+        if ( m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics().path );
+            m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
@@ -1871,8 +1412,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         const bool hasSnapshotState =
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
-        const bool shouldPauseSnapshotState =
-            hasSnapshotState && scene.ShouldPauseSnapshotState() && !m_diagnostics.PhysicsDiagnostics().isEnabled;
+        const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState() &&
+                                              !m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #else
         const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
@@ -1903,15 +1444,15 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
-    if ( m_cmdTimeScaleOverride > 0.0f )
+    if ( m_launchOptions.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_cmdTimeScaleOverride;
+        SceneState().timeScale = m_launchOptions.timeScaleOverride;
     }
-    if ( m_UITimeScaleOverride > 0.0f )
+    if ( m_sceneUIOverrides.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_UITimeScaleOverride;
+        SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
     }
-    if ( m_cmdFixedStep )
+    if ( m_launchOptions.fixedStep )
     {
         SceneState().isFixedStep = true;
     }
@@ -1927,62 +1468,62 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             m_runtimeSettings.tornadoVisual.enabled = true;
         }
     }
-    if ( m_cmdHasTornadoOverride )
+    if ( m_launchOptions.hasTornadoOverride )
     {
         if ( m_runtimeSettings.tornadoSystem.enabled || !m_runtimeSettings.tornadoSystem.vortices.empty() )
         {
-            m_runtimeSettings.tornadoSystem.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoSystem.enabled = m_launchOptions.tornadoEnabled;
             m_runtimeSettings.tornadoField.enabled = false;
         }
         else
         {
-            m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoField.enabled = m_launchOptions.tornadoEnabled;
         }
         if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
         {
-            m_runtimeSettings.tornadoVisual.enabled = m_cmdTornadoEnabled;
+            m_runtimeSettings.tornadoVisual.enabled = m_launchOptions.tornadoEnabled;
         }
     }
-    if ( m_cmdTornadoVectors )
+    if ( m_launchOptions.tornadoVectors )
     {
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
     SyncTornadoFieldToPhysics();
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
-    if ( m_cmdFrameCountOverride > 0 )
+    if ( m_launchOptions.frameCountOverride > 0 )
     {
-        SceneState().targetFrameCount = m_cmdFrameCountOverride;
+        SceneState().targetFrameCount = m_launchOptions.frameCountOverride;
         SceneState().isExitOnComplete = true;
     }
-    if ( m_cmdUIStress )
+    if ( m_launchOptions.uiStress )
     {
-        m_uiStress.enabled = true;
-        m_uiStress.randomState = m_cmdUIStressSeed;
-        m_uiStress.actionsPerFrame = m_cmdUIStressActions;
+        m_diagnosticsRuntime.UIStress().enabled = true;
+        m_diagnosticsRuntime.UIStress().randomState = m_launchOptions.uiStressSeed;
+        m_diagnosticsRuntime.UIStress().actionsPerFrame = m_launchOptions.uiStressActions;
         m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
         m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
     }
-    if ( m_cmdHasCinematicShadowsOverride )
+    if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveCinematicConfig().shadowsEnabled = m_cmdCinematicShadows;
+        ActiveCinematicConfig().shadowsEnabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
-    if ( m_cmdHasPhysicsDebugFlagsOverride )
+    if ( m_launchOptions.hasPhysicsDebugFlagsOverride )
     {
-        m_debug.physicsDebugFlags = m_cmdPhysicsDebugFlagsOverride;
+        m_debug.physicsDebugFlags = m_launchOptions.physicsDebugFlagsOverride;
     }
-    if ( m_cmdHasPhysicsDebugTransparentOverride )
+    if ( m_launchOptions.hasPhysicsDebugTransparentOverride )
     {
-        m_debug.isPhysicsDebugTransparent = m_cmdPhysicsDebugTransparentOverride;
+        m_debug.isPhysicsDebugTransparent = m_launchOptions.physicsDebugTransparentOverride;
     }
-    if ( m_cmdHasPhysicsDebugAlphaOverride )
+    if ( m_launchOptions.hasPhysicsDebugAlphaOverride )
     {
-        m_debug.physicsDebugAlpha = m_cmdPhysicsDebugAlphaOverride;
+        m_debug.physicsDebugAlpha = m_launchOptions.physicsDebugAlphaOverride;
     }
-    if ( m_cmdHasPhysicsDebugContactLingerOverride )
+    if ( m_launchOptions.hasPhysicsDebugContactLingerOverride )
     {
-        m_debug.physicsDebugContactLinger = m_cmdPhysicsDebugContactLingerOverride;
+        m_debug.physicsDebugContactLinger = m_launchOptions.physicsDebugContactLingerOverride;
     }
 
 #ifdef _DEBUG
@@ -2177,13 +1718,13 @@ bool Run::SaveCurrentSceneDefaults()
     world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
     SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
-    if ( m_UIModelCountOverride >= 0 )
+    if ( m_sceneUIOverrides.modelCountOverride >= 0 )
     {
-        simulation["solverBalls"] = m_UIModelCountOverride;
+        simulation["solverBalls"] = m_sceneUIOverrides.modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
-    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 ||
-              m_UISolverBoxCountOverride >= 0 )
+    else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 ||
+              m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
     {
         simulation["solverBalls"] = SceneState().solverBallCount;
         simulation["solverBoxes"] = SceneState().solverBoxCount;
@@ -2296,12 +1837,107 @@ bool Run::SaveRenderDefaults()
     return output.good();
 }
 
+bool Run::SaveSkyDefaults()
+{
+    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
+    std::ifstream input( configPath );
+    if ( !input )
+    {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        if ( !line.empty() && line.back() == '\r' )
+        {
+            line.pop_back();
+        }
+        lines.push_back( line );
+    }
+
+    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    std::vector<std::string> missing;
+    char buf[128] = {};
+
+    const auto setText = [&]( const char* key, const char* value )
+    {
+        const std::string lineText = std::string( key ) + " = " + value;
+        if ( !ReplaceConfigLine( lines, key, value ) )
+        {
+            missing.push_back( lineText );
+        }
+    };
+    const auto setBool = [&]( const char* key, bool value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
+        setText( key, buf );
+    };
+    const auto setInt = [&]( const char* key, int value )
+    {
+        snprintf( buf, sizeof( buf ), "%d", value );
+        setText( key, buf );
+    };
+    const auto setFloat = [&]( const char* key, float value, const char* format )
+    {
+        snprintf( buf, sizeof( buf ), format, value );
+        setText( key, buf );
+    };
+
+    setBool( "cinematic_sky_atmosphere", cinematic.skyAtmosphereEnabled );
+    setBool( "cinematic_clouds", cinematic.cloudsEnabled );
+    setBool( "cinematic_god_rays", cinematic.godRaysEnabled );
+    setBool( "cinematic_volumetric_lighting", cinematic.volumetricLightingEnabled );
+    setFloat( "cinematic_exposure", cinematic.exposure, "%.2f" );
+    setFloat( "cinematic_gamma", cinematic.gamma, "%.2f" );
+    setFloat( "cinematic_sun_screen_x", cinematic.sunScreenX, "%.3f" );
+    setFloat( "cinematic_sun_screen_y", cinematic.sunScreenY, "%.3f" );
+    setFloat( "cinematic_sun_color_r", cinematic.sunColorR, "%.2f" );
+    setFloat( "cinematic_sun_color_g", cinematic.sunColorG, "%.2f" );
+    setFloat( "cinematic_sun_color_b", cinematic.sunColorB, "%.2f" );
+    setFloat( "cinematic_sun_intensity", cinematic.sunIntensity, "%.2f" );
+    setFloat( "cinematic_sky_horizon_r", cinematic.skyHorizonR, "%.2f" );
+    setFloat( "cinematic_sky_horizon_g", cinematic.skyHorizonG, "%.2f" );
+    setFloat( "cinematic_sky_horizon_b", cinematic.skyHorizonB, "%.2f" );
+    setFloat( "cinematic_sky_zenith_r", cinematic.skyZenithR, "%.2f" );
+    setFloat( "cinematic_sky_zenith_g", cinematic.skyZenithG, "%.2f" );
+    setFloat( "cinematic_sky_zenith_b", cinematic.skyZenithB, "%.2f" );
+    setFloat( "cinematic_sky_glow_strength", cinematic.skyGlowStrength, "%.2f" );
+    setFloat( "cinematic_cloud_coverage", cinematic.cloudCoverage, "%.2f" );
+    setFloat( "cinematic_cloud_softness", cinematic.cloudSoftness, "%.2f" );
+    setFloat( "cinematic_cloud_scale", cinematic.cloudScale, "%.2f" );
+    setFloat( "cinematic_cloud_intensity", cinematic.cloudIntensity, "%.2f" );
+    setFloat( "cinematic_sun_shaft_strength", cinematic.sunShaftStrength, "%.2f" );
+    setFloat( "cinematic_sun_shaft_falloff", cinematic.sunShaftFalloff, "%.2f" );
+    setFloat( "cinematic_volumetric_strength", cinematic.volumetricStrength, "%.2f" );
+    setFloat( "cinematic_volumetric_density", cinematic.volumetricDensity, "%.2f" );
+    setFloat( "cinematic_volumetric_decay", cinematic.volumetricDecay, "%.3f" );
+    setInt( "cinematic_sky_mode", cinematic.skyMode );
+    setFloat( "cinematic_style_saturation", cinematic.styleSaturation, "%.2f" );
+    setFloat( "cinematic_style_contrast", cinematic.styleContrast, "%.2f" );
+    setFloat( "cinematic_style_vignette", cinematic.styleVignette, "%.2f" );
+
+    AppendMissingCinematicConfigLines( lines, missing );
+
+    std::ofstream output( configPath, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
+    for ( const std::string& outLine : lines )
+    {
+        output << outLine << '\n';
+    }
+    return output.good();
+}
+
 
 void Run::RefreshSceneBrowserList()
 {
-    m_sceneBrowserPaths.clear();
-    m_sceneBrowserNames.clear();
-    m_sceneBrowserNamePtrs.clear();
+    m_sceneBrowser.paths.clear();
+    m_sceneBrowser.names.clear();
+    m_sceneBrowser.namePtrs.clear();
 
     const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
     try
@@ -2317,27 +1953,27 @@ void Run::RefreshSceneBrowserList()
             {
                 continue;
             }
-            m_sceneBrowserPaths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
+            m_sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
         }
     }
     catch ( const std::filesystem::filesystem_error& e )
     {
         Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
-        m_sceneBrowserPaths.clear();
+        m_sceneBrowser.paths.clear();
     }
 
-    std::sort( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() );
-    m_sceneBrowserPaths.erase( std::unique( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() ),
-                               m_sceneBrowserPaths.end() );
-    m_sceneBrowserNames.reserve( m_sceneBrowserPaths.size() );
-    m_sceneBrowserNamePtrs.reserve( m_sceneBrowserPaths.size() );
-    for ( const std::string& path : m_sceneBrowserPaths )
+    std::sort( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() );
+    m_sceneBrowser.paths.erase( std::unique( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() ),
+                                m_sceneBrowser.paths.end() );
+    m_sceneBrowser.names.reserve( m_sceneBrowser.paths.size() );
+    m_sceneBrowser.namePtrs.reserve( m_sceneBrowser.paths.size() );
+    for ( const std::string& path : m_sceneBrowser.paths )
     {
-        m_sceneBrowserNames.emplace_back( FileNameFromPath( path.c_str() ) );
+        m_sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
     }
-    for ( const std::string& name : m_sceneBrowserNames )
+    for ( const std::string& name : m_sceneBrowser.names )
     {
-        m_sceneBrowserNamePtrs.push_back( name.c_str() );
+        m_sceneBrowser.namePtrs.push_back( name.c_str() );
     }
 }
 
@@ -2351,9 +1987,9 @@ int Run::CurrentSceneBrowserIndex() const
     }
 
     const std::string currentPath = NormalizeScenePath( *currentScenePath );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
     {
-        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
+        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == currentPath )
         {
             return i;
         }
@@ -2390,9 +2026,9 @@ bool Run::CreateSceneFromUI( const char* requestedName )
 
     RefreshSceneBrowserList();
     const std::string normalizedPath = NormalizeScenePath( scenePath.generic_string() );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
     {
-        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == normalizedPath )
+        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == normalizedPath )
         {
             LoadSceneFromBrowserIndex( i );
             return true;
@@ -2407,53 +2043,20 @@ bool Run::CreateSceneFromUI( const char* requestedName )
 
 void Run::LoadSceneFromBrowserIndex( int index )
 {
-    SceneController& runtime = m_sceneController;
-    if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
-    {
-        return;
-    }
-
-    EnterInteractiveSceneRun();
-
-    const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
-    const int queuedIndex = runtime.FindNormalizedPath( selectedPath );
-    if ( queuedIndex >= 0 )
-    {
-        if ( queuedIndex != runtime.CurrentIndex() )
-        {
-            LoadScene( queuedIndex, true, true );
-        }
-        else
-        {
-            SceneState().isExitOnComplete = false;
-            m_capture.Screenshot().isScreenshotAndExit = false;
-        }
-        return;
-    }
-
-    LoadScene( runtime.Append( selectedPath ), true, true );
+    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowser.paths );
 }
 
 
 void Run::LoadDemoSceneFromUI()
 {
-    SceneController& runtime = m_sceneController;
-    EnterInteractiveSceneRun();
-    const int demoIndex = runtime.FindGeneratedDemo();
-    if ( demoIndex >= 0 )
-    {
-        LoadScene( demoIndex, true, true );
-        return;
-    }
-
-    LoadScene( runtime.Append( "" ), true, true );
+    m_sceneCoordinator.LoadDemoSceneFromUI();
 }
 
 
 bool Run::ApplyCinematicModeFromBrowserIndex( int index )
 {
     EnterInteractiveSceneRun();
-    m_cmdHasCinematicRenderingOverride = false;
+    m_launchOptions.hasCinematicRenderingOverride = false;
 
     auto resetObjectMaterials = [&]()
     {
@@ -2500,16 +2103,16 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
             SceneState().uiCinematicOverrideMask = 0;
         }
         resetObjectMaterials();
-        m_selectedCineModeSceneIndex = -1;
+        m_sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
 
-    if ( index >= static_cast<int>( m_sceneBrowserPaths.size() ) || !IsCineScenePath( m_sceneBrowserPaths[index] ) )
+    if ( index >= static_cast<int>( m_sceneBrowser.paths.size() ) || !IsCineScenePath( m_sceneBrowser.paths[index] ) )
     {
         return false;
     }
 
-    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowserPaths[index].c_str() );
+    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowser.paths[index].c_str() );
     cinematic = m_defaultCinematicRender;
     ApplyCinematicSceneOverrides( cinematic,
                                   lookScene.GetCinematicOverrideMask(),
@@ -2526,14 +2129,14 @@ bool Run::ApplyCinematicModeFromBrowserIndex( int index )
         SceneState().uiCinematicOverrideMask = 0;
     }
     applyObjectMaterials( lookScene );
-    m_selectedCineModeSceneIndex = index;
+    m_sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
 
 
 void Run::ApplyLiveStyleScene( const TestScene& styleScene )
 {
-    m_cmdHasCinematicRenderingOverride = false;
+    m_launchOptions.hasCinematicRenderingOverride = false;
 
     for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
     {
@@ -2573,13 +2176,13 @@ void Run::ApplyLiveStyleScene( const TestScene& styleScene )
         SceneState().cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
         SceneState().uiCinematicOverrideMask = 0;
     }
-    m_selectedCineModeSceneIndex = -1;
+    m_sceneBrowser.selectedCineModeSceneIndex = -1;
 }
 
 
 void Run::ApplyDemoHeroStyleOverride()
 {
-    if ( !m_cmdDemoHeroStyle || SceneState().isSceneMode )
+    if ( !m_launchOptions.demoHeroStyle || SceneState().isSceneMode )
     {
         return;
     }
@@ -2593,137 +2196,29 @@ void Run::ApplyDemoHeroStyleOverride()
 
 bool Run::ApplyAdjacentCinematicMode( int direction )
 {
-    if ( direction == 0 )
-    {
-        return false;
-    }
-
-    std::vector<int> cineIndices;
-    cineIndices.reserve( m_sceneBrowserPaths.size() );
-    int currentPosition = -1;
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
-    {
-        if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
-        {
-            if ( i == m_selectedCineModeSceneIndex )
-            {
-                currentPosition = static_cast<int>( cineIndices.size() );
-            }
-            cineIndices.push_back( i );
-        }
-    }
-
-    if ( cineIndices.empty() )
-    {
-        return false;
-    }
-
-    const int currentSceneIndex = CurrentSceneBrowserIndex();
-    if ( currentPosition < 0 && currentSceneIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentSceneIndex] ) )
-    {
-        for ( int i = 0; i < static_cast<int>( cineIndices.size() ); ++i )
-        {
-            if ( cineIndices[i] == currentSceneIndex )
-            {
-                currentPosition = i;
-                break;
-            }
-        }
-    }
-
-    const bool cineContext =
-        currentPosition >= 0 || m_selectedCineModeSceneIndex >= 0 || m_UI.GetActiveTab() == InGameUITab::Cinematic;
-    if ( !cineContext )
-    {
-        return false;
-    }
-
-    const int cineCount = static_cast<int>( cineIndices.size() );
-    const int nextPosition = currentPosition < 0
-                                 ? ( direction < 0 ? cineCount - 1 : 0 )
-                                 : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-    return ApplyCinematicModeFromBrowserIndex( cineIndices[nextPosition] );
+    return m_sceneCoordinator.ApplyAdjacentCinematicMode( direction,
+                                                          m_sceneBrowser.paths,
+                                                          m_sceneBrowser.selectedCineModeSceneIndex );
 }
 
 
 void Run::LoadAdjacentSceneFromBrowser( int direction )
 {
-    SceneController& runtime = m_sceneController;
-    if ( direction == 0 )
-    {
-        return;
-    }
-
-    if ( runtime.CurrentQueueIsCinematicDeck() )
-    {
-        LoadScene( runtime.AdjacentQueueIndex( direction ), true, true );
-        return;
-    }
-
-    const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
-    if ( sceneCount <= 0 )
-    {
-        return;
-    }
-
-    const int currentIndex = CurrentSceneBrowserIndex();
-    if ( currentIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentIndex] ) )
-    {
-        std::vector<int> cineIndices;
-        cineIndices.reserve( m_sceneBrowserPaths.size() );
-        int currentCinePosition = -1;
-        for ( int i = 0; i < sceneCount; ++i )
-        {
-            if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
-            {
-                if ( i == currentIndex )
-                {
-                    currentCinePosition = static_cast<int>( cineIndices.size() );
-                }
-                cineIndices.push_back( i );
-            }
-        }
-        if ( !cineIndices.empty() && currentCinePosition >= 0 )
-        {
-            const int cineCount = static_cast<int>( cineIndices.size() );
-            const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-            LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
-            return;
-        }
-    }
-
-    int nextIndex = 0;
-    if ( currentIndex < 0 )
-    {
-        nextIndex = direction < 0 ? sceneCount - 1 : 0;
-    }
-    else
-    {
-        nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
-    }
-
-    LoadSceneFromBrowserIndex( nextIndex );
+    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowser.paths );
 }
 
 
 void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    SceneController& runtime = m_sceneController;
-    if ( !runtime.HasCurrentEntry() )
-    {
-        return;
-    }
-
-    runtime.MarkManualReset();
-    LoadScene( runtime.CurrentIndex(), preserveUIState, suppressExitOnComplete, preserveRuntimeState );
+    m_sceneCoordinator.ResetCurrentScene( preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
 void Run::ApplyUIModelCountOverride( int count )
 {
-    m_UIModelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
-    m_UISolverBallCountOverride = -1;
-    m_UISolverBoxCountOverride = -1;
+    m_sceneUIOverrides.modelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
+    m_sceneUIOverrides.solverBallCountOverride = -1;
+    m_sceneUIOverrides.solverBoxCountOverride = -1;
     if ( !HasCurrentSceneQueueEntry() )
     {
         return;
@@ -2738,7 +2233,7 @@ void Run::ApplyUIModelCountOverride( int count )
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
-    if ( m_UIModelCountOverride <= 0 )
+    if ( m_sceneUIOverrides.modelCountOverride <= 0 )
     {
         SceneState().modelCount = 0;
         m_camera.trackBallIndex = -1;
@@ -2749,10 +2244,10 @@ void Run::ApplyUIModelCountOverride( int count )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SetUpGameModels( m_UIModelCountOverride );
-    if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
+    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_sceneUIOverrides.modelCountOverride );
+    if ( m_camera.trackBallIndex >= m_sceneUIOverrides.modelCountOverride )
     {
-        m_camera.trackBallIndex = m_UIModelCountOverride - 1;
+        m_camera.trackBallIndex = m_sceneUIOverrides.modelCountOverride - 1;
     }
     ResetReplayTimelineForActiveScene();
     PROFILE_SCHEDULE_RESET();
@@ -2768,9 +2263,9 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
     {
         boxes = (std::max)( 0, modelCapacity - balls );
     }
-    m_UISolverBallCountOverride = balls;
-    m_UISolverBoxCountOverride = boxes;
-    m_UIModelCountOverride = -1;
+    m_sceneUIOverrides.solverBallCountOverride = balls;
+    m_sceneUIOverrides.solverBoxCountOverride = boxes;
+    m_sceneUIOverrides.modelCountOverride = -1;
     if ( !HasCurrentSceneQueueEntry() )
     {
         return;
@@ -2788,7 +2283,9 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
+    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
+                                             m_sceneUIOverrides.solverBallCountOverride,
+                                             m_sceneUIOverrides.solverBoxCountOverride );
     if ( SceneState().modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;
@@ -2829,7 +2326,7 @@ void Run::ApplyConfiguredWorldEnvironment()
 
 void Run::ApplyNoWaterOverride()
 {
-    if ( !m_cmdNoWater || !m_systems.terrain )
+    if ( !m_launchOptions.noWater || !m_systems.terrain )
     {
         return;
     }
@@ -2907,25 +2404,8 @@ void Run::UpdateWorldTerrainBounds()
 
 bool Run::AdvanceScene()
 {
-    SceneController& runtime = m_sceneController;
     const bool preserveInteractiveUI = SceneState().isInteractiveRun;
-
-    // For perf tests with 2 passes, the second pass re-runs the same scene
-    if ( m_diagnostics.PerfLog().isPerfTest && sPerfPass == 0 )
-    {
-        sPerfPass = 1;
-        LoadScene( runtime.CurrentIndex(), preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
-        return true;
-    }
-
-    sPerfPass = 0;
-
-    const int nextIndex = runtime.NextIndex();
-    if ( !runtime.HasEntry( nextIndex ) )
-    {
-        return false;
-    }
-
-    LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI );
-    return true;
+    return m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                            sPerfPass,
+                                            preserveInteractiveUI );
 }

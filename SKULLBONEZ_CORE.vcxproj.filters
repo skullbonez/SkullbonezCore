@@ -104,6 +104,21 @@
     <Filter Include="Header Files\Runtime\Replay">
       <UniqueIdentifier>{1C1A6BBE-6900-B61D-300B-0B1F40D267C3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Tools">
+      <UniqueIdentifier>{776E5B97-F9D8-4E8D-A30E-2D9DD4D1E9B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Tools">
+      <UniqueIdentifier>{6235A5A7-2210-4586-B9C4-8635E2A1BB0A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Diagnostics">
+      <UniqueIdentifier>{1022D32A-48D7-48D8-822B-81E3F17F4BEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Diagnostics">
+      <UniqueIdentifier>{A55B726A-B5C3-408A-A364-7C84BEDE0B82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Render">
+      <UniqueIdentifier>{34E24A5B-6F8A-46D1-B470-8E15931C4243}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{60EB4C01-8FF8-4911-AD94-AA50E1EFAD02}</UniqueIdentifier>
     </Filter>
@@ -166,6 +181,9 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
@@ -178,10 +196,19 @@
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp">
@@ -195,6 +222,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp">
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -297,6 +330,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -514,6 +550,9 @@
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -575,10 +614,19 @@
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
@@ -656,11 +704,23 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunInternal.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunReplayProbeState.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RunState.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
       <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
       <Filter>Header Files\Runtime</Filter>
@@ -668,13 +728,37 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderResources.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
       <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h">
@@ -689,11 +773,17 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
       <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h">
       <Filter>Header Files\Runtime</Filter>
@@ -912,6 +1002,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UITabSky.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h">

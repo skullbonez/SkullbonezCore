@@ -84,8 +84,11 @@ PHYSICS_PREFIXES = (
     "ConvexHullShape",
     "ObjectContactManifold",
     "PersistentContactSolver",
+    "PhysicsApi",
     "PhysicsBodyStore",
     "PhysicsDiagnosticsSink",
+    "PhysicsEngine",
+    "PhysicsHandles",
     "PhysicsMass",
     "Ragdoll",
     "PhysicsScene",
@@ -166,10 +169,13 @@ RUNTIME_PREFIXES = (
     "RunInternal",
     "RunLiveStyle",
     "RunPasses",
+    "RunReplayProbeState",
     "RunRender",
+    "RunState",
     "RunStress",
     "RunUiTextPass",
     "RuntimeCommandQueue",
+    "RuntimeCameraMode",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
     "RuntimeInteractionController",
@@ -182,15 +188,27 @@ RUNTIME_PREFIXES = (
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
     "SceneController",
+    "SceneAuthoredSetup",
+    "SceneGeneratedSetup",
     "SceneRuntime",
+    "SceneRuntimeCoordinator",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayRecorder",
+    "ReplayRuntime",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "RunReplayTools",
+)
+
+RUNTIME_RENDER_PREFIXES = (
+    "RuntimeRenderHost",
+    "RuntimeRenderInputs",
+    "RuntimeRenderPasses",
+    "RuntimeRenderResources",
+    "RuntimeRenderer",
 )
 
 RUNTIME_EDITOR_PREFIXES = (
@@ -199,6 +217,14 @@ RUNTIME_EDITOR_PREFIXES = (
     "LauncherLaser",
     "LauncherTools",
     "RunEditorTools",
+)
+
+RUNTIME_TOOLS_PREFIXES = (
+    "RuntimeTools",
+)
+
+RUNTIME_DIAGNOSTICS_PREFIXES = (
+    "DiagnosticsRuntime",
 )
 
 CORE_PREFIXES = (
@@ -219,7 +245,10 @@ AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
+    ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
+    ("Runtime\\Tools", RUNTIME_TOOLS_PREFIXES),
+    ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("Physics", PHYSICS_PREFIXES),

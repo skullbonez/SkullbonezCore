@@ -26,13 +26,13 @@ Invariants:
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-void Run::UiTextPass::EnsureGpuResources()
+void UiTextPass::EnsureGpuResources()
 {
     Text2d::BuildFont( "Verdana" );
 }
 
 
-void Run::UiTextPass::ReleaseGpuResources()
+void UiTextPass::ReleaseGpuResources()
 {
     Text2d::DeleteFont();
 }
@@ -51,7 +51,7 @@ void Run::RenderReplayScrubberOverlay()
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
     const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     if ( screenW <= 0 || screenH <= 0 ||
          ( !loadedPresentation && ( !solverReplayStats.enabled || solverReplayStats.sampleCount < 2 ) ) )
     {
@@ -59,9 +59,10 @@ void Run::RenderReplayScrubberOverlay()
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const float t = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, activeTrack ), 0.0f, 1.0f );
+    const float t = std::clamp( ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), activeTrack ), 0.0f, 1.0f );
     const float solverPresentT =
-        loadedPresentation ? 1.0f : ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayPrediction );
+        loadedPresentation ? 1.0f
+                           : ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() );
     const bool futureTimelineVisible = !loadedPresentation && ReplayScrubberTimelineHasFuture( solverPresentT );
     const bool futureSelected = !loadedPresentation && ReplayScrubberTrackPositionIsFuture( t, solverPresentT );
     const float solverSampleT = ReplayScrubberSolverNormalizedFromTrack( t, solverPresentT );
@@ -69,9 +70,10 @@ void Run::RenderReplayScrubberOverlay()
         loadedPresentation ? LoadedReplayPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
         loadedPresentation ? LoadedReplayPresentationLatestSample() : nullptr;
-    const ReplaySolverFrameSample* selected =
-        ( loadedPresentation || futureSelected ) ? nullptr : m_solverReplay.SampleAtNormalized( solverSampleT );
-    const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : m_solverReplay.LatestSample();
+    const ReplaySolverFrameSample* selected = ( loadedPresentation || futureSelected )
+                                                  ? nullptr
+                                                  : m_replayRuntime.Solver().SampleAtNormalized( solverSampleT );
+    const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : m_replayRuntime.Solver().LatestSample();
     const RunReplayPredictionFrame* selectedPrediction = futureSelected ? CurrentReplayPredictionScrubFrame() : nullptr;
     const double selectedSeconds = selected ? selected->simulationSeconds : 0.0;
     const double latestSeconds = latest ? latest->simulationSeconds : 0.0;
@@ -99,7 +101,7 @@ void Run::RenderReplayScrubberOverlay()
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
     }
-    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayScrubber.paused )
+    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayRuntime.Scrubber().paused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
     }
@@ -110,13 +112,13 @@ void Run::RenderReplayScrubberOverlay()
 
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const bool live =
-        !loadedPresentation && ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) && !m_replayScrubber.paused;
+    const bool live = !loadedPresentation && ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) &&
+                      !m_replayRuntime.Scrubber().paused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
     const bool branchEnabled =
-        m_replayScrubber.paused && ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
-                                     ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
+        m_replayRuntime.Scrubber().paused && ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
+                                               ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
     draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, sourceLabel );
@@ -131,7 +133,7 @@ void Run::RenderReplayScrubberOverlay()
 
     {
         const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
-        const bool branchHover = branchEnabled && m_replayScrubber.branchHovered;
+        const bool branchHover = branchEnabled && m_replayRuntime.Scrubber().branchHovered;
         draw.RoundedRect( branchButton.x,
                           branchButton.y,
                           branchButton.w,
@@ -161,8 +163,8 @@ void Run::RenderReplayScrubberOverlay()
     if ( !loadedPresentation )
     {
         const UI::UIRect pauseButton = ReplayScrubberPauseButtonRect( screenW, screenH );
-        const bool simulationPaused = m_replayScrubber.simulationPaused;
-        const bool pauseHover = m_replayScrubber.pauseHovered;
+        const bool simulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+        const bool pauseHover = m_replayRuntime.Scrubber().pauseHovered;
         draw.RoundedRect( pauseButton.x,
                           pauseButton.y,
                           pauseButton.w,
@@ -191,8 +193,8 @@ void Run::RenderReplayScrubberOverlay()
         {
             PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
             const UI::UIRect velocityEdit = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
-            const bool velocityEditEnabled = m_replayVelocityEdit.enabled;
-            const bool velocityEditHover = m_replayVelocityEdit.toggleHovered;
+            const bool velocityEditEnabled = m_replayRuntime.VelocityEdit().enabled;
+            const bool velocityEditHover = m_replayRuntime.VelocityEdit().toggleHovered;
             draw.RoundedRect( velocityEdit.x,
                               velocityEdit.y,
                               velocityEdit.w,
@@ -239,16 +241,19 @@ void Run::RenderReplayScrubberOverlay()
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
         const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
         const UI::UIRect loadButton = ReplayScrubberLoadButtonRect( screenW, screenH, trackName );
-        const float rowT = std::clamp( ReplayScrubberTrackPosition( m_replayScrubber, trackName ), 0.0f, 1.0f );
+        const float rowT =
+            std::clamp( ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), trackName ), 0.0f, 1.0f );
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;
-        const bool inactiveDuringScrub = ( m_replayScrubber.dragging || m_replayScrubber.paused ) && !active;
-        const bool saveHover =
-            saveEnabled && m_replayScrubber.saveHovered && m_replayScrubber.saveHoveredTrack == trackName;
-        const bool saveFeedback = m_replayScrubber.saveMessage[0] != '\0' && m_replayScrubber.saveMessageUntil >= now;
-        const bool saveFailed = saveFeedback && strstr( m_replayScrubber.saveMessage, "FAILED" ) != nullptr;
-        const bool loadHover = m_replayScrubber.loadHovered;
+        const bool inactiveDuringScrub =
+            ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ) && !active;
+        const bool saveHover = saveEnabled && m_replayRuntime.Scrubber().saveHovered &&
+                               m_replayRuntime.Scrubber().saveHoveredTrack == trackName;
+        const bool saveFeedback =
+            m_replayRuntime.Scrubber().saveMessage[0] != '\0' && m_replayRuntime.Scrubber().saveMessageUntil >= now;
+        const bool saveFailed = saveFeedback && strstr( m_replayRuntime.Scrubber().saveMessage, "FAILED" ) != nullptr;
+        const bool loadHover = m_replayRuntime.Scrubber().loadHovered;
         const float saveR = saveFeedback ? ( saveFailed ? 0.48f : 0.13f ) : ( saveHover ? 0.20f : 0.09f );
         const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
         const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
@@ -372,11 +377,13 @@ void Run::RenderReplayScrubberOverlay()
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
-    const bool predictHover = m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging;
-    const bool predictEnabled = m_replayPrediction.enabled;
-    const bool ragdollVisualsEnabled = m_replayPrediction.ragdollVisualsEnabled;
-    const float predictSeconds =
-        std::clamp( m_replayPrediction.horizonSeconds, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
+    const bool predictHover =
+        m_replayRuntime.Prediction().horizonHovered || m_replayRuntime.Prediction().horizonDragging;
+    const bool predictEnabled = m_replayRuntime.Prediction().enabled;
+    const bool ragdollVisualsEnabled = m_replayRuntime.Prediction().ragdollVisualsEnabled;
+    const float predictSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
+                                             REPLAY_PREDICTION_MIN_SECONDS,
+                                             REPLAY_PREDICTION_MAX_SECONDS );
     const float predictBackR = predictEnabled ? 0.08f : 0.055f;
     const float predictBackG = predictEnabled ? 0.24f : 0.08f;
     const float predictBackB = predictEnabled ? 0.16f : 0.105f;
@@ -385,9 +392,9 @@ void Run::RenderReplayScrubberOverlay()
                       predictToggle.w,
                       predictToggle.h,
                       4.0f,
-                      predictBackR + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
-                      predictBackG + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
-                      predictBackB + ( m_replayPrediction.checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackR + ( m_replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackG + ( m_replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
+                      predictBackB + ( m_replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
                       0.88f );
     draw.Outline( predictToggle.x,
                   predictToggle.y,
@@ -396,7 +403,7 @@ void Run::RenderReplayScrubberOverlay()
                   0.62f,
                   0.86f,
                   0.78f,
-                  m_replayPrediction.checkboxHovered || predictEnabled ? 0.72f : 0.34f );
+                  m_replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f );
     const float checkX = predictToggle.x + 7.0f;
     const float checkY = predictToggle.y + 5.0f;
     draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
@@ -453,15 +460,16 @@ void Run::RenderReplayScrubberOverlay()
                       0.95f,
                       0.62f,
                       predictEnabled ? 0.86f : 0.48f );
-    draw.RoundedRect( horizonKnobX - 4.0f,
-                      predictHorizon.y - 3.0f,
-                      8.0f,
-                      14.0f,
-                      3.0f,
-                      predictEnabled ? 0.88f : 0.56f,
-                      predictEnabled ? 1.0f : 0.62f,
-                      predictEnabled ? 0.82f : 0.64f,
-                      m_replayPrediction.horizonHovered || m_replayPrediction.horizonDragging ? 0.98f : 0.86f );
+    draw.RoundedRect(
+        horizonKnobX - 4.0f,
+        predictHorizon.y - 3.0f,
+        8.0f,
+        14.0f,
+        3.0f,
+        predictEnabled ? 0.88f : 0.56f,
+        predictEnabled ? 1.0f : 0.62f,
+        predictEnabled ? 0.82f : 0.64f,
+        m_replayRuntime.Prediction().horizonHovered || m_replayRuntime.Prediction().horizonDragging ? 0.98f : 0.86f );
     draw.Text( predictHorizon.x + predictHorizon.w + 8.0f,
                predict.y + 4.5f,
                8.5f,
@@ -486,7 +494,7 @@ void Run::RenderReplayScrubberOverlay()
                   0.56f,
                   0.76f,
                   0.92f,
-                  m_replayPrediction.ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f );
+                  m_replayRuntime.Prediction().ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f );
     const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
     const float ragdollCheckY = ragdollVisualToggle.y + 5.0f;
     draw.Outline( ragdollCheckX, ragdollCheckY, 10.0f, 10.0f, 0.72f, 0.86f, 0.98f, 0.82f );
@@ -517,11 +525,11 @@ void Run::RenderReplayCauseTreeOverlay()
         return;
     }
 
-    EnsureReplayCauseWindowPlacement( m_replayCauseTree, screenW, screenH );
-    const UI::UIRect panel = ReplayCauseWindowRect( m_replayCauseTree );
-    const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayCauseTree );
-    const UI::UIRect content = ReplayCauseWindowContentRect( m_replayCauseTree );
-    const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayCauseTree );
+    EnsureReplayCauseWindowPlacement( m_replayRuntime.CauseTree(), screenW, screenH );
+    const UI::UIRect panel = ReplayCauseWindowRect( m_replayRuntime.CauseTree() );
+    const UI::UIRect title = ReplayCauseWindowTitleRect( m_replayRuntime.CauseTree() );
+    const UI::UIRect content = ReplayCauseWindowContentRect( m_replayRuntime.CauseTree() );
+    const UI::UIRect resize = ReplayCauseWindowResizeRect( m_replayRuntime.CauseTree() );
 
     const UI::UIDrawContext draw( screenW, screenH );
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 7.0f, 0.014f, 0.018f, 0.024f, 0.88f );
@@ -530,7 +538,8 @@ void Run::RenderReplayCauseTreeOverlay()
     draw.Text( panel.x + 12.0f, panel.y + 10.0f, 13.5f, 0.82f, 0.94f, 1.0f, "REPLAY CAMERA" );
     draw.Text( panel.x + 136.0f, panel.y + 12.0f, 11.0f, 0.58f, 0.70f, 0.78f, "CAUSE" );
 
-    const bool predictionRows = !m_replayCauseTree.rows.empty() && m_replayCauseTree.rows.front().prediction;
+    const bool predictionRows =
+        !m_replayRuntime.CauseTree().rows.empty() && m_replayRuntime.CauseTree().rows.front().prediction;
     const char* sourceLabel = predictionRows ? "PREDICT" : "REPLAY";
     const float sourceW = Text2d::MeasureText( 9.5f, sourceLabel );
     draw.RoundedRect( panel.x + panel.w - sourceW - 26.0f,
@@ -582,14 +591,15 @@ void Run::RenderReplayCauseTreeOverlay()
     };
 
     const float rowAreaW = content.w - 12.0f;
-    const int firstRow =
-        (std::max)( 0, static_cast<int>( floorf( m_replayCauseTree.scrollY / REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
-    const int rowCount = static_cast<int>( m_replayCauseTree.rows.size() );
+    const int firstRow = (std::max)( 0,
+                                     static_cast<int>( floorf( m_replayRuntime.CauseTree().scrollY /
+                                                               REPLAY_CAUSE_WINDOW_ROW_HEIGHT ) ) );
+    const int rowCount = static_cast<int>( m_replayRuntime.CauseTree().rows.size() );
     for ( int rowIndex = firstRow; rowIndex < rowCount; ++rowIndex )
     {
-        const RunReplayCauseTreeRow& row = m_replayCauseTree.rows[static_cast<std::size_t>( rowIndex )];
-        const float rowY =
-            content.y + static_cast<float>( rowIndex ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT - m_replayCauseTree.scrollY;
+        const RunReplayCauseTreeRow& row = m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )];
+        const float rowY = content.y + static_cast<float>( rowIndex ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT -
+                           m_replayRuntime.CauseTree().scrollY;
         if ( rowY + REPLAY_CAUSE_WINDOW_ROW_HEIGHT < content.y )
         {
             continue;
@@ -600,8 +610,8 @@ void Run::RenderReplayCauseTreeOverlay()
         }
 
         const UI::UIRect rowRect = { content.x + 2.0f, rowY, rowAreaW, REPLAY_CAUSE_WINDOW_ROW_HEIGHT - 2.0f };
-        const bool hovered = rowIndex == m_replayCauseTree.hoveredRow;
-        const bool selected = rowIndex == m_replayCauseTree.selectedRow;
+        const bool hovered = rowIndex == m_replayRuntime.CauseTree().hoveredRow;
+        const bool selected = rowIndex == m_replayRuntime.CauseTree().selectedRow;
         if ( hovered || selected )
         {
             draw.RoundedRect( rowRect.x,
@@ -703,14 +713,15 @@ void Run::RenderReplayCauseTreeOverlay()
         }
     }
 
-    const float maxScroll = ReplayCauseWindowMaxScroll( m_replayCauseTree );
+    const float maxScroll = ReplayCauseWindowMaxScroll( m_replayRuntime.CauseTree() );
     if ( maxScroll > 0.0f )
     {
         const float trackX = content.x + content.w - 5.0f;
         draw.Rect( trackX, content.y + 3.0f, 3.0f, content.h - 6.0f, 0.16f, 0.22f, 0.28f, 0.72f );
-        const float contentHeight = ReplayCauseWindowContentHeight( m_replayCauseTree );
+        const float contentHeight = ReplayCauseWindowContentHeight( m_replayRuntime.CauseTree() );
         const float knobH = (std::max)( 24.0f, ( content.h / contentHeight ) * ( content.h - 6.0f ) );
-        const float knobY = content.y + 3.0f + ( m_replayCauseTree.scrollY / maxScroll ) * ( content.h - 6.0f - knobH );
+        const float knobY =
+            content.y + 3.0f + ( m_replayRuntime.CauseTree().scrollY / maxScroll ) * ( content.h - 6.0f - knobH );
         draw.RoundedRect( trackX - 1.0f, knobY, 5.0f, knobH, 2.0f, 0.42f, 0.60f, 0.68f, 0.78f );
     }
 
@@ -722,57 +733,58 @@ void Run::RenderReplayCauseTreeOverlay()
 }
 
 
-bool Run::UiTextPass::ShouldRender() const
+bool UiTextPass::ShouldRender() const
 {
-    return m_run.m_debug.isTextOnly || !m_run.SceneState().isSceneMode || m_run.SceneState().isSceneText ||
-           m_run.m_debug.overlayMode != OverlayMode::None || m_run.m_UI.IsVisible() ||
-           m_run.ShouldRenderReplayScrubber() || m_run.m_replayPathVisualizer.hasTarget;
+    return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
+           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
+           m_host.ShouldRenderReplayScrubber() || m_host.m_replayPathVisualizer.hasTarget;
 }
 
 
-void Run::UiTextPass::Render( double dSecondsPerFrame )
+void UiTextPass::Render( double dSecondsPerFrame )
 {
     const int uiPassDrawCallStart = Gfx().GetFrameDrawCallCount();
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
-    m_run.m_timers.updateTimer.StopTimer();
-    m_run.m_timers.timeSinceLastRender += static_cast<float>( m_run.m_timers.updateTimer.GetElapsedTime() );
-    m_run.m_timers.updateTimer.StartTimer();
+    m_host.m_timers.updateTimer.StopTimer();
+    m_host.m_timers.timeSinceLastRender += static_cast<float>( m_host.m_timers.updateTimer.GetElapsedTime() );
+    m_host.m_timers.updateTimer.StartTimer();
 
-    const double currentSceneEnergy = m_run.m_cGameModelCollection.GetSceneKineticEnergy();
-    m_run.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
-    ++m_run.m_timers.sceneEnergySampleCount;
+    const double currentSceneEnergy = m_host.m_cGameModelCollection.GetSceneKineticEnergy();
+    m_host.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++m_host.m_timers.sceneEnergySampleCount;
 
-    if ( m_run.m_timers.timeSinceLastRender > 0.5f )
+    if ( m_host.m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
         {
-            m_run.m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
-            m_run.m_timers.rollingPhysicsTime = m_run.m_timers.physicsTime;
-            m_run.m_timers.rollingRenderTime = m_run.m_timers.renderTime;
+            m_host.m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
+            m_host.m_timers.rollingPhysicsTime = m_host.m_timers.physicsTime;
+            m_host.m_timers.rollingRenderTime = m_host.m_timers.renderTime;
         }
-        if ( m_run.m_timers.sceneEnergySampleCount > 0 )
+        if ( m_host.m_timers.sceneEnergySampleCount > 0 )
         {
-            m_run.m_timers.rollingSceneEnergy = static_cast<float>(
-                m_run.m_timers.sceneEnergyAccumulator / static_cast<double>( m_run.m_timers.sceneEnergySampleCount ) );
-            m_run.m_timers.sceneEnergyAccumulator = 0.0;
-            m_run.m_timers.sceneEnergySampleCount = 0;
+            m_host.m_timers.rollingSceneEnergy =
+                static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
+                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
+            m_host.m_timers.sceneEnergyAccumulator = 0.0;
+            m_host.m_timers.sceneEnergySampleCount = 0;
         }
-        m_run.m_timers.timeSinceLastRender = 0.0f;
+        m_host.m_timers.timeSinceLastRender = 0.0f;
     }
 
-    float sceneEnergyForDisplay = m_run.m_timers.rollingSceneEnergy;
-    if ( m_run.m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    float sceneEnergyForDisplay = m_host.m_timers.rollingSceneEnergy;
+    if ( m_host.m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
     {
-        sceneEnergyForDisplay = static_cast<float>( m_run.m_timers.sceneEnergyAccumulator /
-                                                    static_cast<double>( m_run.m_timers.sceneEnergySampleCount ) );
+        sceneEnergyForDisplay = static_cast<float>( m_host.m_timers.sceneEnergyAccumulator /
+                                                    static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
     }
 
     const char* rendererName = Gfx().GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-    if ( m_run.m_debug.isTextOnly )
+    if ( m_host.m_debug.isTextOnly )
     {
         // Dark background covering the full viewport
         Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
@@ -801,7 +813,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-    if ( m_run.IsLauncherCameraMode() )
+    if ( m_host.IsLauncherCameraMode() )
     {
         const float cArm = 0.020f;
         const float cGap = 0.004f;
@@ -816,16 +828,16 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
         const char* fireModeLabel =
-            m_run.m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
+            m_host.m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
 #ifdef _DEBUG
-        if ( m_run.m_debug.reproSnapshotMessage[0] != '\0' &&
-             m_run.m_timers.simulationTimer.GetTimeSinceLastStart() <= m_run.m_debug.reproSnapshotMessageUntil )
+        if ( m_host.m_debug.reproSnapshotMessage[0] != '\0' &&
+             m_host.m_timers.simulationTimer.GetTimeSinceLastStart() <= m_host.m_debug.reproSnapshotMessageUntil )
         {
             const float msgSz = 0.014f;
-            float msgW = Text2d::MeasureText( msgSz, m_run.m_debug.reproSnapshotMessage );
+            float msgW = Text2d::MeasureText( msgSz, m_host.m_debug.reproSnapshotMessage );
             Text2d::Render2dTextColor( -msgW * 0.5f,
                                        -0.065f,
                                        msgSz,
@@ -833,80 +845,80 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                                        0.92f,
                                        1.0f,
                                        "%s",
-                                       m_run.m_debug.reproSnapshotMessage );
+                                       m_host.m_debug.reproSnapshotMessage );
         }
 #endif
     }
 
-    m_run.RefreshRuntimeViewModel();
-    const RuntimeViewModel& view = m_run.m_runtimeViewModel;
+    m_host.RefreshRuntimeViewModel();
+    const RuntimeViewModel& view = m_host.m_runtimeViewModel;
 
     const char* sceneName = "";
-    if ( view.sceneMode && m_run.m_sceneController.HasCurrentEntry() )
+    if ( view.sceneMode && m_host.m_sceneController.HasCurrentEntry() )
     {
-        sceneName = FileNameFromPath( m_run.m_sceneController.CurrentPath()->c_str() );
+        sceneName = FileNameFromPath( m_host.m_sceneController.CurrentPath()->c_str() );
     }
 
-    if ( m_run.m_UI.IsVisible() )
+    if ( m_host.m_UI.IsVisible() )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
-        UIData.screenW = m_run.WindowScreenWidth();
-        UIData.screenH = m_run.WindowScreenHeight();
-        if ( m_run.m_debug.isUITestPattern )
+        UIData.screenW = m_host.WindowScreenWidth();
+        UIData.screenH = m_host.WindowScreenHeight();
+        if ( m_host.m_debug.isUITestPattern )
         {
             DrawUITestPattern( UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
-        UIData.sceneOptions = m_run.m_sceneBrowserNamePtrs.empty() ? nullptr : m_run.m_sceneBrowserNamePtrs.data();
-        UIData.sceneOptionCount = static_cast<int>( m_run.m_sceneBrowserNamePtrs.size() );
-        UIData.selectedSceneOption = m_run.CurrentSceneBrowserIndex();
-        UIData.selectedCineModeSceneOption = m_run.m_selectedCineModeSceneIndex;
-        UIData.UIDrawCalls = m_run.m_timers.lastUIDrawCalls;
-        UIData.fps = m_run.m_timers.rollingFpsTime > 0.0f
-                         ? m_run.m_timers.rollingFpsTime
+        UIData.sceneOptions = m_host.m_sceneBrowser.namePtrs.empty() ? nullptr : m_host.m_sceneBrowser.namePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_host.m_sceneBrowser.namePtrs.size() );
+        UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
+        UIData.selectedCineModeSceneOption = m_host.m_sceneBrowser.selectedCineModeSceneIndex;
+        UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
+        UIData.fps = m_host.m_timers.rollingFpsTime > 0.0f
+                         ? m_host.m_timers.rollingFpsTime
                          : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
-        UIData.renderMs =
-            ( m_run.m_timers.rollingRenderTime > 0.0f ? m_run.m_timers.rollingRenderTime : m_run.m_timers.renderTime ) *
-            1000.0f;
-        UIData.physicsMs = ( m_run.m_timers.rollingPhysicsTime > 0.0f ? m_run.m_timers.rollingPhysicsTime
-                                                                      : m_run.m_timers.physicsTime ) *
+        UIData.renderMs = ( m_host.m_timers.rollingRenderTime > 0.0f ? m_host.m_timers.rollingRenderTime
+                                                                     : m_host.m_timers.renderTime ) *
+                          1000.0f;
+        UIData.physicsMs = ( m_host.m_timers.rollingPhysicsTime > 0.0f ? m_host.m_timers.rollingPhysicsTime
+                                                                       : m_host.m_timers.physicsTime ) *
                            1000.0f;
-        UIData.cpuFrameMs = m_run.m_timers.cpuFrameWorkMs;
-        UIData.gpuFrameMs = m_run.m_timers.gpuFrameWorkMs;
+        UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
-        UIData.rngSeed = m_run.SceneState().rngSeed;
-        UIData.solverBallCount = m_run.SceneState().solverBallCount;
-        UIData.solverBoxCount = m_run.SceneState().solverBoxCount;
+        UIData.rngSeed = m_host.SceneState().rngSeed;
+        UIData.solverBallCount = m_host.SceneState().solverBallCount;
+        UIData.solverBoxCount = m_host.SceneState().solverBoxCount;
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
-        UIData.now = m_run.m_timers.simulationTimer.GetTotalTime();
+        UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
         UIData.sceneTextEnabled = view.sceneText;
-        UIData.textOnly = m_run.m_debug.isTextOnly;
+        UIData.textOnly = m_host.m_debug.isTextOnly;
         UIData.fixedStep = view.fixedStep;
-        UIData.exitOnComplete = m_run.SceneState().isExitOnComplete;
-        UIData.testComplete = m_run.SceneState().isTestComplete;
-        UIData.vsyncEnabled = m_run.m_runtimeSettings.isVsyncEnabled;
-        UIData.pipelineSyncEnabled = m_run.m_runtimeSettings.isPipelineSyncEnabled;
+        UIData.exitOnComplete = m_host.SceneState().isExitOnComplete;
+        UIData.testComplete = m_host.SceneState().isTestComplete;
+        UIData.vsyncEnabled = m_host.m_runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = m_host.m_runtimeSettings.isPipelineSyncEnabled;
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
-        UIData.trackHeight = m_run.m_camera.trackBallIndex >= 0 ? m_run.m_camera.trackHeight : 0.0f;
-        UIData.autoCycleInterval = m_run.m_camera.autoCycleInterval > 0.0f ? m_run.m_camera.autoCycleInterval : 0.0f;
-        UIData.worldGravity = m_run.m_cWorldEnvironment.GetGravity();
-        UIData.worldFluidHeight = m_run.m_cWorldEnvironment.GetFluidSurfaceHeight();
-        UIData.worldFluidDensity = m_run.m_cWorldEnvironment.GetFluidDensity();
-        UIData.physicsDebugFlags = m_run.m_debug.physicsDebugFlags;
+        UIData.trackHeight = m_host.m_camera.trackBallIndex >= 0 ? m_host.m_camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = m_host.m_camera.autoCycleInterval > 0.0f ? m_host.m_camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = m_host.m_cWorldEnvironment.GetGravity();
+        UIData.worldFluidHeight = m_host.m_cWorldEnvironment.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = m_host.m_cWorldEnvironment.GetFluidDensity();
+        UIData.physicsDebugFlags = m_host.m_debug.physicsDebugFlags;
         {
             const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
-            int stageIndex = stageCount > 0 ? m_run.m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            int stageIndex = stageCount > 0 ? m_host.m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
             if ( stageIndex < 0 )
             {
                 stageIndex += stageCount;
@@ -916,50 +928,50 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
             UIData.physicsPipelineStageIndex = stageIndex;
             UIData.physicsPipelineStageCount = stageCount;
         }
-        UIData.physicsDebugAlpha = m_run.m_debug.physicsDebugAlpha;
-        UIData.physicsDebugContactLinger = m_run.m_debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = m_run.m_runtimeSettings.isPhysicsSleepEnabled;
-        UIData.collisionVisualizer = m_run.m_debug.isCollisionVisualizer;
-        UIData.physicsDebugTransparent = m_run.m_debug.isPhysicsDebugTransparent;
-        UIData.broadphaseOverlay = m_run.m_debug.isBroadphaseOverlay;
-        UIData.tornadoEnabled = m_run.m_runtimeSettings.tornadoField.enabled;
+        UIData.physicsDebugAlpha = m_host.m_debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = m_host.m_debug.physicsDebugContactLinger;
+        UIData.physicsSleepEnabled = m_host.m_runtimeSettings.isPhysicsSleepEnabled;
+        UIData.collisionVisualizer = m_host.m_debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = m_host.m_debug.isPhysicsDebugTransparent;
+        UIData.broadphaseOverlay = m_host.m_debug.isBroadphaseOverlay;
+        UIData.tornadoEnabled = m_host.m_runtimeSettings.tornadoField.enabled;
         UIData.tornadoVisualShell =
-            m_run.m_runtimeSettings.tornadoVisual.enabled && m_run.m_runtimeSettings.tornadoField.enabled;
-        UIData.tornadoFieldVectors = m_run.m_runtimeSettings.tornadoField.visualizeVelocityField;
-        UIData.tornadoRadius = m_run.m_runtimeSettings.tornadoField.radius;
-        UIData.tornadoHeight = m_run.m_runtimeSettings.tornadoField.height;
-        UIData.tornadoInwardAcceleration = m_run.m_runtimeSettings.tornadoField.inwardAcceleration;
-        UIData.tornadoSwirlAcceleration = m_run.m_runtimeSettings.tornadoField.swirlAcceleration;
-        UIData.tornadoLiftAcceleration = m_run.m_runtimeSettings.tornadoField.liftAcceleration;
-        UIData.rayCastVisualization = m_run.m_rayCastTest.visualizeRays;
-        UIData.rayCastImpulseStrength = m_run.m_rayCastTest.impulseStrength;
-        UIData.launcherProjectileSpeed = m_run.m_rayCastTest.projectileSpeed;
-        UIData.waterFreezeDebug = m_run.m_debug.isWaterFreezeDebug;
-        UIData.waterFlatDebug = m_run.m_debug.isWaterFlatDebug;
-        UIData.terrainHidden = m_run.m_debug.isTerrainHidden;
-        UIData.waterHidden = m_run.m_debug.isWaterHidden;
-        UIData.waterNoReflect = m_run.m_debug.isWaterNoReflect;
-        UIData.waterRTReflect = m_run.m_debug.isWaterRTReflect;
-        const RuntimeInputMode runtimeInputMode = m_run.m_runtimeInput.CurrentMode();
-        UIData.cameraModeIndex = static_cast<int>( m_run.m_camera.mode );
-        UIData.cameraModeEnabledMask = m_run.CameraModeEnabledMask();
-        UIData.runtimeInputModeLabel = m_run.CameraModeLabel( m_run.m_camera.mode );
+            m_host.m_runtimeSettings.tornadoVisual.enabled && m_host.m_runtimeSettings.tornadoField.enabled;
+        UIData.tornadoFieldVectors = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField;
+        UIData.tornadoRadius = m_host.m_runtimeSettings.tornadoField.radius;
+        UIData.tornadoHeight = m_host.m_runtimeSettings.tornadoField.height;
+        UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
+        UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
+        UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
+        UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
+        UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
+        UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
+        UIData.waterFreezeDebug = m_host.m_debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = m_host.m_debug.isWaterFlatDebug;
+        UIData.terrainHidden = m_host.m_debug.isTerrainHidden;
+        UIData.waterHidden = m_host.m_debug.isWaterHidden;
+        UIData.waterNoReflect = m_host.m_debug.isWaterNoReflect;
+        UIData.waterRTReflect = m_host.m_debug.isWaterRTReflect;
+        const RuntimeInputMode runtimeInputMode = m_host.m_runtimeInput.CurrentMode();
+        UIData.cameraModeIndex = static_cast<int>( m_host.m_camera.mode );
+        UIData.cameraModeEnabledMask = m_host.CameraModeEnabledMask();
+        UIData.runtimeInputModeLabel = m_host.CameraModeLabel( m_host.m_camera.mode );
         UIData.cameraMouseActive =
             ( runtimeInputMode == RuntimeInputMode::FlyCamera || runtimeInputMode == RuntimeInputMode::Launcher ||
               runtimeInputMode == RuntimeInputMode::EditorViewportLook ) &&
-            !m_run.m_UI.BlocksCameraMouse();
+            !m_host.m_UI.BlocksCameraMouse();
         UIData.nativeCursorVisible = !UIData.cameraMouseActive;
-        UIData.editorModeEnabled = m_run.m_editor.editorModeEnabled;
-        UIData.editorPlacementMode = m_run.m_editor.placementModeEnabled;
-        UIData.editorPlaceStatic = m_run.m_editor.placeStaticObject;
-        UIData.editorTerrainAlign = m_run.m_editor.autoTerrainAlign;
-        UIData.editorViewportLookActive = m_run.m_editor.viewportLookActive;
-        UIData.editorObjectType = m_run.m_editor.objectType;
-        UIData.canSaveSceneDefaults = view.sceneMode && m_run.m_sceneController.HasCurrentEntry() &&
-                                      !m_run.m_sceneController.CurrentPath()->empty();
-        UIData.cinematicRendering = m_run.IsCinematicRenderingEnabled();
+        UIData.editorModeEnabled = m_host.m_editor.editorModeEnabled;
+        UIData.editorPlacementMode = m_host.m_editor.placementModeEnabled;
+        UIData.editorPlaceStatic = m_host.m_editor.placeStaticObject;
+        UIData.editorTerrainAlign = m_host.m_editor.autoTerrainAlign;
+        UIData.editorViewportLookActive = m_host.m_editor.viewportLookActive;
+        UIData.editorObjectType = m_host.m_editor.objectType;
+        UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
+                                      !m_host.m_sceneController.CurrentPath()->empty();
+        UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
         UIData.ordinaryRender = Cfg().ordinaryRender;
-        UIData.cinematic = m_run.ActiveCinematicConfig();
+        UIData.cinematic = m_host.ActiveCinematicConfig();
         {
             auto addPreview = [&]( const char* label,
                                    uint32_t textureHandle,
@@ -1003,7 +1015,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                             hdr );
             };
 
-            const RunRenderPassResources& passes = m_run.m_systems.renderPasses;
+            const RunRenderPassResources& passes = m_host.m_systems.renderPasses;
             const bool shadowsAvailable =
                 UIData.cinematicRendering ? UIData.cinematic.shadowsEnabled : UIData.ordinaryRender.shadowsEnabled;
             const bool cinematicTargetsAvailable = UIData.cinematicRendering;
@@ -1043,8 +1055,8 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
             const uint32_t dxrReflection = IsGfxReady() ? Gfx().GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
-                        m_run.WindowScreenWidth() * 2,
-                        m_run.WindowScreenHeight() * 2,
+                        m_host.WindowScreenWidth() * 2,
+                        m_host.WindowScreenHeight() * 2,
                         UIData.waterRTReflect && !UIData.waterNoReflect,
                         false,
                         false );
@@ -1058,21 +1070,21 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_run.m_UI.Draw( UIData );
+        m_host.m_UI.Draw( UIData );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        m_run.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         return;
     }
 
     // --- Overlay: None ---
-    if ( m_run.m_debug.overlayMode == OverlayMode::None )
+    if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_run.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText();
@@ -1081,7 +1093,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
     }
 
     // --- Overlay: Scene telemetry ---
-    if ( m_run.m_debug.overlayMode == OverlayMode::SceneStats )
+    if ( m_host.m_debug.overlayMode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.012f;
@@ -1109,7 +1121,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    0.85f,
                                    "Model Count: %d",
-                                   m_run.SceneState().modelCount );
+                                   m_host.SceneState().modelCount );
         Text2d::Render2dTextColor( panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH * 2.0f,
                                    entrySz,
@@ -1118,7 +1130,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_run.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText();
@@ -1128,8 +1140,8 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
 
     // --- Overlay: Visual profiler bars (normalized or absolute) ---
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( m_run.m_debug.overlayMode == OverlayMode::BarsNormalized ||
-         m_run.m_debug.overlayMode == OverlayMode::BarsAbsolute )
+    if ( m_host.m_debug.overlayMode == OverlayMode::BarsNormalized ||
+         m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute )
     {
         // Panel anchored bottom-left, filling most of the width. Height kept modest - leave vertical
         // space above for future multi-core stacked rows.
@@ -1137,9 +1149,9 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
         const float panH = ( hh - mY ) * 2.0f * 0.22f; // 22% of screen height
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
-        const bool absolute = ( m_run.m_debug.overlayMode == OverlayMode::BarsAbsolute );
+        const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
-        m_run.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText();
@@ -1149,7 +1161,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
 #endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
-    if ( m_run.m_debug.overlayMode == OverlayMode::Keys )
+    if ( m_host.m_debug.overlayMode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
@@ -1227,7 +1239,7 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_run.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText();
@@ -1248,11 +1260,11 @@ void Run::UiTextPass::Render( double dSecondsPerFrame )
                                             -( hh - mY ) - padY,
                                             lineH,
                                             profFSz,
-                                            m_run.m_timers.rollingFpsTime );
+                                            m_host.m_timers.rollingFpsTime );
     }
 #endif
 
-    m_run.RenderReplayScrubberOverlay();
+    m_host.RenderReplayScrubberOverlay();
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText();

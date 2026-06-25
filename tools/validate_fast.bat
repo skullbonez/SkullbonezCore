@@ -24,18 +24,18 @@
 @echo off
 setlocal
 REM ===============================================================
-REM  validate_fast.bat - Quick sanity check: format + project filters + build.
+REM  validate_fast.bat - Quick sanity check: format + metadata + build.
 REM  Use for: small code refactors and non-rendering code edits.
 REM  Runtime: about 30 seconds.
 REM ===============================================================
 
 echo.
 echo ========================================
-echo   VALIDATE_FAST - Format + Project Filters + Build
+echo   VALIDATE_FAST - Format + Metadata + Build
 echo ========================================
 echo.
 
-echo [1/3] Checking formatting...
+echo [1/4] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -43,16 +43,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/3] Checking Visual Studio project filters...
+echo [2/4] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/3] Building Profile x64...
-call "%~dp0validate_build.bat" Profile
+echo [3/4] Checking runtime boundaries...
+call "%~dp0validate_runtime_boundaries.bat"
 if errorlevel 1 exit /b 3
 
-call "%~dp0validate_ready_builds.bat"
+echo [4/4] Building Profile x64...
+call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
+
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 exit /b 5
 
 echo.
 echo ========================================

@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-23rd-june` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime interaction controller is retained on `nightrunner-23rd-june`; the humanoid ragdoll constraints experiment was rolled back after user review. Simple ragdolls now keep fixed part colors, have a small neck swing stop, and explicit wakes spread through sleeping support piles/tree parts. |
-| Active objective | None. `runtime-interaction-controller-plan.md` remains archived; `humanoid-ragdoll-constraints-plan.md` is restored to `Agentic/Plans/` for a future rethink instead of being treated as done. |
-| Pending work | Do not delete legacy replay exporters yet. Runtime input follow-up: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay render-state slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders, live branch provenance, recording configuration, timeline reset, per-step capture, event stamping, replay save/export delegation, and render pose override/restore state while `Run` keeps compatibility accessors for remaining scrub/restore/path/UI slices. |
+| Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
+| Pending work | Runtime run decomposition is active. Phase 5 still needs replay-owned selection/prediction/velocity state extraction and render-facing replay focus/ghost data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime interaction controller slice is covered by `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_full.bat`. Ragdoll rollback is covered by `tools\validate_fast.bat` and `tools\validate_full.bat`; logs are in `TestOutput\agent_logs\2026-06-24_validate_fast_revert_ragdoll_constraints.log` and `TestOutput\agent_logs\2026-06-24_validate_full_revert_ragdoll_constraints.log`. Ragdoll head/color/wake fixes are covered by `tools\validate_physics.bat` and `tools\validate_full.bat`; logs are in `Agentic\Logs\ragdoll_wake_validate_physics.log` and `Agentic\Logs\ragdoll_wake_validate_full_final.log`. |
+| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 render-input plumbing is covered by `tools\validate_fast.bat` and direct `python tools\validate_project_filters.py`; logs are in `Agentic\Logs\runtime_run_phase1_validate_fast.log` and `Agentic\Logs\runtime_run_phase1_validate_project_filters.log`. Phase 2A render pass contract promotion is covered by `tools\validate_fast.bat`, direct `python tools\validate_project_filters.py`, and `tools\validate_dx12_renderer.bat` using the freshly built Profile binary; logs are in `Agentic\Logs\runtime_run_phase2a_validate_fast.log`, `Agentic\Logs\runtime_run_phase2a_validate_project_filters.log`, and `Agentic\Logs\runtime_run_phase2a_validate_dx12_renderer_prebuilt.log`. Phase 2B RuntimeRenderer ownership is covered by `tools\validate_full.bat`; log is in `Agentic\Logs\runtime_run_phase2b_validate_full.log`. Phase 2C render dependency narrowing is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase2c_profile_build.log`, `TestOutput\validation\phase2c_project_filters.log`, `TestOutput\validation\phase2c_validate_format.log`, and `TestOutput\validation\phase2c_validate_full.log`. Phase 3A scene lifecycle decision extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3a_profile_build.log`, `TestOutput\validation\phase3a_project_filters.log`, `TestOutput\validation\phase3a_validate_format.log`, and `TestOutput\validation\phase3a_validate_full.log`. Phase 3B generated scene setup extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3b_profile_build.log`, `TestOutput\validation\phase3b_project_filters.log`, `TestOutput\validation\phase3b_format.log`, `TestOutput\validation\phase3b_validate_fast.log`, and `TestOutput\validation\phase3b_validate_full.log`. Phase 3C authored scene setup extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3c_profile_build.log`, `TestOutput\validation\phase3c_project_filters.log`, `TestOutput\validation\phase3c_format.log`, `TestOutput\validation\phase3c_validate_fast.log`, and `TestOutput\validation\phase3c_validate_full.log`. Phase 4A public physics API scaffolding is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_fast.bat`; logs are in `TestOutput\validation\phase4a_profile_build.log`, `TestOutput\validation\phase4a_project_filters.log`, `TestOutput\validation\phase4a_format.log`, and `TestOutput\validation\phase4a_validate_fast.log`. Phase 4B PhysicsEngine facade introduction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_physics.bat`; logs are in `TestOutput\validation\phase4b_profile_build.log`, `TestOutput\validation\phase4b_project_filters.log`, `TestOutput\validation\phase4b_format.log`, `TestOutput\validation\phase4b_validate_fast.log`, and `TestOutput\validation\phase4b_validate_physics.log`. Phase 4C scene-caller physics command routing is covered by focused `tools\validate_build.bat Profile`, `tools\validate_format.bat`, `tools\validate_physics.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase4c_scene_profile_build.log`, `TestOutput\validation\phase4c_scene_format.log`, `TestOutput\validation\phase4c_scene_validate_physics.log`, and `TestOutput\validation\phase4c_scene_validate_full.log`. Phase 4D collection-boundary cleanup is covered by focused `tools\validate_build.bat Profile`, `tools\validate_format.bat`, `tools\validate_physics.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase4d_collection_friend_profile_build.log`, `TestOutput\validation\phase4d_collection_friend_format.log`, `TestOutput\validation\phase4d_collection_friend_validate_physics.log`, and `TestOutput\validation\phase4d_collection_friend_validate_full.log`. |
 
 ## Active Notes
 
@@ -36,6 +36,258 @@ audits when it is still useful.
   answer or handoff.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md`.
+- Runtime run decomposition Phase 2C removed direct `Run&` ownership from
+  `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
+  still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,
+  timing, world, and model state. Later phases should narrow those services
+  instead of treating the host as a final renderer boundary.
+- Runtime run decomposition Phase 4C now routes authored scene setup and ragdoll
+  joint/sleep commands through `Physics::PhysicsEngine`; ragdoll body creation
+  still uses `GameModelCollection` until model construction itself is lifted out
+  of collection ownership.
+- Runtime run decomposition Phase 4C launcher migration added
+  `PhysicsEngine::ApplyBodyImpulse()` and routes launcher laser/projectile wake
+  operations through the physics facade while preserving collection-backed body
+  storage.
+- Runtime run decomposition Phase 4C editor-tool migration routes mouse-pickup
+  impulses, gizmo motion wakeups, and placement wake/sleep commands through
+  `PhysicsEngine`; editor shape/pose mutation still happens on `GameModel`
+  during this compatibility slice.
+- Runtime run decomposition Phase 4C frame migration routes replay-applied
+  editor transform wakeups and restore-target physics stepping through
+  `PhysicsEngine`, leaving broader replay snapshot ownership for the replay
+  runtime phase.
+- Runtime run decomposition Phase 4C replay migration routes replay sample
+  restore, solver snapshot capture/restore, prediction stepping, velocity-edit
+  wakeups, and prediction diagnostics suppression through `PhysicsEngine`; a
+  dedicated `ReplayRuntime` remains the Phase 5 owner boundary.
+- Runtime run decomposition Phase 4C scene initial impulse migration added
+  `PhysicsEngine::SetPendingBodyImpulse()` and routes authored/generated scene
+  initial force setup through the physics facade while preserving model creation
+  order and collection-backed body storage.
+- Runtime run decomposition Phase 4D collection-boundary cleanup removes
+  obsolete `GameModelCollection` friendship for snapshot writing, diagnostics,
+  persistent contact solving, and sleep propagation by routing those readers
+  through named collection APIs.
+- Runtime run decomposition Phase 4D SkullScope diagnostics cleanup replaces
+  SkullScope friendship across `GameModelCollection`, `PhysicsEngine`,
+  `PhysicsScene`, and `PhysicsWorld` with a read-only
+  `PhysicsWorld::DiagnosticsView` exposed through the physics facade.
+- Phase 4D SkullScope diagnostics validation: Profile build 13.74s
+  (`TestOutput\validation\phase4d_skullscope_view_profile_build.log`), format
+  6.52s, physics 69.04s, full 22.33s, SkullScope query baseline refresh 31.90s,
+  and final deep physics 74.10s
+  (`TestOutput\validation\phase4d_skullscope_view_validate_physics_deep.log`).
+  The refreshed `physics_query_varied.json` only adds the existing
+  `object_friction_coeff` runtime diagnostics config field to stored query
+  summaries. SkullScope trace accounting is logged in
+  `TestOutput\validation\phase4d_skullscope_view_query_sizes.log`.
+- Runtime run decomposition Phase 4D solver-context cleanup removes the remaining
+  `PhysicsWorld` helper friendships by passing explicit persistent-solver and
+  sleep-propagation contexts, and by routing regression diagnostics through
+  `PhysicsWorld::DiagnosticsView`.
+- Phase 4D solver-context validation: Profile build 56.02s
+  (`TestOutput\validation\phase4d_solver_context_profile_build.log`), format
+  6.54s, physics 234.55s, full 22.24s, and perf 19.69s. `validate_perf`
+  completed with advisory whole-frame `physics_bench` warnings; reviewed markers
+  show `Frame/Physics` at -4.2% avg and persistent contacts at +3.3% avg,
+  within noise for the touched solver path.
+- Runtime run decomposition Phase 5 replay-owner slice introduces
+  `Runtime\Replay\ReplayRuntime` as the owner of the presentation replay,
+  solver replay, event recorder, and live branch provenance. `Run` no longer
+  stores those recorder fields directly; compatibility accessors keep legacy
+  replay callers stable for later extraction slices. The project-filter
+  validator now recognizes `ReplayRuntime` under `Runtime\Replay`.
+- Phase 5 replay-owner validation: Profile build 12.96s
+  (`TestOutput\validation\phase5_replay_runtime_owner_profile_build_rerun.log`),
+  project filters 0.72s, format 6.54s, fast gate 234.78s, and full gate 24.81s
+  (`TestOutput\validation\phase5_replay_runtime_owner_validate_full_rerun.log`).
+  Initial checks caught and fixed missed multi-line replay exporter references
+  and the missing project-filter rule before the final gates passed.
+- Runtime run decomposition Phase 5 capture/event slice moves recording
+  configuration, solver hash-log path derivation, timeline reset, branch/event
+  stamping for capture, event recording, and replay save/export delegation into
+  `ReplayRuntime`. `Run` still builds scene/world/model capture inputs and still
+  has compatibility recorder accessors for scrub/restore/render/path code that
+  will move in later Phase 5 slices.
+- Phase 5 capture/event validation: Profile build 37.40s
+  (`TestOutput\validation\phase5_replay_runtime_capture_profile_build.log`),
+  format 6.61s, and full gate 247.38s
+  (`TestOutput\validation\phase5_replay_runtime_capture_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
+- Runtime run decomposition Phase 5 render-state slice moves presentation,
+  solver, and prediction render pose override/restore logic into
+  `ReplayRuntime`, including the hidden-unmatched-body behavior and render pose
+  backups. `Run::Render()` now has one replay render-state apply call and one
+  restore call around `RuntimeRenderer::RenderFrame()`. The replay prediction
+  body/frame structs also live in the replay subsystem header so
+  `ReplayRuntime` can consume prediction poses directly.
+- Phase 5 render-state validation: Profile build 37.68s
+  (`TestOutput\validation\phase5_replay_render_state_profile_build.log`),
+  format 6.65s, and full gate 56.92s
+  (`TestOutput\validation\phase5_replay_render_state_validate_full.log`). Full
+  gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
+- Runtime run decomposition Phase 5 render-owned-state slice moves replay focus
+  mask storage and replay launcher visual backup storage into `ReplayRuntime`.
+  `Run` still computes the mask and copies live launcher visual state as the
+  compatibility bridge while the remaining scrub/prediction state moves later
+  in Phase 5.
+- Phase 5 render-owned-state validation: Profile build 37.11s
+  (`TestOutput\validation\phase5_replay_render_owned_state_profile_build.log`),
+  format 6.54s, and full gate 55.22s
+  (`TestOutput\validation\phase5_replay_render_owned_state_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Carver reported no
+  blocking code defect and identified the full gate as the only required
+  evidence before commit.
+- Runtime run decomposition Phase 5 replay-state-owner slice moves replay
+  interaction state definitions and stored instances into `ReplayRuntime`.
+  `Run` call sites now reach loaded presentation, scrubber, camera/path,
+  prediction, cause tree, and velocity-edit state through replay-runtime
+  accessors; `RuntimeCameraMode.h` holds the shared camera mode needed by
+  replay camera restore state.
+- Phase 5 replay-state-owner validation: final Profile build 37.34s
+  (`TestOutput\validation\phase5_replay_state_owner_profile_build_final.log`),
+  final format 6.56s, final project-filter check 0.69s, fast gate 119.24s
+  (`TestOutput\validation\phase5_replay_state_owner_validate_fast.log`), and
+  full gate 24.39s
+  (`TestOutput\validation\phase5_replay_state_owner_validate_full.log`). Full
+  gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Godel reported no
+  blocking code defect; after the follow-up setter change, Godel confirmed the
+  editor velocity-edit ownership leak was fixed.
+- Runtime run decomposition Phase 5 ghost-request slice makes
+  `ReplayRuntime` produce replay prediction ghost draw requests while
+  `RunRender` remains the actual draw-call consumer. The request producer owns
+  prediction-frame sampling, body-id/ragdoll filtering, alpha selection, and
+  request buffer reuse for the ghost overlay path.
+- Phase 5 ghost-request validation: final format 6.62s, final Profile build
+  117.34s
+  (`TestOutput\validation\phase5_replay_ghost_requests_profile_build_rerun.log`),
+  and full gate 131.89s
+  (`TestOutput\validation\phase5_replay_ghost_requests_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Dirac found no behavior
+  defect in sampling, alpha, body filtering, or draw-state restore path; the
+  suggested request-buffer reserve was added before validation.
+- Runtime run decomposition Phase 6 launcher/ray-test slice adds
+  `RuntimeTools` and moves launcher ray-test state plus `LauncherLaser`
+  ownership out of `Run`. Existing launcher, replay visual capture/restore,
+  render-host binding, and backend resource reset behavior remains on the
+  compatibility path through `RuntimeTools` accessors.
+- Phase 6 launcher/ray-test validation: final format 6.64s, project-filter
+  check 0.71s, final Profile build 118.23s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_profile_build_rerun.log`),
+  fast gate 120.48s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_validate_fast.log`), and
+  full gate 25.22s
+  (`TestOutput\validation\phase6_runtime_tools_launcher_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Socrates found no
+  behavior defect and confirmed the slice satisfies the first one-tool-at-a-time
+  Phase 6 extraction while manipulator/editor ownership remains for later slices.
+- Runtime run decomposition Phase 6 mouse-pickup/manipulator slice moves
+  `RunMousePickupState` into `RuntimeTools` and routes manipulator picking,
+  target update, capture release, physics-step impulse, angular-velocity
+  preservation, render-host binding, and overlay reads through the
+  compatibility accessor.
+- Phase 6 mouse-pickup validation: final format 6.68s, project-filter check
+  0.70s, final Profile build 117.53s
+  (`TestOutput\validation\phase6_runtime_tools_mouse_pickup_profile_build_rerun.log`),
+  and full gate 132.49s
+  (`TestOutput\validation\phase6_runtime_tools_mouse_pickup_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Gibbs found no blocking
+  defect and confirmed mouse capture release, picking, target update, angular
+  velocity preservation, and impulse application stayed mechanically equivalent.
+- Runtime run decomposition Phase 6 editor/tracer slice moves
+  `RunEditorPlacementState` and `RunEditorTracer` ownership into
+  `RuntimeTools`. `Run` now reaches editor placement, gizmo drag/selection,
+  replay overlay suppression, editor tracer lines, and render-host binding
+  through `RuntimeTools` accessors while the render host continues to borrow
+  the same editor state view for draw-time passes.
+- Phase 6 editor/tracer validation: final format 6.56s, final Profile build
+  117.81s
+  (`TestOutput\validation\phase6_runtime_tools_editor_profile_build_rerun.log`),
+  and full gate 131.71s
+  (`TestOutput\validation\phase6_runtime_tools_editor_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Gauss found no blocking
+  defect and confirmed the render-host lifetime, input mode resolution, replay
+  overlay, and editor placement restore paths stayed behavior-preserving.
+- Runtime run decomposition Phase 7 diagnostics-owner slice adds
+  `DiagnosticsRuntime` as the owner for the existing capture and diagnostics
+  controllers. `Run` now reaches screenshot automation, perf logging, and
+  SkullScope physics diagnostics through `m_diagnosticsRuntime` while preserving
+  existing controller APIs, artifact formatting, output paths, and
+  `EngineContext` borrowed binding types.
+- Phase 7 diagnostics-owner validation: final format 6.56s, project-filter
+  check 0.69s, final Profile build 117.93s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_profile_build_rerun.log`),
+  fast gate 120.57s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_validate_fast.log`),
+  and full gate 24.79s
+  (`TestOutput\validation\phase7_diagnostics_runtime_owner_validate_full.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Boole found no blocking
+  defect and confirmed EngineContext lifetimes, screenshot automation,
+  perf-log open/close/flush behavior, SkullScope path flow, and project/filter
+  metadata stayed behavior-preserving.
+- Runtime run decomposition Phase 7 diagnostics-facade/UI-stress slice moves
+  deterministic UI stress state into `DiagnosticsRuntime` and routes
+  perf-log, screenshot, replay-probe, and SkullScope diagnostic entry points
+  through the diagnostics owner. `RuntimeDiagnostics` static helpers are now
+  hidden behind diagnostics-layer methods for `Run` call sites.
+- Phase 7 diagnostics-facade/UI-stress validation: final format 6.74s, final
+  Profile build 118.90s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_profile_build_rerun.log`),
+  full gate 132.26s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_full.log`),
+  UI stress gate 15.86s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_ui_stress.log`),
+  and demo stress gate 16.86s
+  (`TestOutput\validation\phase7_diagnostics_runtime_facade_validate_demo_stress.log`).
+  Full gate passed project filters, Profile/Debug builds with 0 warnings/errors,
+  DX12 validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`; both stress gates reported DX12 validation
+  errors 0. Rubber-duck reviewer Ohm found no blocking defect and confirmed the
+  UI stress LCG/action path and scene/CLI stress setup stayed mechanically
+  equivalent.
+- Runtime run decomposition Phase 8 boundary-lock slice removes remaining pure
+  `Run` forwarding wrappers for replay recorders and scene object population,
+  documents the remaining composition-root state in `Run.h`, and adds
+  `tools\validate_runtime_boundaries.bat` plus
+  `tools\check_runtime_boundaries.py`. `validate_fast`, `validate_full`, and
+  `validate_select runtime-boundaries` now fail if `Run.h` regains render pass
+  classes, replay recorder fields, tool transient fields, scene population
+  helper declarations, or if runtime subsystem headers store `Run` directly.
+- Phase 8 boundary-lock validation: final runtime-boundary check 0.17s
+  (`TestOutput\validation\phase8_runtime_boundaries_post_review_fix_rerun.log`),
+  expanded synthetic boundary self-test caught the wrapped field declarations
+  and stored `Run` pointer/reference forms reviewers called out, final fast gate
+  12.64s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_fast_final.log`),
+  `validate_select runtime-boundaries` 3.59s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_select_runtime_boundaries_final.log`),
+  and final full gate 22.14s
+  (`TestOutput\validation\phase8_runtime_boundary_validate_full_final.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds
+  with 0 warnings/errors, DX12 validation errors 0 with screenshots matching
+  baselines, and byte-exact `physics_regression_solver.csv`. Rubber-duck
+  reviewers Mendel, Popper, and Hegel found no remaining blocking defect after
+  Popper's false-negative findings were fixed. Residual include cleanup remains
+  limited by current by-value composition-root members.
 
 ## Current Work Items
 

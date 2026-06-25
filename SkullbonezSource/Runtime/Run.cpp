@@ -27,7 +27,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
-#include "Replay/ReplayExporter.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
@@ -138,22 +137,6 @@ void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Qua
     AppendReplayFloatHex( cursor, remaining, w );
 }
 
-std::string SolverReplayHashLogPath( const std::string& presentationPath )
-{
-    if ( presentationPath.empty() )
-    {
-        return {};
-    }
-
-    const std::size_t slash = presentationPath.find_last_of( "/\\" );
-    const std::size_t dot = presentationPath.find_last_of( '.' );
-    if ( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) )
-    {
-        return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
-    }
-    return presentationPath + ".solver";
-}
-
 const ReplayPresentationSample*
 LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
 {
@@ -170,11 +153,119 @@ LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample
 } // namespace
 
 
+SceneRuntimeCoordinatorCallbacks Run::BuildSceneRuntimeCoordinatorCallbacks()
+{
+    SceneRuntimeCoordinatorCallbacks callbacks;
+    callbacks.user = this;
+    callbacks.enterInteractiveSceneRun = []( void* user ) { static_cast<Run*>( user )->EnterInteractiveSceneRun(); };
+    callbacks.clearCurrentSceneAutomation = []( void* user )
+    {
+        Run& run = *static_cast<Run*>( user );
+        run.SceneState().isExitOnComplete = false;
+        run.m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+    };
+    callbacks.loadScene =
+        []( void* user, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
+    { static_cast<Run*>( user )->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState ); };
+    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
+    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
+    callbacks.isCinematicTabActive = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->m_UI.GetActiveTab() == InGameUITab::Cinematic; };
+    callbacks.applyCinematicModeFromBrowserIndex = []( void* user, int index ) -> bool
+    { return static_cast<Run*>( user )->ApplyCinematicModeFromBrowserIndex( index ); };
+    return callbacks;
+}
+
+
+RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
+{
+    RuntimeRenderHostBindings bindings;
+    bindings.systems = &m_systems;
+    bindings.debug = &m_debug;
+    bindings.timers = &m_timers;
+    bindings.runtimeSettings = &m_runtimeSettings;
+    bindings.gameModelCollection = &m_cGameModelCollection;
+    bindings.worldEnvironment = &m_cWorldEnvironment;
+    bindings.collisionVisualizer = &m_collisionVisualizer;
+    bindings.broadphaseVisualizer = &m_broadphaseVisualizer;
+    bindings.physicsDebugVisualizer = &m_physicsDebugVisualizer;
+    bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
+    bindings.rayCastTest = &m_runtimeTools.RayCastTest();
+    bindings.editor = &m_runtimeTools.Editor();
+    bindings.mousePickup = &m_runtimeTools.MousePickup();
+    bindings.replayScrubber = &m_replayRuntime.Scrubber();
+    bindings.replayPrediction = &m_replayRuntime.Prediction();
+    bindings.replayFocusModelMask = &m_replayRuntime.FocusModelMask();
+    bindings.replayPathVisualizer = &m_replayRuntime.PathVisualizer();
+    bindings.replayCamera = &m_replayRuntime.Camera();
+    bindings.replayVelocityEdit = &m_replayRuntime.VelocityEdit();
+    bindings.launcherLaser = &m_runtimeTools.Laser();
+    bindings.ui = &m_UI;
+    bindings.runtimeInput = &m_runtimeInput;
+    bindings.camera = &m_camera;
+    bindings.runtimeViewModel = &m_runtimeViewModel;
+    bindings.sceneController = &m_sceneController;
+    bindings.sceneBrowser = &m_sceneBrowser;
+    return bindings;
+}
+
+
+RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
+{
+    RuntimeRenderHostCallbacks callbacks;
+    callbacks.user = this;
+    callbacks.activeCinematicConfig = []( void* user ) -> CinematicRenderConfig&
+    { return static_cast<Run*>( user )->ActiveCinematicConfig(); };
+    callbacks.isCinematicRenderingEnabled = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->IsCinematicRenderingEnabled(); };
+    callbacks.isLauncherCameraMode = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
+    callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t
+    { return static_cast<Run*>( user )->TextureHandle( textureHash ); };
+    callbacks.selectRenderTexture = []( void* user, uint32_t textureHash )
+    { static_cast<Run*>( user )->SelectRenderTexture( textureHash ); };
+    callbacks.windowScreenWidth = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenWidth(); };
+    callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
+    callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
+    { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
+    callbacks.currentReplayScrubSample = []( void* user ) -> const ReplayPresentationSample*
+    { return static_cast<Run*>( user )->CurrentReplayScrubSample(); };
+    callbacks.currentReplaySolverScrubSample = []( void* user ) -> const ReplaySolverFrameSample*
+    { return static_cast<Run*>( user )->CurrentReplaySolverScrubSample(); };
+    callbacks.currentReplayPredictionScrubFrame = []( void* user ) -> const RunReplayPredictionFrame*
+    { return static_cast<Run*>( user )->CurrentReplayPredictionScrubFrame(); };
+    callbacks.renderEditorOverlay = []( void* user,
+                                        const Math::Transformation::Matrix4& viewProjection,
+                                        const Math::Vector::Vector3& cameraEye,
+                                        const Math::Vector::Vector3& cameraUp )
+    { static_cast<Run*>( user )->RenderEditorOverlay( viewProjection, cameraEye, cameraUp ); };
+    callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
+    callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
+    callbacks.shouldRenderReplayScrubber = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->ShouldRenderReplayScrubber(); };
+    callbacks.renderReplayScrubberOverlay = []( void* user )
+    { static_cast<Run*>( user )->RenderReplayScrubberOverlay(); };
+    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
+    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
+    callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
+    { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
+    callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
+    { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
+    callbacks.buildReplayFocusModelMask = []( void* user ) -> bool
+    { return static_cast<Run*>( user )->BuildReplayFocusModelMask(); };
+    callbacks.renderReplayPredictionGhosts = []( void* user,
+                                                 const RenderFrameContext& frame,
+                                                 const CinematicRenderConfig* cinematic,
+                                                 const Rendering::ShadowFrameData* shadow )
+    { static_cast<Run*>( user )->RenderReplayPredictionGhosts( frame, cinematic, shadow ); };
+    return callbacks;
+}
+
+
 Run::Run( std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ), m_fullscreenQuadPass( *this ), m_skyPass( *this ),
-      m_sceneTargetPass( *this ), m_shadowPass( *this ), m_reflectionPass( *this ), m_objectPass( *this ),
-      m_terrainPass( *this ), m_waterPass( *this ), m_tornadoVisualPass( *this ), m_debugOverlayPass( *this ),
-      m_volumetricPass( *this ), m_tonemapPass( *this ), m_uiTextPass( *this )
+    : m_sceneController( std::move( sceneQueue ) ),
+      m_sceneCoordinator( m_sceneController, BuildSceneRuntimeCoordinatorCallbacks() ),
+      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
@@ -182,8 +273,8 @@ Run::Run( std::vector<std::string> sceneQueue )
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
-    m_startupGameModelCapacity = ActiveGameModelCapacity();
-    m_startupWorkerThreads = Cfg().workerThreads;
+    m_startup.gameModelCapacity = ActiveGameModelCapacity();
+    m_startup.workerThreads = Cfg().workerThreads;
 }
 
 
@@ -203,8 +294,8 @@ void Run::BindEngineContext()
 {
     m_engineContext.Bind( EngineContextBindings{ &m_sceneController,
                                                  &m_simulation,
-                                                 &m_capture,
-                                                 &m_diagnostics,
+                                                 &m_diagnosticsRuntime.Capture(),
+                                                 &m_diagnosticsRuntime.Diagnostics(),
                                                  &m_runtimeCommands,
                                                  &m_systems,
                                                  &m_runtimeSettings,
@@ -228,12 +319,11 @@ Run::~Run()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
-    m_diagnostics.ClosePerfLog();
-    m_replay.FlushHashLog();
-    m_solverReplay.FlushHashLog();
-    if ( m_replay.IsEnabled() )
+    m_diagnosticsRuntime.ClosePerfLog();
+    m_replayRuntime.FlushHashLogs();
+    if ( m_replayRuntime.IsPresentationEnabled() )
     {
-        const ReplayRecorderStats replayStats = m_replay.GetStats();
+        const ReplayRecorderStats replayStats = m_replayRuntime.PresentationStats();
         printf( "[replay] Captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -243,9 +333,9 @@ Run::~Run()
                 static_cast<unsigned long long>( replayStats.checkpointCapacity ),
                 static_cast<unsigned long long>( replayStats.latestStateHash ) );
     }
-    if ( m_solverReplay.IsEnabled() )
+    if ( m_replayRuntime.SolverStats().enabled )
     {
-        const ReplayRecorderStats replayStats = m_solverReplay.GetStats();
+        const ReplayRecorderStats replayStats = m_replayRuntime.SolverStats();
         printf( "[replay] Solver track captured %llu physics samples, retained %llu/%llu, checkpoints %llu/%llu, "
                 "latest_solver_hash=0x%016llX\n",
                 static_cast<unsigned long long>( replayStats.totalFramesCaptured ),
@@ -334,18 +424,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_UI.ResetResources();
             break;
         case BackendResourceStep::RenderPassResources:
-            // Lifetime: release pass-owned GPU resources while the renderer
-            // backend is still alive. The order keeps consumers ahead of their
-            // producers, so cached handles are invalidated before targets die.
-            m_tonemapPass.ReleaseGpuResources();
-            m_volumetricPass.ReleaseGpuResources();
-            m_tornadoVisualPass.ReleaseGpuResources();
-            m_sceneTargetPass.ReleaseGpuResources();
-            m_shadowPass.ReleaseGpuResources();
-            m_reflectionPass.ReleaseGpuResources();
-            m_skyPass.ReleaseGpuResources();
-            m_fullscreenQuadPass.ReleaseGpuResources();
-            m_uiTextPass.ReleaseGpuResources();
+            m_renderer.ReleaseBackendOwnedResources();
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -371,7 +450,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            m_launcherLaser.ResetResources();
+            m_runtimeTools.Laser().ResetResources();
             break;
         }
 
@@ -409,6 +488,7 @@ void Run::RegisterBuiltInAssets()
 
     m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature",
                                                       "assets/low_poly_nature.assets.json" );
+    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );
 
     auto contract = []( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
     {
@@ -576,31 +656,31 @@ void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) 
 
 void Run::SetTimeScaleOverride( float scale )
 {
-    m_cmdTimeScaleOverride = scale;
+    m_launchOptions.timeScaleOverride = scale;
 }
 
 
 void Run::SetFixedStepOverride()
 {
-    m_cmdFixedStep = true;
+    m_launchOptions.fixedStep = true;
 }
 
 
 void Run::SetSeedOverride( unsigned int seed )
 {
-    m_cmdSeedOverride = seed;
+    m_launchOptions.seedOverride = seed;
 }
 
 
 void Run::SetNoWaterOverride()
 {
-    m_cmdNoWater = true;
+    m_launchOptions.noWater = true;
 }
 
 
 void Run::SetNoSleepOverride()
 {
-    m_cmdNoSleep = true;
+    m_launchOptions.noSleep = true;
     m_runtimeSettings.isPhysicsSleepEnabled = false;
     m_cGameModelCollection.SetPhysicsSleepEnabled( false );
 }
@@ -608,8 +688,8 @@ void Run::SetNoSleepOverride()
 
 void Run::SetTornadoOverride( bool enabled )
 {
-    m_cmdHasTornadoOverride = true;
-    m_cmdTornadoEnabled = enabled;
+    m_launchOptions.hasTornadoOverride = true;
+    m_launchOptions.tornadoEnabled = enabled;
     m_runtimeSettings.tornadoField.enabled = enabled;
     if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
     {
@@ -621,7 +701,7 @@ void Run::SetTornadoOverride( bool enabled )
 
 void Run::SetTornadoVectorFieldOverride( bool enabled )
 {
-    m_cmdTornadoVectors = enabled;
+    m_launchOptions.tornadoVectors = enabled;
     m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
     SyncTornadoFieldToPhysics();
 }
@@ -629,79 +709,65 @@ void Run::SetTornadoVectorFieldOverride( bool enabled )
 
 void Run::SetCinematicRenderingOverride( bool enabled )
 {
-    m_cmdHasCinematicRenderingOverride = true;
-    m_cmdCinematicRendering = enabled;
+    m_launchOptions.hasCinematicRenderingOverride = true;
+    m_launchOptions.cinematicRendering = enabled;
 }
 
 
 void Run::SetCinematicShadowsOverride( bool enabled )
 {
-    m_cmdHasCinematicShadowsOverride = true;
-    m_cmdCinematicShadows = enabled;
+    m_launchOptions.hasCinematicShadowsOverride = true;
+    m_launchOptions.cinematicShadows = enabled;
 }
 
 
 void Run::SetDemoHeroStyleOverride()
 {
-    m_cmdDemoHeroStyle = true;
+    m_launchOptions.demoHeroStyle = true;
 }
 
 
 void Run::SetInteractiveRunOverride()
 {
-    m_cmdInteractiveSceneRun = true;
+    m_launchOptions.interactiveSceneRun = true;
 }
 
 
 void Run::SetFrameCountOverride( int frames )
 {
-    m_cmdFrameCountOverride = (std::max)( 1, frames );
+    m_launchOptions.frameCountOverride = (std::max)( 1, frames );
 }
 
 
 void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
 {
-    m_cmdUIStress = true;
-    m_cmdUIStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
-    m_cmdUIStressActions = std::clamp( actionsPerFrame, 1, 32 );
+    m_launchOptions.uiStress = true;
+    m_launchOptions.uiStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
+    m_launchOptions.uiStressActions = std::clamp( actionsPerFrame, 1, 32 );
 }
 
 
 void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {
-    ReplayRecorderConfig replayConfig;
-    replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
-    replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
-    replayConfig.checkpointIntervalFrames = 30;
-    if ( hashLogPath && hashLogPath[0] != '\0' )
-    {
-        replayConfig.hashLogPath = hashLogPath;
-    }
-
-    m_replay.Configure( replayConfig );
-    ReplayRecorderConfig solverReplayConfig = replayConfig;
-    solverReplayConfig.checkpointIntervalFrames = 60;
-    solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
-    m_solverReplay.Configure( solverReplayConfig );
-    m_replayEvents.Configure( replayConfig );
+    const ReplayRuntime::RecordingConfigResult replayConfig =
+        m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath );
     ResetReplayScrubber();
-    if ( m_replay.IsEnabled() )
+    if ( replayConfig.presentationStats.enabled )
     {
-        const ReplayRecorderStats replayStats = m_replay.GetStats();
-        const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
-        const ReplayEventRecorderStats eventReplayStats = m_replayEvents.GetStats();
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
                 "solver_retention_frames=%llu solver_checkpoint_interval_frames=%d event_capacity=%llu%s%s%s%s\n",
-                replayConfig.retentionSeconds,
-                static_cast<unsigned long long>( replayStats.sampleCapacity ),
-                replayConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( solverReplayStats.sampleCapacity ),
-                solverReplayConfig.checkpointIntervalFrames,
-                static_cast<unsigned long long>( eventReplayStats.eventCapacity ),
-                replayConfig.hashLogPath.empty() ? "" : " hash_log=",
-                replayConfig.hashLogPath.empty() ? "" : replayConfig.hashLogPath.c_str(),
-                solverReplayConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
-                solverReplayConfig.hashLogPath.empty() ? "" : solverReplayConfig.hashLogPath.c_str() );
+                replayConfig.presentationConfig.retentionSeconds,
+                static_cast<unsigned long long>( replayConfig.presentationStats.sampleCapacity ),
+                replayConfig.presentationConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.solverStats.sampleCapacity ),
+                replayConfig.solverConfig.checkpointIntervalFrames,
+                static_cast<unsigned long long>( replayConfig.eventStats.eventCapacity ),
+                replayConfig.presentationConfig.hashLogPath.empty() ? "" : " hash_log=",
+                replayConfig.presentationConfig.hashLogPath.empty()
+                    ? ""
+                    : replayConfig.presentationConfig.hashLogPath.c_str(),
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
+                replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
 }
 
@@ -751,14 +817,17 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
         return false;
     }
 
-    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
-    m_loadedPresentationReplay.samples.swap( samples );
-    m_loadedPresentationReplay.enabled = true;
-    m_loadedPresentationReplay.bodyDictionaryCount = result.bodyDictionaryCount;
-    m_loadedPresentationReplay.fileBytes = result.fileBytes;
-    m_loadedPresentationReplay.firstFrame = result.firstFrame;
-    m_loadedPresentationReplay.lastFrame = result.lastFrame;
-    strncpy_s( m_loadedPresentationReplay.path, sizeof( m_loadedPresentationReplay.path ), path, _TRUNCATE );
+    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
+    m_replayRuntime.LoadedPresentation().samples.swap( samples );
+    m_replayRuntime.LoadedPresentation().enabled = true;
+    m_replayRuntime.LoadedPresentation().bodyDictionaryCount = result.bodyDictionaryCount;
+    m_replayRuntime.LoadedPresentation().fileBytes = result.fileBytes;
+    m_replayRuntime.LoadedPresentation().firstFrame = result.firstFrame;
+    m_replayRuntime.LoadedPresentation().lastFrame = result.lastFrame;
+    strncpy_s( m_replayRuntime.LoadedPresentation().path,
+               sizeof( m_replayRuntime.LoadedPresentation().path ),
+               path,
+               _TRUNCATE );
 
     if ( activateScrubber )
     {
@@ -767,12 +836,12 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 
     printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
             "last_frame=%llu bytes=%llu\n",
-            m_loadedPresentationReplay.path,
-            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.lastFrame ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.fileBytes ) );
+            m_replayRuntime.LoadedPresentation().path,
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().lastFrame ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().fileBytes ) );
     return true;
 }
 
@@ -781,46 +850,37 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
     if ( !preserveBranchMetadata )
     {
-        m_replayBranch = ReplayBranchInfo();
+        m_replayRuntime.ResetBranch();
     }
-    if ( m_replayScrubber.simulationPaused )
+    if ( m_replayRuntime.Scrubber().simulationPaused )
     {
         SetReplaySimulationPaused( false );
     }
     ResetReplayScrubber();
-    m_loadedPresentationReplay = RunLoadedReplayPresentationState{};
+    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
     ClearReplayPathVisualizer();
-    if ( m_replayVelocityEdit.mouseCaptured )
+    if ( m_replayRuntime.VelocityEdit().mouseCaptured )
     {
         UI::InputControl::EndMouseCapture();
     }
-    m_replayVelocityEdit = RunReplayVelocityEditState{};
-    if ( !m_replay.IsEnabled() )
+    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
+    if ( !m_replayRuntime.IsPresentationEnabled() )
     {
         return;
     }
 
     const std::string* scenePath = CurrentSceneQueuePath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    m_replay.ResetTimeline( sceneLabel );
-    m_solverReplay.ResetTimeline( sceneLabel );
-    m_replayEvents.ResetTimeline( sceneLabel );
+    m_replayRuntime.ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     RecordReplayGeneratedSceneConfigEvent();
-    m_solverReplayMismatchReports = 0;
-    m_solverReplayMismatchSuppressed = false;
+    m_solverReplayMismatch.reports = 0;
+    m_solverReplayMismatch.suppressed = false;
 }
 
 ReplayFrameIndex Run::NextReplayEventFrameIndex() const
 {
-    const ReplayRecorderStats solverStats = m_solverReplay.GetStats();
-    if ( solverStats.enabled )
-    {
-        return solverStats.nextFrameIndex;
-    }
-
-    const ReplayRecorderStats presentationStats = m_replay.GetStats();
-    return presentationStats.nextFrameIndex;
+    return m_replayRuntime.NextEventFrameIndex();
 }
 
 
@@ -834,23 +894,7 @@ void Run::RecordReplayEvent( ReplayEventKind kind,
                              uint64_t data0,
                              const char* text )
 {
-    if ( !m_replayEvents.IsEnabled() )
-    {
-        return;
-    }
-
-    ReplayEventInput input;
-    input.frameIndex = frameIndex;
-    input.branch = m_replayBranch;
-    input.kind = kind;
-    input.flags = flags;
-    input.value0 = value0;
-    input.value1 = value1;
-    input.value2 = value2;
-    input.value3 = value3;
-    input.data0 = data0;
-    input.text = text;
-    m_replayEvents.RecordEvent( input );
+    m_replayRuntime.RecordEvent( kind, frameIndex, flags, value0, value1, value2, value3, data0, text );
 }
 
 
@@ -895,14 +939,14 @@ void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
     }
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, m_rayCastTest.impulseStrength );
-    HashReplayFloat( hash, m_rayCastTest.projectileSpeed );
+    HashReplayFloat( hash, m_runtimeTools.RayCastTest().impulseStrength );
+    HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
 
     RecordReplayEvent( ReplayEventKind::LauncherConfig,
                        NextReplayEventFrameIndex(),
                        changedFlags,
-                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
-                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
                        0,
                        0,
                        hash,
@@ -940,14 +984,14 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
     HashReplayFloat( hash, cameraUp.y );
     HashReplayFloat( hash, cameraUp.z );
 
-    const bool projectile = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile;
+    const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
     const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
     RecordReplayEvent( ReplayEventKind::LauncherFire,
                        NextReplayEventFrameIndex(),
                        flags,
                        projectile ? 1 : 0,
-                       ReplayFloatBitsSigned( m_rayCastTest.impulseStrength ),
-                       ReplayFloatBitsSigned( m_rayCastTest.projectileSpeed ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
                        m_cGameModelCollection.GetModelCount(),
                        hash,
                        payload );
@@ -965,11 +1009,12 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
     flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
                  ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
                  : 0u;
-    flags |= m_UIModelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-    flags |= ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+    flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+    flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
                  ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
                  : 0u;
-    flags |= ( static_cast<uint32_t>( m_generatedObjectTypeOverride ) << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+    flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
+               << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
              REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
@@ -978,7 +1023,7 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
     HashReplayInt( hash, SceneState().solverBoxCount );
     HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
     HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
-    HashReplayInt( hash, static_cast<int32_t>( m_generatedObjectTypeOverride ) );
+    HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
     RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
                        0,
@@ -1119,7 +1164,7 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex,
 
 bool Run::HasLoadedReplayPresentation() const
 {
-    return m_loadedPresentationReplay.enabled && m_loadedPresentationReplay.samples.size() >= 2;
+    return m_replayRuntime.LoadedPresentation().enabled && m_replayRuntime.LoadedPresentation().samples.size() >= 2;
 }
 
 
@@ -1130,13 +1175,13 @@ const ReplayPresentationSample* Run::LoadedReplayPresentationSampleAtNormalized(
         return nullptr;
     }
 
-    return LoadedPresentationSampleAtNormalized( m_loadedPresentationReplay.samples, normalized );
+    return LoadedPresentationSampleAtNormalized( m_replayRuntime.LoadedPresentation().samples, normalized );
 }
 
 
 const ReplayPresentationSample* Run::LoadedReplayPresentationLatestSample() const
 {
-    return HasLoadedReplayPresentation() ? &m_loadedPresentationReplay.samples.back() : nullptr;
+    return HasLoadedReplayPresentation() ? &m_replayRuntime.LoadedPresentation().samples.back() : nullptr;
 }
 
 
@@ -1147,96 +1192,99 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
         return;
     }
 
-    if ( m_replayScrubber.simulationPaused )
+    if ( m_replayRuntime.Scrubber().simulationPaused )
     {
         SetReplaySimulationPaused( false );
     }
-    if ( m_replayVelocityEdit.mouseCaptured || m_replayScrubber.mouseCaptured )
+    if ( m_replayRuntime.VelocityEdit().mouseCaptured || m_replayRuntime.Scrubber().mouseCaptured )
     {
         UI::InputControl::EndMouseCapture();
     }
 
     ClearReplayPathVisualizer();
     m_interaction.EnterReplay();
-    m_replayPrediction.enabled = false;
-    m_replayPrediction.horizonDragging = false;
-    m_replayVelocityEdit = RunReplayVelocityEditState{};
-    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, normalized );
-    m_replayScrubber.solverPosition = 1.0f;
-    m_replayScrubber.dragging = false;
-    m_replayScrubber.paused = true;
-    m_replayScrubber.mouseCaptured = false;
-    m_replayScrubber.visible = true;
-    m_replayScrubber.visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayRuntime.Prediction().enabled = false;
+    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
+    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, normalized );
+    m_replayRuntime.Scrubber().solverPosition = 1.0f;
+    m_replayRuntime.Scrubber().dragging = false;
+    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().mouseCaptured = false;
+    m_replayRuntime.Scrubber().visible = true;
+    m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     UpdateReplayInspectionCamera();
 }
 
 
 void Run::ResetReplayScrubber()
 {
-    if ( m_replayCamera.active && !m_replayScrubber.simulationPaused )
+    if ( m_replayRuntime.Camera().active && !m_replayRuntime.Scrubber().simulationPaused )
     {
         ExitReplayInspectionCamera();
     }
 
-    const bool leftWasDown = m_replayScrubber.leftWasDown;
-    const bool restoreWasDown = m_replayScrubber.restoreWasDown;
-    const bool restoreConsumedThisFrame = m_replayScrubber.restoreConsumedThisFrame;
-    const bool simulationPaused = m_replayScrubber.simulationPaused;
-    const bool pauseRestoreFlyMode = m_replayScrubber.pauseRestoreFlyMode;
-    const bool pauseRestoreLauncherMode = m_replayScrubber.pauseRestoreLauncherMode;
-    m_replayScrubber = RunReplayScrubberState{};
-    m_replayScrubber.leftWasDown = leftWasDown;
-    m_replayScrubber.restoreWasDown = restoreWasDown;
-    m_replayScrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
-    m_replayScrubber.simulationPaused = simulationPaused;
-    m_replayScrubber.pauseRestoreFlyMode = pauseRestoreFlyMode;
-    m_replayScrubber.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
+    const bool leftWasDown = m_replayRuntime.Scrubber().leftWasDown;
+    const bool restoreWasDown = m_replayRuntime.Scrubber().restoreWasDown;
+    const bool restoreConsumedThisFrame = m_replayRuntime.Scrubber().restoreConsumedThisFrame;
+    const bool simulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+    const bool pauseRestoreFlyMode = m_replayRuntime.Scrubber().pauseRestoreFlyMode;
+    const bool pauseRestoreLauncherMode = m_replayRuntime.Scrubber().pauseRestoreLauncherMode;
+    m_replayRuntime.Scrubber() = RunReplayScrubberState{};
+    m_replayRuntime.Scrubber().leftWasDown = leftWasDown;
+    m_replayRuntime.Scrubber().restoreWasDown = restoreWasDown;
+    m_replayRuntime.Scrubber().restoreConsumedThisFrame = restoreConsumedThisFrame;
+    m_replayRuntime.Scrubber().simulationPaused = simulationPaused;
+    m_replayRuntime.Scrubber().pauseRestoreFlyMode = pauseRestoreFlyMode;
+    m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
 }
 
 
 bool Run::ShouldRenderReplayScrubber() const
 {
-    if ( m_editor.editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
+    if ( m_runtimeTools.Editor().editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
     {
         return false;
     }
 
     const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = m_solverReplay.GetStats();
+    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     return ( loadedPresentation || solverReplayAvailable ) &&
-           ( m_replayScrubber.visible || m_replayScrubber.dragging || m_replayScrubber.paused ||
-             m_replayScrubber.simulationPaused );
+           ( m_replayRuntime.Scrubber().visible || m_replayRuntime.Scrubber().dragging ||
+             m_replayRuntime.Scrubber().paused || m_replayRuntime.Scrubber().simulationPaused );
 }
 
 
 bool Run::IsReplayScrubPaused() const
 {
-    if ( !m_replayScrubber.paused )
+    if ( !m_replayRuntime.Scrubber().paused )
     {
         return false;
     }
 
-    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
+    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
     {
         return LoadedReplayPresentationSampleAtNormalized(
-                   ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) ) != nullptr;
+                   ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) ) != nullptr;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, m_replayScrubber.activeTrack );
-    const float presentT = m_replayScrubber.activeTrack == RunReplayTrack::Solver
-                               ? ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction )
-                               : 1.0f;
+    const float position =
+        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), m_replayRuntime.Scrubber().activeTrack );
+    const float presentT =
+        m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver
+            ? ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() )
+            : 1.0f;
     if ( ReplayScrubberAtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
 
-    if ( m_replayScrubber.activeTrack == RunReplayTrack::Presentation )
+    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
-        return m_replay.IsEnabled() && m_replay.SampleAtNormalized( position ) != nullptr;
+        return m_replayRuntime.Presentation().IsEnabled() &&
+               m_replayRuntime.Presentation().SampleAtNormalized( position ) != nullptr;
     }
 
     if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
@@ -1244,23 +1292,24 @@ bool Run::IsReplayScrubPaused() const
         return CurrentReplayPredictionScrubFrame() != nullptr;
     }
 
-    return m_solverReplay.IsEnabled() && m_solverReplay.SampleAtNormalized(
-                                             ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
+    return m_replayRuntime.Solver().IsEnabled() &&
+           m_replayRuntime.Solver().SampleAtNormalized(
+               ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
 
 const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
 {
-    if ( m_replayScrubber.activeTrack != RunReplayTrack::Presentation )
+    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
     }
 
     if ( HasLoadedReplayPresentation() )
     {
-        return m_replayScrubber.paused
+        return m_replayRuntime.Scrubber().paused
                    ? LoadedReplayPresentationSampleAtNormalized(
-                         ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) )
+                         ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) )
                    : nullptr;
     }
 
@@ -1269,49 +1318,52 @@ const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
         return nullptr;
     }
 
-    return m_replay.SampleAtNormalized( ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Presentation ) );
+    return m_replayRuntime.Presentation().SampleAtNormalized(
+        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) );
 }
 
 
 const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
 {
-    if ( m_replayScrubber.activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
+    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
     {
         return nullptr;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
+    const float presentT =
+        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
     if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    return m_solverReplay.SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
+    return m_replayRuntime.Solver().SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
 }
 
 
 const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
 {
-    if ( m_replayScrubber.activeTrack != RunReplayTrack::Solver || !m_replayScrubber.paused ||
-         !m_replayPrediction.enabled || m_replayPrediction.frames.size() < 2 )
+    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver || !m_replayRuntime.Scrubber().paused ||
+         !m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().frames.size() < 2 )
     {
         return nullptr;
     }
 
-    const float position = ReplayScrubberTrackPosition( m_replayScrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayScrubberPresentTrackPosition( m_solverReplay.GetStats(), m_replayPrediction );
+    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
+    const float presentT =
+        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
     if ( !ReplayScrubberTrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
     const float predictionT = ReplayScrubberPredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameCount = m_replayPrediction.frames.size();
+    const std::size_t frameCount = m_replayRuntime.Prediction().frames.size();
     const std::size_t frameIndex =
         (std::min)( frameCount - 1,
                     static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
-    return &m_replayPrediction.frames[frameIndex];
+    return &m_replayRuntime.Prediction().frames[frameIndex];
 }
 
 bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
@@ -1325,14 +1377,12 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
     const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
     if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
     {
-        saved =
-            track == RunReplayTrack::Solver
-                ? ReplayExporter::Save( m_solverReplay, path )
-                : ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay, m_solverReplay, m_replayEvents, path );
+        saved = track == RunReplayTrack::Solver ? m_replayRuntime.SaveSolverReplay( path )
+                                                : m_replayRuntime.SavePresentationWithSolverHashes( path );
     }
 
     const double now = m_timers.simulationTimer.GetTotalTime();
-    m_replayScrubber.saveMessageTrack = track;
+    m_replayRuntime.Scrubber().saveMessageTrack = track;
     if ( saved )
     {
         const char* fileName = strrchr( path, '\\' );
@@ -1341,43 +1391,49 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
             fileName = strrchr( path, '/' );
         }
         fileName = fileName ? fileName + 1 : path;
-        sprintf_s( m_replayScrubber.saveMessage, sizeof( m_replayScrubber.saveMessage ), "SAVED %s", fileName );
+        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
+                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
+                   "SAVED %s",
+                   fileName );
     }
     else
     {
-        sprintf_s( m_replayScrubber.saveMessage, sizeof( m_replayScrubber.saveMessage ), "REPLAY SAVE FAILED" );
+        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
+                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
+                   "REPLAY SAVE FAILED" );
     }
-    m_replayScrubber.saveMessageUntil = now + 2.5;
-    m_replayScrubber.visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayScrubber.visible = true;
+    m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
+    m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    m_replayRuntime.Scrubber().visible = true;
     return saved;
 }
 
 
 void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
 {
-    m_rayCastTest.lines = {};
+    m_runtimeTools.RayCastTest().lines = {};
     const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
     for ( std::size_t i = 0; i < lineCount; ++i )
     {
-        RunRayCastTestLine& line = m_rayCastTest.lines[i];
+        RunRayCastTestLine& line = m_runtimeTools.RayCastTest().lines[i];
         line.start = sample.rayLines[i].start;
         line.end = sample.rayLines[i].end;
         line.ageSeconds = sample.rayLines[i].ageSeconds;
         line.active = sample.rayLines[i].active;
         line.hit = sample.rayLines[i].hit;
     }
-    m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
-    if ( m_rayCastTest.nextLine < 0 )
+    m_runtimeTools.RayCastTest().nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
+    if ( m_runtimeTools.RayCastTest().nextLine < 0 )
     {
-        m_rayCastTest.nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
+        m_runtimeTools.RayCastTest().nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
     }
-    m_rayCastTest.fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile ? RunLauncherFireMode::Projectile
-                                                                                   : RunLauncherFireMode::Laser;
-    m_rayCastTest.visualizeRays = sample.visualizeRays;
-    m_rayCastTest.impulseStrength = sample.impulseStrength;
-    m_rayCastTest.projectileSpeed = sample.projectileSpeed;
-    m_launcherLaser.RestoreShots( sample.laserShots, sample.nextLaserShot );
+    m_runtimeTools.RayCastTest().fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile
+                                                ? RunLauncherFireMode::Projectile
+                                                : RunLauncherFireMode::Laser;
+    m_runtimeTools.RayCastTest().visualizeRays = sample.visualizeRays;
+    m_runtimeTools.RayCastTest().impulseStrength = sample.impulseStrength;
+    m_runtimeTools.RayCastTest().projectileSpeed = sample.projectileSpeed;
+    m_runtimeTools.Laser().RestoreShots( sample.laserShots, sample.nextLaserShot );
 }
 
 
@@ -1426,7 +1482,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
@@ -1449,7 +1505,9 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.ClearImpulseForce();
     }
 
-    if ( !m_cGameModelCollection.RestoreReplaySolverWorldSnapshot( sample.worldSnapshot ) )
+    if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
+             sample.worldSnapshot,
+             m_cGameModelCollection.GetModelCount() ) )
     {
         writeReason( "failed to restore solver world snapshot" );
         return false;
@@ -1548,7 +1606,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
     {
         if ( latest->frameIndex != sample.frameIndex || latest->solverHash != sample.solverHash )
         {
@@ -1579,16 +1637,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     }
 
 #ifdef _DEBUG
-    RuntimeDiagnostics::LogReplayRestoreProbe( m_diagnostics.PhysicsDiagnostics(),
-                                               SceneState(),
-                                               sample,
-                                               restoredSolverHash,
-                                               restoredPresentationHash,
-                                               restoredBodyCount,
-                                               hashCaptured,
-                                               hashMatched,
-                                               !hashMatched && hasLiveBackup,
-                                               fallbackRestored );
+    m_diagnosticsRuntime.LogReplayRestoreProbe( SceneState(),
+                                                sample,
+                                                restoredSolverHash,
+                                                restoredPresentationHash,
+                                                restoredBodyCount,
+                                                hashCaptured,
+                                                hashMatched,
+                                                !hashMatched && hasLiveBackup,
+                                                fallbackRestored );
 #endif
 
     if ( !hashCaptured )
@@ -1603,16 +1660,17 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
         return false;
     }
 
-    const uint32_t parentBranchId = sample.branch.branchId != 0
-                                        ? sample.branch.branchId
-                                        : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+    const uint32_t parentBranchId =
+        sample.branch.branchId != 0
+            ? sample.branch.branchId
+            : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
     ReplayBranchInfo restoredBranch;
-    restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+    restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
     restoredBranch.parentBranchId = parentBranchId;
     restoredBranch.startFrame = 0;
     restoredBranch.sourceFrame = sample.frameIndex;
     restoredBranch.sourceSolverHash = sample.solverHash;
-    m_replayBranch = restoredBranch;
+    m_replayRuntime.Branch() = restoredBranch;
     ResetReplayTimelineForActiveScene( true );
     RecordReplayEvent( ReplayEventKind::BranchRestore,
                        0,
@@ -1668,57 +1726,54 @@ void Run::SetBroadphaseVisualizerEnabled( bool enabled )
 
 void Run::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
 {
-    m_generatedObjectTypeOverride = objectTypeOverride;
+    m_launchOptions.generatedObjectTypeOverride = objectTypeOverride;
 }
 
 
 void Run::SetPhysicsDebugFlagsOverride( uint32_t flags )
 {
-    m_cmdHasPhysicsDebugFlagsOverride = true;
-    m_cmdPhysicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
+    m_launchOptions.hasPhysicsDebugFlagsOverride = true;
+    m_launchOptions.physicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
 }
 
 
 void Run::SetPhysicsDebugTransparentOverride( bool transparent )
 {
-    m_cmdHasPhysicsDebugTransparentOverride = true;
-    m_cmdPhysicsDebugTransparentOverride = transparent;
+    m_launchOptions.hasPhysicsDebugTransparentOverride = true;
+    m_launchOptions.physicsDebugTransparentOverride = transparent;
 }
 
 
 void Run::SetPhysicsDebugAlphaOverride( float alpha )
 {
-    m_cmdHasPhysicsDebugAlphaOverride = true;
-    m_cmdPhysicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
+    m_launchOptions.hasPhysicsDebugAlphaOverride = true;
+    m_launchOptions.physicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
 }
 
 
 void Run::SetPhysicsDebugContactLingerOverride( float seconds )
 {
-    m_cmdHasPhysicsDebugContactLingerOverride = true;
-    m_cmdPhysicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
+    m_launchOptions.hasPhysicsDebugContactLingerOverride = true;
+    m_launchOptions.physicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
 }
 
 
 #ifdef _DEBUG
 void Run::SetPhysicsRegressionLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnostics.PerfLog(), path );
+    m_diagnosticsRuntime.SetPhysicsRegressionLogOverride( path );
 }
 
 
 void Run::SetPhysicsCollisionTimeLogOverride( const char* path )
 {
-    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_diagnostics.PerfLog(), path );
+    m_diagnosticsRuntime.SetPhysicsCollisionTimeLogOverride( path );
 }
 
 
 void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
-    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(),
-                                                   m_cGameModelCollection,
-                                                   path,
-                                                   fixedStepForcedByDiagnostics );
+    m_diagnosticsRuntime.SetPhysicsDiagnosticsPath( m_cGameModelCollection, path, fixedStepForcedByDiagnostics );
 }
 #endif
 
@@ -1757,7 +1812,7 @@ void Run::Initialise()
     }
 
     // Init font (HDC, font)
-    m_uiTextPass.EnsureGpuResources();
+    m_renderer.EnsureUiTextResources();
 
     // Init cameras singleton (shared across scenes, Reset() between loads)
     m_systems.cameras = CameraCollection::Instance();
@@ -1827,26 +1882,25 @@ void Run::LogSceneFinished( const char* reason )
         scenePath = currentScenePath->c_str();
     }
 
-    RuntimeDiagnostics::LogSceneFinished( SceneState(),
-                                          scenePath,
-                                          IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                                          reason );
+    m_diagnosticsRuntime.LogSceneFinished( SceneState(),
+                                           scenePath,
+                                           IsGfxReady() ? Gfx().GetRendererName() : "unknown",
+                                           reason );
 }
 
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
-                                                    m_cGameModelCollection,
-                                                    SceneState(),
-                                                    Cfg(),
-                                                    scenePath,
-                                                    IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
+    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
+                                                     SceneState(),
+                                                     Cfg(),
+                                                     scenePath,
+                                                     IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
 }
 
 
 void Run::EndPhysicsDiagnosticsRun( const char* status )
 {
-    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), SceneState(), status );
+    m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( SceneState(), status );
 }
 #endif

@@ -149,16 +149,14 @@ float CloudLayerMask(float2 screenUV)
     float lowerMask = smoothstep(threshold, threshold + max(uCloudParams.y * 1.55f, 0.001f), cloudShape);
     lowerMask *= smoothstep(0.18f, 0.82f, 1.0f - erosion * 0.34f);
     float lowerBand = smoothstep(0.34f, 0.50f, screenUV.y) * (1.0f - smoothstep(0.76f, 0.92f, screenUV.y));
-    return saturate(max(lowerMask * lowerBand * 0.0f, HeroCloudMask(screenUV) * 1.0f) * clamp(uCloudParams.w, 0.0f, 1.5f));
+    return saturate(lowerMask * lowerBand * clamp(uCloudParams.w, 0.0f, 1.5f));
 }
 
 float CloudRayOpen(float2 screenUV)
 {
-    // Cloud mask remap answers "how open is this part of the sky?" 1 means
-    // open sky, 0 means cloud is blocking most of the light.
-    float cloud = CloudLayerMask(screenUV);
-    float breakup = CloudBreakup(screenUV + uSunShaftParams.xy * 0.17f);
-    return saturate(0.18f + (1.0f - cloud) * 0.62f + breakup * 0.20f);
+    // Cloud shape is resolved by the world-space sky pass. This post pass only
+    // needs to keep rays open without camera-locked masks.
+    return 1.0f;
 }
 
 float LinearizeDepth(float depth)

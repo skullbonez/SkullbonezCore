@@ -29,7 +29,7 @@ Related:
 #include "GameModel.h"
 #include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
-#include "../Physics/PhysicsScene.h"
+#include "../Physics/PhysicsEngine.h"
 #include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -44,7 +44,6 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelRenderer;
-class SceneSnapshotWriter;
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
@@ -58,15 +57,9 @@ class SceneSnapshotWriter;
 class GameModelCollection : public Rendering::IRenderSceneView
 {
   private:
-    friend class SkullScope;
-    friend class SceneSnapshotWriter;
-    friend class Physics::PhysicsDiagnosticsSink;
-    friend class Physics::PersistentContactSolver;
-    friend class Physics::SleepIslandSystem;
-
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
-    Physics::PhysicsScene m_physicsScene;
+    Physics::PhysicsEngine m_physicsEngine;
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
@@ -128,6 +121,8 @@ class GameModelCollection : public Rendering::IRenderSceneView
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
     GameModelBodyStream GetBodyStream();
     GameModelRenderStream GetRenderStream();
+    Physics::PhysicsEngine& GetPhysicsEngine();
+    const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
@@ -149,16 +144,16 @@ class GameModelCollection : public Rendering::IRenderSceneView
     void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );
     const Physics::TornadoFieldConfig& GetTornadoFieldConfig() const
     {
-        return m_physicsScene.GetTornadoFieldConfig();
+        return m_physicsEngine.GetTornadoFieldConfig();
     }
     void SetTornadoSystemConfig( const Physics::TornadoSystemConfig& config );
     const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const
     {
-        return m_physicsScene.GetTornadoSystemConfig();
+        return m_physicsEngine.GetTornadoSystemConfig();
     }
     float GetTornadoSystemElapsedSeconds() const
     {
-        return m_physicsScene.GetTornadoSystemElapsedSeconds();
+        return m_physicsEngine.GetTornadoSystemElapsedSeconds();
     }
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      const Math::Transformation::Matrix4& view,
@@ -172,43 +167,43 @@ class GameModelCollection : public Rendering::IRenderSceneView
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {
-        return m_physicsScene.GetSpatialGrid();
+        return m_physicsEngine.GetSpatialGrid();
     }
     const std::vector<int64_t>& GetCollisionCellKeys() const
     {
-        return m_physicsScene.GetCollisionCellKeys();
+        return m_physicsEngine.GetCollisionCellKeys();
     }
     const std::vector<uint8_t>& GetCollisionVisualContacts() const
     {
-        return m_physicsScene.GetCollisionVisualContacts();
+        return m_physicsEngine.GetCollisionVisualContacts();
     }
     const std::vector<uint8_t>& GetSleepStates() const
     {
-        return m_physicsScene.GetSleepStates();
+        return m_physicsEngine.GetSleepStates();
     }
     const std::vector<int>& GetSleepIslandVisualIds() const
     {
-        return m_physicsScene.GetSleepIslandVisualIds();
+        return m_physicsEngine.GetSleepIslandVisualIds();
     }
     const std::vector<uint8_t>& GetSleepSupportedStates() const
     {
-        return m_physicsScene.GetSleepSupportedStates();
+        return m_physicsEngine.GetSleepSupportedStates();
     }
     const std::vector<uint8_t>& GetSleepInhibitedStates() const
     {
-        return m_physicsScene.GetSleepInhibitedStates();
+        return m_physicsEngine.GetSleepInhibitedStates();
     }
     const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
     {
-        return m_physicsScene.GetPhysicsDebugContacts();
+        return m_physicsEngine.GetPhysicsDebugContacts();
     }
     const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
     {
-        return m_physicsScene.GetPhysicsPipelineTrace();
+        return m_physicsEngine.GetPhysicsPipelineTrace();
     }
     const std::vector<Physics::PointJointConstraint>& GetPointJointConstraints() const
     {
-        return m_physicsScene.GetPointJointConstraints();
+        return m_physicsEngine.GetPointJointConstraints();
     }
 
 #ifdef _DEBUG

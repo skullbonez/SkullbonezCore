@@ -95,6 +95,9 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |
+| `SkullbonezData/assets/*.assets.json` | `validate_full` |
+| `SkullbonezData/hulls/*.hull` | `validate_full` |
+| `SkullbonezData/scenes/*.scene.json` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
 | `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script |
@@ -122,6 +125,20 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **DX12 is the only runtime renderer.** OpenGL and DX11 final parity evidence has been archived; do not add new runtime dependencies on those backends.
 - **Renderer regression** is measured with DX12 screenshots plus zero DX12 validation errors, not GL/DX11 parity.
 - **Physics must be deterministic**; byte-exact CSV match against baselines.
+- **Reusable placeable assets must be registered assets.** New reusable props,
+  buildings, terrain dressing, destructible structures, or multi-body placeables
+  belong in `SkullbonezData/assets/*.assets.json` and must be registered from
+  `Run::RegisterBuiltInAssets()` with an `assetlib.*` logical name. Do not add
+  new hardcoded editor-only compound objects that scenes cannot reference by
+  asset name. Editor UI affordances may wrap registered assets, but the asset
+  recipe itself must live in the asset library data.
+- **Asset hulls must be baked.** New or changed `.hull` files must be authored
+  with `source_vertex`/`source_face` data and serialized with
+  `tools\bake_hulls.py --write` so runtime metadata, faces, edges, mass, and
+  inertia stay current.
+- **Scene use of reusable assets should go through `assetInstances[]`.** Avoid
+  baking fresh copies of every generated part into scenes unless the scene is an
+  intentional snapshot or regression fixture.
 
 ---
 

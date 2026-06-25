@@ -393,6 +393,7 @@ void RenderBackendDX12::FlushUploadBuffer()
         return;
     }
     // Submit current work and wait for completion (mid-frame flush for upload exhaustion)
+    const int suspendedPlatformGpuDepth = SuspendPlatformProfilerGpuStackForSubmit( "FlushUploadBuffer" );
     AssertPlatformProfilerGpuStackClosed( "FlushUploadBuffer" );
     m_commandList->Close();
     m_commandListOpen = false;
@@ -407,6 +408,7 @@ void RenderBackendDX12::FlushUploadBuffer()
     m_commandList->SetDescriptorHeaps( 1, heaps );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
+    RestorePlatformProfilerGpuStackAfterSubmit( suspendedPlatformGpuDepth );
 
     // FlushUploadBuffer submits and waits for all current GPU work before it
     // reopens the command list. That blocking wait is expensive, but it gives

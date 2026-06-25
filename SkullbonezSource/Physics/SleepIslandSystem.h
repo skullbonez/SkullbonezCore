@@ -35,12 +35,12 @@ class GameModelCollection;
 
 namespace Physics
 {
-class PhysicsWorld;
+struct SleepSupportPropagationContext;
 
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( PhysicsWorld& world, GameObjects::GameModelCollection& collection );
+    void PropagateSupport( SleepSupportPropagationContext& context, GameObjects::GameModelCollection& collection );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

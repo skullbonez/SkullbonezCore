@@ -455,7 +455,7 @@ void RigidBody::SetCoefficientRestitution( float fCoefficientRestitution )
 }
 
 
-float RigidBody::GetCoefficientRestitution()
+float RigidBody::GetCoefficientRestitution() const
 {
     return m_coefficientRestitution;
 }

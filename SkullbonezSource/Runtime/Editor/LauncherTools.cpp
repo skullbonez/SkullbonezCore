@@ -78,26 +78,28 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
 
 void Run::ClearRayCastTestLines()
 {
-    m_rayCastTest.lines = {};
-    m_rayCastTest.nextLine = 0;
+    m_runtimeTools.RayCastTest().lines = {};
+    m_runtimeTools.RayCastTest().nextLine = 0;
 }
 
 
 void Run::AddRayCastTestLine( const Vector3& start, const Vector3& end, bool hit )
 {
-    if ( !m_rayCastTest.visualizeRays )
+    if ( !m_runtimeTools.RayCastTest().visualizeRays )
     {
         return;
     }
 
     RunRayCastTestLine& line =
-        m_rayCastTest.lines[static_cast<std::size_t>( m_rayCastTest.nextLine ) % RunRayCastTestState::MAX_LINES];
+        m_runtimeTools.RayCastTest()
+            .lines[static_cast<std::size_t>( m_runtimeTools.RayCastTest().nextLine ) % RunRayCastTestState::MAX_LINES];
     line.start = start;
     line.end = end;
     line.ageSeconds = 0.0f;
     line.active = true;
     line.hit = hit;
-    m_rayCastTest.nextLine = ( m_rayCastTest.nextLine + 1 ) % static_cast<int>( RunRayCastTestState::MAX_LINES );
+    m_runtimeTools.RayCastTest().nextLine =
+        ( m_runtimeTools.RayCastTest().nextLine + 1 ) % static_cast<int>( RunRayCastTestState::MAX_LINES );
 }
 
 
@@ -108,7 +110,7 @@ void Run::TickRayCastTestLines( float dt )
         return;
     }
 
-    for ( RunRayCastTestLine& line : m_rayCastTest.lines )
+    for ( RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
     {
         if ( line.active )
         {
@@ -233,7 +235,7 @@ void Run::FireRayCastTest()
     const Vector3 cameraUp = m_systems.cameras->GetCameraUp();
     RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
 
-    if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+    if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
     {
         FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
         return;
@@ -257,7 +259,7 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     const bool hit = modelHit || terrainHit;
     const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
-    m_launcherLaser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
+    m_runtimeTools.Laser().Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
     if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
@@ -269,7 +271,7 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     if ( model.IsFixed() )
     {
         if ( !model.ReleasesFromFixedOnContact() ||
-             m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
+             m_runtimeTools.RayCastTest().impulseStrength < model.GetContactReleaseImpulseThreshold() )
         {
             return;
         }
@@ -277,10 +279,13 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    model.SetImpulseForce( rayDirection * m_rayCastTest.impulseStrength, hitPoint - model.GetPosition() );
-    m_cGameModelCollection.WakeModel( modelHitIndex );
+    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse(
+        m_cGameModelCollection,
+        modelHitIndex,
+        rayDirection * m_runtimeTools.RayCastTest().impulseStrength,
+        hitPoint - model.GetPosition() );
     const float mass = (std::max)( 0.001f, model.GetMass() );
-    const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
+    const float releaseSpeed = std::clamp( m_runtimeTools.RayCastTest().impulseStrength / mass, 1.5f, 36.0f );
     m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex,
                                                           rayDirection * releaseSpeed,
                                                           SkullbonezCore::Math::Vector::ZERO_VECTOR );
@@ -327,13 +332,13 @@ void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDi
     projectile.SetTerrain( m_systems.terrain.get() );
     projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
     projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
-    projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
+    projectile.SetLinearVelocity( velocityDir * m_runtimeTools.RayCastTest().projectileSpeed );
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 
     const int projectileIndex = m_cGameModelCollection.GetModelCount();
     m_cGameModelCollection.AddGameModel( std::move( projectile ) );
-    m_cGameModelCollection.WakeModel( projectileIndex );
+    m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, projectileIndex );
     SceneState().modelCount = m_cGameModelCollection.GetModelCount();
 }
 
@@ -475,12 +480,12 @@ void Run::WriteLauncherReproSnapshot()
     const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
-    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
         generatedObjectOverride = "all_balls";
         generatedObjectArg = " --all-balls";
     }
-    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    else if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
     {
         generatedObjectOverride = "all_boxes";
         generatedObjectArg = " --all-boxes";
@@ -561,12 +566,12 @@ void Run::WriteLauncherReproSnapshot()
     fprintf( f, "target_frame_count,%d\n", SceneState().targetFrameCount );
     fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
     fprintf( f, "rng_seed,%u\n", SceneState().rngSeed );
-    fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
-    fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
-    fprintf( f, "cmd_no_sleep,%d\n", m_cmdNoSleep ? 1 : 0 );
+    fprintf( f, "cmd_seed_override,%u\n", m_launchOptions.seedOverride );
+    fprintf( f, "cmd_no_water,%d\n", m_launchOptions.noWater ? 1 : 0 );
+    fprintf( f, "cmd_no_sleep,%d\n", m_launchOptions.noSleep ? 1 : 0 );
     fprintf( f, "physics_sleep_enabled,%d\n", m_runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", SceneState().isFixedStep ? 1 : 0 );
-    fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
+    fprintf( f, "cmd_fixed_step_override,%d\n", m_launchOptions.fixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", SceneState().timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
@@ -583,7 +588,7 @@ void Run::WriteLauncherReproSnapshot()
                  SceneState().rngSeed,
                  SceneState().timeScale,
                  SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_cmdNoWater ? " --no-water" : "",
+                 m_launchOptions.noWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
@@ -595,7 +600,7 @@ void Run::WriteLauncherReproSnapshot()
                  SceneState().rngSeed,
                  SceneState().timeScale,
                  SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_cmdNoWater ? " --no-water" : "",
+                 m_launchOptions.noWater ? " --no-water" : "",
                  m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }

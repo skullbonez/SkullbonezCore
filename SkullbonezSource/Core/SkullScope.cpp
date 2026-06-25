@@ -127,24 +127,24 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
         return;
     }
 
-    auto& m_gameModels = collection.m_gameModels;
-    auto& physicsWorld = collection.m_physicsScene.DiagnosticsWorldForSkullScope();
-    auto& m_persistentContacts = physicsWorld.m_persistentContacts;
-    auto& m_persistentContactSolverStats = physicsWorld.m_persistentContactSolverStats;
-    auto& m_sleepIslandParent = physicsWorld.m_sleepIslandParent;
-    auto& m_sleepSupportedThisFrame = physicsWorld.m_sleepSupportedThisFrame;
-    auto& m_sleepInhibitedThisFrame = physicsWorld.m_sleepInhibitedThisFrame;
-    auto& m_sleepState = physicsWorld.m_sleepState;
-    auto& m_sleepCounter = physicsWorld.m_sleepCounter;
-    auto& m_sleepIslandEligible = physicsWorld.m_sleepIslandEligible;
-    auto& m_sleepIslandCanSleep = physicsWorld.m_sleepIslandCanSleep;
-    auto& m_spatialGrid = physicsWorld.m_spatialGrid;
-    auto& m_candidatePairs = physicsWorld.m_candidatePairs;
-    auto& m_collisionCellKeys = physicsWorld.m_collisionCellKeys;
-    auto& m_sleepSupportEdges = physicsWorld.m_sleepSupportEdges;
-    auto& m_sleepIslandVisualId = physicsWorld.m_sleepIslandVisualId;
-    auto& m_physicsPipelineTrace = physicsWorld.m_physicsPipelineTrace;
-    auto& m_terrainContactManifolds = physicsWorld.m_terrainContactManifolds;
+    const std::vector<GameModel>& m_gameModels = collection.Models();
+    const auto physicsDiagnostics = collection.GetPhysicsEngine().GetDiagnosticsView();
+    const auto& m_persistentContacts = physicsDiagnostics.persistentContacts;
+    const auto& m_persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
+    const auto& m_sleepIslandParent = physicsDiagnostics.sleepIslandParent;
+    const auto& m_sleepSupportedThisFrame = physicsDiagnostics.sleepSupportedThisFrame;
+    const auto& m_sleepInhibitedThisFrame = physicsDiagnostics.sleepInhibitedThisFrame;
+    const auto& m_sleepState = physicsDiagnostics.sleepState;
+    const auto& m_sleepCounter = physicsDiagnostics.sleepCounter;
+    const auto& m_sleepIslandEligible = physicsDiagnostics.sleepIslandEligible;
+    const auto& m_sleepIslandCanSleep = physicsDiagnostics.sleepIslandCanSleep;
+    const auto& m_spatialGrid = physicsDiagnostics.spatialGrid;
+    const auto& m_candidatePairs = physicsDiagnostics.candidatePairs;
+    const auto& m_collisionCellKeys = physicsDiagnostics.collisionCellKeys;
+    const auto& m_sleepSupportEdges = physicsDiagnostics.sleepSupportEdges;
+    const auto& m_sleepIslandVisualId = physicsDiagnostics.sleepIslandVisualId;
+    const auto& m_physicsPipelineTrace = physicsDiagnostics.physicsPipelineTrace;
+    const auto& m_terrainContactManifolds = physicsDiagnostics.terrainContactManifolds;
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
@@ -225,7 +225,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = m_gameModels[i];
+        const GameModel& model = m_gameModels[i];
         const Vector3& vel = model.GetVelocity();
         const Vector3& omega = model.GetAngularVelocity();
         const Vector3& inertia = model.GetRotationalInertia();
@@ -663,7 +663,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
             continue;
         }
 
-        GameModel& a = m_gameModels[c.bodyA];
+        const GameModel& a = m_gameModels[c.bodyA];
         const Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
         const Vector3 velB = c.isTerrain ? ZERO_VECTOR
                                          : m_gameModels[c.bodyB].GetVelocity() +
@@ -776,7 +776,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = m_gameModels[i];
+        const GameModel& model = m_gameModels[i];
         const char* shapeType = model.GetShapeName();
         std::string escapedName = EscapeSkullScopeJson( model.GetName() );
         const Vector3& pos = model.GetPosition();

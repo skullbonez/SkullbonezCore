@@ -24,7 +24,7 @@ Glossary:
   before reflection rays are dispatched.
 
 Invariants:
-  - DrawPrimitives() owns pass order. Pass classes may bind targets and
+  - RuntimeRenderer::RenderFrame() owns pass order. Pass classes may bind targets and
     restore local render state, but they must not present or advance the frame.
   - Pass resource reset hooks run while the renderer backend is alive, because
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
@@ -32,11 +32,13 @@ Invariants:
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
 
 Related:
-  - SkullbonezSource/Runtime/Run.h declares pass contracts and resources.
+  - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
+  - SkullbonezSource/Runtime/Run.h owns the runtime state borrowed by RuntimeRenderHost.
   - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RuntimeTuning.h"
 #include "../Rendering/RenderPipeline.h"
 
 using namespace SkullbonezCore::Basics;
@@ -67,7 +69,8 @@ bool Run::IsCinematicRenderingEnabled() const
 {
     // Command line switches win over config/scene values. That lets us launch
     // the same scene in plain mode or cinematic mode while debugging.
-    const bool enabled = m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : ActiveCinematicConfig().enabled;
+    const bool enabled = m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering
+                                                                       : ActiveCinematicConfig().enabled;
 
     // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
     // also stay off there. The UI text renderer handles that path by itself.
@@ -75,204 +78,28 @@ bool Run::IsCinematicRenderingEnabled() const
 }
 
 
-bool Run::ApplyReplayPresentationSampleForRender( const ReplayPresentationSample& sample )
+void Run::ApplyReplayRenderStateForFrame()
 {
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const ReplayBodyPresentationSample& body : sample.bodies )
+    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
+        m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
     }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
+    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
     {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
+        m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
     }
-
-    if ( !m_replayPoseBackups.empty() )
+    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
     {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
+        m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
+        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
     }
-    return !m_replayPoseBackups.empty();
 }
 
 
-bool Run::ApplyReplaySolverSampleForRender( const ReplaySolverFrameSample& sample )
+void Run::RestoreReplayRenderStateForFrame()
 {
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
-    }
-
-    if ( !m_replayPoseBackups.empty() )
-    {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-    }
-    return !m_replayPoseBackups.empty();
-}
-
-
-bool Run::ApplyReplayPredictionFrameForRender( const RunReplayPredictionFrame& frame )
-{
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    m_replayPoseBackups.clear();
-    m_replayPoseBackups.reserve( models.size() );
-    std::vector<uint8_t> bodyMatched( models.size(), 0 );
-
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
-
-        Math::Orientation::Quaternion orientation = body.orientation;
-        orientation.Normalise();
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        if ( bodyMatched[i] )
-        {
-            continue;
-        }
-
-        RunReplayPoseBackup backup;
-        backup.modelIndex = static_cast<int>( i );
-        backup.position = models[i].GetPosition();
-        backup.orientation = models[i].GetOrientation();
-        m_replayPoseBackups.push_back( backup );
-        models[i].SetPosition( hiddenReplayPosition );
-    }
-
-    if ( !m_replayPoseBackups.empty() )
-    {
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-    }
-    return !m_replayPoseBackups.empty();
-}
-
-
-void Run::RestoreReplayPresentationRenderPose()
-{
-    if ( m_replayPoseBackups.empty() )
-    {
-        return;
-    }
-
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
-    for ( const RunReplayPoseBackup& backup : m_replayPoseBackups )
-    {
-        if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
-        model.SetPosition( backup.position );
-        model.SetOrientation( backup.orientation );
-    }
-    m_replayPoseBackups.clear();
-    m_cGameModelCollection.InvalidatePhysicsStreams();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    RestoreReplayLauncherVisualForRender();
 }
 
 
@@ -281,34 +108,13 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                         const Rendering::ShadowFrameData* shadow )
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !m_replayPrediction.enabled || !m_replayPrediction.ragdollVisualsEnabled ||
-         m_replayPrediction.frames.size() < 2 )
-    {
-        return;
-    }
-
     const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-    bool hasRagdollPart = false;
-    for ( const GameObjects::GameModel& model : models )
-    {
-        if ( ReplayModelIsRagdollPart( model ) )
-        {
-            hasRagdollPart = true;
-            break;
-        }
-    }
-    if ( !hasRagdollPart )
+    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models ) )
     {
         return;
     }
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    const std::size_t lastIndex = m_replayPrediction.frames.size() - 1;
-    const std::size_t stride =
-        (std::max)( static_cast<std::size_t>( 1 ),
-                    ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
-    const ReplayFrameIndex lastFrame = m_replayPrediction.frames.back().frameIndex;
-
     RenderHelper::DrawBoxBatchBegin( frame.baseView,
                                      frame.projection,
                                      frame.lightPosition,
@@ -317,63 +123,25 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                      shadow,
                                      1.0f );
 
-    auto appendGhostFrame = [&]( std::size_t index )
+    for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
     {
-        const RunReplayPredictionFrame& predictionFrame = m_replayPrediction.frames[index];
-        if ( predictionFrame.frameIndex == 0 )
+        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( models.size() ) )
         {
-            return;
+            continue;
         }
 
-        const float t =
-            lastFrame > 0
-                ? std::clamp( static_cast<float>( predictionFrame.frameIndex ) / static_cast<float>( lastFrame ),
-                              0.0f,
-                              1.0f )
-                : 1.0f;
-        const float alpha = std::clamp( 0.055f + ( 1.0f - t ) * 0.105f, 0.045f, 0.18f );
-
-        for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
+        const GameObjects::GameModel& model = models[static_cast<std::size_t>( request.modelIndex )];
+        const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
+        if ( !box )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
-            {
-                continue;
-            }
-
-            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-            if ( model.GetReplayBodyId() != body.id.value || !ReplayModelIsRagdollPart( model ) )
-            {
-                continue;
-            }
-
-            const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
-            if ( !box )
-            {
-                continue;
-            }
-
-            Math::Orientation::Quaternion orientation = body.orientation;
-            orientation.Normalise();
-            Rendering::RenderMaterial material = model.GetRenderMaterial();
-            material.baseColor[3] = alpha;
-            const Matrix4 modelMatrix = box->GetModelMatrix( body.position, Matrix4::FromQuaternion( orientation ) );
-            RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+            continue;
         }
-    };
 
-    std::size_t farIndex = lastIndex;
-    if ( farIndex % stride != 0 )
-    {
-        appendGhostFrame( farIndex );
-        farIndex = ( farIndex / stride ) * stride;
-    }
-    for ( std::size_t index = farIndex; index >= stride; index -= stride )
-    {
-        appendGhostFrame( index );
-        if ( index == stride )
-        {
-            break;
-        }
+        Rendering::RenderMaterial material = model.GetRenderMaterial();
+        material.baseColor[3] = request.alpha;
+        const Matrix4 modelMatrix =
+            box->GetModelMatrix( request.position, Matrix4::FromQuaternion( request.orientation ) );
+        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
     }
 
     RenderHelper::DrawBoxBatchEnd();
@@ -382,45 +150,68 @@ void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
 
 void Run::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
 {
-    if ( m_replayLauncherVisualBackupActive )
+    if ( m_replayRuntime.HasLauncherVisualBackup() )
     {
         return;
     }
 
-    BuildReplayLauncherVisualSample( m_replayLauncherVisualBackup );
-    m_replayLauncherVisualBackupActive = true;
+    ReplayLauncherVisualSample liveSample;
+    BuildReplayLauncherVisualSample( liveSample );
+    m_replayRuntime.StoreLauncherVisualBackup( liveSample );
     RestoreReplayLauncherVisualSample( sample );
 }
 
 
 void Run::RestoreReplayLauncherVisualForRender()
 {
-    if ( !m_replayLauncherVisualBackupActive )
+    if ( !m_replayRuntime.HasLauncherVisualBackup() )
     {
         return;
     }
 
-    RestoreReplayLauncherVisualSample( m_replayLauncherVisualBackup );
-    m_replayLauncherVisualBackup = ReplayLauncherVisualSample();
-    m_replayLauncherVisualBackupActive = false;
+    RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+    m_replayRuntime.ClearLauncherVisualBackup();
 }
 
 
-Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig )
+RuntimeRenderServices Run::BuildRuntimeRenderServices()
 {
+    return RuntimeRenderServices{ *m_systems.textures,
+                                  m_cGameModelCollection,
+                                  m_cWorldEnvironment,
+                                  m_systems.terrain.get(),
+                                  *m_systems.cameras,
+                                  *m_systems.window,
+                                  m_UI,
+                                  m_systems.skyBox };
+}
+
+
+RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
+{
+    return RuntimeRenderInputs{ BuildRuntimeRenderServices() };
+}
+
+
+RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
+                                                             bool cinematicRender,
+                                                             const CinematicRenderConfig& renderConfig ) const
+{
+    const RuntimeRenderServices& services = renderInputs.services;
     RenderFrameContext frame;
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    frame.scene = &m_cGameModelCollection;
+    frame.scene = &services.models;
 
     // Ordinary and cinematic rendering both use a directional sun (w = 0).
     // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map
     // visibility block the same light contribution.
     if ( frame.cinematicEnabled )
     {
-        frame.lightPosition[0] = -0.68f;
-        frame.lightPosition[1] = 0.22f;
-        frame.lightPosition[2] = -0.70f;
+        const Vector3 sunDirection = CinematicSkySunDirection( renderConfig );
+        frame.lightPosition[0] = sunDirection.x;
+        frame.lightPosition[1] = sunDirection.y;
+        frame.lightPosition[2] = sunDirection.z;
         frame.lightPosition[3] = 0.0f;
     }
 
@@ -428,13 +219,13 @@ Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, cons
     // transitions, the selected camera and render camera can differ; all passes
     // must consume the interpolated render camera so reflection, sky, and water
     // sample the same view.
-    frame.baseView = m_systems.cameras->GetViewMatrix();
-    frame.projection = m_systems.window->GetProjectionMatrix();
+    frame.baseView = services.cameras.GetViewMatrix();
+    frame.projection = services.window.GetProjectionMatrix();
     frame.viewProjection = frame.projection * frame.baseView;
-    frame.eye = m_systems.cameras->GetRenderCameraTranslation();
-    frame.viewCenter = m_systems.cameras->GetRenderCameraView();
-    frame.up = m_systems.cameras->GetRenderCameraUp();
-    frame.waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    frame.eye = services.cameras.GetRenderCameraTranslation();
+    frame.viewCenter = services.cameras.GetRenderCameraView();
+    frame.up = services.cameras.GetRenderCameraUp();
+    frame.waterY = services.world.GetFluidSurfaceHeight();
     frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
     frame.reflectionCenter =
         Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
@@ -445,48 +236,39 @@ Run::RenderFrameContext Run::BuildRenderFrameContext( bool cinematicRender, cons
 }
 
 
-void Run::Render()
+RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
+    : m_host( host ), m_fullscreenQuadPass( host ), m_skyPass( host ), m_sceneTargetPass( host ), m_shadowPass( host ),
+      m_reflectionPass( host ), m_objectPass( host ), m_terrainPass( host ), m_waterPass( host ),
+      m_tornadoVisualPass( host ), m_debugOverlayPass( host ), m_volumetricPass( host ), m_tonemapPass( host ),
+      m_uiTextPass( host )
 {
-    // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
-    if ( m_debug.isTextOnly )
-    {
-        return;
-    }
-
-    // Update the active camera selection and any transition/tween state before
-    // rendering asks for view matrices.
-    SetViewingOrientation();
-
-    // Selected camera state is copied into the camera collection so render code below
-    // reads one coherent eye/view/up triple for this frame.
-    m_systems.cameras->SetCamera();
-
-    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
-    {
-        ApplyReplayPredictionFrameForRender( *predictionFrame );
-    }
-    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
-    {
-        ApplyReplayPresentationSampleForRender( *replaySample );
-    }
-    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
-    {
-        ApplyReplaySolverSampleForRender( *solverSample );
-        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-    }
-
-    // DrawPrimitives is now the frame story: it chooses the optional cinematic
-    // target, then runs named passes in the same order the image is produced.
-    DrawPrimitives();
-    RestoreReplayPresentationRenderPose();
-    RestoreReplayLauncherVisualForRender();
 }
 
 
-void Run::DrawPrimitives()
+void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInputs,
+                                            bool cinematicRender,
+                                            const CinematicRenderConfig& renderConfig )
 {
-    const bool cinematicRender = IsCinematicRenderingEnabled();
-    const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
+    if ( cinematicRender )
+    {
+        // Lifetime: cinematic resources are lazy. A window resize or backend
+        // rebuild drops them; the next cinematic frame recreates the targets and
+        // shader objects with the current window dimensions.
+        RenderFrameContext preFrame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+        m_fullscreenQuadPass.EnsureGpuResources( preFrame );
+        m_skyPass.EnsureGpuResources( preFrame );
+        m_sceneTargetPass.EnsureGpuResources( preFrame );
+        m_volumetricPass.EnsureGpuResources( preFrame );
+        m_tonemapPass.EnsureGpuResources( preFrame );
+    }
+}
+
+
+void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
+{
+    RuntimeRenderHost& host = m_host;
+    const bool cinematicRender = host.IsCinematicRenderingEnabled();
+    const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
@@ -502,20 +284,10 @@ void Run::DrawPrimitives()
     ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !host.m_debug.isTextOnly;
 
-    if ( cinematicRender )
-    {
-        // Lifetime: cinematic resources are lazy. A window resize or backend
-        // rebuild drops them; the next cinematic frame recreates the targets and
-        // shader objects with the current window dimensions.
-        RenderFrameContext preFrame = BuildRenderFrameContext( cinematicRender, renderConfig );
-        m_fullscreenQuadPass.EnsureGpuResources( preFrame );
-        m_skyPass.EnsureGpuResources( preFrame );
-        m_sceneTargetPass.EnsureGpuResources( preFrame );
-        m_volumetricPass.EnsureGpuResources( preFrame );
-        m_tonemapPass.EnsureGpuResources( preFrame );
-    }
+    EnsureFrameResources( renderInputs, cinematicRender, renderConfig );
+
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
     if ( cinematicRender && !useCinematicTarget )
     {
@@ -526,10 +298,10 @@ void Run::DrawPrimitives()
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
-    RenderFrameContext frame = BuildRenderFrameContext( cinematicRender, renderConfig );
+    RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    m_cGameModelCollection.PrepareRenderStreams();
+    host.m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
@@ -554,18 +326,19 @@ void Run::DrawPrimitives()
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
-    const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
-    const bool debugTransparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = m_replayPrediction.enabled;
+    const bool collisionStateColorsVisible = host.m_debug.isCollisionVisualizer;
+    const bool debugTransparentBodyPass =
+        host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
+    const bool replayPredictionOverlayActive = host.m_replayPrediction.enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
-                                       !debugTransparentBodyPass && BuildReplayFocusModelMask();
-    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &m_replayFocusModelMask : nullptr;
+                                       !debugTransparentBodyPass && host.BuildReplayFocusModelMask();
+    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &host.m_replayFocusModelMask : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
-    const float bodyRenderAlpha = debugTransparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
+    const float bodyRenderAlpha = debugTransparentBodyPass ? host.m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
     const bool waterModeOff = frame.cinematicEnabled && activeCinematic && activeCinematic->waterMode == 0;
-    const bool waterVisibleThisFrame = !m_debug.isWaterHidden && !waterModeOff;
-    const bool reflectionPassNeeded = waterVisibleThisFrame && !m_debug.isWaterNoReflect;
+    const bool waterVisibleThisFrame = !host.m_debug.isWaterHidden && !waterModeOff;
+    const bool reflectionPassNeeded = waterVisibleThisFrame && !host.m_debug.isWaterNoReflect;
 
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
@@ -624,11 +397,11 @@ void Run::DrawPrimitives()
     m_waterPass.Render( { frame,
                           reflection,
                           activeCinematic,
-                          m_debug.isWaterHidden,
-                          m_debug.isWaterFlatDebug,
-                          m_debug.isWaterNoReflect,
-                          m_debug.isWaterFreezeDebug,
-                          m_debug.frozenWaterTime } );
+                          host.m_debug.isWaterHidden,
+                          host.m_debug.isWaterFlatDebug,
+                          host.m_debug.isWaterNoReflect,
+                          host.m_debug.isWaterFreezeDebug,
+                          host.m_debug.frozenWaterTime } );
 
     const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
 
@@ -657,7 +430,7 @@ void Run::DrawPrimitives()
                                false } );
     }
 
-    RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
+    host.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
 
     m_debugOverlayPass.Render( { frame } );
 
@@ -676,7 +449,7 @@ void Run::DrawPrimitives()
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;
     frameSnapshot.objectTransparentPass = transparentBodyPass;
-    frameSnapshot.terrainPassRendered = !m_debug.isTerrainHidden;
+    frameSnapshot.terrainPassRendered = !host.m_debug.isTerrainHidden;
     const WaterPassDebugInfo& waterDebug = m_waterPass.LastDebugInfo();
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
@@ -687,31 +460,73 @@ void Run::DrawPrimitives()
 }
 
 
+void RuntimeRenderer::ReleaseBackendOwnedResources()
+{
+    // Lifetime: release pass-owned GPU resources while the renderer backend is
+    // still alive. The order keeps consumers ahead of their producers, so cached
+    // handles are invalidated before targets die.
+    m_tonemapPass.ReleaseGpuResources();
+    m_volumetricPass.ReleaseGpuResources();
+    m_tornadoVisualPass.ReleaseGpuResources();
+    m_sceneTargetPass.ReleaseGpuResources();
+    m_shadowPass.ReleaseGpuResources();
+    m_reflectionPass.ReleaseGpuResources();
+    m_skyPass.ReleaseGpuResources();
+    m_fullscreenQuadPass.ReleaseGpuResources();
+    m_uiTextPass.ReleaseGpuResources();
+}
+
+
+void RuntimeRenderer::EnsureUiTextResources()
+{
+    m_uiTextPass.EnsureGpuResources();
+}
+
+
+bool RuntimeRenderer::ShouldRenderUiText() const
+{
+    return m_uiTextPass.ShouldRender();
+}
+
+
+void RuntimeRenderer::RenderUiText( double dSecondsPerFrame )
+{
+    m_uiTextPass.Render( dSecondsPerFrame );
+}
+
+
+void Run::Render()
+{
+    // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
+    if ( m_debug.isTextOnly )
+    {
+        return;
+    }
+
+    // Update the active camera selection and any transition/tween state before
+    // rendering asks for view matrices.
+    SetViewingOrientation();
+
+    // Selected camera state is copied into the camera collection so render code below
+    // reads one coherent eye/view/up triple for this frame.
+    m_systems.cameras->SetCamera();
+
+    ApplyReplayRenderStateForFrame();
+
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
+    RestoreReplayRenderStateForFrame();
+}
+
+
+void Run::DrawPrimitives()
+{
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
+}
+
+
 void Run::SetUpCameras()
 {
-    m_systems.cameras = CameraCollection::Instance();
-
-    m_systems.cameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
-                                  Vector3( 581.0f, 40.0f, 633.0f ),  // View
-                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                  CAMERA_GAME_MODEL_1 );
-
-    m_systems.cameras->AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
-                                  Vector3( 709.0f, 92.0f, 482.0f ),  // View
-                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                  CAMERA_GAME_MODEL_2 );
-
-    m_systems.cameras->AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
-                                  Vector3( 313.0f, 31.0f, 282.0f ),  // View
-                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                  CAMERA_FREE );
-
-    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
-
-    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
-
-    // lock the m_cameras
-    m_systems.cameras->SetLockedMode( true );
+    SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext() );
 }
 
 
@@ -758,7 +573,7 @@ void Run::RebuildRegisteredRenderResources()
 
 void Run::SetViewingOrientation()
 {
-    if ( m_replayCamera.active )
+    if ( m_replayRuntime.Camera().active )
     {
         PROFILE_SCOPED( "Frame/Replay/Camera" );
         m_camera.cameraTime = 0.0f;

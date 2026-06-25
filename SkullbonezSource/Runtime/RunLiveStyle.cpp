@@ -228,7 +228,7 @@ void Run::SetLiveStyleControlDirectory( const char* path )
     m_liveStyle.captureCount = 0;
     m_liveStyle.enabled = true;
 
-    m_cmdInteractiveSceneRun = true;
+    m_launchOptions.interactiveSceneRun = true;
     EnterInteractiveSceneRun();
     WriteStatus( m_liveStyle, "ready", "watching live.style.json" );
     printf( "[style-harness] Watching %s\n", m_liveStyle.directory );

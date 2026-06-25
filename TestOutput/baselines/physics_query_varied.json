@@ -3047,7 +3047,7 @@
             "body <body> --frames <start>:<end>"
           ],
           "run": {
-            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"persistent_contact_baumgarte_beta\":0.2,\"persistent_contact_position_correction_percent\":0.35,\"persistent_contact_slop\":0.005,\"persistent_contact_solver_iterations\":12,\"physics_sleep_angular_speed\":0.3,\"physics_sleep_frames\":30,\"physics_sleep_linear_speed\":0.5,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3,\"terrain_contact_baumgarte_beta\":0.3,\"terrain_contact_slop\":0.005,\"terrain_contact_threshold\":0.15,\"terrain_max_baumgarte_bias\":2.0}",
+            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"object_friction_coeff\":0.8,\"persistent_contact_baumgarte_beta\":0.2,\"persistent_contact_position_correction_percent\":0.35,\"persistent_contact_slop\":0.005,\"persistent_contact_solver_iterations\":12,\"physics_sleep_angular_speed\":0.3,\"physics_sleep_frames\":30,\"physics_sleep_linear_speed\":0.5,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3,\"terrain_contact_baumgarte_beta\":0.3,\"terrain_contact_slop\":0.005,\"terrain_contact_threshold\":0.15,\"terrain_max_baumgarte_bias\":2.0}",
             "end_frame": 1200,
             "end_status": "scene_reload",
             "fixed_step": 1,
@@ -3187,7 +3187,7 @@
             "body <body> --frames <start>:<end>"
           ],
           "run": {
-            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"persistent_contact_baumgarte_beta\":0.2,\"persistent_contact_position_correction_percent\":0.35,\"persistent_contact_slop\":0.005,\"persistent_contact_solver_iterations\":12,\"physics_sleep_angular_speed\":0.3,\"physics_sleep_frames\":30,\"physics_sleep_linear_speed\":0.5,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3,\"terrain_contact_baumgarte_beta\":0.3,\"terrain_contact_slop\":0.005,\"terrain_contact_threshold\":0.15,\"terrain_max_baumgarte_bias\":2.0}",
+            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"object_friction_coeff\":0.8,\"persistent_contact_baumgarte_beta\":0.2,\"persistent_contact_position_correction_percent\":0.35,\"persistent_contact_slop\":0.005,\"persistent_contact_solver_iterations\":12,\"physics_sleep_angular_speed\":0.3,\"physics_sleep_frames\":30,\"physics_sleep_linear_speed\":0.5,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3,\"terrain_contact_baumgarte_beta\":0.3,\"terrain_contact_slop\":0.005,\"terrain_contact_threshold\":0.15,\"terrain_max_baumgarte_bias\":2.0}",
             "end_frame": 1200,
             "end_status": "process_end",
             "fixed_step": 1,

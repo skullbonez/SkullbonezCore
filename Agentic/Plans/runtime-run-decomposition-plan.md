@@ -1,7 +1,7 @@
 # Runtime Run Decomposition Plan
 
 Date: 2026-06-24
-Status: Draft implementation plan
+Status: Implemented on `nightrunner-24th-june-refactor`
 Impact area: runtime architecture, renderer orchestration, scene system, replay, editor tools, diagnostics
 Validation for this document-only change: none required
 

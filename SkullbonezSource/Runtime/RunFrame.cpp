@@ -347,13 +347,13 @@ void Run::Execute()
             }
             PROFILE_END( "Frame/Render" );
 
-            if ( m_uiTextPass.ShouldRender() )
+            if ( m_renderer.ShouldRenderUiText() )
             {
                 const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_uiTextPass.Render( secondsPerFrame );
+                    m_renderer.RenderUiText( secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
@@ -439,13 +439,13 @@ void Run::TickPhysics( double secondsPerFrame )
         return;
     }
 
-    const bool replaySimulationPaused = m_replayScrubber.simulationPaused;
+    const bool replaySimulationPaused = m_replayRuntime.Scrubber().simulationPaused;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
-    const bool replayCapture = m_replay.IsEnabled() || m_solverReplay.IsEnabled();
+    const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
-    const bool physicsCapture = m_diagnostics.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
-                                m_diagnostics.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
-                                m_diagnostics.PhysicsDiagnostics().isEnabled;
+    const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
+                                m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
+                                m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #else
     constexpr bool physicsCapture = false;
 #endif
@@ -455,7 +455,7 @@ void Run::TickPhysics( double secondsPerFrame )
                                                                       false,
                                                                       replaySimulationPaused,
                                                                       Input::IsRightMouseDown(),
-                                                                      m_editor.viewportLookActive,
+                                                                      m_runtimeTools.Editor().viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),
                                                                       physicsCapture,
                                                                       SceneState().timeScale } );
@@ -474,7 +474,7 @@ void Run::TickPhysics( double secondsPerFrame )
                              ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
                              this } );
     TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
-    m_launcherLaser.Update( static_cast<float>( secondsPerFrame ) );
+    m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
@@ -515,7 +515,7 @@ void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
 void Run::AfterPhysicsStep()
 {
     RestoreMousePickupAngularVelocity();
-    if ( m_replay.IsEnabled() || m_solverReplay.IsEnabled() )
+    if ( m_replayRuntime.IsCaptureEnabled() )
     {
         CaptureReplayPhysicsStep();
     }
@@ -530,8 +530,6 @@ void Run::CaptureReplayPhysicsStep()
         BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
-        input.branch = m_replayBranch;
-        input.eventCursor = m_replayEvents.GetStats().nextSequence;
         input.sceneFrame = SceneState().currentFrame;
         input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
         input.physicsDt = PHYSICS_FIXED_DT;
@@ -544,8 +542,7 @@ void Run::CaptureReplayPhysicsStep()
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
         input.launcherVisual = &launcherVisual;
-        m_replay.CaptureFrame( input );
-        m_solverReplay.CaptureFrame( input );
+        m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples();
     }
 #ifdef _DEBUG
@@ -559,14 +556,15 @@ void Run::CaptureReplayPhysicsStep()
 void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
     outSample = ReplayLauncherVisualSample();
-    outSample.nextRayLine = m_rayCastTest.nextLine;
-    outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile
-                                                                                   : ReplayLauncherFireMode::Laser;
-    outSample.visualizeRays = m_rayCastTest.visualizeRays;
-    outSample.impulseStrength = m_rayCastTest.impulseStrength;
-    outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
+    outSample.nextRayLine = m_runtimeTools.RayCastTest().nextLine;
+    outSample.fireMode = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile
+                             ? ReplayLauncherFireMode::Projectile
+                             : ReplayLauncherFireMode::Laser;
+    outSample.visualizeRays = m_runtimeTools.RayCastTest().visualizeRays;
+    outSample.impulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
+    outSample.projectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
     outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
     {
         ReplayRayCastLineSample sample;
         sample.start = line.start;
@@ -576,7 +574,7 @@ void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample
         sample.hit = line.hit;
         outSample.rayLines.push_back( sample );
     }
-    m_launcherLaser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
+    m_runtimeTools.Laser().CaptureShots( outSample.laserShots, outSample.nextLaserShot );
 }
 
 bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
@@ -600,6 +598,7 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         case RuntimeCommandType::SaveScreenshot:
         case RuntimeCommandType::SaveSceneDefaults:
         case RuntimeCommandType::SaveRenderDefaults:
+        case RuntimeCommandType::SaveSkyDefaults:
         case RuntimeCommandType::Quit:
         case RuntimeCommandType::None:
             WriteReplayProbeReason( outReason, reasonSize, "ignored non-solver runtime command" );
@@ -633,8 +632,8 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         WriteReplayProbeReason( outReason, reasonSize, "applied world override" );
         return true;
     case ReplayEventKind::LauncherConfig:
-        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value0 );
-        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
+        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
         WriteReplayProbeReason( outReason, reasonSize, "applied launcher config" );
         return true;
     case ReplayEventKind::LauncherFire:
@@ -647,12 +646,12 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
             WriteReplayProbeReason( outReason, reasonSize, "invalid launcher fire payload" );
             return false;
         }
-        m_rayCastTest.fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
-                                     ? RunLauncherFireMode::Projectile
-                                     : RunLauncherFireMode::Laser;
-        m_rayCastTest.impulseStrength = ReplayEventFloatFromBits( event.value1 );
-        m_rayCastTest.projectileSpeed = ReplayEventFloatFromBits( event.value2 );
-        if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+        m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                                    ? RunLauncherFireMode::Projectile
+                                                    : RunLauncherFireMode::Laser;
+        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
+        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+        if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
         {
             FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
         }
@@ -691,19 +690,19 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
             return false;
         }
 
-        const Vector3 previousPlacementScale = m_editor.placementScale;
-        const bool previousTerrainAlign = m_editor.autoTerrainAlign;
-        const float previousPlacementYawRadians = m_editor.placementYawRadians;
-        m_editor.placementScale = placementScale;
-        m_editor.autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-        m_editor.placementYawRadians = placementYawRadians;
+        const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
+        const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
+        const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
+        m_runtimeTools.Editor().placementScale = placementScale;
+        m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+        m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
         const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
                                                              ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                              terrainPoint,
                                                              false );
-        m_editor.placementScale = previousPlacementScale;
-        m_editor.autoTerrainAlign = previousTerrainAlign;
-        m_editor.placementYawRadians = previousPlacementYawRadians;
+        m_runtimeTools.Editor().placementScale = previousPlacementScale;
+        m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
+        m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
         if ( !placed )
         {
             WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );
@@ -776,7 +775,7 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
         if ( !model.IsFixed() )
         {
-            m_cGameModelCollection.WakeModel( event.value0 );
+            m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
         WriteReplayProbeReason( outReason, reasonSize, "applied editor transform" );
@@ -791,8 +790,8 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
 
 void Run::CompareLatestReplaySamples()
 {
-    const ReplayPresentationSample* presentation = m_replay.LatestSample();
-    const ReplaySolverFrameSample* solver = m_solverReplay.LatestSample();
+    const ReplayPresentationSample* presentation = m_replayRuntime.Presentation().LatestSample();
+    const ReplaySolverFrameSample* solver = m_replayRuntime.Solver().LatestSample();
     if ( !presentation || !solver )
     {
         return;
@@ -806,14 +805,14 @@ void Run::CompareLatestReplaySamples()
         return;
     }
 
-    if ( m_solverReplayMismatchReports < 8 )
+    if ( m_solverReplayMismatch.reports < 8 )
     {
-        ++m_solverReplayMismatchReports;
+        ++m_solverReplayMismatch.reports;
         fprintf( stderr,
                  "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
                  "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
                  "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_solverReplayMismatchReports,
+                 m_solverReplayMismatch.reports,
                  static_cast<unsigned long long>( presentation->frameIndex ),
                  static_cast<unsigned long long>( solver->frameIndex ),
                  static_cast<unsigned long long>( presentation->stateHash ),
@@ -822,9 +821,9 @@ void Run::CompareLatestReplaySamples()
                  static_cast<unsigned long long>( presentation->bodies.size() ),
                  static_cast<unsigned long long>( solver->bodies.size() ) );
     }
-    else if ( !m_solverReplayMismatchSuppressed )
+    else if ( !m_solverReplayMismatch.suppressed )
     {
-        m_solverReplayMismatchSuppressed = true;
+        m_solverReplayMismatch.suppressed = true;
         fprintf( stderr,
                  "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
                  "timeline.\n" );
@@ -846,14 +845,15 @@ void Run::TickReplayScrubProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = m_replay.GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
     if ( stats.sampleCount < static_cast<std::size_t>( m_replayScrubProbe.minSampleCount ) )
     {
         return;
     }
 
-    const ReplayPresentationSample* selected = m_replay.SampleAtNormalized( m_replayScrubProbe.normalized );
-    const ReplayPresentationSample* live = m_replay.LatestSample();
+    const ReplayPresentationSample* selected =
+        m_replayRuntime.Presentation().SampleAtNormalized( m_replayScrubProbe.normalized );
+    const ReplayPresentationSample* live = m_replayRuntime.Presentation().LatestSample();
     if ( !selected || !live || selected->frameIndex >= live->frameIndex )
     {
         throw std::runtime_error( "replay scrub probe could not select an older replay sample" );
@@ -908,7 +908,7 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe live model did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
@@ -917,11 +917,11 @@ void Run::TickReplayScrubProbe()
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe did not move the live model to the selected replay sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
@@ -931,19 +931,18 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    RuntimeDiagnostics::LogReplayScrubProbe( m_diagnostics.PhysicsDiagnostics(),
-                                             SceneState(),
-                                             *selected,
-                                             *live,
-                                             *selectedBody,
-                                             *liveBody,
-                                             m_replayScrubProbe.normalized,
-                                             bestDistanceSquared,
-                                             applied,
-                                             restored,
-                                             preLiveDeltaSquared,
-                                             appliedDeltaSquared,
-                                             restoredDeltaSquared );
+    m_diagnosticsRuntime.LogReplayScrubProbe( SceneState(),
+                                              *selected,
+                                              *live,
+                                              *selectedBody,
+                                              *liveBody,
+                                              m_replayScrubProbe.normalized,
+                                              bestDistanceSquared,
+                                              applied,
+                                              restored,
+                                              preLiveDeltaSquared,
+                                              appliedDeltaSquared,
+                                              restoredDeltaSquared );
 
     m_replayScrubProbe.completed = true;
     printf(
@@ -962,15 +961,15 @@ void Run::TickReplayRestoreProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = m_solverReplay.GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Solver().GetStats();
     if ( stats.sampleCount < static_cast<std::size_t>( m_replayRestoreProbe.minSampleCount ) )
     {
         return;
     }
 
     const ReplaySolverFrameSample* selectedSample =
-        m_solverReplay.SampleAtNormalized( m_replayRestoreProbe.normalized );
-    const ReplaySolverFrameSample* latestSample = m_solverReplay.LatestSample();
+        m_replayRuntime.Solver().SampleAtNormalized( m_replayRestoreProbe.normalized );
+    const ReplaySolverFrameSample* latestSample = m_replayRuntime.Solver().LatestSample();
     if ( !selectedSample || !latestSample )
     {
         throw std::runtime_error( "replay restore probe could not select retained solver samples" );
@@ -1017,7 +1016,7 @@ void Run::TickReplaySaveProbe()
         return;
     }
 
-    const ReplayRecorderStats stats = m_replay.GetStats();
+    const ReplayRecorderStats stats = m_replayRuntime.Presentation().GetStats();
     if ( !m_replaySaveProbe.runtimeResetCoverageInjected && stats.sampleCount >= 4 )
     {
         m_replaySaveProbe.runtimeResetCoverageInjected = true;
@@ -1034,8 +1033,8 @@ void Run::TickReplaySaveProbe()
         ApplyUIWorldOverride( probeGravity,
                               m_cWorldEnvironment.GetFluidSurfaceHeight(),
                               m_cWorldEnvironment.GetFluidDensity() );
-        m_editor.placementScale = Vector3( 2.0f, 2.0f, 2.0f );
-        m_editor.autoTerrainAlign = false;
+        m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
+        m_runtimeTools.Editor().autoTerrainAlign = false;
         const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
         if ( PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) ) )
         {
@@ -1063,7 +1062,7 @@ void Run::TickReplaySaveProbe()
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
         }
-        m_rayCastTest.projectileSpeed += 1.0f;
+        m_runtimeTools.RayCastTest().projectileSpeed += 1.0f;
         RecordReplayLauncherConfigEvent( 2u );
         FireRayCastTest();
     }
@@ -1073,11 +1072,7 @@ void Run::TickReplaySaveProbe()
     }
 
     ReplayV2SaveResult result;
-    if ( !ReplayV2Artifact::SavePresentationWithSolverHashes( m_replay,
-                                                              m_solverReplay,
-                                                              m_replayEvents,
-                                                              m_replaySaveProbe.path,
-                                                              &result ) )
+    if ( !m_replayRuntime.SavePresentationWithSolverHashes( m_replaySaveProbe.path, &result ) )
     {
         throw std::runtime_error( "replay save probe failed to write v2 presentation artifact" );
     }
@@ -1159,7 +1154,7 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe live model did not match the loaded v2 live sample" );
     }
 
-    const bool applied = ApplyReplayPresentationSampleForRender( selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
@@ -1168,11 +1163,11 @@ void Run::TickReplaySaveProbe()
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe did not move the live model to the loaded v2 sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
@@ -1264,7 +1259,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     SkullbonezCore::GameObjects::GameModel& probedModel =
         physicsModels[static_cast<std::size_t>( selectedBody->modelIndex )];
     const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
-    const bool applied = ApplyReplayPresentationSampleForRender( *selected );
+    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
@@ -1274,11 +1269,11 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        RestoreReplayPresentationRenderPose();
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe did not move the model to the selected loaded v2 sample" );
     }
 
-    RestoreReplayPresentationRenderPose();
+    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
     const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
@@ -1288,10 +1283,10 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
 
     printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "
             "latest_frame=%llu body_id=%u distance_sq=%.6f\n",
-            m_loadedPresentationReplay.path,
-            static_cast<unsigned long long>( m_loadedPresentationReplay.samples.size() ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.bodyDictionaryCount ),
-            static_cast<unsigned long long>( m_loadedPresentationReplay.firstFrame ),
+            m_replayRuntime.LoadedPresentation().path,
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().samples.size() ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().bodyDictionaryCount ),
+            static_cast<unsigned long long>( m_replayRuntime.LoadedPresentation().firstFrame ),
             static_cast<unsigned long long>( selected->frameIndex ),
             static_cast<unsigned long long>( latest->frameIndex ),
             selectedBody->id.value,
@@ -1378,8 +1373,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         const ReplayFrameIndex targetFrame =
             diagnosticTarget ? diagnosticTarget->frameIndex
                              : ( requestedFrame == LATEST_NON_CHECKPOINT_TARGET ? 0 : requestedFrame );
-        RuntimeDiagnostics::LogReplayRestoreResult(
-            m_diagnostics.PhysicsDiagnostics(),
+        m_diagnosticsRuntime.LogReplayRestoreResult(
             SceneState(),
             restoreSource,
             targetFrame,
@@ -1535,7 +1529,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     ReplaySolverFrameSample liveBackup;
     bool hasLiveBackup = false;
-    if ( const ReplaySolverFrameSample* latest = m_solverReplay.LatestSample() )
+    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
     {
         liveBackup = *latest;
         hasLiveBackup = true;
@@ -1626,18 +1620,18 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         m_simulation.Reset();
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
-        m_generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-        m_UIModelCountOverride = uiModelCount ? event.value0 : -1;
-        m_UISolverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-        m_UISolverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+        m_launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
+        m_sceneUIOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
+        m_sceneUIOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+        m_sceneUIOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
         if ( exactSolverCounts || uiSolverCounts )
         {
-            SetUpSolverObjects( event.value1, event.value2 );
+            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), event.value1, event.value2 );
         }
         else
         {
-            SetUpGameModels( event.value0 );
+            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
 
@@ -1758,13 +1752,13 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
 
             TickRayCastTestLines( PHYSICS_FIXED_DT );
-            m_launcherLaser.Update( PHYSICS_FIXED_DT );
+            m_runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
             m_cGameModelCollection.EndCollisionVisualFrame();
             ++currentSceneFrame;
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            m_cGameModelCollection.GetPhysicsEngine().Step( m_cGameModelCollection, PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
@@ -1943,16 +1937,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     if ( makeLiveBranch )
     {
-        const uint32_t parentBranchId = checkpoint->branch.branchId != 0
-                                            ? checkpoint->branch.branchId
-                                            : ( m_replayBranch.branchId != 0 ? m_replayBranch.branchId : 1u );
+        const uint32_t parentBranchId =
+            checkpoint->branch.branchId != 0
+                ? checkpoint->branch.branchId
+                : ( m_replayRuntime.Branch().branchId != 0 ? m_replayRuntime.Branch().branchId : 1u );
         ReplayBranchInfo restoredBranch;
-        restoredBranch.branchId = (std::max)( m_replayBranch.branchId, parentBranchId ) + 1u;
+        restoredBranch.branchId = (std::max)( m_replayRuntime.Branch().branchId, parentBranchId ) + 1u;
         restoredBranch.parentBranchId = parentBranchId;
         restoredBranch.startFrame = 0;
         restoredBranch.sourceFrame = target->frameIndex;
         restoredBranch.sourceSolverHash = target->solverHash;
-        m_replayBranch = restoredBranch;
+        m_replayRuntime.Branch() = restoredBranch;
         ResetReplayTimelineForActiveScene( true );
         RecordReplayEvent( ReplayEventKind::BranchRestore,
                            0,
@@ -2042,9 +2037,9 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     {
         throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    m_replayScrubber.paused = true;
-    m_replayScrubber.activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayScrubber, RunReplayTrack::Presentation, 1.0f );
+    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
+    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
@@ -2092,7 +2087,7 @@ void Run::EnterInteractiveSceneRun()
 {
     SceneState().isInteractiveRun = true;
     SceneState().isExitOnComplete = false;
-    m_capture.Screenshot().isScreenshotAndExit = false;
+    m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
 }
 
 
@@ -2106,7 +2101,7 @@ void Run::HoldCompletedInteractiveScene()
 {
     SceneState().isTestComplete = true;
     SceneState().isExitOnComplete = false;
-    m_capture.Screenshot().isScreenshotAndExit = false;
+    m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
     m_camera.autoCycleInterval = -1.0f;
     m_camera.autoCycleAccum = 0.0f;
 }
@@ -2132,7 +2127,7 @@ bool Run::TickScreenshots()
 
     ScreenshotSink sink( *this );
     const std::string* scenePath = CurrentSceneQueuePath();
-    const RuntimeCaptureResult result = m_capture.TickScreenshots(
+    const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
                                     SceneState().isInteractiveRun,
                                     SceneState().currentFrame,
@@ -2197,14 +2192,15 @@ void Run::TickAutoCycle()
     };
 
     ScreenshotSink sink( *this );
-    const RuntimeCaptureResult result = m_capture.TickAutoCycle( SceneState().isSceneMode,
-                                                                 SceneState().isInteractiveRun,
-                                                                 m_cGameModelCollection.GetModelCount(),
-                                                                 m_camera.autoCycleInterval,
-                                                                 m_camera.autoCycleAccum,
-                                                                 m_camera.autoCycleShotsTaken,
-                                                                 m_camera.trackBallIndex,
-                                                                 sink );
+    const RuntimeCaptureResult result =
+        m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
+                                                      SceneState().isInteractiveRun,
+                                                      m_cGameModelCollection.GetModelCount(),
+                                                      m_camera.autoCycleInterval,
+                                                      m_camera.autoCycleAccum,
+                                                      m_camera.autoCycleShotsTaken,
+                                                      m_camera.trackBallIndex,
+                                                      sink );
 
     if ( result.completion != RuntimeCaptureCompletion::AutoCycle )
     {
@@ -2228,10 +2224,10 @@ void Run::TickAutoCycle()
 
 void Run::TickPerfLog()
 {
-    m_diagnostics.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
-                                                       SceneState().currentFrame + 1,
-                                                       m_timers.physicsTime,
-                                                       m_timers.renderTime } );
+    m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+                                                              SceneState().currentFrame + 1,
+                                                              m_timers.physicsTime,
+                                                              m_timers.renderTime } );
 
     if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {
@@ -2275,7 +2271,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( SceneState().targetFrameCount > 0 && !m_capture.Screenshot().isScreenshotSaved )
+    if ( SceneState().targetFrameCount > 0 && !m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved )
     {
         if ( SceneState().currentFrame >= SceneState().targetFrameCount )
         {
@@ -2357,7 +2353,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnostics.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnosticsRuntime.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG

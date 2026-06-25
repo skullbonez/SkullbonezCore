@@ -27,8 +27,8 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 unsigned int Run::NextUIStressRandom()
 {
-    m_uiStress.randomState = m_uiStress.randomState * 1664525u + 1013904223u;
-    return m_uiStress.randomState;
+    m_diagnosticsRuntime.UIStress().randomState = m_diagnosticsRuntime.UIStress().randomState * 1664525u + 1013904223u;
+    return m_diagnosticsRuntime.UIStress().randomState;
 }
 
 
@@ -51,12 +51,12 @@ float Run::NextUIStressFloat( float minValue, float maxValue )
 
 void Run::RunUIStressActions()
 {
-    if ( !m_uiStress.enabled || !m_systems.window )
+    if ( !m_diagnosticsRuntime.UIStress().enabled || !m_systems.window )
     {
         return;
     }
 
-    ++m_uiStress.framesRun;
+    ++m_diagnosticsRuntime.UIStress().framesRun;
     const double UINow = m_timers.simulationTimer.GetTotalTime();
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
@@ -69,7 +69,7 @@ void Run::RunUIStressActions()
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = false;
-    if ( m_uiStress.framesRun == 18 )
+    if ( m_diagnosticsRuntime.UIStress().framesRun == 18 )
     {
         const int modelCount = 96 + NextUIStressInt( 160 );
         if ( allowRuntimeChurn )
@@ -77,7 +77,7 @@ void Run::RunUIStressActions()
             ApplyUIModelCountOverride( modelCount );
         }
     }
-    if ( m_uiStress.framesRun == 42 )
+    if ( m_diagnosticsRuntime.UIStress().framesRun == 42 )
     {
         const int balls = 24 + NextUIStressInt( 220 );
         const int boxes = NextUIStressInt( 1000 - balls + 1 );
@@ -86,7 +86,7 @@ void Run::RunUIStressActions()
             ApplyUISolverObjectCounts( balls, boxes );
         }
     }
-    const int actionCount = std::clamp( m_uiStress.actionsPerFrame, 1, 32 );
+    const int actionCount = std::clamp( m_diagnosticsRuntime.UIStress().actionsPerFrame, 1, 32 );
     for ( int i = 0; i < actionCount; ++i )
     {
         switch ( NextUIStressInt( 24 ) )
@@ -202,8 +202,8 @@ void Run::RunUIStressActions()
             const float timeScale = NextUIStressFloat( 0.10f, 4.00f );
             if ( allowRuntimeChurn )
             {
-                m_UITimeScaleOverride = timeScale;
-                SceneState().timeScale = m_UITimeScaleOverride;
+                m_sceneUIOverrides.timeScaleOverride = timeScale;
+                SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
                 m_simulation.Reset();
             }
             break;

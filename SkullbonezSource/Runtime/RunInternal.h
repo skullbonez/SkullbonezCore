@@ -111,7 +111,6 @@ inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
 inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
-inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
 inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;

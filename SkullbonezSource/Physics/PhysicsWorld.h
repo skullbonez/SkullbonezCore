@@ -42,7 +42,6 @@ Related:
 #include "Debug/PhysicsDebugVisualizer.h"
 #include "Ragdoll.h"
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
-#include "../Core/SkullScope.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "TornadoField.h"
@@ -57,18 +56,12 @@ struct GameModelBodyStream;
 
 namespace Physics
 {
+struct PersistentContactSolverContext;
+struct SleepSupportPropagationContext;
+
 class PhysicsWorld
 {
   private:
-    // These helpers are allowed to touch the raw physics arrays because this
-    // type is the per-scene physics working set. Keeping mutation centralized
-    // here makes deterministic validation easier to reason about: one object
-    // owns the arrays, and each helper owns one stage of the pipeline.
-    friend class GameObjects::SkullScope;
-    friend class PhysicsDiagnosticsSink;
-    friend class PersistentContactSolver;
-    friend class SleepIslandSystem;
-
     // Broadphase output for the current fixed tick.
     //
     // SpatialGrid bins objects into cells, m_candidatePairs stores object pairs
@@ -130,6 +123,7 @@ class PhysicsWorld
     std::vector<int> m_sleepVisualIslandIds;
     std::vector<int> m_sleepVisualIslandBodies;
 
+  public:
     struct PersistentContact
     {
         // One solver row for one contact point. bodyB == -1 means static
@@ -164,17 +158,7 @@ class PhysicsWorld
         float terrainWarmStart = 0.0f;
     };
 
-    struct PersistentContactCacheEntry
-    {
-        // Previous-frame impulse cache. The key encodes the bodies plus feature
-        // id so a contact can find last tick's converged impulse even if rows
-        // are rebuilt from fresh manifolds this tick.
-        int64_t key = 0;
-        float accN = 0.0f;
-        float accT1 = 0.0f;
-        float accT2 = 0.0f;
-    };
-
+  public:
     struct PersistentContactSolverStats
     {
         // Bounded per-frame counters for SkullScope, profiler overlays, and
@@ -191,19 +175,27 @@ class PhysicsWorld
         float positionCorrectionMax = 0.0f;
     };
 
-    struct SolverBodyState
+    struct DiagnosticsView
     {
-        // Solver scratch copy of dynamic body state. Rows iterate over this
-        // compact representation first, then the final velocities are written
-        // back to GameModel/RigidBody storage after the solve.
-        Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-        Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
-        Math::Transformation::RotationMatrix orientation;
-        float invMass = 0.0f;
-        bool useWorldInertia = false;
+        const std::vector<PersistentContact>& persistentContacts;
+        const PersistentContactSolverStats& persistentContactSolverStats;
+        const std::vector<int>& sleepIslandParent;
+        const std::vector<uint8_t>& sleepSupportedThisFrame;
+        const std::vector<uint8_t>& sleepInhibitedThisFrame;
+        const std::vector<uint8_t>& sleepState;
+        const std::vector<uint8_t>& sleepCounter;
+        const std::vector<uint8_t>& sleepIslandEligible;
+        const std::vector<uint8_t>& sleepIslandCanSleep;
+        const Math::CollisionDetection::SpatialGrid& spatialGrid;
+        const std::vector<std::pair<int, int>>& candidatePairs;
+        const std::vector<int64_t>& collisionCellKeys;
+        const std::vector<std::pair<int, int>>& sleepSupportEdges;
+        const std::vector<int>& sleepIslandVisualId;
+        const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
+        const std::vector<TerrainContactManifold>& terrainContactManifolds;
     };
 
+  private:
     struct TerrainDetectionCandidate
     {
         float availableTime = 0.0f;
@@ -283,6 +275,8 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
+    PersistentContactSolverContext CreatePersistentContactSolverContext();
+    SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
@@ -331,6 +325,19 @@ class PhysicsWorld
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    DiagnosticsView GetDiagnosticsView() const;
+    void RecordSolverPhysicsPipelineStage( const PhysicsPipelineRecord& record )
+    {
+        RecordPhysicsPipelineStage( record );
+    }
+    void MarkSolverCollisionVisualContact( int index )
+    {
+        MarkCollisionVisualContact( index );
+    }
+    void MarkSolverFixedContact( GameObjects::GameModelCollection& collection, int index )
+    {
+        MarkFixedContact( collection, index );
+    }
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
@@ -349,6 +356,36 @@ class PhysicsWorld
     void SetPhysicsDiagnosticsRunId( const char* runId );
     bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
+};
+
+struct PersistentContactSolverContext
+{
+    std::vector<std::pair<int, int>>& candidatePairs;
+    std::vector<uint8_t>& sleepState;
+    std::vector<std::pair<int, int>>& sleepSupportEdges;
+    std::vector<PhysicsWorld::PersistentContact>& persistentContacts;
+    std::vector<PersistentContactCacheEntry>& persistentContactCache;
+    PhysicsWorld::PersistentContactSolverStats& persistentContactSolverStats;
+    std::vector<uint16_t>& persistentContactCounts;
+    std::vector<uint16_t>& persistentRestingContactCounts;
+    std::vector<SolverBodyState>& solverBodies;
+    std::vector<PhysicsDebugContact>& physicsDebugContacts;
+    std::vector<TerrainContactManifold>& terrainContactManifolds;
+    std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
+    std::vector<uint8_t>& sleepSupportedThisFrame;
+    PhysicsWorld& world;
+
+    void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
+    void MarkCollisionVisualContact( int index ) const;
+    void MarkFixedContact( GameObjects::GameModelCollection& collection, int index ) const;
+    void WakeModel( GameObjects::GameModelCollection& collection, int index ) const;
+};
+
+struct SleepSupportPropagationContext
+{
+    std::vector<uint8_t>& sleepState;
+    std::vector<std::pair<int, int>>& sleepSupportEdges;
+    std::vector<uint8_t>& sleepSupportedThisFrame;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

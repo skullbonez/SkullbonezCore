@@ -761,13 +761,13 @@ void GameModel::CalculateVolume()
 }
 
 
-float GameModel::GetMass()
+float GameModel::GetMass() const
 {
     return m_ballPhysics.mass;
 }
 
 
-float GameModel::GetInvertedMass()
+float GameModel::GetInvertedMass() const
 {
     if ( m_isFixed )
     {
@@ -1871,7 +1871,7 @@ const Quaternion& GameModel::GetOrientation() const
 }
 
 
-const Vector3& GameModel::GetRotationalInertia()
+const Vector3& GameModel::GetRotationalInertia() const
 {
     return m_ballPhysics.rotationalInertia;
 }
@@ -1897,7 +1897,7 @@ const CollisionShape& GameModel::GetCollisionShape() const
 }
 
 
-float GameModel::GetCoefficientRestitution()
+float GameModel::GetCoefficientRestitution() const
 {
     return m_physicsInfo.GetCoefficientRestitution();
 }

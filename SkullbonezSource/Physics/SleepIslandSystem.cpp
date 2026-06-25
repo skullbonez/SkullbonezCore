@@ -33,7 +33,7 @@ using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 
 
-void SleepIslandSystem::PropagateSupport( PhysicsWorld& world, GameModelCollection& collection )
+void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, GameModelCollection& collection )
 {
     // Concept: support propagates upward through a stack.
     //
@@ -41,10 +41,10 @@ void SleepIslandSystem::PropagateSupport( PhysicsWorld& world, GameModelCollecti
     // B can be considered supported too. Repeating that rule lets a whole tower
     // become one stable sleep island instead of requiring every object to touch
     // terrain directly.
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_sleepState = world.m_sleepState;
-    auto& m_sleepSupportEdges = world.m_sleepSupportEdges;
-    auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;
+    const std::vector<GameModel>& m_gameModels = collection.PhysicsModels();
+    auto& m_sleepState = context.sleepState;
+    auto& m_sleepSupportEdges = context.sleepSupportEdges;
+    auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
 
     const int modelCount = static_cast<int>( m_gameModels.size() );
     if ( modelCount <= 0 || m_sleepSupportEdges.empty() )

@@ -43,6 +43,8 @@ class GameModelCollection;
 
 namespace Physics
 {
+class PhysicsEngine;
+
 struct PointJointConstraint
 {
     static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
@@ -85,6 +87,7 @@ class Ragdoll
                                  float g,
                                  float b );
     static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection,
+                                   PhysicsEngine& physics,
                                    Environment::WorldEnvironment& worldEnvironment,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );

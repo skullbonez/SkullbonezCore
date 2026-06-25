@@ -61,32 +61,33 @@ namespace
 constexpr int TERRAIN_BODY_INDEX = -1;
 } // namespace
 
-void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& collection, float dt )
+void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
+                                     GameModelCollection& collection,
+                                     float dt )
 {
     using PersistentContact = PhysicsWorld::PersistentContact;
-    using PersistentContactCacheEntry = PhysicsWorld::PersistentContactCacheEntry;
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
-    using SolverBodyState = PhysicsWorld::SolverBodyState;
 
-    auto& m_gameModels = collection.m_gameModels;
-    auto& m_soaIsFixed = collection.m_soaCache.isFixed;
-    auto& m_candidatePairs = world.m_candidatePairs;
-    auto& m_sleepState = world.m_sleepState;
-    auto& m_sleepSupportEdges = world.m_sleepSupportEdges;
-    auto& m_persistentContacts = world.m_persistentContacts;
-    auto& m_persistentContactCache = world.m_persistentContactCache;
-    auto& m_persistentContactSolverStats = world.m_persistentContactSolverStats;
-    auto& m_persistentContactCounts = world.m_persistentContactCounts;
-    auto& m_persistentRestingContactCounts = world.m_persistentRestingContactCounts;
-    auto& m_solverBodies = world.m_solverBodies;
-    auto& m_physicsDebugContacts = world.m_physicsDebugContacts;
-    auto& m_terrainContactManifolds = world.m_terrainContactManifolds;
-    auto& m_terrainRestApplied = world.m_terrainRestApplied;
-    auto& m_sleepSupportedThisFrame = world.m_sleepSupportedThisFrame;
+    auto& m_gameModels = collection.PhysicsModels();
+    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const uint8_t* m_soaIsFixed = bodyStream.isFixed;
+    auto& m_candidatePairs = context.candidatePairs;
+    auto& m_sleepState = context.sleepState;
+    auto& m_sleepSupportEdges = context.sleepSupportEdges;
+    auto& m_persistentContacts = context.persistentContacts;
+    auto& m_persistentContactCache = context.persistentContactCache;
+    auto& m_persistentContactSolverStats = context.persistentContactSolverStats;
+    auto& m_persistentContactCounts = context.persistentContactCounts;
+    auto& m_persistentRestingContactCounts = context.persistentRestingContactCounts;
+    auto& m_solverBodies = context.solverBodies;
+    auto& m_physicsDebugContacts = context.physicsDebugContacts;
+    auto& m_terrainContactManifolds = context.terrainContactManifolds;
+    auto& m_terrainRestApplied = context.terrainRestApplied;
+    auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
-    { world.RecordPhysicsPipelineStage( record ); };
-    auto MarkCollisionVisualContact = [&]( int index ) { world.MarkCollisionVisualContact( index ); };
-    auto MarkFixedContact = [&]( int index ) { world.MarkFixedContact( collection, index ); };
+    { context.RecordPhysicsPipelineStage( record ); };
+    auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
+    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( collection, index ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
@@ -1321,7 +1322,7 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
             fixedModel.SetFixed( false );
             fixedModel.SetLinearVelocity( releaseDir * releaseSpeed + tangentVelocity );
             fixedModel.SetAngularVelocity( angularVelocity );
-            world.WakeModel( collection, fixedIndex );
+            context.WakeModel( collection, fixedIndex );
             collection.ReleaseAttachedFixedTreeParts( fixedIndex,
                                                       fixedModel.GetVelocity(),
                                                       fixedModel.GetAngularVelocity() );

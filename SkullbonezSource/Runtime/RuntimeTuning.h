@@ -33,6 +33,7 @@ namespace RunInternal
 {
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param );
 uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature );
+Math::Vector::Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic );
 void ApplyWorkerThreadCountOverride( int requestedWorkerThreads );
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
                             RunSceneState& scene,
