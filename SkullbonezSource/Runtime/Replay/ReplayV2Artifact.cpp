@@ -55,6 +55,8 @@ namespace
 {
 using Json = nlohmann::ordered_json;
 
+// Invariant: these byte counts describe the on-disk ABI for v2 artifacts.
+// Changing one requires matching reader/writer updates and replay-query tooling.
 constexpr uint32_t REPLAY_V2_VERSION = 2;
 constexpr uint32_t REPLAY_V2_HEADER_BYTES = 40;
 constexpr uint32_t REPLAY_V2_CHUNK_ENTRY_BYTES = 28;
@@ -89,7 +91,7 @@ struct BodyDictionaryEntry
 struct Chunk
 {
     char id[4] = {};
-    std::vector<uint8_t> bytes;
+    std::vector<uint8_t> bytes; // Raw little-endian payload for this chunk id.
     uint32_t recordCount = 0;
 };
 
@@ -132,6 +134,8 @@ struct ByteCursor
 
 template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value )
 {
+    // Hazard: v2 chunks intentionally write POD bytes directly. Only use this
+    // for fixed-layout file records whose fields are mirrored by the reader.
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
     out.insert( out.end(), bytes, bytes + sizeof( T ) );

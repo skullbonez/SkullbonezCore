@@ -101,6 +101,8 @@ uint64_t HashBool( uint64_t hash, bool value )
 
 uint64_t HashFloat( uint64_t hash, float value )
 {
+    // Invariant: hash the exact IEEE bytes, not formatted text or rounded
+    // values. Replay validation expects byte-exact drift detection.
     uint32_t packed = 0;
     std::memcpy( &packed, &value, sizeof( packed ) );
     return HashUint32( hash, packed );

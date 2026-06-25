@@ -7,6 +7,24 @@ Mental model:
   ReplayRuntime is the compatibility boundary while replay behavior moves out
   of Run. Existing Run methods can still reach the legacy recorders through
   explicit accessors, but ownership now belongs to the replay subsystem.
+
+Glossary:
+  Presentation track: Render-facing replay samples used for visual scrubbing.
+  Solver track: Physics-facing samples and snapshots used for deterministic
+    inspection and rollback.
+  Runtime state: UI and tool state that belongs to replay but is still consumed
+    by Run while the subsystem is being separated.
+  Prediction cache: Incremental future-path data built from predicted solver
+    frames under a render-frame budget.
+
+Invariants:
+  - Stored indices are hints; ReplayBodyId remains the identity check.
+  - Prediction cache cursors must be reset whenever target, ragdoll mode, or
+    sample storage changes.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
 */
 #pragma once
 
@@ -68,6 +86,8 @@ struct RunReplayPathTraceNode
 {
     ReplayBodyId id;
     ReplayBodyId parentId;
+    int modelIndex = -1;           // Fast lookup hint; ReplayBodyId remains authority.
+    int parentModelIndex = -1;     // Fast lookup hint for contact-chain parents.
     ReplayFrameIndex firstFrame = 0;
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
@@ -255,6 +275,14 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
     std::vector<RunReplayPathTraceNode> futureNodes;
+    // Incremental tree cursors. Prediction can contain thousands of frames, so
+    // futureNodes is built over multiple render frames under the visualizer
+    // budget instead of rebuilding the whole tree every frame.
+    std::size_t futureNodesBuiltFrameCount = 0;
+    std::size_t futureNodesBuiltContactIndex = 0;
+    ReplayBodyId futureNodesBuiltTargetId;
+    bool futureNodesBuiltRagdollVisuals = true;
+    bool futureNodesCacheValid = false;
 };
 
 struct RunReplayVelocityEditState

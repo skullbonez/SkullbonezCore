@@ -31,6 +31,7 @@ Related:
 
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -340,12 +341,20 @@ class Run
     void MarkReplayPredictionDirty();
     void ClearReplayPredictionCache();
     void CancelReplayPredictionJob( bool clearSamples );
-    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t sourceSolverHash );
-    bool StepReplayPredictionJob( double budgetMilliseconds );
+    // Prediction work shares the replay visualizer deadline. These calls may
+    // leave prediction dirty/building so a later frame can resume without
+    // exceeding the current render-frame budget.
+    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
+                                   uint64_t sourceSolverHash,
+                                   const std::chrono::steady_clock::time_point& budgetStart,
+                                   double budgetMilliseconds );
+    bool StepReplayPredictionJob( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
     bool CaptureReplayPredictionBodyState( std::vector<RunReplayPredictionBodyBackup>& outBodies );
     bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
     void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
-    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
+    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
+                                           const std::chrono::steady_clock::time_point& budgetStart,
+                                           double budgetMilliseconds );
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,
                                        const Rendering::ShadowFrameData* shadow );

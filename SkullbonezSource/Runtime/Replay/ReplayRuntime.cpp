@@ -2,6 +2,28 @@
 File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
   Provides the replay subsystem ownership boundary for legacy Run replay callers.
+
+Mental model:
+  ReplayRuntime is mostly an accessor and coordination shell. It keeps recorder,
+  loaded-artifact, tool, branch, and camera state in one owned object while Run
+  still performs most replay behavior.
+
+Glossary:
+  Branch: Child replay timeline created from a restored source frame.
+  Hash log: Deterministic text stream that lets saved replay output be compared.
+  Loaded presentation: Replay artifact data loaded from disk for scrub preview.
+  Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
+
+Invariants:
+  - Accessors return owned state; callers must not store references past
+    ReplayRuntime lifetime.
+  - Solver hash-log paths derive from the presentation path so paired artifacts
+    stay beside each other.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
+  - SkullbonezSource/Runtime/Replay/ReplayExporter.h
+  - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
 */
 #include "ReplayRuntime.h"
 #include "ReplayExporter.h"
@@ -17,12 +39,16 @@ namespace
 {
 bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModel& model )
 {
+    // SimpleRagdoll children share replay visuals with their collection root.
+    // This helper keeps that policy local to replay loading/restoration paths.
     return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
 }
 
 
 std::string SolverReplayHashLogPath( const std::string& presentationPath )
 {
+    // Keep solver hash logs beside presentation logs so capture artifacts can
+    // be copied or deleted as a pair.
     if ( presentationPath.empty() )
     {
         return {};

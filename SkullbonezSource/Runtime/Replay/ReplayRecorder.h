@@ -16,6 +16,18 @@ Glossary:
   event streams, and hidden solver caches are captured.
   Checkpoint summary: A replay boundary marker with hashes and counts. It is
   deliberately not an authoritative restore checkpoint yet.
+  Ring buffer: Fixed-capacity circular array; newest captures evict the oldest
+    samples once the retention window is full.
+  Event sample: Runtime intent record, such as restore or branch actions, that
+    must be replayed alongside solver state for authoritative rollback work.
+
+Invariants:
+  - Capture order is chronological even though storage wraps internally.
+  - Hash fields are compatibility surface for deterministic validation.
+
+Related:
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
+  - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
 */
 #pragma once
 
@@ -307,6 +319,8 @@ struct ReplayEventRecorderStats
 
 using ReplaySolverSampleVisitor = void ( * )( const ReplaySolverFrameSample& sample, void* userData );
 
+// Presentation recorder: stores visual scrub samples in a bounded ring buffer.
+// Callers always read samples chronologically even though storage wraps.
 class ReplayRecorder
 {
   public:
@@ -345,6 +359,8 @@ class ReplayRecorder
     uint64_t m_latestStateHash = 0;
 };
 
+// Solver recorder: stores physics-facing samples with enough cache/stat data for
+// replay diagnostics and checkpoint restore verification work.
 class ReplaySolverRecorder
 {
   public:
@@ -384,6 +400,8 @@ class ReplaySolverRecorder
     uint64_t m_latestSolverHash = 0;
 };
 
+// Event recorder: stores runtime intent records in the same retention window as
+// replay samples so future rollback can reconstruct more than body poses.
 class ReplayEventRecorder
 {
   public:

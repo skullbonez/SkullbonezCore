@@ -100,8 +100,12 @@ struct ReplayV2SolverHashLoadResult
 class ReplayV2Artifact
 {
   public:
+    // Saves presentation samples only: enough for visual scrub, not enough for
+    // authoritative physics rollback.
     static bool
     SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result = nullptr );
+    // Saves presentation data plus sparse solver hashes/checkpoints so restore
+    // validation can compare source frames against the saved artifact.
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                   const ReplaySolverRecorder& solverRecorder,
                                                   const char* path,
@@ -111,6 +115,8 @@ class ReplayV2Artifact
                                                   const ReplayEventRecorder& eventRecorder,
                                                   const char* path,
                                                   ReplayV2SaveResult* result = nullptr );
+    // Loaders are intentionally chunk-specific so tools can inspect a replay
+    // without paying to inflate every optional stream.
     static bool LoadPresentation( const char* path,
                                   std::vector<ReplayPresentationSample>& outSamples,
                                   ReplayV2LoadResult* result = nullptr );
