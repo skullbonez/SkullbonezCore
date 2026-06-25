@@ -35,7 +35,8 @@ namespace Basics
 {
 enum class RuntimePickPurpose
 {
-    EditorSelection
+    EditorSelection,
+    ManipulatorPickup
 };
 
 struct RuntimePickRequest

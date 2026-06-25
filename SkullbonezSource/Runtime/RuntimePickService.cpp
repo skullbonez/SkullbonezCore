@@ -14,6 +14,7 @@ Related:
 #include "RuntimePickService.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "../GameObjects/GameModel.h"
 #include "../Physics/CollisionShape.h"
@@ -27,6 +28,35 @@ namespace
 float PickModelRadius( const GameObjects::GameModel& model )
 {
     return (std::max)( Math::CollisionDetection::GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+
+bool IntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
+                         const Math::Vector::Vector3& rayDirection,
+                         const Math::Vector::Vector3& center,
+                         float radius,
+                         float& outT )
+{
+    const Math::Vector::Vector3 m = rayOrigin - center;
+    const float b = m * rayDirection;
+    const float c = ( m * m ) - radius * radius;
+    if ( c > 0.0f && b > 0.0f )
+    {
+        return false;
+    }
+
+    const float discriminant = b * b - c;
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+
+    outT = -b - sqrtf( discriminant );
+    if ( outT < 0.0f )
+    {
+        outT = 0.0f;
+    }
+    return true;
 }
 } // namespace
 
@@ -42,6 +72,25 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
     {
     case RuntimePickPurpose::EditorSelection:
         break;
+    case RuntimePickPurpose::ManipulatorPickup:
+        for ( int i = 0; i < static_cast<int>( request.models->size() ); ++i )
+        {
+            const GameObjects::GameModel& model = ( *request.models )[static_cast<std::size_t>( i )];
+            if ( model.IsFixed() )
+            {
+                continue;
+            }
+
+            float rayT = 0.0f;
+            const float radius = PickModelRadius( model ) + request.modelRadiusPadding;
+            if ( IntersectRaySphere( request.rayOrigin, request.rayDirection, model.GetPosition(), radius, rayT ) &&
+                 rayT < outResult.rayT )
+            {
+                outResult.rayT = rayT;
+                outResult.modelIndex = i;
+            }
+        }
+        return outResult.modelIndex >= 0;
     }
 
     const std::vector<GameObjects::GameModel>& models = *request.models;

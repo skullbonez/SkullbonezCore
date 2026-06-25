@@ -2639,39 +2639,10 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
 }
 
 
-bool IntersectRaySphere( const Vector3& rayOrigin,
-                         const Vector3& rayDirection,
-                         const Vector3& center,
-                         float radius,
-                         float& outT )
-{
-    const Vector3 m = rayOrigin - center;
-    const float b = m * rayDirection;
-    const float c = ( m * m ) - radius * radius;
-    if ( c > 0.0f && b > 0.0f )
-    {
-        return false;
-    }
-
-    const float discriminant = b * b - c;
-    if ( discriminant < 0.0f )
-    {
-        return false;
-    }
-
-    outT = -b - sqrtf( discriminant );
-    if ( outT < 0.0f )
-    {
-        outT = 0.0f;
-    }
-    return true;
-}
-
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
 constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
-constexpr float MOUSE_PICKUP_RAY_PADDING = 1.0f;
 constexpr float MOUSE_PICKUP_DEAD_ZONE = 0.04f;
 constexpr float MOUSE_PICKUP_STIFFNESS = 18.0f;
 constexpr float MOUSE_PICKUP_DAMPING = 1.35f;
@@ -4114,26 +4085,23 @@ bool Run::TryPickMousePickupModel( const Vector3& rayOrigin,
                                    int& outIndex,
                                    float& outRayT ) const
 {
-    outIndex = -1;
-    outRayT = FLT_MAX;
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-    {
-        const GameModel& model = models[static_cast<size_t>( i )];
-        if ( model.IsFixed() )
-        {
-            continue;
-        }
+    RuntimePickRequest request;
+    request.purpose = RuntimePickPurpose::ManipulatorPickup;
+    request.models = &m_cGameModelCollection.Models();
+    request.rayOrigin = rayOrigin;
+    request.rayDirection = rayDirection;
 
-        float rayT = 0.0f;
-        const float radius = EditorModelRadius( model ) + MOUSE_PICKUP_RAY_PADDING;
-        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) && rayT < outRayT )
-        {
-            outRayT = rayT;
-            outIndex = i;
-        }
+    RuntimePickResult result;
+    if ( !RuntimePickService::TryPickModel( request, result ) )
+    {
+        outIndex = -1;
+        outRayT = FLT_MAX;
+        return false;
     }
-    return outIndex >= 0;
+
+    outIndex = result.modelIndex;
+    outRayT = result.rayT;
+    return true;
 }
 
 
