@@ -149,6 +149,33 @@ struct RuntimeInteractionFrameInput
     float sceneTimeScale = 1.0f;
 };
 
+struct RuntimePointerEvent
+{
+    RuntimePointerButton button = RuntimePointerButton::None;
+    int clientX = 0;
+    int clientY = 0;
+    bool leftDown = false;
+    bool leftPressed = false;
+    bool leftReleased = false;
+    bool rightDown = false;
+    bool rightPressed = false;
+    bool rightReleased = false;
+    bool controlDown = false;
+    bool shiftDown = false;
+    bool uiWantsNativeMouseCursor = false;
+    bool uiBlocksCameraMouse = false;
+    bool suppressWorldAction = false;
+};
+
+struct RuntimeInputSnapshot
+{
+    RuntimePointerEvent pointer;
+    RuntimeInteractionFrameInput frameInput;
+    bool appFocused = true;
+    bool uiBlocksKeyboard = false;
+    bool uiBlocksMouse = false;
+};
+
 struct RuntimeInteractionFramePolicy
 {
     RuntimeWorkspace workspace = RuntimeWorkspace::Live;

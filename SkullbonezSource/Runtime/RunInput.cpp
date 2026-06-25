@@ -324,6 +324,52 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 }
 
 
+RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
+                                                     bool suppressWorldActionThisFrame ) const
+{
+    const POINT mouse = Input::GetClientMouseCoordinates();
+
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = Input::IsAppFocused();
+    snapshot.uiBlocksKeyboard = m_UI.BlocksKeyboard();
+    snapshot.uiBlocksMouse = m_UI.BlocksCameraMouse();
+
+    snapshot.pointer.clientX = mouse.x;
+    snapshot.pointer.clientY = mouse.y;
+    snapshot.pointer.leftDown = mouseEdges.leftDown;
+    snapshot.pointer.leftPressed = mouseEdges.leftPressed;
+    snapshot.pointer.leftReleased = mouseEdges.leftReleased;
+    snapshot.pointer.rightDown = mouseEdges.rightDown;
+    snapshot.pointer.rightPressed = mouseEdges.rightPressed;
+    snapshot.pointer.rightReleased = mouseEdges.rightReleased;
+    snapshot.pointer.controlDown = Input::IsKeyDown( VK_CONTROL );
+    snapshot.pointer.shiftDown = Input::IsKeyDown( VK_SHIFT );
+    snapshot.pointer.uiWantsNativeMouseCursor = m_UI.WantsNativeMouseCursor();
+    snapshot.pointer.uiBlocksCameraMouse = m_UI.BlocksCameraMouse();
+    snapshot.pointer.suppressWorldAction = suppressWorldActionThisFrame;
+
+    if ( mouseEdges.leftPressed || mouseEdges.leftReleased || mouseEdges.leftDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Left;
+    }
+    else if ( mouseEdges.rightPressed || mouseEdges.rightReleased || mouseEdges.rightDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Right;
+    }
+
+    snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                                        Input::IsKeyDown( VK_SPACE ),
+                                                        IsReplayScrubPaused(),
+                                                        m_replayRuntime.Scrubber().simulationPaused,
+                                                        mouseEdges.rightDown,
+                                                        m_runtimeTools.Editor().viewportLookActive,
+                                                        ReplayInspectionMouseLookActive(),
+                                                        false,
+                                                        SceneState().timeScale };
+    return snapshot;
+}
+
+
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
     mode = NormalizeCameraModeForCurrentScene( mode );
@@ -2208,10 +2254,13 @@ void Run::TakeInput()
 
     // Editor, replay, and launcher actions share world clicks. UI interaction
     // and capture suppress them so panel controls never mutate the scene.
+    const RuntimeMouseEdges mouseEdges =
+        m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
+    const RuntimeInputSnapshot inputSnapshot = BuildRuntimeInputSnapshot( mouseEdges, suppressWorldActionThisFrame );
     {
-        const RuntimeMouseEdges mouseEdges =
-            m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
-        const bool leftPressed = mouseEdges.leftPressed;
+        const bool leftPressed = inputSnapshot.pointer.leftPressed;
+        const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
+        const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
         bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldActionThisFrame );
         if ( !consumedWorldClick )
         {
@@ -2223,17 +2272,16 @@ void Run::TakeInput()
         {
             consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldActionThisFrame );
         }
-        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame &&
-             !m_runtimeTools.Editor().editorModeEnabled && !m_UI.WantsNativeMouseCursor() &&
-             ( Input::IsKeyDown( VK_CONTROL ) || !IsLauncherCameraMode() ) )
+        if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
+             !uiWantsNativeMouseCursor && ( inputSnapshot.pointer.controlDown || !IsLauncherCameraMode() ) )
         {
-            const bool additiveReplayPick = Input::IsKeyDown( VK_SHIFT );
+            const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
             TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
             consumedWorldClick = true;
         }
 
-        if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldActionThisFrame &&
-             !m_UI.WantsNativeMouseCursor() )
+        if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldAction &&
+             !uiWantsNativeMouseCursor )
         {
             EnterInteractiveSceneRun();
             FireRayCastTest();
@@ -2272,16 +2320,7 @@ void Run::TakeInput()
         }
     }
 
-    const RuntimeInteractionFramePolicy inputPolicy =
-        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                                      Input::IsKeyDown( VK_SPACE ),
-                                                                      IsReplayScrubPaused(),
-                                                                      m_replayRuntime.Scrubber().simulationPaused,
-                                                                      Input::IsRightMouseDown(),
-                                                                      m_runtimeTools.Editor().viewportLookActive,
-                                                                      ReplayInspectionMouseLookActive(),
-                                                                      false,
-                                                                      SceneState().timeScale } );
+    const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
     const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
     const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor;
     const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;

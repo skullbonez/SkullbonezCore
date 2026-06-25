@@ -166,6 +166,9 @@ class Run
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                                       // Records the mode transition caused by one runtime/tool action.
+    RuntimeInputSnapshot BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
+                                                    bool suppressWorldActionThisFrame )
+        const;                                                                   // Captures pointer/UI/frame-policy input once for routed world input.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(
