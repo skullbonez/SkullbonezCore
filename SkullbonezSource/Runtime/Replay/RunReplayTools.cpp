@@ -39,6 +39,7 @@ Related:
 #include "../RunInternal.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../InputController.h"
+#include "../RuntimePickService.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../RuntimeFileWriter.h"
 #include "../../Core/WorkerPool.h"
@@ -3235,15 +3236,26 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             }
         }
     }
-    else if ( TryPickEditorModel( rayOrigin, rayDirection, pickedIndex ) && pickedIndex >= 0 &&
-              pickedIndex < m_cGameModelCollection.GetModelCount() )
+    else
     {
-        const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
-        pickedId.value = model.GetReplayBodyId();
-        const char* modelName = model.GetName();
-        if ( modelName && modelName[0] != '\0' )
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::ReplayPathTarget;
+        request.models = &models;
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
+
+        RuntimePickResult result;
+        if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex >= 0 &&
+             result.modelIndex < static_cast<int>( models.size() ) )
         {
-            strncpy_s( pickedName, sizeof( pickedName ), modelName, _TRUNCATE );
+            pickedIndex = result.modelIndex;
+            const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
+            pickedId.value = model.GetReplayBodyId();
+            const char* modelName = model.GetName();
+            if ( modelName && modelName[0] != '\0' )
+            {
+                strncpy_s( pickedName, sizeof( pickedName ), modelName, _TRUNCATE );
+            }
         }
     }
 

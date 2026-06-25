@@ -37,6 +37,7 @@ enum class RuntimePickPurpose
 {
     EditorSelection,
     AttachCameraTarget,
+    ReplayPathTarget,
     ManipulatorPickup
 };
 
