@@ -1,7 +1,7 @@
 # Runtime Interaction State Machine Hardening Plan
 
 Date: 2026-06-25
-Status: Draft implementation plan
+Status: Active implementation plan; multiple behavior-preserving slices landed
 Impact area: runtime input, editor tools, replay UI, camera policy, tool physics stepping
 Validation for this document-only change: none required
 
@@ -51,6 +51,29 @@ Useful existing pieces:
 The mess is that these pieces still overlap instead of forming one clear
 authority chain.
 
+Implementation progress on `nightrunner-25th-june`:
+
+- `RuntimeInteractionController` now owns typed gesture and pointer-capture
+  state, including camera-look, editor gizmo drag, mouse-pickup drag, replay
+  scrub, velocity, prediction-horizon, and cause-tree drag kinds.
+- `Run::TakeInput()` now builds a `RuntimeInputSnapshot` and routes pointer
+  input through `RouteRuntimePointerInput(...)` before later keyboard/camera
+  handling.
+- Camera label writes are guarded behind
+  `SetCameraModeLabelAfterInteractionTransition(...)`.
+- World-interaction owner writes are guarded behind
+  `SetWorldInteractionOwnerAfterInteractionTransition(...)`.
+- Editor selection is routed through `RuntimeInteractionCommand` and publishes
+  a command-result `RuntimeInteractionEvent`.
+- Runtime picking uses `RuntimePickService::TryPickModel(...)` for attach-camera
+  target, editor selection, interaction automation projection, manipulator
+  pickup, and replay path target selection.
+- Replay scrubber state now distinguishes `historicalSamplePaused` from
+  `liveAdvanceHeld`.
+- `tools/check_runtime_boundaries.py` blocks new direct camera-mode writes, new
+  direct owner writes, and new duplicated `TryPick*Model*` helper declarations
+  or definitions.
+
 Current evidence:
 
 - `Run::TakeInput()` remains the main procedural router for camera actions, UI,
@@ -59,20 +82,15 @@ Current evidence:
 - `RunCameraMode`, `RuntimeWorkspace`, `WorldInteractionOwner`, editor booleans,
   replay scrubber booleans, and `RuntimeInputMode` all describe overlapping
   slices of "what mode are we in?"
-- Direct `m_camera.mode = ...` assignments still exist in scene, editor, replay,
-  and input paths.
-- Direct `SetWorldInteractionOwner(...)` calls still happen from editor and
-  replay tool code, so ownership is improving but not centralized.
-- Picking is duplicated:
-  - `TryPickEditorModel(...)`
-  - `TryPickAttachedCameraModel(...)`
-  - `TryPickMousePickupModel(...)`
-  - `TryPickReplayPathTargetFromMouse(...)`
+- Camera-mode and world-owner writes are now guarded, but compatibility bridge
+  functions still live in `RunInput.cpp`.
+- Picking is centralized behind `RuntimePickService`, but some higher-level
+  tool actions still live as `Run` methods while owner APIs continue to shrink.
 - Tool state structs still mix persistent settings, current hover, active drag,
   mouse capture, hot axes, shortcut latch state, and transient previews.
-- Replay pause state still uses ambiguous bool names:
-  - `paused` for historical scrub parking,
-  - `simulationPaused` for live solver hold.
+- Replay pause state is no longer the old `paused`/`simulationPaused` pair, but
+  broader replay drag/capture booleans remain until replay tools fully migrate
+  to gesture payloads.
 - Mouse pickup/manipulator physics policy is worth re-checking early. Current
   frame code passes the mouse pickup physics callback when manipulator is
   active, while physics stepping depends on the controller's physics advance
