@@ -799,8 +799,11 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.frame.scene,
                                  &objectCasters );
             }
-            shadows.objectFrame =
-                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye, *inputs.frame.scene );
+            // Anchor the tight object-shadow map to the render look target, not
+            // the eye. Locked/inspect zoom moves the eye around a stable target;
+            // using the eye makes nearby-object bounds pop as the user zooms.
+            shadows.objectFrame = BuildObjectFrameData(
+                *inputs.cinematic, lightDirection, inputs.frame.viewCenter, *inputs.frame.scene );
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
