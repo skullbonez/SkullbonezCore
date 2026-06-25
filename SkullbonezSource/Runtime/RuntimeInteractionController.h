@@ -60,6 +60,35 @@ enum class CameraLookState
     ReplayInspectionLook
 };
 
+enum class RuntimePointerButton
+{
+    None,
+    Left,
+    Middle,
+    Right
+};
+
+enum class RuntimePointerCaptureOwner
+{
+    None,
+    UI,
+    CameraLook,
+    ToolGesture
+};
+
+enum class RuntimeInteractionGestureKind
+{
+    None,
+    CameraLook,
+    ObjectPick,
+    GizmoDrag,
+    MousePickupDrag,
+    ReplayScrubDrag,
+    ReplayVelocityDrag,
+    ReplayPredictionHorizonDrag,
+    ReplayCauseTreeDrag
+};
+
 enum class InteractionExitReason
 {
     EnterLive,
@@ -68,8 +97,20 @@ enum class InteractionExitReason
     EnterReplay,
     EnterLauncher,
     EnterManipulator,
+    EndGesture,
     ResetScene,
     LoadScene
+};
+
+struct RuntimeInteractionGesture
+{
+    RuntimeInteractionGestureKind kind = RuntimeInteractionGestureKind::None;
+    RuntimePointerButton button = RuntimePointerButton::None;
+    int startX = 0;
+    int startY = 0;
+    int modelIndex = -1;
+    int axis = -1;
+    bool angular = false;
 };
 
 struct RuntimeInteractionTransition
@@ -82,11 +123,17 @@ struct RuntimeInteractionTransition
     CameraLookState cameraLook = CameraLookState::Passive;
     PhysicsAdvanceState previousPhysicsAdvance = PhysicsAdvanceState::Running;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
+    RuntimeInteractionGesture previousGesture;
+    RuntimeInteractionGesture gesture;
+    RuntimePointerCaptureOwner previousPointerCapture = RuntimePointerCaptureOwner::None;
+    RuntimePointerCaptureOwner pointerCapture = RuntimePointerCaptureOwner::None;
     InteractionExitReason reason = InteractionExitReason::EnterLive;
     bool workspaceChanged = false;
     bool ownerChanged = false;
     bool cameraLookChanged = false;
     bool physicsAdvanceChanged = false;
+    bool gestureChanged = false;
+    bool pointerCaptureChanged = false;
 };
 
 struct RuntimeInteractionFrameInput
@@ -108,6 +155,8 @@ struct RuntimeInteractionFramePolicy
     WorldInteractionOwner owner = WorldInteractionOwner::None;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     CameraLookState cameraLook = CameraLookState::Passive;
+    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
+    RuntimePointerCaptureOwner pointerCapture = RuntimePointerCaptureOwner::None;
     float physicsTimeScale = 1.0f;
     bool cameraMouseLookActive = false;
     bool cameraKeyboardControlsActive = false;
@@ -122,6 +171,8 @@ class RuntimeInteractionController
     WorldInteractionOwner Owner() const;
     CameraLookState CameraLook() const;
     PhysicsAdvanceState PhysicsAdvance() const;
+    const RuntimeInteractionGesture& Gesture() const;
+    RuntimePointerCaptureOwner PointerCapture() const;
 
     RuntimeInteractionTransition EnterLive();
     RuntimeInteractionTransition EnterInspect();
@@ -130,18 +181,32 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
     RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason );
+    RuntimeInteractionTransition BeginGesture( const RuntimeInteractionGesture& gesture,
+                                               RuntimePointerCaptureOwner captureOwner,
+                                               InteractionExitReason reason );
+    RuntimeInteractionTransition EndGesture( InteractionExitReason reason );
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
 
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;
 
   private:
+    RuntimeInteractionTransition CaptureTransition( RuntimeWorkspace previousWorkspace,
+                                                    WorldInteractionOwner previousOwner,
+                                                    CameraLookState previousCameraLook,
+                                                    PhysicsAdvanceState previousPhysicsAdvance,
+                                                    const RuntimeInteractionGesture& previousGesture,
+                                                    RuntimePointerCaptureOwner previousPointerCapture,
+                                                    InteractionExitReason reason ) const;
     RuntimeInteractionTransition
     TransitionTo( RuntimeWorkspace workspace, WorldInteractionOwner owner, InteractionExitReason reason );
+    void ValidateState() const;
 
     RuntimeWorkspace m_workspace = RuntimeWorkspace::Live;
     WorldInteractionOwner m_owner = WorldInteractionOwner::None;
     CameraLookState m_cameraLook = CameraLookState::Passive;
     PhysicsAdvanceState m_physicsAdvance = PhysicsAdvanceState::Running;
+    RuntimeInteractionGesture m_gesture;
+    RuntimePointerCaptureOwner m_pointerCapture = RuntimePointerCaptureOwner::None;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

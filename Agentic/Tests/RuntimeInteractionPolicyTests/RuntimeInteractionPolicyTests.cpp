@@ -1,0 +1,278 @@
+/*
+File: Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
+Purpose:
+  Verifies CPU-side runtime interaction policy rules that should not require a
+  renderer launch.
+
+Mental model:
+  The runtime interaction controller is the authority for workspace, tool,
+  gesture, pointer capture, camera-look, and physics-advance policy. These
+  tests lock down ownership rules before they reach frame, editor, or replay
+  code.
+
+Glossary:
+  Pointer capture: Exclusive owner for an in-progress mouse gesture.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - AGENTS.md
+  - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
+  - SkullbonezSource/Runtime/RuntimeInteractionController.h
+*/
+#include "Runtime/RuntimeInteractionController.h"
+
+#include <exception>
+#include <functional>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
+using namespace SkullbonezCore::Basics;
+
+namespace
+{
+struct TestFailure : public std::runtime_error
+{
+    explicit TestFailure( const std::string& message )
+        : std::runtime_error( message )
+    {
+    }
+};
+
+
+void Fail( const char* file, int line, const std::string& message )
+{
+    std::ostringstream out;
+    out << file << "(" << line << "): " << message;
+    throw TestFailure( out.str() );
+}
+
+
+void ExpectTrue( bool value, const char* expression, const char* file, int line )
+{
+    if ( !value )
+    {
+        Fail( file, line, std::string( "expected true: " ) + expression );
+    }
+}
+
+
+template <typename T, typename U>
+void ExpectEqualImpl( const T& actual,
+                      const U& expected,
+                      const char* actualExpression,
+                      const char* expectedExpression,
+                      const char* file,
+                      int line )
+{
+    if ( !( actual == expected ) )
+    {
+        std::ostringstream out;
+        out << "expected " << actualExpression << " == " << expectedExpression;
+        Fail( file, line, out.str() );
+    }
+}
+
+
+#define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
+#define EXPECT_FALSE( expression ) ExpectTrue( !( expression ), "!(" #expression ")", __FILE__, __LINE__ )
+#define EXPECT_EQ( actual, expected ) ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+
+struct TestCase
+{
+    const char* name = "";
+    void ( *run )() = nullptr;
+};
+
+
+RuntimeInteractionFrameInput MakeDefaultFrameInput()
+{
+    RuntimeInteractionFrameInput input;
+    input.scenePhysicsEnabled = true;
+    input.stepHeld = false;
+    input.sceneTimeScale = 1.0f;
+    return input;
+}
+
+
+RuntimeInteractionGesture MakeMousePickupGesture()
+{
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = 42;
+    gesture.startY = 24;
+    gesture.modelIndex = 7;
+    return gesture;
+}
+
+
+void TestMousePickupDragRunsPhysicsWithoutStepHold()
+{
+    RuntimeInteractionController controller;
+    const RuntimeInteractionTransition transition = controller.EnterManipulator();
+
+    EXPECT_TRUE( transition.ownerChanged );
+    EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Live );
+    EXPECT_EQ( controller.Owner(), WorldInteractionOwner::Manipulator );
+
+    const RuntimeInteractionTransition beginTransition =
+        controller.BeginGesture( MakeMousePickupGesture(),
+                                 RuntimePointerCaptureOwner::ToolGesture,
+                                 InteractionExitReason::EnterManipulator );
+    EXPECT_TRUE( beginTransition.gestureChanged );
+    EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+
+    RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
+    input.stepHeld = false;
+
+    const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+
+    EXPECT_TRUE( policy.manipulatorActive );
+    EXPECT_EQ( policy.physicsAdvance, PhysicsAdvanceState::Running );
+    EXPECT_EQ( policy.physicsTimeScale, 1.0f );
+}
+
+
+void TestToolGestureSuppressesCameraLook()
+{
+    RuntimeInteractionController controller;
+    controller.EnterManipulator();
+
+    const RuntimeInteractionTransition beginTransition =
+        controller.BeginGesture( MakeMousePickupGesture(),
+                                 RuntimePointerCaptureOwner::ToolGesture,
+                                 InteractionExitReason::EnterManipulator );
+
+    EXPECT_TRUE( beginTransition.gestureChanged );
+    EXPECT_TRUE( beginTransition.pointerCaptureChanged );
+    EXPECT_EQ( beginTransition.previousPointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( beginTransition.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( beginTransition.gesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( beginTransition.gesture.modelIndex, 7 );
+
+    RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
+    input.rightMouseLookHeld = true;
+    input.editorViewportLookActive = true;
+    input.replayInspectionLookActive = true;
+
+    const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+
+    EXPECT_EQ( policy.pointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( policy.gesture, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( policy.cameraLook, CameraLookState::Passive );
+    EXPECT_FALSE( policy.cameraMouseLookActive );
+}
+
+
+void TestEndGesturePublishesCleanupMetadata()
+{
+    RuntimeInteractionController controller;
+    controller.EnterManipulator();
+    controller.BeginGesture( MakeMousePickupGesture(),
+                             RuntimePointerCaptureOwner::ToolGesture,
+                             InteractionExitReason::EnterManipulator );
+
+    const RuntimeInteractionTransition endTransition = controller.EndGesture( InteractionExitReason::EndGesture );
+
+    EXPECT_TRUE( endTransition.gestureChanged );
+    EXPECT_TRUE( endTransition.pointerCaptureChanged );
+    EXPECT_EQ( endTransition.previousGesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( endTransition.gesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( endTransition.previousPointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( endTransition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+}
+
+
+void TestWorkspaceTransitionClearsCapturedGesture()
+{
+    RuntimeInteractionController controller;
+    controller.EnterManipulator();
+    controller.BeginGesture( MakeMousePickupGesture(),
+                             RuntimePointerCaptureOwner::ToolGesture,
+                             InteractionExitReason::EnterManipulator );
+
+    const RuntimeInteractionTransition transition = controller.EnterLive();
+
+    EXPECT_TRUE( transition.ownerChanged );
+    EXPECT_TRUE( transition.gestureChanged );
+    EXPECT_TRUE( transition.pointerCaptureChanged );
+    EXPECT_EQ( transition.previousGesture.kind, RuntimeInteractionGestureKind::MousePickupDrag );
+    EXPECT_EQ( transition.gesture.kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( transition.previousPointerCapture, RuntimePointerCaptureOwner::ToolGesture );
+    EXPECT_EQ( transition.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( controller.Owner(), WorldInteractionOwner::None );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+}
+
+
+#ifndef _DEBUG
+void TestInvalidToolGestureWithoutCaptureIsRejected()
+{
+    RuntimeInteractionController controller;
+    controller.EnterManipulator();
+
+    const RuntimeInteractionTransition rejectedTransition =
+        controller.BeginGesture( MakeMousePickupGesture(),
+                                 RuntimePointerCaptureOwner::None,
+                                 InteractionExitReason::EnterManipulator );
+
+    EXPECT_FALSE( rejectedTransition.gestureChanged );
+    EXPECT_FALSE( rejectedTransition.pointerCaptureChanged );
+    EXPECT_EQ( controller.Gesture().kind, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
+
+    RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
+    input.rightMouseLookHeld = true;
+
+    const RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+    EXPECT_EQ( policy.gesture, RuntimeInteractionGestureKind::None );
+    EXPECT_EQ( policy.pointerCapture, RuntimePointerCaptureOwner::None );
+    EXPECT_EQ( policy.cameraLook, CameraLookState::RightMouseLook );
+    EXPECT_TRUE( policy.cameraMouseLookActive );
+}
+#endif
+
+
+void RunTest( const TestCase& test )
+{
+    std::cout << "[ RUN      ] " << test.name << "\n";
+    test.run();
+    std::cout << "[       OK ] " << test.name << "\n";
+}
+} // namespace
+
+
+int main()
+{
+    const TestCase tests[] = {
+        { "MousePickupDragRunsPhysicsWithoutStepHold", &TestMousePickupDragRunsPhysicsWithoutStepHold },
+        { "ToolGestureSuppressesCameraLook", &TestToolGestureSuppressesCameraLook },
+        { "EndGesturePublishesCleanupMetadata", &TestEndGesturePublishesCleanupMetadata },
+        { "WorkspaceTransitionClearsCapturedGesture", &TestWorkspaceTransitionClearsCapturedGesture },
+#ifndef _DEBUG
+        { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
+#endif
+    };
+
+    try
+    {
+        for ( const TestCase& test : tests )
+        {
+            RunTest( test );
+        }
+    }
+    catch ( const std::exception& exception )
+    {
+        std::cerr << exception.what() << "\n";
+        return 1;
+    }
+
+    std::cout << "PASS: runtime interaction policy tests passed.\n";
+    return 0;
+}

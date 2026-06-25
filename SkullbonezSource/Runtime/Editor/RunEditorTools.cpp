@@ -4149,6 +4149,10 @@ void Run::CancelMousePickup()
     {
         UI::InputControl::EndMouseCapture();
     }
+    if ( m_interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
+    {
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
     m_runtimeTools.MousePickup() = RunMousePickupState{};
 }
 
@@ -4248,6 +4252,16 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     m_runtimeTools.MousePickup().preservedAngularVelocity = picked.GetAngularVelocity();
     m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     UI::InputControl::BeginMouseCapture( hwnd );
+    const POINT mouse = Input::GetClientMouseCoordinates();
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::MousePickupDrag;
+    gesture.button = RuntimePointerButton::Left;
+    gesture.startX = mouse.x;
+    gesture.startY = mouse.y;
+    gesture.modelIndex = pickedIndex;
+    m_interaction.BeginGesture( gesture,
+                                RuntimePointerCaptureOwner::ToolGesture,
+                                InteractionExitReason::EnterManipulator );
     EnterInteractiveSceneRun();
     UpdatePickupTarget();
     return true;
