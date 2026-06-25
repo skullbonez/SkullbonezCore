@@ -1093,25 +1093,15 @@ bool Run::MouseLookOwnsCursor() const
 
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        return m_runtimeTools.Editor().viewportLookActive;
-    }
-
-    if ( IsAttachedCameraMode() && !m_attachedCamera.activeFollow )
-    {
-        return false;
+        return m_runtimeTools.Editor().viewportLookActive || Input::IsRightMouseDown();
     }
 
     if ( ReplayInspectionActive() )
     {
-        return ReplayInspectionMouseLookActive();
+        return ReplayInspectionMouseLookActive() || Input::IsRightMouseDown();
     }
 
-    if ( m_camera.mode == RunCameraMode::Manipulator )
-    {
-        return Input::IsRightMouseDown();
-    }
-
-    return IsFlyCameraMode();
+    return Input::IsRightMouseDown();
 }
 
 
@@ -2155,9 +2145,9 @@ void Run::TakeInput()
                                                                       ReplayInspectionMouseLookActive(),
                                                                       false,
                                                                       SceneState().timeScale } );
-    const bool attachedPinned = IsAttachedCameraMode() && !m_attachedCamera.activeFollow;
-    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && MouseLookOwnsCursor() && !attachedPinned;
-    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive && !attachedPinned;
+    const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
+    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor;
+    const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive && mouseLookOwnsCursor;
     if ( cameraMouseLookActive )
     {
         // Diagnostics UI owns the native cursor; mouse-look hides it while
@@ -2310,7 +2300,7 @@ bool Run::DrainRuntimeCommands()
 
 void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( IsFlyCameraMode() || m_runtimeTools.Editor().viewportLookActive )
+    if ( IsFlyCameraMode() || MouseLookOwnsCursor() || m_runtimeTools.Editor().viewportLookActive )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;

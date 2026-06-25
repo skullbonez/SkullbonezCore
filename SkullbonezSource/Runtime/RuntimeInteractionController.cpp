@@ -155,16 +155,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     {
         policy.cameraLook = CameraLookState::ReplayInspectionLook;
     }
-    else if ( policy.launcherActive )
-    {
-        policy.cameraLook = CameraLookState::RightMouseLook;
-    }
-    else if ( m_workspace == RuntimeWorkspace::Inspect )
-    {
-        policy.cameraLook = CameraLookState::RightMouseLook;
-    }
-    else if ( input.rightMouseLookHeld && ( m_workspace == RuntimeWorkspace::Edit ||
-                                            m_workspace == RuntimeWorkspace::Replay || policy.manipulatorActive ) )
+    else if ( input.rightMouseLookHeld )
     {
         policy.cameraLook = CameraLookState::RightMouseLook;
     }
@@ -174,8 +165,8 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     }
 
     policy.cameraMouseLookActive = policy.cameraLook != CameraLookState::Passive;
-    policy.cameraKeyboardControlsActive =
-        WorkspaceUsesInspectControls( m_workspace ) || policy.launcherActive || policy.manipulatorActive;
+    policy.cameraKeyboardControlsActive = input.rightMouseLookHeld || WorkspaceUsesInspectControls( m_workspace ) ||
+                                          policy.launcherActive || policy.manipulatorActive;
 
     return policy;
 }

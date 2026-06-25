@@ -588,8 +588,8 @@ void Run::SetViewingOrientation()
         return;
     }
 
-    // In fly mode, freeze the cycle clock and keep the free camera
-    if ( IsFlyCameraMode() )
+    // Momentary right-mouse camera look should not fight generated camera cycling.
+    if ( IsFlyCameraMode() || MouseLookOwnsCursor() )
     {
         m_camera.cameraTime = 0.0f;
         m_timers.cameraTimer.StopTimer();

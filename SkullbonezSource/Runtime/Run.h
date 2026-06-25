@@ -172,7 +172,7 @@ class Run
     bool InspectGizmoInteractionActive() const;                                  // True when Inspect owns live transform-gizmo interaction.
     bool ReplayInspectionActive() const;                                         // True when replay owns inspection camera semantics.
     bool ReplayInspectionMouseLookActive() const;                                // True when replay inspection is consuming mouse-look.
-    bool MouseLookOwnsCursor() const;                                            // True when camera/editor/replay mouse-look should hide the system cursor.
+    bool MouseLookOwnsCursor() const;                                            // True while RMB/editor/replay mouse-look temporarily owns the cursor.
     bool ShouldHideNativeCursor() const;                                         // True when the current tool mode should hide the Windows cursor.
     void ApplyCursorOwnership();                                                 // Applies current cursor ownership to the system cursor.
     void ReleaseMouseToUI();                                                     // Gives mouse focus back to Win32/UI when tools stop owning it.
