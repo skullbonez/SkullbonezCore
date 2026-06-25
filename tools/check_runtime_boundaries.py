@@ -33,6 +33,7 @@ from pathlib import Path
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
+RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
@@ -91,6 +92,85 @@ ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS = {
     ( RUN_INPUT_SOURCE, "SetWorldInteractionOwnerAfterInteractionTransition" ),
 }
 
+ALLOWED_RENDER_HOST_BINDINGS = {
+    "systems",
+    "debug",
+    "timers",
+    "runtimeSettings",
+    "gameModelCollection",
+    "worldEnvironment",
+    "collisionVisualizer",
+    "broadphaseVisualizer",
+    "physicsDebugVisualizer",
+    "dxrReflectionTransforms",
+    "rayCastTest",
+    "editor",
+    "mousePickup",
+    "replayScrubber",
+    "replayPrediction",
+    "replayFocusModelMask",
+    "replayPathVisualizer",
+    "replayCamera",
+    "replayVelocityEdit",
+    "launcherLaser",
+    "ui",
+    "runtimeInput",
+    "camera",
+    "runtimeViewModel",
+    "sceneController",
+    "sceneBrowser",
+}
+
+ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS = {
+    "ActiveCinematicConfigFn",
+    "BoolFn",
+    "TextureHandleFn",
+    "SelectRenderTextureFn",
+    "IntFn",
+    "LogLifecycleStepFn",
+    "ReplayPresentationSampleFn",
+    "ReplaySolverSampleFn",
+    "ReplayPredictionFrameFn",
+    "RenderEditorOverlayFn",
+    "VoidFn",
+    "SceneStateFn",
+    "CameraModeEnabledMaskFn",
+    "CameraModeLabelFn",
+    "MainMemoryStatsFn",
+    "ReplayFocusMaskFn",
+    "ReplayPredictionGhostsFn",
+}
+
+ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = {
+    "ActiveCinematicConfigFn",
+}
+
+ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
+    "user",
+    "activeCinematicConfig",
+    "isCinematicRenderingEnabled",
+    "isLauncherCameraMode",
+    "textureHandle",
+    "selectRenderTexture",
+    "windowScreenWidth",
+    "windowScreenHeight",
+    "logRenderResourceLifecycleStep",
+    "currentReplayScrubSample",
+    "currentReplaySolverScrubSample",
+    "currentReplayPredictionScrubFrame",
+    "renderEditorOverlay",
+    "refreshRuntimeViewModel",
+    "sceneState",
+    "shouldRenderReplayScrubber",
+    "renderReplayScrubberOverlay",
+    "currentSceneBrowserIndex",
+    "cameraModeEnabledMask",
+    "cameraModeLabel",
+    "refreshMainMemoryStats",
+    "buildReplayFocusModelMask",
+    "renderReplayPredictionGhosts",
+}
+
 
 @dataclass(frozen=True)
 class BoundaryError:
@@ -116,6 +196,21 @@ def line_for_offset(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+def extract_struct_body(stripped: str, struct_name: str) -> tuple[int, str] | None:
+    match = re.search(rf"\bstruct\s+{re.escape(struct_name)}\s*\{{", stripped)
+    if not match:
+        return None
+    open_brace_offset = stripped.find("{", match.start(), match.end())
+    if open_brace_offset < 0:
+        return None
+    close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+    return open_brace_offset + 1, stripped[open_brace_offset + 1 : close_brace_offset]
+
+
+def line_for_struct_offset(stripped: str, body_start_offset: int, local_offset: int) -> int:
+    return line_for_offset(stripped, body_start_offset + local_offset)
+
+
 def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], ...]) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -136,6 +231,174 @@ def check_run_storage(repo: Path) -> list[BoundaryError]:
         for match in re.finditer(pattern, stripped):
             errors.append(BoundaryError(path, line_for_offset(stripped, match.start()), message, detail))
     return errors
+
+
+def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
+    declarations: list[tuple[str, int]] = []
+    pattern = re.compile(
+        r"^[ \t]*(?:[A-Za-z0-9_:<>*,\s]+?)\s+([A-Za-z_]\w*)\s*(?:=\s*nullptr|\{\s*nullptr\s*\})?\s*;",
+        re.M,
+    )
+    for match in pattern.finditer(body):
+        declarations.append(( match.group(1), match.start() ))
+    return declarations
+
+
+def render_host_callback_typedefs(body: str) -> list[tuple[str, str, int]]:
+    typedefs: list[tuple[str, str, int]] = []
+    pattern = re.compile(r"^\s*using\s+([A-Za-z_]\w*)\s*=\s*([^;]+);", re.M)
+    for match in pattern.finditer(body):
+        typedefs.append(( match.group(1), match.group(2), match.start() ))
+    return typedefs
+
+
+def callback_returns_mutable_reference(signature: str) -> bool:
+    match = re.search(r"(?P<return_type>.*?)\(\s*\*\s*\)", signature)
+    if not match:
+        return False
+    return_type = match.group("return_type")
+    if "&" in return_type:
+        return "const" not in return_type.split("&", 1)[0].split()
+    if "*" in return_type:
+        return "const" not in return_type.split("*", 1)[0].split()
+    return False
+
+
+def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+
+    bindings = extract_struct_body(stripped, "RuntimeRenderHostBindings")
+    if bindings is not None:
+        body_start, body = bindings
+        for field_name, local_offset in render_host_member_declarations(body):
+            if field_name not in ALLOWED_RENDER_HOST_BINDINGS:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        "new RuntimeRenderHostBindings fields are blocked",
+                        "Split render-facing state into a narrow view instead of growing RuntimeRenderHost.",
+                    )
+                )
+
+    callbacks = extract_struct_body(stripped, "RuntimeRenderHostCallbacks")
+    if callbacks is not None:
+        body_start, body = callbacks
+        for typedef_name, signature, local_offset in render_host_callback_typedefs(body):
+            if typedef_name not in ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        "new RuntimeRenderHostCallbacks typedefs are blocked",
+                        "Move the callback behind a subsystem-owned service before wiring render host access.",
+                    )
+                )
+            if (
+                callback_returns_mutable_reference(signature)
+                and typedef_name not in ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS
+            ):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        "mutable RuntimeRenderHostCallbacks returns are blocked",
+                        "Render callbacks may observe state; new mutable subsystem access should move to an owner API.",
+                    )
+                )
+        for field_name, local_offset in render_host_member_declarations(body):
+            if field_name not in ALLOWED_RENDER_HOST_CALLBACK_FIELDS:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        "new RuntimeRenderHostCallbacks fields are blocked",
+                        "Narrow the render service surface instead of adding another Run callback.",
+                    )
+                )
+
+    return errors
+
+
+def check_runtime_render_host_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUNTIME_RENDER_HOST_HEADER
+    return check_runtime_render_host_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def run_self_tests() -> list[str]:
+    failures: list[str] = []
+    synthetic_path = Path("synthetic/RuntimeRenderHost.h")
+
+    allowed_host = """
+    struct RuntimeRenderHostBindings
+    {
+        RunSubsystemState* systems = nullptr;
+        RunDebugState* debug = nullptr;
+    };
+    struct RuntimeRenderHostCallbacks
+    {
+        using ActiveCinematicConfigFn = CinematicRenderConfig& (*)( void* user );
+        using BoolFn = bool ( * )( void* user );
+        void* user = nullptr;
+        ActiveCinematicConfigFn activeCinematicConfig = nullptr;
+        BoolFn isLauncherCameraMode = nullptr;
+    };
+    """
+    if check_runtime_render_host_guardrails_text(synthetic_path, allowed_host):
+        failures.append("allowed RuntimeRenderHost synthetic surface failed")
+
+    new_binding = allowed_host.replace(
+        "RunDebugState* debug = nullptr;",
+        "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostBindings fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, new_binding)
+    ):
+        failures.append("new RuntimeRenderHostBindings synthetic field was not rejected")
+
+    bare_new_binding = allowed_host.replace(
+        "RunDebugState* debug = nullptr;",
+        "RunDebugState* debug = nullptr;\n        RunSceneState* bareSceneState;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostBindings fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, bare_new_binding)
+    ):
+        failures.append("bare RuntimeRenderHostBindings synthetic field was not rejected")
+
+    new_callback = allowed_host.replace(
+        "BoolFn isLauncherCameraMode = nullptr;",
+        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn newRenderCallback = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, new_callback)
+    ):
+        failures.append("new RuntimeRenderHostCallbacks synthetic field was not rejected")
+
+    mutable_callback = allowed_host.replace(
+        "using BoolFn = bool ( * )( void* user );",
+        "using BoolFn = bool ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
+    )
+    mutable_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_callback)
+    if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in mutable_errors):
+        failures.append("new RuntimeRenderHostCallbacks synthetic typedef was not rejected")
+    if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in mutable_errors):
+        failures.append("mutable RuntimeRenderHostCallbacks synthetic return was not rejected")
+
+    mutable_pointer_callback = allowed_host.replace(
+        "using BoolFn = bool ( * )( void* user );",
+        "using BoolFn = bool ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
+    )
+    pointer_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_pointer_callback)
+    if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in pointer_errors):
+        failures.append("new pointer RuntimeRenderHostCallbacks synthetic typedef was not rejected")
+    if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in pointer_errors):
+        failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
+
+    return failures
 
 
 def find_matching_close_brace(text: str, open_brace_offset: int) -> int:
@@ -219,6 +482,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_storage(repo))
+    errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     return errors
 
@@ -237,6 +501,12 @@ def main() -> int:
 
     repo = args.repo.resolve()
     summary_path = args.json_out or repo / "TestOutput" / "validation" / "runtime_boundaries" / "summary.json"
+    self_test_failures = run_self_tests()
+    if self_test_failures:
+        for failure in self_test_failures:
+            print(f"ERROR: runtime boundary self-test failed: {failure}")
+        return 98
+
     errors = validate_runtime_boundaries(repo)
     summary = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
