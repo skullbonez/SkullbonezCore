@@ -95,6 +95,11 @@ class PhysicsScene
 #endif
 
   private:
+#ifdef _DEBUG
+    void ValidatePhysicsStoreMappings( int modelCount ) const;
+    void ValidateRenderStoreMappings( int modelCount ) const;
+#endif
+
     PhysicsWorld m_world;                                 // Existing deterministic solver and debug state.
     PhysicsBodyStore m_bodyStore;                         // Body snapshot in model/replay order.
     ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.

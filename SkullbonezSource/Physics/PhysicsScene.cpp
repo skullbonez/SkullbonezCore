@@ -25,12 +25,19 @@ Related:
 #include "PhysicsScene.h"
 #include "PhysicsApi.h"
 
+#include <cassert>
+#include <cstddef>
+
 #include "../GameObjects/GameModelCollection.h"
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
@@ -54,6 +61,9 @@ void PhysicsScene::RefreshPhysicsStores( GameModelCollection& collection )
 {
     RefreshBodyStore( collection );
     RefreshColliderStore( collection );
+#ifdef _DEBUG
+    ValidatePhysicsStoreMappings( static_cast<int>( collection.PhysicsModels().size() ) );
+#endif
 }
 
 
@@ -75,7 +85,62 @@ void PhysicsScene::RefreshRenderStore( GameModelCollection& collection )
 {
     std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
     m_renderInstanceStore.Refresh( models );
+#ifdef _DEBUG
+    ValidateRenderStoreMappings( static_cast<int>( models.size() ) );
+#endif
 }
+
+
+#ifdef _DEBUG
+void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
+{
+    assert( m_bodyStore.Count() == modelCount );
+    assert( m_colliderStore.Count() == modelCount );
+
+    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    const std::vector<ColliderRecord>& colliders = m_colliderStore.Records();
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t index = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& body = bodies[index];
+        const ColliderRecord& collider = colliders[index];
+        const PhysicsBodyHandle bodyHandle = m_bodyStore.HandleForModelIndex( i );
+        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForModelIndex( i );
+
+        assert( bodyHandle.IsValid() );
+        assert( colliderHandle.IsValid() );
+        assert( body.handle == bodyHandle );
+        assert( collider.handle == colliderHandle );
+        assert( collider.body == bodyHandle );
+        assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
+        assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
+        assert( body.legacyModelIndex == i );
+        assert( collider.legacyModelIndex == i );
+        assert( body.replayBodyId == collider.replayBodyId );
+        assert( body.sceneObjectId == collider.sceneObjectId );
+    }
+}
+
+
+void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
+{
+    assert( m_renderInstanceStore.Count() == modelCount );
+
+    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = m_renderInstanceStore.Records();
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t index = static_cast<std::size_t>( i );
+        const SkullbonezCore::Rendering::RenderInstanceRecord& instance = instances[index];
+        const SkullbonezCore::Rendering::RenderInstanceHandle renderHandle =
+            m_renderInstanceStore.HandleForModelIndex( i );
+
+        assert( renderHandle.IsValid() );
+        assert( instance.handle == renderHandle );
+        assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
+        assert( instance.legacyModelIndex == i );
+    }
+}
+#endif
 
 
 void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )
