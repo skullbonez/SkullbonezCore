@@ -285,6 +285,7 @@ void Run::Execute()
             Gfx().ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
+            TickInteractionAutomationBeforeInput();
             TakeInput();
             TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
@@ -368,6 +369,10 @@ void Run::Execute()
             TickLiveStyleControlCapture();
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
+            PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
+            TickInteractionAutomationAfterRender();
+            PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
+
             if ( TickScreenshots() )
             {
                 continue;
@@ -439,7 +444,7 @@ void Run::TickPhysics( double secondsPerFrame )
         return;
     }
 
-    const bool replaySimulationPaused = m_replayRuntime.Scrubber().simulationPaused;
+    const bool replayLiveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
     const bool stepRequested = Input::IsKeyDown( VK_SPACE );
     const bool replayCapture = m_replayRuntime.IsCaptureEnabled();
 #ifdef _DEBUG
@@ -453,7 +458,7 @@ void Run::TickPhysics( double secondsPerFrame )
         m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                                                       stepRequested,
                                                                       false,
-                                                                      replaySimulationPaused,
+                                                                      replayLiveAdvanceHeld,
                                                                       Input::IsRightMouseDown(),
                                                                       m_runtimeTools.Editor().viewportLookActive,
                                                                       ReplayInspectionMouseLookActive(),
@@ -2037,7 +2042,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     {
         throw std::runtime_error( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    m_replayRuntime.Scrubber().paused = true;
+    m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
     ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
 
@@ -2342,7 +2347,7 @@ bool Run::TickSceneAdvance()
     }
 
     // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
-    if ( !SceneState().isSceneMode && !IsFlyCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    if ( !SceneState().isSceneMode && !IsManualCameraMode() && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         LoadScene( SceneState().currentSceneIndex,
                    SceneState().isInteractiveRun,
@@ -2391,6 +2396,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
     MoveCamera( cameraDt * Cfg().keySpeed, CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    TickAttachedCamera();
 
     UpdateWaterHeightControls( simulationDt );
 

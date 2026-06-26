@@ -609,6 +609,9 @@ struct ParsedArgs
     char replayHashLogPath[260] = {};
     char liveStyleControlDir[260] = {};
     char sceneSnapshotOutPath[260] = {};
+    char memoryDumpPath[260] = {};
+    char interactionScriptPath[260] = {};
+    char interactionReportPath[260] = {};
     bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
@@ -1535,6 +1538,51 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 }
 
 
+bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyOptionPath( value, "--memory-dump", args.memoryDumpPath, sizeof( args.memoryDumpPath ) ) )
+    {
+        return false;
+    }
+
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[memory] Dump output: %s\n", args.memoryDumpPath );
+    return true;
+}
+
+bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyOptionPath( value,
+                          "--interaction-script",
+                          args.interactionScriptPath,
+                          sizeof( args.interactionScriptPath ) ) )
+    {
+        return false;
+    }
+
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    args.replayRecording = true;
+    fprintf( stdout, "[interaction] Script input: %s\n", args.interactionScriptPath );
+    return true;
+}
+
+bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
+{
+    if ( !CopyOptionPath( value,
+                          "--interaction-report",
+                          args.interactionReportPath,
+                          sizeof( args.interactionReportPath ) ) )
+    {
+        return false;
+    }
+
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[interaction] Report output: %s\n", args.interactionReportPath );
+    return true;
+}
+
+
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
     if ( IsOptionValueMissing( value ) )
@@ -1718,6 +1766,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
+        { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
+        { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
+        { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
         { "--replay",
           nullptr,
           []( const char* value, ParsedArgs& args ) -> bool
@@ -2397,6 +2448,10 @@ int RunApp( Window* window, ParsedArgs& args )
         {
             cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
         }
+        if ( args.memoryDumpPath[0] != '\0' )
+        {
+            cRun->SetMainMemoryDumpPath( args.memoryDumpPath );
+        }
         const bool replayDefaultAllowed =
             !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
         const bool replayEnabled =
@@ -2470,6 +2525,12 @@ int RunApp( Window* window, ParsedArgs& args )
         try
         {
             cRun->Initialise();
+            if ( args.interactionScriptPath[0] != '\0' )
+            {
+                cRun->SetInteractionAutomation(
+                    args.interactionScriptPath,
+                    args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr );
+            }
             bool skipExecute = false;
             if ( args.replayLoad )
             {

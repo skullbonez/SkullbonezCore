@@ -999,8 +999,13 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_cGameModelCollection.Clear();
 
     CancelMousePickup();
-    m_interaction.ResetForScene( InteractionExitReason::LoadScene );
-    m_camera.mode = scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene;
+    ResetAttachedCamera();
+    {
+        const RuntimeInteractionTransition transition = m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+        ClearRuntimeInteractionStateForTransition( transition );
+        m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+    }
+    SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
     ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
@@ -1419,8 +1424,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_interaction.EnterInspect();
-            m_camera.mode = RunCameraMode::Inspect;
+            const RuntimeInteractionTransition transition = m_interaction.EnterInspect();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
             m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;

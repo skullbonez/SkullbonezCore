@@ -326,6 +326,8 @@ class PhysicsWorld
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     DiagnosticsView GetDiagnosticsView() const;
+    uint64_t CollectMemoryBytes() const;
+    uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     void RecordSolverPhysicsPipelineStage( const PhysicsPipelineRecord& record )
     {
         RecordPhysicsPipelineStage( record );

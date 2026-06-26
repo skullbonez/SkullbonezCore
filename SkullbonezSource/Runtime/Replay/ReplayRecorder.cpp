@@ -51,6 +51,58 @@ constexpr int REPLAY_MAX_SECONDS = 600;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
 
+template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
+{
+    return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
+}
+
+uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+{
+    uint64_t bytes = 0;
+    bytes += VectorCapacityBytes( snapshot.timeRemaining );
+    bytes += VectorCapacityBytes( snapshot.sleepSupportedThisFrame );
+    bytes += VectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
+    bytes += VectorCapacityBytes( snapshot.sleepState );
+    bytes += VectorCapacityBytes( snapshot.sleepCounter );
+    bytes += VectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += VectorCapacityBytes( snapshot.tornadoCaptureSeconds );
+    bytes += VectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
+    bytes += VectorCapacityBytes( snapshot.collisionVisualContacts );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandVisualId );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
+    bytes += VectorCapacityBytes( snapshot.sleepSupportEdges );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandParent );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandRank );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandHasAwake );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandEligible );
+    bytes += VectorCapacityBytes( snapshot.sleepIslandCanSleep );
+    bytes += VectorCapacityBytes( snapshot.persistentContacts );
+    bytes += VectorCapacityBytes( snapshot.persistentContactCache );
+    bytes += VectorCapacityBytes( snapshot.persistentContactCounts );
+    bytes += VectorCapacityBytes( snapshot.persistentRestingContactCounts );
+    bytes += VectorCapacityBytes( snapshot.debugContacts );
+    bytes += VectorCapacityBytes( snapshot.pipelineTrace );
+    bytes += VectorCapacityBytes( snapshot.collisionCellKeys );
+    return bytes;
+}
+
+uint64_t PresentationSampleMemoryBytes( const ReplayPresentationSample& sample )
+{
+    return VectorCapacityBytes( sample.bodies );
+}
+
+uint64_t SolverFrameSampleMemoryBytes( const ReplaySolverFrameSample& sample )
+{
+    return LauncherVisualMemoryBytes( sample.launcherVisual ) + SolverWorldSnapshotMemoryBytes( sample.worldSnapshot ) +
+           VectorCapacityBytes( sample.bodies );
+}
+
 uint64_t HashByte( uint64_t hash, uint8_t value )
 {
     hash ^= static_cast<uint64_t>( value );
@@ -101,6 +153,8 @@ uint64_t HashBool( uint64_t hash, bool value )
 
 uint64_t HashFloat( uint64_t hash, float value )
 {
+    // Invariant: hash the exact IEEE bytes, not formatted text or rounded
+    // values. Replay validation expects byte-exact drift detection.
     uint32_t packed = 0;
     std::memcpy( &packed, &value, sizeof( packed ) );
     return HashUint32( hash, packed );
@@ -749,6 +803,21 @@ ReplayRecorderStats ReplayRecorder::GetStats() const
     return stats;
 }
 
+uint64_t ReplayRecorder::CollectMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
+    bytes += VectorCapacityBytes( m_samples );
+    bytes += VectorCapacityBytes( m_checkpoints );
+    bytes += VectorCapacityBytes( m_contactCountScratch );
+    bytes += VectorCapacityBytes( m_maxPenetrationScratch );
+    bytes += VectorCapacityBytes( m_normalImpulseSumScratch );
+    for ( const ReplayPresentationSample& sample : m_samples )
+    {
+        bytes += PresentationSampleMemoryBytes( sample );
+    }
+    return bytes;
+}
+
 void ReplayRecorder::CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const
 {
     outSamples.clear();
@@ -1114,6 +1183,21 @@ ReplayRecorderStats ReplaySolverRecorder::GetStats() const
     return stats;
 }
 
+uint64_t ReplaySolverRecorder::CollectMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
+    bytes += VectorCapacityBytes( m_samples );
+    bytes += VectorCapacityBytes( m_checkpoints );
+    bytes += VectorCapacityBytes( m_contactCountScratch );
+    bytes += VectorCapacityBytes( m_maxPenetrationScratch );
+    bytes += VectorCapacityBytes( m_normalImpulseSumScratch );
+    for ( const ReplaySolverFrameSample& sample : m_samples )
+    {
+        bytes += SolverFrameSampleMemoryBytes( sample );
+    }
+    return bytes;
+}
+
 void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const
 {
     outSamples.clear();
@@ -1340,6 +1424,11 @@ ReplayEventRecorderStats ReplayEventRecorder::GetStats() const
     stats.eventCapacity = m_events.size();
     stats.eventCount = m_eventCount;
     return stats;
+}
+
+uint64_t ReplayEventRecorder::CollectMemoryBytes() const
+{
+    return static_cast<uint64_t>( sizeof( *this ) ) + VectorCapacityBytes( m_events );
 }
 
 void ReplayEventRecorder::CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const

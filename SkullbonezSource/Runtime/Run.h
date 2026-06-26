@@ -31,6 +31,7 @@ Related:
 
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -80,6 +81,40 @@ namespace RunInternal
 struct SceneRuntimeResetSnapshot;
 }
 
+enum class RuntimeInteractionCommandType
+{
+    None,
+    SetEditorSelection
+};
+
+enum class RuntimeInteractionSelectionScope
+{
+    Editor,
+    Inspect
+};
+
+struct RuntimeInteractionCommand
+{
+    RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
+    int modelIndex = -1;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+    bool claimSelectionOwner = true;
+};
+
+enum class RuntimeInteractionEventType
+{
+    None,
+    SelectionChanged
+};
+
+struct RuntimeInteractionEvent
+{
+    RuntimeInteractionEventType type = RuntimeInteractionEventType::None;
+    int previousModelIndex = -1;
+    int modelIndex = -1;
+    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
+};
+
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -114,7 +149,10 @@ class Run
     RunSubsystemState m_systems;                                                 // Window, camera, texture, terrain, and pass resource ownership
     RuntimeInputContext m_runtimeInput;                                          // Semantic input mode/action state owned by input routing.
     RuntimeInteractionController m_interaction;                                  // Authoritative runtime workspace and world-input owner.
+    RunInteractionAutomationState
+        m_interactionAutomation;                                                 // CLI harness that injects runtime mouse input for regression tests.
     RunCameraState m_camera;                                                     // Camera/input state and ball-tracking settings
+    AttachedCameraState m_attachedCamera;                                        // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                           // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                               // Owns replay recorders, branch provenance, and replay interaction state.
     RunReplayMismatchState m_solverReplayMismatch;                               // Throttles repeated live-vs-solver replay mismatch reports.
@@ -146,6 +184,12 @@ class Run
     void RelativeUpdateCamera( uint32_t hash );                                  // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                      // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                            // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.
+    void TickInteractionAutomationBeforeInput();                                 // Applies scripted mouse/button state before normal input routing.
+    void TickInteractionAutomationAfterRender();                                 // Runs assertions/screenshots and finishes scripted automation.
+    void ClearInteractionAutomationInput();                                      // Releases input overrides after completion or failure.
+    void WriteInteractionAutomationReport();                                     // Writes JSON result for --interaction-report.
+    bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
+    bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const;
     bool DrainRuntimeCommands();                                                 // Applies queued runtime/tool command intents at the frame boundary.
     SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
     SceneAuthoredCameraContext BuildSceneAuthoredCameraContext();
@@ -156,6 +200,27 @@ class Run
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,
         RuntimeInputActionSource source );                                       // Records the mode transition caused by one runtime/tool action.
+    RuntimeInputSnapshot BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
+                                                    bool suppressWorldActionThisFrame )
+        const;                                                                   // Captures pointer/UI/frame-policy input once for routed world input.
+    bool
+    RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot,
+                              const RuntimeMouseEdges& mouseEdges );             // Routes pointer input after snapshot capture.
+    void CancelCameraLookGesture();                                              // Clears controller-owned camera-look pointer capture.
+    void SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
+                                const RuntimeInteractionFramePolicy& inputPolicy,
+                                bool mouseLookOwnsCursor );                      // Mirrors camera-look policy into pointer capture state.
+    void BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
+                                 WorldInteractionOwner owner,
+                                 RuntimePointerButton button,
+                                 int startX,
+                                 int startY,
+                                 int modelIndex = -1,
+                                 int axis = -1,
+                                 bool angular = false );                         // Captures typed replay drag ownership.
+    void EndReplayToolGesture( RuntimeInteractionGestureKind kind );             // Releases a matching typed replay drag gesture.
+    void CancelReplayToolGesture();                                              // Clears any active replay drag gesture from the controller.
+    void CancelReplayToolDragState();                                            // Releases controller capture and legacy replay drag booleans together.
     RuntimeInteractionTransition EnterInteractionForCameraMode(
         RunCameraMode mode );                                                    // Converts camera/tool requests into controller workspace transitions.
     void ApplyRuntimeInteractionTransitionCleanup(
@@ -170,7 +235,7 @@ class Run
     bool InspectGizmoInteractionActive() const;                                  // True when Inspect owns live transform-gizmo interaction.
     bool ReplayInspectionActive() const;                                         // True when replay owns inspection camera semantics.
     bool ReplayInspectionMouseLookActive() const;                                // True when replay inspection is consuming mouse-look.
-    bool MouseLookOwnsCursor() const;                                            // True when camera/editor/replay mouse-look should hide the system cursor.
+    bool MouseLookOwnsCursor() const;                                            // True while RMB/editor/replay mouse-look temporarily owns the cursor.
     bool ShouldHideNativeCursor() const;                                         // True when the current tool mode should hide the Windows cursor.
     void ApplyCursorOwnership();                                                 // Applies current cursor ownership to the system cursor.
     void ReleaseMouseToUI();                                                     // Gives mouse focus back to Win32/UI when tools stop owning it.
@@ -181,12 +246,46 @@ class Run
     bool IsDemoCameraModeAvailable() const;                                      // True when Demo can track at least one live model.
     RunCameraMode NormalizeCameraModeForCurrentScene(
         RunCameraMode mode ) const;                                              // Clamps passive camera modes to generated-demo vs authored-scene ownership.
+    void SetCameraModeLabelAfterInteractionTransition(
+        RunCameraMode mode );                                                    // Applies the camera label after controller workspace/tool ownership is chosen.
+    RuntimeInteractionTransition SetWorldInteractionOwnerAfterInteractionTransition(
+        WorldInteractionOwner owner,
+        InteractionExitReason reason );                                          // Applies tool-owner transitions through runtime cleanup.
+    bool ExecuteRuntimeInteractionCommand(
+        const RuntimeInteractionCommand& command );                              // Applies synchronous interaction mutations from routed input.
+    void PublishRuntimeInteractionEvent(
+        const RuntimeInteractionEvent& event );                                  // Emits observation-only command-result events after commands succeed.
+    void ClearRuntimeInteractionStateForTransition(
+        const RuntimeInteractionTransition& transition );                        // Clears state owned by the interaction being exited.
+    bool IsManualCameraMode() const;                                             // True when passive generated-demo systems must not move the view.
     bool IsFlyCameraMode() const;                                                // True when the current mode uses free-flight camera controls.
     bool IsLauncherCameraMode() const;                                           // True when the current mode owns launcher firing semantics.
     bool IsManipulatorCameraMode() const;                                        // True when mouse pickup owns world left-drag semantics.
+    bool IsAttachedCameraMode() const;                                           // True when Attach owns follow/pin camera semantics.
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source );                     // Applies keyboard/UI camera-mode requests.
     void CycleCameraMode();                                                      // Tab cycles through enabled explicit camera modes.
+    void ResetAttachedCamera();                                                  // Clears non-serialized attach target and camera offsets.
+    void CaptureAttachedCameraReturnState(
+        RunCameraMode previousMode );                                            // Saves the camera mode/pose Attach should restore on exit.
+    void RestoreAttachedCameraReturnState();                                     // Restores the saved pre-Attach pose when returning to that mode.
+    bool TryResolveAttachedCameraTarget(
+        int& outModelIndex );                                                    // Revalidates/recover target by index, replay id, or exact name.
+    void SetAttachedCameraTarget( int modelIndex );                              // Stores exact clicked/seeded model identity and captures offset.
+    void ClearAttachedCameraTarget();                                            // Clears follow target but preserves current camera world pose.
+    void SeedAttachedCameraTargetFromSelection();                                // Initializes Attach from replay/editor selection when possible.
+    bool TryPickAttachedCameraTargetFromMouse();                                 // Mouse ray pick through the shared runtime pick service.
+    bool
+    TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
+                                  bool suppressWorldActionThisFrame );           // Consumes Attach left-click target selection.
+    void CycleAttachedCameraSubmode();                                           // F1 cycles Fixed, Velocity, and available Eyes modes.
+    void ToggleAttachedCameraPin();                                              // Enter pins/unpins camera follow while in Attach.
+    void TickAttachedCameraOrbitInput( int unhandledWheelDelta );                // Mouse wheel adjusts Attach orbit distance.
+    void TickAttachedCamera();                                                   // Applies the active follow solve to CameraCollection.
+    void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
+    void CaptureAttachedCameraOrbit(
+        const GameObjects::GameModel& model );                                   // Seeds upright Attach orbit from the current camera pose.
+    bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void SetUpCameras();                                                         // Creates generated-demo cameras when no scene file supplies them.
     void UpdateRequiredSceneContacts();                                          // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.
@@ -250,6 +349,7 @@ class Run
         bool suppressExitOnComplete );                                           // Restores preserved live controls after scene file/defaults rebuild
     void ClearSceneRuntimeUIOverrides();                                         // New scene/defaults should become authoritative again.
     void LogPerfMemory( const char* checkpoint );                                // Log memory usage to perf CSV
+    bool WriteMainMemoryDump( const char* checkpoint );                          // Writes CLI-requested process/replay/object memory JSON.
     void LoadScene(
         int index,
         bool preserveUIState = false,
@@ -340,12 +440,20 @@ class Run
     void MarkReplayPredictionDirty();
     void ClearReplayPredictionCache();
     void CancelReplayPredictionJob( bool clearSamples );
-    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex, uint64_t sourceSolverHash );
-    bool StepReplayPredictionJob( double budgetMilliseconds );
+    // Prediction work shares the replay visualizer deadline. These calls may
+    // leave prediction dirty/building so a later frame can resume without
+    // exceeding the current render-frame budget.
+    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
+                                   uint64_t sourceSolverHash,
+                                   const std::chrono::steady_clock::time_point& budgetStart,
+                                   double budgetMilliseconds );
+    bool StepReplayPredictionJob( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
     bool CaptureReplayPredictionBodyState( std::vector<RunReplayPredictionBodyBackup>& outBodies );
     bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
     void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
-    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer );
+    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
+                                           const std::chrono::steady_clock::time_point& budgetStart,
+                                           double budgetMilliseconds );
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,
                                        const Rendering::ShadowFrameData* shadow );
@@ -387,7 +495,7 @@ class Run
     const ReplayPresentationSample* LoadedReplayPresentationLatestSample() const;
     void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
-    void SetReplaySimulationPaused( bool paused );
+    void SetReplayLiveAdvanceHeld( bool held );
     void EnterReplayInspectionCamera();
     void ExitReplayInspectionCamera();
     void UpdateReplayInspectionCamera();
@@ -470,6 +578,11 @@ class Run
     bool TryComputeEditorPlacementPreview( int objectType );                     // Snapped ghost placement data from the mouse ray.
     void ResetEditorUnfocusedInputState();                                       // Clears transient editor gestures when app focus is lost.
     void ClearEditorManipulationState();                                         // Clears placement/gizmo gesture state while preserving editor mode.
+    bool BeginEditorGizmoDragGesture( int modelIndex,
+                                      int axis,
+                                      bool angular );                            // Captures editor/inspect gizmo drag ownership.
+    void EndEditorGizmoDragGesture();                                            // Releases controller ownership for an active gizmo drag.
+    void CancelEditorGizmoDragState();                                           // Clears controller capture and legacy gizmo drag fields together.
     void ToggleEditorPlacementMode( RuntimeInputActionSource source );           // Enters/exits placement mode from keyboard or UI.
     void HandleEditorKeyboardShortcuts();                                        // Applies editor-mode Alt/Tab shortcuts.
     void ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands,
@@ -481,13 +594,6 @@ class Run
         bool suppressWorldActionThisFrame );                                     // Handles editor placement, selection, and gizmo mouse ownership.
     void HandleEditorSaveHotkeys();                                              // Handles F2 scene snapshots and F3 screenshot commands.
     void UpdateEditorInteractionPreview();                                       // Refreshes ghost and gizmo hover state before world-click handling
-    bool TryPickEditorModel( const Math::Vector::Vector3& rayOrigin,
-                             const Math::Vector::Vector3& rayDirection,
-                             int& outIndex ) const;                              // Ray-picks editable objects
-    bool TryPickMousePickupModel( const Math::Vector::Vector3& rayOrigin,
-                                  const Math::Vector::Vector3& rayDirection,
-                                  int& outIndex,
-                                  float& outRayT ) const;                        // Ray-picks movable manipulator objects.
     void CancelMousePickup();                                                    // Releases manipulator drag/capture state.
     bool TickMousePickupInput(
         HWND hwnd,
@@ -556,9 +662,13 @@ class Run
     void SetLiveStyleControlDirectory( const char* path );                       // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                                    // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame );          // Enable deterministic UI stress from CLI
+    void SetInteractionAutomation(
+        const char* scriptPath,
+        const char* reportPath );                                                // CLI harness for deterministic world-click interaction scripts.
     void SetReplayRecording( bool enabled,
                              int retentionSeconds,
                              const char* hashLogPath );                          // Enable bounded replay capture from CLI.
+    void SetMainMemoryDumpPath( const char* path );                              // Write main-memory JSON at shutdown (CLI --memory-dump).
     bool LoadReplayPresentationArtifact( const char* path,
                                          bool activateScrubber );                // Load a v2 presentation artifact as a scrub source.
     void SetInitialOverlayMode( OverlayMode mode );

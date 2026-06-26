@@ -32,7 +32,11 @@ namespace Basics
 class ReplayExporter
 {
   public:
+    // Writes the recorder's current chronological sample window to a legacy JSON
+    // artifact. The recorder remains the owner of retained samples.
     static bool Save( const ReplayRecorder& recorder, const char* path );
+    // Writes solver-facing samples, including physics diagnostics fields that
+    // presentation-only artifacts intentionally omit.
     static bool Save( const ReplaySolverRecorder& recorder, const char* path );
 };
 } // namespace Basics

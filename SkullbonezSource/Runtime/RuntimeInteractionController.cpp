@@ -15,6 +15,7 @@ Related:
 #include "RuntimeInteractionController.h"
 
 #include <algorithm>
+#include <cassert>
 
 namespace SkullbonezCore
 {
@@ -22,10 +23,52 @@ namespace Basics
 {
 namespace
 {
-bool WorkspaceUsesInspectControls( RuntimeWorkspace workspace )
+bool IsReplayOwner( WorldInteractionOwner owner )
 {
-    return workspace == RuntimeWorkspace::Inspect || workspace == RuntimeWorkspace::Edit ||
-           workspace == RuntimeWorkspace::Replay;
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+
+
+bool IsGizmoOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::EditorGizmo || owner == WorldInteractionOwner::InspectGizmo;
+}
+
+
+bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
+                           RuntimePointerCaptureOwner captureOwner,
+                           WorldInteractionOwner owner )
+{
+    switch ( gesture.kind )
+    {
+    case RuntimeInteractionGestureKind::None:
+        return captureOwner == RuntimePointerCaptureOwner::None;
+    case RuntimeInteractionGestureKind::CameraLook:
+        return captureOwner == RuntimePointerCaptureOwner::CameraLook;
+    case RuntimeInteractionGestureKind::ObjectPick:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner != WorldInteractionOwner::None;
+    case RuntimeInteractionGestureKind::GizmoDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsGizmoOwner( owner );
+    case RuntimeInteractionGestureKind::MousePickupDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::Manipulator;
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsReplayOwner( owner );
+    }
+
+    return false;
+}
+
+
+bool CanBeginGesture( const RuntimeInteractionGesture& gesture,
+                      RuntimePointerCaptureOwner captureOwner,
+                      WorldInteractionOwner owner )
+{
+    return gesture.kind != RuntimeInteractionGestureKind::None && IsActiveGestureValid( gesture, captureOwner, owner );
 }
 } // namespace
 
@@ -50,6 +93,18 @@ CameraLookState RuntimeInteractionController::CameraLook() const
 PhysicsAdvanceState RuntimeInteractionController::PhysicsAdvance() const
 {
     return m_physicsAdvance;
+}
+
+
+const RuntimeInteractionGesture& RuntimeInteractionController::Gesture() const
+{
+    return m_gesture;
+}
+
+
+RuntimePointerCaptureOwner RuntimeInteractionController::PointerCapture() const
+{
+    return m_pointerCapture;
 }
 
 
@@ -104,6 +159,78 @@ RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOw
 }
 
 
+RuntimeInteractionTransition
+RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
+                                                                   WorldInteractionOwner owner,
+                                                                   InteractionExitReason reason )
+{
+    return TransitionTo( workspace, owner, reason );
+}
+
+
+RuntimeInteractionTransition RuntimeInteractionController::BeginGesture( const RuntimeInteractionGesture& gesture,
+                                                                         RuntimePointerCaptureOwner captureOwner,
+                                                                         InteractionExitReason reason )
+{
+    const RuntimeWorkspace previousWorkspace = m_workspace;
+    const WorldInteractionOwner previousOwner = m_owner;
+    const CameraLookState previousCameraLook = m_cameraLook;
+    const PhysicsAdvanceState previousPhysicsAdvance = m_physicsAdvance;
+    const RuntimeInteractionGesture previousGesture = m_gesture;
+    const RuntimePointerCaptureOwner previousPointerCapture = m_pointerCapture;
+
+    const bool canBegin = previousGesture.kind == RuntimeInteractionGestureKind::None &&
+                          previousPointerCapture == RuntimePointerCaptureOwner::None &&
+                          CanBeginGesture( gesture, captureOwner, m_owner );
+#ifdef _DEBUG
+    assert( canBegin );
+#endif
+    if ( !canBegin )
+    {
+        return CaptureTransition( previousWorkspace,
+                                  previousOwner,
+                                  previousCameraLook,
+                                  previousPhysicsAdvance,
+                                  previousGesture,
+                                  previousPointerCapture,
+                                  reason );
+    }
+
+    m_gesture = gesture;
+    m_pointerCapture = captureOwner;
+    ValidateState();
+    return CaptureTransition( previousWorkspace,
+                              previousOwner,
+                              previousCameraLook,
+                              previousPhysicsAdvance,
+                              previousGesture,
+                              previousPointerCapture,
+                              reason );
+}
+
+
+RuntimeInteractionTransition RuntimeInteractionController::EndGesture( InteractionExitReason reason )
+{
+    const RuntimeWorkspace previousWorkspace = m_workspace;
+    const WorldInteractionOwner previousOwner = m_owner;
+    const CameraLookState previousCameraLook = m_cameraLook;
+    const PhysicsAdvanceState previousPhysicsAdvance = m_physicsAdvance;
+    const RuntimeInteractionGesture previousGesture = m_gesture;
+    const RuntimePointerCaptureOwner previousPointerCapture = m_pointerCapture;
+
+    m_gesture = RuntimeInteractionGesture{};
+    m_pointerCapture = RuntimePointerCaptureOwner::None;
+    ValidateState();
+    return CaptureTransition( previousWorkspace,
+                              previousOwner,
+                              previousCameraLook,
+                              previousPhysicsAdvance,
+                              previousGesture,
+                              previousPointerCapture,
+                              reason );
+}
+
+
 RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( InteractionExitReason reason )
 {
     return TransitionTo( RuntimeWorkspace::Live, WorldInteractionOwner::None, reason );
@@ -113,9 +240,13 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 RuntimeInteractionFramePolicy
 RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const
 {
+    ValidateState();
+
     RuntimeInteractionFramePolicy policy;
     policy.workspace = m_workspace;
     policy.owner = m_owner;
+    policy.gesture = m_gesture.kind;
+    policy.pointerCapture = m_pointerCapture;
     policy.launcherActive = m_owner == WorldInteractionOwner::Launcher;
     policy.manipulatorActive = m_owner == WorldInteractionOwner::Manipulator;
     policy.physicsTimeScale = (std::max)( 0.0f, input.sceneTimeScale );
@@ -125,7 +256,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
         policy.physicsAdvance = PhysicsAdvanceState::Disabled;
         policy.physicsTimeScale = 0.0f;
     }
-    else if ( input.forcePhysicsRunning || policy.launcherActive || policy.manipulatorActive )
+    else if ( input.forcePhysicsRunning || policy.launcherActive )
     {
         policy.physicsAdvance = PhysicsAdvanceState::Running;
     }
@@ -137,6 +268,10 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
             policy.physicsTimeScale = 0.0f;
         }
     }
+    else if ( m_gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag )
+    {
+        policy.physicsAdvance = PhysicsAdvanceState::Running;
+    }
     else if ( m_workspace == RuntimeWorkspace::Inspect || m_workspace == RuntimeWorkspace::Edit ||
               m_workspace == RuntimeWorkspace::Replay )
     {
@@ -147,7 +282,12 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
         policy.physicsAdvance = PhysicsAdvanceState::Running;
     }
 
-    if ( input.editorViewportLookActive )
+    const bool toolGestureCaptured = m_pointerCapture == RuntimePointerCaptureOwner::ToolGesture;
+    if ( toolGestureCaptured )
+    {
+        policy.cameraLook = CameraLookState::Passive;
+    }
+    else if ( input.editorViewportLookActive )
     {
         policy.cameraLook = CameraLookState::EditorViewportLook;
     }
@@ -155,16 +295,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     {
         policy.cameraLook = CameraLookState::ReplayInspectionLook;
     }
-    else if ( policy.launcherActive )
-    {
-        policy.cameraLook = CameraLookState::RightMouseLook;
-    }
-    else if ( m_workspace == RuntimeWorkspace::Inspect )
-    {
-        policy.cameraLook = CameraLookState::RightMouseLook;
-    }
-    else if ( input.rightMouseLookHeld && ( m_workspace == RuntimeWorkspace::Edit ||
-                                            m_workspace == RuntimeWorkspace::Replay || policy.manipulatorActive ) )
+    else if ( input.rightMouseLookHeld )
     {
         policy.cameraLook = CameraLookState::RightMouseLook;
     }
@@ -174,10 +305,49 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     }
 
     policy.cameraMouseLookActive = policy.cameraLook != CameraLookState::Passive;
-    policy.cameraKeyboardControlsActive =
-        WorkspaceUsesInspectControls( m_workspace ) || policy.launcherActive || policy.manipulatorActive;
+    policy.cameraKeyboardControlsActive = true;
 
     return policy;
+}
+
+
+RuntimeInteractionTransition
+RuntimeInteractionController::CaptureTransition( RuntimeWorkspace previousWorkspace,
+                                                 WorldInteractionOwner previousOwner,
+                                                 CameraLookState previousCameraLook,
+                                                 PhysicsAdvanceState previousPhysicsAdvance,
+                                                 const RuntimeInteractionGesture& previousGesture,
+                                                 RuntimePointerCaptureOwner previousPointerCapture,
+                                                 InteractionExitReason reason ) const
+{
+    RuntimeInteractionTransition transition;
+    transition.previousWorkspace = previousWorkspace;
+    transition.previousOwner = previousOwner;
+    transition.previousCameraLook = previousCameraLook;
+    transition.previousPhysicsAdvance = previousPhysicsAdvance;
+    transition.previousGesture = previousGesture;
+    transition.previousPointerCapture = previousPointerCapture;
+    transition.workspace = m_workspace;
+    transition.owner = m_owner;
+    transition.cameraLook = m_cameraLook;
+    transition.physicsAdvance = m_physicsAdvance;
+    transition.gesture = m_gesture;
+    transition.pointerCapture = m_pointerCapture;
+    transition.reason = reason;
+
+    transition.workspaceChanged = transition.previousWorkspace != transition.workspace;
+    transition.ownerChanged = transition.previousOwner != transition.owner;
+    transition.cameraLookChanged = transition.previousCameraLook != transition.cameraLook;
+    transition.physicsAdvanceChanged = transition.previousPhysicsAdvance != transition.physicsAdvance;
+    transition.gestureChanged = transition.previousGesture.kind != transition.gesture.kind ||
+                                transition.previousGesture.button != transition.gesture.button ||
+                                transition.previousGesture.startX != transition.gesture.startX ||
+                                transition.previousGesture.startY != transition.gesture.startY ||
+                                transition.previousGesture.modelIndex != transition.gesture.modelIndex ||
+                                transition.previousGesture.axis != transition.gesture.axis ||
+                                transition.previousGesture.angular != transition.gesture.angular;
+    transition.pointerCaptureChanged = transition.previousPointerCapture != transition.pointerCapture;
+    return transition;
 }
 
 
@@ -185,27 +355,71 @@ RuntimeInteractionTransition RuntimeInteractionController::TransitionTo( Runtime
                                                                          WorldInteractionOwner owner,
                                                                          InteractionExitReason reason )
 {
-    RuntimeInteractionTransition transition;
-    transition.previousWorkspace = m_workspace;
-    transition.previousOwner = m_owner;
-    transition.previousCameraLook = m_cameraLook;
-    transition.previousPhysicsAdvance = m_physicsAdvance;
-    transition.workspace = workspace;
-    transition.owner = owner;
-    transition.cameraLook = CameraLookState::Passive;
-    transition.physicsAdvance = PhysicsAdvanceState::Running;
-    transition.reason = reason;
+    const RuntimeWorkspace previousWorkspace = m_workspace;
+    const WorldInteractionOwner previousOwner = m_owner;
+    const CameraLookState previousCameraLook = m_cameraLook;
+    const PhysicsAdvanceState previousPhysicsAdvance = m_physicsAdvance;
+    const RuntimeInteractionGesture previousGesture = m_gesture;
+    const RuntimePointerCaptureOwner previousPointerCapture = m_pointerCapture;
 
     m_workspace = workspace;
     m_owner = owner;
-    m_cameraLook = transition.cameraLook;
-    m_physicsAdvance = transition.physicsAdvance;
+    m_cameraLook = CameraLookState::Passive;
+    m_physicsAdvance = PhysicsAdvanceState::Running;
+    m_gesture = RuntimeInteractionGesture{};
+    m_pointerCapture = RuntimePointerCaptureOwner::None;
 
-    transition.workspaceChanged = transition.previousWorkspace != transition.workspace;
-    transition.ownerChanged = transition.previousOwner != transition.owner;
-    transition.cameraLookChanged = transition.previousCameraLook != transition.cameraLook;
-    transition.physicsAdvanceChanged = transition.previousPhysicsAdvance != transition.physicsAdvance;
-    return transition;
+    ValidateState();
+    return CaptureTransition( previousWorkspace,
+                              previousOwner,
+                              previousCameraLook,
+                              previousPhysicsAdvance,
+                              previousGesture,
+                              previousPointerCapture,
+                              reason );
+}
+
+
+void RuntimeInteractionController::ValidateState() const
+{
+#ifdef _DEBUG
+    assert( IsActiveGestureValid( m_gesture, m_pointerCapture, m_owner ) );
+
+    if ( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook )
+    {
+        assert( m_gesture.kind == RuntimeInteractionGestureKind::CameraLook );
+    }
+    if ( m_pointerCapture == RuntimePointerCaptureOwner::ToolGesture )
+    {
+        assert( m_owner != WorldInteractionOwner::None );
+        assert( m_gesture.kind != RuntimeInteractionGestureKind::None );
+        assert( m_gesture.kind != RuntimeInteractionGestureKind::CameraLook );
+    }
+
+    switch ( m_gesture.kind )
+    {
+    case RuntimeInteractionGestureKind::None:
+        break;
+    case RuntimeInteractionGestureKind::CameraLook:
+        assert( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook );
+        break;
+    case RuntimeInteractionGestureKind::ObjectPick:
+        assert( m_owner != WorldInteractionOwner::None );
+        break;
+    case RuntimeInteractionGestureKind::GizmoDrag:
+        assert( IsGizmoOwner( m_owner ) );
+        break;
+    case RuntimeInteractionGestureKind::MousePickupDrag:
+        assert( m_owner == WorldInteractionOwner::Manipulator );
+        break;
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        assert( IsReplayOwner( m_owner ) );
+        break;
+    }
+#endif
 }
 } // namespace Basics
 } // namespace SkullbonezCore

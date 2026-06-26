@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "setCameraMode": "Inspect" },
+    { "frame": 10, "clickObject": "inspect_target", "button": "left" },
+    { "frame": 20, "assert": { "cameraMode": "Inspect" } },
+    { "frame": 20, "assert": { "selectedObject": "inspect_target" } },
+    { "frame": 20, "assert": { "owner": "InspectGizmo" } },
+    { "frame": 20, "assert": { "gizmoVisible": true } },
+    { "frame": 25, "screenshot": "TestOutput/interaction/inspect_gizmo_after_click.bmp" }
+  ]
+}

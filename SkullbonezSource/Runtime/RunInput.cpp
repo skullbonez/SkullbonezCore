@@ -19,12 +19,14 @@ Related:
 */
 #include "RunInternal.h"
 #include "InputController.h"
+#include "RuntimePickService.h"
 #include "RuntimeTuning.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -37,9 +39,18 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-bool CameraModeUsesFlyControls( RunCameraMode mode )
+constexpr int ATTACHED_CAMERA_WHEEL_DELTA = 120;
+constexpr float ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH = 0.30f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN = -1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
+constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
+constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
+constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
+
+bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow )
 {
-    return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator;
+    return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
+           ( mode == RunCameraMode::Attach && attachActiveFollow );
 }
 
 
@@ -48,11 +59,83 @@ bool CameraModeUsesLauncher( RunCameraMode mode )
     return mode == RunCameraMode::Launcher;
 }
 
+bool IsFiniteVector( const Vector3& v )
+{
+    return std::isfinite( v.x ) && std::isfinite( v.y ) && std::isfinite( v.z );
+}
 
-RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor )
+bool TryNormalizeVector( Vector3& v )
+{
+    if ( !IsFiniteVector( v ) )
+    {
+        return false;
+    }
+    const float lengthSq = VectorMagSquared( v );
+    if ( lengthSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+    v *= 1.0f / sqrtf( lengthSq );
+    return true;
+}
+
+Vector3 NormalizedOr( Vector3 v, const Vector3& fallback )
+{
+    if ( TryNormalizeVector( v ) )
+    {
+        return v;
+    }
+    Vector3 safeFallback = fallback;
+    if ( TryNormalizeVector( safeFallback ) )
+    {
+        return safeFallback;
+    }
+    return Vector3( 0.0f, 1.0f, 0.0f );
+}
+
+RotationMatrix ModelRotation( const GameModel& model )
+{
+    Quaternion orientation = model.GetOrientation();
+    return orientation.GetOrientationMatrix();
+}
+
+Vector3 ModelToWorldVector( const GameModel& model, const Vector3& localVector )
+{
+    return ModelRotation( model ) * localVector;
+}
+
+Vector3 WorldToModelVector( const GameModel& model, const Vector3& worldVector )
+{
+    return ModelRotation( model ).TransposeMultiply( worldVector );
+}
+
+float AttachedCameraModelRadius( const GameModel& model )
+{
+    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+bool IsSimpleRagdollPart( const GameModel& model )
+{
+    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
+}
+
+bool EndsWith( const char* value, const char* suffix )
+{
+    if ( !value || !suffix )
+    {
+        return false;
+    }
+    const size_t valueLength = strlen( value );
+    const size_t suffixLength = strlen( suffix );
+    return valueLength >= suffixLength && strcmp( value + valueLength - suffixLength, suffix ) == 0;
+}
+
+
+RuntimeInputModeState
+BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor, bool attachActiveFollow )
 {
     RuntimeInputModeState state;
-    state.flyCamera = CameraModeUsesFlyControls( mode );
+    state.flyCamera = CameraModeUsesFlyControls( mode, attachActiveFollow );
     state.launcher = CameraModeUsesLauncher( mode );
     state.manipulator = mode == RunCameraMode::Manipulator;
     state.editor = editor.editorModeEnabled;
@@ -74,7 +157,78 @@ bool IsReplayWorldOwner( WorldInteractionOwner owner )
 
 bool IsEditorWorldOwner( WorldInteractionOwner owner )
 {
-    return owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo;
+    return owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo ||
+           owner == WorldInteractionOwner::InspectGizmo;
+}
+
+RuntimeWorkspace WorkspaceForWorldInteractionOwner( RuntimeWorkspace fallback, WorldInteractionOwner owner )
+{
+    if ( IsReplayWorldOwner( owner ) )
+    {
+        return RuntimeWorkspace::Replay;
+    }
+    if ( owner == WorldInteractionOwner::InspectGizmo )
+    {
+        return RuntimeWorkspace::Inspect;
+    }
+    if ( owner == WorldInteractionOwner::EditorPlacement || owner == WorldInteractionOwner::EditorGizmo )
+    {
+        return RuntimeWorkspace::Edit;
+    }
+    if ( owner == WorldInteractionOwner::Launcher || owner == WorldInteractionOwner::Manipulator )
+    {
+        return RuntimeWorkspace::Live;
+    }
+    return fallback;
+}
+
+float WrapAttachedCameraOrbitYaw( float yaw )
+{
+    while ( yaw > _PI )
+    {
+        yaw -= _2PI;
+    }
+    while ( yaw < -_PI )
+    {
+        yaw += _2PI;
+    }
+    return yaw;
+}
+
+float AttachedCameraOrbitMinDistance( const GameModel& model )
+{
+    return (std::max)( 1.0f, AttachedCameraModelRadius( model ) * ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS );
+}
+
+float AttachedCameraOrbitMaxDistance( const GameModel& model )
+{
+    const float minDistance = AttachedCameraOrbitMinDistance( model );
+    return (std::max)( minDistance + 1.0f,
+                       AttachedCameraModelRadius( model ) * ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS );
+}
+
+float ClampAttachedCameraOrbitDistance( const GameModel& model, float distance )
+{
+    if ( !std::isfinite( distance ) )
+    {
+        distance = AttachedCameraModelRadius( model ) * 8.0f;
+    }
+    return std::clamp( distance, AttachedCameraOrbitMinDistance( model ), AttachedCameraOrbitMaxDistance( model ) );
+}
+
+float ClampAttachedCameraOrbitPitch( float pitch )
+{
+    if ( !std::isfinite( pitch ) )
+    {
+        return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
+    }
+    return std::clamp( pitch, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MIN, ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX );
+}
+
+Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
+{
+    const float cosPitch = cosf( pitch );
+    return Vector3( sinf( yaw ) * cosPitch * distance, sinf( pitch ) * distance, cosf( yaw ) * cosPitch * distance );
 }
 
 const char* ReplayRuntimeCommandName( RuntimeCommandType type )
@@ -116,6 +270,30 @@ uint32_t ReplayRuntimeCommandFlags( const RuntimeCommand& command )
     return flags;
 }
 
+const char* RuntimeInteractionSelectionScopeName( RuntimeInteractionSelectionScope scope )
+{
+    switch ( scope )
+    {
+    case RuntimeInteractionSelectionScope::Inspect:
+        return "inspect";
+    case RuntimeInteractionSelectionScope::Editor:
+    default:
+        return "editor";
+    }
+}
+
+const char* RuntimeInteractionEventName( RuntimeInteractionEventType type )
+{
+    switch ( type )
+    {
+    case RuntimeInteractionEventType::SelectionChanged:
+        return "selection_changed";
+    case RuntimeInteractionEventType::None:
+    default:
+        return "none";
+    }
+}
+
 struct RuntimeInputKeyBinding
 {
     RuntimeInputAction action;
@@ -127,6 +305,8 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
     static const RuntimeInputKeyBinding kBindings[] = { { RuntimeInputAction::ToggleFlyCamera, 'F' },
                                                         { RuntimeInputAction::ToggleLauncher, 'N' },
                                                         { RuntimeInputAction::CycleCameraMode, VK_TAB },
+                                                        { RuntimeInputAction::CycleAttachedCameraSubmode, VK_F1 },
+                                                        { RuntimeInputAction::ToggleAttachedCameraPin, VK_RETURN },
                                                         { RuntimeInputAction::ToggleEditor, VK_OEM_3 },
                                                         { RuntimeInputAction::ToggleEditorTool, VK_MENU },
                                                         { RuntimeInputAction::CycleLauncherFireMode, 'M' },
@@ -183,9 +363,205 @@ void Run::UpdateRuntimeInputModeAfterAction( RuntimeInputAction action, RuntimeI
 {
     InputController::ApplyModeAction(
         m_runtimeInput,
-        InputController::ResolveMode( BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ) ),
+        InputController::ResolveMode(
+            BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ) ),
         action,
         source );
+}
+
+
+RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mouseEdges,
+                                                     bool suppressWorldActionThisFrame ) const
+{
+    const POINT mouse = Input::GetClientMouseCoordinates();
+
+    RuntimeInputSnapshot snapshot;
+    snapshot.appFocused = Input::IsAppFocused();
+    snapshot.uiBlocksKeyboard = m_UI.BlocksKeyboard();
+    snapshot.uiBlocksMouse = m_UI.BlocksCameraMouse();
+
+    snapshot.pointer.clientX = mouse.x;
+    snapshot.pointer.clientY = mouse.y;
+    snapshot.pointer.leftDown = mouseEdges.leftDown;
+    snapshot.pointer.leftPressed = mouseEdges.leftPressed;
+    snapshot.pointer.leftReleased = mouseEdges.leftReleased;
+    snapshot.pointer.rightDown = mouseEdges.rightDown;
+    snapshot.pointer.rightPressed = mouseEdges.rightPressed;
+    snapshot.pointer.rightReleased = mouseEdges.rightReleased;
+    snapshot.pointer.controlDown = Input::IsKeyDown( VK_CONTROL );
+    snapshot.pointer.shiftDown = Input::IsKeyDown( VK_SHIFT );
+    snapshot.pointer.uiWantsNativeMouseCursor = m_UI.WantsNativeMouseCursor();
+    snapshot.pointer.uiBlocksCameraMouse = m_UI.BlocksCameraMouse();
+    snapshot.pointer.suppressWorldAction = suppressWorldActionThisFrame;
+
+    if ( mouseEdges.leftPressed || mouseEdges.leftReleased || mouseEdges.leftDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Left;
+    }
+    else if ( mouseEdges.rightPressed || mouseEdges.rightReleased || mouseEdges.rightDown )
+    {
+        snapshot.pointer.button = RuntimePointerButton::Right;
+    }
+
+    snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                                        Input::IsKeyDown( VK_SPACE ),
+                                                        IsReplayScrubPaused(),
+                                                        m_replayRuntime.Scrubber().liveAdvanceHeld,
+                                                        mouseEdges.rightDown,
+                                                        m_runtimeTools.Editor().viewportLookActive,
+                                                        ReplayInspectionMouseLookActive(),
+                                                        false,
+                                                        SceneState().timeScale };
+    return snapshot;
+}
+
+
+bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, const RuntimeMouseEdges& mouseEdges )
+{
+    const bool leftPressed = inputSnapshot.pointer.leftPressed;
+    const bool suppressWorldAction = inputSnapshot.pointer.suppressWorldAction;
+    const bool uiWantsNativeMouseCursor = inputSnapshot.pointer.uiWantsNativeMouseCursor;
+
+    if ( m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    {
+        return false;
+    }
+
+    bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldAction );
+    if ( !consumedWorldClick )
+    {
+        consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
+                                                   mouseEdges,
+                                                   suppressWorldAction );
+    }
+    if ( !consumedWorldClick )
+    {
+        consumedWorldClick = TickAttachedCameraWorldClick( mouseEdges, suppressWorldAction );
+    }
+    if ( !consumedWorldClick && leftPressed && !suppressWorldAction && !m_runtimeTools.Editor().editorModeEnabled &&
+         !uiWantsNativeMouseCursor && ( inputSnapshot.pointer.controlDown || !IsLauncherCameraMode() ) )
+    {
+        const bool additiveReplayPick = inputSnapshot.pointer.shiftDown;
+        TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
+        consumedWorldClick = true;
+    }
+
+    if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldAction &&
+         !uiWantsNativeMouseCursor )
+    {
+        EnterInteractiveSceneRun();
+        FireRayCastTest();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
+        consumedWorldClick = true;
+    }
+
+    return consumedWorldClick;
+}
+
+
+void Run::CancelCameraLookGesture()
+{
+    if ( m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook )
+    {
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+
+void Run::SyncCameraLookGesture( const RuntimeInputSnapshot& inputSnapshot,
+                                 const RuntimeInteractionFramePolicy& inputPolicy,
+                                 bool mouseLookOwnsCursor )
+{
+    const bool cameraLookCaptured = m_interaction.PointerCapture() == RuntimePointerCaptureOwner::CameraLook;
+    const bool wantsCameraLook = inputSnapshot.appFocused && mouseLookOwnsCursor && inputPolicy.cameraMouseLookActive;
+
+    if ( !wantsCameraLook )
+    {
+        CancelCameraLookGesture();
+        return;
+    }
+
+    if ( cameraLookCaptured || m_interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
+         m_interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
+    {
+        return;
+    }
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = RuntimeInteractionGestureKind::CameraLook;
+    gesture.button = inputSnapshot.pointer.rightDown ? RuntimePointerButton::Right : RuntimePointerButton::None;
+    gesture.startX = inputSnapshot.pointer.clientX;
+    gesture.startY = inputSnapshot.pointer.clientY;
+    m_interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::CameraLook, InteractionExitReason::BeginGesture );
+}
+
+
+void Run::BeginReplayToolGesture( RuntimeInteractionGestureKind kind,
+                                  WorldInteractionOwner owner,
+                                  RuntimePointerButton button,
+                                  int startX,
+                                  int startY,
+                                  int modelIndex,
+                                  int axis,
+                                  bool angular )
+{
+    SetWorldInteractionOwnerAfterInteractionTransition( owner, InteractionExitReason::BeginGesture );
+
+    RuntimeInteractionGesture gesture;
+    gesture.kind = kind;
+    gesture.button = button;
+    gesture.startX = startX;
+    gesture.startY = startY;
+    gesture.modelIndex = modelIndex;
+    gesture.axis = axis;
+    gesture.angular = angular;
+    m_interaction.BeginGesture( gesture, RuntimePointerCaptureOwner::ToolGesture, InteractionExitReason::BeginGesture );
+}
+
+
+void Run::EndReplayToolGesture( RuntimeInteractionGestureKind kind )
+{
+    if ( m_interaction.Gesture().kind == kind )
+    {
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+    }
+}
+
+
+void Run::CancelReplayToolGesture()
+{
+    switch ( m_interaction.Gesture().kind )
+    {
+    case RuntimeInteractionGestureKind::ReplayScrubDrag:
+    case RuntimeInteractionGestureKind::ReplayVelocityDrag:
+    case RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag:
+    case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
+        m_interaction.EndGesture( InteractionExitReason::EndGesture );
+        break;
+    default:
+        break;
+    }
+}
+
+
+void Run::CancelReplayToolDragState()
+{
+    CancelReplayToolGesture();
+    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
+         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
+    {
+        UI::InputControl::EndMouseCapture();
+    }
+
+    m_replayRuntime.Scrubber().dragging = false;
+    m_replayRuntime.Scrubber().mouseCaptured = false;
+    m_replayRuntime.Prediction().horizonDragging = false;
+    m_replayRuntime.VelocityEdit().dragging = false;
+    m_replayRuntime.VelocityEdit().draggingAngular = false;
+    m_replayRuntime.VelocityEdit().activeAxis = -1;
+    m_replayRuntime.VelocityEdit().mouseCaptured = false;
+    m_replayRuntime.CauseTree().draggingWindow = false;
+    m_replayRuntime.CauseTree().resizingWindow = false;
 }
 
 
@@ -198,6 +574,7 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
     case RunCameraMode::Scene:
         return m_interaction.EnterLive();
     case RunCameraMode::Inspect:
+    case RunCameraMode::Attach:
         return m_interaction.EnterInspect();
     case RunCameraMode::Launcher:
         return m_interaction.EnterLauncher();
@@ -212,8 +589,8 @@ RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode m
 bool Run::HasActiveReplayInteractionState() const
 {
     return m_replayRuntime.Camera().active || m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None ||
-           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().paused ||
-           m_replayRuntime.Scrubber().simulationPaused || m_replayRuntime.Scrubber().mouseCaptured ||
+           m_replayRuntime.Scrubber().dragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+           m_replayRuntime.Scrubber().liveAdvanceHeld || m_replayRuntime.Scrubber().mouseCaptured ||
            m_replayRuntime.PathVisualizer().hasTarget || !m_replayRuntime.PathVisualizer().targets.empty() ||
            m_replayRuntime.Prediction().enabled || m_replayRuntime.Prediction().horizonDragging ||
            m_replayRuntime.Prediction().building || m_replayRuntime.VelocityEdit().enabled ||
@@ -242,13 +619,9 @@ bool Run::InspectGizmoInteractionActive() const
 
 void Run::ClearReplayInteractionForRuntimeTransition()
 {
-    if ( m_replayRuntime.Scrubber().mouseCaptured || m_replayRuntime.VelocityEdit().mouseCaptured ||
-         m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow )
-    {
-        UI::InputControl::EndMouseCapture();
-    }
+    CancelReplayToolDragState();
 
-    m_replayRuntime.Scrubber().simulationPaused = false;
+    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
     ResetReplayScrubber();
     ReplayScrubberSetAllTrackPositions( m_replayRuntime.Scrubber(), 1.0f );
@@ -293,19 +666,29 @@ void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
     m_runtimeTools.Editor().activeGizmoAxis = -1;
     if ( clearSelection )
     {
-        m_runtimeTools.Editor().selectedModelIndex = -1;
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = -1;
+        command.claimSelectionOwner = false;
+        ExecuteRuntimeInteractionCommand( command );
     }
     ReleaseMouseToUI();
     ApplyCursorOwnership();
 }
 
 
-void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
+void Run::ClearRuntimeInteractionStateForTransition( const RuntimeInteractionTransition& transition )
 {
     const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
     const bool enteringEdit = transition.workspace == RuntimeWorkspace::Edit;
     const bool enteringTool =
         transition.owner == WorldInteractionOwner::Launcher || transition.owner == WorldInteractionOwner::Manipulator;
+    const bool editorOwnerSwitchWithinEdit =
+        enteringEdit && IsEditorWorldOwner( transition.previousOwner ) && IsEditorWorldOwner( transition.owner );
+    const bool inspectGizmoClaimWithinInspect = transition.workspace == RuntimeWorkspace::Inspect &&
+                                                transition.owner == WorldInteractionOwner::InspectGizmo &&
+                                                ( transition.previousOwner == WorldInteractionOwner::None ||
+                                                  transition.previousOwner == WorldInteractionOwner::InspectGizmo );
 
     if ( !enteringReplay && ( HasActiveReplayInteractionState() || IsReplayWorldOwner( transition.previousOwner ) ) )
     {
@@ -322,7 +705,9 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
         CancelMousePickup();
     }
 
-    if ( ( !enteringEdit && HasActiveEditorInteractionState() ) || IsEditorWorldOwner( transition.previousOwner ) )
+    if ( ( !enteringEdit && !inspectGizmoClaimWithinInspect && HasActiveEditorInteractionState() ) ||
+         ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
+           !inspectGizmoClaimWithinInspect ) )
     {
         ClearEditorInteractionForRuntimeTransition( enteringReplay || enteringTool );
         if ( m_runtimeTools.Editor().editorModeEnabled && !enteringEdit )
@@ -330,7 +715,12 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
             m_runtimeTools.Editor().editorModeEnabled = false;
         }
     }
+}
 
+
+void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTransition& transition )
+{
+    ClearRuntimeInteractionStateForTransition( transition );
     switch ( transition.owner )
     {
     case WorldInteractionOwner::Launcher:
@@ -361,6 +751,78 @@ void Run::ApplyRuntimeInteractionTransitionCleanup( const RuntimeInteractionTran
 }
 
 
+RuntimeInteractionTransition Run::SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner owner,
+                                                                                      InteractionExitReason reason )
+{
+    const RuntimeWorkspace workspace = WorkspaceForWorldInteractionOwner( m_interaction.Workspace(), owner );
+    const RuntimeInteractionTransition transition =
+        m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    ClearRuntimeInteractionStateForTransition( transition );
+    m_interaction.SetWorldInteractionOwnerInWorkspace( workspace, owner, reason );
+    return transition;
+}
+
+
+void Run::PublishRuntimeInteractionEvent( const RuntimeInteractionEvent& event )
+{
+    switch ( event.type )
+    {
+    case RuntimeInteractionEventType::SelectionChanged:
+        Log().WriteEventf( "runtime_interaction_command_event type=%s scope=%s previous_model=%d model=%d",
+                           RuntimeInteractionEventName( event.type ),
+                           RuntimeInteractionSelectionScopeName( event.selectionScope ),
+                           event.previousModelIndex,
+                           event.modelIndex );
+        break;
+    case RuntimeInteractionEventType::None:
+        break;
+    }
+}
+
+
+bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
+{
+    switch ( command.type )
+    {
+    case RuntimeInteractionCommandType::SetEditorSelection:
+    {
+        if ( command.modelIndex < -1 || command.modelIndex >= m_cGameModelCollection.GetModelCount() )
+        {
+            return false;
+        }
+
+        const int previousModelIndex = m_runtimeTools.Editor().selectedModelIndex;
+        const bool selectionHit = command.modelIndex >= 0;
+        const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
+        if ( command.claimSelectionOwner )
+        {
+            const WorldInteractionOwner owner = selectionHit ? ( inspectSelection ? WorldInteractionOwner::InspectGizmo
+                                                                                  : WorldInteractionOwner::EditorGizmo )
+                                                             : WorldInteractionOwner::None;
+            const InteractionExitReason reason =
+                inspectSelection ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
+            SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
+        }
+        m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
+        if ( previousModelIndex != command.modelIndex )
+        {
+            RuntimeInteractionEvent event;
+            event.type = RuntimeInteractionEventType::SelectionChanged;
+            event.previousModelIndex = previousModelIndex;
+            event.modelIndex = command.modelIndex;
+            event.selectionScope = command.selectionScope;
+            PublishRuntimeInteractionEvent( event );
+        }
+        return true;
+    }
+    case RuntimeInteractionCommandType::None:
+        break;
+    }
+
+    return false;
+}
+
+
 const char* Run::CameraModeLabel( RunCameraMode mode ) const
 {
     switch ( mode )
@@ -371,6 +833,36 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
         return "Scene";
     case RunCameraMode::Inspect:
         return "Inspect";
+    case RunCameraMode::Attach:
+    {
+        static thread_local char label[96];
+        const char* submode = "Fixed";
+        if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward )
+        {
+            submode = "Velocity";
+        }
+        else if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
+        {
+            submode = "Eyes";
+        }
+        if ( m_attachedCamera.target.modelIndex < 0 )
+        {
+            sprintf_s( label,
+                       sizeof( label ),
+                       "Attach: pick target%s",
+                       m_attachedCamera.activeFollow ? "" : " Pinned" );
+        }
+        else
+        {
+            sprintf_s( label,
+                       sizeof( label ),
+                       "Attach: %s %s%s",
+                       submode,
+                       m_attachedCamera.target.name[0] ? m_attachedCamera.target.name : "target",
+                       m_attachedCamera.activeFollow ? "" : " Pinned" );
+        }
+        return label;
+    }
     case RunCameraMode::Launcher:
         return "Launcher";
     case RunCameraMode::Manipulator:
@@ -409,9 +901,27 @@ RunCameraMode Run::NormalizeCameraModeForCurrentScene( RunCameraMode mode ) cons
 }
 
 
+void Run::SetCameraModeLabelAfterInteractionTransition( RunCameraMode mode )
+{
+    const int modeIndex = static_cast<int>( mode );
+    if ( modeIndex < 0 || modeIndex >= static_cast<int>( RunCameraMode::Count ) )
+    {
+        return;
+    }
+
+    m_camera.mode = mode;
+}
+
+
 bool Run::IsFlyCameraMode() const
 {
-    return CameraModeUsesFlyControls( m_camera.mode );
+    return CameraModeUsesFlyControls( m_camera.mode, m_attachedCamera.activeFollow );
+}
+
+
+bool Run::IsManualCameraMode() const
+{
+    return IsFlyCameraMode() || IsAttachedCameraMode();
 }
 
 
@@ -427,6 +937,547 @@ bool Run::IsManipulatorCameraMode() const
 }
 
 
+bool Run::IsAttachedCameraMode() const
+{
+    return m_camera.mode == RunCameraMode::Attach;
+}
+
+
+void Run::ResetAttachedCamera()
+{
+    m_attachedCamera = AttachedCameraState{};
+}
+
+
+void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
+{
+    previousMode = NormalizeCameraModeForCurrentScene( previousMode );
+    if ( previousMode == RunCameraMode::Attach )
+    {
+        return;
+    }
+
+    m_camera.modeBeforeAttach = previousMode;
+    m_attachedCamera.hasReturnCameraPose = false;
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    m_attachedCamera.returnEye = m_systems.cameras->GetCameraTranslation();
+    m_attachedCamera.returnView = m_systems.cameras->GetCameraView();
+    m_attachedCamera.returnUp = m_systems.cameras->GetCameraUp();
+    m_attachedCamera.hasReturnCameraPose = true;
+}
+
+
+void Run::RestoreAttachedCameraReturnState()
+{
+    if ( !m_attachedCamera.hasReturnCameraPose || !m_systems.cameras )
+    {
+        return;
+    }
+
+    m_systems.cameras->CancelTween();
+    m_systems.cameras->SetPrimaryPosition( m_attachedCamera.returnEye );
+    m_systems.cameras->SetViewCoordinates( m_attachedCamera.returnView );
+    m_systems.cameras->SetPrimaryUp( m_attachedCamera.returnUp );
+    m_systems.cameras->SetCamera();
+    m_attachedCamera.hasReturnCameraPose = false;
+}
+
+
+void Run::ClearAttachedCameraTarget()
+{
+    m_attachedCamera.target = AttachedCameraTarget{};
+    m_attachedCamera.hasFixedOffset = false;
+    m_attachedCamera.hasOrbit = false;
+    m_attachedCamera.hasLastLookDirection = false;
+}
+
+
+bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
+{
+    outModelIndex = -1;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const int cachedIndex = m_attachedCamera.target.modelIndex;
+    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) )
+    {
+        const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
+        const bool hasReplayId = m_attachedCamera.target.replayBodyId != 0;
+        const bool hasName = m_attachedCamera.target.name[0] != '\0';
+        bool cachedIndexMatches = true;
+        if ( hasReplayId )
+        {
+            cachedIndexMatches = model.GetReplayBodyId() == m_attachedCamera.target.replayBodyId;
+        }
+        if ( cachedIndexMatches && hasName )
+        {
+            cachedIndexMatches = strcmp( model.GetName(), m_attachedCamera.target.name ) == 0;
+        }
+        if ( cachedIndexMatches )
+        {
+            outModelIndex = cachedIndex;
+            return true;
+        }
+    }
+
+    if ( m_attachedCamera.target.replayBodyId != 0 )
+    {
+        int match = -1;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_attachedCamera.target.replayBodyId )
+            {
+                if ( match >= 0 )
+                {
+                    ClearAttachedCameraTarget();
+                    return false;
+                }
+                match = i;
+            }
+        }
+        if ( match >= 0 )
+        {
+            m_attachedCamera.target.modelIndex = match;
+            outModelIndex = match;
+            return true;
+        }
+    }
+
+    if ( m_attachedCamera.target.name[0] != '\0' )
+    {
+        int match = -1;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( strcmp( models[static_cast<std::size_t>( i )].GetName(), m_attachedCamera.target.name ) == 0 )
+            {
+                if ( match >= 0 )
+                {
+                    ClearAttachedCameraTarget();
+                    return false;
+                }
+                match = i;
+            }
+        }
+        if ( match >= 0 )
+        {
+            m_attachedCamera.target.modelIndex = match;
+            m_attachedCamera.target.replayBodyId = models[static_cast<std::size_t>( match )].GetReplayBodyId();
+            outModelIndex = match;
+            return true;
+        }
+    }
+
+    ClearAttachedCameraTarget();
+    return false;
+}
+
+
+void Run::CaptureAttachedCameraFixedOffset( const GameModel& model )
+{
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    const Vector3 targetPosition = model.GetPosition();
+    const Vector3 eye = m_systems.cameras->GetCameraTranslation();
+    const Vector3 view = m_systems.cameras->GetCameraView();
+    const Vector3 up = m_systems.cameras->GetCameraUp();
+    m_attachedCamera.localEyeOffset = WorldToModelVector( model, eye - targetPosition );
+    m_attachedCamera.localViewOffset = WorldToModelVector( model, view - targetPosition );
+    m_attachedCamera.localUp = NormalizedOr( WorldToModelVector( model, up ), Vector3( 0.0f, 1.0f, 0.0f ) );
+    Vector3 look = view - eye;
+    if ( TryNormalizeVector( look ) )
+    {
+        m_attachedCamera.lastLookDirection = look;
+        m_attachedCamera.hasLastLookDirection = true;
+    }
+    m_attachedCamera.hasFixedOffset = true;
+    CaptureAttachedCameraOrbit( model );
+}
+
+
+void Run::CaptureAttachedCameraOrbit( const GameModel& model )
+{
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    const Vector3 targetPosition = model.GetPosition();
+    Vector3 offset = m_systems.cameras->GetCameraTranslation() - targetPosition;
+    float distance = sqrtf( VectorMagSquared( offset ) );
+    if ( !std::isfinite( distance ) || distance < AttachedCameraOrbitMinDistance( model ) )
+    {
+        Vector3 look = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+        if ( !TryNormalizeVector( look ) )
+        {
+            look = Vector3( 0.0f, 0.0f, 1.0f );
+        }
+        distance = AttachedCameraModelRadius( model ) * 8.0f;
+        offset = -look * distance;
+    }
+
+    const float pitchDistance = (std::max)( distance, 0.001f );
+    const float normalizedY = std::clamp( offset.y / pitchDistance, -1.0f, 1.0f );
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( model, distance );
+    m_attachedCamera.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
+    m_attachedCamera.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );
+    m_attachedCamera.hasOrbit = true;
+}
+
+
+void Run::SetAttachedCameraTarget( int modelIndex )
+{
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
+    {
+        ClearAttachedCameraTarget();
+        return;
+    }
+
+    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    m_attachedCamera.target.modelIndex = modelIndex;
+    m_attachedCamera.target.replayBodyId = model.GetReplayBodyId();
+    strncpy_s( m_attachedCamera.target.name, sizeof( m_attachedCamera.target.name ), model.GetName(), _TRUNCATE );
+    RuntimeInteractionCommand command;
+    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+    command.modelIndex = modelIndex;
+    command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+    command.claimSelectionOwner = false;
+    ExecuteRuntimeInteractionCommand( command );
+    m_attachedCamera.activeFollow = true;
+    if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        int headIndex = -1;
+        if ( !TryResolveAttachedCameraRagdollHead( modelIndex, headIndex ) )
+        {
+            m_attachedCamera.submode = AttachedCameraSubmode::FixedRelative;
+        }
+    }
+    CaptureAttachedCameraFixedOffset( model );
+    ApplyCursorOwnership();
+}
+
+
+void Run::SeedAttachedCameraTargetFromSelection()
+{
+    int currentIndex = -1;
+    if ( TryResolveAttachedCameraTarget( currentIndex ) )
+    {
+        CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( currentIndex )] );
+        m_attachedCamera.activeFollow = true;
+        ApplyCursorOwnership();
+        return;
+    }
+
+    int seedIndex = -1;
+    const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < static_cast<int>( models.size() ) )
+    {
+        seedIndex = path.targetModelIndex;
+    }
+    else if ( m_runtimeTools.Editor().selectedModelIndex >= 0 &&
+              m_runtimeTools.Editor().selectedModelIndex < static_cast<int>( models.size() ) )
+    {
+        seedIndex = m_runtimeTools.Editor().selectedModelIndex;
+    }
+
+    if ( seedIndex >= 0 )
+    {
+        SetAttachedCameraTarget( seedIndex );
+    }
+    else
+    {
+        m_attachedCamera.activeFollow = true;
+        ApplyCursorOwnership();
+    }
+}
+
+
+bool Run::TryPickAttachedCameraTargetFromMouse()
+{
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    RuntimePickResult result;
+    if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+    {
+        RuntimePickRequest request;
+        request.purpose = RuntimePickPurpose::AttachCameraTarget;
+        request.models = &m_cGameModelCollection.Models();
+        request.rayOrigin = rayOrigin;
+        request.rayDirection = rayDirection;
+
+        if ( RuntimePickService::TryPickModel( request, result ) )
+        {
+            SetAttachedCameraTarget( result.modelIndex );
+        }
+        else
+        {
+            ClearAttachedCameraTarget();
+        }
+    }
+    else
+    {
+        ClearAttachedCameraTarget();
+    }
+    EnterInteractiveSceneRun();
+    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetCameraMode, RuntimeInputActionSource::Mouse );
+    return true;
+}
+
+
+bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
+{
+    if ( !IsAttachedCameraMode() || !mouseEdges.leftPressed )
+    {
+        return false;
+    }
+    if ( suppressWorldActionThisFrame )
+    {
+        return false;
+    }
+    return TryPickAttachedCameraTargetFromMouse();
+}
+
+
+bool Run::TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const
+{
+    outHeadModelIndex = -1;
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    if ( selectedModelIndex < 0 || selectedModelIndex >= static_cast<int>( models.size() ) )
+    {
+        return false;
+    }
+
+    const GameModel& selected = models[static_cast<std::size_t>( selectedModelIndex )];
+    if ( !IsSimpleRagdollPart( selected ) )
+    {
+        return false;
+    }
+
+    const int rootModelIndex = selected.GetRuntimeCollectionRootModelIndex();
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& candidate = models[static_cast<std::size_t>( i )];
+        if ( candidate.GetRuntimeCollectionKind() ==
+                 SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll &&
+             candidate.GetRuntimeCollectionRootModelIndex() == rootModelIndex &&
+             candidate.GetRuntimeCollectionPartIndex() == 1 )
+        {
+            outHeadModelIndex = i;
+            return true;
+        }
+    }
+
+    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    {
+        const GameModel& candidate = models[static_cast<std::size_t>( i )];
+        if ( candidate.GetRuntimeCollectionKind() ==
+                 SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll &&
+             candidate.GetRuntimeCollectionRootModelIndex() == rootModelIndex &&
+             EndsWith( candidate.GetName(), "_head" ) )
+        {
+            outHeadModelIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void Run::CycleAttachedCameraSubmode()
+{
+    if ( !IsAttachedCameraMode() )
+    {
+        return;
+    }
+    int modelIndex = -1;
+    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
+    {
+        return;
+    }
+
+    int headIndex = -1;
+    const bool hasEyes = TryResolveAttachedCameraRagdollHead( modelIndex, headIndex );
+    AttachedCameraSubmode next = AttachedCameraSubmode::FixedRelative;
+    if ( m_attachedCamera.submode == AttachedCameraSubmode::FixedRelative )
+    {
+        next = AttachedCameraSubmode::VelocityForward;
+    }
+    else if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward && hasEyes )
+    {
+        next = AttachedCameraSubmode::RagdollEyes;
+    }
+
+    m_attachedCamera.submode = next;
+    if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
+    {
+        CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
+    }
+    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
+                                       RuntimeInputActionSource::Keyboard );
+}
+
+
+void Run::ToggleAttachedCameraPin()
+{
+    if ( !IsAttachedCameraMode() )
+    {
+        return;
+    }
+
+    m_attachedCamera.activeFollow = !m_attachedCamera.activeFollow;
+    if ( m_attachedCamera.activeFollow )
+    {
+        int modelIndex = -1;
+        if ( TryResolveAttachedCameraTarget( modelIndex ) )
+        {
+            CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
+        }
+    }
+    else
+    {
+        ReleaseMouseToUI();
+    }
+    ApplyCursorOwnership();
+    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleAttachedCameraPin,
+                                       RuntimeInputActionSource::Keyboard );
+}
+
+
+void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
+{
+    if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow ||
+         m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes || m_UI.BlocksCameraMouse() )
+    {
+        return;
+    }
+
+    const int wheelSteps = unhandledWheelDelta / ATTACHED_CAMERA_WHEEL_DELTA;
+    if ( wheelSteps == 0 )
+    {
+        return;
+    }
+
+    int modelIndex = -1;
+    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
+    {
+        return;
+    }
+
+    const GameModel& target = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    if ( !m_attachedCamera.hasOrbit )
+    {
+        CaptureAttachedCameraOrbit( target );
+    }
+
+    const float nextDistance =
+        m_attachedCamera.orbitDistance * powf( ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR, static_cast<float>( wheelSteps ) );
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, nextDistance );
+    m_attachedCamera.hasOrbit = true;
+    EnterInteractiveSceneRun();
+}
+
+
+void Run::TickAttachedCamera()
+{
+    if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow || !m_systems.cameras )
+    {
+        return;
+    }
+
+    int modelIndex = -1;
+    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
+    {
+        return;
+    }
+
+    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const GameModel& target = models[static_cast<std::size_t>( modelIndex )];
+    if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
+    {
+        int headIndex = -1;
+        if ( TryResolveAttachedCameraRagdollHead( modelIndex, headIndex ) )
+        {
+            const GameModel& head = models[static_cast<std::size_t>( headIndex )];
+            const float radius = (std::max)( 0.5f, AttachedCameraModelRadius( head ) );
+            const Vector3 eye =
+                head.GetPosition() + ModelToWorldVector( head, Vector3( 0.0f, 0.20f * radius, 0.85f * radius ) );
+            const Vector3 forward =
+                NormalizedOr( ModelToWorldVector( head, Vector3( 0.0f, 0.0f, 1.0f ) ), Vector3( 0.0f, 0.0f, 1.0f ) );
+            const Vector3 up =
+                NormalizedOr( ModelToWorldVector( head, Vector3( 0.0f, 1.0f, 0.0f ) ), Vector3( 0.0f, 1.0f, 0.0f ) );
+            m_systems.cameras->CancelTween();
+            m_systems.cameras->SetPrimaryPosition( eye );
+            m_systems.cameras->SetViewCoordinates( eye + forward );
+            m_systems.cameras->SetPrimaryUp( up );
+            m_attachedCamera.lastLookDirection = forward;
+            m_attachedCamera.hasLastLookDirection = true;
+            return;
+        }
+
+        m_attachedCamera.submode = AttachedCameraSubmode::FixedRelative;
+    }
+
+    if ( !m_attachedCamera.hasOrbit )
+    {
+        CaptureAttachedCameraOrbit( target );
+    }
+
+    if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
+    {
+        m_attachedCamera.orbitYawRadians =
+            WrapAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians +
+                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+        m_attachedCamera.orbitPitchRadians =
+            ClampAttachedCameraOrbitPitch( m_attachedCamera.orbitPitchRadians +
+                                           m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    }
+
+    m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, m_attachedCamera.orbitDistance );
+
+    const Vector3 targetPosition = target.GetPosition();
+    const Vector3 eye = targetPosition + AttachedCameraOrbitOffset( m_attachedCamera.orbitYawRadians,
+                                                                    m_attachedCamera.orbitPitchRadians,
+                                                                    m_attachedCamera.orbitDistance );
+    Vector3 view = targetPosition;
+    Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
+    if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward )
+    {
+        Vector3 direction = target.GetVelocity();
+        if ( !TryNormalizeVector( direction ) )
+        {
+            direction = m_attachedCamera.hasLastLookDirection
+                            ? m_attachedCamera.lastLookDirection
+                            : m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+            if ( !TryNormalizeVector( direction ) )
+            {
+                direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+            }
+        }
+        view = targetPosition +
+               direction * (std::max)( AttachedCameraModelRadius( target ), m_attachedCamera.orbitDistance * 0.25f );
+        m_attachedCamera.lastLookDirection = direction;
+        m_attachedCamera.hasLastLookDirection = true;
+    }
+
+    if ( !IsFiniteVector( eye ) || !IsFiniteVector( view ) || !IsFiniteVector( up ) ||
+         VectorMagSquared( view - eye ) <= TOLERANCE * TOLERANCE )
+    {
+        return;
+    }
+
+    m_systems.cameras->CancelTween();
+    m_systems.cameras->SetPrimaryPosition( eye );
+    m_systems.cameras->SetViewCoordinates( view );
+    m_systems.cameras->SetPrimaryUp( up );
+}
+
+
 uint32_t Run::CameraModeEnabledMask() const
 {
     uint32_t mask = 0;
@@ -439,6 +1490,7 @@ uint32_t Run::CameraModeEnabledMask() const
         mask |= 1u << static_cast<int>( RunCameraMode::Scene );
     }
     mask |= 1u << static_cast<int>( RunCameraMode::Inspect );
+    mask |= 1u << static_cast<int>( RunCameraMode::Attach );
     mask |= 1u << static_cast<int>( RunCameraMode::Launcher );
     mask |= 1u << static_cast<int>( RunCameraMode::Manipulator );
     return mask;
@@ -452,7 +1504,15 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     {
         return;
     }
+    const RunCameraMode previousMode = NormalizeCameraModeForCurrentScene( m_camera.mode );
     mode = NormalizeCameraModeForCurrentScene( mode );
+    const bool enteringAttach = mode == RunCameraMode::Attach && previousMode != RunCameraMode::Attach;
+    const bool restoringFromAttach = previousMode == RunCameraMode::Attach &&
+                                     mode == NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+    if ( enteringAttach )
+    {
+        CaptureAttachedCameraReturnState( previousMode );
+    }
 
     if ( mode == RunCameraMode::Demo )
     {
@@ -475,7 +1535,15 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     {
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
     }
-    m_camera.mode = mode;
+    SetCameraModeLabelAfterInteractionTransition( mode );
+    if ( restoringFromAttach )
+    {
+        RestoreAttachedCameraReturnState();
+    }
+    if ( mode == RunCameraMode::Attach )
+    {
+        m_attachedCamera.activeFollow = true;
+    }
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
         m_runtimeTools.Editor().restoreCameraModeAfterEditor = mode;
@@ -502,6 +1570,10 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         InputController::ResetMouseLook( m_camera );
         ApplyCursorOwnership();
     }
+    if ( mode == RunCameraMode::Attach )
+    {
+        SeedAttachedCameraTargetFromSelection();
+    }
     UpdateRuntimeInputModeAfterAction( source == RuntimeInputActionSource::UI ? RuntimeInputAction::SetCameraMode
                                                                               : RuntimeInputAction::CycleCameraMode,
                                        source );
@@ -511,6 +1583,18 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
 void Run::CycleCameraMode()
 {
     const uint32_t enabledMask = CameraModeEnabledMask();
+    if ( m_camera.mode == RunCameraMode::Attach )
+    {
+        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+        const int restoreIndex = static_cast<int>( restoreMode );
+        if ( restoreMode != RunCameraMode::Attach && restoreIndex >= 0 &&
+             restoreIndex < static_cast<int>( RunCameraMode::Count ) && ( enabledMask & ( 1u << restoreIndex ) ) != 0 )
+        {
+            ApplyCameraMode( restoreMode, RuntimeInputActionSource::Keyboard );
+            return;
+        }
+    }
+
     int current = static_cast<int>( m_camera.mode );
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
@@ -531,8 +1615,8 @@ void Run::CycleCameraMode()
 
 bool Run::ReplayInspectionActive() const
 {
-    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().paused ||
-           m_replayRuntime.Scrubber().simulationPaused;
+    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().historicalSamplePaused ||
+           m_replayRuntime.Scrubber().liveAdvanceHeld;
 }
 
 
@@ -545,27 +1629,27 @@ bool Run::ReplayInspectionMouseLookActive() const
 
 bool Run::MouseLookOwnsCursor() const
 {
-    if ( m_UI.WantsNativeMouseCursor() || m_UI.BlocksCameraMouse() )
+    if ( !Input::IsAppFocused() )
+    {
+        return false;
+    }
+
+    if ( m_UI.BlocksCameraMouse() )
     {
         return false;
     }
 
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
-        return m_runtimeTools.Editor().viewportLookActive;
+        return m_runtimeTools.Editor().viewportLookActive || Input::IsRightMouseDown();
     }
 
     if ( ReplayInspectionActive() )
     {
-        return ReplayInspectionMouseLookActive();
+        return ReplayInspectionMouseLookActive() || Input::IsRightMouseDown();
     }
 
-    if ( m_camera.mode == RunCameraMode::Manipulator )
-    {
-        return Input::IsRightMouseDown();
-    }
-
-    return IsFlyCameraMode();
+    return Input::IsRightMouseDown();
 }
 
 
@@ -643,11 +1727,9 @@ void Run::TakeInput()
 {
     if ( !Input::IsAppFocused() )
     {
+        CancelCameraLookGesture();
+        CancelReplayToolDragState();
         Input::SetSystemCursorVisible( true );
-        if ( m_replayRuntime.Scrubber().mouseCaptured )
-        {
-            UI::InputControl::EndMouseCapture();
-        }
         ResetReplayScrubber();
         m_replayRuntime.Prediction().checkboxHovered = false;
         m_replayRuntime.Prediction().decreaseHovered = false;
@@ -678,11 +1760,12 @@ void Run::TakeInput()
                                               m_inputLatches.leftSceneCycleWasDown,
                                               m_inputLatches.rightSceneCycleWasDown );
         m_runtimeInput.ResetEdges();
-        InputController::BeginFrame( m_runtimeInput,
-                                     BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ),
-                                     false,
-                                     true,
-                                     true );
+        InputController::BeginFrame(
+            m_runtimeInput,
+            BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ),
+            false,
+            true,
+            true );
         m_UI.CancelInputCapture();
         RunUIStressActions();
         return;
@@ -691,11 +1774,12 @@ void Run::TakeInput()
     ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
-    InputController::BeginFrame( m_runtimeInput,
-                                 BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor() ),
-                                 true,
-                                 UIBlocksKeyboardBeforeInput,
-                                 m_UI.BlocksCameraMouse() );
+    InputController::BeginFrame(
+        m_runtimeInput,
+        BuildRuntimeInputModeState( m_camera.mode, m_runtimeTools.Editor(), m_attachedCamera.activeFollow ),
+        true,
+        UIBlocksKeyboardBeforeInput,
+        m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
     if ( !UIBlocksKeyboardBeforeInput )
     {
@@ -747,6 +1831,22 @@ void Run::TakeInput()
                         ? RunLauncherFireMode::Projectile
                         : RunLauncherFireMode::Laser;
             }
+        }
+
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::CycleAttachedCameraSubmode,
+                                                          VK_F1 ) &&
+             IsAttachedCameraMode() )
+        {
+            CycleAttachedCameraSubmode();
+        }
+
+        if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                          RuntimeInputAction::ToggleAttachedCameraPin,
+                                                          VK_RETURN ) &&
+             IsAttachedCameraMode() )
+        {
+            ToggleAttachedCameraPin();
         }
 
 #ifdef _DEBUG
@@ -1023,8 +2123,7 @@ void Run::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
-        suppressWorldActionThisFrame =
-            suppressWorldActionThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
+        suppressWorldActionThisFrame = suppressWorldActionThisFrame || uiCommands.ui.userInteracted;
         const bool replayScrubberOwnsMouse =
             TickReplayScrubberInput( m_systems.window->m_sWindow, m_UI.BlocksCameraMouse() );
         const bool replayCauseTreeOwnsMouse =
@@ -1512,43 +2611,21 @@ void Run::TakeInput()
 
         RunUIStressActions();
 
+        TickAttachedCameraOrbitInput( editorUnhandledWheelDelta );
         TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );
     }
 
-    // Editor, replay, and launcher actions share world clicks. UI hover/capture
-    // suppresses them so panel interaction never mutates the scene.
-    {
-        const RuntimeMouseEdges mouseEdges =
-            m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
-        const bool leftPressed = mouseEdges.leftPressed;
-        bool consumedWorldClick = TickEditorWorldClick( mouseEdges, suppressWorldActionThisFrame );
-        if ( !consumedWorldClick )
-        {
-            consumedWorldClick = TickMousePickupInput( m_systems.window ? m_systems.window->m_sWindow : nullptr,
-                                                       mouseEdges,
-                                                       suppressWorldActionThisFrame );
-        }
-        if ( !consumedWorldClick && leftPressed && !suppressWorldActionThisFrame &&
-             !m_runtimeTools.Editor().editorModeEnabled && !m_UI.WantsNativeMouseCursor() &&
-             ( Input::IsKeyDown( VK_CONTROL ) || !IsLauncherCameraMode() ) )
-        {
-            const bool additiveReplayPick = Input::IsKeyDown( VK_SHIFT );
-            TryPickReplayPathTargetFromMouse( additiveReplayPick, !additiveReplayPick );
-            consumedWorldClick = true;
-        }
-
-        if ( !consumedWorldClick && IsLauncherCameraMode() && leftPressed && !suppressWorldActionThisFrame &&
-             !m_UI.WantsNativeMouseCursor() )
-        {
-            EnterInteractiveSceneRun();
-            FireRayCastTest();
-            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
-        }
-    }
+    // Editor, replay, and launcher actions share world clicks. UI interaction
+    // and capture suppress them so panel controls never mutate the scene.
+    const RuntimeMouseEdges mouseEdges =
+        m_runtimeInput.CaptureMouseButtons( Input::IsLeftMouseDown(), Input::IsRightMouseDown() );
+    const RuntimeInputSnapshot inputSnapshot = BuildRuntimeInputSnapshot( mouseEdges, suppressWorldActionThisFrame );
+    RouteRuntimePointerInput( inputSnapshot, mouseEdges );
 
     if ( m_UI.BlocksKeyboard() )
     {
         AdvanceTakeInputKeyboardActionMemories( m_runtimeInput );
+        CancelCameraLookGesture();
         InputController::ResetMouseLook( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
@@ -1577,17 +2654,11 @@ void Run::TakeInput()
         }
     }
 
-    const RuntimeInteractionFramePolicy inputPolicy =
-        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                                      Input::IsKeyDown( VK_SPACE ),
-                                                                      IsReplayScrubPaused(),
-                                                                      m_replayRuntime.Scrubber().simulationPaused,
-                                                                      Input::IsRightMouseDown(),
-                                                                      m_runtimeTools.Editor().viewportLookActive,
-                                                                      ReplayInspectionMouseLookActive(),
-                                                                      false,
-                                                                      SceneState().timeScale } );
-    const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && MouseLookOwnsCursor();
+    const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
+    const bool mouseLookOwnsCursor = MouseLookOwnsCursor();
+    SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseLookOwnsCursor );
+    const bool cameraMouseLookActive =
+        inputPolicy.cameraMouseLookActive && mouseLookOwnsCursor && inputSnapshot.appFocused;
     const bool cameraKeyboardControlsActive = inputPolicy.cameraKeyboardControlsActive;
     if ( cameraMouseLookActive )
     {
@@ -1741,7 +2812,12 @@ bool Run::DrainRuntimeCommands()
 
 void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( IsFlyCameraMode() || m_runtimeTools.Editor().viewportLookActive )
+    const bool hasCameraTravelInput = m_camera.input.Get( InputState::Up ) || m_camera.input.Get( InputState::Down ) ||
+                                      m_camera.input.Get( InputState::Left ) || m_camera.input.Get( InputState::Right );
+    const bool attachedOrbitOwnsCamera = IsAttachedCameraMode() && m_attachedCamera.activeFollow &&
+                                         m_attachedCamera.submode != AttachedCameraSubmode::RagdollEyes;
+    if ( !attachedOrbitOwnsCamera && ( IsFlyCameraMode() || MouseLookOwnsCursor() ||
+                                       m_runtimeTools.Editor().viewportLookActive || hasCameraTravelInput ) )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
@@ -1775,8 +2851,8 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
         m_systems.cameras->ApplyPrimaryMovementBuffer();
     }
 
-    // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !IsFlyCameraMode() && !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
+    // Passive generated-demo camera bounds do not own manual or pinned follow views.
+    if ( !IsManualCameraMode() && !m_runtimeTools.Editor().viewportLookActive && !SceneState().isSceneMode )
     {
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =

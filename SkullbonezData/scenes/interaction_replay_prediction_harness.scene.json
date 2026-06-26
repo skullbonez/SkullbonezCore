@@ -1,0 +1,116 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 150,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "replay_overview",
+      "position": [
+        500,
+        165,
+        650
+      ],
+      "view": [
+        535,
+        80,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "ball",
+      "name": "path_striker",
+      "position": [
+        410,
+        80,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false,
+      "velocity": [
+        95,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "path_target_01",
+      "position": [
+        500,
+        80,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "path_target_02",
+      "position": [
+        560,
+        80,
+        514
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "path_target_03",
+      "position": [
+        620,
+        80,
+        490
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.92,
+      "fixed": false
+    }
+  ]
+}

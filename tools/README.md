@@ -19,6 +19,7 @@ validation.
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
 | `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
 | `validate_runtime_boundaries.bat` | Runtime `Run.h` ownership boundary drift helper | ~depends |
+| `validate_runtime_interaction_policy.bat` | CPU-only runtime interaction ownership, capture, and physics policy checks | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
@@ -44,6 +45,7 @@ tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat project-filters
 tools\validate_select.bat runtime-boundaries
+tools\validate_select.bat runtime-interaction-policy
 tools\validate_select.bat ui
 tools\validate_select.bat build-profile
 ```
@@ -61,6 +63,7 @@ tools\validate_select.bat build-profile
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
 | `validate_runtime_boundaries.bat` | Check that `Run.h` does not regain render pass classes, replay recorder fields, tool transient fields, scene population helper declarations, or subsystem-owned `Run` pointers/references |
+| `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |

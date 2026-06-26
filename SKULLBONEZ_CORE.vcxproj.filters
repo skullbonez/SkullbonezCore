@@ -301,6 +301,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RunInteractionAutomation.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -335,6 +338,9 @@
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp">
@@ -587,6 +593,9 @@
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ContactSolverCommon.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
@@ -726,6 +735,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimePickService.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h">
@@ -1160,6 +1172,18 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\inspect_gizmo_click.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\replay_prediction_click.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\material_authoring_contract.scene.json">

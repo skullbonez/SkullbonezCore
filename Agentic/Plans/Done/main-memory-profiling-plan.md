@@ -1,9 +1,34 @@
 # Main Memory Profiling Plan
 
 Date: 2026-06-25
-Status: Draft
+Status: Implemented
 Impact area: diagnostics/profiling, replay runtime, game object and physics stores, in-game UI, command-line automation
-Validation note: this plan-only edit requires no validation. Runtime implementation will touch `Run*`, `Init*`, diagnostics, replay, and UI paths, so PR-bound work should use `tools\validate_full.bat`. Add `tools\validate_ui.bat` for profiler-window layout changes and `tools\validate_perf.bat` if memory accounting is sampled continuously in normal Profile runs.
+Validation note: implementation touches `Run*`, `Init*`, diagnostics, replay, physics stores, and UI paths, so PR-bound work uses `tools\validate_full.bat`.
+
+## Implementation Result
+
+Implemented on branch `nightrunner-25th-june`.
+
+- Added a cached main-memory snapshot owned by `DiagnosticsRuntime`, refreshed at a coarse UI cadence and force-refreshed for dumps.
+- Added process memory sampling with explicit `working_set`, `private_working_set`, `private_commit`, and `pagefile_usage` fields. The current Task Manager reconciliation metric is named `private_working_set`, with `working_set_fallback` used only if the Windows working-set query fails.
+- Added replay retained-memory accounting across presentation, solver, event, loaded replay, prediction, path/cause, focus-mask, render-backup, and ghost-request storage.
+- Added game-object retained-memory accounting across `GameModelCollection`, SoA cache, body/collider/render stores, `PhysicsWorld`, broadphase/debug storage, and tornado debug/vector buffers.
+- Added a dense Main Memory block to the in-game Profiler tab with TaskMgr, Replay, Objects, Unattributed, tracked, and reconciled totals.
+- Added `--memory-dump <path>` / `--memory_dump <path>` to write a shutdown JSON snapshot for automation.
+
+Targeted smoke evidence:
+
+- `tools\validate_build.bat Profile` passed with 0 warnings and 0 errors.
+- `Profile\SKULLBONEZ_CORE.exe --frames 2 --memory-dump TestOutput\validation\main_memory_profile_dump.json` exited 0 and wrote a JSON dump with `reconciliation_delta_bytes: 0`.
+- `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\perf_1000.scene.json --frames 8 --replay on --replay-seconds 1 --memory-dump TestOutput\validation\main_memory_profile_perf1000_replay_dump.json` exited 0 and wrote a dump with `model_count: 1000`, `model_capacity: 4000`, replay samples, and `reconciliation_delta_bytes: 0`.
+
+Final validation:
+
+- Rubber-duck review found blockers around schema compatibility, Task Manager metric calibration, ownership boundaries, UI sampling cadence, and project-filter coverage. All blockers were fixed before final validation.
+- `tools\validate_project_filters.bat` passed with 0 project/filter errors.
+- `tools\validate_fast.bat` passed with Profile and Debug binaries ready.
+- `tools\validate_ui.bat` passed after clipping the new Profiler memory block/table from tiny windows; DX12 InfoQueue reported 0 validation errors.
+- `tools\validate_full.bat` passed: project filters, formatting, DX12 screenshot comparison, zero DX12 validation errors, and byte-exact physics regression.
 
 ## Goal
 
@@ -147,7 +172,8 @@ clamping negative deltas to zero and recording any overshoot separately:
 trackedEngineBytes = replay.totalBytes + gameObjects.totalBytes + otherTrackedBytes
 unattributedProcessBytes = max(0, taskManagerMemoryBytes - trackedEngineBytes)
 trackedOvershootBytes = max(0, trackedEngineBytes - taskManagerMemoryBytes)
-reconciledTotalBytes = trackedEngineBytes + unattributedProcessBytes
+reconciledTotalBytes = trackedEngineBytes + unattributedProcessBytes - trackedOvershootBytes
+reconciliationDeltaBytes = abs(reconciledTotalBytes - taskManagerMemoryBytes)
 ```
 
 If `trackedOvershootBytes` is nonzero, show it in dumps and the Profiler window

@@ -111,6 +111,12 @@ Vector3 TornadoField::SampleAccelerationForConfig( const TornadoFieldConfig& con
 }
 
 
+std::size_t TornadoField::DynamicMemoryBytes() const
+{
+    return m_lineData.capacity() * sizeof( float );
+}
+
+
 void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
     m_config = config;
@@ -145,6 +151,13 @@ void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 bool TornadoSystem::IsEnabled() const
 {
     return m_config.enabled && !m_config.vortices.empty();
+}
+
+
+std::size_t TornadoSystem::DynamicMemoryBytes() const
+{
+    return m_config.vortices.capacity() * sizeof( TornadoVortexConfig ) +
+           m_activeVortices.capacity() * sizeof( TornadoActiveVortex ) + m_debugField.DynamicMemoryBytes();
 }
 
 

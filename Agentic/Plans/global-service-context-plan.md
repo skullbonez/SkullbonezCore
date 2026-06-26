@@ -1,7 +1,7 @@
 # Global Service Context Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan
+Status: Draft follow-up plan; Phase 0 inventory complete
 Impact area: engine context, renderer services, assets, textures, window/input, config, diagnostics
 Validation for this document-only change: none required
 
@@ -87,6 +87,9 @@ ConfigSnapshot
 ## Phase 0: Service Inventory And Classification
 
 Purpose: stop treating all globals as one category.
+
+Phase 0 inventory is recorded in
+`Agentic/Reports/2026-06-25/global-service-context-phase0-inventory.md`.
 
 Tasks:
 

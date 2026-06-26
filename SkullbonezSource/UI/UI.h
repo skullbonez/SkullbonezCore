@@ -25,6 +25,7 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
+#include "../Core/MainMemoryStats.h"
 #include "../Rendering/IShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
@@ -100,6 +101,7 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
+    Basics::MainMemoryStats mainMemory;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreadCount = 0;
@@ -159,7 +161,7 @@ struct InGameUIFrameData
     bool nativeCursorVisible = false;
     const char* runtimeInputModeLabel = "";
     int cameraModeIndex = 0;
-    uint32_t cameraModeEnabledMask = 0x1Fu;
+    uint32_t cameraModeEnabledMask = 0x3Fu;
     bool editorModeEnabled = false;
     bool editorPlacementMode = false;
     bool editorPlaceStatic = true;
@@ -213,7 +215,7 @@ class InGameUI
                                      bool editorTerrainAlign = false,
                                      int editorObjectType = EditorTab::OBJECT_BOX,
                                      int cameraModeIndex = 0,
-                                     uint32_t cameraModeEnabledMask = 0x1Fu,
+                                     uint32_t cameraModeEnabledMask = 0x3Fu,
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
                                      int selectedSceneOption = -1 );

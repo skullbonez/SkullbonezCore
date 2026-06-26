@@ -85,6 +85,11 @@ constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
 constexpr uint32_t PHYSICS_TERRAIN_DETECT_WORKER_HASH = HashStr( "Frame/Physics/Terrain/Detect/WorkerBodies" );
 constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integrate/WorkerBodies" );
 
+template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
     if ( maxMagnitude <= TOLERANCE )
@@ -2897,6 +2902,71 @@ PhysicsWorld::DiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                             m_sleepIslandVisualId,
                             m_physicsPipelineTrace,
                             m_terrainContactManifolds };
+}
+
+uint64_t PhysicsWorld::CollectMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( sizeof( *this ) );
+    bytes += VectorCapacityBytes( m_candidatePairs );
+    bytes += VectorCapacityBytes( m_timeRemaining );
+    bytes += VectorCapacityBytes( m_sleepSupportedThisFrame );
+    bytes += VectorCapacityBytes( m_sleepInhibitedThisFrame );
+    bytes += VectorCapacityBytes( m_sleepState );
+    bytes += VectorCapacityBytes( m_sleepCounter );
+    bytes += VectorCapacityBytes( m_underwaterSleepLocked );
+    bytes += VectorCapacityBytes( m_tornadoCaptureSeconds );
+    bytes += VectorCapacityBytes( m_tornadoEjectCooldownSeconds );
+    bytes += VectorCapacityBytes( m_collisionVisualContacts );
+    bytes += VectorCapacityBytes( m_sleepIslandVisualId );
+    bytes += VectorCapacityBytes( m_sleepIslandAssignedVisualId );
+    bytes += VectorCapacityBytes( m_sleepSupportEdges );
+    bytes += VectorCapacityBytes( m_sleepIslandParent );
+    bytes += VectorCapacityBytes( m_sleepIslandRank );
+    bytes += VectorCapacityBytes( m_sleepIslandHasAwake );
+    bytes += VectorCapacityBytes( m_sleepIslandHasSupportAnchor );
+    bytes += VectorCapacityBytes( m_sleepIslandEligible );
+    bytes += VectorCapacityBytes( m_sleepIslandCanSleep );
+    bytes += VectorCapacityBytes( m_sleepPointJointBody );
+    bytes += VectorCapacityBytes( m_sleepIslandHasPointJoint );
+    bytes += VectorCapacityBytes( m_sleepIslandPointJointsRelaxed );
+    bytes += VectorCapacityBytes( m_sleepVisualIslandIds );
+    bytes += VectorCapacityBytes( m_sleepVisualIslandBodies );
+    bytes += VectorCapacityBytes( m_persistentContacts );
+    bytes += VectorCapacityBytes( m_persistentContactCache );
+    bytes += VectorCapacityBytes( m_persistentContactCounts );
+    bytes += VectorCapacityBytes( m_persistentRestingContactCounts );
+    bytes += VectorCapacityBytes( m_solverBodies );
+    bytes += VectorCapacityBytes( m_physicsDebugContacts );
+    bytes += VectorCapacityBytes( m_physicsPipelineTrace );
+    bytes += VectorCapacityBytes( m_terrainContactManifolds );
+    bytes += VectorCapacityBytes( m_terrainDetectionCandidates );
+    bytes += VectorCapacityBytes( m_objectNarrowphaseEvents );
+    bytes += VectorCapacityBytes( m_objectNarrowphaseIslands );
+    for ( const ObjectNarrowphaseIsland& island : m_objectNarrowphaseIslands )
+    {
+        bytes += VectorCapacityBytes( island.pairIndices );
+    }
+    bytes += VectorCapacityBytes( m_objectNarrowphaseParent );
+    bytes += VectorCapacityBytes( m_objectNarrowphaseRank );
+    bytes += VectorCapacityBytes( m_objectNarrowphaseRootToIsland );
+    bytes += VectorCapacityBytes( m_pointJointConstraints );
+    bytes += VectorCapacityBytes( m_collisionCellKeys );
+    bytes += static_cast<uint64_t>( m_tornadoField.DynamicMemoryBytes() );
+    bytes += static_cast<uint64_t>( m_tornadoSystem.DynamicMemoryBytes() );
+    return bytes;
+}
+
+uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
+{
+    uint64_t bytes = static_cast<uint64_t>( sizeof( m_spatialGrid ) );
+    bytes += VectorCapacityBytes( m_candidatePairs );
+    bytes += VectorCapacityBytes( m_collisionCellKeys );
+    bytes += VectorCapacityBytes( m_collisionVisualContacts );
+    bytes += VectorCapacityBytes( m_sleepIslandVisualId );
+    bytes += VectorCapacityBytes( m_physicsDebugContacts );
+    bytes += VectorCapacityBytes( m_physicsPipelineTrace );
+    bytes += static_cast<uint64_t>( m_tornadoField.DynamicMemoryBytes() );
+    return bytes;
 }
 
 

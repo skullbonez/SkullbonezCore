@@ -30,6 +30,8 @@ Related:
 #include <cstdio>
 #include <cstdint>
 
+#include "../Core/MainMemoryStats.h"
+
 namespace SkullbonezCore
 {
 namespace GameObjects
@@ -83,6 +85,7 @@ struct RuntimePerfTickContext
 class RuntimeDiagnostics
 {
   public:
+    static MainMemoryProcessStats SampleProcessMemory();
     static void ClosePerfLog( RunPerfLogState& perfLog );
     static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context );

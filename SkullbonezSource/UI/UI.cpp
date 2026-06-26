@@ -99,13 +99,10 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
     return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
 }
 
-constexpr int CAMERA_MODE_OPTION_COUNT = 5;
-const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] = { "Demo",
-                                                                   "Scene",
-                                                                   "Inspect",
-                                                                   "Launcher",
-                                                                   "Manipulator" };
-constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 92.0f;
+constexpr int CAMERA_MODE_OPTION_COUNT = 6;
+const char* const kCameraModeOptions[CAMERA_MODE_OPTION_COUNT] =
+    { "Demo", "Scene", "Inspect", "Attach", "Launcher", "Manipulator" };
+constexpr float MINIMIZED_CAMERA_MODE_COMBO_W = 104.0f;
 constexpr float MINIMIZED_CAMERA_MODE_GAP = 8.0f;
 constexpr float MINIMIZED_RESTORE_W = 42.0f;
 constexpr float MINIMIZED_RUN_MAX_W = 330.0f;

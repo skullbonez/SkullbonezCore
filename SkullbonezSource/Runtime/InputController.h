@@ -58,6 +58,8 @@ enum class RuntimeInputAction
     ToggleLauncher,
     CycleCameraMode,
     SetCameraMode,
+    CycleAttachedCameraSubmode,
+    ToggleAttachedCameraPin,
     ToggleEditor,
     ToggleEditorTool,
     CycleEditorPlacementType,

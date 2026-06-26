@@ -1,7 +1,7 @@
 # Run Shell Extraction Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan
+Status: Draft follow-up plan; Phase 0 ownership map and guardrails complete
 Impact area: runtime architecture, renderer orchestration, scene system, replay, editor tools, diagnostics
 Validation for this document-only change: none required
 
@@ -85,6 +85,12 @@ ReplayRuntime, RuntimeTools, DiagnosticsRuntime
 ## Phase 0: Ownership Map And Guardrails
 
 Purpose: turn the remaining broad ownership into a measurable checklist.
+
+Phase 0 ownership mapping is recorded in
+`Agentic/Reports/2026-06-25/run-shell-extraction-phase0-ownership-map.md`.
+Runtime boundary guardrails now cover stored `Run` dependencies, render-host
+growth, direct interaction-owner writes, direct camera-mode writes, and
+duplicated runtime pick helper wrappers.
 
 Tasks:
 

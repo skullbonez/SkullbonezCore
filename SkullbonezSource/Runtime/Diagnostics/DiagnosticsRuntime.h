@@ -30,6 +30,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+class ReplayRuntime;
+
 class DiagnosticsRuntime
 {
   public:
@@ -45,6 +47,19 @@ class DiagnosticsRuntime
     void ClosePerfLog();
     void LogPerfMemory( int pass, const char* checkpoint );
     void TickPerfLog( const RuntimePerfTickContext& context );
+    const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                                   const GameObjects::GameModelCollection& models,
+                                                   double nowSeconds,
+                                                   bool force );
+    const MainMemoryStats& MainMemoryStatsSnapshot() const;
+    void SetMainMemoryDumpPath( const char* path );
+    const char* MainMemoryDumpPath() const;
+    bool MainMemoryDumpRequested() const;
+    bool WriteMainMemoryDump( const ReplayRuntime& replay,
+                              const GameObjects::GameModelCollection& models,
+                              const RunSceneState& scene,
+                              const char* checkpoint,
+                              double nowSeconds );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
@@ -107,19 +122,22 @@ class DiagnosticsRuntime
 
     struct UIStressState
     {
-        bool enabled = false;                   // Deterministic scene-driven UI stress runner
-        unsigned int randomState = 0x7F4A7C15u; // LCG state, seeded from scene UI options
-        int actionsPerFrame = 4;                // Cheap UI state mutations per rendered frame
-        int framesRun = 0;                      // Stress-run frame counter independent of scene resets
+        bool enabled = false;                       // Deterministic scene-driven UI stress runner
+        unsigned int randomState = 0x7F4A7C15u;     // LCG state, seeded from scene UI options
+        int actionsPerFrame = 4;                    // Cheap UI state mutations per rendered frame
+        int framesRun = 0;                          // Stress-run frame counter independent of scene resets
     };
 
     UIStressState& UIStress();
     const UIStressState& UIStress() const;
 
   private:
-    CaptureController m_capture;                // Screenshot trigger and capture automation
-    DiagnosticsController m_diagnostics;        // Perf/test logs and queryable physics diagnostic trace
-    UIStressState m_uiStress;                   // Deterministic UI stress run state
+    CaptureController m_capture;                    // Screenshot trigger and capture automation
+    DiagnosticsController m_diagnostics;            // Perf/test logs and queryable physics diagnostic trace
+    MainMemoryStats m_mainMemoryStats;              // Cached process/replay/model memory snapshot for UI and dumps.
+    double m_lastMainMemorySampleSeconds = -1000.0; // Coarse sampling guard so UI draw does not rescan every frame.
+    char m_mainMemoryDumpPath[260] = {};            // CLI --memory-dump output path; empty disables shutdown dump.
+    UIStressState m_uiStress;                       // Deterministic UI stress run state
 };
 } // namespace Basics
 } // namespace SkullbonezCore

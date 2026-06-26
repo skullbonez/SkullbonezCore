@@ -799,8 +799,11 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.frame.scene,
                                  &objectCasters );
             }
+            // Anchor the tight object-shadow map to the render look target, not
+            // the eye. Locked/inspect zoom moves the eye around a stable target;
+            // using the eye makes nearby-object bounds pop as the user zooms.
             shadows.objectFrame =
-                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye, *inputs.frame.scene );
+                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.viewCenter, *inputs.frame.scene );
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
@@ -1265,7 +1268,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
         m_hasLiveVisualTime = true;
     }
-    else if ( !useReplayTime && !m_host.m_replayScrubber.simulationPaused )
+    else if ( !useReplayTime && !m_host.m_replayScrubber.liveAdvanceHeld )
     {
         m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
     }
@@ -1633,12 +1636,17 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         }
     }
 
+    const bool selectedModelValid = m_host.m_editor.selectedModelIndex >= 0 &&
+                                    m_host.m_editor.selectedModelIndex < m_host.m_cGameModelCollection.GetModelCount();
     const bool placementPreview = m_host.m_editor.editorModeEnabled && m_host.m_editor.placementModeEnabled &&
                                   m_host.m_editor.placementPreviewVisible;
-    const bool editorSelection = m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled &&
-                                 m_host.m_editor.selectedModelIndex >= 0 &&
-                                 m_host.m_editor.selectedModelIndex < m_host.m_cGameModelCollection.GetModelCount();
-    if ( placementPreview || editorSelection )
+    const bool editorSelection =
+        m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled && selectedModelValid;
+    const bool inspectSelection =
+        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Inspect && selectedModelValid;
+    const bool attachSelection =
+        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Attach && selectedModelValid;
+    if ( placementPreview || editorSelection || inspectSelection || attachSelection )
     {
         return true;
     }

@@ -31,6 +31,7 @@ Related:
 #include <cstring>
 #include <psapi.h>
 #include <string>
+#include <vector>
 
 namespace SkullbonezCore
 {
@@ -46,6 +47,104 @@ void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
         fflush( perfLog.perfLogFile );
         perfLog.perfLogWritesSinceFlush = 0;
     }
+}
+
+bool FlushWorkingSetQueryBatch( HANDLE process,
+                                std::vector<PSAPI_WORKING_SET_EX_INFORMATION>& pages,
+                                uint64_t& privateWorkingSetBytes,
+                                uint64_t pageSize )
+{
+    if ( pages.empty() )
+    {
+        return true;
+    }
+
+    const SIZE_T byteCount = pages.size() * sizeof( PSAPI_WORKING_SET_EX_INFORMATION );
+    const bool queried = QueryWorkingSetEx( process, pages.data(), static_cast<DWORD>( byteCount ) ) != FALSE;
+    if ( queried )
+    {
+        for ( const PSAPI_WORKING_SET_EX_INFORMATION& page : pages )
+        {
+            if ( page.VirtualAttributes.Valid && !page.VirtualAttributes.Shared )
+            {
+                privateWorkingSetBytes += pageSize;
+            }
+        }
+    }
+    pages.clear();
+    return queried;
+}
+
+bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
+{
+    SYSTEM_INFO systemInfo;
+    GetNativeSystemInfo( &systemInfo );
+    const uint64_t pageSize = static_cast<uint64_t>( systemInfo.dwPageSize );
+    if ( pageSize == 0 )
+    {
+        return false;
+    }
+
+    constexpr std::size_t QUERY_BATCH_PAGES = 4096;
+    std::vector<PSAPI_WORKING_SET_EX_INFORMATION> pages;
+    pages.reserve( QUERY_BATCH_PAGES );
+
+    uintptr_t address = reinterpret_cast<uintptr_t>( systemInfo.lpMinimumApplicationAddress );
+    const uintptr_t maxAddress = reinterpret_cast<uintptr_t>( systemInfo.lpMaximumApplicationAddress );
+    uint64_t privateWorkingSetBytes = 0;
+    bool allQueriesSucceeded = true;
+
+    while ( address < maxAddress )
+    {
+        MEMORY_BASIC_INFORMATION memoryInfo;
+        std::memset( &memoryInfo, 0, sizeof( memoryInfo ) );
+        const SIZE_T queryBytes =
+            VirtualQuery( reinterpret_cast<const void*>( address ), &memoryInfo, sizeof( memoryInfo ) );
+        if ( queryBytes == 0 )
+        {
+            address += static_cast<uintptr_t>( pageSize );
+            continue;
+        }
+
+        const uintptr_t regionBase = reinterpret_cast<uintptr_t>( memoryInfo.BaseAddress );
+        const uintptr_t regionSize = static_cast<uintptr_t>( memoryInfo.RegionSize );
+        const uintptr_t regionEnd = regionBase + regionSize;
+        if ( regionEnd <= address || regionEnd < regionBase )
+        {
+            break;
+        }
+
+        const bool queryable = memoryInfo.State == MEM_COMMIT && ( memoryInfo.Protect & PAGE_GUARD ) == 0 &&
+                               ( memoryInfo.Protect & PAGE_NOACCESS ) == 0;
+        if ( queryable )
+        {
+            uintptr_t pageAddress = regionBase;
+            const uintptr_t pageMask = static_cast<uintptr_t>( pageSize - 1 );
+            if ( ( pageAddress & pageMask ) != 0 )
+            {
+                pageAddress = ( pageAddress + pageMask ) & ~pageMask;
+            }
+            for ( ; pageAddress < regionEnd; pageAddress += static_cast<uintptr_t>( pageSize ) )
+            {
+                PSAPI_WORKING_SET_EX_INFORMATION page = {};
+                page.VirtualAddress = reinterpret_cast<void*>( pageAddress );
+                pages.push_back( page );
+                if ( pages.size() >= QUERY_BATCH_PAGES )
+                {
+                    allQueriesSucceeded =
+                        FlushWorkingSetQueryBatch( process, pages, privateWorkingSetBytes, pageSize ) &&
+                        allQueriesSucceeded;
+                }
+            }
+        }
+
+        address = regionEnd;
+    }
+
+    allQueriesSucceeded =
+        FlushWorkingSetQueryBatch( process, pages, privateWorkingSetBytes, pageSize ) && allQueriesSucceeded;
+    outBytes = privateWorkingSetBytes;
+    return allQueriesSucceeded;
 }
 
 #ifdef _DEBUG
@@ -95,6 +194,35 @@ void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
     }
 }
 
+MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory()
+{
+    MainMemoryProcessStats stats;
+
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    std::memset( &pmc, 0, sizeof( pmc ) );
+    pmc.cb = sizeof( pmc );
+    HANDLE process = GetCurrentProcess();
+    if ( GetProcessMemoryInfo( process, reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &pmc ), sizeof( pmc ) ) )
+    {
+        stats.available = true;
+        stats.workingSetBytes = static_cast<uint64_t>( pmc.WorkingSetSize );
+        stats.privateCommitBytes = static_cast<uint64_t>( pmc.PrivateUsage );
+        stats.pagefileUsageBytes = static_cast<uint64_t>( pmc.PagefileUsage );
+        if ( TrySamplePrivateWorkingSetBytes( process, stats.privateWorkingSetBytes ) )
+        {
+            strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "private_working_set" );
+            stats.taskManagerBytes = stats.privateWorkingSetBytes;
+        }
+        else
+        {
+            strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "working_set_fallback" );
+            stats.taskManagerBytes = stats.workingSetBytes;
+        }
+    }
+
+    return stats;
+}
+
 void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint )
 {
     if ( !perfLog.perfLogFile )
@@ -102,12 +230,25 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         return;
     }
 
-    PROCESS_MEMORY_COUNTERS pmc;
-    pmc.cb = sizeof( pmc );
-    if ( GetProcessMemoryInfo( GetCurrentProcess(), &pmc, sizeof( pmc ) ) )
+    const MainMemoryProcessStats stats = SampleProcessMemory();
+    if ( stats.available )
     {
-        double mb = static_cast<double>( pmc.WorkingSetSize ) / ( 1024.0 * 1024.0 );
-        fprintf( perfLog.perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n", checkpoint, pass, mb );
+        const double taskManagerMb = static_cast<double>( stats.taskManagerBytes ) / ( 1024.0 * 1024.0 );
+        const double workingSetMb = static_cast<double>( stats.workingSetBytes ) / ( 1024.0 * 1024.0 );
+        const double privateWorkingSetMb = static_cast<double>( stats.privateWorkingSetBytes ) / ( 1024.0 * 1024.0 );
+        const double privateCommitMb = static_cast<double>( stats.privateCommitBytes ) / ( 1024.0 * 1024.0 );
+        const double pagefileMb = static_cast<double>( stats.pagefileUsageBytes ) / ( 1024.0 * 1024.0 );
+        fprintf( perfLog.perfLogFile,
+                 "# MEM %s pass=%d task_manager_metric=%s task_manager_mb=%.2f working_set_mb=%.2f "
+                 "private_working_set_mb=%.2f private_commit_mb=%.2f pagefile_mb=%.2f\n",
+                 checkpoint,
+                 pass,
+                 stats.taskManagerMetricName,
+                 taskManagerMb,
+                 workingSetMb,
+                 privateWorkingSetMb,
+                 privateCommitMb,
+                 pagefileMb );
         ++perfLog.perfLogWritesSinceFlush;
         FlushPerfLogIfNeeded( perfLog );
     }

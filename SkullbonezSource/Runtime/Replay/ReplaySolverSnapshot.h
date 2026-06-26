@@ -47,6 +47,8 @@ struct ReplaySolverContactCacheSample
 
 struct ReplaySolverPersistentContactSample
 {
+    // Persistent contacts are solver rows, not just debug visuals. The cached
+    // impulses below are warm-start inputs for deterministic next-frame replay.
     int bodyA = -1;
     int bodyB = -1;
     uint32_t featureId = 0;
@@ -91,6 +93,9 @@ struct ReplaySolverStatsSample
 
 struct ReplaySolverWorldSnapshot
 {
+    // Snapshot payload for hidden physics state. Body poses live in
+    // ReplaySolverBodySample; this struct stores the caches that make the next
+    // fixed physics step match after restore.
     uint32_t version = 2;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;

@@ -93,6 +93,8 @@ Json BranchJson( const ReplayBranchInfo& branch )
 
 Json BodyJson( const ReplayBodyPresentationSample& body )
 {
+    // Invariant: JSON field names are artifact compatibility surface. Prefer
+    // adding explicit fields over renaming or reordering existing concepts.
     Json result;
     result["id"] = body.id.value;
     result["modelIndex"] = body.modelIndex;
@@ -117,6 +119,9 @@ Json BodyJson( const ReplayBodyPresentationSample& body )
 
 Json BodyJson( const ReplaySolverBodySample& body )
 {
+    // Solver JSON includes inertia and cache-adjacent fields that presentation
+    // JSON omits; consumers use that distinction to tell visual scrub data from
+    // physics restore diagnostics.
     Json result;
     result["id"] = body.id.value;
     result["modelIndex"] = body.modelIndex;

@@ -12,6 +12,7 @@ enum class RunCameraMode
     Demo = 0,
     Scene,
     Inspect,
+    Attach,
     Launcher,
     Manipulator,
     Count

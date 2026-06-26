@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 12, "showReplayScrubber": true },
+    { "frame": 18, "clickReplayControl": "predict" },
+    { "frame": 28, "clickObject": "path_striker", "button": "left" },
+    { "frame": 45, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 45, "assert": { "replayPathTarget": "path_striker" } },
+    { "frame": 80, "assert": { "predictionPathVisible": true } },
+    { "frame": 85, "screenshot": "TestOutput/interaction/replay_prediction_after_click.bmp" }
+  ]
+}

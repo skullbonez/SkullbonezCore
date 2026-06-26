@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
+#include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
@@ -128,6 +129,7 @@ struct RuntimeRenderHostCallbacks
     using SceneStateFn = const RunSceneState& (*)( void* user );
     using CameraModeEnabledMaskFn = uint32_t ( * )( void* user );
     using CameraModeLabelFn = const char* (*)( void* user, RunCameraMode mode );
+    using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );
     using ReplayFocusMaskFn = bool ( * )( void* user );
     using ReplayPredictionGhostsFn = void ( * )( void* user,
                                                  const RenderFrameContext& frame,
@@ -154,6 +156,7 @@ struct RuntimeRenderHostCallbacks
     IntFn currentSceneBrowserIndex = nullptr;
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
     CameraModeLabelFn cameraModeLabel = nullptr;
+    MainMemoryStatsFn refreshMainMemoryStats = nullptr;
     ReplayFocusMaskFn buildReplayFocusModelMask = nullptr;
     ReplayPredictionGhostsFn renderReplayPredictionGhosts = nullptr;
 };
@@ -274,6 +277,12 @@ class RuntimeRenderHost
     const char* CameraModeLabel( RunCameraMode mode ) const
     {
         return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
+    }
+
+    MainMemoryStats RefreshMainMemoryStats( double nowSeconds ) const
+    {
+        return m_callbacks.refreshMainMemoryStats ? m_callbacks.refreshMainMemoryStats( m_callbacks.user, nowSeconds )
+                                                  : MainMemoryStats();
     }
 
     bool BuildReplayFocusModelMask() const

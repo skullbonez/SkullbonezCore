@@ -33,6 +33,7 @@ long g_rawMouseDeltaY = 0;
 bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
+Input::AutomationState g_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
@@ -270,6 +271,11 @@ POINT Input::GetMouseCoordinates()
 
 POINT Input::GetClientMouseCoordinates()
 {
+    if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
+    {
+        return g_automationState.mouseClientPosition;
+    }
+
     POINT mousePos = GetMouseCoordinates();
     Window* m_cWindow = Window::Instance();
     if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
@@ -298,6 +304,11 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 
 bool Input::IsLeftMouseDown()
 {
+    if ( g_automationState.enabled )
+    {
+        return g_automationState.leftMouseDown;
+    }
+
     if ( !IsAppFocused() )
     {
         return false;
@@ -309,6 +320,11 @@ bool Input::IsLeftMouseDown()
 
 bool Input::IsRightMouseDown()
 {
+    if ( g_automationState.enabled )
+    {
+        return g_automationState.rightMouseDown;
+    }
+
     if ( !IsAppFocused() )
     {
         return false;
@@ -372,4 +388,16 @@ void Input::CentreMouseCoordinates()
     {
         throw std::runtime_error( "Setting mouse center failed (Input::CentreMouseCoordinates)." );
     }
+}
+
+
+void Input::SetAutomationState( const AutomationState& state )
+{
+    g_automationState = state;
+}
+
+
+void Input::ClearAutomationState()
+{
+    g_automationState = AutomationState{};
 }

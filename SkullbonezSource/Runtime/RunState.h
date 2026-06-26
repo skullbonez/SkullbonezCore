@@ -120,6 +120,7 @@ struct RunCameraState
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
+    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Tab exits Attach to the camera mode it interrupted.
     bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -129,6 +130,42 @@ struct RunCameraState
     float autoCycleInterval = -1.0f;                           // Seconds between per-ball auto screenshots (-1 = disabled)
     float autoCycleAccum = 0.0f;                               // Accumulated real-time seconds since last shot
     int autoCycleShotsTaken = 0;                               // Number of per-ball screenshots taken so far
+};
+
+enum class AttachedCameraSubmode
+{
+    FixedRelative,
+    VelocityForward,
+    RagdollEyes,
+    Count
+};
+
+struct AttachedCameraTarget
+{
+    int modelIndex = -1;                                       // Fast live lookup; revalidated every frame before use.
+    uint32_t replayBodyId = 0;                                 // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                                        // Human/debug fallback when replay id cannot recover the target.
+};
+
+struct AttachedCameraState
+{
+    AttachedCameraTarget target;                               // Camera-owned target; replay/editor selections are only seeds.
+    AttachedCameraSubmode submode = AttachedCameraSubmode::FixedRelative;
+    bool activeFollow = true;                                  // false means pinned in world space with mouse released to UI.
+    bool hasFixedOffset = false;
+    bool hasOrbit = false;
+    bool hasLastLookDirection = false;
+    bool hasReturnCameraPose = false;
+    float orbitYawRadians = 0.0f;
+    float orbitPitchRadians = 0.30f;
+    float orbitDistance = 8.0f;
+    Math::Vector::Vector3 localEyeOffset = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 returnView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
 };
 
 struct RunLiveStyleControlState
@@ -243,6 +280,91 @@ struct RunInputLatchState
     bool leftSceneCycleWasDown = false;
     bool rightSceneCycleWasDown = false;
     double lastEscapeTapTime = -1000.0;
+};
+
+enum class RunInteractionAutomationActionType
+{
+    SetCameraMode,
+    ClickObject,
+    ClickReplayControl,
+    SetReplayPredictionEnabled,
+    ShowReplayScrubber,
+    AssertState,
+    Screenshot
+};
+
+enum class RunInteractionAutomationButton
+{
+    Left,
+    Right
+};
+
+enum class RunInteractionAutomationAssertKind
+{
+    SelectedObject,
+    Owner,
+    CameraMode,
+    ReplayPredictionEnabled,
+    ReplayPathTarget,
+    PredictionPathVisible,
+    GizmoVisible
+};
+
+struct RunInteractionAutomationAction
+{
+    int frame = 0;
+    RunInteractionAutomationActionType type = RunInteractionAutomationActionType::AssertState;
+    RunInteractionAutomationButton button = RunInteractionAutomationButton::Left;
+    RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
+    RunCameraMode cameraMode = RunCameraMode::Inspect;
+    bool boolValue = false;
+    char text[128] = {};
+    char path[260] = {};
+    POINT mouse = {};
+    bool hasMouse = false;
+    bool processed = false;
+};
+
+struct RunInteractionAutomationReportAction
+{
+    int frame = 0;
+    char type[64] = {};
+    char target[128] = {};
+    POINT mouse = {};
+    bool hasMouse = false;
+    bool consumed = false;
+    char detail[256] = {};
+};
+
+struct RunInteractionAutomationReportAssertion
+{
+    int frame = 0;
+    char name[64] = {};
+    char expected[128] = {};
+    char actual[128] = {};
+    bool passed = false;
+};
+
+struct RunInteractionAutomationState
+{
+    bool enabled = false;
+    bool scriptLoaded = false;
+    bool failed = false;
+    bool finished = false;
+    bool reportWritten = false;
+    char scriptPath[260] = {};
+    char reportPath[260] = {};
+    char failure[512] = {};
+    std::vector<RunInteractionAutomationAction> actions;
+    std::vector<RunInteractionAutomationReportAction> actionReports;
+    std::vector<RunInteractionAutomationReportAssertion> assertionReports;
+    std::vector<std::string> screenshots;
+    POINT mouseClientPosition = {};
+    bool hasMouseClientPosition = false;
+    bool leftMouseDown = false;
+    bool rightMouseDown = false;
+    int releaseLeftFrame = -1;
+    int releaseRightFrame = -1;
 };
 
 struct RunReplayMismatchState

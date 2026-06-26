@@ -307,6 +307,10 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "CycleCameraMode";
     case RuntimeInputAction::SetCameraMode:
         return "SetCameraMode";
+    case RuntimeInputAction::CycleAttachedCameraSubmode:
+        return "CycleAttachedCameraSubmode";
+    case RuntimeInputAction::ToggleAttachedCameraPin:
+        return "ToggleAttachedCameraPin";
     case RuntimeInputAction::ToggleEditor:
         return "ToggleEditor";
     case RuntimeInputAction::ToggleEditorTool:

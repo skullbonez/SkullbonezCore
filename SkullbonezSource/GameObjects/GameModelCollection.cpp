@@ -21,6 +21,7 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "../Core/MainMemoryStats.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Rendering/GameModelRenderer.h"
@@ -42,6 +43,11 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
+template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+{
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
 bool IsDecimalDigit( char c )
 {
     return c >= '0' && c <= '9';
@@ -371,6 +377,31 @@ int GameModelCollection::GetModelCount() const
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
     return m_gameModels;
+}
+
+
+MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
+{
+    MainMemoryGameObjectStats stats;
+    const Physics::PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const Physics::ColliderStore& colliderStore = m_physicsEngine.Colliders();
+    const Rendering::RenderInstanceStore& renderStore = m_physicsEngine.RenderInstances();
+
+    stats.modelCount = m_gameModels.size();
+    stats.modelCapacity = m_gameModels.capacity();
+    stats.bodyStoreCapacity = bodyStore.Records().capacity();
+    stats.colliderStoreCapacity = colliderStore.Records().capacity();
+    stats.renderStoreCapacity = renderStore.Records().capacity();
+    stats.modelVectorBytes = VectorCapacityBytes( m_gameModels );
+    stats.soaCacheBytes = static_cast<uint64_t>( sizeof( m_soaCache ) );
+    stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
+    stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
+    stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
+    stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
+    stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
+    stats.totalBytes = stats.modelVectorBytes + stats.soaCacheBytes + stats.physicsStoreBytes +
+                       stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
+    return stats;
 }
 
 
