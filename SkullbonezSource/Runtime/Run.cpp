@@ -264,11 +264,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
                                                                 nowSeconds,
                                                                 false );
     };
-    callbacks.renderReplayPredictionGhosts = []( void* user,
-                                                 const RenderFrameContext& frame,
-                                                 const CinematicRenderConfig* cinematic,
-                                                 const Rendering::ShadowFrameData* shadow )
-    { static_cast<Run*>( user )->RenderReplayPredictionGhosts( frame, cinematic, shadow ); };
     return callbacks;
 }
 

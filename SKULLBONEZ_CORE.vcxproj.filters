@@ -116,6 +116,9 @@
     <Filter Include="Header Files\Runtime\Diagnostics">
       <UniqueIdentifier>{A55B726A-B5C3-408A-A364-7C84BEDE0B82}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Render">
+      <UniqueIdentifier>{D2F96B2C-591F-49D3-B4D7-1430E16449F1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\Runtime\Render">
       <UniqueIdentifier>{34E24A5B-6F8A-46D1-B470-8E15931C4243}</UniqueIdentifier>
     </Filter>
@@ -315,6 +318,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp">
       <Filter>Source Files\Runtime</Filter>

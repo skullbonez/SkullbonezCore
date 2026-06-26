@@ -33,7 +33,6 @@ Related:
 
 #include <array>
 #include <cstdint>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -121,10 +120,6 @@ struct RuntimeRenderHostCallbacks
     using CameraModeEnabledMaskFn = uint32_t ( * )( void* user );
     using CameraModeLabelFn = const char* (*)( void* user, RunCameraMode mode );
     using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );
-    using ReplayPredictionGhostsFn = void ( * )( void* user,
-                                                 const RenderFrameContext& frame,
-                                                 const CinematicRenderConfig* cinematic,
-                                                 const Rendering::ShadowFrameData* shadow );
 
     void* user = nullptr;
     ActiveCinematicConfigFn activeCinematicConfig = nullptr;
@@ -143,7 +138,6 @@ struct RuntimeRenderHostCallbacks
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
     CameraModeLabelFn cameraModeLabel = nullptr;
     MainMemoryStatsFn refreshMainMemoryStats = nullptr;
-    ReplayPredictionGhostsFn renderReplayPredictionGhosts = nullptr;
 };
 
 class RuntimeRenderHost
@@ -274,10 +268,7 @@ class RuntimeRenderHost
 
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,
-                                       const Rendering::ShadowFrameData* shadow ) const
-    {
-        m_callbacks.renderReplayPredictionGhosts( m_callbacks.user, frame, cinematic, shadow );
-    }
+                                       const Rendering::ShadowFrameData* shadow ) const;
 
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;

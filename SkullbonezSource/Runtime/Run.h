@@ -454,9 +454,6 @@ class Run
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
                                            const std::chrono::steady_clock::time_point& budgetStart,
                                            double budgetMilliseconds );
-    void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
-                                       const CinematicRenderConfig* cinematic,
-                                       const Rendering::ShadowFrameData* shadow );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool BuildReplayCauseTreeRows();
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );

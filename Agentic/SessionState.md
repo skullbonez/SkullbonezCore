@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink replay scrubber timeline owner slice is validated for commit: scrubber timeline math and track-position mutation moved from `RunInternal.h` into `ReplayRuntime`; `Run::ShouldRenderReplayScrubber` and the render-host `shouldRenderReplayScrubber` callback are removed; `RuntimeRenderHost` asks `ReplayRuntime` directly; the `Run.h` private-method ratchet is now 234. |
+| Last committed milestone | Runtime run composition-root shrink replay prediction ghost host slice is validated for commit: `Run::RenderReplayPredictionGhosts` and the render-host `renderReplayPredictionGhosts` callback are removed; `RuntimeRenderHost` now draws prediction ghosts directly from `ReplayRuntime` and `GameModelCollection`; the `Run.h` private-method ratchet is now 233. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
 | Pending work | Continue run-shrink work with replay UI/tool behavior, scene runtime ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Replay scrubber timeline owner validation: targeted Profile build (`TestOutput\validation\replay_scrubber_owner_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\replay_scrubber_owner_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\replay_scrubber_owner_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\replay_scrubber_owner_validate_replay_v2_artifact.log`), `tools\validate_interaction_clicks.bat` (`TestOutput\validation\replay_scrubber_owner_validate_interaction_clicks.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\replay_scrubber_owner_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\replay_scrubber_owner_validate_full.log`) all passed with 0-warning/error builds, runtime-boundary 0 errors, replay save/restore/query checks, interaction reports passing, DX12 validation errors 0 with matching screenshots, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Replay prediction ghost host validation: targeted Profile build (`TestOutput\validation\replay_prediction_ghost_host_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_replay_v2_artifact.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_full.log`) all passed with 0-warning/error builds, runtime-boundary 0 errors, replay save/load/restore/query checks, DX12 validation errors 0 with matching screenshots, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -145,6 +145,33 @@ audits when it is still useful.
   byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Arendt found
   no blocking defect; the non-blocking guardrail regex concern was tightened
   before final validation.
+- Runtime run composition shrink replay prediction ghost host slice removes
+  `Run::RenderReplayPredictionGhosts` and the render-host
+  `renderReplayPredictionGhosts` callback bridge. `RuntimeRenderHost` now draws
+  replay prediction ghosts directly through `ReplayRuntime` draw requests,
+  `GameModelCollection` model data, and its existing texture-selection service.
+  The draw body lives out-of-line in `Runtime/Render/RuntimeRenderHost.cpp` so
+  the central host header stays lean. The boundary checker blocks the removed
+  `Run.h` helper, the removed callback typedef/field, and lowers the `Run.h`
+  private-method ratchet to 233.
+- Replay prediction ghost host validation: final Profile build 40.28s
+  (`TestOutput\validation\replay_prediction_ghost_host_profile_build.log`),
+  fast gate 48.25s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_fast.log`),
+  runtime-boundary gate 0.51s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_runtime_boundaries.log`),
+  replay artifact gate 22.63s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_replay_v2_artifact.log`),
+  DX12 renderer gate 17.39s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_dx12_renderer.log`),
+  and full gate 23.09s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_full.log`).
+  Gates passed with formatting clean, project filters clean, runtime-boundary 0
+  errors, Profile/Debug 0-warning builds, replay save/load/restore/query
+  checks, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Aquinas
+  found no blocking defect; the non-blocking header-churn concern was fixed by
+  moving the implementation out of the header before final validation.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,

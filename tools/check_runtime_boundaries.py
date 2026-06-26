@@ -46,7 +46,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 234
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 233
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -326,7 +326,8 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
     (
         "replay render-query helpers must stay out of Run.h",
         r"\b(?:HasLoadedReplayPresentation|LoadedReplayPresentation[A-Za-z_]\w*|IsReplayScrubPaused|"
-        r"CurrentReplay[A-Za-z_]\w*|BuildReplayFocusModelMask|ShouldRenderReplayScrubber)\s*\(",
+        r"CurrentReplay[A-Za-z_]\w*|BuildReplayFocusModelMask|ShouldRenderReplayScrubber|"
+        r"RenderReplayPredictionGhosts)\s*\(",
         "Keep replay render queries and focus masks in ReplayRuntime.",
     ),
 )
@@ -415,7 +416,6 @@ ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS = {
     "CameraModeEnabledMaskFn",
     "CameraModeLabelFn",
     "MainMemoryStatsFn",
-    "ReplayPredictionGhostsFn",
 }
 
 ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = {
@@ -440,7 +440,6 @@ ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "cameraModeEnabledMask",
     "cameraModeLabel",
     "refreshMainMemoryStats",
-    "renderReplayPredictionGhosts",
 }
 
 
@@ -825,6 +824,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay scrubber visibility helper synthetic surface was not rejected")
 
+    old_replay_prediction_ghost_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void RenderReplayPredictionGhosts( const RenderFrameContext& frame );",
+    )
+    if not any(
+        error.message == "replay render-query helpers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_prediction_ghost_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("replay prediction ghost helper synthetic surface was not rejected")
+
     old_run_internal_scrubber_helper = """
     static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
     {
@@ -900,6 +909,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
 
+    old_prediction_ghost_callback_field = allowed_host.replace(
+        "BoolFn isLauncherCameraMode = nullptr;",
+        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_field)
+    ):
+        failures.append("old RuntimeRenderHost replay prediction ghost callback field was not rejected")
+
     mutable_callback = allowed_host.replace(
         "using BoolFn = bool ( * )( void* user );",
         "using BoolFn = bool ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
@@ -929,6 +948,17 @@ def run_self_tests() -> list[str]:
         for error in check_runtime_render_host_guardrails_text(synthetic_path, old_replay_callback)
     ):
         failures.append("old RuntimeRenderHost replay callback typedef was not rejected")
+
+    old_prediction_ghost_callback_typedef = allowed_host.replace(
+        "using BoolFn = bool ( * )( void* user );",
+        "using BoolFn = bool ( * )( void* user );\n"
+        "        using ReplayPredictionGhostsFn = void ( * )( void* user, const RenderFrameContext& frame );",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_typedef)
+    ):
+        failures.append("old RuntimeRenderHost replay prediction ghost callback typedef was not rejected")
 
     pick_service_call = "RuntimePickService::TryPickModel( request, result );"
     if check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call):

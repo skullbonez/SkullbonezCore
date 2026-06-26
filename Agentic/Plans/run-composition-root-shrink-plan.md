@@ -776,6 +776,86 @@ drawing still live on `Run`. This slice deliberately did not move those
 dispatchers; later replay UI/tool slices should move them behind replay-owned
 input/overlay services without adding callbacks back into `Run`.
 
+## Replay Prediction Ghost Host Slice
+
+This render-host slice removed the replay prediction ghost draw callback from
+`Run`. `RuntimeRenderHost` still exposes the same
+`RenderReplayPredictionGhosts(...)` frame hook to `RuntimeRenderer`, but the
+implementation now lives in `RuntimeRenderHost.cpp` and draws directly from the
+host's borrowed `ReplayRuntime` and `GameModelCollection` services. The old
+callback typedef/field and `Run` wrapper are gone, so prediction ghost rendering
+no longer bounces from the renderer bridge back into the composition root.
+
+Deleted `Run.h` declarations:
+
+- `RenderReplayPredictionGhosts`
+
+Deleted `Run::` definitions:
+
+- `Run::RenderReplayPredictionGhosts`
+
+Removed render-host callback surface:
+
+- `RuntimeRenderHostCallbacks::ReplayPredictionGhostsFn`
+- `RuntimeRenderHostCallbacks::renderReplayPredictionGhosts`
+- `Run::BuildRuntimeRenderHostCallbacks()` assignment for
+  `renderReplayPredictionGhosts`
+
+New owner implementation:
+
+- `RuntimeRenderHost::RenderReplayPredictionGhosts(...)`, implemented
+  out-of-line in `Runtime/Render/RuntimeRenderHost.cpp`, builds prediction ghost
+  draw requests through `ReplayRuntime`, reads model collision/material data
+  from `GameModelCollection`, selects `TEXTURE_BOUNDING_SPHERE`, and emits the
+  same transparent box batch as before.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  to 233.
+- The `Run.h` replay render-query rule now also blocks
+  `RenderReplayPredictionGhosts` from returning to `Run`.
+- The `RuntimeRenderHostCallbacks` allowlists reject the removed
+  `ReplayPredictionGhostsFn` typedef and `renderReplayPredictionGhosts` field.
+- Synthetic self-tests cover the old `Run` helper, callback typedef, and
+  callback field.
+- `SKULLBONEZ_CORE.vcxproj.filters` now declares `Source Files\Runtime\Render`
+  so new render-owner source files match the existing render header filter.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_profile_build.log`;
+  final rerun passed with 0 warnings and 0 errors in 40.28s.
+- Rubber duck: reviewer Aquinas found no blocking defect. Aquinas noted the
+  first inline implementation widened `RuntimeRenderHost.h`; this was fixed by
+  moving the draw body into `RuntimeRenderHost.cpp` before final validation.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.25s.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_validate_runtime_boundaries.log`;
+  passed with 0 errors in 0.51s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_validate_replay_v2_artifact.log`;
+  passed save, load, restore, generated-topology restore, replay query/export,
+  and physics-query checks in 22.63s.
+- DX12 renderer gate: `tools\validate_dx12_renderer.bat`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_validate_dx12_renderer.log`;
+  passed formatting, Profile build, DX12 suite, DX12 validation errors 0, and
+  screenshot baseline comparison in 17.39s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\replay_prediction_ghost_host_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.09s.
+
+Residual architecture risk: `RuntimeRenderHost` is still broad and still has
+callback debt for editor/replay overlay presentation. Replay prediction job
+generation, scrubber input, cause tree rows, velocity editing, and replay
+overlay construction still live on `Run`.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

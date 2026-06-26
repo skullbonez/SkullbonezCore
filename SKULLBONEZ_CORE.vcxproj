@@ -210,6 +210,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\RunReplayTools.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeTools.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
