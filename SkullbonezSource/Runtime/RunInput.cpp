@@ -450,7 +450,23 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
          !uiWantsNativeMouseCursor )
     {
         EnterInteractiveSceneRun();
-        FireRayCastTest();
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        Vector3 cameraUp;
+        if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+        {
+            RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
+            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 ActiveGameModelCapacity(),
+                                                 rayOrigin,
+                                                 rayDirection,
+                                                 cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
+        }
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
         consumedWorldClick = true;
     }

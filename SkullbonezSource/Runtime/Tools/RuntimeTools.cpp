@@ -8,6 +8,7 @@ Purpose:
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/CollisionShape.h"
+#include "../CameraCollection.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -203,6 +204,52 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
         previousDiff = diff;
     }
 
+    return false;
+}
+
+bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cameras,
+                                              Math::Vector::Vector3& outOrigin,
+                                              Math::Vector::Vector3& outDirection,
+                                              Math::Vector::Vector3& outCameraUp ) const
+{
+    if ( !cameras )
+    {
+        return false;
+    }
+
+    outOrigin = cameras->GetCameraTranslation();
+    outDirection = cameras->GetCameraView() - outOrigin;
+    const float dirLenSq = Math::Vector::VectorMagSquared( outDirection );
+    if ( dirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+
+    outDirection = outDirection * ( 1.0f / sqrtf( dirLenSq ) );
+    outCameraUp = cameras->GetCameraUp();
+    return true;
+}
+
+bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
+                                    Environment::WorldEnvironment& world,
+                                    Geometry::Terrain* terrain,
+                                    int activeModelCapacity,
+                                    const Math::Vector::Vector3& rayOrigin,
+                                    const Math::Vector::Vector3& rayDirection,
+                                    const Math::Vector::Vector3& cameraUp )
+{
+    if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
+    {
+        return FireLauncherProjectile( collection,
+                                       world,
+                                       terrain,
+                                       activeModelCapacity,
+                                       rayOrigin,
+                                       rayDirection,
+                                       cameraUp );
+    }
+
+    FireLauncherLaser( collection, terrain, rayOrigin, rayDirection, cameraUp );
     return false;
 }
 

@@ -31,47 +31,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-void Run::FireRayCastTest()
-{
-    if ( !m_systems.cameras )
-    {
-        return;
-    }
-
-    const Vector3 rayOrigin = m_systems.cameras->GetCameraTranslation();
-    Vector3 rayDirection = m_systems.cameras->GetCameraView() - rayOrigin;
-    const float dirLenSq = VectorMagSquared( rayDirection );
-    if ( dirLenSq <= TOLERANCE * TOLERANCE )
-    {
-        return;
-    }
-    rayDirection = rayDirection * ( 1.0f / sqrtf( dirLenSq ) );
-    const Vector3 cameraUp = m_systems.cameras->GetCameraUp();
-    RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
-
-    if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
-    {
-        if ( m_runtimeTools.FireLauncherProjectile( m_cGameModelCollection,
-                                                    m_cWorldEnvironment,
-                                                    m_systems.terrain.get(),
-                                                    ActiveGameModelCapacity(),
-                                                    rayOrigin,
-                                                    rayDirection,
-                                                    cameraUp ) )
-        {
-            SceneState().modelCount = m_cGameModelCollection.GetModelCount();
-        }
-        return;
-    }
-
-    m_runtimeTools.FireLauncherLaser( m_cGameModelCollection,
-                                      m_systems.terrain.get(),
-                                      rayOrigin,
-                                      rayDirection,
-                                      cameraUp );
-}
-
-
 #ifdef _DEBUG
 bool Run::PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance )
 {

@@ -538,7 +538,6 @@ class Run
     void TickPerfLog();                                                          // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                                                     // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                                  // Slide water surface up/down while held
-    void FireRayCastTest();                                                      // Dispatches the selected launcher-mode fire action.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                                   // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement(

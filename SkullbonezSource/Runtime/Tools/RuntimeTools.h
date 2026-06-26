@@ -36,8 +36,9 @@ class Terrain;
 
 namespace SkullbonezCore::Environment
 {
+class CameraCollection;
 class WorldEnvironment;
-}
+} // namespace SkullbonezCore::Environment
 
 namespace SkullbonezCore::Basics
 {
@@ -211,6 +212,17 @@ class RuntimeTools
                                 const Math::Vector::Vector3& rayDirection,
                                 float maxDistance,
                                 float& outT ) const;
+    bool TryBuildLauncherCameraRay( Environment::CameraCollection* cameras,
+                                    Math::Vector::Vector3& outOrigin,
+                                    Math::Vector::Vector3& outDirection,
+                                    Math::Vector::Vector3& outCameraUp ) const;
+    bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+                          Environment::WorldEnvironment& world,
+                          Geometry::Terrain* terrain,
+                          int activeModelCapacity,
+                          const Math::Vector::Vector3& rayOrigin,
+                          const Math::Vector::Vector3& rayDirection,
+                          const Math::Vector::Vector3& cameraUp );
     void FireLauncherLaser( GameObjects::GameModelCollection& collection,
                             Geometry::Terrain* terrain,
                             const Math::Vector::Vector3& rayOrigin,
