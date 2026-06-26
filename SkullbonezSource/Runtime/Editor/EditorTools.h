@@ -5,7 +5,8 @@ Purpose:
 
 Mental model:
   Input owns gestures. Editor tools own how those gestures translate into
-  editable object scale, clamp ranges, and placement semantics.
+  editable object scale, clamp ranges, placement semantics, and editor command
+  side effects that can be described with explicit borrowed context.
 
 Glossary:
   Placement gesture: Mouse drag and wheel input used to size an object before
@@ -15,7 +16,8 @@ Glossary:
   Scale lock: Rule that keeps authored multi-part tree/root proportions stable.
 
 Invariants:
-  - Helpers must be deterministic and side-effect free.
+  - Scale helpers must be deterministic and side-effect free.
+  - Command helpers must take every mutable service through an explicit context.
   - Object-type helpers must stay aligned with the editor tab object enum.
 
 Related:
@@ -29,10 +31,33 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Environment
+{
+class CameraCollection;
+class WorldEnvironment;
+} // namespace Environment
+namespace GameObjects
+{
+class GameModelCollection;
+}
 namespace Basics
 {
+class RuntimeCommandQueue;
+class RuntimeInputContext;
+struct RunSceneState;
+
 namespace RunInternal
 {
+struct EditorSaveHotkeyContext
+{
+    RuntimeInputContext& input;
+    GameObjects::GameModelCollection& models;
+    const RunSceneState& scene;
+    Environment::WorldEnvironment& world;
+    Environment::CameraCollection& cameras;
+    RuntimeCommandQueue& commands;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -45,6 +70,7 @@ Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType,
                                                        float dragPixelsX,
                                                        float dragPixelsY,
                                                        int wheelSteps );
+void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore

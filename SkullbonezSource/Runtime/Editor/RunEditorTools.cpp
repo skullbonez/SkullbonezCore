@@ -26,7 +26,6 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
-#include "../RuntimeFileWriter.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
@@ -3254,50 +3253,6 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     }
 
     return consumedWorldClick;
-}
-
-
-void Run::HandleEditorSaveHotkeys()
-{
-    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
-    {
-        static int sSnapshotSeq = 0;
-        char path[256] = {};
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Scenes",
-                                                  "snapshot_",
-                                                  ".scene.json",
-                                                  sSnapshotSeq,
-                                                  100 ) )
-        {
-            m_cGameModelCollection.SaveSceneSnapshot( path,
-                                                      SceneState().isScenePhysics,
-                                                      SceneState().isSceneText,
-                                                      m_cWorldEnvironment,
-                                                      m_systems.cameras->GetCameraTranslation(),
-                                                      m_systems.cameras->GetCameraView(),
-                                                      m_systems.cameras->GetCameraUp() );
-        }
-    }
-
-    if ( InputController::CaptureKeyboardActionPress( m_runtimeInput, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
-    {
-        static int sScreenshotSeq = 0;
-        char path[256] = {};
-        if ( RuntimeFileWriter::NextNumberedPath( path,
-                                                  sizeof( path ),
-                                                  "Screenshots",
-                                                  "screenshot_",
-                                                  ".bmp",
-                                                  sScreenshotSeq,
-                                                  100 ) )
-        {
-            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
-            command.text = path;
-            m_runtimeCommands.Push( std::move( command ) );
-        }
-    }
 }
 
 

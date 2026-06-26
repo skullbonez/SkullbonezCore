@@ -24,9 +24,18 @@ Related:
 */
 #include "EditorTools.h"
 
+#include "../CameraCollection.h"
+#include "../InputController.h"
+#include "../RuntimeCommandQueue.h"
+#include "../RuntimeFileWriter.h"
+#include "../Scene/SceneRuntime.h"
+#include "../../Core/Common.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../UI/UITabEditor.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
+#include <utility>
 
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -211,6 +220,49 @@ Vector3 EditorPlacementScaleFromGesture( int objectType,
     scale.z += dragPixelsY / EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT;
     scale.y += static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
     return EditorClampPlacementScale( type, scale );
+}
+
+void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+{
+    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
+    {
+        static int sSnapshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Scenes",
+                                                  "snapshot_",
+                                                  ".scene.json",
+                                                  sSnapshotSeq,
+                                                  100 ) )
+        {
+            context.models.SaveSceneSnapshot( path,
+                                              context.scene.isScenePhysics,
+                                              context.scene.isSceneText,
+                                              context.world,
+                                              context.cameras.GetCameraTranslation(),
+                                              context.cameras.GetCameraView(),
+                                              context.cameras.GetCameraUp() );
+        }
+    }
+
+    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
+    {
+        static int sScreenshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Screenshots",
+                                                  "screenshot_",
+                                                  ".bmp",
+                                                  sScreenshotSeq,
+                                                  100 ) )
+        {
+            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
+            command.text = path;
+            context.commands.Push( std::move( command ) );
+        }
+    }
 }
 } // namespace RunInternal
 } // namespace Basics

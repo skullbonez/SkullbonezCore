@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Editor/EditorTools.h"
 #include "InputController.h"
 #include "RuntimePickService.h"
 #include "RuntimeTuning.h"
@@ -2683,7 +2684,12 @@ void Run::TakeInput()
         return;
     }
 
-    HandleEditorSaveHotkeys();
+    HandleEditorSaveHotkeys( { m_runtimeInput,
+                               m_cGameModelCollection,
+                               SceneState(),
+                               m_cWorldEnvironment,
+                               *m_systems.cameras,
+                               m_runtimeCommands } );
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {

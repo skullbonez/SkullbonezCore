@@ -569,7 +569,6 @@ class Run
     bool TickEditorWorldClick(
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                                     // Handles editor placement, selection, and gizmo mouse ownership.
-    void HandleEditorSaveHotkeys();                                              // Handles F2 scene snapshots and F3 screenshot commands.
     void UpdateEditorInteractionPreview();                                       // Refreshes ghost and gizmo hover state before world-click handling
     void CancelMousePickup();                                                    // Releases manipulator drag/capture state.
     bool TickMousePickupInput(

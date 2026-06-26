@@ -214,6 +214,54 @@ The launcher extraction cluster is now complete for the methods called out by
 this plan. Broader editor, replay, scene runtime, and render-host slices remain
 active plan work.
 
+## Editor Save Hotkeys Slice
+
+The first editor slice moved F2/F3 scene snapshot and screenshot hotkey behavior
+out of `Run`. `EditorTools` now owns the save-hotkey command handling through an
+explicit borrowed context, while `RunInput` preserves the original ordering:
+after UI keyboard blocking and before scene reset commands. The context exposes
+the mutable services used by the command path instead of adding callbacks back
+into `Run`.
+
+Deleted `Run.h` declarations:
+
+- `HandleEditorSaveHotkeys`
+
+Deleted `Run::` definitions:
+
+- `Run::HandleEditorSaveHotkeys`
+
+New owner methods:
+
+- `RunInternal::HandleEditorSaveHotkeys(...)`
+
+Validation:
+
+- Runtime boundary check: `python tools\check_runtime_boundaries.py`; passed
+  with 0 errors and wrote
+  `TestOutput\validation\runtime_boundaries\summary.json`.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\run_composition_editor_save_hotkeys_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors.
+- Rubber duck: reviewer Hilbert first noted that the `EditorTools` header still
+  described all helpers as side-effect free and that the camera borrow was a
+  raw pointer. After the header contract was updated and the context switched
+  to `CameraCollection&`, Hilbert reported no blocking findings and did not
+  consider direct F2/F3 key smoke a gate because the current interaction
+  automation surface cannot press keyboard shortcuts.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\run_composition_editor_save_hotkeys_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds.
+- Pre-commit gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_editor_save_hotkeys_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv`.
+
+Remaining editor shrink work includes placement preview, placement commit,
+gizmo drag, editor UI commands, and editor overlay generation.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.
