@@ -416,6 +416,7 @@ class ReplayRuntime
     const ReplayPresentationSample* CurrentScrubSample() const;
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
+    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const GameObjects::GameModelCollection& models );

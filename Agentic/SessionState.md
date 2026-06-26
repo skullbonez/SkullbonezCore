@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink replay prediction ghost host slice is validated for commit: `Run::RenderReplayPredictionGhosts` and the render-host `renderReplayPredictionGhosts` callback are removed; `RuntimeRenderHost` now draws prediction ghosts directly from `ReplayRuntime` and `GameModelCollection`; the `Run.h` private-method ratchet is now 233. |
+| Last committed milestone | Runtime run composition-root shrink replay cause-tree row owner slice is validated for commit: `Run::BuildReplayCauseTreeRows` is removed; `ReplayRuntime::BuildCauseTreeRows()` now builds cause-tree rows from replay state and model data for both input and overlay callers; the `Run.h` private-method ratchet is now 232. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
 | Pending work | Continue run-shrink work with replay UI/tool behavior, scene runtime ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Replay prediction ghost host validation: targeted Profile build (`TestOutput\validation\replay_prediction_ghost_host_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_replay_v2_artifact.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\replay_prediction_ghost_host_validate_full.log`) all passed with 0-warning/error builds, runtime-boundary 0 errors, replay save/load/restore/query checks, DX12 validation errors 0 with matching screenshots, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Replay cause-tree row owner validation: targeted Profile build (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_replay_v2_artifact.log`), `tools\validate_interaction_clicks.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_interaction_clicks.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_full.log`) all passed with formatting clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, replay save/load/restore/query checks, interaction reports passing, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -172,6 +172,34 @@ audits when it is still useful.
   byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Aquinas
   found no blocking defect; the non-blocking header-churn concern was fixed by
   moving the implementation out of the header before final validation.
+- Runtime run composition shrink replay cause-tree row owner slice moves
+  cause-tree row construction from `Run::BuildReplayCauseTreeRows` into
+  `ReplayRuntime::BuildCauseTreeRows`. Replay cause-tree input and overlay
+  callers now ask the replay owner to build rows while continuing to own UI
+  window placement/scroll clamping. The boundary checker blocks both the old
+  `BuildReplayCauseTreeRows` name and renamed `BuildCauseTreeRows` wrappers on
+  `Run`, including synthetic header and source self-tests; the `Run.h`
+  private-method ratchet is now 232.
+- Replay cause-tree row owner validation: targeted Profile build 43.02s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_profile_build.log`),
+  fast gate 49.66s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_fast.log`),
+  runtime-boundary gate 0.55s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_runtime_boundaries.log`),
+  replay artifact gate 22.99s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.80s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.69s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_dx12_renderer.log`),
+  and full gate 22.91s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_full.log`).
+  Gates passed with formatting clean, runtime-boundary 0 errors, Profile/Debug
+  0-warning builds, replay save/load/restore/query checks, interaction reports
+  passing, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Peirce found
+  no blocking defect; the non-blocking guardrail naming concern was tightened
+  before final validation.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,

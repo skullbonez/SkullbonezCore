@@ -46,7 +46,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 233
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 232
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -330,6 +330,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"RenderReplayPredictionGhosts)\s*\(",
         "Keep replay render queries and focus masks in ReplayRuntime.",
     ),
+    (
+        "replay cause-tree row builders must stay out of Run.h",
+        r"\bBuild(?:Replay)?CauseTreeRows\s*\(",
+        "Build replay cause-tree rows in ReplayRuntime.",
+    ),
 )
 
 RUN_INTERNAL_SCRUBBER_HELPER_RULE = (
@@ -369,6 +374,12 @@ PICK_HELPER_RULE = (
     r"\b(?:bool|int|float|double|void|auto|[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*(?:\s*[&*])?)\s+"
     r"(?:Run::)?TryPick(?:[A-Za-z_]\w*)?Model(?:[A-Za-z_]\w*)?\s*\(",
     "Use RuntimePickService::TryPickModel(...) with an explicit RuntimePickPurpose instead.",
+)
+
+RUN_REPLAY_CAUSE_TREE_SOURCE_RULE = (
+    "Run replay cause-tree row builders are blocked",
+    r"\bRun::Build(?:Replay)?CauseTreeRows\s*\(",
+    "Build replay cause-tree rows in ReplayRuntime instead of Run.",
 )
 
 ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS = {
@@ -726,6 +737,24 @@ def check_pick_helper_guardrails(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_run_replay_cause_tree_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_CAUSE_TREE_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_cause_tree_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_replay_cause_tree_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def run_self_tests() -> list[str]:
     failures: list[str] = []
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
@@ -833,6 +862,30 @@ def run_self_tests() -> list[str]:
         for error in check_text_rules(Path("synthetic/Run.h"), old_replay_prediction_ghost_helper, RUN_HEADER_RULES)
     ):
         failures.append("replay prediction ghost helper synthetic surface was not rejected")
+
+    old_replay_cause_tree_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        bool BuildReplayCauseTreeRows();",
+    )
+    if not any(
+        error.message == "replay cause-tree row builders must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_cause_tree_header_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("replay cause-tree header helper synthetic surface was not rejected")
+
+    renamed_replay_cause_tree_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        bool BuildCauseTreeRows();",
+    )
+    if not any(
+        error.message == "replay cause-tree row builders must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            renamed_replay_cause_tree_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("renamed replay cause-tree header helper synthetic surface was not rejected")
 
     old_run_internal_scrubber_helper = """
     static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
@@ -977,6 +1030,26 @@ def run_self_tests() -> list[str]:
         for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), suffixed_pick_helper)
     ):
         failures.append("suffixed runtime pick helper synthetic wrapper was not rejected")
+
+    old_replay_cause_tree_source_helper = "bool Run::BuildReplayCauseTreeRows() { return false; }"
+    if not any(
+        error.message == "Run replay cause-tree row builders are blocked"
+        for error in check_run_replay_cause_tree_source_guardrails_text(
+            Path("synthetic/RunReplayTools.cpp"),
+            old_replay_cause_tree_source_helper,
+        )
+    ):
+        failures.append("replay cause-tree source helper synthetic surface was not rejected")
+
+    renamed_replay_cause_tree_source_helper = "bool Run::BuildCauseTreeRows() { return false; }"
+    if not any(
+        error.message == "Run replay cause-tree row builders are blocked"
+        for error in check_run_replay_cause_tree_source_guardrails_text(
+            Path("synthetic/RunReplayTools.cpp"),
+            renamed_replay_cause_tree_source_helper,
+        )
+    ):
+        failures.append("renamed replay cause-tree source helper synthetic surface was not rejected")
 
     allowed_physics_text = """
     namespace SkullbonezCore::GameObjects
@@ -1124,6 +1197,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
+    errors.extend(check_run_replay_cause_tree_source_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     return errors

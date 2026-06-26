@@ -455,7 +455,6 @@ class Run
                                            const std::chrono::steady_clock::time_point& budgetStart,
                                            double budgetMilliseconds );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
-    bool BuildReplayCauseTreeRows();
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
     bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
                                                 Math::Vector::Vector3& outPosition,

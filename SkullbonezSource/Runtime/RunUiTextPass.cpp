@@ -521,7 +521,7 @@ void Run::RenderReplayCauseTreeOverlay()
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    if ( screenW <= 0 || screenH <= 0 || !BuildReplayCauseTreeRows() )
+    if ( screenW <= 0 || screenH <= 0 || !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models() ) )
     {
         return;
     }
