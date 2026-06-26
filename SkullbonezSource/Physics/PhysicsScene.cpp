@@ -70,7 +70,7 @@ void PhysicsScene::RefreshPhysicsStores( GameModelCollection& collection )
 void PhysicsScene::RefreshBodyStore( GameModelCollection& collection )
 {
     std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
-    m_bodyStore.Refresh( models, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
 }
 
 
@@ -145,25 +145,62 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 
 void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )
 {
-    m_world.RunPhysics( collection, fChangeInTime );
+    std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
+    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
+    m_world.RunPhysics( collection, m_bodyStore, fChangeInTime );
+    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    m_bodyStore.WriteBackToModels( models );
 }
 
 
 void PhysicsScene::WakeModel( GameModelCollection& collection, int index )
 {
+    RefreshBodyStore( collection );
+    m_bodyStore.WakeBody( index );
     m_world.WakeModel( collection, index );
+    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), index );
 }
 
 
 void PhysicsScene::SeedModelAsleep( GameModelCollection& collection, int index )
 {
+    RefreshBodyStore( collection );
+    m_bodyStore.SeedBodyAsleep( index );
     m_world.SeedModelAsleep( collection, index );
+    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), index );
+}
+
+
+void PhysicsScene::ApplyBodyImpulse( GameModelCollection& collection,
+                                     int bodyIndex,
+                                     const Math::Vector::Vector3& impulse,
+                                     const Math::Vector::Vector3& localApplicationPoint )
+{
+    SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
+    WakeModel( collection, bodyIndex );
+}
+
+
+void PhysicsScene::SetPendingBodyImpulse( GameModelCollection& collection,
+                                          int bodyIndex,
+                                          const Math::Vector::Vector3& impulse,
+                                          const Math::Vector::Vector3& localApplicationPoint )
+{
+    RefreshBodyStore( collection );
+    if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
+    {
+        m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), bodyIndex );
+        collection.InvalidatePhysicsStreams();
+    }
 }
 
 
 void PhysicsScene::SetPhysicsSleepEnabled( bool enabled )
 {
     m_world.SetPhysicsSleepEnabled( enabled );
+    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }
 
 
@@ -235,7 +272,12 @@ void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 
 bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
 {
-    return m_world.RestoreReplaySolverSnapshot( snapshot, modelCount );
+    const bool restored = m_world.RestoreReplaySolverSnapshot( snapshot, modelCount );
+    if ( restored )
+    {
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+    return restored;
 }
 
 

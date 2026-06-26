@@ -44,6 +44,7 @@ class GameModelCollection;
 namespace Physics
 {
 class PhysicsEngine;
+class PhysicsBodyStore;
 
 struct PointJointConstraint
 {
@@ -92,6 +93,7 @@ class Ragdoll
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
     static void SolvePointJoints( GameObjects::GameModelCollection& collection,
+                                  PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,
                                   float dt );

@@ -5,9 +5,9 @@ Purpose:
 
 Mental model:
   PhysicsScene is the boundary between the compatibility GameModelCollection
-  facade and the future authoritative physics/render stores. PhysicsWorld
-  remains the solver owner for now, while stores mirror the same model order for
-  replay, diagnostics, and migration checks.
+  facade and the authoritative physics/render stores. PhysicsBodyStore owns the
+  mutable body state passed through PhysicsWorld, while GameModel remains the
+  compatibility shape/presentation surface until later runtime migrations.
 
 Glossary:
   Solver: Physics step that integrates bodies and resolves contacts.
@@ -55,6 +55,14 @@ class PhysicsScene
     void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
     void WakeModel( GameObjects::GameModelCollection& collection, int index );
     void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
+    void ApplyBodyImpulse( GameObjects::GameModelCollection& collection,
+                           int bodyIndex,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
+    void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection,
+                                int bodyIndex,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
@@ -100,8 +108,8 @@ class PhysicsScene
     void ValidateRenderStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                 // Existing deterministic solver and debug state.
-    PhysicsBodyStore m_bodyStore;                         // Body snapshot in model/replay order.
+    PhysicsWorld m_world;                                 // Deterministic solver and debug state over body-store records.
+    PhysicsBodyStore m_bodyStore;                         // Mutable body state in model/replay order.
     ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
     Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
 };

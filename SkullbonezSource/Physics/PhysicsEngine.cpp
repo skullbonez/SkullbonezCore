@@ -85,8 +85,7 @@ void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection,
                                       const Math::Vector::Vector3& impulse,
                                       const Math::Vector::Vector3& localApplicationPoint )
 {
-    SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
-    WakeBody( collection, bodyIndex );
+    m_scene.ApplyBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
 }
 
 
@@ -95,8 +94,7 @@ void PhysicsEngine::SetPendingBodyImpulse( GameModelCollection& collection,
                                            const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& localApplicationPoint )
 {
-    collection.GetModelAtIndex( bodyIndex ).SetImpulseForce( impulse, localApplicationPoint );
-    collection.InvalidatePhysicsStreams();
+    m_scene.SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
 }
 
 

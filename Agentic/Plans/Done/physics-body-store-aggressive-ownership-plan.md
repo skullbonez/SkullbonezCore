@@ -1,9 +1,9 @@
 # Physics Body Store Aggressive Ownership Plan
 
 Date: 2026-06-26
-Status: Draft next implementation slice
+Status: Done
 Impact area: physics body ownership, activation/sleep, pose and velocity state
-Validation for this document-only change: none required
+Validation: `tools\validate_physics.bat`, `tools\validate_perf.bat`
 
 ## Goal
 
@@ -80,16 +80,48 @@ replay, tools, and scene code move to store/handle APIs.
 
 ## Validation
 
-Documentation-only planning requires no validation.
+Implementation validation:
 
-For the implementation commit:
+- `tools\validate_physics.bat`
+  (`TestOutput\validation\physics_body_store_validate_physics.log`): Debug,
+  Profile, and final Debug builds completed with 0 warnings and 0 errors;
+  `physics_regression_solver.csv` matched byte-exactly over 20001 lines; gate
+  reported `VALIDATE_PHYSICS: ALL PASSED`.
+- `tools\validate_perf.bat`
+  (`TestOutput\validation\physics_body_store_validate_perf_rerun.log`): Profile,
+  ready Profile, and ready Debug builds completed with 0 warnings and 0 errors;
+  gate reported `VALIDATE_PERF: COMPLETE`. The run produced advisory
+  `physics_bench` whole-frame warnings. Review of the touched path showed
+  `Frame/Physics` at +4.1% avg and +1.7% p50, while the failing comparison
+  items were total frame, render, vsync wait, and memory. No committed perf
+  baseline was refreshed.
+- Perf analyzer compatibility fix: `analyze_perf.py` now parses both legacy
+  `mb=` memory checkpoint lines and current named fields such as
+  `task_manager_mb=`, preserving the existing JSON schema.
 
-- Minimum gate: `tools\validate_physics.bat`
-- Add `tools\validate_perf.bat` if solver hot-loop layout, broadphase inputs, or
-  per-frame allocation behavior changes.
-- Add `tools\validate_full.bat` if scene load, replay restore, render
-  presentation timing, or compatibility writeback timing changes beyond the
-  physics step.
+Rubber-duck review:
+
+- Reviewer Erdos found a blocking behavior regression where store-side
+  integration skipped `GameModel::UpdatePosition()` terrain clamping. Fixed by
+  having `PhysicsBodyStore::IntegrateBodyPose()` perform the compatibility
+  model update and capture the post-clamp state back into the store.
+- Erdos also called out sleep authority ambiguity. Fixed by making
+  `PhysicsBodyStore` hold the persisted sleep flag, keeping
+  `PhysicsWorld::m_sleepState` as a named solver-compatibility mirror, and
+  syncing sleep-toggle restoration back into the store.
+- Final reviewer pass reported no remaining blockers.
+
+## Completion Notes
+
+- `PhysicsBodyRecord` now owns mutable step state for pose, velocities,
+  mass/inertia caches, sleep state, and pending impulses.
+- `PhysicsWorld` and the persistent contact solver operate on body records
+  during the physics step, with targeted compatibility writeback to
+  `GameModel` for legacy render, replay, scene, and tool readers.
+- `Ragdoll`, `PhysicsScene`, and `PhysicsEngine` route wake, seed-asleep,
+  pending impulse, and body impulse operations through `PhysicsBodyStore`.
+- The remaining model synchronization is intentionally named compatibility
+  input/writeback so later store-backed views can delete it.
 
 ## Done Criteria
 
