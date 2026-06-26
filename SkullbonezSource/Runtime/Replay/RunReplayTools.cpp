@@ -39,6 +39,7 @@ Related:
 #include "../RunInternal.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../InputController.h"
+#include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../RuntimeFileWriter.h"
@@ -63,6 +64,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;

@@ -28,6 +28,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "Editor/EditorOverlayTools.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
@@ -43,6 +44,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {

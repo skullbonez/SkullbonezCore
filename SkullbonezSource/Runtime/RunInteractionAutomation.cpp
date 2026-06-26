@@ -4,6 +4,7 @@ Purpose:
   Drives deterministic runtime world-click scripts through the normal input path.
 */
 #include "RunInternal.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
@@ -15,6 +16,7 @@ Purpose:
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;

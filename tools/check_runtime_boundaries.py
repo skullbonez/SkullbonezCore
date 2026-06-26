@@ -354,6 +354,25 @@ RUN_INTERNAL_SCRUBBER_HELPER_RULE = (
     "Keep replay scrubber timeline math and position mutation in ReplayRuntime.",
 )
 
+RUN_INTERNAL_REPLAY_LAYOUT_HELPER_RULE = (
+    "replay overlay layout helpers must stay out of RunInternal.h",
+    r"\b(?:(?:static|inline|constexpr|consteval)\s+)*(?:UI::UIRect|float|int|void)\s+"
+    r"(?:ReplayScrubber(?:PanelRect|RowCenterY|TrackRect|SaveButtonRect|LoadButtonRect|"
+    r"BranchButtonRect|PauseButtonRect|VelocityEditToggleRect|PredictControlRect|"
+    r"PredictToggleRect|PredictHorizonRect|RagdollVisualToggleRect|HotZoneRect|PositionFromMouse)|"
+    r"ReplayPredictionHorizon(?:T|FromMouse)|ReplayCause(?:TreePanelRect|TreeRowRect|"
+    r"TreeVisibleRowCapacity|WindowRect|WindowTitleRect|WindowContentRect|WindowResizeRect|"
+    r"WindowContentHeight|WindowMaxScroll)|ClampReplayCauseWindow|EnsureReplayCauseWindowPlacement)\s*\(",
+    "Keep replay overlay layout in Runtime/Replay/ReplayOverlayLayout.",
+)
+
+RUN_UI_TEXT_PASS_REPLAY_OVERLAY_RULE = (
+    "replay overlay renderer definitions must stay out of RunUiTextPass.cpp",
+    r"\b(?:(?:static|inline)\s+)*void\s+(?:(?:RuntimeRenderHost|ReplayOverlay)::)?"
+    r"RenderReplay(?:Scrubber|CauseTree)Overlay\s*\(",
+    "Keep replay overlay drawing in Runtime/Replay/ReplayOverlayRenderer.",
+)
+
 RUN_STORAGE_RULE = (
     "subsystems must not store Run by pointer or reference",
     rf"(?:\b{RUN_CV_PATTERN}\s*(?:[&*]\s*(?:const\s*)?)?|"
@@ -574,6 +593,20 @@ def check_run_internal_scrubber_guardrails(repo: Path) -> list[BoundaryError]:
     return check_run_internal_scrubber_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_run_internal_replay_layout_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_INTERNAL_REPLAY_LAYOUT_HELPER_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_internal_replay_layout_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_INTERNAL_HEADER
+    return check_run_internal_replay_layout_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
 def check_run_storage(repo: Path) -> list[BoundaryError]:
     message, pattern, detail = RUN_STORAGE_RULE
     errors: list[BoundaryError] = []
@@ -783,6 +816,20 @@ def check_run_replay_overlay_source_guardrails(repo: Path) -> list[BoundaryError
     return errors
 
 
+def check_run_ui_text_pass_replay_overlay_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_UI_TEXT_PASS_REPLAY_OVERLAY_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_ui_text_pass_replay_overlay_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUNTIME_ROOT / "RunUiTextPass.cpp"
+    return check_run_ui_text_pass_replay_overlay_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
 def run_self_tests() -> list[str]:
     failures: list[str] = []
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
@@ -957,16 +1004,60 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("RunInternal scrubber timeline helper synthetic surface was not rejected")
 
-    allowed_run_internal_scrubber_geometry = """
+    old_run_internal_panel_layout_helper = """
+    inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
+    {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
+    }
+    """
+    if not any(
+        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
+        for error in check_run_internal_replay_layout_guardrails_text(
+            Path("synthetic/RunInternal.h"), old_run_internal_panel_layout_helper
+        )
+    ):
+        failures.append("RunInternal replay scrubber panel layout helper synthetic surface was not rejected")
+
+    old_run_internal_cause_window_layout_helper = """
+    inline UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
+    {
+        return { 0.0f, 0.0f, 1.0f, 1.0f };
+    }
+    """
+    if not any(
+        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
+        for error in check_run_internal_replay_layout_guardrails_text(
+            Path("synthetic/RunInternal.h"), old_run_internal_cause_window_layout_helper
+        )
+    ):
+        failures.append("RunInternal replay cause window layout helper synthetic surface was not rejected")
+
+    old_run_internal_cause_window_placement_helper = """
+    inline void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
+    {
+    }
+    """
+    if not any(
+        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
+        for error in check_run_internal_replay_layout_guardrails_text(
+            Path("synthetic/RunInternal.h"), old_run_internal_cause_window_placement_helper
+        )
+    ):
+        failures.append("RunInternal replay cause window placement helper synthetic surface was not rejected")
+
+    old_run_internal_scrubber_geometry = """
     inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
     {
         return 1.0f;
     }
     """
-    if check_run_internal_scrubber_guardrails_text(
-        Path("synthetic/RunInternal.h"), allowed_run_internal_scrubber_geometry
+    if not any(
+        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
+        for error in check_run_internal_replay_layout_guardrails_text(
+            Path("synthetic/RunInternal.h"), old_run_internal_scrubber_geometry
+        )
     ):
-        failures.append("allowed RunInternal scrubber geometry helper synthetic surface was rejected")
+        failures.append("RunInternal replay scrubber geometry helper synthetic surface was not rejected")
 
     new_binding = allowed_host.replace(
         "RunDebugState* debug = nullptr;",
@@ -1140,6 +1231,53 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay cause-tree overlay source helper synthetic surface was not rejected")
 
+    old_ui_text_pass_replay_scrubber_overlay_definition = "void RuntimeRenderHost::RenderReplayScrubberOverlay() const {}"
+    if not any(
+        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
+        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_ui_text_pass_replay_scrubber_overlay_definition,
+        )
+    ):
+        failures.append("RunUiTextPass replay scrubber overlay definition synthetic surface was not rejected")
+
+    old_ui_text_pass_replay_cause_tree_overlay_definition = "void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const {}"
+    if not any(
+        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
+        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_ui_text_pass_replay_cause_tree_overlay_definition,
+        )
+    ):
+        failures.append("RunUiTextPass replay cause-tree overlay definition synthetic surface was not rejected")
+
+    new_ui_text_pass_replay_scrubber_overlay_definition = "void ReplayOverlay::RenderReplayScrubberOverlay() {}"
+    if not any(
+        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
+        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            new_ui_text_pass_replay_scrubber_overlay_definition,
+        )
+    ):
+        failures.append("RunUiTextPass replay scrubber free-function renderer synthetic surface was not rejected")
+
+    new_ui_text_pass_replay_cause_tree_overlay_definition = "void RenderReplayCauseTreeOverlay() {}"
+    if not any(
+        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
+        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            new_ui_text_pass_replay_cause_tree_overlay_definition,
+        )
+    ):
+        failures.append("RunUiTextPass replay cause-tree free-function renderer synthetic surface was not rejected")
+
+    allowed_ui_text_pass_replay_overlay_host_call = "m_host.RenderReplayScrubberOverlay();"
+    if check_run_ui_text_pass_replay_overlay_guardrails_text(
+        Path("synthetic/RunUiTextPass.cpp"),
+        allowed_ui_text_pass_replay_overlay_host_call,
+    ):
+        failures.append("RunUiTextPass replay overlay host call synthetic surface was rejected")
+
     allowed_physics_text = """
     namespace SkullbonezCore::GameObjects
     {
@@ -1283,11 +1421,13 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
     errors.extend(check_run_internal_scrubber_guardrails(repo))
+    errors.extend(check_run_internal_replay_layout_guardrails(repo))
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
     errors.extend(check_run_replay_cause_tree_source_guardrails(repo))
     errors.extend(check_run_replay_overlay_source_guardrails(repo))
+    errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     return errors

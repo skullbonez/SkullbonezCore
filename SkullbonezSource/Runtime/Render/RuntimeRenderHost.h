@@ -77,6 +77,10 @@ struct RunSubsystemState;
 struct RunTimerState;
 class ReplayRuntime;
 struct RuntimeViewModel;
+namespace ReplayOverlay
+{
+struct ReplayOverlayRenderContext;
+}
 
 struct RuntimeRenderHostBindings
 {
@@ -289,6 +293,7 @@ class RuntimeRenderHost
     RunSceneBrowserState& m_sceneBrowser;
 
   private:
+    ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext() const;
     void RenderReplayCauseTreeOverlay() const;
 
     RuntimeRenderHostCallbacks m_callbacks;

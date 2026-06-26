@@ -18,12 +18,36 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Rendering/Helper.h"
+#include "../Replay/ReplayOverlayRenderer.h"
+#include "../RunState.h"
 
 #include <cstddef>
 #include <variant>
 #include <vector>
 
 using namespace SkullbonezCore::Basics;
+
+ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayRenderContext() const
+{
+    return { m_replayRuntime,
+             m_cGameModelCollection.Models(),
+             m_editor.editorModeEnabled,
+             m_UI.IsVisible(),
+             m_UI.IsMinimized(),
+             WindowScreenWidth(),
+             WindowScreenHeight(),
+             m_timers.simulationTimer.GetTotalTime() };
+}
+
+void RuntimeRenderHost::RenderReplayScrubberOverlay() const
+{
+    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext() );
+}
+
+void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const
+{
+    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext() );
+}
 
 void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                                       const CinematicRenderConfig* cinematic,

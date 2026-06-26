@@ -198,6 +198,8 @@ RUNTIME_SCENE_PREFIXES = (
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
+    "ReplayOverlayLayout",
+    "ReplayOverlayRenderer",
     "ReplayRecorder",
     "ReplayRuntime",
     "ReplaySolverSnapshot",

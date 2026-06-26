@@ -176,6 +176,8 @@
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayExporter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
@@ -363,6 +365,8 @@
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h" />
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
