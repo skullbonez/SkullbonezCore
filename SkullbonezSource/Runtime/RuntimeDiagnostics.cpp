@@ -271,6 +271,50 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
     }
 }
 
+
+void RuntimeDiagnostics::ResetPerfLogForSceneLoad( RunPerfLogState& perfLog )
+{
+    perfLog.isPerfTest = false;
+    perfLog.perfHeaderWritten = false;
+    perfLog.perfLogPath[0] = '\0';
+    perfLog.isPerfLogFlushEnabled = false;
+    perfLog.perfLogFlushInterval = 0;
+    perfLog.perfLogWritesSinceFlush = 0;
+}
+
+
+void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval )
+{
+    perfLog.isPerfLogFlushEnabled = enabled;
+    perfLog.perfLogFlushInterval = interval;
+}
+
+
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return;
+    }
+
+    perfLog.isPerfTest = true;
+    strcpy_s( perfLog.perfLogPath, sizeof( perfLog.perfLogPath ), path );
+    const char* mode = ( pass == 0 ) ? "w" : "a";
+    fopen_s( &perfLog.perfLogFile, perfLog.perfLogPath, mode );
+    if ( perfLog.perfLogFile )
+    {
+        perfLog.perfLogWritesSinceFlush = 0;
+        LogPerfMemory( perfLog, pass + 1, "start" );
+    }
+}
+
+
+bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
+{
+    return perfLog.isPerfTest;
+}
+
+
 void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
@@ -296,6 +340,11 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePer
 
     ++perfLog.perfLogWritesSinceFlush;
     FlushPerfLogIfNeeded( perfLog );
+
+    if ( context.frame % 60 == 0 )
+    {
+        LogPerfMemory( perfLog, context.pass, "periodic" );
+    }
 }
 
 #ifdef _DEBUG

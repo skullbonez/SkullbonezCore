@@ -41,12 +41,13 @@ RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
+RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 216
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 215
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -321,6 +322,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Call DiagnosticsRuntime::LogPerfMemory directly so diagnostics owns perf-log policy.",
     ),
     (
+        "diagnostics perf-log tick wrappers must stay out of Run.h",
+        r"\bTickPerfLog\s*\(",
+        "Call DiagnosticsRuntime::TickPerfLog directly so diagnostics owns perf-log lifecycle.",
+    ),
+    (
         "scene-control wrappers must stay out of Run.h",
         r"\b(?:LoadSceneFromBrowserIndex|LoadDemoSceneFromUI|ApplyAdjacentCinematicMode|"
         r"LoadAdjacentSceneFromBrowser|ResetCurrentScene|AdvanceScene)\s*\(",
@@ -460,6 +466,20 @@ RUN_DIAGNOSTICS_SOURCE_RULE = (
     "Run diagnostics perf-memory wrappers are blocked",
     r"\bRun::LogPerfMemory\s*\(",
     "Call DiagnosticsRuntime::LogPerfMemory directly so diagnostics owns perf-log policy.",
+)
+
+RUN_DIAGNOSTICS_PERF_TICK_SOURCE_RULE = (
+    "Run diagnostics perf-log tick wrappers are blocked",
+    r"\bRun::TickPerfLog\s*\(",
+    "Call DiagnosticsRuntime::TickPerfLog directly so diagnostics owns perf-log lifecycle.",
+)
+
+RUN_SCENE_PERF_LOG_LIFECYCLE_RULE = (
+    "RunScene direct perf-log lifecycle access is blocked",
+    r"\bm_diagnosticsRuntime\.PerfLog\(\)\.(?:isPerfTest|perfHeaderWritten|perfLogPath|perfLogFile|"
+    r"isPerfLogFlushEnabled|perfLogFlushInterval|perfLogWritesSinceFlush)\b|"
+    r"\bfopen_s\s*\([^;{}]*\bm_diagnosticsRuntime\.PerfLog\(\)\.",
+    "Use DiagnosticsRuntime perf-log lifecycle APIs instead of mutating/opening perf logs from RunScene.",
 )
 
 RUN_SCENE_CONTROL_SOURCE_RULE = (
@@ -953,6 +973,42 @@ def check_run_diagnostics_source_guardrails(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_run_diagnostics_perf_tick_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_DIAGNOSTICS_PERF_TICK_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_diagnostics_perf_tick_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(
+            check_run_diagnostics_perf_tick_source_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
+
+
+def check_run_scene_perf_log_lifecycle_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_SCENE_PERF_LOG_LIFECYCLE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_scene_perf_log_lifecycle_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_SCENE_SOURCE
+    if not path.exists():
+        return []
+    return check_run_scene_perf_log_lifecycle_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
 def check_run_scene_control_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_SCENE_CONTROL_SOURCE_RULE
@@ -1213,6 +1269,16 @@ def run_self_tests() -> list[str]:
         for error in check_text_rules(Path("synthetic/Run.h"), old_diagnostics_header_helper, RUN_HEADER_RULES)
     ):
         failures.append("diagnostics perf-memory header wrapper synthetic surface was not rejected")
+
+    old_diagnostics_tick_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void TickPerfLog();",
+    )
+    if not any(
+        error.message == "diagnostics perf-log tick wrappers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_diagnostics_tick_header_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("diagnostics perf-log tick header wrapper synthetic surface was not rejected")
 
     old_scene_control_header_helper = allowed_run_header.replace(
         "void Render();",
@@ -1516,6 +1582,59 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("diagnostics perf-memory source wrapper synthetic surface was not rejected")
 
+    old_diagnostics_tick_source_helper = "void Run::TickPerfLog() {}"
+    if not any(
+        error.message == "Run diagnostics perf-log tick wrappers are blocked"
+        for error in check_run_diagnostics_perf_tick_source_guardrails_text(
+            Path("synthetic/RunFrame.cpp"),
+            old_diagnostics_tick_source_helper,
+        )
+    ):
+        failures.append("diagnostics perf-log tick source wrapper synthetic surface was not rejected")
+
+    old_run_scene_perf_file_helper = """
+    void Run::LoadScene( int index )
+    {
+        fopen_s( &m_diagnosticsRuntime.PerfLog().perfLogFile,
+                 m_diagnosticsRuntime.PerfLog().perfLogPath,
+                 "w" );
+    }
+    """
+    if not any(
+        error.message == "RunScene direct perf-log lifecycle access is blocked"
+        for error in check_run_scene_perf_log_lifecycle_guardrails_text(
+            Path("synthetic/RunScene.cpp"),
+            old_run_scene_perf_file_helper,
+        )
+    ):
+        failures.append("RunScene direct perf-log file synthetic surface was not rejected")
+
+    old_run_scene_perf_field_helper = "m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = true;"
+    if not any(
+        error.message == "RunScene direct perf-log lifecycle access is blocked"
+        for error in check_run_scene_perf_log_lifecycle_guardrails_text(
+            Path("synthetic/RunScene.cpp"),
+            old_run_scene_perf_field_helper,
+        )
+    ):
+        failures.append("RunScene direct perf-log field synthetic surface was not rejected")
+
+    unrelated_run_scene_file_helper = """
+    void Run::LoadScene( int index )
+    {
+        FILE* file = nullptr;
+        fopen_s( &file, "scene.txt", "w" );
+    }
+    """
+    if any(
+        error.message == "RunScene direct perf-log lifecycle access is blocked"
+        for error in check_run_scene_perf_log_lifecycle_guardrails_text(
+            Path("synthetic/RunScene.cpp"),
+            unrelated_run_scene_file_helper,
+        )
+    ):
+        failures.append("RunScene unrelated file open synthetic surface was rejected")
+
     old_scene_control_source_helper = "bool Run::AdvanceScene() { return false; }"
     if not any(
         error.message == "Run scene-control wrappers are blocked"
@@ -1755,6 +1874,8 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_scene_reset_source_guardrails(repo))
     errors.extend(check_run_scene_queue_source_guardrails(repo))
     errors.extend(check_run_diagnostics_source_guardrails(repo))
+    errors.extend(check_run_diagnostics_perf_tick_source_guardrails(repo))
+    errors.extend(check_run_scene_perf_log_lifecycle_guardrails(repo))
     errors.extend(check_run_scene_control_source_guardrails(repo))
     errors.extend(check_run_scene_coordinator_callback_source_guardrails(repo))
     errors.extend(check_scene_runtime_coordinator_callback_guardrails(repo))

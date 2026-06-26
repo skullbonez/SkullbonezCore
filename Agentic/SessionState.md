@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink scene coordinator intent slice is validated for commit: `SceneRuntimeCoordinatorCallbacks` and `Run::BuildSceneRuntimeCoordinatorCallbacks` are removed, and the coordinator now returns explicit scene-control actions that existing `Run` call sites execute locally. |
+| Last committed milestone | Runtime run composition-root shrink diagnostics perf-log lifecycle slice is validated for commit: `Run::TickPerfLog` is removed, scene perf-log reset/config/open flows through diagnostics APIs, and periodic memory checkpointing is owned by `RuntimeDiagnostics::TickPerfLog`. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
-| Pending work | Continue run-shrink work with remaining scene load reset/teardown phases, scene perf-log open/reset lifecycle ownership, remaining replay tool/helper ownership, render-host splitting, and shared cine/path helper cleanup. Do not skip an independent rubber-duck review before validation and commit. |
+| Pending work | Continue run-shrink work with remaining scene load reset/teardown/generated/authored setup phases, remaining replay tool/helper ownership, render-host splitting, and shared cine/path helper cleanup. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Scene coordinator intent validation: targeted Profile build (`TestOutput\validation\agent_logs\scene_coordinator_intent_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\scene_coordinator_intent_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\scene_coordinator_intent_runtime_boundaries.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\scene_coordinator_intent_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Diagnostics perf-log lifecycle validation: targeted Profile build (`TestOutput\validation\agent_logs\perf_log_lifecycle_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\perf_log_lifecycle_runtime_boundaries.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -161,6 +161,29 @@ audits when it is still useful.
   (`TestOutput\validation\agent_logs\scene_coordinator_intent_runtime_boundaries.log`),
   and `tools\validate_full.bat` in 25.31s
   (`TestOutput\validation\agent_logs\scene_coordinator_intent_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink diagnostics perf-log lifecycle slice removes
+  `Run::TickPerfLog`. `RunFrame` now calls
+  `DiagnosticsRuntime::TickPerfLog` directly, periodic memory checkpoints moved
+  into `RuntimeDiagnostics::TickPerfLog`, and scene-load perf-log
+  reset/config/open behavior moved behind diagnostics runtime/controller APIs.
+  `RunFrame` and `RunInput` now read perf-test state through
+  `DiagnosticsRuntime::PerfTestActive()`. The `Run.h` private-method ratchet is
+  now 215, and boundary guardrails reject `Run::TickPerfLog` and direct
+  `RunScene` perf-log lifecycle field/file access from returning. Rubber-duck
+  reviewer Einstein found no blocking defect; the only non-blocking finding was
+  a broad `fopen_s` guardrail, which was tightened before final validation.
+- Diagnostics perf-log lifecycle validation: targeted Profile build passed in
+  43.85s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` in about 47.7s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_fast.log`),
+  direct `check_runtime_boundaries.py` in 0.89s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_runtime_boundaries.log`),
+  and `tools\validate_full.bat` in 24.84s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_full.log`).
   Full gate passed project filters, runtime boundaries, Profile/Debug builds,
   DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
   and byte-exact `physics_regression_solver.csv`.

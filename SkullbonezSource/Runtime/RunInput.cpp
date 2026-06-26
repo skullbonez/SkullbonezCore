@@ -3027,7 +3027,7 @@ bool Run::DrainRuntimeCommands()
             SaveSkyDefaults();
             break;
         case RuntimeCommandType::AdvanceScene:
-            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                               sPerfPass,
                                                                               SceneState().isInteractiveRun ) ) )
             {

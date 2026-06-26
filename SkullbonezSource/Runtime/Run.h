@@ -495,7 +495,6 @@ class Run
     void TickLiveStyleControl();                                           // Poll live.style.json/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
     void TickAutoCycle();                                                  // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                                    // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                                               // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                            // Slide water surface up/down while held
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )

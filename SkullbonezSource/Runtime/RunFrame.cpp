@@ -425,7 +425,10 @@ void Run::Execute()
             }
 #endif
 
-            TickPerfLog();
+            m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+                                                                      SceneState().currentFrame + 1,
+                                                                      m_timers.physicsTime,
+                                                                      m_timers.renderTime } );
 
             if ( TickSceneAdvance() )
             {
@@ -2243,7 +2246,7 @@ bool Run::TickScreenshots()
         PostQuitMessage( 0 );
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
-        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                           sPerfPass,
                                                                           SceneState().isInteractiveRun ) ) )
         {
@@ -2308,20 +2311,6 @@ void Run::TickAutoCycle()
 }
 
 
-void Run::TickPerfLog()
-{
-    m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
-                                                              SceneState().currentFrame + 1,
-                                                              m_timers.physicsTime,
-                                                              m_timers.renderTime } );
-
-    if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
-    {
-        m_diagnosticsRuntime.LogPerfMemory( sPerfPass + 1, "periodic" );
-    }
-}
-
-
 bool Run::TickSceneAdvance()
 {
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
@@ -2366,7 +2355,7 @@ bool Run::TickSceneAdvance()
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                               sPerfPass,
                                                                               SceneState().isInteractiveRun ) ) )
             {
@@ -2436,10 +2425,9 @@ bool Run::TickSceneAdvance()
 
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !executeSceneControlAction(
-                         m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                                          sPerfPass,
-                                                          SceneState().isInteractiveRun ) ) )
+                if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                  sPerfPass,
+                                                                                  SceneState().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -2471,13 +2459,13 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnosticsRuntime.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnosticsRuntime.PerfTestActive() && SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG
         LogSceneFinished( "perf_duration" );
 #endif
-        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                           sPerfPass,
                                                                           SceneState().isInteractiveRun ) ) )
         {

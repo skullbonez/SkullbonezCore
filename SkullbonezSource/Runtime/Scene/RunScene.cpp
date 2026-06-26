@@ -845,14 +845,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
-    m_diagnosticsRuntime.PerfLog().isPerfTest = false;
-    m_diagnosticsRuntime.PerfLog().perfHeaderWritten = false;
+    m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
     m_simulation.Reset();
     m_diagnosticsRuntime.Capture().ResetScreenshot();
-    m_diagnosticsRuntime.PerfLog().perfLogPath[0] = '\0';
-    m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = false;
-    m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = 0;
-    m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
@@ -984,8 +979,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                                        : m_startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
@@ -1163,17 +1157,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_diagnosticsRuntime.PerfLog().isPerfTest = true;
-            strcpy_s( m_diagnosticsRuntime.PerfLog().perfLogPath,
-                      sizeof( m_diagnosticsRuntime.PerfLog().perfLogPath ),
-                      pPerfPath );
-            const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_diagnosticsRuntime.PerfLog().perfLogFile, m_diagnosticsRuntime.PerfLog().perfLogPath, mode );
-            if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
-            {
-                m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
-                m_diagnosticsRuntime.LogPerfMemory( sPerfPass + 1, "start" );
-            }
+            m_diagnosticsRuntime.OpenScenePerfLog( pPerfPath, sPerfPass );
         }
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can

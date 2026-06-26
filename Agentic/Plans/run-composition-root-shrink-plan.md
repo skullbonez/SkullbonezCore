@@ -877,6 +877,72 @@ Validation:
   validation with 0 errors and matching screenshots, and byte-exact
   `physics_regression_solver.csv` in 25.31s.
 
+## Diagnostics Perf-Log Lifecycle Slice
+
+This diagnostics slice removed the perf-log tick wrapper from `Run`. `RunFrame`
+now calls `DiagnosticsRuntime::TickPerfLog(...)` directly with the same pass,
+frame, physics-time, and render-time context. Periodic memory checkpointing moved
+inside `RuntimeDiagnostics::TickPerfLog(...)`, and scene-load perf-log
+reset/config/open behavior moved behind diagnostics APIs instead of direct
+`RunScene` mutation of perf-log lifecycle fields.
+
+Deleted `Run.h` declarations:
+
+- `TickPerfLog`
+
+Deleted `Run::` definitions:
+
+- `Run::TickPerfLog`
+
+New owner methods:
+
+- `RuntimeDiagnostics::ResetPerfLogForSceneLoad(...)`
+- `RuntimeDiagnostics::ConfigurePerfLogFlush(...)`
+- `RuntimeDiagnostics::OpenScenePerfLog(...)`
+- `RuntimeDiagnostics::PerfTestActive(...)`
+- `DiagnosticsController::ResetPerfLogForSceneLoad()`
+- `DiagnosticsController::ConfigurePerfLogFlush(...)`
+- `DiagnosticsController::OpenScenePerfLog(...)`
+- `DiagnosticsController::PerfTestActive()`
+- `DiagnosticsRuntime::ResetPerfLogForSceneLoad()`
+- `DiagnosticsRuntime::ConfigurePerfLogFlush(...)`
+- `DiagnosticsRuntime::OpenScenePerfLog(...)`
+- `DiagnosticsRuntime::PerfTestActive()`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 216 to 215.
+- The boundary checker rejects `TickPerfLog` declarations in `Run.h`.
+- The boundary checker rejects `Run::TickPerfLog` source definitions.
+- The boundary checker rejects direct `RunScene` access to perf-log lifecycle
+  fields and `fopen_s(...)` calls tied to `m_diagnosticsRuntime.PerfLog()`.
+- Synthetic self-tests cover the removed wrapper, direct perf-log lifecycle
+  access, and the allowed unrelated `fopen_s(...)` case.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\perf_log_lifecycle_profile_build.log`;
+  passed with 0 warnings and 0 errors in 43.85s.
+- Rubber duck: reviewer Einstein found no blocking defect. The only
+  non-blocking finding was that the first `RunScene` guardrail rejected every
+  `fopen_s(...)`; it was narrowed to perf-log lifecycle access before final
+  validation.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\perf_log_lifecycle_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in about 47.7s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\perf_log_lifecycle_runtime_boundaries.log`;
+  passed with 0 errors in 0.89s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\perf_log_lifecycle_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 24.84s.
+
 ## Replay Scrubber Timeline Owner Slice
 
 This replay slice moved scrubber timeline math and track-position mutation out

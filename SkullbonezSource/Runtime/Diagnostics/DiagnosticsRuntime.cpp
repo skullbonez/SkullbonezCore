@@ -109,6 +109,30 @@ void DiagnosticsRuntime::LogPerfMemory( int pass, const char* checkpoint )
 }
 
 
+void DiagnosticsRuntime::ResetPerfLogForSceneLoad()
+{
+    m_diagnostics.ResetPerfLogForSceneLoad();
+}
+
+
+void DiagnosticsRuntime::ConfigurePerfLogFlush( bool enabled, int interval )
+{
+    m_diagnostics.ConfigurePerfLogFlush( enabled, interval );
+}
+
+
+void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
+{
+    m_diagnostics.OpenScenePerfLog( path, pass );
+}
+
+
+bool DiagnosticsRuntime::PerfTestActive() const
+{
+    return m_diagnostics.PerfTestActive();
+}
+
+
 void DiagnosticsRuntime::TickPerfLog( const RuntimePerfTickContext& context )
 {
     m_diagnostics.TickPerfLog( context );
