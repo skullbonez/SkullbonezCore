@@ -673,12 +673,17 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.predictionBytes += VectorCapacityBytes( m_prediction.predictionBodies );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.liveRestoreBodies );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.buildFrames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodes );
     for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );
     }
-    stats.predictionFrames = m_prediction.frames.size();
+    for ( const RunReplayPredictionFrame& frame : m_prediction.buildFrames )
+    {
+        stats.predictionBytes += PredictionFrameMemoryBytes( frame );
+    }
+    stats.predictionFrames = m_prediction.frames.size() + m_prediction.buildFrames.size();
 
     stats.pathAndCauseBytes = static_cast<uint64_t>( sizeof( m_pathVisualizer ) + sizeof( m_causeTree ) );
     stats.pathAndCauseBytes += VectorCapacityBytes( m_pathVisualizer.futureNodes );

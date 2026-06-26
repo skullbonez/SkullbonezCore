@@ -120,6 +120,7 @@ struct RunCameraState
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
+    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Tab exits Attach to the camera mode it interrupted.
     bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -154,6 +155,7 @@ struct AttachedCameraState
     bool hasFixedOffset = false;
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
+    bool hasReturnCameraPose = false;
     float orbitYawRadians = 0.0f;
     float orbitPitchRadians = 0.30f;
     float orbitDistance = 8.0f;
@@ -161,6 +163,9 @@ struct AttachedCameraState
     Math::Vector::Vector3 localViewOffset = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     Math::Vector::Vector3 localUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
     Math::Vector::Vector3 lastLookDirection = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnEye = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 returnView = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    Math::Vector::Vector3 returnUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
 };
 
 struct RunLiveStyleControlState

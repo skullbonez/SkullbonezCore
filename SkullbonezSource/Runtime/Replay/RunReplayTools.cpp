@@ -2004,7 +2004,7 @@ void Run::ClearReplayPathVisualizer()
 
 void Run::MarkReplayPredictionDirty()
 {
-    CancelReplayPredictionJob( true );
+    CancelReplayPredictionJob( false );
     m_replayRuntime.Prediction().dirty = true;
 }
 
@@ -3401,6 +3401,7 @@ void Run::CancelReplayPredictionJob( bool clearSamples )
     m_replayRuntime.Prediction().liveRestoreBodies.clear();
     m_replayRuntime.Prediction().predictionWorld = ReplaySolverWorldSnapshot();
     m_replayRuntime.Prediction().liveRestoreWorld = ReplaySolverWorldSnapshot();
+    m_replayRuntime.Prediction().buildFrames.clear();
     if ( clearSamples )
     {
         m_replayRuntime.Prediction().frames.clear();
@@ -3532,7 +3533,7 @@ void Run::CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex )
         }
     }
     frame.debugContacts = m_cGameModelCollection.GetPhysicsDebugContacts();
-    m_replayRuntime.Prediction().frames.push_back( std::move( frame ) );
+    m_replayRuntime.Prediction().buildFrames.push_back( std::move( frame ) );
 }
 
 
@@ -3550,7 +3551,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
         return false;
     }
 
-    CancelReplayPredictionJob( true );
+    CancelReplayPredictionJob( false );
     m_replayRuntime.Prediction().targetId = m_replayRuntime.PathVisualizer().targetId;
     m_replayRuntime.Prediction().dirty = false;
 
@@ -3606,7 +3607,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
                     static_cast<int>( std::ceil( m_replayRuntime.Prediction().horizonSeconds / PHYSICS_FIXED_DT ) ) );
     m_replayRuntime.Prediction().targetTickCount = predictionTicks;
     m_replayRuntime.Prediction().nextTick = 1;
-    m_replayRuntime.Prediction().frames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
+    m_replayRuntime.Prediction().buildFrames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
 
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
@@ -3638,7 +3639,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
     CaptureReplayPredictionFrame( 0 );
     m_replayRuntime.Prediction().building = true;
 
-    return !m_replayRuntime.Prediction().frames.empty();
+    return !m_replayRuntime.Prediction().buildFrames.empty();
 }
 
 
@@ -3753,6 +3754,9 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
     {
         m_replayRuntime.Prediction().building = false;
         m_replayRuntime.Prediction().complete = true;
+        m_replayRuntime.Prediction().frames.swap( m_replayRuntime.Prediction().buildFrames );
+        m_replayRuntime.Prediction().buildFrames.clear();
+        ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
         m_replayRuntime.Prediction().lastBuildTime = m_timers.simulationTimer.GetTotalTime();
     }
 

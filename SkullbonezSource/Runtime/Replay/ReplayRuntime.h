@@ -275,6 +275,7 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
+    std::vector<RunReplayPredictionFrame> buildFrames;
     std::vector<RunReplayPathTraceNode> futureNodes;
     // Incremental tree cursors. Prediction can contain thousands of frames, so
     // futureNodes is built over multiple render frames under the visualizer

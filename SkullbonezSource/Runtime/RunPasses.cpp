@@ -1644,7 +1644,9 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled && selectedModelValid;
     const bool inspectSelection =
         !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Inspect && selectedModelValid;
-    if ( placementPreview || editorSelection || inspectSelection )
+    const bool attachSelection =
+        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Attach && selectedModelValid;
+    if ( placementPreview || editorSelection || inspectSelection || attachSelection )
     {
         return true;
     }

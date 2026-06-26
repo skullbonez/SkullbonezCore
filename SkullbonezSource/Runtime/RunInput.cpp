@@ -949,6 +949,44 @@ void Run::ResetAttachedCamera()
 }
 
 
+void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
+{
+    previousMode = NormalizeCameraModeForCurrentScene( previousMode );
+    if ( previousMode == RunCameraMode::Attach )
+    {
+        return;
+    }
+
+    m_camera.modeBeforeAttach = previousMode;
+    m_attachedCamera.hasReturnCameraPose = false;
+    if ( !m_systems.cameras )
+    {
+        return;
+    }
+
+    m_attachedCamera.returnEye = m_systems.cameras->GetCameraTranslation();
+    m_attachedCamera.returnView = m_systems.cameras->GetCameraView();
+    m_attachedCamera.returnUp = m_systems.cameras->GetCameraUp();
+    m_attachedCamera.hasReturnCameraPose = true;
+}
+
+
+void Run::RestoreAttachedCameraReturnState()
+{
+    if ( !m_attachedCamera.hasReturnCameraPose || !m_systems.cameras )
+    {
+        return;
+    }
+
+    m_systems.cameras->CancelTween();
+    m_systems.cameras->SetPrimaryPosition( m_attachedCamera.returnEye );
+    m_systems.cameras->SetViewCoordinates( m_attachedCamera.returnView );
+    m_systems.cameras->SetPrimaryUp( m_attachedCamera.returnUp );
+    m_systems.cameras->SetCamera();
+    m_attachedCamera.hasReturnCameraPose = false;
+}
+
+
 void Run::ClearAttachedCameraTarget()
 {
     m_attachedCamera.target = AttachedCameraTarget{};
@@ -1104,6 +1142,12 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     m_attachedCamera.target.modelIndex = modelIndex;
     m_attachedCamera.target.replayBodyId = model.GetReplayBodyId();
     strncpy_s( m_attachedCamera.target.name, sizeof( m_attachedCamera.target.name ), model.GetName(), _TRUNCATE );
+    RuntimeInteractionCommand command;
+    command.type = RuntimeInteractionCommandType::SetEditorSelection;
+    command.modelIndex = modelIndex;
+    command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+    command.claimSelectionOwner = false;
+    ExecuteRuntimeInteractionCommand( command );
     m_attachedCamera.activeFollow = true;
     if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
     {
@@ -1460,7 +1504,15 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     {
         return;
     }
+    const RunCameraMode previousMode = NormalizeCameraModeForCurrentScene( m_camera.mode );
     mode = NormalizeCameraModeForCurrentScene( mode );
+    const bool enteringAttach = mode == RunCameraMode::Attach && previousMode != RunCameraMode::Attach;
+    const bool restoringFromAttach = previousMode == RunCameraMode::Attach &&
+                                     mode == NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+    if ( enteringAttach )
+    {
+        CaptureAttachedCameraReturnState( previousMode );
+    }
 
     if ( mode == RunCameraMode::Demo )
     {
@@ -1484,6 +1536,10 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
     }
     SetCameraModeLabelAfterInteractionTransition( mode );
+    if ( restoringFromAttach )
+    {
+        RestoreAttachedCameraReturnState();
+    }
     if ( mode == RunCameraMode::Attach )
     {
         m_attachedCamera.activeFollow = true;
@@ -1527,6 +1583,18 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
 void Run::CycleCameraMode()
 {
     const uint32_t enabledMask = CameraModeEnabledMask();
+    if ( m_camera.mode == RunCameraMode::Attach )
+    {
+        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+        const int restoreIndex = static_cast<int>( restoreMode );
+        if ( restoreMode != RunCameraMode::Attach && restoreIndex >= 0 &&
+             restoreIndex < static_cast<int>( RunCameraMode::Count ) && ( enabledMask & ( 1u << restoreIndex ) ) != 0 )
+        {
+            ApplyCameraMode( restoreMode, RuntimeInputActionSource::Keyboard );
+            return;
+        }
+    }
+
     int current = static_cast<int>( m_camera.mode );
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
