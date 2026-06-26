@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "SceneRuntimeReset.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/Ragdoll.h"
@@ -827,104 +828,16 @@ const std::string* Run::CurrentSceneQueuePath() const
 }
 
 
-SceneRuntimeResetSnapshot Run::CaptureSceneRuntimeResetSnapshot()
-{
-    // Standard reset is a simulation rebuild, not a scene/config reload.  Capture
-    // every operator-facing scene control before LoadScene reapplies file defaults.
-    // Transient run artifacts such as frame counters, screenshot/perf files, timers,
-    // contact caches, and generated object transforms intentionally reset below.
-    SceneRuntimeResetSnapshot snapshot;
-    snapshot.runtimeSettings = m_runtimeSettings;
-    snapshot.debug = m_debug;
-    snapshot.isScenePhysics = SceneState().isScenePhysics;
-    snapshot.isSceneText = SceneState().isSceneText;
-    snapshot.isFixedStep = SceneState().isFixedStep;
-    snapshot.isExitOnComplete = SceneState().isExitOnComplete;
-    snapshot.isInteractiveRun = SceneState().isInteractiveRun;
-    snapshot.targetFrameCount = SceneState().targetFrameCount;
-    snapshot.timeScale = SceneState().timeScale;
-    snapshot.worldGravity = m_cWorldEnvironment.GetGravity();
-    snapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    snapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-    // Preserve live Cine-tab edits across a scene reset/reload. Without this,
-    // pressing reset would snap the visual look back to the file/defaults.
-    snapshot.hasCinematicRenderingOverride = SceneState().hasCinematicRenderingOverride;
-    snapshot.isCinematicRenderingEnabled = SceneState().isCinematicRenderingEnabled;
-    snapshot.hasCinematicExposure = SceneState().hasCinematicExposure;
-    snapshot.cinematicExposure = SceneState().cinematicExposure;
-    snapshot.hasCinematicGamma = SceneState().hasCinematicGamma;
-    snapshot.cinematicGamma = SceneState().cinematicGamma;
-    snapshot.cinematicOverrideMask = SceneState().cinematicOverrideMask;
-    snapshot.uiCinematicOverrideMask = SceneState().uiCinematicOverrideMask;
-    snapshot.cinematicRender = SceneState().cinematicRender;
-    snapshot.uiTimeScaleOverride = m_sceneUIOverrides.timeScaleOverride;
-    snapshot.uiModelCountOverride = m_sceneUIOverrides.modelCountOverride;
-    snapshot.uiSolverBallCountOverride = m_sceneUIOverrides.solverBallCountOverride;
-    snapshot.uiSolverBoxCountOverride = m_sceneUIOverrides.solverBoxCountOverride;
-    snapshot.trackBallIndex = m_camera.trackBallIndex;
-    snapshot.trackHeight = m_camera.trackHeight;
-    snapshot.autoCycleInterval = m_camera.autoCycleInterval;
-    snapshot.autoCycleAccum = m_camera.autoCycleAccum;
-    snapshot.autoCycleShotsTaken = m_camera.autoCycleShotsTaken;
-    return snapshot;
-}
-
-
-void Run::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete )
-{
-    // Restore live run controls that do not affect object construction.  Timers,
-    // frame counters, diagnostics/perf files, screenshots, input edge states, and
-    // object transforms stay reset because they belong to the simulation run itself.
-    m_runtimeSettings = snapshot.runtimeSettings;
-    m_debug = snapshot.debug;
-    SceneState().isScenePhysics = snapshot.isScenePhysics;
-    SceneState().isSceneText = snapshot.isSceneText;
-    SceneState().timeScale = snapshot.timeScale;
-    SceneState().isFixedStep = snapshot.isFixedStep;
-    SceneState().isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
-    SceneState().isExitOnComplete = SceneState().isInteractiveRun ? false : snapshot.isExitOnComplete;
-    SceneState().targetFrameCount = snapshot.targetFrameCount;
-    // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
-    SceneState().hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
-    SceneState().isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
-    SceneState().hasCinematicExposure = snapshot.hasCinematicExposure;
-    SceneState().cinematicExposure = snapshot.cinematicExposure;
-    SceneState().hasCinematicGamma = snapshot.hasCinematicGamma;
-    SceneState().cinematicGamma = snapshot.cinematicGamma;
-    SceneState().cinematicOverrideMask = snapshot.cinematicOverrideMask;
-    SceneState().uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
-    SceneState().cinematicRender = snapshot.cinematicRender;
-    m_sceneUIOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
-    m_sceneUIOverrides.modelCountOverride = snapshot.uiModelCountOverride;
-    m_sceneUIOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
-    m_sceneUIOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
-    m_camera.trackHeight = snapshot.trackHeight;
-    m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < SceneState().modelCount )
-                                  ? snapshot.trackBallIndex
-                                  : -1;
-    m_camera.autoCycleInterval = snapshot.autoCycleInterval;
-    m_camera.autoCycleAccum = snapshot.autoCycleAccum;
-    m_camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
-    m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
-    m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
-}
-
-
-void Run::ClearSceneRuntimeUIOverrides()
-{
-    // Scene changes and the explicit Reset Defaults command must make the scene
-    // file/config authoritative again.  UI sliders are live overrides, so clearing
-    // them here prevents stale counts or time scale from leaking into unrelated scenes.
-    m_sceneUIOverrides.timeScaleOverride = 0.0f;
-    m_sceneUIOverrides.modelCountOverride = -1;
-    m_sceneUIOverrides.solverBallCountOverride = -1;
-    m_sceneUIOverrides.solverBoxCountOverride = -1;
-}
-
-
 void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     SceneController& runtime = m_sceneController;
+    SceneRuntimeResetContext resetContext{ m_runtimeSettings,
+                                           m_debug,
+                                           SceneState(),
+                                           m_sceneUIOverrides,
+                                           m_camera,
+                                           m_cWorldEnvironment,
+                                           m_physicsDebugVisualizer };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
@@ -946,11 +859,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SceneRuntimeResetSnapshot resetSnapshot;
     if ( shouldPreserveRuntimeState )
     {
-        resetSnapshot = CaptureSceneRuntimeResetSnapshot();
+        resetSnapshot = CaptureSceneRuntimeResetSnapshot( resetContext );
     }
     else
     {
-        ClearSceneRuntimeUIOverrides();
+        ClearSceneRuntimeUIOverrides( resetContext );
     }
 
     // Flush GPU before destroying scene resources to avoid use-after-free
@@ -1446,7 +1359,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
     if ( shouldPreserveRuntimeState )
     {
-        RestoreSceneRuntimeResetSnapshot( resetSnapshot, suppressExitOnComplete );
+        RestoreSceneRuntimeResetSnapshot( resetContext, resetSnapshot, suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.

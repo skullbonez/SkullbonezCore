@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink replay overlay layout/renderer slice is validated for commit: replay scrubber/cause-tree layout helpers now live in `Runtime/Replay/ReplayOverlayLayout`, overlay drawing lives in `Runtime/Replay/ReplayOverlayRenderer`, and `RunUiTextPass` only invokes the render-host shim. |
+| Last committed milestone | Runtime run composition-root shrink scene reset preserve/restore slice is validated for commit: reset snapshot/capture/restore/UI-override clearing now live in `Runtime/Scene/SceneRuntimeReset`, `Run::LoadScene` wires an explicit reset context, and `Run.h` no longer declares those helpers. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
-| Pending work | Continue run-shrink work with scene runtime ownership, remaining replay tool/helper ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
+| Pending work | Continue run-shrink work with the remaining scene load phases, remaining replay tool/helper ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Replay overlay layout/renderer validation: `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\replay_overlay_renderer_check_runtime_boundaries_py.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_runtime_boundaries.log`), direct `validate_project_filters.py` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_project_filters_py.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_replay_v2_artifact.log`), `tools\validate_interaction_clicks.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_interaction_clicks.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_full.log`) all passed with formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, replay save/load/restore/query checks, interaction reports passing, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. Post-duck guardrail fix reran `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_fast_post_duck_guardrail.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\replay_overlay_renderer_check_runtime_boundaries_py_post_duck_guardrail.log`), and `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_runtime_boundaries_post_duck_guardrail.log`), all passed. |
+| Validation | Scene reset preserve/restore validation: `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\scene_reset_module_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\scene_reset_module_check_runtime_boundaries.log`), direct `validate_project_filters.py` (`TestOutput\validation\agent_logs\scene_reset_module_validate_project_filters.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\scene_reset_module_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -40,6 +40,33 @@ audits when it is still useful.
   hit/preview/commit helpers to `EditorTools`; replay restore now refreshes the
   body store and clears pending impulses after applying serialized body state,
   and replay v2 tooling understands snapshot version 2 tornado-system data.
+- Runtime run composition shrink scene reset preserve/restore slice moves
+  `SceneRuntimeResetSnapshot`, reset capture/restore, and scene UI override
+  clearing out of `Run`/`RunInternal` into `Runtime/Scene/SceneRuntimeReset`.
+  `Run::LoadScene` still sequences the load, but now passes an explicit
+  `SceneRuntimeResetContext` into scene-owned helpers. Guardrails lower the
+  `Run.h` private-method ratchet to 227, block the old `Run.h` helper
+  declarations, block `Run::...SceneRuntimeReset...` source definitions, block
+  the snapshot returning to `RunInternal.h`, and teach project-filter validation
+  that `SceneRuntimeReset.*` belongs under `Runtime/Scene`. Rubber-duck reviewer
+  Heisenberg found no behavior blocker after the split; the initial coordinator
+  coupling/API-shape concern was addressed by moving the helpers into a
+  dedicated reset module with non-const mutation context.
+- Scene reset preserve/restore validation: initial targeted Profile builds
+  passed in 43.97s and 43.59s
+  (`TestOutput\validation\agent_logs\scene_reset_context_profile_build.log`,
+  `TestOutput\validation\agent_logs\scene_reset_module_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` 56.66s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_fast.log`),
+  direct `check_runtime_boundaries.py` 0.62s
+  (`TestOutput\validation\agent_logs\scene_reset_module_check_runtime_boundaries.log`),
+  direct `validate_project_filters.py` 0.77s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_project_filters.log`),
+  and `tools\validate_full.bat` 25.00s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
 - Runtime run composition shrink editor gizmo slice moved editor transform
   gizmo math and selected-object transform mutation to `EditorTools`; no
   dedicated automated live translate/rotate/scale drag smoke exists yet, though

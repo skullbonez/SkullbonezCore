@@ -76,11 +76,6 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-namespace RunInternal
-{
-struct SceneRuntimeResetSnapshot;
-}
-
 enum class RuntimeInteractionCommandType
 {
     None,
@@ -342,12 +337,6 @@ class Run
     bool HasSceneQueueEntry( int index ) const;                            // True when index points at a queued scene/demo entry
     bool HasCurrentSceneQueueEntry() const;                                // True when currentSceneIndex points at a queued entry
     const std::string* CurrentSceneQueuePath() const;                      // Queued scene path; nullptr means no current entry.
-    RunInternal::SceneRuntimeResetSnapshot
-    CaptureSceneRuntimeResetSnapshot();                                    // Captures live runtime controls before a scene reset rebuilds objects
-    void RestoreSceneRuntimeResetSnapshot(
-        const RunInternal::SceneRuntimeResetSnapshot& snapshot,
-        bool suppressExitOnComplete );                                     // Restores preserved live controls after scene file/defaults rebuild
-    void ClearSceneRuntimeUIOverrides();                                   // New scene/defaults should become authoritative again.
     void LogPerfMemory( const char* checkpoint );                          // Log memory usage to perf CSV
     bool WriteMainMemoryDump( const char* checkpoint );                    // Writes CLI-requested process/replay/object memory JSON.
     void LoadScene(

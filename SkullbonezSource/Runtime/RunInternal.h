@@ -261,49 +261,6 @@ inline std::string NormalizeScenePath( const std::string& path )
     std::replace( normalized.begin(), normalized.end(), '\\', '/' );
     return normalized;
 }
-
-// Captures the part of a live run that belongs to the operator's current scene
-// configuration rather than the simulation instance.  A normal Reset button
-// should rebuild bodies, timers, contact caches, screenshots, and diagnostics;
-// it should not silently undo debug overlays, physics debug settings, time scale,
-// fixed-step mode, world sliders, or generated-count overrides.  Scene changes
-// and Reset To Defaults skip this snapshot so the file/config becomes authority.
-struct SceneRuntimeResetSnapshot
-{
-    RunRuntimeSettings runtimeSettings;                    // Live runtime toggles changed while operating the current scene
-    RunDebugState
-        debug;                                             // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
-    bool isScenePhysics =
-        true;                                              // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
-    bool isSceneText = true;                               // Live text/HUD toggle from the scene controls
-    bool isFixedStep = false;                              // Live stepping mode; resetting the simulation should not change how it advances
-    bool isExitOnComplete = false;                         // Interactive reset preserves the user's automation/hold choice
-    bool isInteractiveRun = false;                         // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
-    int targetFrameCount = -1;                             // Live frame-count control from the UI
-    float timeScale = 1.0f;                                // Live time-scale control from the UI/scene controls
-    float worldGravity = 0.0f;                             // Live world/environment sliders
-    float worldFluidHeight = 0.0f;
-    float worldFluidDensity = 0.0f;
-    bool hasCinematicRenderingOverride = false;
-    bool isCinematicRenderingEnabled = false;
-    bool hasCinematicExposure = false;
-    float cinematicExposure = 1.0f;
-    bool hasCinematicGamma = false;
-    float cinematicGamma = 2.2f;
-    uint64_t cinematicOverrideMask = 0;
-    uint64_t uiCinematicOverrideMask = 0;
-    CinematicRenderConfig cinematicRender;
-    float uiTimeScaleOverride =
-        0.0f;                                              // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
-    int uiModelCountOverride = -1;
-    int uiSolverBallCountOverride = -1;
-    int uiSolverBoxCountOverride = -1;
-    int trackBallIndex = -1;                               // Scene-tab camera tracking controls
-    float trackHeight = 300.0f;
-    float autoCycleInterval = -1.0f;
-    float autoCycleAccum = 0.0f;
-    int autoCycleShotsTaken = 0;
-};
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore
