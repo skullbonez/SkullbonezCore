@@ -356,6 +356,7 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodesBuiltContactIndex = 0;
     prediction.futureNodesBuiltTargetId = ReplayBodyId{};
     prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
+    prediction.futureNodesBuiltFromBuildFrames = false;
     prediction.futureNodesCacheValid = false;
 }
 
@@ -973,19 +974,19 @@ void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
     b = shade + 0.06f;
 }
 
-void DrawReplayPredictionRagdollTorsoTrails( const RunReplayPredictionState& prediction,
+void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredictionFrame>& frames,
                                              const std::vector<GameModel>& models,
                                              RunEditorTracer& tracer,
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
-    if ( prediction.frames.size() < 2 || models.empty() )
+    if ( frames.size() < 2 || models.empty() )
     {
         return;
     }
 
-    const ReplayFrameIndex lastFrame = prediction.frames.back().frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( prediction.frames.size() );
+    const ReplayFrameIndex lastFrame = frames.back().frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frames.size() );
     for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
@@ -1001,7 +1002,7 @@ void DrawReplayPredictionRagdollTorsoTrails( const RunReplayPredictionState& pre
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         std::size_t ordinal = 0;
-        for ( const RunReplayPredictionFrame& frame : prediction.frames )
+        for ( const RunReplayPredictionFrame& frame : frames )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -1274,6 +1275,8 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
 }
 
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
+                                            const std::vector<RunReplayPredictionFrame>& frames,
+                                            bool usingBuildFrames,
                                             const std::vector<GameModel>& models,
                                             ReplayBodyId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
@@ -1285,23 +1288,25 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     const bool cacheMismatch = !prediction.futureNodesCacheValid ||
                                prediction.futureNodesBuiltTargetId.value != rootId.value ||
                                prediction.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
-                               prediction.futureNodesBuiltFrameCount > prediction.frames.size();
+                               prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames ||
+                               prediction.futureNodesBuiltFrameCount > frames.size();
     if ( cacheMismatch )
     {
         ClearReplayPredictionFutureNodeCache( prediction );
         prediction.futureNodesBuiltTargetId = rootId;
         prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
+        prediction.futureNodesBuiltFromBuildFrames = usingBuildFrames;
         prediction.futureNodesCacheValid = rootId.value != 0;
     }
 
-    if ( rootId.value == 0 || prediction.frames.empty() || !prediction.futureNodesCacheValid )
+    if ( rootId.value == 0 || frames.empty() || !prediction.futureNodesCacheValid )
     {
         return;
     }
 
     if ( prediction.futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
-        prediction.futureNodesBuiltFrameCount = prediction.frames.size();
+        prediction.futureNodesBuiltFrameCount = frames.size();
         prediction.futureNodesBuiltContactIndex = 0;
         return;
     }
@@ -1312,11 +1317,11 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
-    while ( prediction.futureNodesBuiltFrameCount < prediction.frames.size() )
+    while ( prediction.futureNodesBuiltFrameCount < frames.size() )
     {
         const std::size_t frameIndex = prediction.futureNodesBuiltFrameCount;
         std::size_t nextContactIndex = prediction.futureNodesBuiltContactIndex;
-        if ( !BuildReplayPredictionFutureNodes( prediction.frames[frameIndex],
+        if ( !BuildReplayPredictionFutureNodes( frames[frameIndex],
                                                 futureContext,
                                                 prediction.futureNodesBuiltContactIndex,
                                                 budgetStart,
@@ -1331,7 +1336,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
         if ( prediction.futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            prediction.futureNodesBuiltFrameCount = prediction.frames.size();
+            prediction.futureNodesBuiltFrameCount = frames.size();
             prediction.futureNodesBuiltContactIndex = 0;
             return;
         }
@@ -2026,11 +2031,12 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
         *outRadius = 1.0f;
     }
 
-    if ( m_replayRuntime.Prediction().enabled && !m_replayRuntime.Prediction().frames.empty() &&
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
+    if ( m_replayRuntime.Prediction().enabled && !activePredictionFrames.empty() &&
          m_replayRuntime.Prediction().targetId.value == m_replayRuntime.PathVisualizer().targetId.value )
     {
         if ( const RunReplayPredictionBodySample* body =
-                 FindReplayPredictionBodyById( m_replayRuntime.Prediction().frames.front(), id ) )
+                 FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
         {
             outPosition = body->position;
             if ( outRadius && body->modelIndex >= 0 &&
@@ -3404,7 +3410,9 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         }
     }
 
-    if ( m_replayRuntime.Prediction().frames.size() < 2 )
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
+    const bool usingBuildFrames = &activePredictionFrames == &m_replayRuntime.Prediction().buildFrames;
+    if ( activePredictionFrames.size() < 2 )
     {
         return;
     }
@@ -3415,7 +3423,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
         if ( m_replayRuntime.Prediction().ragdollVisualsEnabled )
         {
-            DrawReplayPredictionRagdollTorsoTrails( m_replayRuntime.Prediction(),
+            DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                     models,
                                                     tracer,
                                                     budgetStart,
@@ -3424,27 +3432,14 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         return;
     }
 
-    {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
-        UpdateReplayPredictionFutureNodeCache( m_replayRuntime.Prediction(),
-                                               models,
-                                               m_replayRuntime.PathVisualizer().targetId,
-                                               budgetStart,
-                                               budgetMilliseconds );
-    }
-    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-    {
-        return;
-    }
-
-    const ReplayFrameIndex lastFrame = m_replayRuntime.Prediction().frames.back().frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( m_replayRuntime.Prediction().frames.size() );
+    const ReplayFrameIndex lastFrame = activePredictionFrames.back().frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( activePredictionFrames.size() );
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         std::size_t ordinal = 0;
-        for ( const RunReplayPredictionFrame& frame : m_replayRuntime.Prediction().frames )
+        for ( const RunReplayPredictionFrame& frame : activePredictionFrames )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -3474,6 +3469,25 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
             hasPrevious = true;
         }
     }
+    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    {
+        return;
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
+        UpdateReplayPredictionFutureNodeCache( m_replayRuntime.Prediction(),
+                                               activePredictionFrames,
+                                               usingBuildFrames,
+                                               models,
+                                               m_replayRuntime.PathVisualizer().targetId,
+                                               budgetStart,
+                                               budgetMilliseconds );
+    }
+    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    {
+        return;
+    }
 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
@@ -3491,7 +3505,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         }
 
         std::size_t ordinal = 0;
-        for ( const RunReplayPredictionFrame& frame : m_replayRuntime.Prediction().frames )
+        for ( const RunReplayPredictionFrame& frame : activePredictionFrames )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -3593,7 +3607,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
     if ( m_replayRuntime.Prediction().ragdollVisualsEnabled &&
          !ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        DrawReplayPredictionRagdollTorsoTrails( m_replayRuntime.Prediction(),
+        DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 models,
                                                 tracer,
                                                 budgetStart,

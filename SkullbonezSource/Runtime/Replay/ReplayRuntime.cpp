@@ -79,13 +79,25 @@ float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats
     return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
 }
 
+const std::vector<RunReplayPredictionFrame>&
+ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
+{
+    if ( prediction.building && prediction.buildFrames.size() >= 2 &&
+         ( prediction.frames.empty() || prediction.buildFrames.size() >= prediction.frames.size() ) )
+    {
+        return prediction.buildFrames;
+    }
+    return prediction.frames;
+}
+
 float ReplayRuntimePredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
 {
-    if ( !prediction.enabled || prediction.frames.size() < 2 )
+    const std::vector<RunReplayPredictionFrame>& frames = ReplayRuntimeActivePredictionFrames( prediction );
+    if ( !prediction.enabled || frames.size() < 2 )
     {
         return 0.0f;
     }
-    return static_cast<float>( prediction.frames.back().frameIndex ) * PHYSICS_FIXED_DT;
+    return static_cast<float>( frames.back().frameIndex ) * PHYSICS_FIXED_DT;
 }
 
 float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
@@ -404,6 +416,11 @@ RunReplayPredictionState& ReplayRuntime::Prediction()
 const RunReplayPredictionState& ReplayRuntime::Prediction() const
 {
     return m_prediction;
+}
+
+const std::vector<RunReplayPredictionFrame>& ReplayRuntime::ActivePredictionFrames() const
+{
+    return ReplayRuntimeActivePredictionFrames( m_prediction );
 }
 
 RunReplayCauseTreeState& ReplayRuntime::CauseTree()
@@ -918,7 +935,7 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() const
 {
     if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused ||
-         !m_prediction.enabled || m_prediction.frames.size() < 2 )
+         !m_prediction.enabled || ActivePredictionFrames().size() < 2 )
     {
         return nullptr;
     }
@@ -930,12 +947,13 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
         return nullptr;
     }
 
+    const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
     const float predictionT = PredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameCount = m_prediction.frames.size();
+    const std::size_t frameCount = frames.size();
     const std::size_t frameIndex =
         (std::min)( frameCount - 1,
                     static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
-    return &m_prediction.frames[frameIndex];
+    return &frames[frameIndex];
 }
 
 
@@ -949,7 +967,7 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         return false;
     }
 
-    const bool usePrediction = m_prediction.enabled && m_prediction.frames.size() >= 2 &&
+    const bool usePrediction = m_prediction.enabled && ActivePredictionFrames().size() >= 2 &&
                                m_prediction.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
@@ -1341,7 +1359,8 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
 bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
 {
     m_predictionGhostDrawRequests.clear();
-    if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || m_prediction.frames.size() < 2 )
+    const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
+    if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || frames.size() < 2 )
     {
         return false;
     }
@@ -1360,17 +1379,17 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObje
         return false;
     }
 
-    const std::size_t lastIndex = m_prediction.frames.size() - 1;
+    const std::size_t lastIndex = frames.size() - 1;
     const std::size_t stride =
         (std::max)( static_cast<std::size_t>( 1 ),
                     ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
-    const ReplayFrameIndex lastFrame = m_prediction.frames.back().frameIndex;
-    m_predictionGhostDrawRequests.reserve(
-        (std::min)( m_prediction.frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) * models.size() );
+    const ReplayFrameIndex lastFrame = frames.back().frameIndex;
+    m_predictionGhostDrawRequests.reserve( (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) *
+                                           models.size() );
 
     auto appendGhostFrame = [&]( std::size_t index )
     {
-        const RunReplayPredictionFrame& predictionFrame = m_prediction.frames[index];
+        const RunReplayPredictionFrame& predictionFrame = frames[index];
         if ( predictionFrame.frameIndex == 0 )
         {
             return;

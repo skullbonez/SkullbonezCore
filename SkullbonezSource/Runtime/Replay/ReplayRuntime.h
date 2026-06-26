@@ -284,6 +284,7 @@ struct RunReplayPredictionState
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
     bool futureNodesBuiltRagdollVisuals = true;
+    bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
 };
 
@@ -373,6 +374,7 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
+    const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
 
     RunReplayCauseTreeState& CauseTree();
     const RunReplayCauseTreeState& CauseTree() const;

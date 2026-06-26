@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 14, "clickReplayControl": "predict" },
+    { "frame": 20, "clickObject": "prediction_striker", "button": "left" },
+    { "frame": 32, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 32, "assert": { "replayPathTarget": "prediction_striker" } },
+    { "frame": 42, "screenshot": "TestOutput/interaction/replay_prediction_simple_building.bmp" },
+    { "frame": 58, "assert": { "predictionPathVisible": true } },
+    { "frame": 70, "screenshot": "TestOutput/interaction/replay_prediction_simple_mid.bmp" },
+    { "frame": 72, "assert": { "predictionTargetDisplacementMin": 25.0 } },
+    { "frame": 120, "screenshot": "TestOutput/interaction/replay_prediction_simple_late.bmp" }
+  ]
+}

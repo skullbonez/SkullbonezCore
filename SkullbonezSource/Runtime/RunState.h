@@ -307,6 +307,7 @@ enum class RunInteractionAutomationAssertKind
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,
+    PredictionTargetDisplacementMin,
     GizmoVisible
 };
 
@@ -318,6 +319,7 @@ struct RunInteractionAutomationAction
     RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
     RunCameraMode cameraMode = RunCameraMode::Inspect;
     bool boolValue = false;
+    float numberValue = 0.0f;
     char text[128] = {};
     char path[260] = {};
     POINT mouse = {};
