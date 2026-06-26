@@ -1,0 +1,28 @@
+{
+  "format": "skullbonez.asset_library.json",
+  "version": 1,
+  "assets": [
+    {
+      "name": "physics.disc_16",
+      "type": "convexHull",
+      "hull": "SkullbonezData/hulls/disc_16.hull",
+      "mass": 18.0,
+      "restitution": 0.18,
+      "fixed": false,
+      "sleeping": false,
+      "material": {
+        "name": "brushed_gold_disc",
+        "mode": "metal",
+        "color": [
+          0.78,
+          0.62,
+          0.28
+        ],
+        "roughness": 0.42,
+        "metallic": 0.88,
+        "specular": 0.58,
+        "stylization": 0.2
+      }
+    }
+  ]
+}

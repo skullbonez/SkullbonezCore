@@ -1,0 +1,129 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "assetLibraries": [
+    "physics_props"
+  ],
+  "cinematic": {
+    "shadows": true,
+    "shadowMapSize": 2048,
+    "shadowPcfRadius": 1,
+    "shadowStrength": 0.62,
+    "shadowSoftness": 1.2,
+    "shadowMaxDistance": 900.0,
+    "terrainTint": [
+      0.24,
+      0.31,
+      0.29
+    ],
+    "terrainAccent": [
+      0.48,
+      0.5,
+      0.43
+    ]
+  },
+  "simulation": {
+    "seed": 1601,
+    "physics": true,
+    "text": false,
+    "timeScale": 1.0,
+    "modelCapacity": 64,
+    "world": {
+      "gravity": -30.0,
+      "fluidHeight": -500.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": "unlimited",
+    "fixedStep": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": false,
+    "collisionVisualizer": false,
+    "physics": {
+      "axes": true,
+      "contacts": true,
+      "sleep": false,
+      "transparent": false,
+      "alpha": 0.28
+    }
+  },
+  "cameras": [
+    {
+      "name": "main",
+      "position": [
+        455.0,
+        72.0,
+        650.0
+      ],
+      "view": [
+        500.0,
+        16.0,
+        515.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "name": "side",
+      "position": [
+        640.0,
+        56.0,
+        500.0
+      ],
+      "view": [
+        500.0,
+        12.0,
+        520.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "assetInstances": [
+    {
+      "asset": "physics.disc_16",
+      "name": "edge_disc",
+      "position": [
+        500.0,
+        8.05,
+        485.0
+      ],
+      "euler": [
+        0.0,
+        0.0,
+        90.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        3.0
+      ],
+      "angularVelocity": [
+        -6.0,
+        0.0,
+        0.0
+      ],
+      "fixed": false,
+      "sleeping": false
+    }
+  ]
+}

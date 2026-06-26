@@ -501,6 +501,7 @@ void Run::RegisterBuiltInAssets()
     m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature",
                                                       "assets/low_poly_nature.assets.json" );
     m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );
+    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.physics_props", "assets/physics_props.assets.json" );
 
     auto contract = []( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
     {

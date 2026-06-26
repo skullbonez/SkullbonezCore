@@ -391,6 +391,10 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         {
             gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
         }
+        if ( hullScene.hasInitAngularVelocity )
+        {
+            gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
+        }
 
         gameModel.SetFixed( hullScene.isFixed );
 
