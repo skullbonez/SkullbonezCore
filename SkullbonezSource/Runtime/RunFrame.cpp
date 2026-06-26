@@ -658,11 +658,24 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
         if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
         {
-            FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
+            if ( m_runtimeTools.FireLauncherProjectile( m_cGameModelCollection,
+                                                        m_cWorldEnvironment,
+                                                        m_systems.terrain.get(),
+                                                        ActiveGameModelCapacity(),
+                                                        rayOrigin,
+                                                        rayDirection,
+                                                        cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
         }
         else
         {
-            FireLauncherLaser( rayOrigin, rayDirection, cameraUp );
+            m_runtimeTools.FireLauncherLaser( m_cGameModelCollection,
+                                              m_systems.terrain.get(),
+                                              rayOrigin,
+                                              rayDirection,
+                                              cameraUp );
         }
         WriteReplayProbeReason( outReason, reasonSize, "applied launcher fire" );
         return true;

@@ -6,16 +6,27 @@ Purpose:
 #include "RuntimeTools.h"
 
 #include "../../GameObjects/GameModel.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../World/Terrain.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace SkullbonezCore::Basics
 {
 namespace
 {
+constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
+constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
+constexpr float LAUNCHER_PROJECTILE_RADIUS = 0.85f;
+constexpr float LAUNCHER_PROJECTILE_MASS = 6.0f;
+constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
+constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
+
 float LauncherModelRadius( const GameObjects::GameModel& model )
 {
     return (std::max)( Math::CollisionDetection::GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
@@ -193,6 +204,122 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
     }
 
     return false;
+}
+
+void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collection,
+                                      Geometry::Terrain* terrain,
+                                      const Math::Vector::Vector3& rayOrigin,
+                                      const Math::Vector::Vector3& rayDirection,
+                                      const Math::Vector::Vector3& cameraUp )
+{
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( collection.Models(),
+                                             rayOrigin,
+                                             rayDirection,
+                                             RAY_CAST_TEST_MAX_DISTANCE,
+                                             modelHitIndex,
+                                             modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit =
+        TryLauncherTerrainHit( terrain, rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
+    const bool hit = modelHit || terrainHit;
+    const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Math::Vector::Vector3 visualEnd = rayOrigin + rayDirection * hitT;
+    m_laser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
+    AddRayCastTestLine( rayOrigin, visualEnd, hit );
+
+    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= collection.GetModelCount() )
+    {
+        return;
+    }
+
+    GameObjects::GameModel& model = collection.GetModelAtIndex( modelHitIndex );
+    if ( model.IsFixed() )
+    {
+        if ( !model.ReleasesFromFixedOnContact() ||
+             m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
+        {
+            return;
+        }
+        model.SetFixed( false );
+    }
+
+    const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
+    collection.GetPhysicsEngine().ApplyBodyImpulse( collection,
+                                                    modelHitIndex,
+                                                    rayDirection * m_rayCastTest.impulseStrength,
+                                                    hitPoint - model.GetPosition() );
+    const float mass = (std::max)( 0.001f, model.GetMass() );
+    const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
+    collection.ReleaseAttachedFixedTreeParts( modelHitIndex, rayDirection * releaseSpeed, Math::Vector::ZERO_VECTOR );
+}
+
+bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                           Environment::WorldEnvironment& world,
+                                           Geometry::Terrain* terrain,
+                                           int activeModelCapacity,
+                                           const Math::Vector::Vector3& rayOrigin,
+                                           const Math::Vector::Vector3& rayDirection,
+                                           const Math::Vector::Vector3& cameraUp )
+{
+    if ( !terrain || collection.GetModelCount() >= activeModelCapacity )
+    {
+        return false;
+    }
+
+    int modelHitIndex = -1;
+    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool modelHit = TryRayCastTestHit( collection.Models(),
+                                             rayOrigin,
+                                             rayDirection,
+                                             RAY_CAST_TEST_MAX_DISTANCE,
+                                             modelHitIndex,
+                                             modelHitT );
+
+    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
+    const bool terrainHit =
+        TryLauncherTerrainHit( terrain, rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+
+    const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT )
+                           ? terrainHitT
+                           : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
+    const Math::Vector::Vector3 aimPoint = rayOrigin + rayDirection * hitT;
+    Math::Vector::Vector3 up = cameraUp;
+    const float upLenSq = Math::Vector::VectorMagSquared( up );
+    up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
+    const Math::Vector::Vector3 spawn =
+        rayOrigin + rayDirection * LAUNCHER_PROJECTILE_SPAWN_LEAD - up * LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET;
+    Math::Vector::Vector3 velocityDir = aimPoint - spawn;
+    const float velocityDirLenSq = Math::Vector::VectorMagSquared( velocityDir );
+    if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
+    {
+        velocityDir = rayDirection;
+    }
+    else
+    {
+        velocityDir = velocityDir * ( 1.0f / sqrtf( velocityDirLenSq ) );
+    }
+
+    const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
+    GameObjects::GameModel projectile( &world,
+                                       spawn,
+                                       Math::Vector::Vector3( moment, moment, moment ),
+                                       LAUNCHER_PROJECTILE_MASS );
+    projectile.SetTerrain( terrain );
+    projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
+    projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
+    projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
+    projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
+    projectile.SetName( "launcher_projectile" );
+
+    const int projectileIndex = collection.GetModelCount();
+    collection.AddGameModel( std::move( projectile ) );
+    collection.GetPhysicsEngine().WakeBody( collection, projectileIndex );
+    return true;
 }
 
 LauncherLaser& RuntimeTools::Laser()

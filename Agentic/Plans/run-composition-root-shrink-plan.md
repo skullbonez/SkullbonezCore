@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; launcher helper slice validated
+Status: Active architecture cleanup plan; launcher helper and fire slices validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -71,6 +71,52 @@ launcher methods for fire dispatch, laser/projectile behavior, and launcher
 repro snapshot helpers. This helper slice also keeps a compatibility bridge that
 accepts caller-owned `std::vector<GameModel>` and raw terrain input; shrink that
 bridge as the runtime tools boundary gains more ownership.
+
+## Launcher Fire Slice
+
+The second launcher slice moved laser/projectile fire behavior into
+`RuntimeTools` while keeping `Run::FireRayCastTest()` as the temporary
+composition-root dispatcher that computes camera rays, records replay fire
+events, and updates `SceneState().modelCount` after projectile insertion.
+Replay restore now applies launcher fire events through the same `RuntimeTools`
+methods.
+
+Deleted `Run.h` declarations:
+
+- `FireLauncherLaser`
+- `FireLauncherProjectile`
+
+Deleted `Run::` definitions:
+
+- `Run::FireLauncherLaser`
+- `Run::FireLauncherProjectile`
+
+New owner methods:
+
+- `RuntimeTools::FireLauncherLaser(...)`
+- `RuntimeTools::FireLauncherProjectile(...)`
+
+Validation:
+
+- Targeted build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\run_composition_launcher_fire_profile_build.log`;
+  passed with 0 warnings and 0 errors.
+- Rubber duck: reviewer Hooke found no blocking defect; noted that the new
+  methods still accept `GameModelCollection&`, `WorldEnvironment&`, and raw
+  `Terrain*`, which is acceptable compatibility debt for this slice.
+- Formatting check: `tools\validate_format.bat`, logged at
+  `TestOutput\validation\run_composition_launcher_fire_validate_format_rerun.log`;
+  passed after targeted formatting of the touched launcher/runtime files.
+- Pre-commit gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_launcher_fire_validate_full_rerun.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv`.
+
+Remaining launcher shrink work is now limited to the still-live
+`Run::FireRayCastTest()` dispatcher and the debug-only launcher repro target and
+snapshot helpers. Broader editor, replay, scene runtime, and render-host slices
+remain active plan work.
 
 ## Rules
 

@@ -31,19 +31,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-namespace
-{
-constexpr float RAY_CAST_TEST_MAX_DISTANCE = 5000.0f;
-constexpr float RAY_CAST_TEST_VISUAL_MISS_DISTANCE = 360.0f;
-constexpr float LAUNCHER_PROJECTILE_RADIUS = 0.85f;
-constexpr float LAUNCHER_PROJECTILE_MASS = 6.0f;
-constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
-constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
-constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
-
-} // namespace
-
-
 void Run::FireRayCastTest()
 {
     if ( !m_systems.cameras )
@@ -64,125 +51,24 @@ void Run::FireRayCastTest()
 
     if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
     {
-        FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
-        return;
-    }
-
-    FireLauncherLaser( rayOrigin, rayDirection, cameraUp );
-}
-
-
-void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp )
-{
-    int modelHitIndex = -1;
-    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = m_runtimeTools.TryRayCastTestHit( m_cGameModelCollection.Models(),
-                                                            rayOrigin,
-                                                            rayDirection,
-                                                            RAY_CAST_TEST_MAX_DISTANCE,
-                                                            modelHitIndex,
-                                                            modelHitT );
-
-    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = m_runtimeTools.TryLauncherTerrainHit( m_systems.terrain.get(),
-                                                                  rayOrigin,
-                                                                  rayDirection,
-                                                                  RAY_CAST_TEST_MAX_DISTANCE,
-                                                                  terrainHitT );
-
-    const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
-    const bool hit = modelHit || terrainHit;
-    const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
-    const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
-    m_runtimeTools.Laser().Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
-    m_runtimeTools.AddRayCastTestLine( rayOrigin, visualEnd, hit );
-
-    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
-    {
-        return;
-    }
-
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelHitIndex );
-    if ( model.IsFixed() )
-    {
-        if ( !model.ReleasesFromFixedOnContact() ||
-             m_runtimeTools.RayCastTest().impulseStrength < model.GetContactReleaseImpulseThreshold() )
+        if ( m_runtimeTools.FireLauncherProjectile( m_cGameModelCollection,
+                                                    m_cWorldEnvironment,
+                                                    m_systems.terrain.get(),
+                                                    ActiveGameModelCapacity(),
+                                                    rayOrigin,
+                                                    rayDirection,
+                                                    cameraUp ) )
         {
-            return;
+            SceneState().modelCount = m_cGameModelCollection.GetModelCount();
         }
-        model.SetFixed( false );
-    }
-
-    const Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse(
-        m_cGameModelCollection,
-        modelHitIndex,
-        rayDirection * m_runtimeTools.RayCastTest().impulseStrength,
-        hitPoint - model.GetPosition() );
-    const float mass = (std::max)( 0.001f, model.GetMass() );
-    const float releaseSpeed = std::clamp( m_runtimeTools.RayCastTest().impulseStrength / mass, 1.5f, 36.0f );
-    m_cGameModelCollection.ReleaseAttachedFixedTreeParts( modelHitIndex,
-                                                          rayDirection * releaseSpeed,
-                                                          SkullbonezCore::Math::Vector::ZERO_VECTOR );
-}
-
-
-void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDirection, const Vector3& cameraUp )
-{
-    if ( !m_systems.terrain || m_cGameModelCollection.GetModelCount() >= ActiveGameModelCapacity() )
-    {
         return;
     }
 
-    int modelHitIndex = -1;
-    float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = m_runtimeTools.TryRayCastTestHit( m_cGameModelCollection.Models(),
-                                                            rayOrigin,
-                                                            rayDirection,
-                                                            RAY_CAST_TEST_MAX_DISTANCE,
-                                                            modelHitIndex,
-                                                            modelHitT );
-
-    float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = m_runtimeTools.TryLauncherTerrainHit( m_systems.terrain.get(),
-                                                                  rayOrigin,
-                                                                  rayDirection,
-                                                                  RAY_CAST_TEST_MAX_DISTANCE,
-                                                                  terrainHitT );
-
-    const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT )
-                           ? terrainHitT
-                           : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
-    const Vector3 aimPoint = rayOrigin + rayDirection * hitT;
-    Vector3 up = cameraUp;
-    const float upLenSq = VectorMagSquared( up );
-    up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Vector3( 0.0f, 1.0f, 0.0f );
-    const Vector3 spawn =
-        rayOrigin + rayDirection * LAUNCHER_PROJECTILE_SPAWN_LEAD - up * LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET;
-    Vector3 velocityDir = aimPoint - spawn;
-    const float velocityDirLenSq = VectorMagSquared( velocityDir );
-    if ( velocityDirLenSq <= TOLERANCE * TOLERANCE )
-    {
-        velocityDir = rayDirection;
-    }
-    else
-    {
-        velocityDir = velocityDir * ( 1.0f / sqrtf( velocityDirLenSq ) );
-    }
-
-    const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
-    GameModel projectile( &m_cWorldEnvironment, spawn, Vector3( moment, moment, moment ), LAUNCHER_PROJECTILE_MASS );
-    projectile.SetTerrain( m_systems.terrain.get() );
-    projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
-    projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
-    projectile.SetLinearVelocity( velocityDir * m_runtimeTools.RayCastTest().projectileSpeed );
-    projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
-    projectile.SetName( "launcher_projectile" );
-
-    const int projectileIndex = m_cGameModelCollection.GetModelCount();
-    m_cGameModelCollection.AddGameModel( std::move( projectile ) );
-    m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, projectileIndex );
-    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+    m_runtimeTools.FireLauncherLaser( m_cGameModelCollection,
+                                      m_systems.terrain.get(),
+                                      rayOrigin,
+                                      rayDirection,
+                                      cameraUp );
 }
 
 

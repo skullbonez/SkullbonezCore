@@ -539,14 +539,6 @@ class Run
     bool TickSceneAdvance();                                                     // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                                  // Slide water surface up/down while held
     void FireRayCastTest();                                                      // Dispatches the selected launcher-mode fire action.
-    void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
-                            const Math::Vector::Vector3& rayDirection,
-                            const Math::Vector::Vector3& cameraUp );             // Casts a runtime test ray, draws the laser, and
-                                                                     // applies impulse to the first dynamic hit.
-    void
-    FireLauncherProjectile( const Math::Vector::Vector3& rayOrigin,
-                            const Math::Vector::Vector3& rayDirection,
-                            const Math::Vector::Vector3& cameraUp );             // Shoots a small dynamic sphere from the camera.
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                                   // Mouse position projected into a world-space ray.
     bool TryGetMouseTerrainPlacement(

@@ -26,11 +26,17 @@ Mental model:
 namespace SkullbonezCore::GameObjects
 {
 class GameModel;
-}
+class GameModelCollection;
+} // namespace SkullbonezCore::GameObjects
 
 namespace SkullbonezCore::Geometry
 {
 class Terrain;
+}
+
+namespace SkullbonezCore::Environment
+{
+class WorldEnvironment;
 }
 
 namespace SkullbonezCore::Basics
@@ -205,6 +211,18 @@ class RuntimeTools
                                 const Math::Vector::Vector3& rayDirection,
                                 float maxDistance,
                                 float& outT ) const;
+    void FireLauncherLaser( GameObjects::GameModelCollection& collection,
+                            Geometry::Terrain* terrain,
+                            const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            const Math::Vector::Vector3& cameraUp );
+    bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                 Environment::WorldEnvironment& world,
+                                 Geometry::Terrain* terrain,
+                                 int activeModelCapacity,
+                                 const Math::Vector::Vector3& rayOrigin,
+                                 const Math::Vector::Vector3& rayDirection,
+                                 const Math::Vector::Vector3& cameraUp );
 
     LauncherLaser& Laser();
     const LauncherLaser& Laser() const;
