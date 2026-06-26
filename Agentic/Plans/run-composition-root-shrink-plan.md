@@ -801,6 +801,82 @@ Validation:
   validation with 0 errors and matching screenshots, and byte-exact
   `physics_regression_solver.csv` in 25.08s.
 
+## Scene Coordinator Intent Slice
+
+This scene-runtime slice removed the callback bounce from
+`SceneRuntimeCoordinator`. The coordinator now owns only scene selection
+decisions and returns explicit `SceneRuntimeControlAction` values. Existing
+`Run` call sites execute those returned intents locally, so the coordinator no
+longer stores function pointers back into the composition root.
+
+Deleted `Run.h` declarations:
+
+- `BuildSceneRuntimeCoordinatorCallbacks`
+
+Deleted `Run::` definitions:
+
+- `Run::BuildSceneRuntimeCoordinatorCallbacks`
+
+Removed callback surface:
+
+- `SceneRuntimeCoordinatorCallbacks`
+- `SceneRuntimeCoordinatorCallbacks::enterInteractiveSceneRun`
+- `SceneRuntimeCoordinatorCallbacks::clearCurrentSceneAutomation`
+- `SceneRuntimeCoordinatorCallbacks::loadScene`
+- `SceneRuntimeCoordinatorCallbacks::currentSceneBrowserIndex`
+- `SceneRuntimeCoordinatorCallbacks::isCinematicTabActive`
+- `SceneRuntimeCoordinatorCallbacks::applyCinematicModeFromBrowserIndex`
+- `SceneRuntimeCoordinator::m_callbacks`
+
+New owner shape:
+
+- `SceneRuntimeCoordinator` constructs with only `SceneController&`.
+- `SceneRuntimeControlAction` carries `None`,
+  `ClearCurrentSceneAutomation`, `LoadScene`, and
+  `ApplyCinematicModeFromBrowserIndex` intents.
+- Scene browser, demo scene, adjacent scene/cinematic, reset, and advance
+  decisions return control actions instead of invoking callbacks.
+- `RunInput`, `RunFrame`, and `RunScene` execute those actions locally at the
+  existing call sites without adding a new `Run` helper.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 217 to 216.
+- The boundary checker rejects `BuildSceneRuntimeCoordinatorCallbacks`
+  declarations in `Run.h`.
+- The boundary checker rejects `Run::BuildSceneRuntimeCoordinatorCallbacks`
+  source definitions.
+- The boundary checker rejects `SceneRuntimeCoordinatorCallbacks` and
+  `m_callbacks` in `SceneRuntimeCoordinator.*`.
+- Synthetic self-tests cover the removed `Run` builder and callback state.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_coordinator_intent_profile_build.log`;
+  passed with 0 warnings and 0 errors in 42.43s.
+- Rubber duck: reviewer Popper found no blocking defect. Scene browser/demo
+  loads still enter interactive mode before `LoadScene`, reset still forwards
+  preserve flags unchanged after entering interactive mode, adjacent cinematic
+  fallback still maps a no-action result to browser scene cycling, and
+  `AdvanceScene` no-action still maps to the old no-next false path. Residual
+  non-blocking risks are exact-name callback guardrails and duplicated local
+  action executors.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_coordinator_intent_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in about 45.3s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_coordinator_intent_runtime_boundaries.log`;
+  passed with 0 errors in 0.82s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_coordinator_intent_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.31s.
+
 ## Replay Scrubber Timeline Owner Slice
 
 This replay slice moved scrubber timeline math and track-position mutation out

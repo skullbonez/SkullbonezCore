@@ -2168,6 +2168,33 @@ bool Run::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
 
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            return ApplyCinematicModeFromBrowserIndex( action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     struct ScreenshotSink final : RuntimeCaptureSink
     {
         explicit ScreenshotSink( Run& owner ) : run( owner )
@@ -2216,9 +2243,9 @@ bool Run::TickScreenshots()
         PostQuitMessage( 0 );
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
-        if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                               sPerfPass,
-                                               SceneState().isInteractiveRun ) )
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                                          sPerfPass,
+                                                                          SceneState().isInteractiveRun ) ) )
         {
             PostQuitMessage( 0 );
         }
@@ -2297,6 +2324,33 @@ void Run::TickPerfLog()
 
 bool Run::TickSceneAdvance()
 {
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            return ApplyCinematicModeFromBrowserIndex( action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     ++SceneState().currentFrame;
 
     const bool hasRequiredContactGate = !m_requiredSceneContacts.empty();
@@ -2312,9 +2366,9 @@ bool Run::TickSceneAdvance()
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                                   sPerfPass,
-                                                   SceneState().isInteractiveRun ) )
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                                              sPerfPass,
+                                                                              SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -2382,9 +2436,10 @@ bool Run::TickSceneAdvance()
 
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                                       sPerfPass,
-                                                       SceneState().isInteractiveRun ) )
+                if ( !executeSceneControlAction(
+                         m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                          sPerfPass,
+                                                          SceneState().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -2422,9 +2477,9 @@ bool Run::TickSceneAdvance()
 #ifdef _DEBUG
         LogSceneFinished( "perf_duration" );
 #endif
-        if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                               sPerfPass,
-                                               SceneState().isInteractiveRun ) )
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                                          sPerfPass,
+                                                                          SceneState().isInteractiveRun ) ) )
         {
             if ( CanSceneAutomationQuit() )
             {

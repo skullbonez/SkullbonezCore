@@ -143,30 +143,6 @@ void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Qua
 } // namespace
 
 
-SceneRuntimeCoordinatorCallbacks Run::BuildSceneRuntimeCoordinatorCallbacks()
-{
-    SceneRuntimeCoordinatorCallbacks callbacks;
-    callbacks.user = this;
-    callbacks.enterInteractiveSceneRun = []( void* user ) { static_cast<Run*>( user )->EnterInteractiveSceneRun(); };
-    callbacks.clearCurrentSceneAutomation = []( void* user )
-    {
-        Run& run = *static_cast<Run*>( user );
-        run.SceneState().isExitOnComplete = false;
-        run.m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-    };
-    callbacks.loadScene =
-        []( void* user, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-    { static_cast<Run*>( user )->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState ); };
-    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
-    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
-    callbacks.isCinematicTabActive = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->m_UI.GetActiveTab() == InGameUITab::Cinematic; };
-    callbacks.applyCinematicModeFromBrowserIndex = []( void* user, int index ) -> bool
-    { return static_cast<Run*>( user )->ApplyCinematicModeFromBrowserIndex( index ); };
-    return callbacks;
-}
-
-
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
@@ -269,8 +245,7 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 
 
 Run::Run( std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ),
-      m_sceneCoordinator( m_sceneController, BuildSceneRuntimeCoordinatorCallbacks() ),
+    : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     BindEngineContext();

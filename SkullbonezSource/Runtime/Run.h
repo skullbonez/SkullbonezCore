@@ -123,7 +123,7 @@ class Run
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
-    SceneRuntimeCoordinator m_sceneCoordinator;                            // Owns scene load/reset/advance selection decisions.
+    SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
     RunSceneBrowserState m_sceneBrowser;                                   // Discovered scene paths and live cine/concept selection.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
@@ -186,7 +186,6 @@ class Run
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const;
     bool DrainRuntimeCommands();                                           // Applies queued runtime/tool command intents at the frame boundary.
-    SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();
     SceneAuthoredCameraContext BuildSceneAuthoredCameraContext();
     SceneAuthoredModelContext BuildSceneAuthoredModelContext();
     SceneGeneratedCameraContext BuildSceneGeneratedCameraContext();

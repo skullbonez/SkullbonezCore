@@ -5,14 +5,14 @@ Purpose:
 
 Mental model:
   SceneRuntime owns queue state. SceneRuntimeCoordinator owns lifecycle
-  decisions that choose which scene entry to load next. Run still performs the
-  heavy load side effects through callbacks until later Phase 3 slices move
-  generated and authored scene application behind scene-owned APIs.
+  decisions that choose which scene entry to load next. Run still performs
+  returned control intents until later Phase 3 slices move generated and
+  authored scene application behind scene-owned APIs.
 
 Invariants:
   - The coordinator does not own scene browser path storage.
   - The coordinator does not mutate renderer, physics, replay, or UI state
-    directly; remaining side effects are named callbacks.
+    directly; remaining side effects are returned as explicit control intents.
   - Scene queue indices stay owned by SceneController/SceneRuntime.
 
 Related:
@@ -31,51 +31,82 @@ namespace Basics
 {
 class SceneController;
 
-struct SceneRuntimeCoordinatorCallbacks
+enum class SceneRuntimeControlActionType
 {
-    using VoidFn = void ( * )( void* user );
-    using LoadSceneFn = void ( * )( void* user,
-                                    int index,
-                                    bool preserveUIState,
-                                    bool suppressExitOnComplete,
-                                    bool preserveRuntimeState );
-    using CurrentSceneBrowserIndexFn = int ( * )( void* user );
-    using IsCinematicTabActiveFn = bool ( * )( void* user );
-    using ApplyCinematicModeFromBrowserIndexFn = bool ( * )( void* user, int index );
+    None,
+    ClearCurrentSceneAutomation,
+    LoadScene,
+    ApplyCinematicModeFromBrowserIndex,
+};
 
-    void* user = nullptr;
-    VoidFn enterInteractiveSceneRun = nullptr;
-    VoidFn clearCurrentSceneAutomation = nullptr;
-    LoadSceneFn loadScene = nullptr;
-    CurrentSceneBrowserIndexFn currentSceneBrowserIndex = nullptr;
-    IsCinematicTabActiveFn isCinematicTabActive = nullptr;
-    ApplyCinematicModeFromBrowserIndexFn applyCinematicModeFromBrowserIndex = nullptr;
+struct SceneRuntimeControlAction
+{
+    SceneRuntimeControlActionType type = SceneRuntimeControlActionType::None;
+    bool enterInteractiveSceneRun = false;
+    int index = -1;
+    bool preserveUIState = false;
+    bool suppressExitOnComplete = false;
+    bool preserveRuntimeState = false;
+
+    static SceneRuntimeControlAction None()
+    {
+        return {};
+    }
+
+    static SceneRuntimeControlAction ClearCurrentSceneAutomation( bool enterInteractiveSceneRun )
+    {
+        SceneRuntimeControlAction action;
+        action.type = SceneRuntimeControlActionType::ClearCurrentSceneAutomation;
+        action.enterInteractiveSceneRun = enterInteractiveSceneRun;
+        return action;
+    }
+
+    static SceneRuntimeControlAction LoadScene( int index,
+                                                bool preserveUIState,
+                                                bool suppressExitOnComplete,
+                                                bool preserveRuntimeState,
+                                                bool enterInteractiveSceneRun = false )
+    {
+        SceneRuntimeControlAction action;
+        action.type = SceneRuntimeControlActionType::LoadScene;
+        action.enterInteractiveSceneRun = enterInteractiveSceneRun;
+        action.index = index;
+        action.preserveUIState = preserveUIState;
+        action.suppressExitOnComplete = suppressExitOnComplete;
+        action.preserveRuntimeState = preserveRuntimeState;
+        return action;
+    }
+
+    static SceneRuntimeControlAction ApplyCinematicModeFromBrowserIndex( int index )
+    {
+        SceneRuntimeControlAction action;
+        action.type = SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex;
+        action.index = index;
+        return action;
+    }
 };
 
 class SceneRuntimeCoordinator
 {
   public:
-    SceneRuntimeCoordinator( SceneController& sceneController, SceneRuntimeCoordinatorCallbacks callbacks );
+    explicit SceneRuntimeCoordinator( SceneController& sceneController );
 
-    void LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths );
-    void LoadDemoSceneFromUI();
-    bool ApplyAdjacentCinematicMode( int direction,
-                                     const std::vector<std::string>& sceneBrowserPaths,
-                                     int selectedCineModeSceneIndex );
-    void LoadAdjacentSceneFromBrowser( int direction, const std::vector<std::string>& sceneBrowserPaths );
-    void ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
-    bool AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
+    SceneRuntimeControlAction LoadSceneFromBrowserIndex( int index, const std::vector<std::string>& sceneBrowserPaths );
+    SceneRuntimeControlAction LoadDemoSceneFromUI();
+    SceneRuntimeControlAction ApplyAdjacentCinematicMode( int direction,
+                                                          const std::vector<std::string>& sceneBrowserPaths,
+                                                          int selectedCineModeSceneIndex,
+                                                          int currentSceneBrowserIndex,
+                                                          bool isCinematicTabActive );
+    SceneRuntimeControlAction LoadAdjacentSceneFromBrowser( int direction,
+                                                            const std::vector<std::string>& sceneBrowserPaths,
+                                                            int currentSceneBrowserIndex );
+    SceneRuntimeControlAction
+    ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
+    SceneRuntimeControlAction AdvanceScene( bool perfTestActive, int& perfPass, bool preserveInteractiveUI );
 
   private:
-    void EnterInteractiveSceneRun() const;
-    void ClearCurrentSceneAutomation() const;
-    void LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState ) const;
-    int CurrentSceneBrowserIndex() const;
-    bool IsCinematicTabActive() const;
-    bool ApplyCinematicModeFromBrowserIndex( int index ) const;
-
     SceneController& m_sceneController;
-    SceneRuntimeCoordinatorCallbacks m_callbacks;
 };
 
 } // namespace Basics

@@ -1869,6 +1869,33 @@ int Run::CurrentSceneBrowserIndex() const
 
 bool Run::CreateSceneFromUI( const char* requestedName )
 {
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            return ApplyCinematicModeFromBrowserIndex( action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     const std::string cleanName = SanitizeSceneFileName( requestedName );
     if ( cleanName.empty() )
     {
@@ -1899,7 +1926,7 @@ bool Run::CreateSceneFromUI( const char* requestedName )
     {
         if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == normalizedPath )
         {
-            m_sceneCoordinator.LoadSceneFromBrowserIndex( i, m_sceneBrowser.paths );
+            executeSceneControlAction( m_sceneCoordinator.LoadSceneFromBrowserIndex( i, m_sceneBrowser.paths ) );
             return true;
         }
     }

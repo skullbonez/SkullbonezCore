@@ -2190,16 +2190,51 @@ void Run::TakeInput()
             }
         }
 
+        auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+        {
+            if ( action.enterInteractiveSceneRun )
+            {
+                EnterInteractiveSceneRun();
+            }
+
+            switch ( action.type )
+            {
+            case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+                SceneState().isExitOnComplete = false;
+                m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+                return true;
+            case SceneRuntimeControlActionType::LoadScene:
+                LoadScene( action.index,
+                           action.preserveUIState,
+                           action.suppressExitOnComplete,
+                           action.preserveRuntimeState );
+                return true;
+            case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+                return ApplyCinematicModeFromBrowserIndex( action.index );
+            case SceneRuntimeControlActionType::None:
+                return false;
+            }
+            return false;
+        };
+
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                           RuntimeInputAction::NavigateScenePrevious,
                                                           VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
-                                                                 m_sceneBrowser.paths,
-                                                                 m_sceneBrowser.selectedCineModeSceneIndex ) )
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex();
+            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+            if ( !executeSceneControlAction(
+                     m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
+                                                                    m_sceneBrowser.paths,
+                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
+                                                                    currentSceneBrowserIndex,
+                                                                    isCinematicTabActive ) ) )
             {
-                m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1, m_sceneBrowser.paths );
+                executeSceneControlAction(
+                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1,
+                                                                     m_sceneBrowser.paths,
+                                                                     currentSceneBrowserIndex ) );
             }
         }
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
@@ -2207,11 +2242,19 @@ void Run::TakeInput()
                                                           VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
-                                                                 m_sceneBrowser.paths,
-                                                                 m_sceneBrowser.selectedCineModeSceneIndex ) )
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex();
+            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+            if ( !executeSceneControlAction(
+                     m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
+                                                                    m_sceneBrowser.paths,
+                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
+                                                                    currentSceneBrowserIndex,
+                                                                    isCinematicTabActive ) ) )
             {
-                m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1, m_sceneBrowser.paths );
+                executeSceneControlAction(
+                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1,
+                                                                     m_sceneBrowser.paths,
+                                                                     currentSceneBrowserIndex ) );
             }
         }
     }
@@ -2918,6 +2961,33 @@ void Run::TakeInput()
 
 bool Run::DrainRuntimeCommands()
 {
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            return ApplyCinematicModeFromBrowserIndex( action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     bool processed = false;
     RuntimeCommand command;
     while ( m_runtimeCommands.TryPop( command ) )
@@ -2926,16 +2996,17 @@ bool Run::DrainRuntimeCommands()
         switch ( command.type )
         {
         case RuntimeCommandType::LoadSceneIndex:
-            m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneBrowser.paths );
+            executeSceneControlAction(
+                m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneBrowser.paths ) );
             break;
         case RuntimeCommandType::LoadDemoScene:
-            m_sceneCoordinator.LoadDemoSceneFromUI();
+            executeSceneControlAction( m_sceneCoordinator.LoadDemoSceneFromUI() );
             break;
         case RuntimeCommandType::ResetCurrentScene:
             EnterInteractiveSceneRun();
-            m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
-                                                  command.suppressExitOnComplete,
-                                                  command.preserveRuntimeState );
+            executeSceneControlAction( m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
+                                                                             command.suppressExitOnComplete,
+                                                                             command.preserveRuntimeState ) );
             break;
         case RuntimeCommandType::CreateScene:
             CreateSceneFromUI( command.text.c_str() );
@@ -2956,9 +3027,9 @@ bool Run::DrainRuntimeCommands()
             SaveSkyDefaults();
             break;
         case RuntimeCommandType::AdvanceScene:
-            if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                                   sPerfPass,
-                                                   SceneState().isInteractiveRun ) )
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                                              sPerfPass,
+                                                                              SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
