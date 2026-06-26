@@ -1,7 +1,7 @@
 # Engine Architecture Next Steps Plan
 
 Date: 2026-06-26
-Status: Draft source-audited implementation plan
+Status: Active source-audited implementation plan; first branch slice selected
 Impact area: runtime architecture, physics data ownership, DX12 renderer, render graph, assets, scene system, diagnostics
 Validation for this document-only change: none required
 
@@ -101,6 +101,53 @@ Main risks:
 ## Phase 0: Baseline Guardrails And Work Selection
 
 Purpose: make the next implementation branch measurable before touching code.
+
+Rubber-duck result for `nightrunner-26th-July`:
+
+- Expected outcome: implement one reviewable architecture slice, not the whole
+  multi-phase roadmap in one commit.
+- Finding: the roadmap is directionally sound, but it must name the first
+  implementation slice when invoked directly.
+- Missing evidence: no runtime evidence is needed before the selected
+  documentation/tooling slice; it does not change engine behavior.
+- Next step: freeze the existing physics `GameModelCollection` compatibility
+  surface in the runtime boundary checker so later physics-store work can shrink
+  that surface deliberately.
+
+Selected first implementation slice for `nightrunner-26th-July`:
+
+1. Extend `tools\check_runtime_boundaries.py` to scan
+   `SkullbonezSource\Physics\**\*.h` and `*.cpp` for non-comment
+   `GameModelCollection` dependencies.
+2. Encode the current dependencies as an explicit transitional allowlist. The
+   allowlist is not approval of the architecture; it is a ratchet that prevents
+   new physics code from depending on the legacy model container while Phase 2
+   removes existing compatibility paths.
+3. Keep the rule narrow:
+   - comments do not count,
+   - existing includes, forward declarations, signatures, and compatibility
+     debug paths remain allowed,
+   - any new file or new dependency line fails validation with a message that
+     points toward physics stores, handles, diagnostics, or compatibility
+     adapters.
+4. Add self-tests for the new static rule:
+   - existing allowlisted dependency passes,
+   - a new dependency in another physics file fails,
+   - a duplicate unallowlisted dependency in an existing file fails,
+   - comments mentioning `GameModelCollection` do not fail.
+5. Do not change C++ runtime behavior in this slice.
+
+Validation for this selected slice:
+
+- `tools\validate_fast.bat`
+- `tools\validate_runtime_boundaries.bat`
+
+Done criteria:
+
+- Runtime boundary validation fails on new physics-layer
+  `GameModelCollection` dependencies.
+- The branch has a plan commit, an implementation commit, and validation output
+  captured before the final commit.
 
 Tasks:
 
