@@ -641,7 +641,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
     ResetReplayScrubber();
-    ReplayScrubberSetAllTrackPositions( m_replayRuntime.Scrubber(), 1.0f );
+    m_replayRuntime.SetAllTrackPositions( 1.0f );
     m_replayRuntime.Scrubber().visible = false;
     m_replayRuntime.Scrubber().dragging = false;
     m_replayRuntime.Scrubber().mouseCaptured = false;

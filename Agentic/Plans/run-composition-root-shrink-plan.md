@@ -675,10 +675,106 @@ Validation:
   errors and matching screenshots, and byte-exact
   `physics_regression_solver.csv` in 23.01s.
 
-Residual architecture risk: scrubber timeline math is currently duplicated in
-`RunInternal.h` for UI/input helpers and in `ReplayRuntime.cpp` for replay-owned
-queries. The formulas are intentionally equivalent in this slice; a later
-replay UI/tool extraction should consolidate that math under the replay owner.
+The residual scrubber timeline duplication from this slice is resolved by the
+following replay scrubber timeline owner slice.
+
+## Replay Scrubber Timeline Owner Slice
+
+This replay slice moved scrubber timeline math and track-position mutation out
+of `RunInternal.h` and into `ReplayRuntime`. `Run` still owns the current
+scrubber input dispatcher, but it now mutates replay scrubber track positions
+through the replay owner. `RuntimeRenderHost` no longer callback-bounces
+scrubber visibility into `Run`; it asks `ReplayRuntime` directly using the
+borrowed editor/UI state it already exposes to render passes.
+
+Deleted `Run.h` declarations:
+
+- `ShouldRenderReplayScrubber`
+
+Deleted `Run::` definitions:
+
+- `Run::ShouldRenderReplayScrubber`
+
+Removed `RunInternal.h` helpers:
+
+- `ReplayScrubberRetainedPastSeconds`
+- `ReplayPredictionAvailableFutureSeconds`
+- `ReplayScrubberPresentTrackPosition`
+- `ReplayScrubberTimelineHasFuture`
+- `ReplayScrubberAtPresentTrackPosition`
+- `ReplayScrubberTrackPositionIsFuture`
+- `ReplayScrubberSolverNormalizedFromTrack`
+- `ReplayScrubberPredictionNormalizedFromTrack`
+- `ReplayScrubberTrackPosition`
+- `ReplayScrubberSetTrackPosition`
+- `ReplayScrubberSyncActivePosition`
+- `ReplayScrubberSetAllTrackPositions`
+
+New owner methods:
+
+- `ReplayRuntime::TrackPosition(...)`
+- `ReplayRuntime::SetTrackPosition(...)`
+- `ReplayRuntime::SyncActiveTrackPosition()`
+- `ReplayRuntime::SetAllTrackPositions(...)`
+- `ReplayRuntime::SolverPresentTrackPosition()`
+- `ReplayRuntime::TimelineHasFuture(...)`
+- `ReplayRuntime::AtPresentTrackPosition(...)`
+- `ReplayRuntime::TrackPositionIsFuture(...)`
+- `ReplayRuntime::SolverNormalizedFromTrack(...)`
+- `ReplayRuntime::PredictionNormalizedFromTrack(...)`
+- `ReplayRuntime::ShouldRenderScrubber(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet to 234.
+- The `Run.h` replay render-query rule now also blocks
+  `ShouldRenderReplayScrubber` from returning to `Run`.
+- The `RuntimeRenderHostCallbacks` allowlist rejects the removed
+  `shouldRenderReplayScrubber` callback field.
+- The boundary checker rejects reintroduced scrubber timeline/position helper
+  definitions in `RunInternal.h`, including `static inline` variants.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\replay_scrubber_owner_profile_build.log`; final rerun
+  passed with 0 warnings and 0 errors in 40.89s.
+- Runtime boundary check: `python tools\check_runtime_boundaries.py --repo .`;
+  passed with 0 errors after the `RunInternal.h` scrubber helper guard and
+  synthetic self-test were tightened.
+- Rubber duck: reviewer Arendt found no blocking defect. The non-blocking
+  guardrail regex concern was fixed by matching `static inline` helper
+  reintroductions before final validation.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, and Profile/Debug builds in
+  51.03s.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_runtime_boundaries.log`;
+  passed with 0 errors in 0.52s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_replay_v2_artifact.log`;
+  passed save, load, restore, generated-topology restore, replay query/export,
+  and physics-query checks in 22.75s.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_interaction_clicks.log`;
+  passed the existing live inspect-gizmo and replay-prediction click reports in
+  6.45s.
+- DX12 renderer gate: `tools\validate_dx12_renderer.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_dx12_renderer.log`;
+  passed formatting, Profile build, DX12 suite, DX12 validation errors 0,
+  screenshot baseline comparison, and Profile/Debug ready builds in 16.74s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\replay_scrubber_owner_validate_full.log`; passed
+  project filters, runtime boundaries, Profile/Debug builds, DX12 validation
+  with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.07s.
+
+Residual architecture risk: `TickReplayScrubberInput()` and scrubber overlay
+drawing still live on `Run`. This slice deliberately did not move those
+dispatchers; later replay UI/tool slices should move them behind replay-owned
+input/overlay services without adding callbacks back into `Run`.
 
 ## Rules
 

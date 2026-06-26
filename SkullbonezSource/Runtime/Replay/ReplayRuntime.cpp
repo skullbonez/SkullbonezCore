@@ -92,49 +92,6 @@ float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stat
     return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
 }
 
-bool ReplayRuntimeScrubberTimelineHasFuture( float presentT )
-{
-    return presentT < REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
-}
-
-bool ReplayRuntimeScrubberAtPresentTrackPosition( float position, float presentT )
-{
-    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
-    {
-        return position >= REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
-    }
-    return std::fabs( position - presentT ) <= REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
-}
-
-bool ReplayRuntimeScrubberTrackPositionIsFuture( float position, float presentT )
-{
-    return ReplayRuntimeScrubberTimelineHasFuture( presentT ) &&
-           position > presentT + REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
-}
-
-float ReplayRuntimeScrubberSolverNormalizedFromTrack( float position, float presentT )
-{
-    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
-    {
-        return std::clamp( position, 0.0f, 1.0f );
-    }
-    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
-}
-
-float ReplayRuntimeScrubberPredictionNormalizedFromTrack( float position, float presentT )
-{
-    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
-    {
-        return 0.0f;
-    }
-    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
-}
-
-float ReplayRuntimeScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
-{
-    return track == RunReplayTrack::Solver ? state.solverPosition : state.presentationPosition;
-}
-
 uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
 {
     return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
@@ -321,6 +278,99 @@ const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
 void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )
 {
     m_velocityEdit.keyboardAltWasDown = isDown;
+}
+
+float ReplayRuntime::TrackPosition( RunReplayTrack track ) const
+{
+    return track == RunReplayTrack::Solver ? m_scrubber.solverPosition : m_scrubber.presentationPosition;
+}
+
+void ReplayRuntime::SetTrackPosition( RunReplayTrack track, float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    if ( track == RunReplayTrack::Solver )
+    {
+        m_scrubber.solverPosition = clamped;
+    }
+    else
+    {
+        m_scrubber.presentationPosition = clamped;
+    }
+
+    if ( m_scrubber.activeTrack == track )
+    {
+        m_scrubber.position = clamped;
+    }
+}
+
+void ReplayRuntime::SyncActiveTrackPosition()
+{
+    m_scrubber.position = TrackPosition( m_scrubber.activeTrack );
+}
+
+void ReplayRuntime::SetAllTrackPositions( float position )
+{
+    const float clamped = std::clamp( position, 0.0f, 1.0f );
+    m_scrubber.presentationPosition = clamped;
+    m_scrubber.solverPosition = clamped;
+    m_scrubber.position = clamped;
+}
+
+float ReplayRuntime::SolverPresentTrackPosition() const
+{
+    return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
+}
+
+bool ReplayRuntime::TimelineHasFuture( float presentT )
+{
+    return presentT < REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
+}
+
+bool ReplayRuntime::AtPresentTrackPosition( float position, float presentT )
+{
+    if ( !TimelineHasFuture( presentT ) )
+    {
+        return position >= REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
+    }
+    return std::fabs( position - presentT ) <= REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
+}
+
+bool ReplayRuntime::TrackPositionIsFuture( float position, float presentT )
+{
+    return TimelineHasFuture( presentT ) && position > presentT + REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
+}
+
+float ReplayRuntime::SolverNormalizedFromTrack( float position, float presentT )
+{
+    if ( !TimelineHasFuture( presentT ) )
+    {
+        return std::clamp( position, 0.0f, 1.0f );
+    }
+    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
+}
+
+float ReplayRuntime::PredictionNormalizedFromTrack( float position, float presentT )
+{
+    if ( !TimelineHasFuture( presentT ) )
+    {
+        return 0.0f;
+    }
+    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
+}
+
+bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const
+{
+    if ( editorModeEnabled || !uiVisible || !uiMinimized )
+    {
+        return false;
+    }
+
+    const bool loadedPresentation = HasLoadedPresentation();
+    const ReplayRecorderStats solverReplayStats = m_solver.GetStats();
+    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+    return ( loadedPresentation || solverReplayAvailable ) &&
+           ( m_scrubber.visible || m_scrubber.dragging || m_scrubber.historicalSamplePaused ||
+             m_scrubber.liveAdvanceHeld );
 }
 
 ReplayRuntime::RecordingConfigResult
@@ -648,15 +698,12 @@ bool ReplayRuntime::IsScrubPaused() const
 
     if ( m_scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
     {
-        return LoadedPresentationSampleAtNormalized(
-                   ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) ) != nullptr;
+        return LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) ) != nullptr;
     }
 
-    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, m_scrubber.activeTrack );
-    const float presentT = m_scrubber.activeTrack == RunReplayTrack::Solver
-                               ? ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction )
-                               : 1.0f;
-    if ( ReplayRuntimeScrubberAtPresentTrackPosition( position, presentT ) )
+    const float position = TrackPosition( m_scrubber.activeTrack );
+    const float presentT = m_scrubber.activeTrack == RunReplayTrack::Solver ? SolverPresentTrackPosition() : 1.0f;
+    if ( AtPresentTrackPosition( position, presentT ) )
     {
         return false;
     }
@@ -666,14 +713,13 @@ bool ReplayRuntime::IsScrubPaused() const
         return m_presentation.IsEnabled() && m_presentation.SampleAtNormalized( position ) != nullptr;
     }
 
-    if ( ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    if ( TrackPositionIsFuture( position, presentT ) )
     {
         return CurrentPredictionScrubFrame() != nullptr;
     }
 
     return m_solver.IsEnabled() &&
-           m_solver.SampleAtNormalized( ReplayRuntimeScrubberSolverNormalizedFromTrack( position, presentT ) ) !=
-               nullptr;
+           m_solver.SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) ) != nullptr;
 }
 
 
@@ -687,8 +733,7 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
     if ( HasLoadedPresentation() )
     {
         return m_scrubber.historicalSamplePaused
-                   ? LoadedPresentationSampleAtNormalized(
-                         ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) )
+                   ? LoadedPresentationSampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) )
                    : nullptr;
     }
 
@@ -697,8 +742,7 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
         return nullptr;
     }
 
-    return m_presentation.SampleAtNormalized(
-        ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) );
+    return m_presentation.SampleAtNormalized( TrackPosition( RunReplayTrack::Presentation ) );
 }
 
 
@@ -709,14 +753,14 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
         return nullptr;
     }
 
-    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
-    if ( ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    const float position = TrackPosition( RunReplayTrack::Solver );
+    const float presentT = SolverPresentTrackPosition();
+    if ( TrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    return m_solver.SampleAtNormalized( ReplayRuntimeScrubberSolverNormalizedFromTrack( position, presentT ) );
+    return m_solver.SampleAtNormalized( SolverNormalizedFromTrack( position, presentT ) );
 }
 
 
@@ -728,14 +772,14 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
         return nullptr;
     }
 
-    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Solver );
-    const float presentT = ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
-    if ( !ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    const float position = TrackPosition( RunReplayTrack::Solver );
+    const float presentT = SolverPresentTrackPosition();
+    if ( !TrackPositionIsFuture( position, presentT ) )
     {
         return nullptr;
     }
 
-    const float predictionT = ReplayRuntimeScrubberPredictionNormalizedFromTrack( position, presentT );
+    const float predictionT = PredictionNormalizedFromTrack( position, presentT );
     const std::size_t frameCount = m_prediction.frames.size();
     const std::size_t frameIndex =
         (std::min)( frameCount - 1,

@@ -27,7 +27,9 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
+#include "../../UI/UI.h"
 #include "../Replay/ReplayRuntime.h"
+#include "../Tools/RuntimeTools.h"
 
 #include <array>
 #include <cstdint>
@@ -136,7 +138,6 @@ struct RuntimeRenderHostCallbacks
     RenderEditorOverlayFn renderEditorOverlay = nullptr;
     VoidFn refreshRuntimeViewModel = nullptr;
     SceneStateFn sceneState = nullptr;
-    BoolFn shouldRenderReplayScrubber = nullptr;
     VoidFn renderReplayScrubberOverlay = nullptr;
     IntFn currentSceneBrowserIndex = nullptr;
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
@@ -237,7 +238,7 @@ class RuntimeRenderHost
 
     bool ShouldRenderReplayScrubber() const
     {
-        return m_callbacks.shouldRenderReplayScrubber( m_callbacks.user );
+        return m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() );
     }
 
     void RenderReplayScrubberOverlay() const

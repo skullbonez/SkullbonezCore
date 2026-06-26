@@ -497,7 +497,6 @@ class Run
     void UpdateReplayInspectionCamera();
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
-    bool ShouldRenderReplayScrubber() const;
     bool RestoreReplayScrubberSelectionAsLive( double now,
                                                RunReplayV2TargetRestoreResult* outV2Result = nullptr,
                                                char* outReason = nullptr,

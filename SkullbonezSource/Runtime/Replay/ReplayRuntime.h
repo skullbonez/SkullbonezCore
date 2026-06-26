@@ -380,6 +380,17 @@ class ReplayRuntime
     RunReplayVelocityEditState& VelocityEdit();
     const RunReplayVelocityEditState& VelocityEdit() const;
     void SetVelocityEditAltKeyDown( bool isDown );
+    float TrackPosition( RunReplayTrack track ) const;
+    void SetTrackPosition( RunReplayTrack track, float position );
+    void SyncActiveTrackPosition();
+    void SetAllTrackPositions( float position );
+    float SolverPresentTrackPosition() const;
+    static bool TimelineHasFuture( float presentT );
+    static bool AtPresentTrackPosition( float position, float presentT );
+    static bool TrackPositionIsFuture( float position, float presentT );
+    static float SolverNormalizedFromTrack( float position, float presentT );
+    static float PredictionNormalizedFromTrack( float position, float presentT );
+    bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();

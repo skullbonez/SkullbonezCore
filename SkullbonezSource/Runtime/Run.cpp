@@ -248,8 +248,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
-    callbacks.shouldRenderReplayScrubber = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->ShouldRenderReplayScrubber(); };
     callbacks.renderReplayScrubberOverlay = []( void* user )
     { static_cast<Run*>( user )->RenderReplayScrubberOverlay(); };
     callbacks.currentSceneBrowserIndex = []( void* user ) -> int
@@ -1227,7 +1225,7 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     m_replayRuntime.Prediction().horizonDragging = false;
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, normalized );
+    m_replayRuntime.SetTrackPosition( RunReplayTrack::Presentation, normalized );
     m_replayRuntime.Scrubber().solverPosition = 1.0f;
     m_replayRuntime.Scrubber().dragging = false;
     m_replayRuntime.Scrubber().historicalSamplePaused = true;
@@ -1258,22 +1256,6 @@ void Run::ResetReplayScrubber()
     m_replayRuntime.Scrubber().liveAdvanceHeld = liveAdvanceHeld;
     m_replayRuntime.Scrubber().pauseRestoreFlyMode = pauseRestoreFlyMode;
     m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
-}
-
-
-bool Run::ShouldRenderReplayScrubber() const
-{
-    if ( m_runtimeTools.Editor().editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
-    {
-        return false;
-    }
-
-    const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
-    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-    return ( loadedPresentation || solverReplayAvailable ) &&
-           ( m_replayRuntime.Scrubber().visible || m_replayRuntime.Scrubber().dragging ||
-             m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
 }
 
 bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )

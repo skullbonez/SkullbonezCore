@@ -43,7 +43,9 @@ void Run::RenderReplayScrubberOverlay()
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     RenderReplayCauseTreeOverlay();
 
-    if ( !ShouldRenderReplayScrubber() )
+    if ( !m_replayRuntime.ShouldRenderScrubber( m_runtimeTools.Editor().editorModeEnabled,
+                                                m_UI.IsVisible(),
+                                                m_UI.IsMinimized() ) )
     {
         return;
     }
@@ -59,13 +61,11 @@ void Run::RenderReplayScrubberOverlay()
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const float t = std::clamp( ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), activeTrack ), 0.0f, 1.0f );
-    const float solverPresentT =
-        loadedPresentation ? 1.0f
-                           : ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() );
-    const bool futureTimelineVisible = !loadedPresentation && ReplayScrubberTimelineHasFuture( solverPresentT );
-    const bool futureSelected = !loadedPresentation && ReplayScrubberTrackPositionIsFuture( t, solverPresentT );
-    const float solverSampleT = ReplayScrubberSolverNormalizedFromTrack( t, solverPresentT );
+    const float t = std::clamp( m_replayRuntime.TrackPosition( activeTrack ), 0.0f, 1.0f );
+    const float solverPresentT = loadedPresentation ? 1.0f : m_replayRuntime.SolverPresentTrackPosition();
+    const bool futureTimelineVisible = !loadedPresentation && ReplayRuntime::TimelineHasFuture( solverPresentT );
+    const bool futureSelected = !loadedPresentation && ReplayRuntime::TrackPositionIsFuture( t, solverPresentT );
+    const float solverSampleT = ReplayRuntime::SolverNormalizedFromTrack( t, solverPresentT );
     const ReplayPresentationSample* selectedPresentation =
         loadedPresentation ? m_replayRuntime.LoadedPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
@@ -94,7 +94,7 @@ void Run::RenderReplayScrubberOverlay()
     }
 
     char timeLabel[48] = {};
-    if ( loadedPresentation && t >= REPLAY_SCRUBBER_LIVE_THRESHOLD )
+    if ( loadedPresentation && ReplayRuntime::AtPresentTrackPosition( t, 1.0f ) )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "END" );
     }
@@ -102,7 +102,7 @@ void Run::RenderReplayScrubberOverlay()
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "+%.1fs", futureSeconds );
     }
-    else if ( ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) &&
+    else if ( ReplayRuntime::AtPresentTrackPosition( t, solverPresentT ) &&
               !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
         sprintf_s( timeLabel, sizeof( timeLabel ), "LIVE" );
@@ -114,7 +114,7 @@ void Run::RenderReplayScrubberOverlay()
 
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const bool live = !loadedPresentation && ReplayScrubberAtPresentTrackPosition( t, solverPresentT ) &&
+    const bool live = !loadedPresentation && ReplayRuntime::AtPresentTrackPosition( t, solverPresentT ) &&
                       !m_replayRuntime.Scrubber().historicalSamplePaused;
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
@@ -243,8 +243,7 @@ void Run::RenderReplayScrubberOverlay()
         const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
         const UI::UIRect saveButton = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
         const UI::UIRect loadButton = ReplayScrubberLoadButtonRect( screenW, screenH, trackName );
-        const float rowT =
-            std::clamp( ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), trackName ), 0.0f, 1.0f );
+        const float rowT = std::clamp( m_replayRuntime.TrackPosition( trackName ), 0.0f, 1.0f );
         const float fillW = (std::max)( REPLAY_SCRUBBER_TRACK_HEIGHT, track.w * rowT );
         const float knobX = track.x + track.w * rowT;
         const bool active = activeTrack == trackName;

@@ -1859,8 +1859,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
-        const float previousPredictionPresentT =
-            ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() );
+        const float previousPredictionPresentT = m_replayRuntime.SolverPresentTrackPosition();
         m_replayRuntime.Prediction().enabled = !m_replayRuntime.Prediction().enabled;
         SetWorldInteractionOwnerAfterInteractionTransition( m_replayRuntime.Prediction().enabled
                                                                 ? WorldInteractionOwner::ReplayPrediction
@@ -1871,11 +1870,10 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                                                   REPLAY_PREDICTION_MAX_SECONDS );
         if ( !m_replayRuntime.Prediction().enabled )
         {
-            const float currentPosition =
-                ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
-            if ( ReplayScrubberTrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
+            const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
+            if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
             {
-                ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver, 1.0f );
+                m_replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
                 m_replayRuntime.Scrubber().historicalSamplePaused = false;
             }
             ClearReplayPredictionCache();
@@ -1907,7 +1905,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                                 mouse.x,
                                 mouse.y );
         m_replayRuntime.Scrubber().activeTrack = scrubTrack;
-        ReplayScrubberSyncActivePosition( m_replayRuntime.Scrubber() );
+        m_replayRuntime.SyncActiveTrackPosition();
         m_replayRuntime.Scrubber().dragging = true;
         if ( !m_replayRuntime.Scrubber().mouseCaptured )
         {
@@ -1918,8 +1916,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     if ( m_replayRuntime.Scrubber().dragging )
     {
-        ReplayScrubberSetTrackPosition(
-            m_replayRuntime.Scrubber(),
+        m_replayRuntime.SetTrackPosition(
             m_replayRuntime.Scrubber().activeTrack,
             ReplayScrubberPositionFromMouse( mouse.x, screenW, screenH, m_replayRuntime.Scrubber().activeTrack ) );
         if ( loadedPresentation )
@@ -1928,13 +1925,10 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         }
         else
         {
-            const float presentT =
-                ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() );
-            if ( ReplayScrubberAtPresentTrackPosition( m_replayRuntime.Scrubber().position, presentT ) )
+            const float presentT = m_replayRuntime.SolverPresentTrackPosition();
+            if ( ReplayRuntime::AtPresentTrackPosition( m_replayRuntime.Scrubber().position, presentT ) )
             {
-                ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(),
-                                                m_replayRuntime.Scrubber().activeTrack,
-                                                presentT );
+                m_replayRuntime.SetTrackPosition( m_replayRuntime.Scrubber().activeTrack, presentT );
                 m_replayRuntime.Scrubber().historicalSamplePaused = false;
             }
             else
@@ -1970,9 +1964,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     }
     else if ( !loadedPresentation && !m_replayRuntime.Scrubber().historicalSamplePaused )
     {
-        ReplayScrubberSetAllTrackPositions(
-            m_replayRuntime.Scrubber(),
-            ReplayScrubberPresentTrackPosition( solverReplayStats, m_replayRuntime.Prediction() ) );
+        m_replayRuntime.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
     }
 
     m_replayRuntime.Scrubber().visible =

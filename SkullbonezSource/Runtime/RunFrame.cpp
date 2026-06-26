@@ -2096,7 +2096,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     }
     m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
+    m_replayRuntime.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};

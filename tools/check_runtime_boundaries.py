@@ -37,6 +37,7 @@ from pathlib import Path
 
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
+RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
@@ -45,7 +46,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 235
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 234
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -325,9 +326,21 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
     (
         "replay render-query helpers must stay out of Run.h",
         r"\b(?:HasLoadedReplayPresentation|LoadedReplayPresentation[A-Za-z_]\w*|IsReplayScrubPaused|"
-        r"CurrentReplay[A-Za-z_]\w*|BuildReplayFocusModelMask)\s*\(",
+        r"CurrentReplay[A-Za-z_]\w*|BuildReplayFocusModelMask|ShouldRenderReplayScrubber)\s*\(",
         "Keep replay render queries and focus masks in ReplayRuntime.",
     ),
+)
+
+RUN_INTERNAL_SCRUBBER_HELPER_RULE = (
+    "replay scrubber timeline helpers must stay out of RunInternal.h",
+    r"\b(?:(?:static|inline|constexpr|consteval)\s+)*(?:float|bool|void)\s+"
+    r"(?:ReplayScrubberRetainedPastSeconds|ReplayPredictionAvailableFutureSeconds|"
+    r"ReplayScrubberPresentTrackPosition|ReplayScrubberTimelineHasFuture|"
+    r"ReplayScrubberAtPresentTrackPosition|ReplayScrubberTrackPositionIsFuture|"
+    r"ReplayScrubberSolverNormalizedFromTrack|ReplayScrubberPredictionNormalizedFromTrack|"
+    r"ReplayScrubberTrackPosition|ReplayScrubberSetTrackPosition|"
+    r"ReplayScrubberSyncActivePosition|ReplayScrubberSetAllTrackPositions)\s*\(",
+    "Keep replay scrubber timeline math and position mutation in ReplayRuntime.",
 )
 
 RUN_STORAGE_RULE = (
@@ -422,7 +435,6 @@ ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "renderEditorOverlay",
     "refreshRuntimeViewModel",
     "sceneState",
-    "shouldRenderReplayScrubber",
     "renderReplayScrubberOverlay",
     "currentSceneBrowserIndex",
     "cameraModeEnabledMask",
@@ -526,6 +538,20 @@ def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], .
         for match in re.finditer(pattern, stripped):
             errors.append(BoundaryError(path, line_for_offset(stripped, match.start()), message, detail))
     return errors
+
+
+def check_run_internal_scrubber_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_INTERNAL_SCRUBBER_HELPER_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_internal_scrubber_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_INTERNAL_HEADER
+    return check_run_internal_scrubber_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_run_storage(repo: Path) -> list[BoundaryError]:
@@ -789,6 +815,41 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay render-query helper synthetic surface was not rejected")
 
+    old_scrubber_visibility_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        bool ShouldRenderReplayScrubber() const;",
+    )
+    if not any(
+        error.message == "replay render-query helpers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_scrubber_visibility_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("replay scrubber visibility helper synthetic surface was not rejected")
+
+    old_run_internal_scrubber_helper = """
+    static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
+    {
+        return state.position;
+    }
+    """
+    if not any(
+        error.message == "replay scrubber timeline helpers must stay out of RunInternal.h"
+        for error in check_run_internal_scrubber_guardrails_text(
+            Path("synthetic/RunInternal.h"), old_run_internal_scrubber_helper
+        )
+    ):
+        failures.append("RunInternal scrubber timeline helper synthetic surface was not rejected")
+
+    allowed_run_internal_scrubber_geometry = """
+    inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
+    {
+        return 1.0f;
+    }
+    """
+    if check_run_internal_scrubber_guardrails_text(
+        Path("synthetic/RunInternal.h"), allowed_run_internal_scrubber_geometry
+    ):
+        failures.append("allowed RunInternal scrubber geometry helper synthetic surface was rejected")
+
     new_binding = allowed_host.replace(
         "RunDebugState* debug = nullptr;",
         "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
@@ -828,6 +889,16 @@ def run_self_tests() -> list[str]:
         for error in check_runtime_render_host_guardrails_text(synthetic_path, new_callback)
     ):
         failures.append("new RuntimeRenderHostCallbacks synthetic field was not rejected")
+
+    old_scrubber_callback_field = allowed_host.replace(
+        "BoolFn isLauncherCameraMode = nullptr;",
+        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn shouldRenderReplayScrubber = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_scrubber_callback_field)
+    ):
+        failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
 
     mutable_callback = allowed_host.replace(
         "using BoolFn = bool ( * )( void* user );",
@@ -1019,6 +1090,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
     errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
+    errors.extend(check_run_internal_scrubber_guardrails(repo))
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
