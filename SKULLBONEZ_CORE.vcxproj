@@ -294,6 +294,7 @@
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />

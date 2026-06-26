@@ -45,7 +45,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 233
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 231
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -315,6 +315,12 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"\b(?:ResetEditorUnfocusedInputState|ClearEditorManipulationState|ToggleEditorPlacementMode|"
         r"HandleEditorKeyboardShortcuts|ApplyEditorUICommands)\s*\(",
         "Keep editor input-mode state mechanics in Runtime/Editor/EditorTools helpers.",
+    ),
+    (
+        "editor overlay/preview helpers must stay out of Run.h",
+        r"\b(?:UpdateEditorInteractionPreview|RenderEditorOverlay|(?=[A-Za-z_]\w*Editor)(?=[A-Za-z_]\w*Overlay)"
+        r"[A-Za-z_]\w*|(?=[A-Za-z_]\w*InteractionPreview)[A-Za-z_]\w*)\s*\(",
+        "Keep editor preview and overlay trace construction in Runtime/Editor overlay helpers.",
     ),
 )
 
@@ -747,6 +753,26 @@ def run_self_tests() -> list[str]:
         for error in check_run_private_method_count_text(Path("synthetic/Run.h"), grown_run_header, max_allowed=1)
     ):
         failures.append("grown Run.h private method count synthetic surface was not rejected")
+
+    short_editor_overlay_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void BuildEditorOverlay();",
+    )
+    if not any(
+        error.message == "editor overlay/preview helpers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), short_editor_overlay_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("short editor overlay helper synthetic surface was not rejected")
+
+    short_interaction_preview_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void RefreshInteractionPreview();",
+    )
+    if not any(
+        error.message == "editor overlay/preview helpers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), short_interaction_preview_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("short interaction preview helper synthetic surface was not rejected")
 
     new_binding = allowed_host.replace(
         "RunDebugState* debug = nullptr;",

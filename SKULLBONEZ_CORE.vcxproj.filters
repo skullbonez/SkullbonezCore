@@ -683,6 +683,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>

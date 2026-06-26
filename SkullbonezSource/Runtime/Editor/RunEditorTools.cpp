@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "EditorOverlayTools.h"
 #include "EditorTools.h"
 #include "EditorHullAssets.h"
 #include "../../Assets/AssetSystem.h"
@@ -2770,7 +2771,41 @@ void Run::TickEditorViewportAndPlacementScaleInput( int unhandledWheelDelta )
 
 bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppressWorldActionThisFrame )
 {
-    UpdateEditorInteractionPreview();
+    const bool previewInspectGizmoActive = InspectGizmoInteractionActive();
+    const bool previewCanUseMouseRay = !m_UI.BlocksCameraMouse() && !m_runtimeTools.Editor().viewportLookActive &&
+                                       ( m_runtimeTools.Editor().editorModeEnabled || previewInspectGizmoActive );
+    const bool previewNeedsMouseRay =
+        previewCanUseMouseRay &&
+        ( ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
+            !m_runtimeTools.Editor().placementScaleActive ) ||
+          ( m_runtimeTools.Editor().selectedModelIndex >= 0 && !m_runtimeTools.Editor().gizmoDragActive &&
+            !m_runtimeTools.Editor().placementModeEnabled ) );
+
+    Vector3 previewRayOrigin;
+    Vector3 previewRayDirection;
+    const bool hasPreviewMouseRay =
+        previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
+
+    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
+        { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction, m_systems.terrain.get() },
+        { m_UI.BlocksCameraMouse(),
+          previewInspectGizmoActive,
+          hasPreviewMouseRay,
+          previewRayOrigin,
+          previewRayDirection,
+          Input::IsKeyDown( VK_CONTROL ) } );
+
+    if ( previewResult.clearInvalidSelection )
+    {
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = -1;
+        command.selectionScope = previewResult.inspectSelectionScope ? RuntimeInteractionSelectionScope::Inspect
+                                                                     : RuntimeInteractionSelectionScope::Editor;
+        command.claimSelectionOwner = false;
+        ExecuteRuntimeInteractionCommand( command );
+        CancelEditorGizmoDragState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+    }
 
     const bool leftMouseNow = mouseEdges.leftDown;
     const bool leftPressed = mouseEdges.leftPressed;
@@ -4491,113 +4526,103 @@ void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
 } // namespace SkullbonezCore
 
 
-void Run::UpdateEditorInteractionPreview()
+namespace SkullbonezCore
 {
-    m_runtimeTools.Editor().placementPreviewVisible = false;
-    m_runtimeTools.Editor().hotGizmoAxis = -1;
-    m_runtimeTools.Editor().hotRotationAxis = -1;
+namespace Basics
+{
+namespace RunInternal
+{
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
+                                                               const EditorInteractionPreviewInput& input )
+{
+    EditorInteractionPreviewResult result;
+    context.editor.placementPreviewVisible = false;
+    context.editor.hotGizmoAxis = -1;
+    context.editor.hotRotationAxis = -1;
 
-    if ( m_UI.BlocksCameraMouse() || m_runtimeTools.Editor().viewportLookActive )
+    if ( input.uiBlocksCameraMouse || context.editor.viewportLookActive )
     {
-        return;
+        return result;
     }
 
-    const bool inspectGizmoActive = InspectGizmoInteractionActive();
-    if ( !m_runtimeTools.Editor().editorModeEnabled && !inspectGizmoActive )
+    if ( !context.editor.editorModeEnabled && !input.inspectGizmoActive )
     {
-        return;
+        return result;
     }
 
-    if ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled )
+    if ( context.editor.editorModeEnabled && context.editor.placementModeEnabled )
     {
         EditorTerrainPlacement terrainPlacement;
         const EditorTerrainPlacement* terrainPlacementForPreview = nullptr;
-        if ( !m_runtimeTools.Editor().placementScaleActive )
+        if ( !context.editor.placementScaleActive && input.hasMouseRay &&
+             TryGetEditorTerrainPlacement( context.terrain,
+                                           input.mouseRayOrigin,
+                                           input.mouseRayDirection,
+                                           terrainPlacement ) )
         {
-            Vector3 rayOrigin;
-            Vector3 rayDirection;
-            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                 TryGetEditorTerrainPlacement( m_systems.terrain.get(), rayOrigin, rayDirection, terrainPlacement ) )
-            {
-                terrainPlacementForPreview = &terrainPlacement;
-            }
+            terrainPlacementForPreview = &terrainPlacement;
         }
-        m_runtimeTools.Editor().placementPreviewVisible =
-            TryUpdateEditorPlacementPreview( { m_runtimeTools.Editor(), m_systems.terrain.get() },
-                                             m_runtimeTools.Editor().objectType,
-                                             terrainPlacementForPreview );
+        context.editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( { context.editor, context.terrain },
+                                                                                  context.editor.objectType,
+                                                                                  terrainPlacementForPreview );
     }
 
-    if ( m_runtimeTools.Editor().selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
+    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() )
     {
-        RuntimeInteractionCommand command;
-        command.type = RuntimeInteractionCommandType::SetEditorSelection;
-        command.modelIndex = -1;
-        command.selectionScope =
-            inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect : RuntimeInteractionSelectionScope::Editor;
-        command.claimSelectionOwner = false;
-        ExecuteRuntimeInteractionCommand( command );
-        CancelEditorGizmoDragState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+        result.clearInvalidSelection = true;
+        result.inspectSelectionScope = input.inspectGizmoActive;
+        return result;
     }
 
-    if ( m_runtimeTools.Editor().selectedModelIndex >= 0 && !m_runtimeTools.Editor().gizmoDragActive &&
-         !m_runtimeTools.Editor().placementModeEnabled )
+    if ( context.editor.selectedModelIndex >= 0 && !context.editor.gizmoDragActive &&
+         !context.editor.placementModeEnabled && input.hasMouseRay )
     {
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
-        {
-            UpdateEditorGizmoHotAxes( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction },
-                                      rayOrigin,
-                                      rayDirection,
-                                      Input::IsKeyDown( VK_CONTROL ) );
-        }
+        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.interaction },
+                                  input.mouseRayOrigin,
+                                  input.mouseRayDirection,
+                                  input.scaleMode );
     }
+
+    return result;
 }
 
 
-void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
+void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
 {
-    m_runtimeTools.EditorTracer().Clear();
-    const float rayLinger = (std::max)( 0.0f, m_debug.physicsDebugContactLinger );
+    const float rayLinger = (std::max)( 0.0f, input.rayLingerSeconds );
     if ( rayLinger > 0.0f )
     {
-        for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
+        for ( const RunRayCastTestLine& line : context.rayCastTest.lines )
         {
             if ( line.active && line.ageSeconds < rayLinger )
             {
-                m_runtimeTools.EditorTracer().AddRayCastTestLine( line.start,
-                                                                  line.end,
-                                                                  1.0f - line.ageSeconds / rayLinger,
-                                                                  line.hit );
+                context.tracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );
             }
         }
     }
 
-    if ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled &&
-         m_runtimeTools.Editor().placementPreviewVisible )
+    if ( context.editor.editorModeEnabled && context.editor.placementModeEnabled &&
+         context.editor.placementPreviewVisible )
     {
-        m_runtimeTools.EditorTracer().AddPlacementRay( m_runtimeTools.Editor().placementRayOrigin,
-                                                       m_runtimeTools.Editor().placementRayHit );
-        m_runtimeTools.EditorTracer().AddPlacementGhost( m_runtimeTools.Editor().objectType,
-                                                         m_runtimeTools.Editor().placementCenter,
-                                                         m_runtimeTools.Editor().placementTerrainPoint,
-                                                         m_runtimeTools.Editor().placementScale,
-                                                         m_runtimeTools.Editor().placementOrientation );
+        context.tracer.AddPlacementRay( context.editor.placementRayOrigin, context.editor.placementRayHit );
+        context.tracer.AddPlacementGhost( context.editor.objectType,
+                                          context.editor.placementCenter,
+                                          context.editor.placementTerrainPoint,
+                                          context.editor.placementScale,
+                                          context.editor.placementOrientation );
     }
 
-    if ( ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() ) &&
-         !m_runtimeTools.Editor().placementModeEnabled && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-         m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() )
+    if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
+         context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.GetModelCount() )
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+        const std::vector<GameModel>& models = context.models.Models();
         Vector3 gizmoOrigin;
         float radius = 1.0f;
         EditorGizmoGroupIndices groupIndices = {};
         int groupCount = 0;
-        const bool scaleMode = m_runtimeTools.Editor().gizmoDragIsScale || Input::IsKeyDown( VK_CONTROL );
+        const bool scaleMode = context.editor.gizmoDragIsScale || input.scaleMode;
         if ( TryGetEditorSelectionFrame( models,
-                                         m_runtimeTools.Editor().selectedModelIndex,
+                                         context.editor.selectedModelIndex,
                                          gizmoOrigin,
                                          radius,
                                          &groupIndices,
@@ -4605,58 +4630,44 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
         {
             for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
             {
-                m_runtimeTools.EditorTracer().AddSelectionOutline(
+                context.tracer.AddSelectionOutline(
                     models[static_cast<std::size_t>( groupIndices[static_cast<std::size_t>( groupIndex )] )] );
             }
-            m_runtimeTools.EditorTracer().AddGizmo( gizmoOrigin,
-                                                    radius,
-                                                    m_runtimeTools.Editor().hotGizmoAxis,
-                                                    m_runtimeTools.Editor().hotRotationAxis,
-                                                    m_runtimeTools.Editor().activeGizmoAxis,
-                                                    m_runtimeTools.Editor().gizmoDragIsRotation,
-                                                    scaleMode,
-                                                    m_runtimeTools.Editor().gizmoDragIsScale );
+            context.tracer.AddGizmo( gizmoOrigin,
+                                     radius,
+                                     context.editor.hotGizmoAxis,
+                                     context.editor.hotRotationAxis,
+                                     context.editor.activeGizmoAxis,
+                                     context.editor.gizmoDragIsRotation,
+                                     scaleMode,
+                                     context.editor.gizmoDragIsScale );
         }
     }
-    if ( m_runtimeTools.MousePickup().active && m_runtimeTools.MousePickup().modelIndex >= 0 &&
-         m_runtimeTools.MousePickup().modelIndex < m_cGameModelCollection.GetModelCount() )
+
+    if ( context.mousePickup.active && context.mousePickup.modelIndex >= 0 &&
+         context.mousePickup.modelIndex < context.models.GetModelCount() )
     {
-        const GameModel& grabbed =
-            m_cGameModelCollection.Models()[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
-        const Vector3 grabPoint = grabbed.GetPosition() + m_runtimeTools.MousePickup().grabOffset;
-        m_runtimeTools.EditorTracer().AddSelectionOutline( grabbed );
-        m_runtimeTools.EditorTracer().AddReplayPathSegment( grabPoint,
-                                                            m_runtimeTools.MousePickup().targetPoint,
-                                                            0.1f,
-                                                            0.95f,
-                                                            1.0f );
-        m_runtimeTools.EditorTracer().AddReplayContactMarker( m_runtimeTools.MousePickup().targetPoint,
-                                                              m_runtimeTools.MousePickup().planeNormal,
-                                                              0.1f,
-                                                              0.95f,
-                                                              1.0f );
-        m_runtimeTools.EditorTracer().AddReplayImpulseVector( grabPoint,
-                                                              m_runtimeTools.MousePickup().lastImpulse,
-                                                              0.1f,
-                                                              0.95f,
-                                                              1.0f );
+        const GameModel& grabbed = context.models.Models()[static_cast<size_t>( context.mousePickup.modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + context.mousePickup.grabOffset;
+        context.tracer.AddSelectionOutline( grabbed );
+        context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+        context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
+                                               context.mousePickup.planeNormal,
+                                               0.1f,
+                                               0.95f,
+                                               1.0f );
+        context.tracer.AddReplayImpulseVector( grabPoint, context.mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
     }
-    if ( IsAttachedCameraMode() )
+
+    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.GetModelCount() )
     {
-        int targetIndex = -1;
-        if ( TryResolveAttachedCameraTarget( targetIndex ) && targetIndex >= 0 &&
-             targetIndex < m_cGameModelCollection.GetModelCount() )
-        {
-            const GameModel& target = m_cGameModelCollection.Models()[static_cast<size_t>( targetIndex )];
-            m_runtimeTools.EditorTracer().AddAttachedCameraTargetMarker( target, m_attachedCamera.activeFollow );
-        }
+        const GameModel& target = context.models.Models()[static_cast<size_t>( input.attachedCameraTargetIndex )];
+        context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
     }
-    RenderReplayPathVisualizer( m_runtimeTools.EditorTracer() );
-    RenderReplayCauseFocusOverlay( m_runtimeTools.EditorTracer() );
-    RenderReplayVelocityEditOverlay( m_runtimeTools.EditorTracer() );
-    m_runtimeTools.EditorTracer().Render( viewProjection );
-    m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
 }
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore
 
 
 namespace SkullbonezCore

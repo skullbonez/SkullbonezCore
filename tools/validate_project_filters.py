@@ -215,6 +215,7 @@ RUNTIME_RENDER_PREFIXES = (
 
 RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
+    "EditorOverlayTools",
     "EditorHullAssets",
     "LauncherLaser",
     "LauncherTools",

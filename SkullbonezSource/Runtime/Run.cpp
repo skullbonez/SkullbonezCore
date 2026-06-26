@@ -27,6 +27,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Editor/EditorOverlayTools.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../UI/UIInput.h"
@@ -238,7 +239,37 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
                                         const Math::Vector::Vector3& cameraUp )
-    { static_cast<Run*>( user )->RenderEditorOverlay( viewProjection, cameraEye, cameraUp ); };
+    {
+        Run* run = static_cast<Run*>( user );
+        RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
+        tracer.Clear();
+
+        int attachedTargetIndex = -1;
+        if ( run->IsAttachedCameraMode() )
+        {
+            int targetIndex = -1;
+            if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
+            {
+                attachedTargetIndex = targetIndex;
+            }
+        }
+
+        BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
+                                       run->m_runtimeTools.RayCastTest(),
+                                       run->m_runtimeTools.MousePickup(),
+                                       run->m_cGameModelCollection,
+                                       tracer },
+                                     { run->m_debug.physicsDebugContactLinger,
+                                       run->InspectGizmoInteractionActive(),
+                                       Input::IsKeyDown( VK_CONTROL ),
+                                       attachedTargetIndex,
+                                       run->m_attachedCamera.activeFollow } );
+        run->RenderReplayPathVisualizer( tracer );
+        run->RenderReplayCauseFocusOverlay( tracer );
+        run->RenderReplayVelocityEditOverlay( tracer );
+        tracer.Render( viewProjection );
+        run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
+    };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
     callbacks.shouldRenderReplayScrubber = []( void* user ) -> bool

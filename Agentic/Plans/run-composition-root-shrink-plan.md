@@ -521,6 +521,73 @@ Remaining editor shrink work includes editor overlay generation. Replay UI/tool
 behavior, scene runtime ownership, and render-host splitting remain later plan
 slices.
 
+## Editor Overlay/Preview Slice
+
+The fifth editor slice moved editor interaction preview refresh and deterministic
+tool-overlay trace construction out of `Run`. `Run` still builds shared mouse
+world rays, clears invalid selections through the runtime interaction command
+path, resolves attached-camera targets, appends replay overlays, renders the
+shared tracer, and renders the launcher laser. The new overlay helper only
+mutates editor preview/hot-axis state from explicit inputs and appends tool
+geometry to the borrowed editor tracer.
+
+Deleted `Run.h` declarations:
+
+- `UpdateEditorInteractionPreview`
+- `RenderEditorOverlay`
+
+Deleted `Run::` definitions:
+
+- `Run::UpdateEditorInteractionPreview`
+- `Run::RenderEditorOverlay`
+
+New owner methods:
+
+- `RunInternal::UpdateEditorInteractionPreview(...)`
+- `RunInternal::BuildEditorToolOverlayTrace(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  to 231.
+- The runtime-boundary rule now blocks editor overlay and interaction-preview
+  helper declarations from returning to `Run.h`, including short future names
+  such as `BuildEditorOverlay()` and `RefreshInteractionPreview()`.
+- `tools/validate_project_filters.py` recognizes `EditorOverlayTools` under
+  `Runtime\Editor`.
+- `tools/validate_dx12_renderer.bat` now uses delayed expansion for its
+  Profile-build log path so fail-fast DX12 build evidence prints a real path.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\profile_build_editor_overlay.log`; final rerun passed
+  with 0 warnings and 0 errors in 6.69s after fixing a local-shadowing warning.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\validate_runtime_boundaries_editor_overlay.log`;
+  passed with 0 errors in 0.51s.
+- Fast gate after tooling fixes: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\validate_fast_editor_overlay_final.log`; passed
+  formatting, project filters, runtime boundaries, and Profile/Debug builds in
+  13.17s.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\validate_interaction_clicks_editor_overlay.log`;
+  passed the live inspect-gizmo and replay-prediction click reports in 7.10s.
+- DX12 renderer gate after script fix: `tools\validate_dx12_renderer.bat`,
+  logged at
+  `TestOutput\validation\validate_dx12_renderer_editor_overlay_final.log`;
+  passed formatting, Profile build, DX12 suite, DX12 validation errors 0,
+  screenshot baseline comparison, and Profile/Debug ready builds in 16.64s.
+- Rubber duck: reviewer Locke found no behavior blocker in the extraction and
+  confirmed preview side effects and overlay render order stayed equivalent.
+  Locke did block the first pass on dirty DX12 build-log evidence and an
+  under-matching guardrail regex; both were fixed before the final fast and DX12
+  gates.
+
+Remaining editor shrink work is now outside the overlay/preview cluster. Replay
+UI/tool behavior, scene runtime ownership, and render-host splitting remain
+later plan slices.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

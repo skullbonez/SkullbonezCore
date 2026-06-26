@@ -545,16 +545,11 @@ class Run
     bool TickEditorWorldClick(
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                               // Handles editor placement, selection, and gizmo mouse ownership.
-    void UpdateEditorInteractionPreview();                                 // Refreshes ghost and gizmo hover state before world-click handling
     void CancelMousePickup();                                              // Releases manipulator drag/capture state.
     bool TickMousePickupInput(
         HWND hwnd,
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                               // Handles manipulator left-click pickup and target updates.
-    void RenderEditorOverlay(
-        const Math::Transformation::Matrix4& viewProjection,
-        const Math::Vector::Vector3& cameraEye,
-        const Math::Vector::Vector3& cameraUp );                           // Placement ghost, launcher laser, and object gizmo overlays.
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
