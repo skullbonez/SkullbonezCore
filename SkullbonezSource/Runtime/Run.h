@@ -334,7 +334,6 @@ class Run
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes
-    void LogPerfMemory( const char* checkpoint );                          // Log memory usage to perf CSV
     bool WriteMainMemoryDump( const char* checkpoint );                    // Writes CLI-requested process/replay/object memory JSON.
     void LoadScene(
         int index,

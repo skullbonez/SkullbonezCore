@@ -31,12 +31,6 @@ void Run::SaveScreenshot( const char* path )
 }
 
 
-void Run::LogPerfMemory( const char* checkpoint )
-{
-    m_diagnosticsRuntime.LogPerfMemory( sPerfPass + 1, checkpoint );
-}
-
-
 bool Run::WriteMainMemoryDump( const char* checkpoint )
 {
     return m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,

@@ -97,6 +97,12 @@ void DiagnosticsRuntime::ClosePerfLog()
 }
 
 
+void DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
+{
+    m_diagnostics.ClosePerfLogWithMemoryCheckpoint( pass, checkpoint );
+}
+
+
 void DiagnosticsRuntime::LogPerfMemory( int pass, const char* checkpoint )
 {
     m_diagnostics.LogPerfMemory( pass, checkpoint );

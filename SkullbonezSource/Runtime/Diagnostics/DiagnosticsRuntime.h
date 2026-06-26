@@ -45,6 +45,7 @@ class DiagnosticsRuntime
     const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
+    void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
     void LogPerfMemory( int pass, const char* checkpoint );
     void TickPerfLog( const RuntimePerfTickContext& context );
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,

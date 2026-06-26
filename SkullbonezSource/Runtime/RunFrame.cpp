@@ -2288,7 +2288,7 @@ void Run::TickPerfLog()
 
     if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {
-        LogPerfMemory( "periodic" );
+        m_diagnosticsRuntime.LogPerfMemory( sPerfPass + 1, "periodic" );
     }
 }
 

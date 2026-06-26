@@ -49,6 +49,15 @@ void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
     }
 }
 
+void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
+{
+    if ( perfLog.perfLogFile && perfLog.perfLogWritesSinceFlush > 0 )
+    {
+        fflush( perfLog.perfLogFile );
+        perfLog.perfLogWritesSinceFlush = 0;
+    }
+}
+
 bool FlushWorkingSetQueryBatch( HANDLE process,
                                 std::vector<PSAPI_WORKING_SET_EX_INFORMATION>& pages,
                                 uint64_t& privateWorkingSetBytes,
@@ -189,9 +198,17 @@ void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
 {
     if ( perfLog.perfLogFile )
     {
+        FlushPendingPerfLogWrites( perfLog );
         fclose( perfLog.perfLogFile );
         perfLog.perfLogFile = nullptr;
     }
+}
+
+
+void RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint )
+{
+    LogPerfMemory( perfLog, pass, checkpoint );
+    ClosePerfLog( perfLog );
 }
 
 MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory()

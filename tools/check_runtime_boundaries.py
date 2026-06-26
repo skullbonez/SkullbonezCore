@@ -46,7 +46,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 224
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 223
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -316,6 +316,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Use SceneController/SceneRuntime accessors directly while scene load ownership moves out of Run.",
     ),
     (
+        "diagnostics perf-memory wrappers must stay out of Run.h",
+        r"\bLogPerfMemory\s*\(",
+        "Call DiagnosticsRuntime::LogPerfMemory directly so diagnostics owns perf-log policy.",
+    ),
+    (
         "editor gizmo mechanics must stay out of Run.h",
         r"\b(?:[A-Za-z_]\w*EditorGizmo[A-Za-z_]\w*|"
         r"[A-Za-z_]\w*SelectedEditorObject[A-Za-z_]\w*)\s*\(",
@@ -438,6 +443,12 @@ RUN_SCENE_QUEUE_SOURCE_RULE = (
     "Run scene queue wrappers are blocked",
     r"\bRun::(?:HasSceneQueueEntry|HasCurrentSceneQueueEntry|CurrentSceneQueuePath)\s*\(",
     "Use SceneController/SceneRuntime accessors directly while scene load ownership moves out of Run.",
+)
+
+RUN_DIAGNOSTICS_SOURCE_RULE = (
+    "Run diagnostics perf-memory wrappers are blocked",
+    r"\bRun::LogPerfMemory\s*\(",
+    "Call DiagnosticsRuntime::LogPerfMemory directly so diagnostics owns perf-log policy.",
 )
 
 ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS = {
@@ -894,6 +905,24 @@ def check_run_scene_queue_source_guardrails(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_run_diagnostics_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_DIAGNOSTICS_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_diagnostics_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_diagnostics_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_run_ui_text_pass_replay_overlay_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_UI_TEXT_PASS_REPLAY_OVERLAY_RULE
@@ -1087,6 +1116,16 @@ def run_self_tests() -> list[str]:
         for error in check_text_rules(Path("synthetic/Run.h"), old_scene_queue_header_helper, RUN_HEADER_RULES)
     ):
         failures.append("scene queue header wrapper synthetic surface was not rejected")
+
+    old_diagnostics_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void LogPerfMemory( const char* checkpoint );",
+    )
+    if not any(
+        error.message == "diagnostics perf-memory wrappers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_diagnostics_header_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("diagnostics perf-memory header wrapper synthetic surface was not rejected")
 
     old_run_internal_scrubber_helper = """
     static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
@@ -1358,6 +1397,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("scene queue source wrapper synthetic surface was not rejected")
 
+    old_diagnostics_source_helper = "void Run::LogPerfMemory( const char* checkpoint ) {}"
+    if not any(
+        error.message == "Run diagnostics perf-memory wrappers are blocked"
+        for error in check_run_diagnostics_source_guardrails_text(
+            Path("synthetic/RunCapture.cpp"),
+            old_diagnostics_source_helper,
+        )
+    ):
+        failures.append("diagnostics perf-memory source wrapper synthetic surface was not rejected")
+
     old_ui_text_pass_replay_scrubber_overlay_definition = "void RuntimeRenderHost::RenderReplayScrubberOverlay() const {}"
     if not any(
         error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
@@ -1557,6 +1606,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_overlay_source_guardrails(repo))
     errors.extend(check_run_scene_reset_source_guardrails(repo))
     errors.extend(check_run_scene_queue_source_guardrails(repo))
+    errors.extend(check_run_diagnostics_source_guardrails(repo))
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))

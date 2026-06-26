@@ -44,6 +44,12 @@ void DiagnosticsController::ClosePerfLog()
 }
 
 
+void DiagnosticsController::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
+{
+    RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( m_perfLog, pass, checkpoint );
+}
+
+
 void DiagnosticsController::LogPerfMemory( int pass, const char* checkpoint )
 {
     RuntimeDiagnostics::LogPerfMemory( m_perfLog, pass, checkpoint );

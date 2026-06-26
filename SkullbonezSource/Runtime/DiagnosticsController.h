@@ -37,6 +37,7 @@ class DiagnosticsController
     const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
+    void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
     void LogPerfMemory( int pass, const char* checkpoint );
     void TickPerfLog( const RuntimePerfTickContext& context );
 

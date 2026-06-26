@@ -678,6 +678,56 @@ Validation:
 The residual scrubber timeline duplication from this slice is resolved by the
 following replay scrubber timeline owner slice.
 
+## Diagnostics Perf Memory Wrapper Slice
+
+This diagnostics slice removed the perf-memory checkpoint wrapper from `Run`.
+Periodic and scene-start memory checkpoints now call `DiagnosticsRuntime`
+directly, while the scene-load perf-log end checkpoint, forced pending flush,
+and close behavior moved behind diagnostics APIs.
+
+Deleted `Run.h` declarations:
+
+- `LogPerfMemory`
+
+Deleted `Run::` definitions:
+
+- `Run::LogPerfMemory`
+
+New owner methods:
+
+- `RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint(...)`
+- `DiagnosticsController::ClosePerfLogWithMemoryCheckpoint(...)`
+- `DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet to 223.
+- The boundary checker rejects `Run::LogPerfMemory` declarations and
+  definitions, with synthetic header/source self-tests.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\perf_memory_wrapper_profile_build.log`;
+  passed with 0 warnings and 0 errors in 43.75s.
+- Rubber duck: reviewer Averroes found no blocking source defect or ordering
+  drift. Non-blocking residual risks are the exact-name source guardrail and
+  the still-live `RunScene` perf-log open/raw `PerfLog()` setup path.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\perf_memory_wrapper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 50.74s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\perf_memory_wrapper_runtime_boundaries.log`;
+  passed with 0 errors in 0.70s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\perf_memory_wrapper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.43s.
+
 ## Replay Scrubber Timeline Owner Slice
 
 This replay slice moved scrubber timeline math and track-position mutation out

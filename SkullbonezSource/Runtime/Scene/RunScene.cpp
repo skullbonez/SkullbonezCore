@@ -841,18 +841,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
     const std::string& scenePath = *loadBegin.scenePath;
 
-    // Close previous perf log if open
-    if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
-    {
-        LogPerfMemory( "end" );
-        if ( m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush > 0 )
-        {
-            fflush( m_diagnosticsRuntime.PerfLog().perfLogFile );
-            m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
-        }
-        fclose( m_diagnosticsRuntime.PerfLog().perfLogFile );
-        m_diagnosticsRuntime.PerfLog().perfLogFile = nullptr;
-    }
+    m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( sPerfPass + 1, "end" );
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
@@ -1183,7 +1172,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
             {
                 m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
-                LogPerfMemory( "start" );
+                m_diagnosticsRuntime.LogPerfMemory( sPerfPass + 1, "start" );
             }
         }
 
