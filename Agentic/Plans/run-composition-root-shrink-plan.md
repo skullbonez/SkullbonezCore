@@ -346,6 +346,101 @@ Remaining editor shrink work includes gizmo drag, editor UI commands, and editor
 overlay generation. Replay UI/tool behavior, scene runtime ownership, and
 render-host splitting remain later plan slices.
 
+## Editor Gizmo Slice
+
+The third editor slice moved transform-gizmo mechanics out of `Run`.
+`RunInternal` editor helpers now own gizmo drag capture helpers, axis/ring hit
+testing, ray-to-axis/ring projection, selected-object translate/rotate/scale
+mutation, and hot-axis preview updates through an explicit `EditorGizmoContext`.
+`Run` still builds the shared mouse world ray, performs world-owner transitions,
+routes final input, and records replay editor-transform events on drag release.
+
+Deleted `Run.h` declarations:
+
+- `BeginEditorGizmoDragGesture`
+- `EndEditorGizmoDragGesture`
+- `CancelEditorGizmoDragState`
+- `HitEditorGizmoAxis`
+- `HitEditorRotationGizmoAxis`
+- `TryEditorAxisRayParameter`
+- `TryEditorRotationRayAngle`
+- `MoveSelectedEditorObjectAlongAxis`
+- `RotateSelectedEditorObjectAroundAxis`
+- `ScaleSelectedEditorObjectAlongAxis`
+
+Deleted `Run::` definitions:
+
+- `Run::BeginEditorGizmoDragGesture`
+- `Run::EndEditorGizmoDragGesture`
+- `Run::CancelEditorGizmoDragState`
+- `Run::HitEditorGizmoAxis`
+- `Run::HitEditorRotationGizmoAxis`
+- `Run::TryEditorAxisRayParameter`
+- `Run::TryEditorRotationRayAngle`
+- `Run::MoveSelectedEditorObjectAlongAxis`
+- `Run::RotateSelectedEditorObjectAroundAxis`
+- `Run::ScaleSelectedEditorObjectAlongAxis`
+
+New owner methods:
+
+- `RunInternal::BeginEditorGizmoDragGesture(...)`
+- `RunInternal::EndEditorGizmoDragGesture(...)`
+- `RunInternal::CancelEditorGizmoDragState(...)`
+- `RunInternal::HitEditorGizmoAxis(...)`
+- `RunInternal::HitEditorRotationGizmoAxis(...)`
+- `RunInternal::TryEditorAxisRayParameter(...)`
+- `RunInternal::TryEditorRotationRayAngle(...)`
+- `RunInternal::MoveSelectedEditorObjectAlongAxis(...)`
+- `RunInternal::RotateSelectedEditorObjectAroundAxis(...)`
+- `RunInternal::ScaleSelectedEditorObjectAlongAxis(...)`
+- `RunInternal::UpdateEditorGizmoHotAxes(...)`
+
+Boundary guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  to 238.
+- The runtime-boundary rule now blocks future `Run.h` methods whose names carry
+  `EditorGizmo` or `SelectedEditorObject`, so renamed gizmo mechanics cannot
+  return under a nearby wrapper name.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_profile_build.log`;
+  passed with 0 warnings and 0 errors.
+- Rubber duck: reviewer Archimedes found no blocking defect; after review, the
+  boundary guard was broadened from exact old names to any `EditorGizmo` or
+  `SelectedEditorObject` method declaration on `Run`.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_validate_runtime_boundaries.log`;
+  passed with 0 errors.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv`.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_validate_replay_v2_artifact.log`;
+  passed save, target restore, generated-topology restore, replay query/export,
+  and physics-query checks, including decoded editor-transform samples.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\run_composition_editor_gizmo_validate_interaction_clicks.log`;
+  passed the existing live inspect-gizmo selection/visibility and replay
+  prediction click reports.
+
+Residual evidence risk: the existing automation proves gizmo selection and
+visibility, but there is still no dedicated live translate/rotate/scale drag
+smoke. The replay artifact gate covers encoded editor-transform samples, not
+manual mouse feel.
+
+Remaining editor shrink work includes editor UI commands and editor overlay
+generation. Replay UI/tool behavior, scene runtime ownership, and render-host
+splitting remain later plan slices.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

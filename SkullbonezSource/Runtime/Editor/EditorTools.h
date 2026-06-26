@@ -47,6 +47,7 @@ class Terrain;
 }
 namespace Basics
 {
+class RuntimeInteractionController;
 class RuntimeCommandQueue;
 class RuntimeInputContext;
 struct RunEditorPlacementState;
@@ -107,6 +108,13 @@ struct EditorObjectPlacementResult
     float placementYawRadians = 0.0f;
 };
 
+struct EditorGizmoContext
+{
+    RunEditorPlacementState& editor;
+    GameObjects::GameModelCollection& models;
+    RuntimeInteractionController& interaction;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -135,6 +143,38 @@ bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, E
 bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                       EditorObjectPlacementRequest request,
                                       EditorObjectPlacementResult& outResult );
+bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, bool angular );
+void EndEditorGizmoDragGesture( EditorGizmoContext context );
+void CancelEditorGizmoDragState( EditorGizmoContext context );
+int HitEditorGizmoAxis( EditorGizmoContext context,
+                        const Math::Vector::Vector3& rayOrigin,
+                        const Math::Vector::Vector3& rayDirection );
+int HitEditorRotationGizmoAxis( EditorGizmoContext context,
+                                const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection );
+bool TryEditorAxisRayParameter( EditorGizmoContext context,
+                                int axis,
+                                const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection,
+                                float& outAxisT );
+bool TryEditorRotationRayAngle( EditorGizmoContext context,
+                                int axis,
+                                const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection,
+                                float& outAngle );
+void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
+                                        const Math::Vector::Vector3& rayOrigin,
+                                        const Math::Vector::Vector3& rayDirection );
+void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
+                                           const Math::Vector::Vector3& rayOrigin,
+                                           const Math::Vector::Vector3& rayDirection );
+void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
+                                         const Math::Vector::Vector3& rayOrigin,
+                                         const Math::Vector::Vector3& rayDirection );
+void UpdateEditorGizmoHotAxes( EditorGizmoContext context,
+                               const Math::Vector::Vector3& rayOrigin,
+                               const Math::Vector::Vector3& rayDirection,
+                               bool scaleMode );
 void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
 } // namespace RunInternal
 } // namespace Basics

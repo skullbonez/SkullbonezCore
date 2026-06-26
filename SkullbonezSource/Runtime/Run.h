@@ -542,11 +542,6 @@ class Run
         const;                                                             // Mouse position projected into a world-space ray.
     void ResetEditorUnfocusedInputState();                                 // Clears transient editor gestures when app focus is lost.
     void ClearEditorManipulationState();                                   // Clears placement/gizmo gesture state while preserving editor mode.
-    bool BeginEditorGizmoDragGesture( int modelIndex,
-                                      int axis,
-                                      bool angular );                      // Captures editor/inspect gizmo drag ownership.
-    void EndEditorGizmoDragGesture();                                      // Releases controller ownership for an active gizmo drag.
-    void CancelEditorGizmoDragState();                                     // Clears controller capture and legacy gizmo drag fields together.
     void ToggleEditorPlacementMode( RuntimeInputActionSource source );     // Enters/exits placement mode from keyboard or UI.
     void HandleEditorKeyboardShortcuts();                                  // Applies editor-mode Alt/Tab shortcuts.
     void ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands,
@@ -562,27 +557,6 @@ class Run
         HWND hwnd,
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                               // Handles manipulator left-click pickup and target updates.
-    int HitEditorGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection )
-        const;                                                             // Hovered gizmo axis, or -1 when none is hit.
-    int HitEditorRotationGizmoAxis( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection )
-        const;                                                             // Hovered rotation ring axis, or -1 when none is hit.
-    bool TryEditorAxisRayParameter( int axis,
-                                    const Math::Vector::Vector3& rayOrigin,
-                                    const Math::Vector::Vector3& rayDirection,
-                                    float& outAxisT ) const;               // Projects mouse ray onto a gizmo axis
-    bool TryEditorRotationRayAngle( int axis,
-                                    const Math::Vector::Vector3& rayOrigin,
-                                    const Math::Vector::Vector3& rayDirection,
-                                    float& outAngle ) const;               // Projects mouse ray onto a rotation ring plane
-    void MoveSelectedEditorObjectAlongAxis(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection );                       // Active gizmo drag along a selected axis.
-    void RotateSelectedEditorObjectAroundAxis(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection );                       // Active rotation-ring drag around a selected axis.
-    void ScaleSelectedEditorObjectAlongAxis(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection );                       // Active scale-axis drag along a selected axis.
     void RenderEditorOverlay(
         const Math::Transformation::Matrix4& viewProjection,
         const Math::Vector::Vector3& cameraEye,
