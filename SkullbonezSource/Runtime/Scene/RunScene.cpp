@@ -1899,7 +1899,7 @@ bool Run::CreateSceneFromUI( const char* requestedName )
     {
         if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == normalizedPath )
         {
-            LoadSceneFromBrowserIndex( i );
+            m_sceneCoordinator.LoadSceneFromBrowserIndex( i, m_sceneBrowser.paths );
             return true;
         }
     }
@@ -1907,18 +1907,6 @@ bool Run::CreateSceneFromUI( const char* requestedName )
     EnterInteractiveSceneRun();
     LoadScene( m_sceneController.Append( normalizedPath ), true, true );
     return true;
-}
-
-
-void Run::LoadSceneFromBrowserIndex( int index )
-{
-    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowser.paths );
-}
-
-
-void Run::LoadDemoSceneFromUI()
-{
-    m_sceneCoordinator.LoadDemoSceneFromUI();
 }
 
 
@@ -2060,26 +2048,6 @@ void Run::ApplyDemoHeroStyleOverride()
     const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
     ApplyLiveStyleScene( styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
-}
-
-
-bool Run::ApplyAdjacentCinematicMode( int direction )
-{
-    return m_sceneCoordinator.ApplyAdjacentCinematicMode( direction,
-                                                          m_sceneBrowser.paths,
-                                                          m_sceneBrowser.selectedCineModeSceneIndex );
-}
-
-
-void Run::LoadAdjacentSceneFromBrowser( int direction )
-{
-    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowser.paths );
-}
-
-
-void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-{
-    m_sceneCoordinator.ResetCurrentScene( preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
@@ -2268,13 +2236,4 @@ void Run::UpdateWorldTerrainBounds()
 
     XZBounds tb = m_systems.terrain->GetXZBounds();
     m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
-}
-
-
-bool Run::AdvanceScene()
-{
-    const bool preserveInteractiveUI = SceneState().isInteractiveRun;
-    return m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                            sPerfPass,
-                                            preserveInteractiveUI );
 }

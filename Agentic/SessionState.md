@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink diagnostics perf-memory wrapper slice is validated for commit: `Run::LogPerfMemory` is removed, perf memory checkpoints call `DiagnosticsRuntime` directly, and perf-log end/checkpoint/flush/close behavior lives behind diagnostics APIs. |
+| Last committed milestone | Runtime run composition-root shrink scene-control wrapper slice is validated for commit: scene browser/demo/adjacent/reset/advance wrappers are removed from `Run`, call sites invoke `SceneRuntimeCoordinator` directly, and boundary guardrails block those wrappers from returning. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
-| Pending work | Continue run-shrink work with the remaining scene load reset/teardown phases, scene perf-log open/reset lifecycle ownership, remaining replay tool/helper ownership, render-host splitting, and shared cine/path helper cleanup. Do not skip an independent rubber-duck review before validation and commit. |
+| Pending work | Continue run-shrink work with scene coordinator callback/intent cleanup, remaining scene load reset/teardown phases, scene perf-log open/reset lifecycle ownership, remaining replay tool/helper ownership, render-host splitting, and shared cine/path helper cleanup. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Diagnostics perf-memory wrapper validation: targeted Profile build (`TestOutput\validation\agent_logs\perf_memory_wrapper_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\perf_memory_wrapper_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\perf_memory_wrapper_runtime_boundaries.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\perf_memory_wrapper_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Scene-control wrapper validation: targeted Profile build (`TestOutput\validation\agent_logs\scene_control_wrapper_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\scene_control_wrapper_runtime_boundaries.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -114,6 +114,29 @@ audits when it is still useful.
   (`TestOutput\validation\agent_logs\perf_memory_wrapper_runtime_boundaries.log`),
   and `tools\validate_full.bat` 25.43s
   (`TestOutput\validation\agent_logs\perf_memory_wrapper_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink scene-control wrapper slice removes
+  `LoadSceneFromBrowserIndex`, `LoadDemoSceneFromUI`,
+  `ApplyAdjacentCinematicMode`, `LoadAdjacentSceneFromBrowser`,
+  `ResetCurrentScene`, and `AdvanceScene` from `Run`. Scene-browser,
+  demo-scene, adjacent-scene, reset, and scene-advance call sites now call
+  `SceneRuntimeCoordinator` directly with the same paths, preserve flags,
+  perf-test state, perf pass reference, and interactive-run preserve flag. The
+  `Run.h` private-method ratchet is now 217 and boundary guardrails reject
+  those wrapper declarations/definitions from returning. Rubber-duck reviewer
+  Chandrasekhar found no blocking behavior defect; the remaining non-blocking
+  risk is that guardrails are exact-name checks, with renamed wrappers covered
+  only by the broader method-count ratchet and review.
+- Scene-control wrapper validation: targeted Profile build passed in 41.73s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` in about 46.2s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_fast.log`),
+  direct `check_runtime_boundaries.py` in 0.79s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_runtime_boundaries.log`),
+  and `tools\validate_full.bat` in 25.08s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_full.log`).
   Full gate passed project filters, runtime boundaries, Profile/Debug builds,
   DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
   and byte-exact `physics_regression_solver.csv`.

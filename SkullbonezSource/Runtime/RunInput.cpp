@@ -2195,9 +2195,11 @@ void Run::TakeInput()
                                                           VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !ApplyAdjacentCinematicMode( -1 ) )
+            if ( !m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
+                                                                 m_sceneBrowser.paths,
+                                                                 m_sceneBrowser.selectedCineModeSceneIndex ) )
             {
-                LoadAdjacentSceneFromBrowser( -1 );
+                m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1, m_sceneBrowser.paths );
             }
         }
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
@@ -2205,9 +2207,11 @@ void Run::TakeInput()
                                                           VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !ApplyAdjacentCinematicMode( 1 ) )
+            if ( !m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
+                                                                 m_sceneBrowser.paths,
+                                                                 m_sceneBrowser.selectedCineModeSceneIndex ) )
             {
-                LoadAdjacentSceneFromBrowser( 1 );
+                m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1, m_sceneBrowser.paths );
             }
         }
     }
@@ -2922,14 +2926,16 @@ bool Run::DrainRuntimeCommands()
         switch ( command.type )
         {
         case RuntimeCommandType::LoadSceneIndex:
-            LoadSceneFromBrowserIndex( command.index );
+            m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneBrowser.paths );
             break;
         case RuntimeCommandType::LoadDemoScene:
-            LoadDemoSceneFromUI();
+            m_sceneCoordinator.LoadDemoSceneFromUI();
             break;
         case RuntimeCommandType::ResetCurrentScene:
             EnterInteractiveSceneRun();
-            ResetCurrentScene( command.preserveUIState, command.suppressExitOnComplete, command.preserveRuntimeState );
+            m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
+                                                  command.suppressExitOnComplete,
+                                                  command.preserveRuntimeState );
             break;
         case RuntimeCommandType::CreateScene:
             CreateSceneFromUI( command.text.c_str() );
@@ -2950,7 +2956,9 @@ bool Run::DrainRuntimeCommands()
             SaveSkyDefaults();
             break;
         case RuntimeCommandType::AdvanceScene:
-            if ( !AdvanceScene() )
+            if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                   sPerfPass,
+                                                   SceneState().isInteractiveRun ) )
             {
                 PostQuitMessage( 0 );
             }

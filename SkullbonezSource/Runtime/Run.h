@@ -324,13 +324,9 @@ class Run
     void RefreshSceneBrowserList();                                        // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                  // Selected discovered-scene dropdown index.
     bool CreateSceneFromUI( const char* requestedName );                   // Creates and loads a flat starter scene from the Scene tab.
-    void LoadSceneFromBrowserIndex( int index );                           // In-game scene dropdown selection loader.
-    void LoadDemoSceneFromUI();                                            // Scene-tab entry point for the generated demo scene.
     bool ApplyCinematicModeFromBrowserIndex( int index );                  // Live cine/concept style change; leaves scene objects intact.
-    bool ApplyAdjacentCinematicMode( int direction );                      // Cycles live cine/concept looks without rebuilding the scene
     void ApplyLiveStyleScene( const TestScene& styleScene );               // Style-only cinematic/material JSON; no object rebuild.
     void ApplyDemoHeroStyleOverride();                                     // Low-poly hero style override for generated demo mode.
-    void LoadAdjacentSceneFromBrowser( int direction );                    // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes
@@ -340,10 +336,6 @@ class Run
         bool preserveUIState = false,
         bool suppressExitOnComplete = false,
         bool preserveRuntimeState = false );                               // Queue-indexed scene load; preserve flags keep selected runtime/UI state.
-    void ResetCurrentScene(
-        bool preserveUIState = false,
-        bool suppressExitOnComplete = false,
-        bool preserveRuntimeState = true );                                // User-triggered reset/reload of current scene or generated demo mode
     void ApplyUIModelCountOverride( int count );                           // Rebuilds the active generated model pool from the UI slider
     void ApplyUISolverObjectCounts( int balls, int boxes );                // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity,
@@ -358,7 +350,6 @@ class Run
                               float slopeX,
                               float slopeZ );                              // Activates analytic flat-slope terrain for focused physics scenes
     void UpdateWorldTerrainBounds();                                       // Keeps world/fluid helpers aligned with the active terrain bounds
-    bool AdvanceScene();                                                   // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.

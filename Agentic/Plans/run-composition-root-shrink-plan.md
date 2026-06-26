@@ -728,6 +728,79 @@ Validation:
   validation with 0 errors and matching screenshots, and byte-exact
   `physics_regression_solver.csv` in 25.43s.
 
+## Scene-Control Wrapper Slice
+
+This scene-runtime slice removed the thin scene-control wrappers from `Run`.
+Scene browser selection, demo-scene loading, adjacent cinematic/scene cycling,
+user reset, runtime-command advance, screenshot automation advance, and
+exit-on-complete advance call sites now call `SceneRuntimeCoordinator`
+directly. The old wrappers only forwarded arguments, so this slice deletes the
+composition-root surface while preserving the existing scene coordinator
+ownership.
+
+Deleted `Run.h` declarations:
+
+- `LoadSceneFromBrowserIndex`
+- `LoadDemoSceneFromUI`
+- `ApplyAdjacentCinematicMode`
+- `LoadAdjacentSceneFromBrowser`
+- `ResetCurrentScene`
+- `AdvanceScene`
+
+Deleted `Run::` definitions:
+
+- `Run::LoadSceneFromBrowserIndex`
+- `Run::LoadDemoSceneFromUI`
+- `Run::ApplyAdjacentCinematicMode`
+- `Run::LoadAdjacentSceneFromBrowser`
+- `Run::ResetCurrentScene`
+- `Run::AdvanceScene`
+
+New direct owner calls:
+
+- `SceneRuntimeCoordinator::LoadSceneFromBrowserIndex(...)`
+- `SceneRuntimeCoordinator::LoadDemoSceneFromUI()`
+- `SceneRuntimeCoordinator::ApplyAdjacentCinematicMode(...)`
+- `SceneRuntimeCoordinator::LoadAdjacentSceneFromBrowser(...)`
+- `SceneRuntimeCoordinator::ResetCurrentScene(...)`
+- `SceneRuntimeCoordinator::AdvanceScene(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 223 to 217.
+- The boundary checker rejects the removed scene-control wrapper declarations
+  in `Run.h`.
+- The boundary checker rejects `Run::LoadSceneFromBrowserIndex`,
+  `Run::LoadDemoSceneFromUI`, `Run::ApplyAdjacentCinematicMode`,
+  `Run::LoadAdjacentSceneFromBrowser`, `Run::ResetCurrentScene`, and
+  `Run::AdvanceScene` source definitions from returning.
+- Synthetic header/source self-tests cover the old scene-control surface.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_control_wrapper_profile_build.log`;
+  passed with 0 warnings and 0 errors in 41.73s.
+- Rubber duck: reviewer Chandrasekhar found no blocking defect. Reset ordering
+  still enters interactive scene mode before forwarding preserve flags, and
+  every `AdvanceScene` call still passes perf-test state, `sPerfPass`, and the
+  current interactive-run preserve flag. The only residual risk is exact-name
+  guardrails; renamed wrappers rely on the private-method ratchet and review.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_control_wrapper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in about 46.2s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_control_wrapper_runtime_boundaries.log`;
+  passed with 0 errors in 0.79s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_control_wrapper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.08s.
+
 ## Replay Scrubber Timeline Owner Slice
 
 This replay slice moved scrubber timeline math and track-position mutation out

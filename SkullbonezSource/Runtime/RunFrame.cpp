@@ -2216,7 +2216,9 @@ bool Run::TickScreenshots()
         PostQuitMessage( 0 );
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
-        if ( !AdvanceScene() )
+        if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                               sPerfPass,
+                                               SceneState().isInteractiveRun ) )
         {
             PostQuitMessage( 0 );
         }
@@ -2310,7 +2312,9 @@ bool Run::TickSceneAdvance()
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !AdvanceScene() )
+            if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                   sPerfPass,
+                                                   SceneState().isInteractiveRun ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -2378,7 +2382,9 @@ bool Run::TickSceneAdvance()
 
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !AdvanceScene() )
+                if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                                       sPerfPass,
+                                                       SceneState().isInteractiveRun ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -2416,7 +2422,9 @@ bool Run::TickSceneAdvance()
 #ifdef _DEBUG
         LogSceneFinished( "perf_duration" );
 #endif
-        if ( !AdvanceScene() )
+        if ( !m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
+                                               sPerfPass,
+                                               SceneState().isInteractiveRun ) )
         {
             if ( CanSceneAutomationQuit() )
             {
