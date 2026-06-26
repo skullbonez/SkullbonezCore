@@ -30,16 +30,26 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using SkullbonezCore::GameObjects::GameModelCollection;
 
 #ifdef _DEBUG
-bool Run::PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance )
+bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
+                                            CameraCollection* cameras,
+                                            int& outIndex,
+                                            float& outRayT,
+                                            float& outCrosshairDistance ) const
 {
     outIndex = -1;
     outRayT = 0.0f;
     outCrosshairDistance = 0.0f;
 
-    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
-    Vector3 rayDir = m_systems.cameras->GetCameraView() - camPos;
+    if ( !cameras )
+    {
+        return false;
+    }
+
+    const Vector3& camPos = cameras->GetCameraTranslation();
+    Vector3 rayDir = cameras->GetCameraView() - camPos;
     float rayMagSq = VectorMagSquared( rayDir );
     if ( rayMagSq < TOLERANCE )
     {
@@ -51,10 +61,10 @@ bool Run::PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCros
     float bestCrosshairDist = 0.0f;
     int bestIndex = -1;
 
-    int count = m_cGameModelCollection.GetModelCount();
+    int count = collection.GetModelCount();
     for ( int i = 0; i < count; ++i )
     {
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
+        GameModel& model = collection.GetModelAtIndex( i );
         Vector3 toModel = model.GetPosition() - camPos;
         float rayT = toModel * rayDir;
         if ( rayT <= 0.0f )
@@ -102,36 +112,27 @@ bool Run::PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCros
 }
 
 
-void Run::WriteLauncherReproSnapshot()
+LauncherReproSnapshotStatus
+RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
 {
     int targetIndex = -1;
     float rayT = 0.0f;
     float crosshairDistance = 0.0f;
-    if ( !PickLauncherReproTarget( targetIndex, rayT, crosshairDistance ) )
+    if ( !PickLauncherReproTarget( context.collection, context.cameras, targetIndex, rayT, crosshairDistance ) )
     {
-        sprintf_s( m_debug.reproSnapshotMessage,
-                   sizeof( m_debug.reproSnapshotMessage ),
-                   "No repro target under crosshair" );
-        m_debug.reproSnapshotMessageUntil =
-            m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
-        return;
+        return LauncherReproSnapshotStatus::NoTarget;
     }
 
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
     if ( fopen_s( &rawFile, LAUNCHER_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
     {
-        sprintf_s( m_debug.reproSnapshotMessage,
-                   sizeof( m_debug.reproSnapshotMessage ),
-                   "Failed to write repro snapshot" );
-        m_debug.reproSnapshotMessageUntil =
-            m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
-        return;
+        return LauncherReproSnapshotStatus::WriteFailed;
     }
     std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
     FILE* f = file.get();
 
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( targetIndex );
+    GameModel& model = context.collection.GetModelAtIndex( targetIndex );
     const Vector3& pos = model.GetPosition();
     const Vector3& vel = model.GetVelocity();
     const Vector3& omega = model.GetAngularVelocity();
@@ -155,59 +156,59 @@ void Run::WriteLauncherReproSnapshot()
     }
 
     const char* scenePath = "<generated>";
-    if ( SceneState().isSceneMode )
+    if ( context.sceneState.isSceneMode )
     {
-        const std::string* currentScenePath = CurrentSceneQueuePath();
-        if ( currentScenePath )
+        if ( context.currentScenePath )
         {
-            scenePath = currentScenePath->c_str();
+            scenePath = context.currentScenePath->c_str();
         }
     }
 
-    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12";
+    const char* rendererName =
+        context.rendererName && context.rendererName[0] != '\0' ? context.rendererName : "DirectX 12";
     const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
-    if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    if ( context.launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
         generatedObjectOverride = "all_balls";
         generatedObjectArg = " --all-balls";
     }
-    else if ( m_launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    else if ( context.launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
     {
         generatedObjectOverride = "all_boxes";
         generatedObjectArg = " --all-boxes";
     }
-    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
-    const Vector3& camView = m_systems.cameras->GetCameraView();
-    const Vector3& camUp = m_systems.cameras->GetCameraUp();
+    const Vector3& camPos = context.cameras->GetCameraTranslation();
+    const Vector3& camView = context.cameras->GetCameraView();
+    const Vector3& camUp = context.cameras->GetCameraUp();
 
     int sleeping = 0;
     int sleepSupported = 0;
     int sleepInhibited = 0;
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
-    const std::vector<uint8_t>& sleepStates = m_cGameModelCollection.GetSleepStates();
+    const std::vector<uint8_t>& sleepStates = context.collection.GetSleepStates();
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepSupportedStates = m_cGameModelCollection.GetSleepSupportedStates();
+    const std::vector<uint8_t>& sleepSupportedStates = context.collection.GetSleepSupportedStates();
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& sleepInhibitedStates = m_cGameModelCollection.GetSleepInhibitedStates();
+    const std::vector<uint8_t>& sleepInhibitedStates = context.collection.GetSleepInhibitedStates();
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
-    const std::vector<uint8_t>& collisionContacts = m_cGameModelCollection.GetCollisionVisualContacts();
+    const std::vector<uint8_t>& collisionContacts = context.collection.GetCollisionVisualContacts();
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
-    const std::vector<int>& islandIds = m_cGameModelCollection.GetSleepIslandVisualIds();
+    const std::vector<int>& islandIds = context.collection.GetSleepIslandVisualIds();
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
         sleepIslandVisualId = islandIds[targetIndex];
@@ -216,22 +217,22 @@ void Run::WriteLauncherReproSnapshot()
     bool terrainAtCenter = false;
     float terrainHeight = 0.0f;
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    if ( m_systems.terrain && m_systems.terrain->IsInBounds( pos.x, pos.z ) )
+    if ( context.terrain && context.terrain->IsInBounds( pos.x, pos.z ) )
     {
-        m_systems.terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
+        context.terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
         terrainAtCenter = true;
     }
 
     int boxTerrainSupportedVertices = -1;
     float boxMinTerrainGap = 0.0f;
     float boxMaxTerrainGap = 0.0f;
-    if ( std::holds_alternative<BoundingBox>( shape ) && m_systems.terrain )
+    if ( std::holds_alternative<BoundingBox>( shape ) && context.terrain )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
         Quaternion qCopy = model.GetOrientation();
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( box, pos, orientMat, *m_systems.terrain, Cfg().contactEpsilon, false );
+            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, Cfg().contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -246,38 +247,38 @@ void Run::WriteLauncherReproSnapshot()
     fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
     fprintf( f, "snapshot_file,%s\n", LAUNCHER_REPRO_SNAPSHOT_PATH );
     fprintf( f, "scene,%s\n", scenePath );
-    fprintf( f, "scene_mode,%d\n", SceneState().isSceneMode ? 1 : 0 );
-    fprintf( f, "scene_index,%d\n", SceneState().currentSceneIndex );
-    fprintf( f, "scene_load_count,%d\n", SceneState().loadCount );
-    fprintf( f, "manual_reset_count,%d\n", SceneState().manualResetCount );
-    fprintf( f, "scene_frame,%d\n", SceneState().currentFrame );
-    fprintf( f, "target_frame_count,%d\n", SceneState().targetFrameCount );
-    fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
-    fprintf( f, "rng_seed,%u\n", SceneState().rngSeed );
-    fprintf( f, "cmd_seed_override,%u\n", m_launchOptions.seedOverride );
-    fprintf( f, "cmd_no_water,%d\n", m_launchOptions.noWater ? 1 : 0 );
-    fprintf( f, "cmd_no_sleep,%d\n", m_launchOptions.noSleep ? 1 : 0 );
-    fprintf( f, "physics_sleep_enabled,%d\n", m_runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
-    fprintf( f, "fixed_step_effective,%d\n", SceneState().isFixedStep ? 1 : 0 );
-    fprintf( f, "cmd_fixed_step_override,%d\n", m_launchOptions.fixedStep ? 1 : 0 );
-    fprintf( f, "time_scale,%.6f\n", SceneState().timeScale );
+    fprintf( f, "scene_mode,%d\n", context.sceneState.isSceneMode ? 1 : 0 );
+    fprintf( f, "scene_index,%d\n", context.sceneState.currentSceneIndex );
+    fprintf( f, "scene_load_count,%d\n", context.sceneState.loadCount );
+    fprintf( f, "manual_reset_count,%d\n", context.sceneState.manualResetCount );
+    fprintf( f, "scene_frame,%d\n", context.sceneState.currentFrame );
+    fprintf( f, "target_frame_count,%d\n", context.sceneState.targetFrameCount );
+    fprintf( f, "simulation_seconds,%.6f\n", context.simulationSeconds );
+    fprintf( f, "rng_seed,%u\n", context.sceneState.rngSeed );
+    fprintf( f, "cmd_seed_override,%u\n", context.launchOptions.seedOverride );
+    fprintf( f, "cmd_no_water,%d\n", context.launchOptions.noWater ? 1 : 0 );
+    fprintf( f, "cmd_no_sleep,%d\n", context.launchOptions.noSleep ? 1 : 0 );
+    fprintf( f, "physics_sleep_enabled,%d\n", context.runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
+    fprintf( f, "fixed_step_effective,%d\n", context.sceneState.isFixedStep ? 1 : 0 );
+    fprintf( f, "cmd_fixed_step_override,%d\n", context.launchOptions.fixedStep ? 1 : 0 );
+    fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
-    fprintf( f, "model_count,%d\n", m_cGameModelCollection.GetModelCount() );
-    fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
-    fprintf( f, "pipeline_sync_enabled,%d\n", m_runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
-    if ( SceneState().isSceneMode )
+    fprintf( f, "model_count,%d\n", context.collection.GetModelCount() );
+    fprintf( f, "vsync_enabled,%d\n", context.runtimeSettings.isVsyncEnabled ? 1 : 0 );
+    fprintf( f, "pipeline_sync_enabled,%d\n", context.runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
+    if ( context.sceneState.isSceneMode )
     {
         fprintf( f,
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
                  "%.6f%s%s%s%s\n",
                  rendererArg,
                  scenePath,
-                 SceneState().rngSeed,
-                 SceneState().timeScale,
-                 SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_launchOptions.noWater ? " --no-water" : "",
-                 m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.sceneState.rngSeed,
+                 context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "",
+                 context.launchOptions.noWater ? " --no-water" : "",
+                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     else
@@ -285,19 +286,19 @@ void Run::WriteLauncherReproSnapshot()
         fprintf( f,
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
-                 SceneState().rngSeed,
-                 SceneState().timeScale,
-                 SceneState().isFixedStep ? " --fixed-step" : "",
-                 m_launchOptions.noWater ? " --no-water" : "",
-                 m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
+                 context.sceneState.rngSeed,
+                 context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "",
+                 context.launchOptions.noWater ? " --no-water" : "",
+                 context.runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
-    fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
-    fprintf( f, "terrain_hidden,%d\n", m_debug.isTerrainHidden ? 1 : 0 );
-    fprintf( f, "collision_visualizer,%d\n", m_debug.isCollisionVisualizer ? 1 : 0 );
-    fprintf( f, "world_gravity,%.6f\n", m_cWorldEnvironment.GetGravity() );
-    fprintf( f, "world_fluid_height,%.6f\n", m_cWorldEnvironment.GetFluidSurfaceHeight() );
-    fprintf( f, "world_fluid_density,%.6f\n", m_cWorldEnvironment.GetFluidDensity() );
+    fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );
+    fprintf( f, "terrain_hidden,%d\n", context.debug.isTerrainHidden ? 1 : 0 );
+    fprintf( f, "collision_visualizer,%d\n", context.debug.isCollisionVisualizer ? 1 : 0 );
+    fprintf( f, "world_gravity,%.6f\n", context.world.GetGravity() );
+    fprintf( f, "world_fluid_height,%.6f\n", context.world.GetFluidSurfaceHeight() );
+    fprintf( f, "world_fluid_density,%.6f\n", context.world.GetFluidDensity() );
     fprintf( f, "cfg_friction_coeff,%.6f\n", Cfg().frictionCoeff );
     fprintf( f, "cfg_contact_epsilon,%.6f\n", Cfg().contactEpsilon );
     fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );
@@ -395,11 +396,6 @@ void Run::WriteLauncherReproSnapshot()
     fprintf( f, "\n" );
     fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );
 
-    sprintf_s( m_debug.reproSnapshotMessage,
-               sizeof( m_debug.reproSnapshotMessage ),
-               "Repro snapshot: %s",
-               LAUNCHER_REPRO_SNAPSHOT_PATH );
-    m_debug.reproSnapshotMessageUntil =
-        m_timers.simulationTimer.GetTimeSinceLastStart() + LAUNCHER_REPRO_MESSAGE_SECONDS;
+    return LauncherReproSnapshotStatus::Wrote;
 }
 #endif

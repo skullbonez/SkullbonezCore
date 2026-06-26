@@ -610,8 +610,6 @@ class Run
         bool recordReplayEvent = true );                                         // Places an object at an already-resolved terrain hit
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
-    bool PickLauncherReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
-    void WriteLauncherReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
     void TickReplayScrubProbe();
     void TickReplayRestoreProbe();

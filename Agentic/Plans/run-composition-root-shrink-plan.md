@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; launcher dispatch slices validated
+Status: Active architecture cleanup plan; launcher slices validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -161,6 +161,58 @@ Validation:
 Remaining launcher shrink work is now the debug-only launcher repro target and
 snapshot helpers. Broader editor, replay, scene runtime, and render-host slices
 remain active plan work.
+
+## Launcher Repro Slice
+
+The fourth launcher slice removed the debug-only launcher repro target picker and
+snapshot writer from `Run`. `RuntimeTools` now owns the target picking and
+snapshot text emission behind an explicit borrowed context; `RunInput` remains
+the input/HUD adapter that translates the returned status into the existing
+launcher-mode message. The `Run.h` private method ratchet was lowered to the
+measured count so the deleted declarations cannot silently return.
+
+Deleted `Run.h` declarations:
+
+- `PickLauncherReproTarget`
+- `WriteLauncherReproSnapshot`
+
+Deleted `Run::` definitions:
+
+- `Run::PickLauncherReproTarget`
+- `Run::WriteLauncherReproSnapshot`
+
+New owner methods:
+
+- `RuntimeTools::PickLauncherReproTarget(...)`
+- `RuntimeTools::WriteLauncherReproSnapshot(...)`
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\run_composition_launcher_repro_profile_build.log`;
+  passed with 0 warnings and 0 errors.
+- Targeted Debug build: `tools\validate_build.bat Debug`, logged at
+  `TestOutput\validation\run_composition_launcher_repro_debug_build.log`;
+  passed with 0 warnings and 0 errors and compiled the `_DEBUG` repro path.
+- Runtime boundary check: `python tools\check_runtime_boundaries.py`; passed
+  with 0 errors and wrote
+  `TestOutput\validation\runtime_boundaries\summary.json`.
+- Rubber duck: reviewer Leibniz first found the missing Debug-build evidence
+  and a hardcoded HUD path drift risk. After the HUD path was tied back to
+  `LAUNCHER_REPRO_SNAPSHOT_PATH`, Debug build evidence was added, and the
+  ratchet was proven, Leibniz reported no blocking findings.
+- Formatting check: `tools\validate_format.bat`, logged at
+  `TestOutput\validation\run_composition_launcher_repro_validate_format.log`;
+  passed after targeted formatting of the touched launcher/runtime files.
+- Pre-commit gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_launcher_repro_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv`.
+
+The launcher extraction cluster is now complete for the methods called out by
+this plan. Broader editor, replay, scene runtime, and render-host slices remain
+active plan work.
 
 ## Rules
 

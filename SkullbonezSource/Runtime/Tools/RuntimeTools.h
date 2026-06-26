@@ -21,6 +21,7 @@ Mental model:
 
 #include <array>
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace SkullbonezCore::GameObjects
@@ -42,6 +43,11 @@ class WorldEnvironment;
 
 namespace SkullbonezCore::Basics
 {
+struct RunDebugState;
+struct RunLaunchOptions;
+struct RunRuntimeSettings;
+struct RunSceneState;
+
 struct RunRayCastTestLine
 {
     Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
@@ -68,6 +74,30 @@ struct RunRayCastTestState
     float impulseStrength = 1800.0f;
     float projectileSpeed = 160.0f;
 };
+
+#ifdef _DEBUG
+struct LauncherReproSnapshotContext
+{
+    GameObjects::GameModelCollection& collection;
+    Environment::CameraCollection* cameras;
+    Geometry::Terrain* terrain;
+    Environment::WorldEnvironment& world;
+    const RunSceneState& sceneState;
+    const std::string* currentScenePath;
+    const RunLaunchOptions& launchOptions;
+    const RunRuntimeSettings& runtimeSettings;
+    const RunDebugState& debug;
+    const char* rendererName;
+    double simulationSeconds;
+};
+
+enum class LauncherReproSnapshotStatus
+{
+    Wrote,
+    NoTarget,
+    WriteFailed
+};
+#endif
 
 struct RunMousePickupState
 {
@@ -235,6 +265,14 @@ class RuntimeTools
                                  const Math::Vector::Vector3& rayOrigin,
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );
+#ifdef _DEBUG
+    bool PickLauncherReproTarget( GameObjects::GameModelCollection& collection,
+                                  Environment::CameraCollection* cameras,
+                                  int& outIndex,
+                                  float& outRayT,
+                                  float& outCrosshairDistance ) const;
+    LauncherReproSnapshotStatus WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const;
+#endif
 
     LauncherLaser& Laser();
     const LauncherLaser& Laser() const;
