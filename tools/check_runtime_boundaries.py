@@ -3,19 +3,24 @@
 # File: tools/check_runtime_boundaries.py
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
-#   extracted subsystem ownership.
+#   extracted subsystem ownership, and prevent new physics dependencies on the
+#   legacy GameModelCollection world container.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
-#   helper back to Run. This check is intentionally small: it watches the
-#   boundaries named by Agentic/Plans/runtime-run-decomposition-plan.md.
+#   helper back to Run. Physics data ownership is similarly easy to regress by
+#   threading GameModelCollection into one more API. This check is intentionally
+#   small: it watches the boundaries named by the active architecture plans.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
 #   - Subsystems may borrow explicit service/context structs, but not store Run.
+#   - Physics may only keep the current GameModelCollection compatibility
+#     surface while stores and handles become authoritative.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
+#   - Agentic/Plans/engine-architecture-next-steps-plan.md
 #   - tools/validate_fast.bat
 #
 """Validate runtime Run-boundary guardrails."""
@@ -25,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,11 +38,236 @@ from pathlib import Path
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
+PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
+GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
+
+
+def normalize_boundary_line(line: str) -> str:
+    return " ".join(line.strip().split())
+
+
+PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    ( Path(path), normalize_boundary_line(line) )
+    for path, line in (
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::Update( float dt, GameModelCollection& models )" ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )" ),
+        (
+            "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp",
+            "CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex, GameModelCollection& models ) const",
+        ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::Render( GameModelCollection& models," ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/Debug/CollisionVisualizer.h",
+            "Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;",
+        ),
+        (
+            "SkullbonezSource/Physics/Debug/CollisionVisualizer.h",
+            "void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );",
+        ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )" ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
+            "void PhysicsDebugVisualizer::EmitConvexHullWireframes( GameModelCollection& models )",
+        ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )" ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )" ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
+            "void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )",
+        ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
+            "void PhysicsDebugVisualizer::EmitTerrainContactProbe( GameModelCollection& models, Geometry::Terrain* terrain )",
+        ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )" ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp",
+            "void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj, Geometry::Terrain* terrain )",
+        ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitObjectAxes( GameObjects::GameModelCollection& models );" ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h",
+            "void EmitConvexHullWireframes( GameObjects::GameModelCollection& models );",
+        ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitContacts( GameObjects::GameModelCollection& models );" ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitSleepState( GameObjects::GameModelCollection& models );" ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void EmitPipelineStage( GameObjects::GameModelCollection& models );" ),
+        (
+            "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h",
+            "void EmitTerrainContactProbe( GameObjects::GameModelCollection& models, Geometry::Terrain* terrain );",
+        ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
+        ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
+        ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", "GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PersistentContactSolver.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/PersistentContactSolver.h",
+            "void Solve( PersistentContactSolverContext& context, GameObjects::GameModelCollection& collection, float dt );",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        (
+            "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp",
+            "void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, GameModelCollection& collection )",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", "void PhysicsDiagnosticsSink::EmitFrame( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", "void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h",
+            "void EmitRegressionLog( PhysicsWorld& world, GameObjects::GameModelCollection& collection );",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "void EmitFrame( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "void EmitCollisionTime( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "using SkullbonezCore::GameObjects::GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshStores( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshPhysicsStores( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshBodyStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshColliderStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshRenderStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::Step( GameModelCollection& collection, float deltaSeconds )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::WakeBody( GameModelCollection& collection, int bodyIndex )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::SeedBodyAsleep( GameModelCollection& collection, int bodyIndex )" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::SetPendingBodyImpulse( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshStores( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshBodyStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshColliderStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshRenderStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void WakeBody( GameObjects::GameModelCollection& collection, int bodyIndex );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void SeedBodyAsleep( GameObjects::GameModelCollection& collection, int bodyIndex );" ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void ApplyBodyImpulse( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "using SkullbonezCore::GameObjects::GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshStores( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshPhysicsStores( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshBodyStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshColliderStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshRenderStore( GameModelCollection& collection )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::WakeModel( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::SeedModelAsleep( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshStores( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshBodyStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshColliderStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshRenderStore( GameObjects::GameModelCollection& collection );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "bool PhysicsWorld::IsUnderwaterSleepLocked( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::MarkFixedContact( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::MarkFixedContact( GameModelCollection& collection, int index ) const" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::WakeModel( GameModelCollection& collection, int index ) const" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInTime )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::SeedModelAsleep( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsDiagnosticsFrame( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsCollisionTime( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )" ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.cpp",
+            "bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int index, float dt, bool applyForces )",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.cpp",
+            "void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.cpp",
+            "void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.cpp",
+            "void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.cpp",
+            "void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, float dt )",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunSolverPhysics( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsDiagnosticsFrame( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsCollisionTime( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "bool IsFullySubmergedBall( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void PropagateSleepSupport( GameObjects::GameModelCollection& collection );" ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "WakeRestingContactIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+        ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
+        (
+            "SkullbonezSource/Physics/PhysicsWorld.h",
+            "void MarkSolverFixedContact( GameObjects::GameModelCollection& collection, int index )",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void MarkFixedContact( GameObjects::GameModelCollection& collection, int index ) const;" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index ) const;" ),
+        ( "SkullbonezSource/Physics/Ragdoll.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::SolvePointJoints( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/Ragdoll.h", "static void SolvePointJoints( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/SimulationSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        ( "SkullbonezSource/Physics/SimulationSystem.h", "class GameModelCollection;" ),
+        ( "SkullbonezSource/Physics/SimulationSystem.h", "GameObjects::GameModelCollection* models = nullptr;" ),
+        ( "SkullbonezSource/Physics/SleepIslandSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+        (
+            "SkullbonezSource/Physics/SleepIslandSystem.cpp",
+            "void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, GameModelCollection& collection )",
+        ),
+        ( "SkullbonezSource/Physics/SleepIslandSystem.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/SleepIslandSystem.h",
+            "void PropagateSupport( SleepSupportPropagationContext& context, GameObjects::GameModelCollection& collection );",
+        ),
+    )
+)
 
 RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
     (
@@ -240,6 +471,53 @@ def check_run_storage(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_physics_game_model_collection_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for line_no, line in enumerate(stripped.splitlines(), start=1):
+        if not GAME_MODEL_COLLECTION_PATTERN.search(line):
+            continue
+
+        normalized = normalize_boundary_line(line)
+        key = ( key_path, normalized )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_no,
+                    "new physics GameModelCollection dependencies are blocked",
+                    "Use physics stores, stable handles, diagnostics views, or a named compatibility adapter instead.",
+                )
+            )
+
+    return errors
+
+
+def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / PHYSICS_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(
+            check_physics_game_model_collection_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
+
+
 def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
     declarations: list[tuple[str, int]] = []
     pattern = re.compile(
@@ -356,6 +634,11 @@ def check_pick_helper_guardrails(repo: Path) -> list[BoundaryError]:
 def run_self_tests() -> list[str]:
     failures: list[str] = []
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
+    allowed_physics_path = Path("SkullbonezSource/Physics/PhysicsEngine.h")
+    allowed_physics_dependency = "class GameModelCollection;"
+    synthetic_physics_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( allowed_physics_path, allowed_physics_dependency ): 1 }
+    )
 
     allowed_host = """
     struct RuntimeRenderHostBindings
@@ -442,6 +725,64 @@ def run_self_tests() -> list[str]:
         for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), suffixed_pick_helper)
     ):
         failures.append("suffixed runtime pick helper synthetic wrapper was not rejected")
+
+    allowed_physics_text = """
+    namespace SkullbonezCore::GameObjects
+    {
+    class GameModelCollection;
+    }
+    """
+    if check_physics_game_model_collection_guardrails_text(
+        allowed_physics_path,
+        allowed_physics_text,
+        allowed_physics_path,
+        synthetic_physics_allowlist,
+    ):
+        failures.append("allowed physics GameModelCollection synthetic dependency failed")
+
+    commented_physics_text = """
+    // GameModelCollection is mentioned in a migration note only.
+    /*
+       GameModelCollection appears in block comments too.
+    */
+    class PhysicsBodyStore;
+    """
+    if check_physics_game_model_collection_guardrails_text(
+        Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
+        commented_physics_text,
+        Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
+        synthetic_physics_allowlist,
+    ):
+        failures.append("comment-only physics GameModelCollection synthetic text was rejected")
+
+    new_physics_dependency = """
+    namespace SkullbonezCore::GameObjects
+    {
+    class GameModelCollection;
+    }
+    """
+    if not any(
+        error.message == "new physics GameModelCollection dependencies are blocked"
+        for error in check_physics_game_model_collection_guardrails_text(
+            Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
+            new_physics_dependency,
+            Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
+            synthetic_physics_allowlist,
+        )
+    ):
+        failures.append("new physics GameModelCollection synthetic dependency was not rejected")
+
+    duplicate_physics_dependency = allowed_physics_text + allowed_physics_text
+    if not any(
+        error.message == "new physics GameModelCollection dependencies are blocked"
+        for error in check_physics_game_model_collection_guardrails_text(
+            allowed_physics_path,
+            duplicate_physics_dependency,
+            allowed_physics_path,
+            synthetic_physics_allowlist,
+        )
+    ):
+        failures.append("duplicate physics GameModelCollection synthetic dependency was not rejected")
 
     return failures
 
@@ -530,6 +871,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
+    errors.extend(check_physics_game_model_collection_guardrails(repo))
     return errors
 
 
