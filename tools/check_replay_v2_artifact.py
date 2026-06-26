@@ -671,7 +671,7 @@ def query_artifact():
     if int(first_checkpoint.get("bodyCount") or 0) <= 0 or not first_checkpoint.get("bodies"):
         raise RuntimeError("replay checkpoint query did not return solver body payloads")
     snapshot = first_checkpoint.get("snapshot") or {}
-    if int(snapshot.get("version") or 0) != 1:
+    if int(snapshot.get("version") or 0) not in (1, 2):
         raise RuntimeError("replay checkpoint query returned an unsupported snapshot version")
     if int(snapshot.get("modelCount") or 0) != int(first_checkpoint.get("bodyCount") or 0):
         raise RuntimeError("replay checkpoint snapshot model count did not match body count")

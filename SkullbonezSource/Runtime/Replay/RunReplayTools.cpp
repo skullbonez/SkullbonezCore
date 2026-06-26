@@ -1536,7 +1536,7 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     {
         if ( outReason && reasonSize > 0 )
         {
-            sprintf_s( outReason, reasonSize, "%s", reason ? reason : "restore failed" );
+            strncpy_s( outReason, reasonSize, reason ? reason : "restore failed", _TRUNCATE );
         }
     };
 

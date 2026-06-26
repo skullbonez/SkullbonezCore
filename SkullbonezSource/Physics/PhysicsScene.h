@@ -50,6 +50,7 @@ class PhysicsScene
     void RefreshStores( GameObjects::GameModelCollection& collection );
     void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );
     void RefreshBodyStore( GameObjects::GameModelCollection& collection );
+    void ClearPendingBodyImpulses();
     void RefreshColliderStore( GameObjects::GameModelCollection& collection );
     void RefreshRenderStore( GameObjects::GameModelCollection& collection );
     void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );

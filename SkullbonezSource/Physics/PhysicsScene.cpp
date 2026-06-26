@@ -74,6 +74,12 @@ void PhysicsScene::RefreshBodyStore( GameModelCollection& collection )
 }
 
 
+void PhysicsScene::ClearPendingBodyImpulses()
+{
+    m_bodyStore.ClearPendingImpulses();
+}
+
+
 void PhysicsScene::RefreshColliderStore( GameModelCollection& collection )
 {
     std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();

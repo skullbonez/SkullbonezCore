@@ -2948,17 +2948,36 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         {
             if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().placementPreviewVisible )
             {
-                const int previousModelCount = m_cGameModelCollection.GetModelCount();
-                PlaceEditorObjectAtTerrainPoint( m_runtimeTools.Editor().objectType,
-                                                 m_runtimeTools.Editor().placeStaticObject,
-                                                 m_runtimeTools.Editor().placementTerrainPoint );
-                if ( m_cGameModelCollection.GetModelCount() > previousModelCount )
+                EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                               m_cGameModelCollection,
+                                                               SceneState(),
+                                                               m_cWorldEnvironment,
+                                                               m_systems.terrain.get(),
+                                                               ActiveGameModelCapacity() };
+                EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,
+                                                               m_runtimeTools.Editor().placeStaticObject,
+                                                               m_runtimeTools.Editor().placementTerrainPoint };
+                EditorObjectPlacementResult placementResult;
+                if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
                 {
-                    RuntimeInteractionCommand command;
-                    command.type = RuntimeInteractionCommandType::SetEditorSelection;
-                    command.modelIndex = m_cGameModelCollection.GetModelCount() - 1;
-                    command.claimSelectionOwner = false;
-                    ExecuteRuntimeInteractionCommand( command );
+                    EnterInteractiveSceneRun();
+                    PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+                    if ( placementResult.placed )
+                    {
+                        RecordReplayEditorPlaceEvent( placementResult.objectType,
+                                                      placementResult.fixedObject,
+                                                      placementResult.autoTerrainAlign,
+                                                      placementResult.modelCountBefore,
+                                                      placementResult.terrainPoint,
+                                                      placementResult.placementScale,
+                                                      placementResult.placementYawRadians );
+
+                        RuntimeInteractionCommand command;
+                        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+                        command.modelIndex = placementResult.modelCountAfter - 1;
+                        command.claimSelectionOwner = false;
+                        ExecuteRuntimeInteractionCommand( command );
+                    }
                 }
             }
             m_runtimeTools.Editor().placementScaleActive = false;
@@ -3842,34 +3861,24 @@ bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection ) con
 }
 
 
-bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition ) const
+namespace SkullbonezCore
 {
-    return TryGetMouseTerrainPlacement( outPosition, nullptr, nullptr );
-}
-
-
-bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrigin, Vector3* outRayDirection ) const
+namespace Basics
 {
-    if ( !m_systems.terrain )
+namespace RunInternal
+{
+bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
+                                   const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   EditorTerrainPlacement& outPlacement )
+{
+    if ( !terrain )
     {
         return false;
     }
 
-    Vector3 rayNear;
-    Vector3 rayDirection;
-    if ( !TryBuildMouseWorldRay( rayNear, rayDirection ) )
-    {
-        return false;
-    }
-    if ( outRayOrigin )
-    {
-        *outRayOrigin = rayNear;
-    }
-    if ( outRayDirection )
-    {
-        *outRayDirection = rayDirection;
-    }
-
+    outPlacement.rayOrigin = rayOrigin;
+    outPlacement.rayDirection = rayDirection;
     constexpr float MAX_RAY_DISTANCE = 5000.0f;
     constexpr int RAY_STEPS = 192;
     bool hasPrevious = false;
@@ -3879,17 +3888,17 @@ bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrig
     for ( int step = 0; step <= RAY_STEPS; ++step )
     {
         const float t = MAX_RAY_DISTANCE * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
-        const Vector3 sample = rayNear + rayDirection * t;
-        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
+        const Vector3 sample = rayOrigin + rayDirection * t;
+        if ( !terrain->IsInBounds( sample.x, sample.z ) )
         {
             continue;
         }
 
-        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
+        const float terrainY = terrain->GetTerrainHeightAt( sample.x, sample.z );
         const float diff = sample.y - terrainY;
         if ( fabsf( diff ) <= 0.01f )
         {
-            outPosition = Vector3( sample.x, terrainY, sample.z );
+            outPlacement.position = Vector3( sample.x, terrainY, sample.z );
             return true;
         }
 
@@ -3902,13 +3911,13 @@ bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrig
             for ( int refine = 0; refine < 12; ++refine )
             {
                 const float midT = ( lowT + highT ) * 0.5f;
-                const Vector3 mid = rayNear + rayDirection * midT;
-                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
+                const Vector3 mid = rayOrigin + rayDirection * midT;
+                if ( !terrain->IsInBounds( mid.x, mid.z ) )
                 {
                     lowT = midT;
                     continue;
                 }
-                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
+                const float midTerrainY = terrain->GetTerrainHeightAt( mid.x, mid.z );
                 const float midDiff = mid.y - midTerrainY;
                 hit = mid;
                 hitY = midTerrainY;
@@ -3921,7 +3930,7 @@ bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrig
                     highT = midT;
                 }
             }
-            outPosition = Vector3( hit.x, hitY, hit.z );
+            outPlacement.position = Vector3( hit.x, hitY, hit.z );
             return true;
         }
 
@@ -3934,11 +3943,11 @@ bool Run::TryGetMouseTerrainPlacement( Vector3& outPosition, Vector3* outRayOrig
 }
 
 
-bool Run::TryComputeEditorObjectCenter( int objectType,
-                                        const Vector3& terrainPoint,
-                                        const Vector3& placementScale,
-                                        const Quaternion& orientation,
-                                        Vector3& outCenter ) const
+bool TryComputeEditorObjectCenter( int objectType,
+                                   const Vector3& terrainPoint,
+                                   const Vector3& placementScale,
+                                   const Quaternion& orientation,
+                                   Vector3& outCenter )
 {
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
@@ -4015,72 +4024,78 @@ bool Run::TryComputeEditorObjectCenter( int objectType,
 }
 
 
-bool Run::TryComputeEditorPlacementPreview( int objectType )
+bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
+                                      int objectType,
+                                      const EditorTerrainPlacement* mousePlacement )
 {
     Vector3 terrainPoint;
     Vector3 rayOrigin;
-    Vector3 rayDirection;
     bool terrainAlreadyIncludesAltitude = false;
-    if ( m_runtimeTools.Editor().placementScaleActive )
+    if ( context.editor.placementScaleActive )
     {
-        terrainPoint = m_runtimeTools.Editor().placementScaleTerrainPoint;
-        rayOrigin = m_runtimeTools.Editor().placementScaleRayOrigin;
+        terrainPoint = context.editor.placementScaleTerrainPoint;
+        rayOrigin = context.editor.placementScaleRayOrigin;
         terrainAlreadyIncludesAltitude = true;
     }
     else
     {
-        if ( !TryGetMouseTerrainPlacement( terrainPoint, &rayOrigin, &rayDirection ) )
+        if ( !mousePlacement )
         {
             return false;
         }
+        terrainPoint = mousePlacement->position;
+        rayOrigin = mousePlacement->rayOrigin;
 
-        if ( m_systems.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
+        if ( context.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
         {
             const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
             const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
-            if ( m_systems.terrain->IsInBounds( snappedX, snappedZ ) )
+            if ( context.terrain->IsInBounds( snappedX, snappedZ ) )
             {
                 terrainPoint.x = snappedX;
                 terrainPoint.z = snappedZ;
-                terrainPoint.y = m_systems.terrain->GetTerrainHeightAt( snappedX, snappedZ );
+                terrainPoint.y = context.terrain->GetTerrainHeightAt( snappedX, snappedZ );
             }
         }
     }
 
     if ( !terrainAlreadyIncludesAltitude )
     {
-        terrainPoint.y += static_cast<float>( m_runtimeTools.Editor().placementAltitudeSteps ) *
-                          EditorPlacementAltitudeStepSize( objectType, m_runtimeTools.Editor().placementScale );
+        terrainPoint.y += static_cast<float>( context.editor.placementAltitudeSteps ) *
+                          EditorPlacementAltitudeStepSize( objectType, context.editor.placementScale );
     }
 
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    if ( context.terrain && context.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
         float ignoredHeight = 0.0f;
-        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+        context.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
     const Quaternion placementOrientation = EditorPlacementOrientation( objectType,
                                                                         terrainNormal,
-                                                                        m_runtimeTools.Editor().autoTerrainAlign,
-                                                                        m_runtimeTools.Editor().placementYawRadians );
+                                                                        context.editor.autoTerrainAlign,
+                                                                        context.editor.placementYawRadians );
 
     Vector3 center;
     if ( !TryComputeEditorObjectCenter( objectType,
                                         terrainPoint,
-                                        m_runtimeTools.Editor().placementScale,
+                                        context.editor.placementScale,
                                         placementOrientation,
                                         center ) )
     {
         return false;
     }
 
-    m_runtimeTools.Editor().placementTerrainPoint = terrainPoint;
-    m_runtimeTools.Editor().placementCenter = center;
-    m_runtimeTools.Editor().placementOrientation = placementOrientation;
-    m_runtimeTools.Editor().placementRayOrigin = rayOrigin;
-    m_runtimeTools.Editor().placementRayHit = terrainPoint;
+    context.editor.placementTerrainPoint = terrainPoint;
+    context.editor.placementCenter = center;
+    context.editor.placementOrientation = placementOrientation;
+    context.editor.placementRayOrigin = rayOrigin;
+    context.editor.placementRayHit = terrainPoint;
     return true;
 }
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore
 
 
 void Run::CancelMousePickup()
@@ -4630,8 +4645,22 @@ void Run::UpdateEditorInteractionPreview()
 
     if ( m_runtimeTools.Editor().editorModeEnabled && m_runtimeTools.Editor().placementModeEnabled )
     {
+        EditorTerrainPlacement terrainPlacement;
+        const EditorTerrainPlacement* terrainPlacementForPreview = nullptr;
+        if ( !m_runtimeTools.Editor().placementScaleActive )
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
+                 TryGetEditorTerrainPlacement( m_systems.terrain.get(), rayOrigin, rayDirection, terrainPlacement ) )
+            {
+                terrainPlacementForPreview = &terrainPlacement;
+            }
+        }
         m_runtimeTools.Editor().placementPreviewVisible =
-            TryComputeEditorPlacementPreview( m_runtimeTools.Editor().objectType );
+            TryUpdateEditorPlacementPreview( { m_runtimeTools.Editor(), m_systems.terrain.get() },
+                                             m_runtimeTools.Editor().objectType,
+                                             terrainPlacementForPreview );
     }
 
     if ( m_runtimeTools.Editor().selectedModelIndex >= m_cGameModelCollection.GetModelCount() )
@@ -4771,25 +4800,19 @@ void Run::RenderEditorOverlay( const Matrix4& viewProjection, const Vector3& cam
 }
 
 
-void Run::PlaceEditorObjectAtMouse( int objectType, bool fixedObject )
+namespace SkullbonezCore
 {
-    Vector3 terrainPoint;
-    if ( !TryGetMouseTerrainPlacement( terrainPoint ) )
-    {
-        return;
-    }
-
-    PlaceEditorObjectAtTerrainPoint( objectType, fixedObject, terrainPoint );
-}
-
-
-bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
-                                           bool fixedObject,
-                                           const Vector3& terrainPoint,
-                                           bool recordReplayEvent )
+namespace Basics
 {
-    const int modelCount = m_cGameModelCollection.GetModelCount();
-    const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+namespace RunInternal
+{
+static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementContext context,
+                                                      EditorObjectPlacementRequest request,
+                                                      int& outType,
+                                                      bool reportErrors )
+{
+    const int modelCount = context.models.GetModelCount();
+    const int type = std::clamp( request.objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
@@ -4797,33 +4820,66 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
     if ( building && buildingPartCount <= 0 )
     {
-        fprintf( stderr, "[editor] Cannot place building asset: %s is missing or empty.\n", building->assetName );
+        if ( reportErrors )
+        {
+            fprintf( stderr, "[editor] Cannot place building asset: %s is missing or empty.\n", building->assetName );
+        }
         return false;
     }
     const int requiredModelCount =
         isRagdollType
             ? Ragdoll::SIMPLE_PART_COUNT
             : ( building ? buildingPartCount : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) ) );
-    if ( modelCount + requiredModelCount > ActiveGameModelCapacity() )
+    if ( modelCount + requiredModelCount > context.activeModelCapacity )
     {
-        fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
+        if ( reportErrors )
+        {
+            fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
+        }
+        return false;
+    }
+    outType = type;
+    return true;
+}
+
+
+bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request )
+{
+    int type = 0;
+    return TryResolveEditorObjectPlacementPreflight( context, request, type, true );
+}
+
+
+bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
+                                      EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult )
+{
+    int type = 0;
+    if ( !TryResolveEditorObjectPlacementPreflight( context, request, type, false ) )
+    {
+        outResult = EditorObjectPlacementResult{};
         return false;
     }
 
-    EnterInteractiveSceneRun();
-    const Vector3 placementScale = EditorClampPlacementScale( type, m_runtimeTools.Editor().placementScale );
-    const int serial = m_runtimeTools.Editor().placedObjectSerial++;
+    const int modelCount = context.models.GetModelCount();
+    const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
+    const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
+    const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
+    const Vector3& terrainPoint = request.terrainPoint;
+    const bool fixedObject = request.fixedObject;
+    const Vector3 placementScale = EditorClampPlacementScale( type, context.editor.placementScale );
+    const int serial = context.editor.placedObjectSerial++;
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    if ( m_systems.terrain && m_systems.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    if ( context.terrain && context.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
         float ignoredHeight = 0.0f;
-        m_systems.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+        context.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
-    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, m_runtimeTools.Editor().autoTerrainAlign );
+    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, context.editor.autoTerrainAlign );
     const Quaternion placementOrientation = EditorPlacementOrientation( type,
                                                                         terrainNormal,
-                                                                        m_runtimeTools.Editor().autoTerrainAlign,
-                                                                        m_runtimeTools.Editor().placementYawRadians );
+                                                                        context.editor.autoTerrainAlign,
+                                                                        context.editor.placementYawRadians );
     Quaternion placementOrientationCopy = placementOrientation;
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
@@ -4837,17 +4893,17 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
         model.SetFixed( modelFixed );
-        const int index = m_cGameModelCollection.GetModelCount();
-        m_cGameModelCollection.AddGameModel( std::move( model ) );
+        const int index = context.models.GetModelCount();
+        context.models.AddGameModel( std::move( model ) );
         if ( !modelFixed )
         {
             if ( modelStartsAsleep )
             {
-                m_cGameModelCollection.GetPhysicsEngine().SeedBodyAsleep( m_cGameModelCollection, index );
+                context.models.GetPhysicsEngine().SeedBodyAsleep( context.models, index );
             }
             else
             {
-                m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, index );
+                context.models.GetPhysicsEngine().WakeBody( context.models, index );
             }
         }
     };
@@ -4859,8 +4915,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         const Vector3 center( terrainPoint.x,
                               terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON,
                               terrainPoint.z );
-        GameModel model( &m_cWorldEnvironment, center, inertia, mass );
-        model.SetTerrain( m_systems.terrain.get() );
+        GameModel model( &context.world, center, inertia, mass );
+        model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( restitution );
         model.AddBoundingSphere( radius );
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
@@ -4879,8 +4935,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         {
             return;
         }
-        GameModel model( &m_cWorldEnvironment, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
-        model.SetTerrain( m_systems.terrain.get() );
+        GameModel model( &context.world, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
+        model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
         if ( alignToTerrain )
@@ -4916,8 +4972,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
             hullRotation *
                 Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
-        GameModel model( &m_cWorldEnvironment, center, scaledHull.ComputeBoxApproxInertia( mass ), mass );
-        model.SetTerrain( m_systems.terrain.get() );
+        GameModel model( &context.world, center, scaledHull.ComputeBoxApproxInertia( mass ), mass );
+        model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( scaledHull );
         model.SetOrientation( hullOrientation );
@@ -4969,8 +5025,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
                 placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
-            GameModel model( &m_cWorldEnvironment, center, hull.ComputeBoxApproxInertia( mass ), mass );
-            model.SetTerrain( m_systems.terrain.get() );
+            GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
+            model.SetTerrain( context.terrain );
             model.SetCoefficientRestitution( part.restitution );
             model.AddConvexHull( hull );
             model.SetOrientation( placementOrientation );
@@ -4993,11 +5049,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
             const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
             const float mass = CalculateBoxMass( halfExtents );
             const Vector3 center = base + placementRotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
-            GameModel model( &m_cWorldEnvironment,
-                             center,
-                             CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
-                             mass );
-            model.SetTerrain( m_systems.terrain.get() );
+            GameModel model( &context.world, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
+            model.SetTerrain( context.terrain );
             model.SetCoefficientRestitution( part.restitution );
             model.AddBoundingBox( halfExtents );
             model.SetOrientation( placementOrientation );
@@ -5038,8 +5091,8 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
                 const Vector3 authoredOrigin = base + placementRotation * offset;
                 const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
-                GameModel model( &m_cWorldEnvironment, center, hull.ComputeBoxApproxInertia( mass ), mass );
-                model.SetTerrain( m_systems.terrain.get() );
+                GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
+                model.SetTerrain( context.terrain );
                 model.SetCoefficientRestitution( restitution );
                 model.SetContactReleaseOnImpact(
                     EditorJsonBoolOr( part, "contactReleaseOnImpact", false ),
@@ -5088,10 +5141,10 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         options.scale = placementScale.x;
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
-        Ragdoll::AddSimpleHumanoid( m_cGameModelCollection,
-                                    m_cGameModelCollection.GetPhysicsEngine(),
-                                    m_cWorldEnvironment,
-                                    m_systems.terrain.get(),
+        Ragdoll::AddSimpleHumanoid( context.models,
+                                    context.models.GetPhysicsEngine(),
+                                    context.world,
+                                    context.terrain,
                                     options );
     };
 
@@ -5184,17 +5237,19 @@ bool Run::PlaceEditorObjectAtTerrainPoint( int objectType,
         break;
     }
 
-    SceneState().modelCount = m_cGameModelCollection.GetModelCount();
-    const bool placed = SceneState().modelCount > modelCount;
-    if ( placed && recordReplayEvent )
-    {
-        RecordReplayEditorPlaceEvent( type,
-                                      fixedObject,
-                                      m_runtimeTools.Editor().autoTerrainAlign,
-                                      modelCount,
-                                      terrainPoint,
-                                      placementScale,
-                                      m_runtimeTools.Editor().placementYawRadians );
-    }
+    context.scene.modelCount = context.models.GetModelCount();
+    const bool placed = context.scene.modelCount > modelCount;
+    outResult.placed = placed;
+    outResult.modelCountBefore = modelCount;
+    outResult.modelCountAfter = context.scene.modelCount;
+    outResult.objectType = type;
+    outResult.fixedObject = fixedObject;
+    outResult.autoTerrainAlign = context.editor.autoTerrainAlign;
+    outResult.terrainPoint = terrainPoint;
+    outResult.placementScale = placementScale;
+    outResult.placementYawRadians = context.editor.placementYawRadians;
     return placed;
 }
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore

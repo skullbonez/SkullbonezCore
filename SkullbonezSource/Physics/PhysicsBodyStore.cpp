@@ -123,6 +123,17 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
+void PhysicsBodyStore::ClearPendingImpulses()
+{
+    for ( PhysicsBodyRecord& record : m_bodies )
+    {
+        record.pendingImpulse = ZERO_VECTOR;
+        record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+        record.hasPendingImpulse = false;
+    }
+}
+
+
 void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
 {
     const int modelCount = (std::min)( static_cast<int>( models.size() ), Count() );

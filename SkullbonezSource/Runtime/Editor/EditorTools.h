@@ -27,6 +27,7 @@ Related:
 #pragma once
 
 #include "EditorHullAssets.h"
+#include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 
 namespace SkullbonezCore
@@ -40,10 +41,15 @@ namespace GameObjects
 {
 class GameModelCollection;
 }
+namespace Geometry
+{
+class Terrain;
+}
 namespace Basics
 {
 class RuntimeCommandQueue;
 class RuntimeInputContext;
+struct RunEditorPlacementState;
 struct RunSceneState;
 
 namespace RunInternal
@@ -58,6 +64,49 @@ struct EditorSaveHotkeyContext
     RuntimeCommandQueue& commands;
 };
 
+struct EditorTerrainPlacement
+{
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
+};
+
+struct EditorPlacementPreviewContext
+{
+    RunEditorPlacementState& editor;
+    Geometry::Terrain* terrain;
+};
+
+struct EditorObjectPlacementContext
+{
+    RunEditorPlacementState& editor;
+    GameObjects::GameModelCollection& models;
+    RunSceneState& scene;
+    Environment::WorldEnvironment& world;
+    Geometry::Terrain* terrain;
+    int activeModelCapacity;
+};
+
+struct EditorObjectPlacementRequest
+{
+    int objectType;
+    bool fixedObject;
+    Math::Vector::Vector3 terrainPoint;
+};
+
+struct EditorObjectPlacementResult
+{
+    bool placed = false;
+    int modelCountBefore = 0;
+    int modelCountAfter = 0;
+    int objectType = 0;
+    bool fixedObject = false;
+    bool autoTerrainAlign = false;
+    Math::Vector::Vector3 terrainPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 placementScale = Math::Vector::ZERO_VECTOR;
+    float placementYawRadians = 0.0f;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -70,6 +119,22 @@ Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType,
                                                        float dragPixelsX,
                                                        float dragPixelsY,
                                                        int wheelSteps );
+bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
+                                   const Math::Vector::Vector3& rayOrigin,
+                                   const Math::Vector::Vector3& rayDirection,
+                                   EditorTerrainPlacement& outPlacement );
+bool TryComputeEditorObjectCenter( int objectType,
+                                   const Math::Vector::Vector3& terrainPoint,
+                                   const Math::Vector::Vector3& placementScale,
+                                   const Math::Orientation::Quaternion& orientation,
+                                   Math::Vector::Vector3& outCenter );
+bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
+                                      int objectType,
+                                      const EditorTerrainPlacement* mousePlacement );
+bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request );
+bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
+                                      EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult );
 void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context );
 } // namespace RunInternal
 } // namespace Basics

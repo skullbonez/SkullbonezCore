@@ -262,6 +262,90 @@ Validation:
 Remaining editor shrink work includes placement preview, placement commit,
 gizmo drag, editor UI commands, and editor overlay generation.
 
+## Editor Placement Slice
+
+The second editor slice moved terrain placement hit testing, placement preview
+state, object-center calculation, and object placement commit behavior out of
+`Run`. `Run` still builds the shared mouse world ray and records replay editor
+placement events at the composition root, but live editor input, replay restore,
+and replay save-probe paths now delegate the placement mechanics through
+`RunInternal` editor-tool helpers and explicit borrowed contexts.
+
+Validation exposed two infrastructure issues that were fixed in the same slice:
+the replay v2 query/checker path did not understand solver snapshot version 2
+tornado-system payloads, and checkpoint-plus-event restore could replay from a
+stale `PhysicsBodyStore` pending impulse after serialized body state was
+applied. Restore diagnostics now truncate long reason strings instead of
+triggering debug CRT modals, and replay target probes quit cleanly after a
+successful check.
+
+Deleted `Run.h` declarations:
+
+- `TryGetMouseTerrainPlacement` (both overloads)
+- `TryComputeEditorObjectCenter`
+- `TryComputeEditorPlacementPreview`
+- `PlaceEditorObjectAtMouse`
+- `PlaceEditorObjectAtTerrainPoint`
+
+Deleted `Run::` definitions:
+
+- `Run::TryGetMouseTerrainPlacement` (both overloads)
+- `Run::TryComputeEditorObjectCenter`
+- `Run::TryComputeEditorPlacementPreview`
+- `Run::PlaceEditorObjectAtMouse`
+- `Run::PlaceEditorObjectAtTerrainPoint`
+
+New owner methods:
+
+- `RunInternal::TryGetEditorTerrainPlacement(...)`
+- `RunInternal::TryComputeEditorObjectCenter(...)`
+- `RunInternal::TryUpdateEditorPlacementPreview(...)`
+- `RunInternal::CanPlaceEditorObjectAtTerrainPoint(...)`
+- `RunInternal::PlaceEditorObjectAtTerrainPoint(...)`
+
+Supporting replay/physics/tooling fixes:
+
+- `ReplayQuery` and the replay v2 checker accept solver snapshot versions 1 and
+  2, including tornado-system snapshot data.
+- `PhysicsEngine::ClearPendingBodyImpulses()` clears restored body-store pending
+  impulses after replay sample state is applied.
+- Replay restore probe reason writes use truncating copies, and target-file
+  probes post quit after success.
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  to 248.
+
+Validation:
+
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\run_composition_editor_placement_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\run_composition_editor_placement_validate_runtime_boundaries.log`;
+  passed with 0 errors.
+- Physics gate: `tools\validate_physics.bat`, logged at
+  `TestOutput\validation\run_composition_editor_placement_validate_physics.log`;
+  passed Debug build with 0 warnings/errors and byte-exact
+  `physics_regression_solver.csv`.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_editor_placement_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv`.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\run_composition_editor_placement_validate_replay_v2_artifact.log`;
+  passed save, target restore, generated-topology restore, replay query/export,
+  and physics-query checks.
+- Rubber duck: reviewer Herschel found no blocking defect; noted the harmless
+  `Agentic/SessionState.md` line-ending warning, that
+  `tornadoSystemVortexCount` is parsed but not surfaced in checkpoint JSON, and
+  that a future live editor-placement smoke plus nonzero tornado-vortex fixture
+  would reduce residual evidence risk.
+
+Remaining editor shrink work includes gizmo drag, editor UI commands, and editor
+overlay generation. Replay UI/tool behavior, scene runtime ownership, and
+render-host splitting remain later plan slices.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

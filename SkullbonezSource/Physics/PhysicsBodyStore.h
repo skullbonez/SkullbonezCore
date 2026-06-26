@@ -75,6 +75,7 @@ class PhysicsBodyStore
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
+    void ClearPendingImpulses();
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
     void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );

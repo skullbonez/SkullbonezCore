@@ -40,6 +40,7 @@ class PhysicsEngine
     void RefreshStores( GameObjects::GameModelCollection& collection );
     void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );
     void RefreshBodyStore( GameObjects::GameModelCollection& collection );
+    void ClearPendingBodyImpulses();
     void RefreshColliderStore( GameObjects::GameModelCollection& collection );
     void RefreshRenderStore( GameObjects::GameModelCollection& collection );
     void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );

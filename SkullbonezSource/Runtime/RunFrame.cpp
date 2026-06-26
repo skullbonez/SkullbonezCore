@@ -19,6 +19,7 @@ Related:
 #include "RunInternal.h"
 
 #include "CaptureSystem.h"
+#include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
 
 #include <cmath>
@@ -241,7 +242,7 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
 {
     if ( outReason && reasonSize > 0 )
     {
-        sprintf_s( outReason, reasonSize, "%s", reason ? reason : "event replay failed" );
+        strncpy_s( outReason, reasonSize, reason ? reason : "event replay failed", _TRUNCATE );
     }
 }
 
@@ -703,10 +704,22 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
         m_runtimeTools.Editor().placementScale = placementScale;
         m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
         m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
-        const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
-                                                             ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
-                                                             terrainPoint,
-                                                             false );
+        EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                       m_cGameModelCollection,
+                                                       SceneState(),
+                                                       m_cWorldEnvironment,
+                                                       m_systems.terrain.get(),
+                                                       ActiveGameModelCapacity() };
+        EditorObjectPlacementRequest placementRequest{ event.value0,
+                                                       ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
+                                                       terrainPoint };
+        EditorObjectPlacementResult placementResult;
+        bool placed = false;
+        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+        {
+            EnterInteractiveSceneRun();
+            placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+        }
         m_runtimeTools.Editor().placementScale = previousPlacementScale;
         m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
         m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
@@ -1043,8 +1056,28 @@ void Run::TickReplaySaveProbe()
         m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
         m_runtimeTools.Editor().autoTerrainAlign = false;
         const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
-        if ( PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) ) )
+        EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                       m_cGameModelCollection,
+                                                       SceneState(),
+                                                       m_cWorldEnvironment,
+                                                       m_systems.terrain.get(),
+                                                       ActiveGameModelCapacity() };
+        EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
+        EditorObjectPlacementResult placementResult;
+        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
         {
+            EnterInteractiveSceneRun();
+            PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+        }
+        if ( placementResult.placed )
+        {
+            RecordReplayEditorPlaceEvent( placementResult.objectType,
+                                          placementResult.fixedObject,
+                                          placementResult.autoTerrainAlign,
+                                          placementResult.modelCountBefore,
+                                          placementResult.terrainPoint,
+                                          placementResult.placementScale,
+                                          placementResult.placementYawRadians );
             GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
             placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
             Quaternion placedOrientation = placedModel.GetOrientation();
@@ -2027,6 +2060,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             static_cast<unsigned long long>( result.solverHash ),
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+    PostQuitMessage( 0 );
 }
 
 void Run::VerifyReplaySolverFailureFileProbe( const char* path )

@@ -1482,7 +1482,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     {
         if ( outReason && reasonSize > 0 )
         {
-            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
         }
     };
 
@@ -1543,6 +1543,8 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.SetAngularVelocity( body.angularVelocity );
         model.ClearImpulseForce();
     }
+    m_cGameModelCollection.GetPhysicsEngine().RefreshBodyStore( m_cGameModelCollection );
+    m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
              sample.worldSnapshot,
@@ -1639,7 +1641,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     {
         if ( outReason && reasonSize > 0 )
         {
-            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
         }
     };
 

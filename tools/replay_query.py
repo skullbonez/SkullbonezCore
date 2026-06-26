@@ -33,6 +33,8 @@ HASH_RECORD = struct.Struct("<QidQQIHHB3s")
 CHECKPOINT_HEADER = struct.Struct("<QidfQQHHBBH")
 LAUNCHER_HEADER = struct.Struct("<iiBB2sff")
 TORNADO_CONFIG = struct.Struct("<BB2s" + ("f" * 14))
+TORNADO_SYSTEM_HEADER = struct.Struct("<BB2sI")
+TORNADO_VORTEX_CONFIG_BYTES = TORNADO_CONFIG.size + COUNTED_FLOAT.size * 9
 SOLVER_STATS = struct.Struct("<iiiiiiiff")
 SOLVER_BODY = struct.Struct("<I" + ("f" * 21) + "5s3siHHff")
 
@@ -680,6 +682,15 @@ class ReplayV2:
             struct.Struct("<IiiBB2s")
         )
         reader.unpack(TORNADO_CONFIG)
+        if version < 1 or version > 2:
+            raise ReplayQueryError(f"unsupported solver snapshot version {version}")
+        tornado_system_vortex_count = 0
+        if version >= 2:
+            _enabled, _visualize_velocity_field, _reserved, tornado_system_vortex_count = reader.unpack(
+                TORNADO_SYSTEM_HEADER
+            )
+            reader.skip(TORNADO_VORTEX_CONFIG_BYTES * tornado_system_vortex_count)
+            reader.unpack(COUNTED_FLOAT)
         ReplayV2._skip_counted(reader, COUNTED_FLOAT)
         ReplayV2._skip_counted(reader, COUNTED_U8)
         ReplayV2._skip_counted(reader, COUNTED_U8)
@@ -718,6 +729,7 @@ class ReplayV2:
             "debugContactCount": debug_contact_count,
             "pipelineTraceCount": pipeline_trace_count,
             "collisionCellKeyCount": collision_cell_key_count,
+            "tornadoSystemVortexCount": tornado_system_vortex_count,
         }
 
     def _parse_solver_body(self, reader: ChunkReader) -> dict[str, object]:

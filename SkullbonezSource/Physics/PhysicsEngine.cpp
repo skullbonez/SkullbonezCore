@@ -50,6 +50,12 @@ void PhysicsEngine::RefreshBodyStore( GameModelCollection& collection )
 }
 
 
+void PhysicsEngine::ClearPendingBodyImpulses()
+{
+    m_scene.ClearPendingBodyImpulses();
+}
+
+
 void PhysicsEngine::RefreshColliderStore( GameModelCollection& collection )
 {
     m_scene.RefreshColliderStore( collection );
