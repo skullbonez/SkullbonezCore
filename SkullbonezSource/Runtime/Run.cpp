@@ -907,7 +907,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         return;
     }
 
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replayRuntime.ResetTimeline( sceneLabel );
     RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
@@ -1765,7 +1765,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
 void Run::LogSceneFinished( const char* reason )
 {
     const char* scenePath = "generated";
-    const std::string* currentScenePath = CurrentSceneQueuePath();
+    const std::string* currentScenePath = m_sceneController.CurrentPath();
     if ( currentScenePath && !currentScenePath->empty() )
     {
         scenePath = currentScenePath->c_str();

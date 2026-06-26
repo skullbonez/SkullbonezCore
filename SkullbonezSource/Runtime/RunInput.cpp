@@ -1950,7 +1950,7 @@ void Run::TakeInput()
                                                                  m_systems.terrain.get(),
                                                                  m_cWorldEnvironment,
                                                                  SceneState(),
-                                                                 CurrentSceneQueuePath(),
+                                                                 m_sceneController.CurrentPath(),
                                                                  m_launchOptions,
                                                                  m_runtimeSettings,
                                                                  m_debug,

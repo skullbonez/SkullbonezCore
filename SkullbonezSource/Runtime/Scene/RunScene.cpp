@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
@@ -810,24 +811,6 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 }
 
 
-bool Run::HasSceneQueueEntry( int index ) const
-{
-    return m_sceneController.HasEntry( index );
-}
-
-
-bool Run::HasCurrentSceneQueueEntry() const
-{
-    return m_sceneController.HasCurrentEntry();
-}
-
-
-const std::string* Run::CurrentSceneQueuePath() const
-{
-    return m_sceneController.CurrentPath();
-}
-
-
 void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     SceneController& runtime = m_sceneController;
@@ -838,47 +821,25 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                            m_camera,
                                            m_cWorldEnvironment,
                                            m_physicsDebugVisualizer };
+    SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
+                                                   resetContext,
+                                                   m_sceneBrowser,
+                                                   IsGfxReady() ? &Gfx() : nullptr,
+                                                   m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
-    if ( !runtime.HasEntry( index ) )
+    const SceneRuntimeLoadBeginResult loadBegin =
+        BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
+    if ( !loadBegin.shouldLoad )
     {
         return;
     }
 
-    if ( suppressExitOnComplete )
-    {
-        SceneState().isInteractiveRun = true;
-    }
-    if ( m_launchOptions.interactiveSceneRun )
-    {
-        SceneState().isInteractiveRun = true;
-    }
-    const bool suppressAutomationExit = SceneState().isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState && runtime.HasCurrentEntry();
-    SceneRuntimeResetSnapshot resetSnapshot;
-    if ( shouldPreserveRuntimeState )
-    {
-        resetSnapshot = CaptureSceneRuntimeResetSnapshot( resetContext );
-    }
-    else
-    {
-        ClearSceneRuntimeUIOverrides( resetContext );
-    }
-
-    // Flush GPU before destroying scene resources to avoid use-after-free
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-
-    runtime.BeginLoad( index );
-    const std::string& scenePath = runtime.PathAt( index );
-    if ( !shouldPreserveRuntimeState )
-    {
-        m_sceneBrowser.selectedCineModeSceneIndex =
-            ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
-    }
+    const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
+    const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
+    const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
+    const std::string& scenePath = *loadBegin.scenePath;
 
     // Close previous perf log if open
     if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
@@ -1515,7 +1476,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
 bool Run::SaveCurrentEditableSceneSnapshot()
 {
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
@@ -1541,7 +1502,7 @@ bool Run::SaveCurrentEditableSceneSnapshot()
 
 bool Run::SaveCurrentSceneDefaults()
 {
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
@@ -1899,7 +1860,7 @@ void Run::RefreshSceneBrowserList()
 
 int Run::CurrentSceneBrowserIndex() const
 {
-    const std::string* currentScenePath = CurrentSceneQueuePath();
+    const std::string* currentScenePath = m_sceneController.CurrentPath();
     if ( !currentScenePath )
     {
         return -1;
@@ -2138,7 +2099,7 @@ void Run::ApplyUIModelCountOverride( int count )
     m_sceneUIOverrides.modelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
     m_sceneUIOverrides.solverBallCountOverride = -1;
     m_sceneUIOverrides.solverBoxCountOverride = -1;
-    if ( !HasCurrentSceneQueueEntry() )
+    if ( !m_sceneController.HasCurrentEntry() )
     {
         return;
     }
@@ -2185,7 +2146,7 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
     m_sceneUIOverrides.solverBallCountOverride = balls;
     m_sceneUIOverrides.solverBoxCountOverride = boxes;
     m_sceneUIOverrides.modelCountOverride = -1;
-    if ( !HasCurrentSceneQueueEntry() )
+    if ( !m_sceneController.HasCurrentEntry() )
     {
         return;
     }

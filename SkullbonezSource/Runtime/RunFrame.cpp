@@ -2183,7 +2183,7 @@ bool Run::TickScreenshots()
     };
 
     ScreenshotSink sink( *this );
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
                                     SceneState().isInteractiveRun,

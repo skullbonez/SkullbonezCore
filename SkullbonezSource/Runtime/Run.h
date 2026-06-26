@@ -334,9 +334,6 @@ class Run
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes
-    bool HasSceneQueueEntry( int index ) const;                            // True when index points at a queued scene/demo entry
-    bool HasCurrentSceneQueueEntry() const;                                // True when currentSceneIndex points at a queued entry
-    const std::string* CurrentSceneQueuePath() const;                      // Queued scene path; nullptr means no current entry.
     void LogPerfMemory( const char* checkpoint );                          // Log memory usage to perf CSV
     bool WriteMainMemoryDump( const char* checkpoint );                    // Writes CLI-requested process/replay/object memory JSON.
     void LoadScene(

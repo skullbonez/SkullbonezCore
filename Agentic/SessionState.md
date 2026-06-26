@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink scene reset preserve/restore slice is validated for commit: reset snapshot/capture/restore/UI-override clearing now live in `Runtime/Scene/SceneRuntimeReset`, `Run::LoadScene` wires an explicit reset context, and `Run.h` no longer declares those helpers. |
+| Last committed milestone | Runtime run composition-root shrink scene load-begin slice is validated for commit: queue validation, interactive/automation-exit policy, reset snapshot/clear choice, GPU flush-before-teardown, scene-controller load bookkeeping, and cine-browser selection now live in `Runtime/Scene/SceneRuntimeLoad`, with old `Run` scene-queue wrappers removed. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
-| Pending work | Continue run-shrink work with the remaining scene load phases, remaining replay tool/helper ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
+| Pending work | Continue run-shrink work with the remaining scene load phases after begin-load, remaining replay tool/helper ownership, render-host splitting, and shared cine/path helper cleanup. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Scene reset preserve/restore validation: `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\scene_reset_module_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\scene_reset_module_check_runtime_boundaries.log`), direct `validate_project_filters.py` (`TestOutput\validation\agent_logs\scene_reset_module_validate_project_filters.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\scene_reset_module_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Scene load-begin validation: targeted Profile build (`TestOutput\validation\agent_logs\scene_load_begin_profile_build_post_format.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\scene_load_begin_validate_fast.log`), direct `check_runtime_boundaries.py` (`TestOutput\validation\agent_logs\scene_load_begin_runtime_boundaries.log`), direct `validate_project_filters.py` (`TestOutput\validation\agent_logs\scene_load_begin_project_filters.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\scene_load_begin_validate_full.log`) passed. Evidence includes formatting clean, project filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -64,6 +64,33 @@ audits when it is still useful.
   (`TestOutput\validation\agent_logs\scene_reset_module_validate_project_filters.log`),
   and `tools\validate_full.bat` 25.00s
   (`TestOutput\validation\agent_logs\scene_reset_module_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink scene load-begin slice moves the first phase of
+  `Run::LoadScene` into `Runtime/Scene/SceneRuntimeLoad`: queue index
+  validation, interactive-run policy, automation-exit suppression, preserve vs.
+  clear reset-state selection, GPU flush-before-teardown, `SceneController`
+  begin-load bookkeeping, active scene-path handoff, and cine-browser selection.
+  `Run` no longer declares or defines `HasSceneQueueEntry`,
+  `HasCurrentSceneQueueEntry`, or `CurrentSceneQueuePath`; split Run files now
+  read `m_sceneController` directly. Guardrails lower the `Run.h`
+  private-method ratchet to 224, block those old wrapper declarations and
+  definitions, and teach project-filter validation that `SceneRuntimeLoad.*`
+  belongs under `Runtime/Scene`. Rubber-duck reviewer Curie found no blocking
+  behavior defect; non-blocking residual risks are duplicated cine/path
+  normalization and the intentionally narrow wrapper-name guardrail.
+- Scene load-begin validation: targeted Profile build after formatting passed
+  in 42.98s
+  (`TestOutput\validation\agent_logs\scene_load_begin_profile_build_post_format.log`).
+  Final gates passed: `tools\validate_fast.bat` 89.71s
+  (`TestOutput\validation\agent_logs\scene_load_begin_validate_fast.log`),
+  direct `check_runtime_boundaries.py` 0.66s
+  (`TestOutput\validation\agent_logs\scene_load_begin_runtime_boundaries.log`),
+  direct `validate_project_filters.py` 0.75s
+  (`TestOutput\validation\agent_logs\scene_load_begin_project_filters.log`),
+  and `tools\validate_full.bat` 25.84s
+  (`TestOutput\validation\agent_logs\scene_load_begin_validate_full.log`).
   Full gate passed project filters, runtime boundaries, Profile/Debug builds,
   DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
   and byte-exact `physics_regression_solver.csv`.

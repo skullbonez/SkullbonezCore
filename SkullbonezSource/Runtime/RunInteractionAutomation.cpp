@@ -933,7 +933,7 @@ void Run::WriteInteractionAutomationReport()
         ( !m_replayRuntime.PathVisualizer().futureNodes.empty() || !m_replayRuntime.Prediction().frames.empty() ||
           !m_replayRuntime.Prediction().futureNodes.empty() );
 
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     Json report;
     report["ok"] = !state.failed;
     report["scene"] = scenePath ? *scenePath : "";
