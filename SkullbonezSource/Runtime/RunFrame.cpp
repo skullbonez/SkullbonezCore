@@ -478,7 +478,7 @@ void Run::TickPhysics( double secondsPerFrame )
                              this,
                              ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
                              this } );
-    TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
+    m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
@@ -1621,7 +1621,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         }
 
         m_cGameModelCollection.Clear();
-        ClearRayCastTestLines();
+        m_runtimeTools.ClearRayCastTestLines();
         m_simulation.Reset();
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
@@ -1756,7 +1756,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 ++eventsApplied;
             }
 
-            TickRayCastTestLines( PHYSICS_FIXED_DT );
+            m_runtimeTools.TickRayCastTestLines( PHYSICS_FIXED_DT );
             m_runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
             m_cGameModelCollection.EndCollisionVisualFrame();
             ++currentSceneFrame;

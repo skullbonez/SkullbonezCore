@@ -884,9 +884,8 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, PhysicsBo
 
             TornadoFieldConfig bestConfig;
             float bestAccelerationSq = 0.0f;
-            const Vector3 acceleration = sampleAcceleration( bodyRecords[static_cast<size_t>( i )].position,
-                                                             bestConfig,
-                                                             bestAccelerationSq );
+            const Vector3 acceleration =
+                sampleAcceleration( bodyRecords[static_cast<size_t>( i )].position, bestConfig, bestAccelerationSq );
             const float releaseAcceleration = (std::max)( 16.0f, model.GetContactReleaseImpulseThreshold() * 32.0f );
             if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
             {
@@ -1509,7 +1508,9 @@ bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
 }
 
 
-void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )
+void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection,
+                                                  PhysicsBodyStore& bodyStore,
+                                                  float dt )
 {
     if ( m_pointJointConstraints.empty() || static_cast<int>( m_sleepState.size() ) <= 0 )
     {
@@ -1605,8 +1606,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_sleepPointJointBody[i] == 0 || bodyRecords[static_cast<size_t>( i )].isFixed ||
-             i >= static_cast<int>( m_sleepState.size() ) ||
-             m_sleepState[i] == 0 )
+             i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 )
         {
             continue;
         }
@@ -1763,10 +1763,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
     auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
     {
         const Vector3 relativeStart = bodyStream.positions[movingIndex] - bodyStream.positions[targetIndex];
-        const Vector3 relativeDisplacement =
-            ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
-              bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
-            dt;
+        const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
+                                               bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
+                                             dt;
         const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
         if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
         {
@@ -1886,10 +1885,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
                                     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
                                     record.bodyA = a;
                                     record.bodyB = b;
-                                    record.point =
-                                        ( bodyRecords[static_cast<size_t>( a )].position +
-                                          bodyRecords[static_cast<size_t>( b )].position ) *
-                                        0.5f;
+                                    record.point = ( bodyRecords[static_cast<size_t>( a )].position +
+                                                     bodyRecords[static_cast<size_t>( b )].position ) *
+                                                   0.5f;
                                     record.scalarA = 1.0f;
                                     RecordPhysicsPipelineStage( record );
                                 }
@@ -2064,9 +2062,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
 
     auto writeObjectCollisionCellEvent = [&]( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
     {
-        const Vector3 midpoint =
-            ( bodyRecords[static_cast<size_t>( bodyA )].position + bodyRecords[static_cast<size_t>( bodyB )].position ) *
-            0.5f;
+        const Vector3 midpoint = ( bodyRecords[static_cast<size_t>( bodyA )].position +
+                                   bodyRecords[static_cast<size_t>( bodyB )].position ) *
+                                 0.5f;
         const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
         const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
         const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
@@ -2134,10 +2132,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = y;
                         record.bodyB = x;
-                        record.point =
-                            ( bodyRecords[static_cast<size_t>( y )].position +
-                              bodyRecords[static_cast<size_t>( x )].position ) *
-                            0.5f;
+                        record.point = ( bodyRecords[static_cast<size_t>( y )].position +
+                                         bodyRecords[static_cast<size_t>( x )].position ) *
+                                       0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
@@ -2160,10 +2157,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = y;
                     record.bodyB = x;
-                    record.point =
-                        ( bodyRecords[static_cast<size_t>( y )].position +
-                          bodyRecords[static_cast<size_t>( x )].position ) *
-                        0.5f;
+                    record.point = ( bodyRecords[static_cast<size_t>( y )].position +
+                                     bodyRecords[static_cast<size_t>( x )].position ) *
+                                   0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 
@@ -2195,10 +2191,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = x;
                         record.bodyB = y;
-                        record.point =
-                            ( bodyRecords[static_cast<size_t>( x )].position +
-                              bodyRecords[static_cast<size_t>( y )].position ) *
-                            0.5f;
+                        record.point = ( bodyRecords[static_cast<size_t>( x )].position +
+                                         bodyRecords[static_cast<size_t>( y )].position ) *
+                                       0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
@@ -2221,10 +2216,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBod
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = x;
                     record.bodyB = y;
-                    record.point =
-                        ( bodyRecords[static_cast<size_t>( x )].position +
-                          bodyRecords[static_cast<size_t>( y )].position ) *
-                        0.5f;
+                    record.point = ( bodyRecords[static_cast<size_t>( x )].position +
+                                     bodyRecords[static_cast<size_t>( y )].position ) *
+                                   0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 

@@ -41,180 +41,7 @@ constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
-float LauncherModelRadius( const GameModel& model )
-{
-    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
-}
-
-bool IntersectRaySphere( const Vector3& rayOrigin,
-                         const Vector3& rayDirection,
-                         const Vector3& center,
-                         float radius,
-                         float& outT )
-{
-    const Vector3 m = rayOrigin - center;
-    const float b = m * rayDirection;
-    const float c = ( m * m ) - radius * radius;
-    if ( c > 0.0f && b > 0.0f )
-    {
-        return false;
-    }
-
-    const float discriminant = b * b - c;
-    if ( discriminant < 0.0f )
-    {
-        return false;
-    }
-
-    outT = -b - sqrtf( discriminant );
-    if ( outT < 0.0f )
-    {
-        outT = 0.0f;
-    }
-    return true;
-}
-
 } // namespace
-
-void Run::ClearRayCastTestLines()
-{
-    m_runtimeTools.RayCastTest().lines = {};
-    m_runtimeTools.RayCastTest().nextLine = 0;
-}
-
-
-void Run::AddRayCastTestLine( const Vector3& start, const Vector3& end, bool hit )
-{
-    if ( !m_runtimeTools.RayCastTest().visualizeRays )
-    {
-        return;
-    }
-
-    RunRayCastTestLine& line =
-        m_runtimeTools.RayCastTest()
-            .lines[static_cast<std::size_t>( m_runtimeTools.RayCastTest().nextLine ) % RunRayCastTestState::MAX_LINES];
-    line.start = start;
-    line.end = end;
-    line.ageSeconds = 0.0f;
-    line.active = true;
-    line.hit = hit;
-    m_runtimeTools.RayCastTest().nextLine =
-        ( m_runtimeTools.RayCastTest().nextLine + 1 ) % static_cast<int>( RunRayCastTestState::MAX_LINES );
-}
-
-
-void Run::TickRayCastTestLines( float dt )
-{
-    if ( dt <= 0.0f )
-    {
-        return;
-    }
-
-    for ( RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
-    {
-        if ( line.active )
-        {
-            line.ageSeconds += dt;
-        }
-    }
-}
-
-
-bool Run::TryRayCastTestHit( const Vector3& rayOrigin,
-                             const Vector3& rayDirection,
-                             float maxDistance,
-                             int& outIndex,
-                             float& outT )
-{
-    outIndex = -1;
-    outT = maxDistance;
-
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-    {
-        const GameModel& model = models[static_cast<size_t>( i )];
-        const float radius = LauncherModelRadius( model );
-        float rayT = 0.0f;
-        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) && rayT <= maxDistance &&
-             rayT < outT )
-        {
-            outIndex = i;
-            outT = rayT;
-        }
-    }
-
-    return outIndex >= 0;
-}
-
-
-bool Run::TryLauncherTerrainHit( const Vector3& rayOrigin,
-                                 const Vector3& rayDirection,
-                                 float maxDistance,
-                                 float& outT ) const
-{
-    outT = maxDistance;
-    if ( !m_systems.terrain )
-    {
-        return false;
-    }
-
-    constexpr int RAY_STEPS = 192;
-    bool hasPrevious = false;
-    float previousT = 0.0f;
-    float previousDiff = 0.0f;
-
-    for ( int step = 0; step <= RAY_STEPS; ++step )
-    {
-        const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
-        const Vector3 sample = rayOrigin + rayDirection * t;
-        if ( !m_systems.terrain->IsInBounds( sample.x, sample.z ) )
-        {
-            continue;
-        }
-
-        const float terrainY = m_systems.terrain->GetTerrainHeightAt( sample.x, sample.z );
-        const float diff = sample.y - terrainY;
-        if ( fabsf( diff ) <= 0.01f )
-        {
-            outT = t;
-            return true;
-        }
-
-        if ( hasPrevious && previousDiff > 0.0f && diff <= 0.0f )
-        {
-            float lowT = previousT;
-            float highT = t;
-            for ( int refine = 0; refine < 12; ++refine )
-            {
-                const float midT = ( lowT + highT ) * 0.5f;
-                const Vector3 mid = rayOrigin + rayDirection * midT;
-                if ( !m_systems.terrain->IsInBounds( mid.x, mid.z ) )
-                {
-                    lowT = midT;
-                    continue;
-                }
-                const float midTerrainY = m_systems.terrain->GetTerrainHeightAt( mid.x, mid.z );
-                const float midDiff = mid.y - midTerrainY;
-                if ( midDiff > 0.0f )
-                {
-                    lowT = midT;
-                }
-                else
-                {
-                    highT = midT;
-                }
-            }
-            outT = highT;
-            return true;
-        }
-
-        hasPrevious = true;
-        previousT = t;
-        previousDiff = diff;
-    }
-
-    return false;
-}
 
 
 void Run::FireRayCastTest()
@@ -249,18 +76,26 @@ void Run::FireLauncherLaser( const Vector3& rayOrigin, const Vector3& rayDirecti
 {
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit =
-        TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+    const bool modelHit = m_runtimeTools.TryRayCastTestHit( m_cGameModelCollection.Models(),
+                                                            rayOrigin,
+                                                            rayDirection,
+                                                            RAY_CAST_TEST_MAX_DISTANCE,
+                                                            modelHitIndex,
+                                                            modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+    const bool terrainHit = m_runtimeTools.TryLauncherTerrainHit( m_systems.terrain.get(),
+                                                                  rayOrigin,
+                                                                  rayDirection,
+                                                                  RAY_CAST_TEST_MAX_DISTANCE,
+                                                                  terrainHitT );
 
     const bool terrainIsClosest = terrainHit && ( !modelHit || terrainHitT < modelHitT );
     const bool hit = modelHit || terrainHit;
     const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Vector3 visualEnd = rayOrigin + rayDirection * hitT;
     m_runtimeTools.Laser().Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
-    AddRayCastTestLine( rayOrigin, visualEnd, hit );
+    m_runtimeTools.AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
     if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= m_cGameModelCollection.GetModelCount() )
     {
@@ -301,11 +136,19 @@ void Run::FireLauncherProjectile( const Vector3& rayOrigin, const Vector3& rayDi
 
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit =
-        TryRayCastTestHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, modelHitIndex, modelHitT );
+    const bool modelHit = m_runtimeTools.TryRayCastTestHit( m_cGameModelCollection.Models(),
+                                                            rayOrigin,
+                                                            rayDirection,
+                                                            RAY_CAST_TEST_MAX_DISTANCE,
+                                                            modelHitIndex,
+                                                            modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool terrainHit = TryLauncherTerrainHit( rayOrigin, rayDirection, RAY_CAST_TEST_MAX_DISTANCE, terrainHitT );
+    const bool terrainHit = m_runtimeTools.TryLauncherTerrainHit( m_systems.terrain.get(),
+                                                                  rayOrigin,
+                                                                  rayDirection,
+                                                                  RAY_CAST_TEST_MAX_DISTANCE,
+                                                                  terrainHitT );
 
     const float hitT = terrainHit && ( !modelHit || terrainHitT < modelHitT )
                            ? terrainHitT

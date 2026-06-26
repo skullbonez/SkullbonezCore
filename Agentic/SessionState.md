@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Physics body-store aggressive ownership is complete: mutable pose, velocity, sleep, and pending impulse state now lives in `PhysicsBodyStore`, with named compatibility writeback to `GameModel`; the plan is archived in `Agentic/Plans/Done/physics-body-store-aggressive-ownership-plan.md`. |
-| Active objective | Implement `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill. Validate and commit before final handoff. |
-| Pending work | Finish the run composition-root shrink plan on `nightrunner-26th-July`; do not skip an independent rubber-duck review before validation and commit. |
+| Last committed milestone | Runtime run composition-root shrink launcher helper slice is validated for commit: ray-test line clear/add/tick and launcher model/terrain hit tests moved into `RuntimeTools`, five private `Run.h` declarations were deleted, and `tools/check_runtime_boundaries.py` now ratchets the `Run.h` private method count. |
+| Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the plan remains active after this helper slice. |
+| Pending work | Next launcher shrink slice should move or delete the still-live `Run::` fire dispatch, laser/projectile behavior, and launcher repro snapshot helpers. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Physics body-store aggressive ownership is covered by `tools\validate_physics.bat` (`TestOutput\validation\physics_body_store_validate_physics.log`) and `tools\validate_perf.bat` (`TestOutput\validation\physics_body_store_validate_perf_rerun.log`). Physics passed byte-exact determinism; perf completed with reviewed advisory `physics_bench` whole-frame/render/vsync/memory warnings while the touched `Frame/Physics` path stayed within noise. |
+| Validation | Physics body-store aggressive ownership is covered by `tools\validate_physics.bat` (`TestOutput\validation\physics_body_store_validate_physics.log`) and `tools\validate_perf.bat` (`TestOutput\validation\physics_body_store_validate_perf_rerun.log`). The launcher helper shrink slice is covered by `tools\validate_fast.bat` (`TestOutput\validation\run_composition_launcher_tools_validate_fast_final.log`) and `tools\validate_full.bat` (`TestOutput\validation\run_composition_launcher_tools_validate_full.log`); fast and full gates passed with 0-warning/error builds, DX12 validation errors 0, matching screenshots, and byte-exact physics CSV. |
 
 ## Active Notes
 

@@ -316,12 +316,11 @@ class PhysicsWorld
                                int index,
                                float dt,
                                bool applyForces );
-    void
-    WakeRestingContactIsland( GameObjects::GameModelCollection& collection,
-                              PhysicsBodyStore* bodyStore,
-                              int index,
-                              float dt,
-                              bool applyForces );
+    void WakeRestingContactIsland( GameObjects::GameModelCollection& collection,
+                                   PhysicsBodyStore* bodyStore,
+                                   int index,
+                                   float dt,
+                                   bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
     void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection,
                                         PhysicsBodyStore& bodyStore,

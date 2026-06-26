@@ -339,10 +339,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = aIndex;
             record.bodyB = bIndex;
             record.normal = normal;
-            record.point =
-                ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                  m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
-                0.5f;
+            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                           0.5f;
             record.scalarA = normal.y;
             RecordPhysicsPipelineStage( record );
         }
@@ -354,10 +353,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = bIndex;
             record.bodyB = aIndex;
             record.normal = -normal;
-            record.point =
-                ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                  m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
-                0.5f;
+            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                           0.5f;
             record.scalarA = -normal.y;
             RecordPhysicsPipelineStage( record );
         }
@@ -1334,13 +1332,15 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
 
             fixedModel.SetFixed( false );
             context.bodyStore.CaptureMutableStateFromModelAt( m_gameModels, fixedIndex );
-            m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
+            m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity =
+                releaseDir * releaseSpeed + tangentVelocity;
             m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity = angularVelocity;
             context.bodyStore.WriteBackToModelAt( m_gameModels, fixedIndex );
             context.WakeModel( collection, fixedIndex );
-            collection.ReleaseAttachedFixedTreeParts( fixedIndex,
-                                                      m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
-                                                      m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity );
+            collection.ReleaseAttachedFixedTreeParts(
+                fixedIndex,
+                m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
+                m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity );
         };
 
         for ( const PersistentContact& c : m_persistentContacts )

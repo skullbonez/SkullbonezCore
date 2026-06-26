@@ -538,20 +538,6 @@ class Run
     void TickPerfLog();                                                          // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                                                     // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                                  // Slide water surface up/down while held
-    void ClearRayCastTestLines();                                                // Scene/model rebuilds invalidate fading launcher visuals.
-    void AddRayCastTestLine( const Math::Vector::Vector3& start,
-                             const Math::Vector::Vector3& end,
-                             bool hit );                                         // One fading ray visual, gated by runtime test-line visibility.
-    void TickRayCastTestLines( float dt );                                       // Ages fading launcher visuals
-    bool TryRayCastTestHit( const Math::Vector::Vector3& rayOrigin,
-                            const Math::Vector::Vector3& rayDirection,
-                            float maxDistance,
-                            int& outIndex,
-                            float& outT );                                       // Finds closest model hit along a ray
-    bool TryLauncherTerrainHit( const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection,
-                                float maxDistance,
-                                float& outT ) const;                             // Finds the nearest terrain crossing along a launcher ray.
     void FireRayCastTest();                                                      // Dispatches the selected launcher-mode fire action.
     void FireLauncherLaser( const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,

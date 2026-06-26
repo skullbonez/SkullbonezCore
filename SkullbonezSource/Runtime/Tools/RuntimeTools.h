@@ -28,6 +28,11 @@ namespace SkullbonezCore::GameObjects
 class GameModel;
 }
 
+namespace SkullbonezCore::Geometry
+{
+class Terrain;
+}
+
 namespace SkullbonezCore::Basics
 {
 struct RunRayCastTestLine
@@ -186,6 +191,20 @@ class RuntimeTools
   public:
     RunRayCastTestState& RayCastTest();
     const RunRayCastTestState& RayCastTest() const;
+    void ClearRayCastTestLines();
+    void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );
+    void TickRayCastTestLines( float dt );
+    bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
+                            const Math::Vector::Vector3& rayOrigin,
+                            const Math::Vector::Vector3& rayDirection,
+                            float maxDistance,
+                            int& outIndex,
+                            float& outT ) const;
+    bool TryLauncherTerrainHit( Geometry::Terrain* terrain,
+                                const Math::Vector::Vector3& rayOrigin,
+                                const Math::Vector::Vector3& rayDirection,
+                                float maxDistance,
+                                float& outT ) const;
 
     LauncherLaser& Laser();
     const LauncherLaser& Laser() const;

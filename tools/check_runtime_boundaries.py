@@ -45,6 +45,13 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 260
+RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
+    r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s+)+"
+    r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
+    r"(?:=\s*(?:delete|default)\s*)?;",
+    re.S,
+)
 
 
 def normalize_boundary_line(line: str) -> str:
@@ -163,6 +170,8 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )" ),
         ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::WakeModel( GameModelCollection& collection, int index )" ),
         ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::SeedModelAsleep( GameModelCollection& collection, int index )" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::ApplyBodyImpulse( GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::SetPendingBodyImpulse( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsScene.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshStores( GameObjects::GameModelCollection& collection );" ),
         ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );" ),
@@ -172,6 +181,8 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/PhysicsScene.h", "void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );" ),
         ( "SkullbonezSource/Physics/PhysicsScene.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
         ( "SkullbonezSource/Physics/PhysicsScene.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void ApplyBodyImpulse( GameObjects::GameModelCollection& collection," ),
+        ( "SkullbonezSource/Physics/PhysicsScene.h", "void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection," ),
@@ -179,36 +190,36 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::MarkFixedContact( GameModelCollection& collection, int index )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::MarkFixedContact( GameModelCollection& collection, int index ) const" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::WakeModel( GameModelCollection& collection, int index ) const" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInTime )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::SeedModelAsleep( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsDiagnosticsFrame( GameModelCollection& collection, float dt )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsCollisionTime( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )" ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int index, float dt, bool applyForces )",
+            "bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+            "void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+            "void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, int index, float dt, bool applyForces )",
+            "void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, float dt )",
+            "void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection,",
         ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunSolverPhysics( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunSolverPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsDiagnosticsFrame( GameObjects::GameModelCollection& collection, float dt );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsCollisionTime( GameObjects::GameModelCollection& collection," ),
@@ -216,29 +227,29 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void ApplyTornadoField( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void PropagateSleepSupport( GameObjects::GameModelCollection& collection );" ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.h",
-            "bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+            "bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+            "void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+            "void WakePointJointIsland( GameObjects::GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.h",
-            "WakeRestingContactIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );",
+            "void WakeRestingContactIsland( GameObjects::GameModelCollection& collection,",
         ),
         (
             "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );",
+            "void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection,",
         ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );" ),
+        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
         ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
         (
@@ -447,6 +458,54 @@ def extract_struct_body(stripped: str, struct_name: str) -> tuple[int, str] | No
 
 def line_for_struct_offset(stripped: str, body_start_offset: int, local_offset: int) -> int:
     return line_for_offset(stripped, body_start_offset + local_offset)
+
+
+def extract_run_private_section(stripped: str) -> tuple[int, str] | None:
+    match = re.search(r"\bclass\s+Run\s*\{", stripped)
+    if not match:
+        return None
+    open_brace_offset = stripped.find("{", match.start(), match.end())
+    if open_brace_offset < 0:
+        return None
+    close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+    body_start_offset = open_brace_offset + 1
+    body = stripped[body_start_offset:close_brace_offset]
+    private_match = re.search(r"\bprivate\s*:", body)
+    if not private_match:
+        return None
+    private_start = body_start_offset + private_match.end()
+    public_match = re.search(r"\bpublic\s*:", body[private_match.end() :])
+    private_end = (
+        body_start_offset + private_match.end() + public_match.start()
+        if public_match
+        else close_brace_offset
+    )
+    return private_start, stripped[private_start:private_end]
+
+
+def check_run_private_method_count_text(
+    path: Path,
+    text: str,
+    max_allowed: int = MAX_RUN_PRIVATE_METHOD_DECLARATIONS,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    private_section = extract_run_private_section(stripped)
+    if private_section is None:
+        return []
+
+    private_start, private_body = private_section
+    method_count = len(RUN_PRIVATE_METHOD_DECLARATION_PATTERN.findall(private_body))
+    if method_count <= max_allowed:
+        return []
+
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, private_start),
+            "Run.h private method count exceeds ratchet",
+            f"Found {method_count}; maximum is {max_allowed}. Move behavior to a subsystem or update the ratchet intentionally.",
+        )
+    ]
 
 
 def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], ...]) -> list[BoundaryError]:
@@ -658,6 +717,25 @@ def run_self_tests() -> list[str]:
     if check_runtime_render_host_guardrails_text(synthetic_path, allowed_host):
         failures.append("allowed RuntimeRenderHost synthetic surface failed")
 
+    allowed_run_header = """
+    class Run
+    {
+      private:
+        void Render();
+      public:
+        void Execute();
+    };
+    """
+    if check_run_private_method_count_text(Path("synthetic/Run.h"), allowed_run_header, max_allowed=1):
+        failures.append("allowed Run.h private method count synthetic surface failed")
+
+    grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
+    if not any(
+        error.message == "Run.h private method count exceeds ratchet"
+        for error in check_run_private_method_count_text(Path("synthetic/Run.h"), grown_run_header, max_allowed=1)
+    ):
+        failures.append("grown Run.h private method count synthetic surface was not rejected")
+
     new_binding = allowed_host.replace(
         "RunDebugState* debug = nullptr;",
         "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
@@ -867,6 +945,7 @@ def check_interaction_guardrails(repo: Path) -> list[BoundaryError]:
 def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
     errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
+    errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))

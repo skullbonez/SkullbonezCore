@@ -534,12 +534,21 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
                 axis,
                 rA,
                 rB,
-                [&]( const Vector3& v ) { return invMassA > 0.0f ? ApplyRecordInvInertia( a, bodyA, v ) : ZERO_VECTOR; },
-                [&]( const Vector3& v ) { return invMassB > 0.0f ? ApplyRecordInvInertia( b, bodyB, v ) : ZERO_VECTOR; } );
+                [&]( const Vector3& v )
+                { return invMassA > 0.0f ? ApplyRecordInvInertia( a, bodyA, v ) : ZERO_VECTOR; },
+                [&]( const Vector3& v )
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( b, bodyB, v ) : ZERO_VECTOR; } );
             if ( effectiveMass > 0.0f )
             {
-                ApplyConstraintImpulse(
-                    a, b, bodyA, bodyB, rA, rB, axis * ( effectiveMass * velocityTarget ), invMassA, invMassB );
+                ApplyConstraintImpulse( a,
+                                        b,
+                                        bodyA,
+                                        bodyB,
+                                        rA,
+                                        rB,
+                                        axis * ( effectiveMass * velocityTarget ),
+                                        invMassA,
+                                        invMassB );
             }
 
             if ( distanceError > TOLERANCE )

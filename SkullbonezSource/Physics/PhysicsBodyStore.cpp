@@ -27,11 +27,11 @@ Related:
 #include "../GameObjects/GameModel.h"
 
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {

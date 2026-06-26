@@ -2120,12 +2120,7 @@ class TestSceneParser
         }
         if ( const Json* angularVelocity = FindMember( object, "angularVelocity" ) )
         {
-            ReadVec3( *angularVelocity,
-                      path,
-                      "convexHull.angularVelocity",
-                      hull.angVelX,
-                      hull.angVelY,
-                      hull.angVelZ );
+            ReadVec3( *angularVelocity, path, "convexHull.angularVelocity", hull.angVelX, hull.angVelY, hull.angVelZ );
             hull.hasInitAngularVelocity = true;
         }
         m_scene.m_convexHulls.push_back( hull );

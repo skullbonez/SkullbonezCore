@@ -1006,7 +1006,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     }
     SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
-    ClearRayCastTestLines();
+    m_runtimeTools.ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -2235,7 +2235,7 @@ void Run::ApplyUIModelCountOverride( int count )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ClearRayCastTestLines();
+    m_runtimeTools.ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
@@ -2282,7 +2282,7 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
         Gfx().FlushGPU();
     }
     m_cGameModelCollection.Clear();
-    ClearRayCastTestLines();
+    m_runtimeTools.ClearRayCastTestLines();
     m_simulation.Reset();
     SceneState().currentFrame = 0;
     SceneState().isTestComplete = false;
