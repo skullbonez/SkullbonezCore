@@ -45,7 +45,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 238
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 233
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -309,6 +309,12 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"\b(?:[A-Za-z_]\w*EditorGizmo[A-Za-z_]\w*|"
         r"[A-Za-z_]\w*SelectedEditorObject[A-Za-z_]\w*)\s*\(",
         "Keep editor transform math and mutation in Runtime/Editor/EditorTools helpers.",
+    ),
+    (
+        "editor UI/mode command helpers must stay out of Run.h",
+        r"\b(?:ResetEditorUnfocusedInputState|ClearEditorManipulationState|ToggleEditorPlacementMode|"
+        r"HandleEditorKeyboardShortcuts|ApplyEditorUICommands)\s*\(",
+        "Keep editor input-mode state mechanics in Runtime/Editor/EditorTools helpers.",
     ),
 )
 

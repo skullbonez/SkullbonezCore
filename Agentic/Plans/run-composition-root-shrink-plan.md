@@ -437,9 +437,89 @@ visibility, but there is still no dedicated live translate/rotate/scale drag
 smoke. The replay artifact gate covers encoded editor-transform samples, not
 manual mouse feel.
 
-Remaining editor shrink work includes editor UI commands and editor overlay
-generation. Replay UI/tool behavior, scene runtime ownership, and render-host
-splitting remain later plan slices.
+## Editor UI/Mode Command Slice
+
+The fourth editor slice moved editor UI/mode command mechanics out of `Run`.
+`RunInternal` editor helpers now own unfocused editor reset, manipulation clear,
+placement-mode state selection, editor keyboard shortcut capture, editor mode
+state entry/exit, static-placement toggles, terrain-align toggles, and
+object-type selection through explicit editor/gizmo contexts. `RunInput` still
+applies final runtime side effects: interaction transitions, world-owner
+selection, camera labels, fly-camera enter/exit/reset, cursor ownership, mouse
+release, and runtime input action reporting.
+
+Deleted `Run.h` declarations:
+
+- `ResetEditorUnfocusedInputState`
+- `ClearEditorManipulationState`
+- `ToggleEditorPlacementMode`
+- `HandleEditorKeyboardShortcuts`
+- `ApplyEditorUICommands`
+
+Deleted `Run::` definitions:
+
+- `Run::ResetEditorUnfocusedInputState`
+- `Run::ClearEditorManipulationState`
+- `Run::ToggleEditorPlacementMode`
+- `Run::HandleEditorKeyboardShortcuts`
+- `Run::ApplyEditorUICommands`
+
+New owner methods:
+
+- `RunInternal::ResetEditorUnfocusedInputState(...)`
+- `RunInternal::ClearEditorManipulationState(...)`
+- `RunInternal::HandleEditorKeyboardShortcuts(...)`
+- `RunInternal::SetEditorPlacementMode(...)`
+- `RunInternal::ToggleEditorPlacementMode(...)`
+- `RunInternal::EnterEditorModeState(...)`
+- `RunInternal::ExitEditorModeState(...)`
+- `RunInternal::SetEditorPlaceStaticObject(...)`
+- `RunInternal::ToggleEditorPlaceStaticObject(...)`
+- `RunInternal::ToggleEditorTerrainAlign(...)`
+- `RunInternal::SelectEditorObjectType(...)`
+
+Boundary guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  to 233.
+- The runtime-boundary rule now blocks the exact editor UI/mode helper names
+  from returning to `Run.h`.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\run_composition_editor_ui_profile_build.log`; passed
+  with 0 warnings and 0 errors after adding the concrete `RuntimeTools` include
+  for moved editor-state helpers.
+- Runtime boundary check: `python tools\check_runtime_boundaries.py --repo .`;
+  passed with 0 errors and wrote
+  `TestOutput\validation\runtime_boundaries\summary.json`.
+- Rubber duck: reviewer Confucius found no blocking behavior parity defect in
+  editor enter/exit ordering, placement-mode toggles, object-type
+  `enterPlacementMode` ordering, reset/clear parity, or the ratchet update.
+  Non-blocking note: if editor command helpers keep expanding, consider
+  separating them from placement/gizmo math into a narrower editor command
+  helper header.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\run_composition_editor_ui_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, Profile build, and Debug
+  build in 87.20s.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\run_composition_editor_ui_validate_runtime_boundaries.log`;
+  passed with 0 errors in 0.51s.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\run_composition_editor_ui_validate_interaction_clicks.log`;
+  passed the existing live inspect-gizmo and replay-prediction click reports in
+  6.54s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\run_composition_editor_ui_validate_full.log`; passed
+  project filters, runtime boundaries, Profile/Debug builds, DX12 validation
+  with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 24.08s.
+
+Remaining editor shrink work includes editor overlay generation. Replay UI/tool
+behavior, scene runtime ownership, and render-host splitting remain later plan
+slices.
 
 ## Rules
 

@@ -540,12 +540,6 @@ class Run
     void UpdateWaterHeightControls( float dt );                            // Slide water surface up/down while held
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                             // Mouse position projected into a world-space ray.
-    void ResetEditorUnfocusedInputState();                                 // Clears transient editor gestures when app focus is lost.
-    void ClearEditorManipulationState();                                   // Clears placement/gizmo gesture state while preserving editor mode.
-    void ToggleEditorPlacementMode( RuntimeInputActionSource source );     // Enters/exits placement mode from keyboard or UI.
-    void HandleEditorKeyboardShortcuts();                                  // Applies editor-mode Alt/Tab shortcuts.
-    void ApplyEditorUICommands( const SkullbonezCore::UI::InGameUICommands& uiCommands,
-                                bool keyboardToggleEditorMode );           // Applies Editor-tab UI and keyboard mode toggles.
     void TickEditorViewportAndPlacementScaleInput(
         int unhandledWheelDelta );                                         // Updates viewport-look and placement scale/altitude gestures.
     bool TickEditorWorldClick(

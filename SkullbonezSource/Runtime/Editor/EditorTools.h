@@ -27,6 +27,9 @@ Related:
 #pragma once
 
 #include "EditorHullAssets.h"
+#include "../InputController.h"
+#include "../RuntimeCameraMode.h"
+#include "../RuntimeInteractionController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 
@@ -115,6 +118,29 @@ struct EditorGizmoContext
     RuntimeInteractionController& interaction;
 };
 
+struct EditorKeyboardShortcutContext
+{
+    RuntimeInputContext& input;
+};
+
+struct EditorKeyboardShortcutResult
+{
+    bool altDown = false;
+    bool togglePlacementMode = false;
+};
+
+struct EditorPlacementModeChangeResult
+{
+    bool placementModeEnabled = false;
+    WorldInteractionOwner worldOwner = WorldInteractionOwner::EditorGizmo;
+};
+
+struct EditorObjectTypeRequestResult
+{
+    bool objectTypeChanged = false;
+    bool enterPlacementMode = false;
+};
+
 int EditorMouseWheelSteps( int wheelDelta );
 Assets::EditorHullAsset EditorHullAssetForType( int objectType );
 bool EditorPlacementUsesUniformScale( int objectType );
@@ -146,6 +172,19 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, bool angular );
 void EndEditorGizmoDragGesture( EditorGizmoContext context );
 void CancelEditorGizmoDragState( EditorGizmoContext context );
+void ResetEditorUnfocusedInputState( EditorGizmoContext context );
+void ClearEditorManipulationState( EditorGizmoContext context );
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context );
+EditorPlacementModeChangeResult
+SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
+EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context );
+void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode );
+void ExitEditorModeState( EditorGizmoContext context );
+bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject );
+void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
+void ToggleEditorTerrainAlign( RunEditorPlacementState& editor );
+EditorObjectTypeRequestResult
+SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode );
 int HitEditorGizmoAxis( EditorGizmoContext context,
                         const Math::Vector::Vector3& rayOrigin,
                         const Math::Vector::Vector3& rayDirection );

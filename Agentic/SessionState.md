@@ -8,9 +8,9 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink editor gizmo slice is validated for commit: gizmo drag capture helpers, axis/ring hit testing, ray projection, selected-object translate/rotate/scale mutation, and hot-axis preview updates moved out of `Run`; replay transform recording remains at the composition root; the `Run.h` private-method ratchet is now 238. |
-| Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo slices are complete. |
-| Pending work | Continue editor shrink work with editor UI commands or editor overlay generation. Replay UI/tool behavior, scene runtime ownership, and render-host splitting remain later plan slices. Do not skip an independent rubber-duck review before validation and commit. |
+| Last committed milestone | Runtime run composition-root shrink editor UI/mode command slice is validated for commit: unfocused editor reset, manipulation clear, placement-mode state selection, editor keyboard shortcut capture, editor mode state entry/exit, static-placement toggles, terrain-align toggles, and object-type selection moved out of `Run`; `RunInput` still applies final runtime side effects; the `Run.h` private-method ratchet is now 233. |
+| Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode slices are complete. |
+| Pending work | Continue editor shrink work with editor overlay generation. Replay UI/tool behavior, scene runtime ownership, and render-host splitting remain later plan slices. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
@@ -45,6 +45,27 @@ audits when it is still useful.
   dedicated automated live translate/rotate/scale drag smoke exists yet, though
   interaction-click and replay artifact gates cover selection/visibility and
   encoded editor-transform replay samples.
+- Runtime run composition shrink editor UI/mode command slice moves unfocused
+  editor reset, manipulation clear, placement-mode state selection, editor
+  keyboard shortcut capture, editor mode state entry/exit, static-placement
+  toggles, terrain-align toggles, and object-type selection into `EditorTools`.
+  `RunInput` still applies interaction transitions, world-owner selection,
+  camera labels, fly-camera enter/exit/reset, cursor ownership, mouse release,
+  and runtime input action reporting. The `Run.h` private-method ratchet is now
+  233 and blocks the old editor UI/mode helper names from returning.
+- Editor UI/mode command validation: targeted Profile build 7.85s
+  (`TestOutput\validation\run_composition_editor_ui_profile_build.log`), fast
+  gate 87.20s (`TestOutput\validation\run_composition_editor_ui_validate_fast.log`),
+  runtime-boundary gate 0.51s
+  (`TestOutput\validation\run_composition_editor_ui_validate_runtime_boundaries.log`),
+  interaction-click gate 6.54s
+  (`TestOutput\validation\run_composition_editor_ui_validate_interaction_clicks.log`),
+  and full gate 24.08s
+  (`TestOutput\validation\run_composition_editor_ui_validate_full.log`). Full
+  gate passed project filters, runtime boundaries, Profile/Debug builds with 0
+  warnings/errors, DX12 validation errors 0 with screenshots matching baselines,
+  and byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Confucius
+  found no blocking behavior parity defect.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,

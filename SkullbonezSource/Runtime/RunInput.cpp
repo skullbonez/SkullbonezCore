@@ -675,7 +675,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
-    ClearEditorManipulationState();
+    RunInternal::ClearEditorManipulationState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
     m_runtimeTools.Editor().viewportLookActive = false;
     m_runtimeTools.Editor().placementModeEnabled = false;
     m_runtimeTools.Editor().hotGizmoAxis = -1;
@@ -1772,7 +1772,8 @@ void Run::TakeInput()
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
-        ResetEditorUnfocusedInputState();
+        RunInternal::ResetEditorUnfocusedInputState(
+            { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
         InputController::ResetUnfocusedInput( m_camera,
                                               m_inputLatches.leftSceneCycleWasDown,
                                               m_inputLatches.rightSceneCycleWasDown );
@@ -1798,6 +1799,75 @@ void Run::TakeInput()
         UIBlocksKeyboardBeforeInput,
         m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
+    auto editorGizmoContext = [this]()
+    { return RunInternal::EditorGizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction }; };
+    auto applyEditorPlacementModeChange =
+        [this, &editorGizmoContext]( RuntimeInputActionSource source, bool enabled, bool clearManipulation )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            RunInternal::SetEditorPlacementMode( editorGizmoContext(), enabled, clearManipulation );
+        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
+                                                            InteractionExitReason::EnterEdit );
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+    };
+    auto applyEditorPlacementModeToggle = [this, &editorGizmoContext]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            RunInternal::ToggleEditorPlacementMode( editorGizmoContext() );
+        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
+                                                            InteractionExitReason::EnterEdit );
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+    };
+    auto applyEditorModeToggle = [this, &editorGizmoContext]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const bool enteringEditor = !m_runtimeTools.Editor().editorModeEnabled;
+        if ( enteringEditor )
+        {
+            const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
+            const bool wasFlyMode = IsFlyCameraMode();
+            RunInternal::EnterEditorModeState( editorGizmoContext(),
+                                               NormalizeCameraModeForCurrentScene( m_camera.mode ) );
+            CancelMousePickup();
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
+            if ( !wasFlyMode )
+            {
+                EnterFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        else
+        {
+            const RunCameraMode restoreMode =
+                NormalizeCameraModeForCurrentScene( m_runtimeTools.Editor().restoreCameraModeAfterEditor );
+            const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( restoreMode );
+            ApplyRuntimeInteractionTransitionCleanup( transition );
+            const bool wasFlyMode = IsFlyCameraMode();
+            RunInternal::ExitEditorModeState( editorGizmoContext() );
+            SetCameraModeLabelAfterInteractionTransition( restoreMode );
+            if ( wasFlyMode && !IsFlyCameraMode() )
+            {
+                ExitFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, source );
+    };
     if ( !UIBlocksKeyboardBeforeInput )
     {
         keyboardToggleEditorMode =
@@ -1912,7 +1982,13 @@ void Run::TakeInput()
 
         if ( m_runtimeTools.Editor().editorModeEnabled )
         {
-            HandleEditorKeyboardShortcuts();
+            const RunInternal::EditorKeyboardShortcutResult editorShortcuts =
+                RunInternal::HandleEditorKeyboardShortcuts( { m_runtimeInput } );
+            m_replayRuntime.SetVelocityEditAltKeyDown( editorShortcuts.altDown );
+            if ( editorShortcuts.togglePlacementMode )
+            {
+                applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
+            }
         }
         else
         {
@@ -2228,7 +2304,50 @@ void Run::TakeInput()
             ApplyCameraMode( static_cast<RunCameraMode>( uiCommands.run.requestedCameraMode ),
                              RuntimeInputActionSource::UI );
         }
-        ApplyEditorUICommands( uiCommands, keyboardToggleEditorMode );
+        if ( uiCommands.editor.requestPlaceStatic &&
+             RunInternal::SetEditorPlaceStaticObject( m_runtimeTools.Editor(),
+                                                      uiCommands.editor.requestedPlaceStatic ) )
+        {
+            EnterInteractiveSceneRun();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.requestedObjectType >= 0 )
+        {
+            const RunInternal::EditorObjectTypeRequestResult objectTypeRequest =
+                RunInternal::SelectEditorObjectType( editorGizmoContext(),
+                                                     uiCommands.editor.requestedObjectType,
+                                                     uiCommands.editor.enterPlacementMode );
+            if ( objectTypeRequest.enterPlacementMode )
+            {
+                applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
+            }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
+        {
+            applyEditorModeToggle( keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard
+                                                            : RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.togglePlacementMode )
+        {
+            applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.togglePlaceStatic )
+        {
+            EnterInteractiveSceneRun();
+            RunInternal::ToggleEditorPlaceStaticObject( m_runtimeTools.Editor() );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.toggleTerrainAlign )
+        {
+            EnterInteractiveSceneRun();
+            RunInternal::ToggleEditorTerrainAlign( m_runtimeTools.Editor() );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
+                                               RuntimeInputActionSource::UI );
+        }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
