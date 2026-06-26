@@ -38,14 +38,12 @@ void UiTextPass::ReleaseGpuResources()
 }
 
 
-void Run::RenderReplayScrubberOverlay()
+void RuntimeRenderHost::RenderReplayScrubberOverlay() const
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     RenderReplayCauseTreeOverlay();
 
-    if ( !m_replayRuntime.ShouldRenderScrubber( m_runtimeTools.Editor().editorModeEnabled,
-                                                m_UI.IsVisible(),
-                                                m_UI.IsMinimized() ) )
+    if ( !m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() ) )
     {
         return;
     }
@@ -516,7 +514,7 @@ void Run::RenderReplayScrubberOverlay()
 }
 
 
-void Run::RenderReplayCauseTreeOverlay()
+void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     const int screenW = WindowScreenWidth();

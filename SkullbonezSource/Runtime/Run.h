@@ -463,7 +463,6 @@ class Run
     void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );
     void ClearReplayCameraFocus( bool restoreCamera );
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
-    void RenderReplayCauseTreeOverlay();
     void SetReplayVelocityEditEnabled( bool enabled );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
     int ResolveReplayVelocityEditModelIndex() const;
@@ -497,7 +496,6 @@ class Run
                                                RunReplayV2TargetRestoreResult* outV2Result = nullptr,
                                                char* outReason = nullptr,
                                                std::size_t reasonSize = 0 );
-    void RenderReplayScrubberOverlay();
     void ApplyReplayRenderStateForFrame();
     void RestoreReplayRenderStateForFrame();
     void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );

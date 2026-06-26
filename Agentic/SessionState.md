@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink replay cause-tree row owner slice is validated for commit: `Run::BuildReplayCauseTreeRows` is removed; `ReplayRuntime::BuildCauseTreeRows()` now builds cause-tree rows from replay state and model data for both input and overlay callers; the `Run.h` private-method ratchet is now 232. |
+| Last committed milestone | Runtime run composition-root shrink replay scrubber overlay host slice is validated for commit: `RuntimeRenderHostCallbacks::renderReplayScrubberOverlay` and the `Run::RenderReplayScrubberOverlay` / `Run::RenderReplayCauseTreeOverlay` declarations are removed; `RuntimeRenderHost` now draws the replay scrubber/cause-tree overlay directly; the `Run.h` private-method ratchet is now 230. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
-| Pending work | Continue run-shrink work with replay UI/tool behavior, scene runtime ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
+| Pending work | Continue run-shrink work with replay UI/tool behavior, especially extracting replay overlay drawing/helpers out of `RunUiTextPass.cpp` / `RunInternal.h`, then scene runtime ownership and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Replay cause-tree row owner validation: targeted Profile build (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_replay_v2_artifact.log`), `tools\validate_interaction_clicks.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_interaction_clicks.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_full.log`) all passed with formatting clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, replay save/load/restore/query checks, interaction reports passing, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
+| Validation | Replay scrubber overlay host validation: targeted Profile build (`TestOutput\validation\agent_logs\replay_scrubber_host_profile_build.log`), `tools\validate_fast.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_fast.log`), `tools\validate_runtime_boundaries.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_runtime_boundaries.log`), `tools\validate_replay_v2_artifact.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_replay_v2_artifact.log`), `tools\validate_interaction_clicks.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_interaction_clicks.log`), `tools\validate_dx12_renderer.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_dx12_renderer.log`), and `tools\validate_full.bat` (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_full.log`) all passed with formatting clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds, replay save/load/restore/query checks, interaction reports passing, DX12 validation errors 0 with screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. |
 
 ## Active Notes
 
@@ -200,6 +200,35 @@ audits when it is still useful.
   byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Peirce found
   no blocking defect; the non-blocking guardrail naming concern was tightened
   before final validation.
+- Runtime run composition shrink replay scrubber overlay host slice removes
+  `Run::RenderReplayScrubberOverlay`, `Run::RenderReplayCauseTreeOverlay`, and
+  the render-host `renderReplayScrubberOverlay` callback bridge.
+  `RuntimeRenderHost` now renders the replay scrubber and cause-tree overlays
+  directly through its replay/runtime state bindings. The boundary checker
+  blocks the removed `Run.h` declarations, removed `Run::RenderReplay...`
+  source definitions, and removed host callback field; the `Run.h`
+  private-method ratchet is now 230.
+- Replay scrubber overlay host validation: targeted Profile build 40.73s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_profile_build.log`),
+  fast gate 48.28s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_fast.log`),
+  runtime-boundary gate 0.60s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_runtime_boundaries.log`),
+  replay artifact gate 22.88s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.47s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.63s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_dx12_renderer.log`),
+  and full gate 23.06s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_full.log`).
+  Gates passed with formatting clean, runtime-boundary 0 errors, Profile/Debug
+  0-warning builds, replay save/load/restore/query checks, interaction reports
+  passing, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Linnaeus
+  found no blocking code defect; the remaining non-blocking architecture risk is
+  that replay overlay drawing still lives in `RunUiTextPass.cpp` and uses
+  `RunInternal.h` helpers, making that the next shrink target.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,

@@ -133,7 +133,6 @@ struct RuntimeRenderHostCallbacks
     RenderEditorOverlayFn renderEditorOverlay = nullptr;
     VoidFn refreshRuntimeViewModel = nullptr;
     SceneStateFn sceneState = nullptr;
-    VoidFn renderReplayScrubberOverlay = nullptr;
     IntFn currentSceneBrowserIndex = nullptr;
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
     CameraModeLabelFn cameraModeLabel = nullptr;
@@ -235,10 +234,7 @@ class RuntimeRenderHost
         return m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() );
     }
 
-    void RenderReplayScrubberOverlay() const
-    {
-        m_callbacks.renderReplayScrubberOverlay( m_callbacks.user );
-    }
+    void RenderReplayScrubberOverlay() const;
 
     int CurrentSceneBrowserIndex() const
     {
@@ -293,6 +289,8 @@ class RuntimeRenderHost
     RunSceneBrowserState& m_sceneBrowser;
 
   private:
+    void RenderReplayCauseTreeOverlay() const;
+
     RuntimeRenderHostCallbacks m_callbacks;
 };
 

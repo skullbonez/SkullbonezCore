@@ -248,8 +248,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
-    callbacks.renderReplayScrubberOverlay = []( void* user )
-    { static_cast<Run*>( user )->RenderReplayScrubberOverlay(); };
     callbacks.currentSceneBrowserIndex = []( void* user ) -> int
     { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t

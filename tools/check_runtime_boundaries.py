@@ -46,7 +46,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 232
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 230
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -335,6 +335,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"\bBuild(?:Replay)?CauseTreeRows\s*\(",
         "Build replay cause-tree rows in ReplayRuntime.",
     ),
+    (
+        "replay overlay render helpers must stay out of Run.h",
+        r"\bRenderReplay(?:Scrubber|CauseTree)Overlay\s*\(",
+        "Draw replay overlays from RuntimeRenderHost or a replay-owned render service.",
+    ),
 )
 
 RUN_INTERNAL_SCRUBBER_HELPER_RULE = (
@@ -380,6 +385,12 @@ RUN_REPLAY_CAUSE_TREE_SOURCE_RULE = (
     "Run replay cause-tree row builders are blocked",
     r"\bRun::Build(?:Replay)?CauseTreeRows\s*\(",
     "Build replay cause-tree rows in ReplayRuntime instead of Run.",
+)
+
+RUN_REPLAY_OVERLAY_SOURCE_RULE = (
+    "Run replay overlay render helpers are blocked",
+    r"\bRun::RenderReplay(?:Scrubber|CauseTree)Overlay\s*\(",
+    "Draw replay overlays from RuntimeRenderHost or a replay-owned render service instead of Run.",
 )
 
 ALLOWED_CAMERA_MODE_WRITE_FUNCTIONS = {
@@ -446,7 +457,6 @@ ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "renderEditorOverlay",
     "refreshRuntimeViewModel",
     "sceneState",
-    "renderReplayScrubberOverlay",
     "currentSceneBrowserIndex",
     "cameraModeEnabledMask",
     "cameraModeLabel",
@@ -755,6 +765,24 @@ def check_run_replay_cause_tree_source_guardrails(repo: Path) -> list[BoundaryEr
     return errors
 
 
+def check_run_replay_overlay_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_OVERLAY_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_overlay_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_replay_overlay_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def run_self_tests() -> list[str]:
     failures: list[str] = []
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
@@ -887,6 +915,34 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("renamed replay cause-tree header helper synthetic surface was not rejected")
 
+    old_replay_scrubber_overlay_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void RenderReplayScrubberOverlay();",
+    )
+    if not any(
+        error.message == "replay overlay render helpers must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_scrubber_overlay_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay scrubber overlay header helper synthetic surface was not rejected")
+
+    old_replay_cause_tree_overlay_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void RenderReplayCauseTreeOverlay();",
+    )
+    if not any(
+        error.message == "replay overlay render helpers must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_cause_tree_overlay_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay cause-tree overlay header helper synthetic surface was not rejected")
+
     old_run_internal_scrubber_helper = """
     static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
     {
@@ -961,6 +1017,19 @@ def run_self_tests() -> list[str]:
         for error in check_runtime_render_host_guardrails_text(synthetic_path, old_scrubber_callback_field)
     ):
         failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
+
+    old_replay_scrubber_overlay_callback_field = allowed_host.replace(
+        "BoolFn isLauncherCameraMode = nullptr;",
+        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(
+            synthetic_path,
+            old_replay_scrubber_overlay_callback_field,
+        )
+    ):
+        failures.append("old RuntimeRenderHost replay scrubber overlay callback field was not rejected")
 
     old_prediction_ghost_callback_field = allowed_host.replace(
         "BoolFn isLauncherCameraMode = nullptr;",
@@ -1050,6 +1119,26 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("renamed replay cause-tree source helper synthetic surface was not rejected")
+
+    old_replay_scrubber_overlay_source_helper = "void Run::RenderReplayScrubberOverlay() {}"
+    if not any(
+        error.message == "Run replay overlay render helpers are blocked"
+        for error in check_run_replay_overlay_source_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_replay_scrubber_overlay_source_helper,
+        )
+    ):
+        failures.append("replay scrubber overlay source helper synthetic surface was not rejected")
+
+    old_replay_cause_tree_overlay_source_helper = "void Run::RenderReplayCauseTreeOverlay() {}"
+    if not any(
+        error.message == "Run replay overlay render helpers are blocked"
+        for error in check_run_replay_overlay_source_guardrails_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_replay_cause_tree_overlay_source_helper,
+        )
+    ):
+        failures.append("replay cause-tree overlay source helper synthetic surface was not rejected")
 
     allowed_physics_text = """
     namespace SkullbonezCore::GameObjects
@@ -1198,6 +1287,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
     errors.extend(check_run_replay_cause_tree_source_guardrails(repo))
+    errors.extend(check_run_replay_overlay_source_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     return errors
