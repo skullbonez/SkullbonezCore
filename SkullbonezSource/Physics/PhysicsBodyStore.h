@@ -30,6 +30,7 @@ Related:
 #include <cstdint>
 #include <vector>
 
+#include "PhysicsHandles.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
@@ -43,16 +44,19 @@ namespace Physics
 {
 struct PhysicsBodyRecord
 {
-    uint32_t replayBodyId = 0;               // Stable replay-facing body id for this scene.
+    PhysicsBodyHandle handle;                          // Stable body handle paired with the legacy model slot.
+    PhysicsSceneObjectId sceneObjectId;                // Scene-local id currently mirrored from replay body id.
+    int legacyModelIndex = -1;                         // Compatibility lookup back to GameModelCollection order.
+    uint32_t replayBodyId = 0;                         // Stable replay-facing body id for this scene.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 invRotationalInertia = Math::Vector::ZERO_VECTOR;
-    float mass = 0.0f;                       // Authoring mass; fixed bodies still report mass.
-    float invMass = 0.0f;                    // Solver inverse mass; fixed bodies use zero.
-    bool isFixed = false;                    // True for immovable collision bodies.
-    bool isSleeping = false;                 // Mirrors PhysicsWorld sleep state by model index.
+    float mass = 0.0f;                                 // Authoring mass; fixed bodies still report mass.
+    float invMass = 0.0f;                              // Solver inverse mass; fixed bodies use zero.
+    bool isFixed = false;                              // True for immovable collision bodies.
+    bool isSleeping = false;                           // Mirrors PhysicsWorld sleep state by model index.
 };
 
 class PhysicsBodyStore
@@ -66,10 +70,14 @@ class PhysicsBodyStore
     const PhysicsBodyRecord* Data() const;
     int Count() const;
     bool Empty() const;
+    PhysicsBodyHandle HandleForModelIndex( int modelIndex ) const;
+    int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
+    bool Contains( PhysicsBodyHandle handle ) const;
     const std::vector<PhysicsBodyRecord>& Records() const;
 
   private:
-    std::vector<PhysicsBodyRecord> m_bodies; // Body records in GameModelCollection index order.
+    std::vector<PhysicsBodyRecord> m_bodies;           // Body records in GameModelCollection index order.
+    std::vector<PhysicsBodyHandle> m_modelBodyHandles; // Legacy model index to body handle map.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

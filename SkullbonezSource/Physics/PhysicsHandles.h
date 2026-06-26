@@ -26,6 +26,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 inline constexpr uint32_t INVALID_PHYSICS_HANDLE_INDEX = 0xffffffffu;
+inline constexpr uint32_t PHYSICS_COMPATIBILITY_HANDLE_GENERATION = 1u;
 
 struct PhysicsBodyHandle
 {
@@ -69,6 +70,29 @@ struct PhysicsSceneObjectId
         return value != 0;
     }
 };
+
+inline PhysicsBodyHandle MakeCompatibilityPhysicsBodyHandle( uint32_t modelIndex )
+{
+    PhysicsBodyHandle handle;
+    handle.index = modelIndex;
+    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
+    return handle;
+}
+
+inline PhysicsColliderHandle MakeCompatibilityPhysicsColliderHandle( uint32_t modelIndex )
+{
+    PhysicsColliderHandle handle;
+    handle.index = modelIndex;
+    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
+    return handle;
+}
+
+inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
+{
+    PhysicsSceneObjectId id;
+    id.value = replayBodyId;
+    return id;
+}
 
 inline bool operator==( const PhysicsBodyHandle& lhs, const PhysicsBodyHandle& rhs )
 {
