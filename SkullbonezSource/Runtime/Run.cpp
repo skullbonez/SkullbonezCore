@@ -138,19 +138,6 @@ void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Qua
     AppendReplayFloatHex( cursor, remaining, w );
 }
 
-const ReplayPresentationSample*
-LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
-{
-    if ( samples.empty() )
-    {
-        return nullptr;
-    }
-
-    const float t = std::clamp( normalized, 0.0f, 1.0f );
-    const std::size_t maxOffset = samples.size() - 1;
-    const std::size_t offset = (std::min)( maxOffset, static_cast<std::size_t>( t * maxOffset + 0.5f ) );
-    return &samples[offset];
-}
 } // namespace
 
 
@@ -194,12 +181,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.rayCastTest = &m_runtimeTools.RayCastTest();
     bindings.editor = &m_runtimeTools.Editor();
     bindings.mousePickup = &m_runtimeTools.MousePickup();
-    bindings.replayScrubber = &m_replayRuntime.Scrubber();
-    bindings.replayPrediction = &m_replayRuntime.Prediction();
-    bindings.replayFocusModelMask = &m_replayRuntime.FocusModelMask();
-    bindings.replayPathVisualizer = &m_replayRuntime.PathVisualizer();
-    bindings.replayCamera = &m_replayRuntime.Camera();
-    bindings.replayVelocityEdit = &m_replayRuntime.VelocityEdit();
+    bindings.replayRuntime = &m_replayRuntime;
     bindings.launcherLaser = &m_runtimeTools.Laser();
     bindings.ui = &m_UI;
     bindings.runtimeInput = &m_runtimeInput;
@@ -229,12 +211,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
-    callbacks.currentReplayScrubSample = []( void* user ) -> const ReplayPresentationSample*
-    { return static_cast<Run*>( user )->CurrentReplayScrubSample(); };
-    callbacks.currentReplaySolverScrubSample = []( void* user ) -> const ReplaySolverFrameSample*
-    { return static_cast<Run*>( user )->CurrentReplaySolverScrubSample(); };
-    callbacks.currentReplayPredictionScrubFrame = []( void* user ) -> const RunReplayPredictionFrame*
-    { return static_cast<Run*>( user )->CurrentReplayPredictionScrubFrame(); };
     callbacks.renderEditorOverlay = []( void* user,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
@@ -290,8 +266,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
                                                                 nowSeconds,
                                                                 false );
     };
-    callbacks.buildReplayFocusModelMask = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->BuildReplayFocusModelMask(); };
     callbacks.renderReplayPredictionGhosts = []( void* user,
                                                  const RenderFrameContext& frame,
                                                  const CinematicRenderConfig* cinematic,
@@ -1233,32 +1207,9 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex,
 }
 
 
-bool Run::HasLoadedReplayPresentation() const
-{
-    return m_replayRuntime.LoadedPresentation().enabled && m_replayRuntime.LoadedPresentation().samples.size() >= 2;
-}
-
-
-const ReplayPresentationSample* Run::LoadedReplayPresentationSampleAtNormalized( float normalized ) const
-{
-    if ( !HasLoadedReplayPresentation() )
-    {
-        return nullptr;
-    }
-
-    return LoadedPresentationSampleAtNormalized( m_replayRuntime.LoadedPresentation().samples, normalized );
-}
-
-
-const ReplayPresentationSample* Run::LoadedReplayPresentationLatestSample() const
-{
-    return HasLoadedReplayPresentation() ? &m_replayRuntime.LoadedPresentation().samples.back() : nullptr;
-}
-
-
 void Run::ArmLoadedReplayPresentationScrubber( float normalized )
 {
-    if ( !HasLoadedReplayPresentation() )
+    if ( !m_replayRuntime.HasLoadedPresentation() )
     {
         return;
     }
@@ -1317,123 +1268,12 @@ bool Run::ShouldRenderReplayScrubber() const
         return false;
     }
 
-    const bool loadedPresentation = HasLoadedReplayPresentation();
+    const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     return ( loadedPresentation || solverReplayAvailable ) &&
            ( m_replayRuntime.Scrubber().visible || m_replayRuntime.Scrubber().dragging ||
              m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
-}
-
-
-bool Run::IsReplayScrubPaused() const
-{
-    if ( !m_replayRuntime.Scrubber().historicalSamplePaused )
-    {
-        return false;
-    }
-
-    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
-    {
-        return LoadedReplayPresentationSampleAtNormalized(
-                   ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) ) != nullptr;
-    }
-
-    const float position =
-        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), m_replayRuntime.Scrubber().activeTrack );
-    const float presentT =
-        m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver
-            ? ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() )
-            : 1.0f;
-    if ( ReplayScrubberAtPresentTrackPosition( position, presentT ) )
-    {
-        return false;
-    }
-
-    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
-    {
-        return m_replayRuntime.Presentation().IsEnabled() &&
-               m_replayRuntime.Presentation().SampleAtNormalized( position ) != nullptr;
-    }
-
-    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return CurrentReplayPredictionScrubFrame() != nullptr;
-    }
-
-    return m_replayRuntime.Solver().IsEnabled() &&
-           m_replayRuntime.Solver().SampleAtNormalized(
-               ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
-}
-
-
-const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Presentation )
-    {
-        return nullptr;
-    }
-
-    if ( HasLoadedReplayPresentation() )
-    {
-        return m_replayRuntime.Scrubber().historicalSamplePaused
-                   ? LoadedReplayPresentationSampleAtNormalized(
-                         ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) )
-                   : nullptr;
-    }
-
-    if ( !IsReplayScrubPaused() )
-    {
-        return nullptr;
-    }
-
-    return m_replayRuntime.Presentation().SampleAtNormalized(
-        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) );
-}
-
-
-const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
-    {
-        return nullptr;
-    }
-
-    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
-    const float presentT =
-        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
-    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return nullptr;
-    }
-
-    return m_replayRuntime.Solver().SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
-}
-
-
-const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver ||
-         !m_replayRuntime.Scrubber().historicalSamplePaused || !m_replayRuntime.Prediction().enabled ||
-         m_replayRuntime.Prediction().frames.size() < 2 )
-    {
-        return nullptr;
-    }
-
-    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
-    const float presentT =
-        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
-    if ( !ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return nullptr;
-    }
-
-    const float predictionT = ReplayScrubberPredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameCount = m_replayRuntime.Prediction().frames.size();
-    const std::size_t frameIndex =
-        (std::min)( frameCount - 1,
-                    static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
-    return &m_replayRuntime.Prediction().frames[frameIndex];
 }
 
 bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )

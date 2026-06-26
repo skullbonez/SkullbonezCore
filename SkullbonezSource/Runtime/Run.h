@@ -458,7 +458,6 @@ class Run
                                        const CinematicRenderConfig* cinematic,
                                        const Rendering::ShadowFrameData* shadow );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
-    bool BuildReplayFocusModelMask();
     bool BuildReplayCauseTreeRows();
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
     bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
@@ -490,9 +489,6 @@ class Run
                                          const Math::Vector::Vector3& linearVelocity,
                                          const Math::Vector::Vector3& angularVelocity );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
-    bool HasLoadedReplayPresentation() const;
-    const ReplayPresentationSample* LoadedReplayPresentationSampleAtNormalized( float normalized ) const;
-    const ReplayPresentationSample* LoadedReplayPresentationLatestSample() const;
     void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
     void SetReplayLiveAdvanceHeld( bool held );
@@ -502,14 +498,10 @@ class Run
     void CompareLatestReplaySamples();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool ShouldRenderReplayScrubber() const;
-    bool IsReplayScrubPaused() const;
     bool RestoreReplayScrubberSelectionAsLive( double now,
                                                RunReplayV2TargetRestoreResult* outV2Result = nullptr,
                                                char* outReason = nullptr,
                                                std::size_t reasonSize = 0 );
-    const ReplayPresentationSample* CurrentReplayScrubSample() const;
-    const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const;
-    const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const;
     void RenderReplayScrubberOverlay();
     void ApplyReplayRenderStateForFrame();
     void RestoreReplayRenderStateForFrame();

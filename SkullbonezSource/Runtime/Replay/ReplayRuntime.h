@@ -398,8 +398,16 @@ class ReplayRuntime
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
     void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    bool HasLoadedPresentation() const;
+    const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
+    const ReplayPresentationSample* LoadedPresentationLatestSample() const;
+    bool IsScrubPaused() const;
+    const ReplayPresentationSample* CurrentScrubSample() const;
+    const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
+    const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
+    bool BuildFocusModelMask( const GameObjects::GameModelCollection& models );
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
     bool HasLauncherVisualBackup() const;

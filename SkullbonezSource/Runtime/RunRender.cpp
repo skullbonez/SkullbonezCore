@@ -80,15 +80,15 @@ bool Run::IsCinematicRenderingEnabled() const
 
 void Run::ApplyReplayRenderStateForFrame()
 {
-    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
+    if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
     {
         m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
     }
-    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
+    else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
     {
         m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
     }
-    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
+    else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
     {
         m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
         ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
@@ -329,10 +329,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool collisionStateColorsVisible = host.m_debug.isCollisionVisualizer;
     const bool debugTransparentBodyPass =
         host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = host.m_replayPrediction.enabled;
+    const bool replayPredictionOverlayActive = host.m_replayRuntime.Prediction().enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
                                        !debugTransparentBodyPass && host.BuildReplayFocusModelMask();
-    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &host.m_replayFocusModelMask : nullptr;
+    const std::vector<uint8_t>* replayFocusModelMask =
+        replayFocusFadeActive ? &host.m_replayRuntime.FocusModelMask() : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? host.m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;

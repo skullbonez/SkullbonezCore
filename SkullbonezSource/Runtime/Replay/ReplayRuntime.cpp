@@ -30,16 +30,109 @@ Related:
 #include "ReplayV2Artifact.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Core/Profiler.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace SkullbonezCore::Basics
 {
 namespace
 {
+constexpr float REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD = 0.995f;
+constexpr float REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON = 0.0035f;
+
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+const ReplayPresentationSample*
+ReplayRuntimeLoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples,
+                                                   float normalized )
+{
+    if ( samples.empty() )
+    {
+        return nullptr;
+    }
+
+    const float t = std::clamp( normalized, 0.0f, 1.0f );
+    const std::size_t maxOffset = samples.size() - 1;
+    const std::size_t offset = (std::min)( maxOffset, static_cast<std::size_t>( t * maxOffset + 0.5f ) );
+    return &samples[offset];
+}
+
+float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats )
+{
+    if ( !stats.enabled || stats.sampleCount < 2 )
+    {
+        return PHYSICS_FIXED_DT;
+    }
+    return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
+}
+
+float ReplayRuntimePredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
+{
+    if ( !prediction.enabled || prediction.frames.size() < 2 )
+    {
+        return 0.0f;
+    }
+    return static_cast<float>( prediction.frames.back().frameIndex ) * PHYSICS_FIXED_DT;
+}
+
+float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
+                                                 const RunReplayPredictionState& prediction )
+{
+    const float pastSeconds = (std::max)( PHYSICS_FIXED_DT, ReplayRuntimeScrubberRetainedPastSeconds( stats ) );
+    const float futureSeconds = ReplayRuntimePredictionAvailableFutureSeconds( prediction );
+    if ( futureSeconds <= PHYSICS_FIXED_DT )
+    {
+        return 1.0f;
+    }
+    return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
+}
+
+bool ReplayRuntimeScrubberTimelineHasFuture( float presentT )
+{
+    return presentT < REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
+}
+
+bool ReplayRuntimeScrubberAtPresentTrackPosition( float position, float presentT )
+{
+    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
+    {
+        return position >= REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD;
+    }
+    return std::fabs( position - presentT ) <= REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
+}
+
+bool ReplayRuntimeScrubberTrackPositionIsFuture( float position, float presentT )
+{
+    return ReplayRuntimeScrubberTimelineHasFuture( presentT ) &&
+           position > presentT + REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON;
+}
+
+float ReplayRuntimeScrubberSolverNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
+    {
+        return std::clamp( position, 0.0f, 1.0f );
+    }
+    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
+}
+
+float ReplayRuntimeScrubberPredictionNormalizedFromTrack( float position, float presentT )
+{
+    if ( !ReplayRuntimeScrubberTimelineHasFuture( presentT ) )
+    {
+        return 0.0f;
+    }
+    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
+}
+
+float ReplayRuntimeScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
+{
+    return track == RunReplayTrack::Solver ? state.solverPosition : state.presentationPosition;
 }
 
 uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
@@ -522,6 +615,135 @@ void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collect
     collection.InvalidatePhysicsStreams();
 }
 
+
+bool ReplayRuntime::HasLoadedPresentation() const
+{
+    return m_loadedPresentation.enabled && m_loadedPresentation.samples.size() >= 2;
+}
+
+
+const ReplayPresentationSample* ReplayRuntime::LoadedPresentationSampleAtNormalized( float normalized ) const
+{
+    if ( !HasLoadedPresentation() )
+    {
+        return nullptr;
+    }
+
+    return ReplayRuntimeLoadedPresentationSampleAtNormalized( m_loadedPresentation.samples, normalized );
+}
+
+
+const ReplayPresentationSample* ReplayRuntime::LoadedPresentationLatestSample() const
+{
+    return HasLoadedPresentation() ? &m_loadedPresentation.samples.back() : nullptr;
+}
+
+
+bool ReplayRuntime::IsScrubPaused() const
+{
+    if ( !m_scrubber.historicalSamplePaused )
+    {
+        return false;
+    }
+
+    if ( m_scrubber.activeTrack == RunReplayTrack::Presentation && HasLoadedPresentation() )
+    {
+        return LoadedPresentationSampleAtNormalized(
+                   ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) ) != nullptr;
+    }
+
+    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, m_scrubber.activeTrack );
+    const float presentT = m_scrubber.activeTrack == RunReplayTrack::Solver
+                               ? ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction )
+                               : 1.0f;
+    if ( ReplayRuntimeScrubberAtPresentTrackPosition( position, presentT ) )
+    {
+        return false;
+    }
+
+    if ( m_scrubber.activeTrack == RunReplayTrack::Presentation )
+    {
+        return m_presentation.IsEnabled() && m_presentation.SampleAtNormalized( position ) != nullptr;
+    }
+
+    if ( ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return CurrentPredictionScrubFrame() != nullptr;
+    }
+
+    return m_solver.IsEnabled() &&
+           m_solver.SampleAtNormalized( ReplayRuntimeScrubberSolverNormalizedFromTrack( position, presentT ) ) !=
+               nullptr;
+}
+
+
+const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
+{
+    if ( m_scrubber.activeTrack != RunReplayTrack::Presentation )
+    {
+        return nullptr;
+    }
+
+    if ( HasLoadedPresentation() )
+    {
+        return m_scrubber.historicalSamplePaused
+                   ? LoadedPresentationSampleAtNormalized(
+                         ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) )
+                   : nullptr;
+    }
+
+    if ( !IsScrubPaused() )
+    {
+        return nullptr;
+    }
+
+    return m_presentation.SampleAtNormalized(
+        ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Presentation ) );
+}
+
+
+const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
+{
+    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
+    {
+        return nullptr;
+    }
+
+    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Solver );
+    const float presentT = ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
+    if ( ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return nullptr;
+    }
+
+    return m_solver.SampleAtNormalized( ReplayRuntimeScrubberSolverNormalizedFromTrack( position, presentT ) );
+}
+
+
+const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() const
+{
+    if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused ||
+         !m_prediction.enabled || m_prediction.frames.size() < 2 )
+    {
+        return nullptr;
+    }
+
+    const float position = ReplayRuntimeScrubberTrackPosition( m_scrubber, RunReplayTrack::Solver );
+    const float presentT = ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
+    if ( !ReplayRuntimeScrubberTrackPositionIsFuture( position, presentT ) )
+    {
+        return nullptr;
+    }
+
+    const float predictionT = ReplayRuntimeScrubberPredictionNormalizedFromTrack( position, presentT );
+    const std::size_t frameCount = m_prediction.frames.size();
+    const std::size_t frameIndex =
+        (std::min)( frameCount - 1,
+                    static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
+    return &m_prediction.frames[frameIndex];
+}
+
+
 bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
 {
     m_predictionGhostDrawRequests.clear();
@@ -612,6 +834,84 @@ const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGh
 {
     return m_predictionGhostDrawRequests;
 }
+
+
+bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection& collection )
+{
+    PROFILE_SCOPED( "Frame/Replay/FocusMask" );
+    const int modelCount = collection.GetModelCount();
+    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 )
+    {
+        m_focusModelMask.clear();
+        return false;
+    }
+
+    m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
+    const std::vector<GameObjects::GameModel>& models = collection.Models();
+    int markedCount = 0;
+    const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
+    {
+        if ( id.value == 0 )
+        {
+            return;
+        }
+
+        int resolvedIndex = -1;
+        if ( preferredModelIndex >= 0 && preferredModelIndex < modelCount &&
+             models[static_cast<std::size_t>( preferredModelIndex )].GetReplayBodyId() == id.value )
+        {
+            resolvedIndex = preferredModelIndex;
+        }
+        else
+        {
+            for ( int i = 0; i < modelCount; ++i )
+            {
+                if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
+                {
+                    resolvedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if ( resolvedIndex >= 0 )
+        {
+            uint8_t& mask = m_focusModelMask[static_cast<std::size_t>( resolvedIndex )];
+            if ( mask == 0 )
+            {
+                mask = 1;
+                ++markedCount;
+            }
+        }
+    };
+
+    if ( m_pathVisualizer.targets.empty() )
+    {
+        markByReplayId( m_pathVisualizer.targetId, m_pathVisualizer.targetModelIndex );
+    }
+    else
+    {
+        for ( const RunReplayPathTarget& target : m_pathVisualizer.targets )
+        {
+            markByReplayId( target.id, target.modelIndex );
+        }
+    }
+
+    const std::vector<RunReplayPathTraceNode>& futureNodes =
+        m_prediction.enabled ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
+    for ( const RunReplayPathTraceNode& node : futureNodes )
+    {
+        markByReplayId( node.id, node.modelIndex );
+    }
+
+    if ( markedCount <= 0 || markedCount >= modelCount )
+    {
+        m_focusModelMask.clear();
+        return false;
+    }
+    return true;
+}
+
 
 std::vector<uint8_t>& ReplayRuntime::FocusModelMask()
 {

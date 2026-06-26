@@ -588,6 +588,98 @@ Remaining editor shrink work is now outside the overlay/preview cluster. Replay
 UI/tool behavior, scene runtime ownership, and render-host splitting remain
 later plan slices.
 
+## Replay Render-Query Owner Slice
+
+This replay slice moved render-facing replay query ownership out of `Run`.
+`ReplayRuntime` now owns loaded-presentation sampling, current presentation and
+solver scrub sample selection, current prediction scrub-frame selection, and
+replay focus-mask construction. `RuntimeRenderHost` now borrows one
+`ReplayRuntime` instead of six replay sub-states and no longer callback-bounces
+sample/focus-mask queries back into `Run`.
+
+Deleted `Run.h` declarations:
+
+- `BuildReplayFocusModelMask`
+- `HasLoadedReplayPresentation`
+- `LoadedReplayPresentationSampleAtNormalized`
+- `LoadedReplayPresentationLatestSample`
+- `IsReplayScrubPaused`
+- `CurrentReplayScrubSample`
+- `CurrentReplaySolverScrubSample`
+- `CurrentReplayPredictionScrubFrame`
+
+Deleted `Run::` definitions:
+
+- `Run::BuildReplayFocusModelMask`
+- `Run::HasLoadedReplayPresentation`
+- `Run::LoadedReplayPresentationSampleAtNormalized`
+- `Run::LoadedReplayPresentationLatestSample`
+- `Run::IsReplayScrubPaused`
+- `Run::CurrentReplayScrubSample`
+- `Run::CurrentReplaySolverScrubSample`
+- `Run::CurrentReplayPredictionScrubFrame`
+
+New owner methods:
+
+- `ReplayRuntime::HasLoadedPresentation()`
+- `ReplayRuntime::LoadedPresentationSampleAtNormalized(...)`
+- `ReplayRuntime::LoadedPresentationLatestSample()`
+- `ReplayRuntime::IsScrubPaused()`
+- `ReplayRuntime::CurrentScrubSample()`
+- `ReplayRuntime::CurrentSolverScrubSample()`
+- `ReplayRuntime::CurrentPredictionScrubFrame()`
+- `ReplayRuntime::BuildFocusModelMask(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` blocks the old replay render-query helper
+  names from returning to `Run.h`.
+- The `RuntimeRenderHost` allowlists now reject the old replay sub-state
+  binding fields and the old sample/focus callback typedefs and fields.
+- The `Run.h` private-method counter now counts pointer/ref return declarations.
+  Because this broadens the metric, the new measured ceiling is 235 rather than
+  a directly comparable decrement from the previous 231.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\replay_render_query_profile_build.log`; final rerun
+  passed with 0 warnings and 0 errors in 1.21s.
+- Runtime boundary check: `python tools\check_runtime_boundaries.py --repo .`;
+  passed with 0 errors after the pointer/ref-return counter fix.
+- Rubber duck: reviewer Copernicus first blocked on the private-method ratchet
+  missing pointer-return declarations. After the regex and synthetic self-test
+  fix, Copernicus confirmed the blocker was resolved and found no new blocker.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, and Profile/Debug builds in
+  52.58s.
+- Runtime boundary gate: `tools\validate_runtime_boundaries.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_runtime_boundaries.log`;
+  passed with 0 errors in 0.47s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_replay_v2_artifact.log`;
+  passed save, target restore, generated-topology restore, replay query/export,
+  and physics-query checks in 22.97s.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_interaction_clicks.log`;
+  passed the existing live inspect-gizmo and replay-prediction click reports in
+  6.93s.
+- DX12 renderer gate: `tools\validate_dx12_renderer.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_dx12_renderer.log`;
+  passed formatting, Profile build reuse, DX12 suite, DX12 validation errors 0,
+  screenshot baseline comparison, and Profile/Debug ready builds in 16.46s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\replay_render_query_validate_full.log`; passed project
+  filters, runtime boundaries, Profile/Debug builds, DX12 validation with 0
+  errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.01s.
+
+Residual architecture risk: scrubber timeline math is currently duplicated in
+`RunInternal.h` for UI/input helpers and in `ReplayRuntime.cpp` for replay-owned
+queries. The formulas are intentionally equivalent in this slice; a later
+replay UI/tool extraction should consolidate that math under the replay owner.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

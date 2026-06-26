@@ -1543,12 +1543,12 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     char reason[160] = {};
     bool restored = false;
     RunReplayTrack messageTrack = m_replayRuntime.Scrubber().activeTrack;
-    if ( HasLoadedReplayPresentation() && m_replayRuntime.Scrubber().historicalSamplePaused &&
+    if ( m_replayRuntime.HasLoadedPresentation() && m_replayRuntime.Scrubber().historicalSamplePaused &&
          m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
     {
         EnterInteractiveSceneRun();
         RunReplayV2TargetRestoreResult result;
-        const ReplayPresentationSample* selected = CurrentReplayScrubSample();
+        const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
         const ReplayFrameIndex selectedFrame = selected ? selected->frameIndex : 0;
         restored = selected && RestoreReplayV2ArtifactTargetState( m_replayRuntime.LoadedPresentation().path,
                                                                    selectedFrame,
@@ -1573,7 +1573,7 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
               m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver )
     {
         EnterInteractiveSceneRun();
-        const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+        const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample();
         restored = sample && RestoreReplaySolverSampleAsLive( *sample, reason, sizeof( reason ) );
         messageTrack = RunReplayTrack::Solver;
         fprintf( stderr,
@@ -1678,7 +1678,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     m_replayRuntime.Scrubber().restoreWasDown = restoreDown;
 
     const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
-    const bool loadedPresentation = HasLoadedReplayPresentation();
+    const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
     const int screenW = WindowScreenWidth();
@@ -1727,9 +1727,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool branchTargetAvailable =
         m_replayRuntime.Scrubber().historicalSamplePaused &&
         ( ( loadedPresentation && m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation &&
-            CurrentReplayScrubSample() != nullptr ) ||
+            m_replayRuntime.CurrentScrubSample() != nullptr ) ||
           ( solverToolsEnabled && m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
-            CurrentReplaySolverScrubSample() != nullptr ) );
+            m_replayRuntime.CurrentSolverScrubSample() != nullptr ) );
     const bool overBranchButton = branchButton.Contains( mouse.x, mouse.y );
     const bool overPauseButton = solverToolsEnabled && pauseButton.Contains( mouse.x, mouse.y );
     const bool overVelocityEditToggle = solverToolsEnabled && velocityEditToggle.Contains( mouse.x, mouse.y );
@@ -2036,7 +2036,7 @@ bool Run::BuildReplayCauseTreeRows()
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_replayRuntime.Prediction().futureNodes : m_replayRuntime.PathVisualizer().futureNodes;
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample();
+    const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample();
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
@@ -2097,7 +2097,7 @@ bool Run::BuildReplayCauseTreeRows()
                 return;
             }
         }
-        if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+        if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
         {
             if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
             {
@@ -2455,7 +2455,7 @@ bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPo
         }
     }
 
-    if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+    if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
     {
         if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
         {
@@ -3284,7 +3284,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
-    if ( const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample() )
+    if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
     {
         float bestT = FLT_MAX;
         for ( const ReplaySolverBodySample& body : sample->bodies )
@@ -3764,86 +3764,6 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
 }
 
 
-bool Run::BuildReplayFocusModelMask()
-{
-    PROFILE_SCOPED( "Frame/Replay/FocusMask" );
-    const int modelCount = m_cGameModelCollection.GetModelCount();
-    std::vector<uint8_t>& replayFocusModelMask = m_replayRuntime.FocusModelMask();
-    if ( !m_replayRuntime.PathVisualizer().hasTarget || m_replayRuntime.PathVisualizer().targetId.value == 0 ||
-         modelCount <= 0 )
-    {
-        replayFocusModelMask.clear();
-        return false;
-    }
-
-    replayFocusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    int markedCount = 0;
-    const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
-    {
-        if ( id.value == 0 )
-        {
-            return;
-        }
-
-        int resolvedIndex = -1;
-        if ( preferredModelIndex >= 0 && preferredModelIndex < modelCount &&
-             models[static_cast<std::size_t>( preferredModelIndex )].GetReplayBodyId() == id.value )
-        {
-            resolvedIndex = preferredModelIndex;
-        }
-        else
-        {
-            for ( int i = 0; i < modelCount; ++i )
-            {
-                if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
-                {
-                    resolvedIndex = i;
-                    break;
-                }
-            }
-        }
-
-        if ( resolvedIndex >= 0 )
-        {
-            uint8_t& mask = replayFocusModelMask[static_cast<std::size_t>( resolvedIndex )];
-            if ( mask == 0 )
-            {
-                mask = 1;
-                ++markedCount;
-            }
-        }
-    };
-
-    if ( m_replayRuntime.PathVisualizer().targets.empty() )
-    {
-        markByReplayId( m_replayRuntime.PathVisualizer().targetId, m_replayRuntime.PathVisualizer().targetModelIndex );
-    }
-    else
-    {
-        for ( const RunReplayPathTarget& target : m_replayRuntime.PathVisualizer().targets )
-        {
-            markByReplayId( target.id, target.modelIndex );
-        }
-    }
-
-    const std::vector<RunReplayPathTraceNode>& futureNodes = m_replayRuntime.Prediction().enabled
-                                                                 ? m_replayRuntime.Prediction().futureNodes
-                                                                 : m_replayRuntime.PathVisualizer().futureNodes;
-    for ( const RunReplayPathTraceNode& node : futureNodes )
-    {
-        markByReplayId( node.id, node.modelIndex );
-    }
-
-    if ( markedCount <= 0 || markedCount >= modelCount )
-    {
-        replayFocusModelMask.clear();
-        return false;
-    }
-    return true;
-}
-
-
 void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
@@ -4130,7 +4050,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         m_replayRuntime.PathVisualizer().targets.push_back( target );
     }
 
-    const ReplaySolverFrameSample* presentSample = CurrentReplaySolverScrubSample();
+    const ReplaySolverFrameSample* presentSample = m_replayRuntime.CurrentSolverScrubSample();
     if ( !presentSample )
     {
         presentSample = m_replayRuntime.Solver().LatestSample();
@@ -4300,7 +4220,7 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
     {
         if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold )
         {
-            const ReplaySolverFrameSample* sample = CurrentReplaySolverScrubSample();
+            const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample();
             if ( sample )
             {
                 const ReplaySolverBodySample* focusedBody =

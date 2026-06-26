@@ -45,9 +45,9 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 231
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 235
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
-    r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s+)+"
+    r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
     r"(?:=\s*(?:delete|default)\s*)?;",
     re.S,
@@ -322,6 +322,12 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"[A-Za-z_]\w*|(?=[A-Za-z_]\w*InteractionPreview)[A-Za-z_]\w*)\s*\(",
         "Keep editor preview and overlay trace construction in Runtime/Editor overlay helpers.",
     ),
+    (
+        "replay render-query helpers must stay out of Run.h",
+        r"\b(?:HasLoadedReplayPresentation|LoadedReplayPresentation[A-Za-z_]\w*|IsReplayScrubPaused|"
+        r"CurrentReplay[A-Za-z_]\w*|BuildReplayFocusModelMask)\s*\(",
+        "Keep replay render queries and focus masks in ReplayRuntime.",
+    ),
 )
 
 RUN_STORAGE_RULE = (
@@ -373,12 +379,7 @@ ALLOWED_RENDER_HOST_BINDINGS = {
     "rayCastTest",
     "editor",
     "mousePickup",
-    "replayScrubber",
-    "replayPrediction",
-    "replayFocusModelMask",
-    "replayPathVisualizer",
-    "replayCamera",
-    "replayVelocityEdit",
+    "replayRuntime",
     "launcherLaser",
     "ui",
     "runtimeInput",
@@ -395,16 +396,12 @@ ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS = {
     "SelectRenderTextureFn",
     "IntFn",
     "LogLifecycleStepFn",
-    "ReplayPresentationSampleFn",
-    "ReplaySolverSampleFn",
-    "ReplayPredictionFrameFn",
     "RenderEditorOverlayFn",
     "VoidFn",
     "SceneStateFn",
     "CameraModeEnabledMaskFn",
     "CameraModeLabelFn",
     "MainMemoryStatsFn",
-    "ReplayFocusMaskFn",
     "ReplayPredictionGhostsFn",
 }
 
@@ -422,9 +419,6 @@ ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "windowScreenWidth",
     "windowScreenHeight",
     "logRenderResourceLifecycleStep",
-    "currentReplayScrubSample",
-    "currentReplaySolverScrubSample",
-    "currentReplayPredictionScrubFrame",
     "renderEditorOverlay",
     "refreshRuntimeViewModel",
     "sceneState",
@@ -434,7 +428,6 @@ ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "cameraModeEnabledMask",
     "cameraModeLabel",
     "refreshMainMemoryStats",
-    "buildReplayFocusModelMask",
     "renderReplayPredictionGhosts",
 }
 
@@ -754,6 +747,18 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("grown Run.h private method count synthetic surface was not rejected")
 
+    pointer_return_run_header = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        const ReplayPresentationSample* CurrentReplayScrubSample() const;",
+    )
+    if not any(
+        error.message == "Run.h private method count exceeds ratchet"
+        for error in check_run_private_method_count_text(
+            Path("synthetic/Run.h"), pointer_return_run_header, max_allowed=1
+        )
+    ):
+        failures.append("pointer-return Run.h private method count synthetic surface was not rejected")
+
     short_editor_overlay_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        void BuildEditorOverlay();",
@@ -774,6 +779,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("short interaction preview helper synthetic surface was not rejected")
 
+    old_replay_render_query_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        const ReplayPresentationSample* CurrentReplayScrubSample() const;",
+    )
+    if not any(
+        error.message == "replay render-query helpers must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_render_query_helper, RUN_HEADER_RULES)
+    ):
+        failures.append("replay render-query helper synthetic surface was not rejected")
+
     new_binding = allowed_host.replace(
         "RunDebugState* debug = nullptr;",
         "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
@@ -793,6 +808,16 @@ def run_self_tests() -> list[str]:
         for error in check_runtime_render_host_guardrails_text(synthetic_path, bare_new_binding)
     ):
         failures.append("bare RuntimeRenderHostBindings synthetic field was not rejected")
+
+    old_replay_binding = allowed_host.replace(
+        "RunDebugState* debug = nullptr;",
+        "RunDebugState* debug = nullptr;\n        RunReplayScrubberState* replayScrubber = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostBindings fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_replay_binding)
+    ):
+        failures.append("old RuntimeRenderHost replay binding synthetic field was not rejected")
 
     new_callback = allowed_host.replace(
         "BoolFn isLauncherCameraMode = nullptr;",
@@ -823,6 +848,16 @@ def run_self_tests() -> list[str]:
         failures.append("new pointer RuntimeRenderHostCallbacks synthetic typedef was not rejected")
     if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in pointer_errors):
         failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
+
+    old_replay_callback = allowed_host.replace(
+        "using BoolFn = bool ( * )( void* user );",
+        "using BoolFn = bool ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_replay_callback)
+    ):
+        failures.append("old RuntimeRenderHost replay callback typedef was not rejected")
 
     pick_service_call = "RuntimePickService::TryPickModel( request, result );"
     if check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call):

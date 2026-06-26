@@ -406,7 +406,7 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
 
     snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                                         Input::IsKeyDown( VK_SPACE ),
-                                                        IsReplayScrubPaused(),
+                                                        m_replayRuntime.IsScrubPaused(),
                                                         m_replayRuntime.Scrubber().liveAdvanceHeld,
                                                         mouseEdges.rightDown,
                                                         m_runtimeTools.Editor().viewportLookActive,

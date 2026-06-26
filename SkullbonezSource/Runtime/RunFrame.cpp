@@ -438,7 +438,7 @@ void Run::Execute()
 
 void Run::TickPhysics( double secondsPerFrame )
 {
-    if ( IsReplayScrubPaused() )
+    if ( m_replayRuntime.IsScrubPaused() )
     {
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
@@ -1262,14 +1262,14 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !HasLoadedReplayPresentation() )
+    if ( !m_replayRuntime.HasLoadedPresentation() )
     {
         throw std::runtime_error( "replay load probe requires a loaded v2 presentation artifact" );
     }
 
     ArmLoadedReplayPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ) );
-    const ReplayPresentationSample* selected = CurrentReplayScrubSample();
-    const ReplayPresentationSample* latest = LoadedReplayPresentationLatestSample();
+    const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
+    const ReplayPresentationSample* latest = m_replayRuntime.LoadedPresentationLatestSample();
     if ( !selected || !latest )
     {
         throw std::runtime_error( "replay load probe could not select a loaded presentation sample" );

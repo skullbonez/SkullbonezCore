@@ -50,7 +50,7 @@ void Run::RenderReplayScrubberOverlay()
 
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
-    const bool loadedPresentation = HasLoadedReplayPresentation();
+    const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     if ( screenW <= 0 || screenH <= 0 ||
          ( !loadedPresentation && ( !solverReplayStats.enabled || solverReplayStats.sampleCount < 2 ) ) )
@@ -67,14 +67,15 @@ void Run::RenderReplayScrubberOverlay()
     const bool futureSelected = !loadedPresentation && ReplayScrubberTrackPositionIsFuture( t, solverPresentT );
     const float solverSampleT = ReplayScrubberSolverNormalizedFromTrack( t, solverPresentT );
     const ReplayPresentationSample* selectedPresentation =
-        loadedPresentation ? LoadedReplayPresentationSampleAtNormalized( t ) : nullptr;
+        loadedPresentation ? m_replayRuntime.LoadedPresentationSampleAtNormalized( t ) : nullptr;
     const ReplayPresentationSample* latestPresentation =
-        loadedPresentation ? LoadedReplayPresentationLatestSample() : nullptr;
+        loadedPresentation ? m_replayRuntime.LoadedPresentationLatestSample() : nullptr;
     const ReplaySolverFrameSample* selected = ( loadedPresentation || futureSelected )
                                                   ? nullptr
                                                   : m_replayRuntime.Solver().SampleAtNormalized( solverSampleT );
     const ReplaySolverFrameSample* latest = loadedPresentation ? nullptr : m_replayRuntime.Solver().LatestSample();
-    const RunReplayPredictionFrame* selectedPrediction = futureSelected ? CurrentReplayPredictionScrubFrame() : nullptr;
+    const RunReplayPredictionFrame* selectedPrediction =
+        futureSelected ? m_replayRuntime.CurrentPredictionScrubFrame() : nullptr;
     const double selectedSeconds = selected ? selected->simulationSeconds : 0.0;
     const double latestSeconds = latest ? latest->simulationSeconds : 0.0;
     const double selectedPresentationSeconds = selectedPresentation ? selectedPresentation->simulationSeconds : 0.0;
@@ -118,8 +119,8 @@ void Run::RenderReplayScrubberOverlay()
     const double now = m_timers.simulationTimer.GetTotalTime();
     const char* sourceLabel = loadedPresentation ? "V2 FILE" : "SOLVER";
     const bool branchEnabled = m_replayRuntime.Scrubber().historicalSamplePaused &&
-                               ( ( loadedPresentation && CurrentReplayScrubSample() != nullptr ) ||
-                                 ( !loadedPresentation && CurrentReplaySolverScrubSample() != nullptr ) );
+                               ( ( loadedPresentation && m_replayRuntime.CurrentScrubSample() != nullptr ) ||
+                                 ( !loadedPresentation && m_replayRuntime.CurrentSolverScrubSample() != nullptr ) );
 
     draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
     draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, sourceLabel );
@@ -562,7 +563,7 @@ void Run::RenderReplayCauseTreeOverlay()
 
     draw.Rect( content.x, content.y, content.w, content.h, 0.02f, 0.026f, 0.034f, 0.36f );
 
-    const ReplaySolverFrameSample* scrubSample = CurrentReplaySolverScrubSample();
+    const ReplaySolverFrameSample* scrubSample = m_replayRuntime.CurrentSolverScrubSample();
     const ReplayFrameIndex presentFrame = scrubSample ? scrubSample->frameIndex : 0;
 
     auto truncateText = []( const char* src, char* dst, std::size_t dstSize, int maxChars ) -> void
@@ -738,7 +739,7 @@ bool UiTextPass::ShouldRender() const
 {
     return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
            m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
-           m_host.ShouldRenderReplayScrubber() || m_host.m_replayPathVisualizer.hasTarget ||
+           m_host.ShouldRenderReplayScrubber() || m_host.m_replayRuntime.PathVisualizer().hasTarget ||
            ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
 }
 

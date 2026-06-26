@@ -8,7 +8,7 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run composition-root shrink editor overlay/preview slice is validated for commit: editor interaction preview refresh and deterministic tool-overlay trace construction moved out of `Run`; `Run` still owns mouse-ray building, invalid-selection commands, attached-camera target resolution, replay overlay append, tracer render, and launcher laser render; the `Run.h` private-method ratchet is now 231. |
+| Last committed milestone | Runtime run composition-root shrink replay render-query owner slice is validated for commit: loaded-presentation sampling, current scrub/prediction-frame queries, and replay focus-mask construction moved from `Run` into `ReplayRuntime`; `RuntimeRenderHost` now borrows one `ReplayRuntime` instead of six replay sub-states and no longer callbacks sample/focus queries into `Run`; the `Run.h` private-method ratchet now counts pointer/ref returns and is measured at 235. |
 | Active objective | Continue `Agentic/Plans/run-composition-root-shrink-plan.md` with the repo-local orchestrator skill; the launcher extraction cluster and editor save-hotkeys/placement/gizmo/UI-mode/overlay slices are complete. |
 | Pending work | Continue run-shrink work with replay UI/tool behavior, scene runtime ownership, and render-host splitting. Do not skip an independent rubber-duck review before validation and commit. |
 | Blockers | None known. |
@@ -89,6 +89,33 @@ audits when it is still useful.
   Rubber-duck reviewer Locke found no extraction behavior blocker; the first
   review blocked on dirty DX12 build-log evidence and an under-matching guardrail
   regex, both fixed before final validation.
+- Runtime run composition shrink replay render-query owner slice moves loaded
+  replay presentation sampling, current scrub sample/frame queries, and replay
+  focus-mask building into `ReplayRuntime`. `RuntimeRenderHost` now borrows a
+  single replay owner instead of six replay sub-state bindings and no longer
+  callback-bounces replay sample/focus queries into `Run`. The boundary checker
+  blocks the old helper names, old host replay bindings/callbacks, and now
+  counts pointer/ref-return private declarations; the widened `Run.h` ratchet is
+  measured at 235.
+- Replay render-query validation: final Profile build 1.21s
+  (`TestOutput\validation\replay_render_query_profile_build.log`), fast gate
+  52.58s (`TestOutput\validation\replay_render_query_validate_fast.log`),
+  runtime-boundary gate 0.47s
+  (`TestOutput\validation\replay_render_query_validate_runtime_boundaries.log`),
+  replay artifact gate 22.97s
+  (`TestOutput\validation\replay_render_query_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.93s
+  (`TestOutput\validation\replay_render_query_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.46s
+  (`TestOutput\validation\replay_render_query_validate_dx12_renderer.log`), and
+  full gate 23.01s
+  (`TestOutput\validation\replay_render_query_validate_full.log`). Gates passed
+  with formatting clean, runtime-boundary 0 errors, Profile/Debug 0-warning
+  builds, replay save/restore/query checks, interaction reports passing, DX12
+  validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Copernicus first
+  blocked on the pointer-return ratchet gap, then confirmed the fix and found no
+  new blocker.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,
