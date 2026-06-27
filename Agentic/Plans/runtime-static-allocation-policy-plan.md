@@ -28,6 +28,74 @@ their emergency growth. Replay is not exempt from this rule: replay should have
 enough working memory for expected capture, prediction, restore, and scrub
 work, and any occasional bump must flow through the same reserve allocator.
 
+## Carmack-Test Option 3 Checklist
+
+This checklist turns the Carmack-test performance finding into markable work.
+The problem statement is: performance cannot score above a conservative systems
+bar until steady gameplay and replay allocation behavior are measured, enforced,
+and reviewable.
+
+This section extends the existing dynamic memory allocation plan rather than
+creating a separate option 3 plan. Treat the sections below as the implementation
+source of truth, and use this checklist as the Carmack-test acceptance overlay.
+
+### Evidence Baseline
+
+- [ ] Capture current `tools\validate_perf.bat` output and record whether it is
+  clean, warning-bearing, or machine-label-limited.
+- [ ] Record current `dx12_perf.json` and `physics_bench_perf.json` baseline
+  metadata, including machine label and commit.
+- [ ] Inventory all allocation-capable runtime paths listed in
+  `Current Findings To Address`.
+- [ ] Add a small table mapping each runtime owner to its expected allocation
+  phase: startup, scene load, backend init, steady gameplay, replay, capture, or
+  shutdown.
+- [ ] Identify at least one representative non-replay gameplay scene and one
+  replay-enabled scene for allocation guard proof.
+
+### Implementation Details
+
+- [ ] Implement phase-aware allocation tracking with fixed, non-allocating
+  tracker storage and a reentrancy guard.
+- [ ] Add runtime phase transitions for startup, scene load/reset,
+  backend/resource init, steady gameplay, replay, screenshot/capture, and
+  shutdown.
+- [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
+  phase, capacity source, hard cap, emergency bump cap, and diagnostic counters.
+- [ ] Convert runtime growable owners to fixed storage, preallocated storage, or
+  registered reserve bumps.
+- [ ] Add policy comments beside every runtime growable storage owner.
+- [ ] Make ordinary steady gameplay fail on nonzero unregistered allocations.
+- [ ] Make replay scenarios fail on unregistered replay allocations while still
+  allowing registered replay-phase reserve bumps within cap.
+- [ ] Print owner-level allocation summaries with allocation count, bytes,
+  high-water, emergency bump count, frame, and phase.
+- [ ] Ensure the allocation tracker itself cannot allocate while reporting.
+
+### Guardrails And Validation Integration
+
+- [ ] Add a static checker for banned runtime dynamic allocation patterns.
+- [ ] Add an allowlist format that requires owner, phase, reason, cap, and
+  removal or wrapper plan.
+- [ ] Add the allocation guard launch to the appropriate validation script after
+  the first implementation slice lands.
+- [ ] Make `tools\validate_perf.bat` output distinguish clean perf evidence from
+  warning-bearing evidence that still exits 0.
+- [ ] Add synthetic checker tests for rejected direct allocation, allowed
+  startup allocation, and allowed registered reserve bumps.
+
+### Independent Review And Handoff
+
+- [ ] Ask a rubber-duck reviewer to inspect whether the guard can falsely pass
+  when allocations happen in steady gameplay.
+- [ ] Ask the reviewer to inspect recursion, thread-local tracking, WorkerPool
+  dispatch, replay phases, screenshot/capture opt-outs, and DX12 telemetry.
+- [ ] Record any accepted perf warnings with marker-level evidence, not just
+  script exit code.
+- [ ] Quote allocation guard output in the handoff.
+- [ ] Do not mark the Carmack-test performance issue resolved until the guard
+  and static checker are both active in validation.
+
 ## Definitions
 
 | Term | Meaning |
