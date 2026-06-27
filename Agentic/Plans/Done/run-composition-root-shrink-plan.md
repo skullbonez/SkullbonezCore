@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; render-host texture accessor slice validated
+Status: Completed and moved to Done after final 2026-06-27 shrink chunks
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the render-host texture accessor section below
+Validation for latest implementation slice: see the final shrink pass section below
 
 ## Goal
 
@@ -5026,3 +5026,75 @@ Documentation-only updates need no validation. Implementation slices should use:
 - physics impulses or body mutation: `tools\validate_physics.bat`;
 - render host or overlay rendering: `tools\validate_dx12_renderer.bat`;
 - broad uncertain slices: `tools\agent_validate.bat`.
+
+## Final 2026-06-27 Shrink Pass
+
+Status: Implemented, validated, rubber-duck reviewed, committed, pushed, and
+ready to move to `Agentic/Plans/Done/`.
+
+This final pass continued from the pause handoff's "What Is Left" section and
+kept the work chunked into separate commits. Each code slice deleted real
+private `Run.h` declarations, lowered the measured ratchet, and added a
+focused guardrail.
+
+Completed commits:
+
+- `2a5da3e1 refactor: localize render input builders`
+  - Deleted `Run::BuildRuntimeRenderServices` and
+    `Run::BuildRuntimeRenderInputs`.
+  - Render input assembly now lives as a `RunRender.cpp` file-local helper with
+    explicit borrowed subsystem/model/world/UI inputs.
+  - Ratchet lowered from 136 to 134.
+- `5b5ca6a4 refactor: move runtime window size helpers`
+  - Deleted `Run::WindowScreenWidth` and `Run::WindowScreenHeight`.
+  - Replay tools, interaction automation, and render-host callbacks use
+    `RuntimeWindowScreenWidth/Height(...)` with explicit subsystem/config
+    inputs.
+  - Ratchet lowered from 134 to 132.
+- `4887ad5e refactor: move runtime cinematic helpers`
+  - Deleted both `Run::ActiveCinematicConfig` overloads and
+    `Run::IsCinematicRenderingEnabled`.
+  - Scene control, live style, runtime input, frame, scene load, and render-host
+    callback paths use `RuntimeActiveCinematicConfig(...)` and
+    `RuntimeCinematicRenderingEnabled(...)`.
+  - Ratchet lowered from 132 to 129.
+
+Validation evidence:
+
+- Render input builder slice:
+  - `python tools\check_runtime_boundaries.py`: 0 errors, 3.6s.
+  - `tools\validate_build.bat Profile`: 0 warnings, 0 errors, 39.6s.
+  - `tools\validate_fast.bat`: passed, 50.8s.
+  - `tools\validate_full.bat`: passed, 28.1s; DX12 validation errors 0,
+    screenshots matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly.
+- Runtime window size helper slice:
+  - `python tools\check_runtime_boundaries.py`: 0 errors, 3.6s.
+  - `tools\validate_build.bat Profile`: 0 warnings, 0 errors, 39.6s.
+  - `tools\validate_fast.bat`: passed, 49.8s.
+  - `tools\validate_full.bat`: passed, 28.1s; DX12 validation errors 0,
+    screenshots matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly.
+- Runtime cinematic helper slice:
+  - Initial `tools\validate_build.bat Profile` found one bad mechanical
+    `TestScene` receiver replacement; that was fixed before commit.
+  - `python tools\check_runtime_boundaries.py`: 0 errors, 3.6s.
+  - `tools\validate_build.bat Profile` rerun: 0 warnings, 0 errors, 7.1s.
+  - `tools\validate_fast.bat`: passed, 50.8s.
+  - `tools\validate_full.bat`: passed, 28.5s; DX12 validation errors 0,
+    screenshots matched baselines, and `physics_regression_solver.csv` matched
+    byte-exactly.
+
+Final rubber-duck review:
+
+- Expected outcome: satisfy the pause handoff by shrinking `Run` in real
+  declarations, preserving runtime behavior, validating each code slice, and
+  moving the completed plan only after the end-only review.
+- Findings: no blocking issue in the pushed implementation chunks or validation
+  evidence.
+- Non-blocking residual risk: broad scene-load ownership, replay inspection
+  entry/exit, and replay solver restore helpers remain architecture candidates,
+  but they are not tight wrapper slices and should be handled by future,
+  explicitly scoped plans rather than stretched into this completed pass.
+- Result: rubber-duck review satisfied; move this plan and the pause handoff to
+  `Agentic/Plans/Done/`.

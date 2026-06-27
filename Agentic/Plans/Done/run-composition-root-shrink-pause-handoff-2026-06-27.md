@@ -3,8 +3,8 @@
 Date: 2026-06-27
 Branch: `nightrunner-26th-July`
 Worktree: `C:\SkullbonezCore`
-Status: Paused by user after the diagnostics perf-log lifecycle slice was
-committed and pushed.
+Status: Closed after final 2026-06-27 shrink pass; moved to Done with
+`run-composition-root-shrink-plan.md`.
 
 ## Current Position
 
@@ -101,6 +101,19 @@ The highest-value remaining categories are:
   - For every shrink slice, delete at least one `Run.h` private method,
     lower/update the measured ratchet, and add a focused guardrail blocking the
     removed wrapper or callback surface from returning.
+
+Final resolution:
+
+- `2a5da3e1` localized render input builders and deleted two `Run.h`
+  declarations.
+- `5b5ca6a4` moved runtime window-size helpers and deleted two `Run.h`
+  declarations.
+- `4887ad5e` moved runtime cinematic helpers and deleted three `Run.h`
+  declarations.
+- The `Run.h` private-method ratchet is now 129.
+- End-only rubber-duck review found no blocking issue in the pushed chunks or
+  validation evidence. Broad scene-load and replay-tool ownership remains
+  future architecture work, not unfinished work inside this closed handoff.
 
 ## Resume Recipe
 
