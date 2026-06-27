@@ -196,6 +196,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeCreate",
     "SceneRuntimeCoordinator",
     "SceneRuntimeDefaults",
+    "SceneRuntimeGeneratedControls",
     "SceneRuntimeLoad",
     "SceneRuntimeReset",
     "SceneRuntimeStyle",

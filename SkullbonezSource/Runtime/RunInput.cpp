@@ -25,6 +25,7 @@ Related:
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeDefaults.h"
+#include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "../UI/UIInput.h"
@@ -2739,9 +2740,38 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
+        const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+        {
+            return SceneRuntimeGeneratedControlContext{ SceneState(),
+                                                        m_sceneUIOverrides,
+                                                        m_camera,
+                                                        m_sceneController,
+                                                        Cfg(),
+                                                        m_cWorldEnvironment,
+                                                        m_systems.terrain.get(),
+                                                        m_cGameModelCollection,
+                                                        m_simulation,
+                                                        m_runtimeTools,
+                                                        IsGfxReady() ? &Gfx() : nullptr,
+                                                        m_launchOptions.generatedObjectTypeOverride,
+                                                        ActiveGameModelCapacity() };
+        };
+        const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
+        {
+            if ( action.resetReplayTimeline )
+            {
+                ResetReplayTimelineForActiveScene();
+            }
+            if ( action.scheduleProfileReset )
+            {
+                PROFILE_SCHEDULE_RESET();
+            }
+        };
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
-            ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
+            executeSceneGeneratedControlAction(
+                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(),
+                                           uiCommands.sceneOptions.requestedModelCount ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
@@ -2754,9 +2784,10 @@ void Run::TakeInput()
             const int modelCapacity = ActiveGameModelCapacity();
             const int boxes = m_sceneUIOverrides.solverBoxCountOverride >= 0 ? m_sceneUIOverrides.solverBoxCountOverride
                                                                              : SceneState().solverBoxCount;
-            ApplyUISolverObjectCounts(
+            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
+                makeSceneGeneratedControlContext(),
                 std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ),
-                boxes );
+                boxes ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
@@ -2765,9 +2796,10 @@ void Run::TakeInput()
             const int balls = m_sceneUIOverrides.solverBallCountOverride >= 0
                                   ? m_sceneUIOverrides.solverBallCountOverride
                                   : SceneState().solverBallCount;
-            ApplyUISolverObjectCounts(
+            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
+                makeSceneGeneratedControlContext(),
                 balls,
-                std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) );
+                std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight ||

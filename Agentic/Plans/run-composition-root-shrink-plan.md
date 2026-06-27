@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene world override ownership slice validated
+Status: Active architecture cleanup plan; scene generated control ownership slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene world override ownership section below
+Validation for latest implementation slice: see the scene generated control ownership section below
 
 ## Goal
 
@@ -4514,6 +4514,91 @@ active, along with generated-model count overrides, solver-object count
 overrides, remaining replay helper ownership, render-host splitting, and shared
 cine/path cleanup. This slice only moved live world/fluid override ownership out
 of the composition root.
+
+## Scene Generated Control Ownership Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This scene-runtime slice removed the generated model-count and solver-count UI
+rebuild wrappers from `Run.h`. `SceneRuntimeGeneratedControls` now owns the
+live generated object rebuild path: override state mutation, optional GPU flush,
+model collection clear, launcher ray-line cleanup, simulation reset, current
+frame reset, deterministic RNG reseed, generated setup dispatch, and track-camera
+clamping. The helper returns the replay/profiler follow-up action that `Run`
+still executes through the existing replay timeline boundary.
+
+Deleted `Run.h` declarations:
+
+- `void ApplyUIModelCountOverride( int count );`
+- `void ApplyUISolverObjectCounts( int balls, int boxes );`
+
+Deleted `Run::` definitions:
+
+- `void Run::ApplyUIModelCountOverride( int count )`
+- `void Run::ApplyUISolverObjectCounts( int balls, int boxes )`
+
+New owner surface:
+
+- `SceneRuntimeGeneratedControlContext`
+- `SceneRuntimeGeneratedControlAction`
+- `SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGeneratedControlContext context, int count )`
+- `SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int balls, int boxes )`
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp`
+- `SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h`
+- `SkullbonezSource/Runtime/RunInput.cpp`
+- `SkullbonezSource/Runtime/RunStress.cpp`
+- `SkullbonezSource/Runtime/Scene/RunScene.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `SKULLBONEZ_CORE.vcxproj`
+- `SKULLBONEZ_CORE.vcxproj.filters`
+- `tools/check_runtime_boundaries.py`
+- `tools/validate_project_filters.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 144 to 142.
+- New header and source guardrails reject `ApplyUIModelCountOverride` and
+  `ApplyUISolverObjectCounts` declarations or `Run::` definitions from
+  returning.
+- `tools/validate_project_filters.py` now recognizes
+  `SceneRuntimeGeneratedControls` as a runtime scene module prefix.
+
+Validation:
+
+- Direct project-filter gate: `python tools\validate_project_filters.py`, logged
+  at `TestOutput\validation\agent_logs\generated_controls_project_filters.log`;
+  passed with 0 errors in 1.1s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\generated_controls_runtime_boundaries.log`;
+  passed with 0 errors in 3.5s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\generated_controls_profile_build.log`;
+  passed with 0 warnings and 0 errors in 40.6s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\generated_controls_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, Profile build, and
+  Profile/Debug readiness in 51.3s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\generated_controls_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.4s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: remaining `Run::LoadScene` setup phases remain
+active, along with replay timeline reset ownership, remaining replay
+tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
+slice only moved live generated-object UI rebuild ownership out of the
+composition root.
 
 ## Rules
 

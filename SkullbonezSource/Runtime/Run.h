@@ -318,8 +318,6 @@ class Run
         bool preserveUIState = false,
         bool suppressExitOnComplete = false,
         bool preserveRuntimeState = false );                               // Queue-indexed scene load; preserve flags keep selected runtime/UI state.
-    void ApplyUIModelCountOverride( int count );                           // Rebuilds the active generated model pool from the UI slider
-    void ApplyUISolverObjectCounts( int balls, int boxes );                // Rebuilds generated solver objects from exact UI counts
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.

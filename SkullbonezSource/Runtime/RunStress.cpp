@@ -18,6 +18,7 @@ Related:
 */
 #include "RunInternal.h"
 #include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeGeneratedControls.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -76,12 +77,40 @@ void Run::RunUIStressActions()
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = false;
+    const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+    {
+        return SceneRuntimeGeneratedControlContext{ SceneState(),
+                                                    m_sceneUIOverrides,
+                                                    m_camera,
+                                                    m_sceneController,
+                                                    Cfg(),
+                                                    m_cWorldEnvironment,
+                                                    m_systems.terrain.get(),
+                                                    m_cGameModelCollection,
+                                                    m_simulation,
+                                                    m_runtimeTools,
+                                                    IsGfxReady() ? &Gfx() : nullptr,
+                                                    m_launchOptions.generatedObjectTypeOverride,
+                                                    ActiveGameModelCapacity() };
+    };
+    const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
+    {
+        if ( action.resetReplayTimeline )
+        {
+            ResetReplayTimelineForActiveScene();
+        }
+        if ( action.scheduleProfileReset )
+        {
+            PROFILE_SCHEDULE_RESET();
+        }
+    };
     if ( stress.framesRun == 18 )
     {
         const int modelCount = 96 + NextUIStressInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            ApplyUIModelCountOverride( modelCount );
+            executeSceneGeneratedControlAction(
+                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
         }
     }
     if ( stress.framesRun == 42 )
@@ -90,7 +119,8 @@ void Run::RunUIStressActions()
         const int boxes = NextUIStressInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            ApplyUISolverObjectCounts( balls, boxes );
+            executeSceneGeneratedControlAction(
+                ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
         }
     }
     const int actionCount = std::clamp( stress.actionsPerFrame, 1, 32 );
