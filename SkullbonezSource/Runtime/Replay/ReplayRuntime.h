@@ -390,6 +390,7 @@ class ReplayRuntime
 
     RunReplayVelocityEditState& VelocityEdit();
     const RunReplayVelocityEditState& VelocityEdit() const;
+    bool SetVelocityEditEnabled( bool enabled );
     void SetVelocityEditAltKeyDown( bool isDown );
     float TrackPosition( RunReplayTrack track ) const;
     void SetTrackPosition( RunReplayTrack track, float position );

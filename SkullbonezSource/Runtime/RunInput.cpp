@@ -20,6 +20,7 @@ Related:
 #include "RunInternal.h"
 #include "Editor/EditorTools.h"
 #include "InputController.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "RuntimePickService.h"
 #include "RuntimeTuning.h"
 #include "../UI/UIInput.h"
@@ -1996,7 +1997,26 @@ void Run::TakeInput()
             const bool altDown = Input::IsKeyDown( VK_MENU );
             if ( altDown && !m_replayRuntime.VelocityEdit().keyboardAltWasDown )
             {
-                SetReplayVelocityEditEnabled( !m_replayRuntime.VelocityEdit().enabled );
+                const bool enableVelocityEdit = !m_replayRuntime.VelocityEdit().enabled;
+                if ( m_replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
+                {
+                    CancelReplayToolDragState();
+                    if ( enableVelocityEdit )
+                    {
+                        EnterInteractiveSceneRun();
+                        SetReplayLiveAdvanceHeld( true );
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                    else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
+                    {
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                }
+                m_replayRuntime.Scrubber().visibleUntil =
+                    m_timers.simulationTimer.GetTotalTime() + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                m_replayRuntime.Scrubber().visible = true;
             }
             m_replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
             m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );

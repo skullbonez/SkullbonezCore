@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay velocity hit helper file-local slice validated
+Status: Active architecture cleanup plan; replay velocity edit toggle ownership slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -1576,6 +1576,84 @@ Residual architecture risk: velocity edit toggle/input/drawing,
 camera focus activation, replay prediction frame generation, visualizer drawing,
 scrubber input, cause tree row UI, replay overlay construction, and the larger
 scene load/render-host splits still remain.
+
+## Replay Velocity Edit Toggle Ownership Slice
+
+This replay slice removed the remaining `Run` wrapper for toggling velocity edit
+mode. `ReplayRuntime::SetVelocityEditEnabled(...)` now owns the pure replay
+state transition: toggle state, axis hover/active reset, prediction enablement,
+horizon clamping, and prediction dirtying. The two `Run` call sites keep the
+composition-root responsibilities that still require input/interaction context:
+canceling active replay gestures, entering interactive scene run mode, holding
+live replay advance, and switching the world interaction owner.
+
+Deleted `Run.h` declaration:
+
+- `SetReplayVelocityEditEnabled`
+
+Deleted `Run::` definition:
+
+- `Run::SetReplayVelocityEditEnabled`
+
+New owner method:
+
+- `ReplayRuntime::SetVelocityEditEnabled(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 204 to 203.
+- The `Run.h` rules reject `SetReplayVelocityEditEnabled` from returning.
+- Runtime source guardrails reject `Run::SetReplayVelocityEditEnabled`
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- Existing `ReplayRuntime` glossary wording already describes velocity edit
+  ownership; no new dense subsystem comment was required.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial targeted Profile build failed on unqualified replay-overlay constants
+  and a too-narrow `RunInput.cpp` timestamp scope; both were corrected before
+  final validation.
+- Targeted Profile build rerun: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_toggle_owner_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors in 18.70s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_toggle_owner_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 51.92s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_velocity_toggle_owner_runtime_boundaries.log`;
+  passed with 0 errors in 1.22s.
+- Interaction smoke: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_toggle_owner_validate_interaction_clicks.log`;
+  passed the inspect-gizmo and replay-prediction click reports in 6.65s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_toggle_owner_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 24.88s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: velocity edit input/drag/drawing, camera focus
+activation, replay prediction frame generation, visualizer drawing, scrubber
+input, cause tree row UI, replay overlay construction, and the larger scene
+load/render-host splits still remain.
 
 ## Rules
 

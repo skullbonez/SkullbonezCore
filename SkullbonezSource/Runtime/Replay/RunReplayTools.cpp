@@ -1832,7 +1832,23 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     else if ( solverToolsEnabled && leftPressed && canTakeMouse && overVelocityEditToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        SetReplayVelocityEditEnabled( !m_replayRuntime.VelocityEdit().enabled );
+        const bool enableVelocityEdit = !m_replayRuntime.VelocityEdit().enabled;
+        if ( m_replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
+        {
+            CancelReplayToolDragState();
+            if ( enableVelocityEdit )
+            {
+                EnterInteractiveSceneRun();
+                SetReplayLiveAdvanceHeld( true );
+                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                    InteractionExitReason::EnterReplay );
+            }
+            else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
+            {
+                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                    InteractionExitReason::EnterReplay );
+            }
+        }
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
@@ -2256,43 +2272,6 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     }
 
     return true;
-}
-
-
-void Run::SetReplayVelocityEditEnabled( bool enabled )
-{
-    if ( m_replayRuntime.VelocityEdit().enabled == enabled )
-    {
-        return;
-    }
-
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
-    m_replayRuntime.VelocityEdit().enabled = enabled;
-    m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
-    m_replayRuntime.VelocityEdit().hotAngularAxis = -1;
-    m_replayRuntime.VelocityEdit().activeAxis = -1;
-    CancelReplayToolDragState();
-
-    if ( enabled )
-    {
-        EnterInteractiveSceneRun();
-        SetReplayLiveAdvanceHeld( true );
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
-                                                            InteractionExitReason::EnterReplay );
-        m_replayRuntime.Prediction().enabled = true;
-        m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
-                                                                  REPLAY_PREDICTION_MIN_SECONDS,
-                                                                  REPLAY_PREDICTION_MAX_SECONDS );
-        m_replayRuntime.MarkPredictionDirty();
-        m_replayRuntime.Scrubber().visibleUntil =
-            m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-        m_replayRuntime.Scrubber().visible = true;
-    }
-    else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
-    {
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                            InteractionExitReason::EnterReplay );
-    }
 }
 
 

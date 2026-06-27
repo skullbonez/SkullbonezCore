@@ -31,6 +31,7 @@ Related:
 */
 #include "ReplayRuntime.h"
 #include "ReplayExporter.h"
+#include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
@@ -527,6 +528,31 @@ RunReplayVelocityEditState& ReplayRuntime::VelocityEdit()
 const RunReplayVelocityEditState& ReplayRuntime::VelocityEdit() const
 {
     return m_velocityEdit;
+}
+
+bool ReplayRuntime::SetVelocityEditEnabled( bool enabled )
+{
+    if ( m_velocityEdit.enabled == enabled )
+    {
+        return false;
+    }
+
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+    m_velocityEdit.enabled = enabled;
+    m_velocityEdit.hotLinearAxis = -1;
+    m_velocityEdit.hotAngularAxis = -1;
+    m_velocityEdit.activeAxis = -1;
+
+    if ( enabled )
+    {
+        m_prediction.enabled = true;
+        m_prediction.horizonSeconds = std::clamp( m_prediction.horizonSeconds,
+                                                  ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
+                                                  ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
+        MarkPredictionDirty();
+    }
+
+    return true;
 }
 
 void ReplayRuntime::SetVelocityEditAltKeyDown( bool isDown )

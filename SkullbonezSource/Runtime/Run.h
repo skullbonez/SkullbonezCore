@@ -430,7 +430,6 @@ class Run
     void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );
     void ClearReplayCameraFocus( bool restoreCamera );
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
-    void SetReplayVelocityEditEnabled( bool enabled );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
     void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin,
                                       const Math::Vector::Vector3& rayDirection );
