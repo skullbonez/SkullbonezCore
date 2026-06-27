@@ -1,0 +1,122 @@
+# Carmack Render Backend Capability Plan
+
+Date: 2026-06-28
+Status: Draft
+Impact area: DX12 renderer, render interfaces, runtime render host, tools, tests
+Validation note: plan-only edits require no validation. PR-bound renderer
+interface or DX12 backend changes require `tools\validate_dx12_renderer.bat`.
+If hot-path command submission, descriptor upload, dynamic geometry, or telemetry
+storage changes, also run `tools\validate_perf.bat`.
+
+## Problem Statement
+
+The Carmack-test verdict flagged `IRenderBackend` and global `Gfx()` as a wide
+compatibility contract. DX12 is the only runtime renderer, but callers still see
+one interface that mixes lifecycle, resources, state, capture, profiler markers,
+debug lines, dynamic buffers, instancing, and other capability-specific work.
+
+## Goal
+
+Split render callers toward narrow capability interfaces so each system receives
+only the render service it needs. Keep `IRenderBackend` only as a temporary DX12
+compatibility facade while call sites migrate.
+
+## Success Bar
+
+- New render code depends on named capability interfaces or context structs, not
+  on the full `IRenderBackend`.
+- Existing passes receive narrow services through `RuntimeRenderHost` or render
+  contexts.
+- `IRenderBackend.h` shrinks over time and cannot grow casually.
+- DX12 validation remains zero-error with screenshots matching committed
+  baselines.
+
+## Related Plans
+
+- `Agentic/Plans/render-graph-irender-interface-plan.md` is the active renderer
+  umbrella plan. Use this Carmack plan as the capability-interface acceptance
+  checklist for the backend split portion of that work.
+- `Agentic/Plans/carmack-render-graph-resource-ownership-plan.md` covers graph
+  execution and transient resource lifetime. If one implementation slice touches
+  both plans, use the union of their validation and review checklists.
+- `Agentic/Plans/carmack-global-service-lifetime-plan.md` owns the broader
+  process-global cleanup. This plan owns render capability access, including
+  shrinking direct `Gfx()` use in renderer-facing paths.
+
+## Implementation Checklist
+
+### Inventory
+
+- [ ] List every method in `SkullbonezSource/Rendering/IRenderBackend.h`.
+- [ ] Categorize methods into lifecycle, frame state, resource creation, texture binding, capture/readback, draw tracing, GPU profiling, platform markers, dynamic geometry, debug lines, instancing, and compatibility.
+- [ ] Run `rg "Gfx\\(|IRenderBackend|SetGfxBackend|DestroyGfxBackend|IsGfxReady" SkullbonezSource`.
+- [ ] Map each call site to its required capability.
+- [ ] Mark any call site that currently asks for the wide backend only because no narrow service exists yet.
+
+### Capability Interfaces
+
+- [ ] Keep `IRenderCaptureBackend` as the capture/readback surface and move capture-only callers to it.
+- [ ] Add or formalize `IRenderDeviceLifecycle` for init, shutdown, resize, present, finish, flush, and vsync.
+- [ ] Add or formalize `IRenderResourceFactory` for shader, mesh, framebuffer, texture, instanced mesh, and dynamic buffer creation.
+- [ ] Add or formalize `IRenderCommandContext` for frame draw state, clears, viewport, blend, depth, cull, texture binding, and draw calls.
+- [ ] Add or formalize `IRenderDiagnostics` for draw-call trace, GPU timers, platform markers, and backend validation metadata.
+- [ ] Keep `IRenderRayTracing` separate; do not move DXR methods back onto the wide backend.
+- [ ] Document ownership and lifetime for each capability interface in its header.
+
+### Call-Site Migration
+
+- [ ] Route runtime render passes through `RuntimeRenderHost` capability groups rather than direct wide-backend access.
+- [ ] Pass capture/readback capability only to screenshot and validation paths.
+- [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
+- [ ] Pass GPU profiler capability only to profiler marker code.
+- [ ] Pass resource factory capability only during resource creation/rebuild phases.
+- [ ] Keep command submission and draw state capability out of scene parsing, physics, asset registration, and diagnostics formatting.
+- [ ] Remove direct wide-backend includes from call sites after migration.
+
+### DX12 Adapter Shape
+
+- [ ] Have `RenderBackendDX12` implement the narrow capability interfaces directly or through small adapter objects.
+- [ ] Keep adapter methods thin enough that DX12 state ownership remains in the backend implementation.
+- [ ] Do not introduce new per-frame heap allocation through adapters.
+- [ ] Preserve backend-owned resource release order during shutdown, resize, and rebuild.
+- [ ] Keep InfoQueue validation and DRED/debug-layer setup inside DX12-owned code.
+
+### Compatibility Facade Retirement
+
+- [ ] Leave `IRenderBackend` forwarding or aggregating capabilities only while callers migrate.
+- [ ] Add a plan-local table of remaining `IRenderBackend` methods after each slice.
+- [ ] Delete facade methods when no direct caller needs them.
+- [ ] Update `RenderCapabilities` if capability discovery moves to narrower services.
+- [ ] Remove stale comments that imply GL/DX11 parity or multi-backend runtime selection.
+
+### Guardrails
+
+- [ ] Extend `tools\check_runtime_boundaries.py` to reject new DXR methods on `IRenderBackend`.
+- [ ] Add a ratchet for `IRenderBackend.h` method count or public declaration count.
+- [ ] Add a guardrail that blocks new direct `Gfx()` calls outside approved bootstrap and compatibility files.
+- [ ] Add synthetic checker tests for allowed narrow capability use and rejected wide-backend use.
+- [ ] Teach project-filter validation about any new render interface files.
+
+## Validation Checklist
+
+- [ ] For plan-only edits: no validation required.
+- [ ] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
+- [ ] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
+- [ ] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
+- [ ] Verify `dx12_validation.txt` reports zero DX12 validation errors.
+- [ ] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.
+
+## Independent Review Checklist
+
+- [ ] Ask a rubber-duck reviewer to inspect whether new interfaces are genuinely narrower or just the old backend split into names.
+- [ ] Ask the reviewer to look for new hidden global access or new `Gfx()` use.
+- [ ] Ask the reviewer to check DX12 resource lifetime and shutdown/resize behavior.
+- [ ] Record review findings in a report or this plan.
+- [ ] Resolve blocking review findings before committing PR-bound code.
+
+## Definition Of Done
+
+- [ ] Ordinary runtime render pass code no longer depends on the full `IRenderBackend`.
+- [ ] `IRenderBackend.h` is reduced to a temporary facade or deleted.
+- [ ] Guardrails prevent re-widening the backend contract.
+- [ ] DX12 renderer validation passes with zero InfoQueue errors and matching screenshots.
