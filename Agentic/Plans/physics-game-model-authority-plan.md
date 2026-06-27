@@ -1,9 +1,17 @@
 # Physics / GameModel Authority Plan
 
 Date: 2026-06-27
-Status: Draft plan
+Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for this plan edit: Documentation-only. No repository validation required.
+
+## Completed Slices
+
+- [x] 2026-06-27: Deleted `GameModelCollection::MakePhysicsModelView()` and `SkullbonezSource/Physics/PhysicsModelView.h`.
+- [x] 2026-06-27: Replaced per-call `PhysicsModelView` construction with persistent `PhysicsModelAccess` ranges plus explicit body-store handle mapping.
+- [x] 2026-06-27: Converted store refresh, step, wake, seed-asleep, immediate impulse, pending impulse, diagnostics, ragdoll, and sleep-island call paths away from `PhysicsModelView`.
+- [x] 2026-06-27: Added project-filter and runtime-boundary guardrails so `MakePhysicsModelView` or `PhysicsModelView` cannot return unnoticed.
+- [x] 2026-06-27: Validated the deleted-view slice with `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_perf.bat`.
 
 ## Goal
 
@@ -61,49 +69,86 @@ Inventory checklist:
 
 `MakePhysicsModelView()` is a contrived compatibility factory. It rebuilds a borrowed view at each call site, keeps physics aware of legacy model order and SoA invalidation, and hides scene callbacks behind generic function pointers. The first implementation slice should remove this boundary instead of polishing it.
 
+Deleted-view call-site table from the completed first slice:
+
+| Deleted call site | Classification | Replacement |
+| --- | --- | --- |
+| `RefreshBodyStore()` | body store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshBodyStore()` |
+| `RefreshColliderStore()` | collider store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshColliderStore()` |
+| `RefreshRenderStore()` | render store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshRenderStore()` |
+| `RunPhysics()` | physics step | `PhysicsEngine::Step(PhysicsModelAccess&, dt)` |
+| `WakeModel()` | wake command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |
+| `SeedModelAsleep()` | sleep seed command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |
+| `ApplyBodyImpulse()` | immediate impulse command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |
+| `SetPendingBodyImpulse()` | pending impulse command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |
+
+Deleted-view responsibility split:
+
+| Old `PhysicsModelView` responsibility | Current replacement |
+| --- | --- |
+| Borrow mutable model order | mutable `PhysicsModelAccess::Models()` range |
+| Borrow const model order | `PhysicsModelAccess::Models()` range |
+| Borrow body stream cache | `PhysicsModelAccess::GetBodyStream()` and `InvalidatePhysicsStreams()` |
+| Hidden fixed-tree callback | `PhysicsModelAccess::ReleaseAttachedFixedTreeParts()` |
+| Hidden SkullScope callback | `PhysicsModelAccess::EmitSkullScopeFrame()` |
+| Model-index body identity | `PhysicsBodyStore` compatibility handle map via `PhysicsBodyHandle` |
+
+Deleted-view parameter surface:
+
+| Old `PhysicsModelView&` parameter group | Replacement surface |
+| --- | --- |
+| `PhysicsEngine` refresh, step, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets use `PhysicsBodyHandle` |
+| `PhysicsScene` refresh, run, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets resolve through `PhysicsBodyStore` |
+| `PhysicsWorld` solver, contact, diagnostics, underwater sleep, fixed-contact, tornado, wake-island, and step methods | `PhysicsModelAccess&` plus explicit `PhysicsBodyStore&` where body rows are required |
+| `PersistentContactSolverContext` fixed-contact and wake callbacks | `PhysicsModelAccess&` callback surface |
+| `Ragdoll::SolvePointJoints()` | `PhysicsModelAccess&` plus `PhysicsBodyStore&` |
+| `SleepIslandSystem::PropagateSupport()` | `PhysicsModelAccess&` plus sleep support context |
+| `PhysicsDiagnosticsSink` frame/collision-time emission | `PhysicsModelAccess&` |
+
 Prerequisite handle-bootstrap slice:
 
-- [ ] Promote the existing `PhysicsBodyHandle` path out of pure model-index compatibility before deleting the view.
-- [ ] Add or reuse a deterministic body handle mapping owned by the physics/body store layer.
+- [x] Bootstrap the existing `PhysicsBodyHandle` path as an explicit compatibility handle layer before deleting the view.
+- [ ] Promote the existing `PhysicsBodyHandle` path out of model-index compatibility.
+- [x] Add or reuse a deterministic compatibility body handle mapping owned by the physics/body store layer.
 - [ ] Ensure the mapping can resolve old model-index callers only at explicit compatibility boundaries.
 - [ ] Ensure new physics APIs accept stable handles or store rows, not raw `GameModel` indices.
-- [ ] Document any remaining compatibility handle conversion with a deletion target in this plan.
-- [ ] Prove the bootstrap does not change body iteration order or replay ordering.
+- [x] Document any remaining compatibility handle conversion with a deletion target in this plan.
+- [x] Prove the bootstrap does not change body iteration order or replay ordering.
 
 Acceptable endpoint:
 
-- [ ] `GameModelCollection::RunPhysics()` no longer constructs a `PhysicsModelView`.
+- [x] `GameModelCollection::RunPhysics()` no longer constructs a `PhysicsModelView`.
 - [ ] `PhysicsEngine::Step()` receives authoritative stores or a named step context built from authoritative stores.
-- [ ] Wake, seed-asleep, impulse, and pending-impulse APIs take `PhysicsBodyHandle` plus the required store/context references.
-- [ ] Diagnostics and SkullScope emission use explicit diagnostics context, not `PhysicsModelView`.
-- [ ] Attached fixed-tree release uses an explicit scene callback/service, not a generic `void*` callback hidden in `PhysicsModelView`.
-- [ ] `GameModelCollection` does not expose a new per-frame view over `m_gameModels` as a substitute.
+- [x] Wake, seed-asleep, impulse, and pending-impulse APIs take `PhysicsBodyHandle` plus the required store/context references.
+- [x] Diagnostics and SkullScope emission use explicit diagnostics context, not `PhysicsModelView`.
+- [x] Attached fixed-tree release uses an explicit scene callback/service, not a generic `void*` callback hidden in `PhysicsModelView`.
+- [x] `GameModelCollection` does not expose a new per-frame view over `m_gameModels` as a substitute.
 
 Implementation checklist:
 
-- [ ] Create a short call-site table for every `MakePhysicsModelView()` call in `GameModelCollection.cpp`.
-- [ ] Create a short parameter table for every `PhysicsModelView&` parameter in `PhysicsEngine`, `PhysicsScene`, `PhysicsWorld`, diagnostics, ragdoll, sleep, and solver code.
-- [ ] Split `PhysicsModelView` responsibilities into named dependencies: body store, collider store, render store, deterministic model/body ordering if still needed, fixed-tree release callback, and diagnostics callback.
+- [x] Create a short call-site table for every `MakePhysicsModelView()` call in `GameModelCollection.cpp`.
+- [x] Create a short parameter table for every `PhysicsModelView&` parameter in `PhysicsEngine`, `PhysicsScene`, `PhysicsWorld`, diagnostics, ragdoll, sleep, and solver code.
+- [x] Split `PhysicsModelView` responsibilities into named dependencies: body store, collider store, render store, deterministic model/body ordering if still needed, fixed-tree release callback, and diagnostics callback.
 - [ ] Introduce a narrowly named step context only if passing the stores separately becomes noisy; the context must not own or expose `std::vector<GameModel>&`.
-- [ ] Convert `PhysicsEngine::RefreshStores`, `RefreshPhysicsStores`, `RefreshBodyStore`, `RefreshColliderStore`, and `RefreshRenderStore` to store/source inputs that do not require `PhysicsModelView`.
-- [ ] Convert `PhysicsEngine::Step` and `PhysicsScene::RunPhysics` away from `PhysicsModelView`.
-- [ ] Convert wake and impulse helpers away from `PhysicsModelView`.
-- [ ] Convert physics diagnostics away from `PhysicsModelView`.
-- [ ] Convert ragdoll and sleep-island code away from `PhysicsModelView`.
-- [ ] Delete `GameModelCollection::MakePhysicsModelView()` declaration and definition.
-- [ ] Delete `SkullbonezSource/Physics/PhysicsModelView.h` once all includes are gone.
-- [ ] Remove stale comments that describe `PhysicsModelView` as the migration boundary.
-- [ ] Add a guardrail or boundary check that fails if `MakePhysicsModelView` or `PhysicsModelView` returns after deletion.
+- [x] Convert `PhysicsEngine::RefreshStores`, `RefreshPhysicsStores`, `RefreshBodyStore`, `RefreshColliderStore`, and `RefreshRenderStore` to store/source inputs that do not require `PhysicsModelView`.
+- [x] Convert `PhysicsEngine::Step` and `PhysicsScene::RunPhysics` away from `PhysicsModelView`.
+- [x] Convert wake and impulse helpers away from `PhysicsModelView`.
+- [x] Convert physics diagnostics away from `PhysicsModelView`.
+- [x] Convert ragdoll and sleep-island code away from `PhysicsModelView`.
+- [x] Delete `GameModelCollection::MakePhysicsModelView()` declaration and definition.
+- [x] Delete `SkullbonezSource/Physics/PhysicsModelView.h` once all includes are gone.
+- [x] Remove stale comments that describe `PhysicsModelView` as the migration boundary.
+- [x] Add a guardrail or boundary check that fails if `MakePhysicsModelView` or `PhysicsModelView` returns after deletion.
 
 Do-not-miss checklist:
 
-- [ ] The replacement path does not allocate or rebuild a model view each physics operation.
-- [ ] The replacement path does not expose mutable `std::vector<GameModel>&` to physics.
+- [x] The replacement path does not allocate or rebuild a model view each physics operation.
+- [x] The replacement path does not expose mutable `std::vector<GameModel>&` to physics.
 - [ ] The replacement path does not use model indices in new production APIs.
-- [ ] Store refresh order remains deterministic.
-- [ ] Solver, sleep, ragdoll, diagnostics, and fixed-tree release behavior are covered by the chosen validation gate.
-- [ ] Search results are clean for `MakePhysicsModelView` before the slice is reported done.
-- [ ] Search results are clean for `PhysicsModelView` before the slice is reported done.
+- [x] Store refresh order remains deterministic.
+- [x] Solver, sleep, ragdoll, diagnostics, and fixed-tree release behavior are covered by the chosen validation gate.
+- [x] Search results are clean for `MakePhysicsModelView` before the slice is reported done.
+- [x] Search results are clean for `PhysicsModelView` before the slice is reported done.
 
 ## Phase 1 - Stable Identity and Mapping
 
@@ -229,8 +274,8 @@ Do-not-miss checklist:
 
 Only remove compatibility after callers have moved and validation has covered the behavior surface.
 
-- [ ] Verify `MakePhysicsModelView()` was already deleted by the required first slice.
-- [ ] Verify `PhysicsModelView` was already deleted by the required first slice.
+- [x] Verify `MakePhysicsModelView()` was already deleted by the required first slice.
+- [x] Verify `PhysicsModelView` was already deleted by the required first slice.
 - [ ] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
@@ -242,9 +287,9 @@ Only remove compatibility after callers have moved and validation has covered th
 
 Searches to run before declaring compatibility gone:
 
-- [ ] `rg "MakePhysicsModelView" SkullbonezSource`
+- [x] `rg "MakePhysicsModelView" SkullbonezSource`
 - [ ] `rg "PhysicsModels\(" SkullbonezSource`
-- [ ] `rg "PhysicsModelView" SkullbonezSource`
+- [x] `rg "PhysicsModelView" SkullbonezSource`
 - [ ] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`
 - [ ] `rg "GameModel" SkullbonezSource/Physics SkullbonezSource/Runtime SkullbonezSource/Rendering`
@@ -254,21 +299,21 @@ Searches to run before declaring compatibility gone:
 Repository validation scripts are PR/commit gates. Do not run them repeatedly while iterating unless the user explicitly asks for validation.
 
 - [ ] Documentation-only changes: no repository validation required.
-- [ ] Body, collider, solver, command buffer, or physics determinism changes: run `tools\validate_physics.bat` before PR-bound commit.
+- [x] Body, collider, solver, command buffer, or physics determinism changes: run `tools\validate_physics.bat` before PR-bound commit.
 - [ ] Broad physics diagnostics, SkullScope baselines, query baselines, or deep fixture changes: run `tools\validate_physics_deep.bat`.
 - [ ] Render projection or render instance behavior changes: run `tools\validate_dx12_renderer.bat`.
-- [ ] Storage/hot-loop changes that may affect per-frame allocations or broadphase cost: run `tools\validate_perf.bat`.
+- [x] Storage/hot-loop changes that may affect per-frame allocations or broadphase cost: run `tools\validate_perf.bat`.
 - [ ] Runtime lifecycle, scene/replay, or mixed broad-scope changes: run `tools\validate_full.bat`.
-- [ ] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
+- [x] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
 - [ ] If unsure at PR gate: run `tools\agent_validate.bat`.
 
 Validation evidence checklist:
 
-- [ ] Capture the exact command.
-- [ ] Capture meaningful output lines.
-- [ ] Capture the log path if output is mirrored to a file.
-- [ ] Confirm zero warnings for builds.
-- [ ] Confirm physics CSV byte-exact match when physics validation is required.
+- [x] Capture the exact command.
+- [x] Capture meaningful output lines.
+- [x] Capture the log path if output is mirrored to a file.
+- [x] Confirm zero warnings for builds.
+- [x] Confirm physics CSV byte-exact match when physics validation is required.
 - [ ] Confirm zero DX12 validation errors when renderer validation is required.
 - [ ] Report any skipped required validation as an explicit blocker, not as success.
 
@@ -277,14 +322,14 @@ Validation evidence checklist:
 - [ ] Body state authority lives in `PhysicsBodyStore`.
 - [ ] Collider authority lives in `ColliderStore`.
 - [ ] Render projection authority lives in `RenderInstanceStore`.
-- [ ] `MakePhysicsModelView()` is deleted and not replaced by another per-frame model-vector adapter.
-- [ ] `PhysicsModelView` is deleted.
+- [x] `MakePhysicsModelView()` is deleted and not replaced by another per-frame model-vector adapter.
+- [x] `PhysicsModelView` is deleted.
 - [ ] Scene/entity metadata is separate from simulation body state.
 - [ ] New production APIs use stable handles rather than model vector indices.
 - [ ] Production physics stepping no longer requires `GameModelCollection&`.
 - [ ] Production rendering no longer requires `GameModelCollection` as the scene view.
 - [ ] Replay capture and diagnostics use stable entity/body identity.
 - [ ] Temporary compatibility layers are either removed or explicitly documented with a removal phase.
-- [ ] All touched source-bearing files pass the repository comment quality gate.
-- [ ] Required validation for the actual code slice has been run and reported.
+- [x] All touched source-bearing files pass the repository comment quality gate.
+- [x] Required validation for the actual code slice has been run and reported.
 - [ ] `git status --short --branch` has been checked before handoff or commit.
