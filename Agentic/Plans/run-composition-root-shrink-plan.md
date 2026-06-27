@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay launcher visual sample helper slice validated
+Status: Active architecture cleanup plan; replay sample comparison helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay launcher visual sample helper section below
+Validation for latest implementation slice: see the replay sample comparison helper section below
 
 ## Goal
 
@@ -2565,6 +2565,71 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: replay restore/apply helpers and render-host
 splitting remain active; this slice only moved the launcher visual state
 snapshot/restore surface to the state owner.
+
+## Replay Sample Comparison Helper Slice
+
+This replay capture slice removed the replay presentation/solver mismatch
+diagnostic wrapper from `Run`. The comparison is now a file-local helper in
+`RunFrame.cpp` beside `Run::CaptureReplayPhysicsStep`, with explicit
+`ReplayRuntime&` and `RunReplayMismatchState&` inputs.
+
+Deleted `Run.h` declarations:
+
+- `CompareLatestReplaySamples`
+
+Deleted `Run::` definitions:
+
+- `Run::CompareLatestReplaySamples`
+
+New owner surface:
+
+- File-local `CompareLatestReplaySamples(...)` in `RunFrame.cpp`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 176 to 175.
+- New header and source guardrails reject the removed replay sample comparison
+  helper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The helper remains colocated with the
+  replay capture path that consumes it.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_sample_compare_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.63s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_sample_compare_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 47.99s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_sample_compare_runtime_boundaries.log`;
+  passed with 0 errors in 1.83s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_sample_compare_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.12s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay restore/apply helpers, cross-file replay
+probe/hash helpers, and render-host splitting remain active; this slice only
+localized presentation/solver mismatch diagnostics.
 
 ## Rules
 

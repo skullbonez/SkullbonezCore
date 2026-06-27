@@ -56,6 +56,48 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
+void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )
+{
+    const ReplayPresentationSample* presentation = replayRuntime.Presentation().LatestSample();
+    const ReplaySolverFrameSample* solver = replayRuntime.Solver().LatestSample();
+    if ( !presentation || !solver )
+    {
+        return;
+    }
+
+    const bool matches = presentation->frameIndex == solver->frameIndex &&
+                         presentation->stateHash == solver->presentationHash &&
+                         presentation->bodies.size() == solver->bodies.size();
+    if ( matches )
+    {
+        return;
+    }
+
+    if ( mismatchState.reports < 8 )
+    {
+        ++mismatchState.reports;
+        fprintf( stderr,
+                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
+                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
+                 "presentation_bodies=%llu solver_bodies=%llu\n",
+                 mismatchState.reports,
+                 static_cast<unsigned long long>( presentation->frameIndex ),
+                 static_cast<unsigned long long>( solver->frameIndex ),
+                 static_cast<unsigned long long>( presentation->stateHash ),
+                 static_cast<unsigned long long>( solver->presentationHash ),
+                 static_cast<unsigned long long>( solver->solverHash ),
+                 static_cast<unsigned long long>( presentation->bodies.size() ),
+                 static_cast<unsigned long long>( solver->bodies.size() ) );
+    }
+    else if ( !mismatchState.suppressed )
+    {
+        mismatchState.suppressed = true;
+        fprintf( stderr,
+                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
+                 "timeline.\n" );
+    }
+}
+
 SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
                                                             const EngineConfig& config,
                                                             SkullbonezCore::Environment::WorldEnvironment& world,
@@ -563,7 +605,7 @@ void Run::CaptureReplayPhysicsStep()
         input.models = &m_cGameModelCollection;
         input.launcherVisual = &launcherVisual;
         m_replayRuntime.CaptureFrame( input );
-        CompareLatestReplaySamples();
+        CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
     }
 #ifdef _DEBUG
     TickReplayScrubProbe();
@@ -794,49 +836,6 @@ bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char
     default:
         WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
         return false;
-    }
-}
-
-
-void Run::CompareLatestReplaySamples()
-{
-    const ReplayPresentationSample* presentation = m_replayRuntime.Presentation().LatestSample();
-    const ReplaySolverFrameSample* solver = m_replayRuntime.Solver().LatestSample();
-    if ( !presentation || !solver )
-    {
-        return;
-    }
-
-    const bool matches = presentation->frameIndex == solver->frameIndex &&
-                         presentation->stateHash == solver->presentationHash &&
-                         presentation->bodies.size() == solver->bodies.size();
-    if ( matches )
-    {
-        return;
-    }
-
-    if ( m_solverReplayMismatch.reports < 8 )
-    {
-        ++m_solverReplayMismatch.reports;
-        fprintf( stderr,
-                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
-                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
-                 "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_solverReplayMismatch.reports,
-                 static_cast<unsigned long long>( presentation->frameIndex ),
-                 static_cast<unsigned long long>( solver->frameIndex ),
-                 static_cast<unsigned long long>( presentation->stateHash ),
-                 static_cast<unsigned long long>( solver->presentationHash ),
-                 static_cast<unsigned long long>( solver->solverHash ),
-                 static_cast<unsigned long long>( presentation->bodies.size() ),
-                 static_cast<unsigned long long>( solver->bodies.size() ) );
-    }
-    else if ( !m_solverReplayMismatch.suppressed )
-    {
-        m_solverReplayMismatch.suppressed = true;
-        fprintf( stderr,
-                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
-                 "timeline.\n" );
     }
 }
 
