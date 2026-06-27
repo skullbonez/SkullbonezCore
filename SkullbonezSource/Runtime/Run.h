@@ -310,7 +310,6 @@ class Run
     void SetViewingOrientation();                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                               // Backbuffer capture path; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                       // UI-controlled scene defaults persisted to the active scene file.
-    bool CreateSceneFromUI( const char* requestedName );                   // Creates and loads a flat starter scene from the Scene tab.
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes

@@ -22,6 +22,7 @@ Related:
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "RuntimePickService.h"
+#include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeDefaults.h"
 #include "Scene/SceneRuntimeLoad.h"
@@ -3072,7 +3073,9 @@ bool Run::DrainRuntimeCommands()
                                                                              command.preserveRuntimeState ) );
             break;
         case RuntimeCommandType::CreateScene:
-            CreateSceneFromUI( command.text.c_str() );
+            executeSceneControlAction(
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneBrowser },
+                                   command.text.c_str() ) );
             break;
         case RuntimeCommandType::SaveScreenshot:
             if ( !command.text.empty() )
