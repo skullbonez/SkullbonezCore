@@ -3001,10 +3001,17 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 }
 
 
-bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
-                                    uint64_t sourceSolverHash,
-                                    const std::chrono::steady_clock::time_point& budgetStart,
-                                    double budgetMilliseconds )
+namespace
+{
+bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
+                               SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                               bool scenePhysics,
+                               double fallbackSourceSimulationSeconds,
+                               double simulationTotalSeconds,
+                               ReplayFrameIndex sourceFrameIndex,
+                               uint64_t sourceSolverHash,
+                               const std::chrono::steady_clock::time_point& budgetStart,
+                               double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
     // Hazard: begin captures the initial prediction snapshot. If setup spends
@@ -3015,41 +3022,41 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
         return false;
     }
 
-    m_replayRuntime.CancelPredictionJob( false );
-    m_replayRuntime.Prediction().targetId = m_replayRuntime.PathVisualizer().targetId;
-    m_replayRuntime.Prediction().dirty = false;
+    replayRuntime.CancelPredictionJob( false );
+    replayRuntime.Prediction().targetId = replayRuntime.PathVisualizer().targetId;
+    replayRuntime.Prediction().dirty = false;
 
-    if ( !m_replayRuntime.Prediction().enabled || !SceneState().isScenePhysics )
+    if ( !replayRuntime.Prediction().enabled || !scenePhysics )
     {
         return false;
     }
 
-    m_replayRuntime.Prediction().sourceFrameIndex = sourceFrameIndex;
-    m_replayRuntime.Prediction().sourceSolverHash = sourceSolverHash;
-    if ( const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample() )
+    replayRuntime.Prediction().sourceFrameIndex = sourceFrameIndex;
+    replayRuntime.Prediction().sourceSolverHash = sourceSolverHash;
+    if ( const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample() )
     {
-        m_replayRuntime.Prediction().sourceSimulationSeconds = latest->simulationSeconds;
+        replayRuntime.Prediction().sourceSimulationSeconds = latest->simulationSeconds;
     }
     else
     {
-        m_replayRuntime.Prediction().sourceSimulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+        replayRuntime.Prediction().sourceSimulationSeconds = fallbackSourceSimulationSeconds;
     }
-    m_replayRuntime.Prediction().lastBuildTime = m_timers.simulationTimer.GetTotalTime();
+    replayRuntime.Prediction().lastBuildTime = simulationTotalSeconds;
 
-    if ( m_replayRuntime.PathVisualizer().hasTarget && m_replayRuntime.PathVisualizer().targetId.value != 0 )
+    if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
-        std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+        std::vector<GameModel>& models = modelCollection.PhysicsModels();
         int targetIndex = -1;
         for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                m_replayRuntime.Prediction().dirty = true;
+                replayRuntime.Prediction().dirty = true;
                 return false;
             }
 
             if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() ==
-                 m_replayRuntime.PathVisualizer().targetId.value )
+                 replayRuntime.PathVisualizer().targetId.value )
             {
                 targetIndex = i;
                 break;
@@ -3059,60 +3066,63 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
         {
             return false;
         }
-        m_replayRuntime.Prediction().targetModelIndex = targetIndex;
-        m_replayRuntime.PathVisualizer().targetModelIndex = targetIndex;
+        replayRuntime.Prediction().targetModelIndex = targetIndex;
+        replayRuntime.PathVisualizer().targetModelIndex = targetIndex;
     }
 
-    m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
-                                                              REPLAY_PREDICTION_MIN_SECONDS,
-                                                              REPLAY_PREDICTION_MAX_SECONDS );
+    replayRuntime.Prediction().horizonSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
+                                                            REPLAY_PREDICTION_MIN_SECONDS,
+                                                            REPLAY_PREDICTION_MAX_SECONDS );
     const int predictionTicks =
-        (std::max)( 1,
-                    static_cast<int>( std::ceil( m_replayRuntime.Prediction().horizonSeconds / PHYSICS_FIXED_DT ) ) );
-    m_replayRuntime.Prediction().targetTickCount = predictionTicks;
-    m_replayRuntime.Prediction().nextTick = 1;
-    m_replayRuntime.Prediction().buildFrames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
+        (std::max)( 1, static_cast<int>( std::ceil( replayRuntime.Prediction().horizonSeconds / PHYSICS_FIXED_DT ) ) );
+    replayRuntime.Prediction().targetTickCount = predictionTicks;
+    replayRuntime.Prediction().nextTick = 1;
+    replayRuntime.Prediction().buildFrames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
 
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        m_replayRuntime.Prediction().dirty = true;
+        replayRuntime.Prediction().dirty = true;
         return false;
     }
 
-    if ( !CaptureReplayPredictionBodyState( m_cGameModelCollection, m_replayRuntime.Prediction().predictionBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) )
     {
-        m_replayRuntime.CancelPredictionJob( true );
+        replayRuntime.CancelPredictionJob( true );
         return false;
     }
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        m_replayRuntime.CancelPredictionJob( true );
-        m_replayRuntime.Prediction().dirty = true;
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
         return false;
     }
 
-    m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( m_replayRuntime.Prediction().predictionWorld,
-                                                                           m_cGameModelCollection.GetModelCount() );
+    modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+                                                                    modelCollection.GetModelCount() );
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        m_replayRuntime.CancelPredictionJob( true );
-        m_replayRuntime.Prediction().dirty = true;
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
         return false;
     }
 
-    CaptureReplayPredictionFrame( m_replayRuntime, m_cGameModelCollection, 0 );
-    m_replayRuntime.Prediction().building = true;
+    CaptureReplayPredictionFrame( replayRuntime, modelCollection, 0 );
+    replayRuntime.Prediction().building = true;
 
-    return !m_replayRuntime.Prediction().buildFrames.empty();
+    return !replayRuntime.Prediction().buildFrames.empty();
 }
 
 
-bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds )
+bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
+                              SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                              double simulationTotalSeconds,
+                              const std::chrono::steady_clock::time_point& budgetStart,
+                              double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/Slice" );
-    if ( !m_replayRuntime.Prediction().building )
+    if ( !replayRuntime.Prediction().building )
     {
-        return m_replayRuntime.Prediction().complete;
+        return replayRuntime.Prediction().complete;
     }
 
     if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
@@ -3123,23 +3133,21 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
     // Hazard: everything after liveRestoreBodies/liveRestoreWorld succeeds may
     // swap live state for prediction state. All early exits before RestoreLive
     // must happen before the swap, or after the restore block below.
-    if ( !CaptureReplayPredictionBodyState( m_cGameModelCollection, m_replayRuntime.Prediction().liveRestoreBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) )
     {
-        m_replayRuntime.CancelPredictionJob( true );
-        m_replayRuntime.Prediction().dirty = true;
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
         return false;
     }
-    m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
-        m_replayRuntime.Prediction().liveRestoreWorld,
-        m_cGameModelCollection.GetModelCount() );
+    modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
+                                                                    modelCollection.GetModelCount() );
     if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
     {
         return false;
     }
 
 #ifdef _DEBUG
-    const bool previousDiagnosticsSuppressed =
-        m_cGameModelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( true );
+    const bool previousDiagnosticsSuppressed = modelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( true );
 #endif
 
     bool jobApplied = false;
@@ -3149,18 +3157,17 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyJobState" );
         jobApplied =
-            ApplyReplayPredictionBodyState( m_cGameModelCollection, m_replayRuntime.Prediction().predictionBodies ) &&
-            m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
-                m_replayRuntime.Prediction().predictionWorld,
-                m_cGameModelCollection.GetModelCount() );
-        m_cGameModelCollection.InvalidatePhysicsStreams();
+            ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) &&
+            modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+                                                                            modelCollection.GetModelCount() );
+        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( jobApplied )
     {
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/Steps" );
-            while ( m_replayRuntime.Prediction().nextTick <= m_replayRuntime.Prediction().targetTickCount )
+            while ( replayRuntime.Prediction().nextTick <= replayRuntime.Prediction().targetTickCount )
             {
                 if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
                 {
@@ -3169,12 +3176,12 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    m_cGameModelCollection.GetPhysicsEngine().Step( m_cGameModelCollection, PHYSICS_FIXED_DT );
+                    modelCollection.GetPhysicsEngine().Step( modelCollection, PHYSICS_FIXED_DT );
                 }
-                CaptureReplayPredictionFrame( m_replayRuntime,
-                                              m_cGameModelCollection,
-                                              static_cast<ReplayFrameIndex>( m_replayRuntime.Prediction().nextTick ) );
-                ++m_replayRuntime.Prediction().nextTick;
+                CaptureReplayPredictionFrame( replayRuntime,
+                                              modelCollection,
+                                              static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) );
+                ++replayRuntime.Prediction().nextTick;
                 progressed = true;
 
                 if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
@@ -3186,116 +3193,132 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-            jobStateCaptured = CaptureReplayPredictionBodyState( m_cGameModelCollection,
-                                                                 m_replayRuntime.Prediction().predictionBodies );
+            jobStateCaptured =
+                CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies );
             if ( jobStateCaptured )
             {
-                m_cGameModelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
-                    m_replayRuntime.Prediction().predictionWorld,
-                    m_cGameModelCollection.GetModelCount() );
+                modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
+                    replayRuntime.Prediction().predictionWorld,
+                    modelCollection.GetModelCount() );
             }
         }
     }
 
 #ifdef _DEBUG
-    m_cGameModelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
+    modelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
 #endif
 
     bool liveRestored = false;
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/RestoreLive" );
         liveRestored =
-            ApplyReplayPredictionBodyState( m_cGameModelCollection, m_replayRuntime.Prediction().liveRestoreBodies ) &&
-            m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
-                m_replayRuntime.Prediction().liveRestoreWorld,
-                m_cGameModelCollection.GetModelCount() );
-        m_cGameModelCollection.InvalidatePhysicsStreams();
+            ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) &&
+            modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
+                                                                            modelCollection.GetModelCount() );
+        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( !jobApplied || !jobStateCaptured || !liveRestored )
     {
-        m_replayRuntime.CancelPredictionJob( true );
-        m_replayRuntime.Prediction().dirty = true;
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
         return false;
     }
 
-    if ( m_replayRuntime.Prediction().nextTick > m_replayRuntime.Prediction().targetTickCount )
+    if ( replayRuntime.Prediction().nextTick > replayRuntime.Prediction().targetTickCount )
     {
-        m_replayRuntime.Prediction().building = false;
-        m_replayRuntime.Prediction().complete = true;
-        m_replayRuntime.Prediction().frames.swap( m_replayRuntime.Prediction().buildFrames );
-        m_replayRuntime.Prediction().buildFrames.clear();
-        m_replayRuntime.ClearPredictionFutureNodeCache();
-        m_replayRuntime.Prediction().lastBuildTime = m_timers.simulationTimer.GetTotalTime();
+        replayRuntime.Prediction().building = false;
+        replayRuntime.Prediction().complete = true;
+        replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
+        replayRuntime.Prediction().buildFrames.clear();
+        replayRuntime.ClearPredictionFutureNodeCache();
+        replayRuntime.Prediction().lastBuildTime = simulationTotalSeconds;
     }
 
-    return progressed || m_replayRuntime.Prediction().complete;
+    return progressed || replayRuntime.Prediction().complete;
 }
 
 
-void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
-                                            const std::chrono::steady_clock::time_point& budgetStart,
-                                            double budgetMilliseconds )
+void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
+                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       bool scenePhysics,
+                                       double fallbackSourceSimulationSeconds,
+                                       double simulationTotalSeconds,
+                                       RunEditorTracer& tracer,
+                                       const std::chrono::steady_clock::time_point& budgetStart,
+                                       double budgetMilliseconds )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
-    if ( !m_replayRuntime.Prediction().enabled )
+    if ( !replayRuntime.Prediction().enabled )
     {
-        if ( m_replayRuntime.Prediction().building )
+        if ( replayRuntime.Prediction().building )
         {
-            m_replayRuntime.CancelPredictionJob( true );
+            replayRuntime.CancelPredictionJob( true );
         }
         return;
     }
 
-    const ReplaySolverFrameSample* latest = m_replayRuntime.Solver().LatestSample();
+    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
     const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
     const uint64_t latestHash = latest ? latest->solverHash : 0;
-    const double now = m_timers.simulationTimer.GetTotalTime();
+    const double now = simulationTotalSeconds;
     const bool sourceChanged =
-        m_replayRuntime.Prediction().targetId.value != m_replayRuntime.PathVisualizer().targetId.value ||
-        m_replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
-        m_replayRuntime.Prediction().sourceSolverHash != latestHash;
-    const bool refreshDue = ( now - m_replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool allowAutomaticRefresh = !m_replayRuntime.Scrubber().liveAdvanceHeld;
-    if ( m_replayRuntime.Prediction().dirty ||
-         ( allowAutomaticRefresh && !m_replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
+        replayRuntime.Prediction().targetId.value != replayRuntime.PathVisualizer().targetId.value ||
+        replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
+        replayRuntime.Prediction().sourceSolverHash != latestHash;
+    const bool refreshDue = ( now - replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
+    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld;
+    if ( replayRuntime.Prediction().dirty ||
+         ( allowAutomaticRefresh && !replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
         }
-        BeginReplayPredictionJob( latestFrame, latestHash, budgetStart, budgetMilliseconds );
+        BeginReplayPredictionJob( replayRuntime,
+                                  modelCollection,
+                                  scenePhysics,
+                                  fallbackSourceSimulationSeconds,
+                                  simulationTotalSeconds,
+                                  latestFrame,
+                                  latestHash,
+                                  budgetStart,
+                                  budgetMilliseconds );
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
         }
     }
-    if ( m_replayRuntime.Prediction().building )
+    if ( replayRuntime.Prediction().building )
     {
         const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
         if ( remainingMilliseconds <= 0.0 )
         {
             return;
         }
-        StepReplayPredictionJob( budgetStart, budgetMilliseconds );
+        StepReplayPredictionJob( replayRuntime,
+                                 modelCollection,
+                                 simulationTotalSeconds,
+                                 budgetStart,
+                                 budgetMilliseconds );
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
         }
     }
 
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
-    const bool usingBuildFrames = &activePredictionFrames == &m_replayRuntime.Prediction().buildFrames;
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const bool usingBuildFrames = &activePredictionFrames == &replayRuntime.Prediction().buildFrames;
     if ( activePredictionFrames.size() < 2 )
     {
         return;
     }
 
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    if ( !m_replayRuntime.PathVisualizer().hasTarget || m_replayRuntime.PathVisualizer().targetId.value == 0 )
+    const std::vector<GameModel>& models = modelCollection.Models();
+    if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
-        m_replayRuntime.ClearPredictionFutureNodeCache();
-        if ( m_replayRuntime.Prediction().ragdollVisualsEnabled )
+        replayRuntime.ClearPredictionFutureNodeCache();
+        if ( replayRuntime.Prediction().ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                     models,
@@ -3327,8 +3350,8 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
             }
             const RunReplayPredictionBodySample* body =
                 FindReplayPredictionBodyByIdWithHint( frame,
-                                                      m_replayRuntime.PathVisualizer().targetId,
-                                                      m_replayRuntime.PathVisualizer().targetModelIndex );
+                                                      replayRuntime.PathVisualizer().targetId,
+                                                      replayRuntime.PathVisualizer().targetModelIndex );
             if ( !body )
             {
                 continue;
@@ -3350,11 +3373,11 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
 
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
-        UpdateReplayPredictionFutureNodeCache( m_replayRuntime.Prediction(),
+        UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
                                                activePredictionFrames,
                                                usingBuildFrames,
                                                models,
-                                               m_replayRuntime.PathVisualizer().targetId,
+                                               replayRuntime.PathVisualizer().targetId,
                                                budgetStart,
                                                budgetMilliseconds );
     }
@@ -3371,11 +3394,10 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         childDraw.presentFrame = 0;
         childDraw.lastFrame = lastFrame;
         childDraw.sampleStride = sampleStride;
-        childDraw.nodeCount =
-            (std::min)( m_replayRuntime.Prediction().futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
+        childDraw.nodeCount = (std::min)( replayRuntime.Prediction().futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
         for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
         {
-            childDraw.nodes[i].node = m_replayRuntime.Prediction().futureNodes[i];
+            childDraw.nodes[i].node = replayRuntime.Prediction().futureNodes[i];
         }
 
         std::size_t ordinal = 0;
@@ -3458,7 +3480,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
             }
         }
 
-        for ( const RunReplayPathTraceNode& node : m_replayRuntime.Prediction().futureNodes )
+        for ( const RunReplayPathTraceNode& node : replayRuntime.Prediction().futureNodes )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -3478,7 +3500,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
         }
     }
 
-    if ( m_replayRuntime.Prediction().ragdollVisualsEnabled &&
+    if ( replayRuntime.Prediction().ragdollVisualsEnabled &&
          !ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
@@ -3490,6 +3512,8 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
 }
 
 
+} // namespace
+
 void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 {
     PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
@@ -3499,7 +3523,14 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     // markers all share this deadline. Child functions receive the same start
     // time so profiler nesting cannot hide extra replay work outside the cap.
     const auto visualizerStart = std::chrono::steady_clock::now();
-    RenderReplayPredictionVisualizer( tracer, visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+    RenderReplayPredictionVisualizer( m_replayRuntime,
+                                      m_cGameModelCollection,
+                                      SceneState().isScenePhysics,
+                                      m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                      m_timers.simulationTimer.GetTotalTime(),
+                                      tracer,
+                                      visualizerStart,
+                                      REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
     if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;

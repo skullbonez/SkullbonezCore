@@ -402,14 +402,6 @@ class Run
     // Prediction work shares the replay visualizer deadline. These calls may
     // leave prediction dirty/building so a later frame can resume without
     // exceeding the current render-frame budget.
-    bool BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
-                                   uint64_t sourceSolverHash,
-                                   const std::chrono::steady_clock::time_point& budgetStart,
-                                   double budgetMilliseconds );
-    bool StepReplayPredictionJob( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
-    void RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
-                                           const std::chrono::steady_clock::time_point& budgetStart,
-                                           double budgetMilliseconds );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
     void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );

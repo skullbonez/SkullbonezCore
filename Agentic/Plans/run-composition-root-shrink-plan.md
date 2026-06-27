@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay prediction capture helper slice validated
+Status: Active architecture cleanup plan; replay prediction lifecycle helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay prediction capture helper section below
+Validation for latest implementation slice: see the replay prediction lifecycle helper section below
 
 ## Goal
 
@@ -2056,6 +2056,85 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: prediction job lifecycle and prediction visualizer
 wrappers still remain on `Run`; render-host splitting, shared cine/path helper
 cleanup, and remaining scene load ownership remain active.
+
+## Replay Prediction Lifecycle Helper Slice
+
+This replay-tool slice removed the prediction job lifecycle wrappers from
+`Run`. `RunReplayTools.cpp` now keeps `BeginReplayPredictionJob(...)`,
+`StepReplayPredictionJob(...)`, and `RenderReplayPredictionVisualizer(...)`
+file-local with explicit `ReplayRuntime`, `GameModelCollection`, scene-physics,
+and timer inputs. `Run::RenderReplayPathVisualizer` still owns the outer replay
+visualizer frame budget and passes those inputs into the local prediction helper.
+
+Deleted `Run.h` declarations:
+
+- `BeginReplayPredictionJob`
+- `StepReplayPredictionJob`
+- `RenderReplayPredictionVisualizer`
+
+Deleted `Run::` definitions:
+
+- `Run::BeginReplayPredictionJob`
+- `Run::StepReplayPredictionJob`
+- `Run::RenderReplayPredictionVisualizer`
+
+New owner surface:
+
+- File-local `BeginReplayPredictionJob(...)`,
+  `StepReplayPredictionJob(...)`, and
+  `RenderReplayPredictionVisualizer(...)` in
+  `Runtime/Replay/RunReplayTools.cpp`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 189 to 186.
+- The `Run.h` rules reject the three replay prediction lifecycle helper
+  declarations from returning.
+- Runtime source guardrails reject the three `Run::` replay prediction
+  lifecycle definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No new explanatory comments were added. Existing prediction hazard and budget
+  comments remain attached to the moved helper bodies.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_lifecycle_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.75s.
+- Initial `tools\validate_fast.bat` run stopped at formatting for
+  `RunReplayTools.cpp`; that touched file was formatted directly with VS
+  `clang-format` before final gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_lifecycle_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 51.09s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_prediction_lifecycle_runtime_boundaries.log`;
+  passed with 0 errors in 1.52s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_lifecycle_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.06s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: `RenderReplayPathVisualizer` still remains on
+`Run`; render-host splitting, shared cine/path helper cleanup, and remaining
+scene load ownership remain active.
 
 ## Rules
 
