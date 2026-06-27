@@ -2129,108 +2129,6 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 }
 
 
-void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex )
-{
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
-    Vector3 targetPosition = row.point;
-    float targetRadius = 2.0f;
-    RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
-    switch ( row.kind )
-    {
-    case RunReplayCauseTreeRowKind::Body:
-        if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                            m_cGameModelCollection.Models(),
-                                                            targetPosition,
-                                                            &targetRadius ) )
-        {
-            return;
-        }
-        focusKind = RunReplayCameraFocusKind::Body;
-        break;
-    case RunReplayCauseTreeRowKind::Manifold:
-        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                      m_cGameModelCollection.Models(),
-                                                      targetPosition,
-                                                      &targetRadius );
-        targetPosition = row.point;
-        targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
-        focusKind = RunReplayCameraFocusKind::Manifold;
-        break;
-    case RunReplayCauseTreeRowKind::SolverRow:
-        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                      m_cGameModelCollection.Models(),
-                                                      targetPosition,
-                                                      &targetRadius );
-        targetPosition = row.point;
-        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
-        focusKind = RunReplayCameraFocusKind::SolverRow;
-        break;
-    case RunReplayCauseTreeRowKind::PredictionContact:
-        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                      m_cGameModelCollection.Models(),
-                                                      targetPosition,
-                                                      &targetRadius );
-        targetPosition = row.point;
-        targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
-        focusKind = RunReplayCameraFocusKind::PredictionContact;
-        break;
-    default:
-        return;
-    }
-
-    if ( VectorMagSquared( targetPosition ) <= TOLERANCE * TOLERANCE && row.kind != RunReplayCauseTreeRowKind::Body )
-    {
-        return;
-    }
-
-    EnterInteractiveSceneRun();
-    const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
-    if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        SetReplayLiveAdvanceHeld( true );
-        m_replayRuntime.Camera().ownsSimulationPause = true;
-    }
-    else if ( !hadReplayCameraFocus )
-    {
-        m_replayRuntime.Camera().ownsSimulationPause = false;
-    }
-    EnterReplayInspectionCamera();
-
-    m_replayRuntime.Camera().focusKind = focusKind;
-    m_replayRuntime.Camera().focusedId = row.id;
-    m_replayRuntime.Camera().counterpartId = row.counterpartId;
-    m_replayRuntime.Camera().focusedRow = rowIndex;
-    m_replayRuntime.Camera().focusRowKind = row.kind;
-    m_replayRuntime.Camera().focusModelIndex = row.modelIndex;
-    m_replayRuntime.Camera().focusCounterpartModelIndex = row.counterpartModelIndex;
-    m_replayRuntime.Camera().focusContactIndex = row.contactIndex;
-    m_replayRuntime.Camera().focusSolverRowIndex = row.solverRowIndex;
-    m_replayRuntime.Camera().focusFeatureId = row.featureId;
-    m_replayRuntime.Camera().focusTerrain = row.terrain;
-    m_replayRuntime.Camera().targetPoint = targetPosition;
-    m_replayRuntime.Camera().targetNormal = ReplayNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
-    m_replayRuntime.Camera().impulseVector = row.impulse;
-    m_replayRuntime.Camera().targetRadius = targetRadius;
-    m_replayRuntime.CauseTree().focusedId = row.id;
-    m_replayRuntime.CauseTree().selectedRow = rowIndex;
-
-    if ( m_systems.cameras )
-    {
-        const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
-        Vector3 direction = ReplayNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
-        direction = ReplayNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
-        const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
-        const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
-        m_systems.cameras->CancelTween();
-        m_systems.cameras->SetPrimaryPosition( newEye );
-        m_systems.cameras->SetViewCoordinates( targetPosition );
-        m_systems.cameras->ResetRelativity();
-    }
-    InputController::ResetMouseLook( m_camera );
-    Input::SetSystemCursorVisible( true );
-}
-
-
 void Run::ClearReplayCameraFocus( bool restoreCamera )
 {
     m_replayRuntime.Camera().focusKind = RunReplayCameraFocusKind::None;
@@ -2275,6 +2173,108 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     const bool leftReleased = !leftDown && m_replayRuntime.CauseTree().leftWasDown;
     m_replayRuntime.CauseTree().leftWasDown = leftDown;
     m_replayRuntime.CauseTree().hoveredRow = -1;
+
+    const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
+    {
+        PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
+        Vector3 targetPosition = row.point;
+        float targetRadius = 2.0f;
+        RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
+        switch ( row.kind )
+        {
+        case RunReplayCauseTreeRowKind::Body:
+            if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                                m_cGameModelCollection.Models(),
+                                                                targetPosition,
+                                                                &targetRadius ) )
+            {
+                return;
+            }
+            focusKind = RunReplayCameraFocusKind::Body;
+            break;
+        case RunReplayCauseTreeRowKind::Manifold:
+            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                          m_cGameModelCollection.Models(),
+                                                          targetPosition,
+                                                          &targetRadius );
+            targetPosition = row.point;
+            targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
+            focusKind = RunReplayCameraFocusKind::Manifold;
+            break;
+        case RunReplayCauseTreeRowKind::SolverRow:
+            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                          m_cGameModelCollection.Models(),
+                                                          targetPosition,
+                                                          &targetRadius );
+            targetPosition = row.point;
+            targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+            focusKind = RunReplayCameraFocusKind::SolverRow;
+            break;
+        case RunReplayCauseTreeRowKind::PredictionContact:
+            m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                          m_cGameModelCollection.Models(),
+                                                          targetPosition,
+                                                          &targetRadius );
+            targetPosition = row.point;
+            targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
+            focusKind = RunReplayCameraFocusKind::PredictionContact;
+            break;
+        default:
+            return;
+        }
+
+        if ( VectorMagSquared( targetPosition ) <= TOLERANCE * TOLERANCE &&
+             row.kind != RunReplayCauseTreeRowKind::Body )
+        {
+            return;
+        }
+
+        EnterInteractiveSceneRun();
+        const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
+        if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
+        {
+            SetReplayLiveAdvanceHeld( true );
+            m_replayRuntime.Camera().ownsSimulationPause = true;
+        }
+        else if ( !hadReplayCameraFocus )
+        {
+            m_replayRuntime.Camera().ownsSimulationPause = false;
+        }
+        EnterReplayInspectionCamera();
+
+        m_replayRuntime.Camera().focusKind = focusKind;
+        m_replayRuntime.Camera().focusedId = row.id;
+        m_replayRuntime.Camera().counterpartId = row.counterpartId;
+        m_replayRuntime.Camera().focusedRow = rowIndex;
+        m_replayRuntime.Camera().focusRowKind = row.kind;
+        m_replayRuntime.Camera().focusModelIndex = row.modelIndex;
+        m_replayRuntime.Camera().focusCounterpartModelIndex = row.counterpartModelIndex;
+        m_replayRuntime.Camera().focusContactIndex = row.contactIndex;
+        m_replayRuntime.Camera().focusSolverRowIndex = row.solverRowIndex;
+        m_replayRuntime.Camera().focusFeatureId = row.featureId;
+        m_replayRuntime.Camera().focusTerrain = row.terrain;
+        m_replayRuntime.Camera().targetPoint = targetPosition;
+        m_replayRuntime.Camera().targetNormal = ReplayNormalizeOr( row.normal, Vector3( 0.0f, 1.0f, 0.0f ) );
+        m_replayRuntime.Camera().impulseVector = row.impulse;
+        m_replayRuntime.Camera().targetRadius = targetRadius;
+        m_replayRuntime.CauseTree().focusedId = row.id;
+        m_replayRuntime.CauseTree().selectedRow = rowIndex;
+
+        if ( m_systems.cameras )
+        {
+            const Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+            Vector3 direction = ReplayNormalizeOr( eye - targetPosition, Vector3( 0.45f, 0.28f, 0.85f ) );
+            direction = ReplayNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
+            const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
+            const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
+            m_systems.cameras->CancelTween();
+            m_systems.cameras->SetPrimaryPosition( newEye );
+            m_systems.cameras->SetViewCoordinates( targetPosition );
+            m_systems.cameras->ResetRelativity();
+        }
+        InputController::ResetMouseLook( m_camera );
+        Input::SetSystemCursorVisible( true );
+    };
 
     const int screenW = WindowScreenWidth();
     const int screenH = WindowScreenHeight();
@@ -2390,7 +2390,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             {
                 SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayCauseTree,
                                                                     InteractionExitReason::EnterReplay );
-                ActivateReplayCameraForCauseRow( m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )],
+                activateReplayCameraForCauseRow( m_replayRuntime.CauseTree().rows[static_cast<std::size_t>( rowIndex )],
                                                  rowIndex );
             }
         }

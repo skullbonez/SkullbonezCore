@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene tornado defaults helper slice validated
+Status: Active architecture cleanup plan; replay cause-tree camera activation helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene tornado defaults helper section below
+Validation for latest implementation slice: see the replay cause-tree camera activation helper section below
 
 ## Goal
 
@@ -2348,6 +2348,76 @@ Residual architecture risk: `SyncTornadoFieldToPhysics` still remains on `Run`
 because scene load, CLI overrides, and UI input all call it; scene persistence,
 render-host splitting, shared cine/path helper cleanup, and remaining scene load
 ownership remain active.
+
+## Replay Cause-Tree Camera Activation Helper Slice
+
+This replay-tool slice removed the cause-tree row camera activation wrapper from
+`Run`. `TickReplayCauseTreeInput` is the only caller, so the focus/camera setup
+logic now lives as a scoped lambda inside that input path instead of as a
+private `Run` method.
+
+Deleted `Run.h` declaration:
+
+- `ActivateReplayCameraForCauseRow`
+
+Deleted `Run::` definition:
+
+- `Run::ActivateReplayCameraForCauseRow`
+
+New owner surface:
+
+- Scoped `activateReplayCameraForCauseRow` lambda inside
+  `Runtime/Replay/RunReplayTools.cpp` `Run::TickReplayCauseTreeInput`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 183 to 182.
+- New header and source guardrails reject
+  `ActivateReplayCameraForCauseRow` declarations and
+  `Run::ActivateReplayCameraForCauseRow` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The helper remains scoped beside the
+  cause-tree input branch that owns row selection and mouse focus.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_camera_activation_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.72s.
+- Initial `tools\validate_fast.bat` run stopped at formatting for
+  `RunReplayTools.cpp`; that touched file was formatted directly with VS
+  `clang-format` before final gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_camera_activation_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 51.42s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_cause_camera_activation_runtime_boundaries.log`;
+  passed with 0 errors in 1.68s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_camera_activation_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.06s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: cause-tree input, focus clearing, replay inspection
+camera state, replay overlay rendering, and render-host splitting still remain
+active `Run`/replay-tool boundaries.
 
 ## Rules
 

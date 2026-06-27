@@ -402,7 +402,6 @@ class Run
     // exceeding the current render-frame budget.
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
-    void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );
     void ClearReplayCameraFocus( bool restoreCamera );
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
