@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay world override event wrapper slice validated
+Status: Active architecture cleanup plan; replay launcher config event wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay world override event wrapper section below
+Validation for latest implementation slice: see the replay launcher config event wrapper section below
 
 ## Goal
 
@@ -3424,6 +3424,83 @@ Residual architecture risk: the remaining replay event payload packaging
 helpers, solver apply/hash helpers, replay inspection camera enter/exit and
 focus-control methods, and render-host splitting remain active; this slice only
 moved the world override event payload to `ReplayRuntime`.
+
+## Replay Launcher Config Event Wrapper Slice
+
+This replay launcher config slice moved launcher-setting event payload ownership
+from `Run` into `ReplayRuntime`. UI slider updates and the replay-save probe now
+ask `ReplayRuntime` to append launcher config events, while the replay owner
+keeps the changed flags, event-frame cursor, float-bit payloads, FNV hash, and
+event text in one place.
+
+Deleted `Run.h` declarations:
+
+- `RecordReplayLauncherConfigEvent`
+
+Deleted `Run::` definitions:
+
+- `Run::RecordReplayLauncherConfigEvent`
+
+New owner surface:
+
+- `ReplayRuntime::RecordLauncherConfigEvent(...)`
+
+Updated call sites:
+
+- `Run::TakeInput`
+- `Run::TickReplaySaveProbe`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 163 to 162.
+- New header and source guardrails reject the removed replay launcher config
+  event wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. The moved replay runtime method preserves the previous
+  launcher config event semantics and payload shape.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_config_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.70s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_config_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.27s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_launcher_config_runtime_boundaries.log`;
+  passed with 0 errors in 2.47s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_config_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.00s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: the remaining replay fire/editor event payload
+packaging helpers, solver apply/hash helpers, replay inspection camera
+enter/exit and focus-control methods, and render-host splitting remain active;
+this slice only moved launcher config event payload ownership to
+`ReplayRuntime`.
 
 ## Rules
 

@@ -849,7 +849,9 @@ void Run::TickReplaySaveProbe()
                 PROBE_SCALE_FACTOR );
         }
         m_runtimeTools.RayCastTest().projectileSpeed += 1.0f;
-        RecordReplayLauncherConfigEvent( 2u );
+        m_replayRuntime.RecordLauncherConfigEvent( 2u,
+                                                   m_runtimeTools.RayCastTest().impulseStrength,
+                                                   m_runtimeTools.RayCastTest().projectileSpeed );
         Vector3 rayOrigin;
         Vector3 rayDirection;
         Vector3 cameraUp;

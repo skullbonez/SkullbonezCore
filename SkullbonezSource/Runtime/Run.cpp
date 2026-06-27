@@ -927,29 +927,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 }
 
 
-void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
-{
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, m_runtimeTools.RayCastTest().impulseStrength );
-    HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
-
-    m_replayRuntime.RecordEvent( ReplayEventKind::LauncherConfig,
-                                 m_replayRuntime.NextEventFrameIndex(),
-                                 changedFlags,
-                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                                 0,
-                                 0,
-                                 hash,
-                                 "launcher_config" );
-}
-
-
 void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
                                          const Vector3& rayDirection,
                                          const Vector3& cameraUp )

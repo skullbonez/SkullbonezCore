@@ -461,6 +461,7 @@ class ReplayRuntime
                                    float gravity,
                                    float fluidHeight,
                                    float fluidDensity );
+    void RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 

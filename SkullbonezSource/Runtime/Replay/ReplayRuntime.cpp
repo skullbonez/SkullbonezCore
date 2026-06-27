@@ -1931,6 +1931,28 @@ void ReplayRuntime::RecordWorldOverrideEvent( float previousGravity,
                  "world_override" );
 }
 
+void ReplayRuntime::RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed )
+{
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    ReplayRuntimeHashFloat( hash, impulseStrength );
+    ReplayRuntimeHashFloat( hash, projectileSpeed );
+
+    RecordEvent( ReplayEventKind::LauncherConfig,
+                 NextEventFrameIndex(),
+                 changedFlags,
+                 ReplayRuntimeFloatBitsSigned( impulseStrength ),
+                 ReplayRuntimeFloatBitsSigned( projectileSpeed ),
+                 0,
+                 0,
+                 hash,
+                 "launcher_config" );
+}
+
 bool ReplayRuntime::SaveSolverReplay( const char* path ) const
 {
     return ReplayExporter::Save( m_solver, path );
