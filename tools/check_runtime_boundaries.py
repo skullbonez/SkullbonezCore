@@ -4,12 +4,14 @@
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
 #   extracted subsystem ownership, and prevent new physics dependencies on the
-#   legacy GameModelCollection world container.
+#   legacy GameModelCollection world container or raytracing calls on the wide
+#   render backend facade.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
 #   helper back to Run. Physics data ownership is similarly easy to regress by
-#   threading GameModelCollection into one more API. This check is intentionally
+#   threading GameModelCollection into one more API. Render ownership can regress
+#   when DXR reflection calls creep back onto Gfx(). This check is intentionally
 #   small: it watches the boundaries named by the active architecture plans.
 #
 # Glossary:
@@ -22,6 +24,8 @@
 #   - Subsystems may borrow explicit service/context structs, but not store Run.
 #   - Physics may only keep the current GameModelCollection compatibility
 #     surface while stores and handles become authoritative.
+#   - Raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
+#     wide IRenderBackend/Gfx facade.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -45,6 +49,7 @@ RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
@@ -53,6 +58,15 @@ RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
 PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|PhysicsModelView)\b")
+DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
+    r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
+    r"ShutdownDXR|GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
+IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
+    r"\b(?:virtual\s+)?(?:void|uint32_t|uint64_t|int)\s+"
+    r"(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|ShutdownDXR|"
+    r"GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -1229,6 +1243,50 @@ def check_deleted_physics_model_view_guardrails(repo: Path) -> list[BoundaryErro
                 continue
             errors.extend(check_deleted_physics_model_view_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_direct_gfx_raytracing_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in DIRECT_GFX_RAYTRACING_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "direct Gfx() raytracing calls are blocked",
+                "Use GfxRayTracing()/IRenderRayTracing so DXR reflection does not live on the wide IRenderBackend facade.",
+            )
+        )
+    return errors
+
+
+def check_direct_gfx_raytracing_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(check_direct_gfx_raytracing_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_irender_backend_raytracing_declarations_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "raytracing declarations are blocked on IRenderBackend",
+                "Put raytracing methods on IRenderRayTracing so the wide backend facade does not regrow DXR reflection ownership.",
+            )
+        )
+    return errors
+
+
+def check_irender_backend_raytracing_declarations(repo: Path) -> list[BoundaryError]:
+    path = repo / IRENDER_BACKEND_HEADER
+    return check_irender_backend_raytracing_declarations_text(path, path.read_text(encoding="utf-8"))
 
 
 def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
@@ -2536,6 +2594,40 @@ def run_self_tests() -> list[str]:
         for error in check_text_rules(Path("synthetic/Run.h"), old_run_dxr_reflection_state, RUN_HEADER_RULES)
     ):
         failures.append("old Run.h DXR reflection state synthetic surface was not rejected")
+
+    allowed_raytracing_accessor = "void Render() { GfxRayTracing().BuildTLAS( matrices, count, 0, 0 ); }"
+    if check_direct_gfx_raytracing_guardrails_text(
+        Path("synthetic/RunPasses.cpp"),
+        allowed_raytracing_accessor,
+    ):
+        failures.append("allowed GfxRayTracing synthetic call was rejected")
+
+    old_direct_gfx_raytracing_call = "void Render() { Gfx().BuildTLAS( matrices, count, 0, 0 ); }"
+    if not any(
+        error.message == "direct Gfx() raytracing calls are blocked"
+        for error in check_direct_gfx_raytracing_guardrails_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_direct_gfx_raytracing_call,
+        )
+    ):
+        failures.append("direct Gfx raytracing synthetic call was not rejected")
+
+    old_irender_backend_raytracing_surface = """
+    class IRenderBackend
+    {
+      public:
+        virtual void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride ) = 0;
+        virtual uint32_t GetReflectionUAVTexture() const = 0;
+    };
+    """
+    if not any(
+        error.message == "raytracing declarations are blocked on IRenderBackend"
+        for error in check_irender_backend_raytracing_declarations_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_raytracing_surface,
+        )
+    ):
+        failures.append("IRenderBackend raytracing declaration synthetic surface was not rejected")
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     if not any(
@@ -4659,6 +4751,8 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
+    errors.extend(check_direct_gfx_raytracing_guardrails(repo))
+    errors.extend(check_irender_backend_raytracing_declarations(repo))
     return errors
 
 

@@ -429,7 +429,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                    true,
                                    cinematicTargetsAvailable && UIData.cinematic.volumetricLightingEnabled );
 
-            const uint32_t dxrReflection = IsGfxReady() ? Gfx().GetReflectionUAVTexture() : 0;
+            const uint32_t dxrReflection = IsGfxRayTracingReady() ? GfxRayTracing().GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
                         m_host.WindowScreenWidth() * 2,

@@ -1,9 +1,16 @@
 # Render Graph / `IRenderBackend` Interface Plan
 
 Date: 2026-06-27
-Status: Draft plan
+Status: In progress
 Impact areas: DX12 renderer, render graph execution, render backend interface, runtime render host, tests
 Validation for this plan edit: Documentation-only. No repository validation required.
+
+## Completed Slices
+
+- [x] 2026-06-27: Removed DXR reflection state from `Run.h`; runtime reflection transform scratch now lives behind `RuntimeRenderHost`.
+- [x] 2026-06-27: Split DXR reflection calls out of `IRenderBackend` into `IRenderRayTracing`; migrated runtime reflection setup, dispatch, and debug preview callers.
+- [x] 2026-06-27: Added runtime boundary guardrails for direct `Gfx().DXR`-style calls and for reintroducing DXR declarations to `IRenderBackend.h`.
+- [x] 2026-06-27: Validated the raytracing-interface slice with `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and `tools\validate_full.bat`.
 
 ## Goal
 
@@ -32,7 +39,7 @@ This plan continues the completed `engine-evaluation-fix-03-render-graph-executi
 - [ ] Do not widen `IRenderBackend` while claiming to split it.
 - [ ] Do not expose raw DX12 types through engine-facing interfaces unless the interface is explicitly DX12-owned.
 - [ ] Do not remove the compatibility facade until all production callers have moved.
-- [ ] Do not leave DXR reflection state, pass helpers, or backend-specific reflection setup in `Run.h`.
+- [x] Do not leave DXR reflection state, pass helpers, or backend-specific reflection setup in `Run.h`.
 
 ## Phase 0 - Startup, Inventory, and Slice Choice
 
@@ -172,31 +179,31 @@ Candidate capability groups:
 - [ ] GPU profiling capability: timers, platform markers, marker scopes, validation marker output.
 - [ ] Debug draw capability: lines, shapes, overlays, debug render queues.
 - [ ] Dynamic geometry capability: transient vertex/index uploads and per-frame geometry streams.
-- [ ] Ray tracing capability: DXR scene/build/update/dispatch functions.
+- [x] Ray tracing capability: DXR scene/build/update/dispatch functions.
 - [ ] Diagnostics/settings capability: validation flags, debug names, renderer stats, feature support.
 
 Interface split checklist:
 
-- [ ] Name each new interface from the current source vocabulary; avoid speculative generic names.
-- [ ] Add the smallest interface needed for one caller group.
-- [ ] Back the new interface with the existing DX12 backend implementation.
-- [ ] Migrate one caller group to the new capability.
+- [x] Name each new interface from the current source vocabulary; avoid speculative generic names.
+- [x] Add the smallest interface needed for one caller group.
+- [x] Back the new interface with the existing DX12 backend implementation.
+- [x] Migrate one caller group to the new capability.
 - [ ] Leave `IRenderBackend` forwarding or exposing compatibility until all callers move.
-- [ ] Keep DX12-only includes out of engine-facing headers unless the new interface is DX12-owned.
+- [x] Keep DX12-only includes out of engine-facing headers unless the new interface is DX12-owned.
 - [ ] Convert optional no-op methods into explicit capability checks or remove them after callers migrate.
 - [ ] Avoid global access expansion; pass capability references through existing runtime ownership paths where practical.
-- [ ] Update comments for ownership, lifetime, thread expectations, and frame timing.
+- [x] Update comments for ownership, lifetime, thread expectations, and frame timing.
 - [ ] Repeat for the next caller group only after the current group is validated.
 
 Do-not-miss checklist:
 
 - [ ] `IRenderBackend.h` gets smaller over the full plan, not larger.
 - [ ] Callers no longer receive a full backend when they only need one capability.
-- [ ] Runtime host and renderer lifetime still destroy capabilities in a safe order.
+- [x] Runtime host and renderer lifetime still destroy capabilities in a safe order.
 - [ ] Capture/readback paths still work for validation artifacts.
 - [ ] GPU marker and profiler paths still work for `--platform-profiler-markers`.
-- [ ] DXR code stays isolated from non-DXR callers.
-- [ ] No interface split adds per-frame heap allocation in a hot path.
+- [x] DXR code stays isolated from non-DXR callers.
+- [x] No interface split adds per-frame heap allocation in a hot path.
 
 ## Phase 5 - Clean Up Runtime Renderer and Host Wiring
 
@@ -206,13 +213,13 @@ Once graph execution and capability views exist, simplify the runtime path.
 - [ ] Make `RuntimeRenderHost` provide only the capability references needed by runtime systems.
 - [ ] Remove direct pass scheduling from runtime code after each migrated pass is graph-owned.
 - [ ] Remove direct backend calls from pass code where a graph context or narrow capability is sufficient.
-- [ ] Move DXR reflection state and helper declarations out of `Run.h`.
-- [ ] Put DXR reflection ownership behind renderer/runtime render-host owned types with narrow inputs from gameplay/runtime state.
-- [ ] Remove any `Run.h` includes that exist only for DXR reflection implementation details.
+- [x] Move DXR reflection state and helper declarations out of `Run.h`.
+- [x] Put DXR reflection ownership behind renderer/runtime render-host owned types with narrow inputs from gameplay/runtime state.
+- [x] Remove any `Run.h` includes that exist only for DXR reflection implementation details.
 - [ ] Remove stale compatibility methods from `IRenderBackend` after final callers migrate.
 - [ ] Remove stale include dependencies caused by the old wide backend interface.
 - [ ] Update renderer diagnostics and frame graph outputs to match the new execution path.
-- [ ] Add search guardrails for accidental new wide-backend dependencies, direct runtime pass scheduling regressions, and DXR reflection declarations returning to `Run.h`.
+- [x] Add search guardrails for accidental new wide-backend dependencies, direct runtime pass scheduling regressions, and DXR reflection declarations returning to `Run.h`.
 
 Searches to run before declaring cleanup done:
 
@@ -231,30 +238,30 @@ Repository validation scripts are PR/commit gates. Do not run them repeatedly wh
 - [ ] Render graph pass migration: run `tools\validate_dx12_renderer.bat` before PR-bound commit.
 - [ ] Transient resource allocation, resource barriers, descriptor lifetime, or render target ownership changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] Upload buffer, dynamic geometry, descriptor heap, or per-frame allocation changes: run `tools\validate_dx12_renderer.bat` and `tools\validate_perf.bat`.
-- [ ] `IRenderBackend`, `RenderBackendDX12`, `Rendering/DX12/*`, or DXR reflection ownership/interface changes: run `tools\validate_dx12_renderer.bat`.
-- [ ] Runtime host, window, resize, init, shutdown, or device lifecycle changes: run `tools\validate_full.bat`.
+- [x] `IRenderBackend`, `RenderBackendDX12`, `Rendering/DX12/*`, or DXR reflection ownership/interface changes: run `tools\validate_dx12_renderer.bat`.
+- [x] Runtime host, window, resize, init, shutdown, or device lifecycle changes: run `tools\validate_full.bat`.
 - [ ] Profiling marker changes: run `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers` in addition to the relevant renderer gate.
-- [ ] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
+- [x] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
 - [ ] If unsure at PR gate: run `tools\agent_validate.bat`.
 
 Validation evidence checklist:
 
-- [ ] Capture the exact command.
-- [ ] Capture meaningful output lines.
-- [ ] Capture the log path if output is mirrored to a file.
-- [ ] Confirm zero build warnings.
-- [ ] Confirm `dx12_validation.txt` reports zero DX12 validation errors when renderer validation is required.
-- [ ] Confirm screenshot comparisons pass or document intentional baseline updates.
-- [ ] Confirm no required validation was skipped.
+- [x] Capture the exact command.
+- [x] Capture meaningful output lines.
+- [x] Capture the log path if output is mirrored to a file.
+- [x] Confirm zero build warnings.
+- [x] Confirm `dx12_validation.txt` reports zero DX12 validation errors when renderer validation is required.
+- [x] Confirm screenshot comparisons pass or document intentional baseline updates.
+- [x] Confirm no required validation was skipped.
 
 Review checklist:
 
-- [ ] Inspect all touched source-bearing files with `Agentic/Skills/comment-style-audit/skill.md`.
-- [ ] Run a focused source search for accidental direct backend access after interface migration.
+- [x] Inspect all touched source-bearing files with `Agentic/Skills/comment-style-audit/skill.md`.
+- [x] Run a focused source search for accidental direct backend access after interface migration.
 - [ ] Review resource lifetime against frame-lag/fence behavior.
 - [ ] Review pass declarations against actual resource reads and writes.
-- [ ] Review hot paths for new heap allocations.
-- [ ] Ask for or perform an independent rubber-duck review before final PR-bound handoff if the slice changes resource barriers, pass ordering, or interface lifetime.
+- [x] Review hot paths for new heap allocations.
+- [x] Ask for or perform an independent rubber-duck review before final PR-bound handoff if the slice changes resource barriers, pass ordering, or interface lifetime.
 
 ## Final Acceptance Checklist
 
@@ -266,7 +273,7 @@ Review checklist:
 - [ ] Narrow capability interfaces serve caller groups without exposing the full backend.
 - [ ] DX12-specific details are isolated to DX12-owned headers or consciously named DX12 capabilities.
 - [ ] Runtime renderer and host wiring no longer route pass code through unnecessary global backend access.
-- [ ] `Run.h` no longer owns or declares DXR reflection state or helpers.
-- [ ] Renderer validation is selected and run for any code slice that changes render behavior.
-- [ ] All touched source-bearing files pass the repository comment quality gate.
-- [ ] `git status --short --branch` has been checked before handoff or commit.
+- [x] `Run.h` no longer owns or declares DXR reflection state or helpers.
+- [x] Renderer validation is selected and run for any code slice that changes render behavior.
+- [x] All touched source-bearing files pass the repository comment quality gate.
+- [x] `git status --short --branch` has been checked before handoff or commit.

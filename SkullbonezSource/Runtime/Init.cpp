@@ -2384,8 +2384,12 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 void InitRenderBackend( Window* window )
 {
     auto backend = std::make_unique<RenderBackendDX12>();
+    // Lifetime: SetGfxBackend takes ownership; the raytracing accessor keeps
+    // only a borrowed alias that DestroyGfxBackend clears before releasing it.
+    RenderBackendDX12* rayTracingBackend = backend.get();
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );
+    SetGfxRayTracingBackend( rayTracingBackend );
 }
 
 // ---------------------------------------------------------------------------

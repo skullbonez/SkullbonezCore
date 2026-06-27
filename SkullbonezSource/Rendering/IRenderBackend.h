@@ -48,6 +48,7 @@ Related:
 #include "IShader.h"
 #include "IMesh.h"
 #include "IFramebuffer.h"
+#include "IRenderRayTracing.h"
 
 
 namespace SkullbonezCore
@@ -111,7 +112,7 @@ class IRenderBackend : public IRenderCaptureBackend
     virtual void SetVsyncEnabled( bool enabled ) = 0;
     virtual bool IsVsyncEnabled() const = 0;
     virtual void Finish() = 0;
-    virtual void FlushGPU() = 0;                             // Block until all submitted GPU work completes (required before resource destruction)
+    virtual void FlushGPU() = 0; // Block until all submitted GPU work completes (required before resource destruction)
     virtual void Resize( int width, int height ) = 0;
 
 
@@ -220,40 +221,6 @@ class IRenderBackend : public IRenderCaptureBackend
     }
 
 
-    // --- DXR Raytracing Support ---
-
-    virtual void InitDXR( uint64_t terrainVBVA,
-                          int terrainVertCount,
-                          int terrainStride,
-                          uint64_t sphereVBVA,
-                          int sphereVertCount,
-                          int sphereStride,
-                          int maxInstances ) = 0;
-    virtual void DispatchReflectionRays( const float* invViewProj,
-                                         const float* cameraPos,
-                                         float waterY,
-                                         float time,
-                                         const float* lightPos,
-                                         int width,
-                                         int height,
-                                         uint32_t sphereTexHandle,
-                                         uint32_t terrainTexHandle,
-                                         uint32_t skyUpHandle,
-                                         uint32_t skyDownHandle,
-                                         uint32_t skyRightHandle,
-                                         uint32_t skyLeftHandle,
-                                         uint32_t skyFrontHandle,
-                                         uint32_t skyBackHandle ) = 0;
-    virtual void
-    BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
-    virtual uint32_t
-    GetReflectionUAVTexture() const = 0;                     // Engine texture handle for sampling the completed water reflection.
-    virtual void ShutdownDXR() = 0;
-    virtual uint64_t
-    GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU virtual address of the static vertex buffer.
-    virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
-
-
     // --- GPU Timers (profiler overlay) ---
 
     virtual void GpuTimerBegin( int markerIdx )
@@ -348,8 +315,11 @@ class IRenderBackend : public IRenderCaptureBackend
 // --- Global Render Backend Accessor ---
 
 IRenderBackend& Gfx();
+IRenderRayTracing& GfxRayTracing();
 bool IsGfxReady();
+bool IsGfxRayTracingReady();
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
+void SetGfxRayTracingBackend( IRenderRayTracing* backend );
 void DestroyGfxBackend();
 
 class DrawCallTraceScope

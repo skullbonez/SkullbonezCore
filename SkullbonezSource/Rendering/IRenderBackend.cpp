@@ -5,8 +5,9 @@ Purpose:
 
 Mental model:
   Runtime systems call Gfx() when they need the active renderer. SetGfxBackend()
-  installs the DX12 device during startup; DestroyGfxBackend() releases it
-  during shutdown.
+  installs the DX12 device during startup. Optional capability accessors borrow
+  narrower interfaces from that same backend, and DestroyGfxBackend() clears
+  them before releasing the device during shutdown.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -16,6 +17,7 @@ Glossary:
 Invariants:
   - Exactly one backend is active at a time and Gfx() is invalid before
     SetGfxBackend succeeds.
+  - Narrow capability pointers are borrowed aliases into the active backend.
   - DestroyGfxBackend releases backend ownership; callers must not retain
     references returned by Gfx() across teardown.
 
@@ -34,6 +36,7 @@ namespace Rendering
 {
 
 static std::unique_ptr<IRenderBackend> s_gfxBackend;
+static IRenderRayTracing* s_gfxRayTracingBackend = nullptr;
 
 
 IRenderBackend& Gfx()
@@ -47,20 +50,45 @@ IRenderBackend& Gfx()
 }
 
 
+IRenderRayTracing& GfxRayTracing()
+{
+    assert( s_gfxRayTracingBackend && "GfxRayTracing() called before SetGfxRayTracingBackend()" );
+    if ( !s_gfxRayTracingBackend )
+    {
+        throw std::runtime_error( "GfxRayTracing() called before SetGfxRayTracingBackend()" );
+    }
+    return *s_gfxRayTracingBackend;
+}
+
+
 bool IsGfxReady()
 {
     return s_gfxBackend != nullptr;
 }
 
 
+bool IsGfxRayTracingReady()
+{
+    return s_gfxRayTracingBackend != nullptr;
+}
+
+
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend )
 {
+    s_gfxRayTracingBackend = nullptr;
     s_gfxBackend = std::move( backend );
+}
+
+
+void SetGfxRayTracingBackend( IRenderRayTracing* backend )
+{
+    s_gfxRayTracingBackend = backend;
 }
 
 
 void DestroyGfxBackend()
 {
+    s_gfxRayTracingBackend = nullptr;
     s_gfxBackend.reset();
 }
 

@@ -196,7 +196,7 @@ struct LiveUavBarrierRecordDX12
 // resource states, fences, upload memory, and compiled pipeline state. This
 // class is the bridge between the simple engine contract and that explicit DX12
 // machinery.
-class RenderBackendDX12 : public IRenderBackend
+class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
 {
 
   private:

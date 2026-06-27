@@ -1064,36 +1064,33 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
     const auto renderCapabilities = Gfx().GetCapabilities();
-    if ( renderCapabilities.supportsDxrReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
+    const bool hasRayTracingReflection = renderCapabilities.supportsDxrReflection && IsGfxRayTracingReady();
+    if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
         RenderHelper::EnsureSphereMesh();
     }
+    if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
-    }
-    if ( renderCapabilities.supportsDxrReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
-    {
+        auto& rayTracing = GfxRayTracing();
         IMesh* terrainMesh = m_systems.terrain->GetMesh();
         uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
         int terrainVertCount = terrainMesh->GetVertexCount();
         int terrainStride = terrainMesh->GetStride();
 
         uint32_t sphereHandle = RenderHelper::GetSphereInstMeshHandle();
-        uint64_t sphereVBVA = Gfx().GetInstancedMeshStaticVBVA( sphereHandle );
+        uint64_t sphereVBVA = rayTracing.GetInstancedMeshStaticVBVA( sphereHandle );
         int sphereVertCount = RenderHelper::GetSphereVertexCount();
-        int sphereStride = Gfx().GetInstancedMeshStaticStride( sphereHandle );
-
-        {
-        }
+        int sphereStride = rayTracing.GetInstancedMeshStaticStride( sphereHandle );
 
         if ( terrainVBVA != 0 && sphereVBVA != 0 )
         {
-            Gfx().InitDXR( terrainVBVA,
-                           terrainVertCount,
-                           terrainStride,
-                           sphereVBVA,
-                           sphereVertCount,
-                           sphereStride,
-                           ActiveGameModelCapacity() );
+            rayTracing.InitDXR( terrainVBVA,
+                                terrainVertCount,
+                                terrainStride,
+                                sphereVBVA,
+                                sphereVertCount,
+                                sphereStride,
+                                ActiveGameModelCapacity() );
         }
     }
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
