@@ -1983,16 +1983,6 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 }
 
 
-bool Run::FocusReplayCauseTreeBody( ReplayBodyId id )
-{
-    RunReplayCauseTreeRow row;
-    row.kind = RunReplayCauseTreeRowKind::Body;
-    row.id = id;
-    ActivateReplayCameraForCauseRow( row, -1 );
-    return m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
-}
-
-
 void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );

@@ -1367,6 +1367,68 @@ generation, visualizer drawing, scrubber input, cause tree row UI, velocity
 editing, replay overlay construction, and the larger scene load/render-host
 splits still remain.
 
+## Replay Cause-Tree Dead Focus Wrapper Slice
+
+This replay slice deleted the unused private `Run` helper that wrapped a body
+id into a cause-tree row and forwarded to `ActivateReplayCameraForCauseRow`.
+There were no live callers, so the behavior surface is unchanged; cause-tree
+row activation remains explicit at the existing call sites.
+
+Deleted `Run.h` declaration:
+
+- `FocusReplayCauseTreeBody`
+
+Deleted `Run::` definition:
+
+- `Run::FocusReplayCauseTreeBody`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 210 to 209.
+- The `Run.h` rules reject `FocusReplayCauseTreeBody` from returning.
+- Runtime source guardrails reject `Run::FocusReplayCauseTreeBody` definitions
+  from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- Existing learning headers were sufficient; this slice deleted a dead wrapper
+  and added no dense new runtime behavior.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_focus_wrapper_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.46s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_focus_wrapper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.20s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_focus_wrapper_runtime_boundaries.log`;
+  passed with 0 errors in 1.07s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_focus_wrapper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.47s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: camera focus activation, replay prediction frame
+generation, visualizer drawing, scrubber input, cause tree row UI, velocity
+editing, replay overlay construction, and the larger scene load/render-host
+splits still remain.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.
