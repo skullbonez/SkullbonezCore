@@ -2616,78 +2616,6 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
 }
 
 
-void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& rayDirection )
-{
-    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
-    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() ||
-         m_replayRuntime.VelocityEdit().activeAxis < 0 )
-    {
-        EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
-        m_replayRuntime.VelocityEdit().dragging = false;
-        m_replayRuntime.VelocityEdit().draggingAngular = false;
-        m_replayRuntime.VelocityEdit().activeAxis = -1;
-        if ( m_replayRuntime.VelocityEdit().mouseCaptured )
-        {
-            UI::InputControl::EndMouseCapture();
-            m_replayRuntime.VelocityEdit().mouseCaptured = false;
-        }
-        return;
-    }
-
-    Vector3 linearVelocity = m_replayRuntime.VelocityEdit().dragStartLinearVelocity;
-    Vector3 angularVelocity = m_replayRuntime.VelocityEdit().dragStartAngularVelocity;
-    if ( m_replayRuntime.VelocityEdit().draggingAngular )
-    {
-        float currentAngle = 0.0f;
-        if ( !TryReplayVelocityAngularRayAngle( m_replayRuntime,
-                                                m_cGameModelCollection.Models(),
-                                                m_replayRuntime.VelocityEdit().activeAxis,
-                                                rayOrigin,
-                                                rayDirection,
-                                                currentAngle ) )
-        {
-            return;
-        }
-        const float angleDelta = WrapEditorAngleDelta( currentAngle - m_replayRuntime.VelocityEdit().dragStartAngle );
-        const float component = ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartAngularVelocity,
-                                                             m_replayRuntime.VelocityEdit().activeAxis ) +
-                                angleDelta * ( REPLAY_VELOCITY_EDIT_ANGULAR_MAX / _PI );
-        ReplayVelocitySetAxisComponent(
-            angularVelocity,
-            m_replayRuntime.VelocityEdit().activeAxis,
-            std::clamp( component, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX ) );
-    }
-    else
-    {
-        float axisT = 0.0f;
-        if ( !TryReplayVelocityAxisRayParameter( m_replayRuntime,
-                                                 m_cGameModelCollection.Models(),
-                                                 m_replayRuntime.VelocityEdit().activeAxis,
-                                                 rayOrigin,
-                                                 rayDirection,
-                                                 axisT ) )
-        {
-            return;
-        }
-        const float component =
-            ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartLinearVelocity,
-                                         m_replayRuntime.VelocityEdit().activeAxis ) +
-            ( axisT - m_replayRuntime.VelocityEdit().dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
-        ReplayVelocitySetAxisComponent(
-            linearVelocity,
-            m_replayRuntime.VelocityEdit().activeAxis,
-            std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
-    }
-
-    ApplyReplayVelocityEditToModel( m_replayRuntime,
-                                    m_cGameModelCollection,
-                                    modelIndex,
-                                    linearVelocity,
-                                    angularVelocity,
-                                    m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS );
-}
-
-
 bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
@@ -2735,11 +2663,84 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
         return m_replayRuntime.VelocityEdit().dragging;
     }
 
+    const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
+    {
+        const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
+        if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() ||
+             m_replayRuntime.VelocityEdit().activeAxis < 0 )
+        {
+            EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
+            m_replayRuntime.VelocityEdit().dragging = false;
+            m_replayRuntime.VelocityEdit().draggingAngular = false;
+            m_replayRuntime.VelocityEdit().activeAxis = -1;
+            if ( m_replayRuntime.VelocityEdit().mouseCaptured )
+            {
+                UI::InputControl::EndMouseCapture();
+                m_replayRuntime.VelocityEdit().mouseCaptured = false;
+            }
+            return;
+        }
+
+        Vector3 linearVelocity = m_replayRuntime.VelocityEdit().dragStartLinearVelocity;
+        Vector3 angularVelocity = m_replayRuntime.VelocityEdit().dragStartAngularVelocity;
+        if ( m_replayRuntime.VelocityEdit().draggingAngular )
+        {
+            float currentAngle = 0.0f;
+            if ( !TryReplayVelocityAngularRayAngle( m_replayRuntime,
+                                                    m_cGameModelCollection.Models(),
+                                                    m_replayRuntime.VelocityEdit().activeAxis,
+                                                    dragRayOrigin,
+                                                    dragRayDirection,
+                                                    currentAngle ) )
+            {
+                return;
+            }
+            const float angleDelta =
+                WrapEditorAngleDelta( currentAngle - m_replayRuntime.VelocityEdit().dragStartAngle );
+            const float component =
+                ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartAngularVelocity,
+                                             m_replayRuntime.VelocityEdit().activeAxis ) +
+                angleDelta * ( REPLAY_VELOCITY_EDIT_ANGULAR_MAX / _PI );
+            ReplayVelocitySetAxisComponent(
+                angularVelocity,
+                m_replayRuntime.VelocityEdit().activeAxis,
+                std::clamp( component, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX ) );
+        }
+        else
+        {
+            float axisT = 0.0f;
+            if ( !TryReplayVelocityAxisRayParameter( m_replayRuntime,
+                                                     m_cGameModelCollection.Models(),
+                                                     m_replayRuntime.VelocityEdit().activeAxis,
+                                                     dragRayOrigin,
+                                                     dragRayDirection,
+                                                     axisT ) )
+            {
+                return;
+            }
+            const float component =
+                ReplayVelocityAxisComponent( m_replayRuntime.VelocityEdit().dragStartLinearVelocity,
+                                             m_replayRuntime.VelocityEdit().activeAxis ) +
+                ( axisT - m_replayRuntime.VelocityEdit().dragStartAxisT ) * ReplayVelocityLinearUnitsPerWorld();
+            ReplayVelocitySetAxisComponent(
+                linearVelocity,
+                m_replayRuntime.VelocityEdit().activeAxis,
+                std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
+        }
+
+        ApplyReplayVelocityEditToModel( m_replayRuntime,
+                                        m_cGameModelCollection,
+                                        modelIndex,
+                                        linearVelocity,
+                                        angularVelocity,
+                                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS );
+    };
+
     if ( m_replayRuntime.VelocityEdit().dragging )
     {
         if ( leftDown && !uiBlocksMouse )
         {
-            ApplyReplayVelocityEditDrag( rayOrigin, rayDirection );
+            applyReplayVelocityEditDrag( rayOrigin, rayDirection );
         }
         if ( leftReleased || !leftDown )
         {

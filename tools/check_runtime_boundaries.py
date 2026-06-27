@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 186
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 185
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -430,7 +430,7 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "replay velocity apply helper must stay out of Run.h",
-        r"\bApplyReplayVelocityEditToModel\s*\(",
+        r"\bApplyReplayVelocityEdit(?:ToModel|Drag)\s*\(",
         "Keep replay velocity model mutation helpers file-local or in ReplayRuntime.",
     ),
     (
@@ -566,7 +566,7 @@ RUN_REPLAY_VELOCITY_TOGGLE_SOURCE_RULE = (
 
 RUN_REPLAY_VELOCITY_APPLY_SOURCE_RULE = (
     "Run replay velocity apply helper is blocked",
-    r"\bRun::ApplyReplayVelocityEditToModel\s*\(",
+    r"\bRun::ApplyReplayVelocityEdit(?:ToModel|Drag)\s*\(",
     "Keep replay velocity model mutation helpers file-local or in ReplayRuntime instead of Run.",
 )
 
@@ -1721,7 +1721,7 @@ def run_self_tests() -> list[str]:
 
     old_replay_velocity_apply_header_helper = allowed_run_header.replace(
         "void Render();",
-        "void Render();\n        void ApplyReplayVelocityEditToModel();",
+        "void Render();\n        void ApplyReplayVelocityEditDrag();",
     )
     if not any(
         error.message == "replay velocity apply helper must stay out of Run.h"
@@ -2187,7 +2187,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay velocity edit toggle source helper synthetic surface was not rejected")
 
-    old_replay_velocity_apply_source_helper = "void Run::ApplyReplayVelocityEditToModel() {}"
+    old_replay_velocity_apply_source_helper = "void Run::ApplyReplayVelocityEditDrag() {}"
     if not any(
         error.message == "Run replay velocity apply helper is blocked"
         for error in check_run_replay_velocity_apply_source_guardrails_text(

@@ -408,8 +408,6 @@ class Run
     void ClearReplayCameraFocus( bool restoreCamera );
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
-    void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin,
-                                      const Math::Vector::Vector3& rayDirection );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();
