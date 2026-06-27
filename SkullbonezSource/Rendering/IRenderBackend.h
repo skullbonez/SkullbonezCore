@@ -41,10 +41,10 @@ Related:
 
 #include <cstdint>
 #include <memory>
-#include <vector>
 #include <windows.h>
 #include "../Core/Common.h"
 #include "DrawCallTrace.h"
+#include "IRenderCaptureBackend.h"
 #include "IShader.h"
 #include "IMesh.h"
 #include "IFramebuffer.h"
@@ -72,19 +72,6 @@ struct RenderCapabilities
     bool supportsDxrReflection = false;
     bool supportsDebugLines = false;
 };
-
-class IRenderCaptureBackend
-{
-  public:
-    virtual ~IRenderCaptureBackend() = default;
-
-    virtual RenderCapabilities GetCapabilities() const = 0;
-
-    // Capture data is BGR and bottom-up so validation artifacts can be written
-    // straight to BMP without a second image-layout conversion.
-    virtual std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) = 0;
-};
-
 
 /* -- IRenderBackend
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -187,6 +174,7 @@ class IRenderBackend : public IRenderCaptureBackend
     // Runtime identity and optional feature flags. DX12 is the only renderer,
     // but the UI and diagnostics still consume this compact description.
     virtual const char* GetRendererName() const = 0;
+    virtual RenderCapabilities GetCapabilities() const = 0;
 
 
     // --- Frame Diagnostics ---

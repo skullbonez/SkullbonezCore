@@ -4,17 +4,22 @@ Purpose:
   Captures frame output to screenshots for scenes, validation, and look-dev.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Runtime code decides when a screenshot should happen, then hands a narrow
+  capture backend to this file. CaptureSystem validates the readback contract,
+  writes BMP bytes, and returns automation decisions without owning renderer
+  resources.
 
 Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
+  Capture backend: Narrow renderer capability that can report capture support
+  and read pixels from the active back buffer.
   Back buffer: Swap-chain image that will be presented to the window.
+  BMP (Bitmap): Simple image file format used by validation backbuffer captures.
 
 Invariants:
   - Capture only succeeds through a backend that explicitly supports
     back-buffer readback and returns positive dimensions.
+  - SaveBackbufferBmp receives only the capture/readback surface, not the full
+    render device.
   - Capture automation reports the completion action separately from the side
     effect so Run can decide whether to quit, advance, or hold.
 
@@ -24,7 +29,7 @@ Related:
 */
 #include "CaptureSystem.h"
 
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCaptureBackend.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -100,7 +105,7 @@ void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t ou
 
 void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path )
 {
-    if ( !backend.GetCapabilities().supportsBackbufferCapture )
+    if ( !backend.SupportsBackbufferCapture() )
     {
         char msg[512];
         sprintf_s( msg,

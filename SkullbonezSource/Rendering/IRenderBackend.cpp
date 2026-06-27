@@ -50,6 +50,14 @@ IRenderBackend& Gfx()
 }
 
 
+IRenderCaptureBackend& GfxCapture()
+{
+    // Lifetime: capture is a borrowed capability of the active backend, not a
+    // separately owned service. Gfx() keeps the startup/teardown guard central.
+    return Gfx();
+}
+
+
 IRenderRayTracing& GfxRayTracing()
 {
     assert( s_gfxRayTracingBackend && "GfxRayTracing() called before SetGfxRayTracingBackend()" );

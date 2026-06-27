@@ -1,12 +1,32 @@
 # Carmack Render Backend Capability Plan
 
 Date: 2026-06-28
-Status: Draft
+Status: In progress
 Impact area: DX12 renderer, render interfaces, runtime render host, tools, tests
 Validation note: plan-only edits require no validation. PR-bound renderer
 interface or DX12 backend changes require `tools\validate_dx12_renderer.bat`.
 If hot-path command submission, descriptor upload, dynamic geometry, or telemetry
 storage changes, also run `tools\validate_perf.bat`.
+
+## Completed Slices
+
+- [x] 2026-06-28: Split the capture/readback capability into
+  `IRenderCaptureBackend.h`, added `GfxCapture()` as the narrow borrowed
+  capability accessor, gave the capture interface a capture-only
+  `SupportsBackbufferCapture()` query, and moved screenshot/backdrop readback
+  call sites away from `Gfx().CaptureBackbuffer` and broad
+  `RenderCapabilities` access.
+  Validation:
+  `tools\validate_fast.bat` passed in 116.80s
+  (`TestOutput\validation\agent_logs\render_capture_capability_validate_fast.log`);
+  `tools\validate_project_filters.bat` passed in 0.86s
+  (`TestOutput\validation\agent_logs\render_capture_capability_project_filters.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.23s with 0 DX12 validation
+  errors and matching DX12 screenshots
+  (`TestOutput\validation\agent_logs\render_capture_capability_validate_dx12_renderer.log`).
+  Rubber-duck review: Lagrange found a blocking broad `RenderCapabilities`
+  leak on the first pass; the follow-up review confirmed the blocker resolved
+  and found no new blockers.
 
 ## Problem Statement
 
@@ -55,7 +75,7 @@ compatibility facade while call sites migrate.
 
 ### Capability Interfaces
 
-- [ ] Keep `IRenderCaptureBackend` as the capture/readback surface and move capture-only callers to it.
+- [x] Keep `IRenderCaptureBackend` as the capture/readback surface and move capture-only callers to it.
 - [ ] Add or formalize `IRenderDeviceLifecycle` for init, shutdown, resize, present, finish, flush, and vsync.
 - [ ] Add or formalize `IRenderResourceFactory` for shader, mesh, framebuffer, texture, instanced mesh, and dynamic buffer creation.
 - [ ] Add or formalize `IRenderCommandContext` for frame draw state, clears, viewport, blend, depth, cull, texture binding, and draw calls.
@@ -100,19 +120,19 @@ compatibility facade while call sites migrate.
 ## Validation Checklist
 
 - [ ] For plan-only edits: no validation required.
-- [ ] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
+- [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
 - [ ] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
-- [ ] Verify `dx12_validation.txt` reports zero DX12 validation errors.
-- [ ] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.
+- [x] Verify `dx12_validation.txt` reports zero DX12 validation errors.
+- [x] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.
 
 ## Independent Review Checklist
 
-- [ ] Ask a rubber-duck reviewer to inspect whether new interfaces are genuinely narrower or just the old backend split into names.
-- [ ] Ask the reviewer to look for new hidden global access or new `Gfx()` use.
+- [x] Ask a rubber-duck reviewer to inspect whether new interfaces are genuinely narrower or just the old backend split into names.
+- [x] Ask the reviewer to look for new hidden global access or new `Gfx()` use.
 - [ ] Ask the reviewer to check DX12 resource lifetime and shutdown/resize behavior.
-- [ ] Record review findings in a report or this plan.
-- [ ] Resolve blocking review findings before committing PR-bound code.
+- [x] Record review findings in a report or this plan.
+- [x] Resolve blocking review findings before committing PR-bound code.
 
 ## Definition Of Done
 

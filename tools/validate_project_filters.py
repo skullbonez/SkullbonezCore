@@ -131,6 +131,7 @@ RENDERING_PREFIXES = (
     "IFramebuffer",
     "IMesh",
     "IRenderBackend",
+    "IRenderCaptureBackend",
     "IRenderRayTracing",
     "IShader",
     "PrimitiveMeshBuilder",

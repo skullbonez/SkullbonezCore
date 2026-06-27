@@ -1,21 +1,32 @@
 /*
 File: SkullbonezSource/UI/UIBackdropBlur.cpp
 Purpose:
-  Implements UI BackdropBlur widgets, layout, drawing, or UI state for the in-engine controls.
+  Captures the active back buffer behind a UI panel and redraws a softened,
+  downsampled texture to create a backdrop blur.
 
 Mental model:
-  The UI is immediate-mode-style: each frame reads engine state, computes hit
-  boxes, emits draw commands, and returns requests for the run loop to apply.
+  The widget borrows the capture backend to read pixels, then owns ordinary
+  renderer resources for the temporary texture, shader, and dynamic vertex
+  buffer used to draw the blurred panel.
 
 Glossary:
+  Capture backend: Narrow renderer capability that can report capture support
+  and read pixels from the active back buffer.
+  Back buffer: Swap-chain image that will be presented to the window.
+  Dynamic VB (Dynamic Vertex Buffer): Frame-updated GPU buffer used for the
+  panel quad vertices.
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  UV (Texture Coordinate): Normalized texture coordinate used to sample the
+  captured blur source.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Capture readback uses GfxCapture(); texture and vertex-buffer ownership
+    still use Gfx() because they are full render-resource operations.
+  - Captured BMP-style rows are bottom-up BGR, while m_sourcePixels stores the
+    cropped texture as RGB for CreateTexture2D.
+  - ResetResources must destroy GPU resources before clearing cached geometry
+    so stale texture or vertex-buffer handles are never reused.
 
 Related:
   - SkullbonezSource/UI/UIBackdropBlur.h
@@ -113,7 +124,9 @@ void UIBackdropBlur::RefreshSourceTexture( const UIRect& bounds, int screenW, in
 {
     int captureW = 0;
     int captureH = 0;
-    std::vector<uint8_t> capture = Gfx().CaptureBackbuffer( captureW, captureH );
+    // Why: backdrop blur needs readback capability, not authority over the full
+    // renderer device. Resource creation below still goes through Gfx().
+    std::vector<uint8_t> capture = GfxCapture().CaptureBackbuffer( captureW, captureH );
     if ( capture.empty() || captureW <= 0 || captureH <= 0 )
     {
         return;
@@ -216,8 +229,7 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw,
     (void)currentFrame;
     (void)now;
 
-    const RenderCapabilities capabilities = Gfx().GetCapabilities();
-    if ( !capabilities.supportsBackbufferCapture )
+    if ( !GfxCapture().SupportsBackbufferCapture() )
     {
         return;
     }

@@ -513,6 +513,10 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     void DeleteTexture( uint32_t handle ) override;
 
     std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) override;
+    bool SupportsBackbufferCapture() const override
+    {
+        return true;
+    }
 
     int GetWidth() const override;
     int GetHeight() const override;
@@ -529,6 +533,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     RenderCapabilities GetCapabilities() const override
     {
         RenderCapabilities capabilities;
+        capabilities.supportsBackbufferCapture = SupportsBackbufferCapture();
         capabilities.supportsGpuTimers = m_gpuTimers.queryHeap != nullptr;
         capabilities.supportsDxrReflection = m_dxrSupported;
         capabilities.supportsDebugLines = true;
