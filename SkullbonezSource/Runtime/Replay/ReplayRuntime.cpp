@@ -765,6 +765,28 @@ bool ReplayRuntime::ShouldUseInspectionCamera() const
            m_camera.focusKind != RunReplayCameraFocusKind::None;
 }
 
+bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now )
+{
+    if ( !HasLoadedPresentation() )
+    {
+        return false;
+    }
+
+    ClearPathVisualizerState();
+    m_prediction.enabled = false;
+    m_prediction.horizonDragging = false;
+    m_velocityEdit = RunReplayVelocityEditState{};
+    m_scrubber.activeTrack = RunReplayTrack::Presentation;
+    SetTrackPosition( RunReplayTrack::Presentation, normalized );
+    m_scrubber.solverPosition = 1.0f;
+    m_scrubber.dragging = false;
+    m_scrubber.historicalSamplePaused = true;
+    m_scrubber.mouseCaptured = false;
+    m_scrubber.visible = true;
+    m_scrubber.visibleUntil = now + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    return true;
+}
+
 ReplayRuntime::RecordingConfigResult
 ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {

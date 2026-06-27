@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay editor transform event wrapper slice validated
+Status: Active architecture cleanup plan; replay loaded-presentation scrubber arming slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay editor transform event wrapper section below
+Validation for latest implementation slice: see the replay loaded-presentation scrubber arming section below
 
 ## Goal
 
@@ -3732,6 +3732,82 @@ Residual architecture risk: solver apply/hash helpers, replay inspection camera
 enter/exit and focus-control methods, and render-host splitting remain active;
 this slice only moved editor transform event payload ownership to
 `ReplayRuntime`.
+
+## Replay Loaded-Presentation Scrubber Arming Slice
+
+This replay helper slice moved loaded-presentation scrubber state arming from
+`Run` into `ReplayRuntime`. The replay artifact load path and debug load probe
+still perform `Run`-owned interaction/camera transitions explicitly, but the
+replay-owned scrubber, prediction, velocity-edit, path, and visibility state now
+changes through `ReplayRuntime::ArmLoadedPresentationScrubber(...)`.
+
+Deleted `Run.h` declarations:
+
+- `ArmLoadedReplayPresentationScrubber`
+
+Deleted `Run::` definitions:
+
+- `Run::ArmLoadedReplayPresentationScrubber`
+
+New owner surface:
+
+- `ReplayRuntime::ArmLoadedPresentationScrubber(float normalized, double now)`
+
+Updated call sites:
+
+- `Run::LoadReplayPresentationArtifact`
+- `Run::VerifyLoadedReplayPresentationProbe`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 159 to 158.
+- New header and source guardrails reject the removed loaded-presentation
+  scrubber arming wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. Existing replay scrubber behavior and timing are
+  preserved while the replay-owned state mutation moved behind `ReplayRuntime`.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_loaded_scrubber_profile_build.log`;
+  passed with 0 warnings and 0 errors in 13.17s after qualifying the replay
+  overlay timing constant in the moved method.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_loaded_scrubber_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.48s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_loaded_scrubber_runtime_boundaries.log`;
+  passed with 0 errors in 2.67s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_loaded_scrubber_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.52s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: `SetReplayLiveAdvanceHeld`, replay inspection
+camera enter/exit and focus-control methods, solver apply/hash helpers, and
+render-host splitting remain active; this slice only moved loaded-presentation
+scrubber state ownership to `ReplayRuntime`.
 
 ## Rules
 

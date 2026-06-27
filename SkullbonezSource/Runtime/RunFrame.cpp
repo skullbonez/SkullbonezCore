@@ -1023,7 +1023,29 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         throw std::runtime_error( "replay load probe requires a loaded v2 presentation artifact" );
     }
 
-    ArmLoadedReplayPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ) );
+    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
+    {
+        SetReplayLiveAdvanceHeld( false );
+    }
+    CancelReplayToolDragState();
+
+    ClearReplayCameraFocus( true );
+    const bool armed = m_replayRuntime.ArmLoadedPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ),
+                                                                      m_timers.simulationTimer.GetTotalTime() );
+    if ( !armed )
+    {
+        throw std::runtime_error( "replay load probe could not arm the loaded presentation scrubber" );
+    }
+    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                        InteractionExitReason::EnterReplay );
+    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
     const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
     const ReplayPresentationSample* latest = m_replayRuntime.LoadedPresentationLatestSample();
     if ( !selected || !latest )

@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 159
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 158
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -475,6 +475,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Reset replay scrubber state through ReplayRuntime.",
     ),
     (
+        "replay loaded-presentation scrubber arming wrapper must stay out of Run.h",
+        r"\bArmLoadedReplayPresentationScrubber\s*\(",
+        "Arm loaded replay presentation scrubber state through ReplayRuntime.",
+    ),
+    (
         "replay event frame cursor wrapper must stay out of Run.h",
         r"\bNextReplayEventFrameIndex\s*\(",
         "Read replay event frame cursors from ReplayRuntime.",
@@ -759,6 +764,12 @@ RUN_REPLAY_EDITOR_TRANSFORM_EVENT_SOURCE_RULE = (
     "Run replay editor transform event wrapper is blocked",
     r"\bRun::RecordReplayEditorTransformEvent\s*\(",
     "Record editor transform replay events through ReplayRuntime.",
+)
+
+RUN_REPLAY_LOADED_PRESENTATION_SCRUBBER_SOURCE_RULE = (
+    "Run loaded-presentation scrubber arming wrapper is blocked",
+    r"\bRun::ArmLoadedReplayPresentationScrubber\s*\(",
+    "Arm loaded replay presentation scrubber state through ReplayRuntime.",
 )
 
 RUN_REPLAY_VELOCITY_TARGET_SOURCE_RULE = (
@@ -1724,6 +1735,30 @@ def check_run_replay_editor_transform_event_source_guardrails(repo: Path) -> lis
     return errors
 
 
+def check_run_replay_loaded_presentation_scrubber_source_guardrails_text(
+    path: Path, text: str
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_LOADED_PRESENTATION_SCRUBBER_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_loaded_presentation_scrubber_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(
+            check_run_replay_loaded_presentation_scrubber_source_guardrails_text(
+                path, path.read_text(encoding="utf-8")
+            )
+        )
+    return errors
+
+
 def check_run_replay_velocity_target_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_REPLAY_VELOCITY_TARGET_SOURCE_RULE
@@ -2424,6 +2459,20 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("replay scrubber reset header helper synthetic surface was not rejected")
+
+    old_replay_loaded_presentation_scrubber_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void ArmLoadedReplayPresentationScrubber( float normalized );",
+    )
+    if not any(
+        error.message == "replay loaded-presentation scrubber arming wrapper must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_loaded_presentation_scrubber_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay loaded-presentation scrubber header helper synthetic surface was not rejected")
 
     old_replay_event_frame_cursor_header_helper = allowed_run_header.replace(
         "void Render();",
@@ -3265,6 +3314,18 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay editor transform event source helper synthetic surface was not rejected")
 
+    old_replay_loaded_presentation_scrubber_source_helper = (
+        "void Run::ArmLoadedReplayPresentationScrubber( float normalized ) { }"
+    )
+    if not any(
+        error.message == "Run loaded-presentation scrubber arming wrapper is blocked"
+        for error in check_run_replay_loaded_presentation_scrubber_source_guardrails_text(
+            Path("synthetic/Run.cpp"),
+            old_replay_loaded_presentation_scrubber_source_helper,
+        )
+    ):
+        failures.append("replay loaded-presentation scrubber source helper synthetic surface was not rejected")
+
     old_replay_velocity_target_source_helper = "int Run::ResolveReplayVelocityEditModelIndex() const { return -1; }"
     if not any(
         error.message == "Run replay velocity target lookup helpers are blocked"
@@ -3727,6 +3788,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_launcher_fire_event_source_guardrails(repo))
     errors.extend(check_run_replay_editor_place_event_source_guardrails(repo))
     errors.extend(check_run_replay_editor_transform_event_source_guardrails(repo))
+    errors.extend(check_run_replay_loaded_presentation_scrubber_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_target_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_hit_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_toggle_source_guardrails(repo))

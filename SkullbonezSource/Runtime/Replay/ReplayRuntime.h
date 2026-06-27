@@ -405,6 +405,7 @@ class ReplayRuntime
     static float PredictionNormalizedFromTrack( float position, float presentT );
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
     bool ShouldUseInspectionCamera() const;
+    bool ArmLoadedPresentationScrubber( float normalized, double now );
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();

@@ -776,7 +776,24 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 
     if ( activateScrubber )
     {
-        ArmLoadedReplayPresentationScrubber( 0.25f );
+        if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
+        {
+            SetReplayLiveAdvanceHeld( false );
+        }
+        CancelReplayToolDragState();
+
+        ClearReplayCameraFocus( true );
+        m_replayRuntime.ArmLoadedPresentationScrubber( 0.25f, m_timers.simulationTimer.GetTotalTime() );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                            InteractionExitReason::EnterReplay );
+        if ( m_replayRuntime.ShouldUseInspectionCamera() )
+        {
+            EnterReplayInspectionCamera();
+        }
+        else
+        {
+            ExitReplayInspectionCamera();
+        }
     }
 
     printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
@@ -855,44 +872,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     m_solverReplayMismatch.suppressed = false;
 }
 
-
-void Run::ArmLoadedReplayPresentationScrubber( float normalized )
-{
-    if ( !m_replayRuntime.HasLoadedPresentation() )
-    {
-        return;
-    }
-
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        SetReplayLiveAdvanceHeld( false );
-    }
-    CancelReplayToolDragState();
-
-    ClearReplayCameraFocus( true );
-    m_replayRuntime.ClearPathVisualizerState();
-    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                        InteractionExitReason::EnterReplay );
-    m_replayRuntime.Prediction().enabled = false;
-    m_replayRuntime.Prediction().horizonDragging = false;
-    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
-    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    m_replayRuntime.SetTrackPosition( RunReplayTrack::Presentation, normalized );
-    m_replayRuntime.Scrubber().solverPosition = 1.0f;
-    m_replayRuntime.Scrubber().dragging = false;
-    m_replayRuntime.Scrubber().historicalSamplePaused = true;
-    m_replayRuntime.Scrubber().mouseCaptured = false;
-    m_replayRuntime.Scrubber().visible = true;
-    m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    if ( m_replayRuntime.ShouldUseInspectionCamera() )
-    {
-        EnterReplayInspectionCamera();
-    }
-    else
-    {
-        ExitReplayInspectionCamera();
-    }
-}
 
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
