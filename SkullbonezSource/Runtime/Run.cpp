@@ -81,7 +81,6 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.world.collisionVisualizer = &m_collisionVisualizer;
     bindings.world.broadphaseVisualizer = &m_broadphaseVisualizer;
     bindings.world.physicsDebugVisualizer = &m_physicsDebugVisualizer;
-    bindings.world.dxrReflectionTransforms = &m_dxrReflectionTransforms;
     bindings.scene.sceneController = &m_sceneController;
     bindings.scene.sceneBrowser = &m_sceneController.Browser();
     bindings.replayOverlay.replayRuntime = &m_replayRuntime;

@@ -148,6 +148,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Put render pass types in Runtime/Render/RuntimeRenderPasses.h.",
     ),
     (
+        "DXR reflection state must stay out of Run.h",
+        r"\b(?:m_dxrReflectionTransforms|dxrReflectionTransforms|DxrReflection|InitDXR|DispatchReflectionRays|BuildTLAS)\b",
+        "RuntimeRenderHost or a renderer-owned DXR capability owns reflection scratch state and backend calls.",
+    ),
+    (
         "replay recorder fields must stay out of Run.h",
         r"\b(?:ReplayRecorder|ReplaySolverRecorder|ReplayEventRecorder|ReplayBranchInfo)\b" + FIELD_TAIL_PATTERN,
         "ReplayRuntime owns recorder and branch state.",
@@ -945,7 +950,6 @@ ALLOWED_RENDER_HOST_VIEW_FIELDS = {
         "collisionVisualizer",
         "broadphaseVisualizer",
         "physicsDebugVisualizer",
-        "dxrReflectionTransforms",
     },
     "RenderSceneView": {
         "sceneController",
@@ -2464,7 +2468,6 @@ def run_self_tests() -> list[str]:
         CollisionVisualizer* collisionVisualizer = nullptr;
         BroadphaseVisualizer* broadphaseVisualizer = nullptr;
         PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
-        std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;
     };
     struct RenderSceneView
     {
@@ -2523,6 +2526,16 @@ def run_self_tests() -> list[str]:
     """
     if check_run_private_method_count_text(Path("synthetic/Run.h"), allowed_run_header, max_allowed=1):
         failures.append("allowed Run.h private method count synthetic surface failed")
+
+    old_run_dxr_reflection_state = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};",
+    )
+    if not any(
+        error.message == "DXR reflection state must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_run_dxr_reflection_state, RUN_HEADER_RULES)
+    ):
+        failures.append("old Run.h DXR reflection state synthetic surface was not rejected")
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     if not any(
@@ -3508,10 +3521,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RuntimeRenderHost replay binding synthetic field was not rejected")
 
+    old_dxr_world_binding = allowed_host.replace(
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n"
+        "        std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderWorldView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_dxr_world_binding)
+    ):
+        failures.append("old RuntimeRenderHost DXR reflection binding synthetic field was not rejected")
+
     nested_world_binding = allowed_host.replace(
-        "std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;",
-        "std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;\n"
-        "        RunMousePickupState* mousePickup = nullptr;",
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n        RunMousePickupState* mousePickup = nullptr;",
     )
     if not any(
         error.message == "new RenderWorldView fields are blocked"

@@ -10,13 +10,17 @@ Mental model:
 
 Glossary:
   Render host: Borrowed service view used by render passes while Run remains
-  the broader composition root.
+    the broader composition root.
   Binding: Pointer set that connects host methods to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
-  on Run.
+    on Run.
+  DXR reflection transform buffer: Host-owned per-frame scratch matrix data
+    streamed from the scene view into the DX12 TLAS build.
 
 Invariants:
   - RuntimeRenderHost does not own the referenced state.
+  - RuntimeRenderHost owns renderer scratch state that should not leak back
+    into Run.h, including DXR reflection instance transforms.
   - All references must outlive RuntimeRenderer and its passes.
   - Callback functions are bound once by Run construction; they preserve the
     remaining Run-side behavior until later phases move those services behind
@@ -107,7 +111,6 @@ struct RenderWorldView
     Physics::CollisionVisualizer* collisionVisualizer = nullptr;
     Physics::BroadphaseVisualizer* broadphaseVisualizer = nullptr;
     Physics::PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
-    std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;
 };
 
 struct RenderSceneView
@@ -183,7 +186,6 @@ class RuntimeRenderHost
           m_collisionVisualizer( *bindings.world.collisionVisualizer ),
           m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
           m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ),
-          m_dxrReflectionTransforms( *bindings.world.dxrReflectionTransforms ),
           m_runtimeTools( *bindings.toolOverlay.tools ), m_rayCastTest( m_runtimeTools.RayCastTest() ),
           m_editor( m_runtimeTools.Editor() ), m_mousePickup( m_runtimeTools.MousePickup() ),
           m_replayRuntime( *bindings.replayOverlay.replayRuntime ), m_launcherLaser( m_runtimeTools.Laser() ),
@@ -321,7 +323,8 @@ class RuntimeRenderHost
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    std::array<float, MAX_GAME_MODELS * 16>& m_dxrReflectionTransforms;
+    std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
+        {}; // Scratch matrices for DXR TLAS instance upload.
     RuntimeTools& m_runtimeTools;
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;

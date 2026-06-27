@@ -30,7 +30,6 @@ Related:
 #pragma once
 
 
-#include <array>
 #include <chrono>
 #include <cstddef>
 #include <string>
@@ -134,7 +133,6 @@ class Run
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
     EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
-    std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
     RuntimeRenderHost m_renderHost;                                        // Explicit render-facing service view over Run-owned state.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
