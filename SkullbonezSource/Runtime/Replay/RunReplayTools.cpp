@@ -1738,70 +1738,6 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     return restored;
 }
 
-bool Run::PromptLoadReplayPresentationArtifact( HWND hwnd )
-{
-    char path[MAX_PATH] = {};
-    OPENFILENAMEA openFile = {};
-    openFile.lStructSize = sizeof( openFile );
-    openFile.hwndOwner = hwnd;
-    openFile.lpstrFilter = "Skullbonez replay (*.skreplay)\0*.skreplay\0All files (*.*)\0*.*\0";
-    openFile.lpstrFile = path;
-    openFile.nMaxFile = sizeof( path );
-    openFile.lpstrInitialDir = "replays";
-    openFile.lpstrTitle = "Load Skullbonez replay v2 artifact";
-    openFile.lpstrDefExt = "skreplay";
-    openFile.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-
-    if ( !GetOpenFileNameA( &openFile ) )
-    {
-        if ( CommDlgExtendedError() != 0 )
-        {
-            const double now = m_timers.simulationTimer.GetTotalTime();
-            sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                       sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                       "REPLAY PICKER FAILED" );
-            m_replayRuntime.Scrubber().saveMessageTrack = RunReplayTrack::Presentation;
-            m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-            m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-            m_replayRuntime.Scrubber().visible = true;
-        }
-        return false;
-    }
-
-    const bool loaded = LoadReplayPresentationArtifact( path, true );
-    const double now = m_timers.simulationTimer.GetTotalTime();
-    const char* fileName = strrchr( path, '\\' );
-    if ( !fileName )
-    {
-        fileName = strrchr( path, '/' );
-    }
-    fileName = fileName ? fileName + 1 : path;
-
-    m_replayRuntime.Scrubber().saveMessageTrack = RunReplayTrack::Presentation;
-    if ( loaded )
-    {
-        constexpr int loadedPrefixLength = 7;
-        constexpr int loadedFileNameLimit =
-            static_cast<int>( sizeof( m_replayRuntime.Scrubber().saveMessage ) ) - loadedPrefixLength - 1;
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "LOADED %.*s",
-                   loadedFileNameLimit,
-                   fileName );
-    }
-    else
-    {
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "REPLAY LOAD FAILED" );
-    }
-    m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-    m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayRuntime.Scrubber().visible = true;
-    return loaded;
-}
-
-
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
@@ -1882,6 +1818,68 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool canTakeMouse =
         !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging;
     const double now = m_timers.simulationTimer.GetTotalTime();
+    auto promptLoadReplayPresentationArtifact = [&]() -> bool
+    {
+        char path[MAX_PATH] = {};
+        OPENFILENAMEA openFile = {};
+        openFile.lStructSize = sizeof( openFile );
+        openFile.hwndOwner = hwnd;
+        openFile.lpstrFilter = "Skullbonez replay (*.skreplay)\0*.skreplay\0All files (*.*)\0*.*\0";
+        openFile.lpstrFile = path;
+        openFile.nMaxFile = sizeof( path );
+        openFile.lpstrInitialDir = "replays";
+        openFile.lpstrTitle = "Load Skullbonez replay v2 artifact";
+        openFile.lpstrDefExt = "skreplay";
+        openFile.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+        if ( !GetOpenFileNameA( &openFile ) )
+        {
+            if ( CommDlgExtendedError() != 0 )
+            {
+                const double messageNow = m_timers.simulationTimer.GetTotalTime();
+                sprintf_s( m_replayRuntime.Scrubber().saveMessage,
+                           sizeof( m_replayRuntime.Scrubber().saveMessage ),
+                           "REPLAY PICKER FAILED" );
+                m_replayRuntime.Scrubber().saveMessageTrack = RunReplayTrack::Presentation;
+                m_replayRuntime.Scrubber().saveMessageUntil = messageNow + 2.5;
+                m_replayRuntime.Scrubber().visibleUntil = messageNow + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                m_replayRuntime.Scrubber().visible = true;
+            }
+            return false;
+        }
+
+        const bool loaded = LoadReplayPresentationArtifact( path, true );
+        const double messageNow = m_timers.simulationTimer.GetTotalTime();
+        const char* fileName = strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+
+        m_replayRuntime.Scrubber().saveMessageTrack = RunReplayTrack::Presentation;
+        if ( loaded )
+        {
+            constexpr int loadedPrefixLength = 7;
+            constexpr int loadedFileNameLimit =
+                static_cast<int>( sizeof( m_replayRuntime.Scrubber().saveMessage ) ) - loadedPrefixLength - 1;
+            sprintf_s( m_replayRuntime.Scrubber().saveMessage,
+                       sizeof( m_replayRuntime.Scrubber().saveMessage ),
+                       "LOADED %.*s",
+                       loadedFileNameLimit,
+                       fileName );
+        }
+        else
+        {
+            sprintf_s( m_replayRuntime.Scrubber().saveMessage,
+                       sizeof( m_replayRuntime.Scrubber().saveMessage ),
+                       "REPLAY LOAD FAILED" );
+        }
+        m_replayRuntime.Scrubber().saveMessageUntil = messageNow + 2.5;
+        m_replayRuntime.Scrubber().visibleUntil = messageNow + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+        m_replayRuntime.Scrubber().visible = true;
+        return loaded;
+    };
 
     if ( inHotZone || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
          overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
@@ -2045,7 +2043,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     }
     else if ( leftPressed && canTakeMouse && overLoadButton && m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        PromptLoadReplayPresentationArtifact( hwnd );
+        promptLoadReplayPresentationArtifact();
         consumesMouse = true;
     }
     else if ( leftPressed && canTakeMouse && !overBranchButton && !overPauseButton && !overPredictUi &&

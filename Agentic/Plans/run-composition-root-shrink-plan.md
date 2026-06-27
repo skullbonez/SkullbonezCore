@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay sample comparison helper slice validated
+Status: Active architecture cleanup plan; replay presentation picker helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay sample comparison helper section below
+Validation for latest implementation slice: see the replay presentation picker helper section below
 
 ## Goal
 
@@ -2630,6 +2630,73 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: replay restore/apply helpers, cross-file replay
 probe/hash helpers, and render-host splitting remain active; this slice only
 localized presentation/solver mismatch diagnostics.
+
+## Replay Presentation Picker Helper Slice
+
+This replay scrubber slice removed the private replay presentation artifact
+picker wrapper from `Run`. The file-picker command is now scoped to
+`Run::TickReplayScrubberInput` as the only caller, while the public
+`LoadReplayPresentationArtifact(...)` API remains available for startup and
+debug probe flows.
+
+Deleted `Run.h` declarations:
+
+- `PromptLoadReplayPresentationArtifact`
+
+Deleted `Run::` definitions:
+
+- `Run::PromptLoadReplayPresentationArtifact`
+
+New owner surface:
+
+- Scoped `promptLoadReplayPresentationArtifact` lambda inside
+  `Run::TickReplayScrubberInput`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 175 to 174.
+- New header and source guardrails reject the removed replay presentation
+  picker helper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The picker command now lives at its
+  scrubber button call site.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_presentation_picker_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.56s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_presentation_picker_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.86s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_presentation_picker_runtime_boundaries.log`;
+  passed with 0 errors in 1.92s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_presentation_picker_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.80s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay restore/apply helpers, cross-file replay
+probe/hash helpers, and render-host splitting remain active; this slice only
+localized the UI prompt wrapper for loading presentation artifacts.
 
 ## Rules
 
