@@ -536,19 +536,19 @@ void Run::TickPhysics( double secondsPerFrame )
                                       physicsCapture,
                                       SceneState().timeScale } );
     const bool manipulatorPhysics = policy.manipulatorActive;
-    const SimulationTickResult tick = m_simulation.Tick(
-        SimulationTickInput{ secondsPerFrame,
-                             policy.physicsTimeScale,
-                             SceneState().isSceneMode,
-                             SceneState().isScenePhysics,
-                             SceneState().isFixedStep,
-                             policy.physicsAdvance,
-                             stepRequested,
-                             &m_cGameModelCollection,
-                             manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
-                             this,
-                             ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
-                             this } );
+    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
+        secondsPerFrame,
+        policy.physicsTimeScale,
+        SceneState().isSceneMode,
+        SceneState().isScenePhysics,
+        SceneState().isFixedStep,
+        policy.physicsAdvance,
+        stepRequested,
+        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection },
+        manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
+        this,
+        ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
+        this } );
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
@@ -1868,7 +1868,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection }.Run(
+                PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );

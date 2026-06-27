@@ -1,12 +1,26 @@
 # Carmack Physics Standalone Boundary Plan
 
 Date: 2026-06-28
-Status: Draft
+Status: In progress
 Impact area: physics, runtime, scene system, replay, diagnostics, tests
 Validation note: plan-only edits require no validation. PR-bound implementation
 must use the smallest matching gate from `AGENTS.md`; physics-visible behavior
 requires `tools\validate_physics.bat`, with `tools\validate_physics_deep.bat`
 when SkullScope baselines or broad physics diagnostics change.
+
+## Completed Slices
+
+- [x] 2026-06-28: Removed `GameModelCollection*` from
+  `SimulationTickInput`; `SimulationSystem` now borrows a
+  `SimulationPhysicsStep` context and calls `PhysicsEngine::Step(...)` through
+  `PhysicsModelAccess`. Runtime `RunFrame` remains the adapter that binds the
+  current collection-backed compatibility access, and replay restore/prediction
+  helper stepping now uses the same context instead of
+  `GameModelCollection::RunPhysics`. The runtime-boundary allowlist entries for
+  `SimulationSystem` were removed. Validation evidence:
+  `tools\validate_fast.bat` passed; `python tools\check_runtime_boundaries.py`
+  passed with 0 errors; `tools\validate_physics.bat` passed with byte-exact
+  `physics_regression_solver.csv`.
 
 ## Problem Statement
 
@@ -61,8 +75,8 @@ commands, and read-only views, with no normal physics step dependency on
 
 ### Step Boundary
 
-- [ ] Replace `SimulationTickInput::models` with a narrow physics step service or context.
-- [ ] Route fixed-step and variable-step simulation through `PhysicsEngine::Step(...)` without requiring `GameModelCollection*`.
+- [x] Replace `SimulationTickInput::models` with a narrow physics step service or context.
+- [x] Route fixed-step and variable-step simulation through `PhysicsEngine::Step(...)` without requiring `GameModelCollection*`.
 - [ ] Move fixed-tree release behavior behind an explicit physics event sink or runtime adapter.
 - [ ] Move SkullScope frame emission behind an explicit diagnostics sink that receives physics views, not broad model storage.
 - [ ] Remove direct solver reads of `GameModel` fields after equivalent body/collider store data exists.
@@ -103,7 +117,7 @@ commands, and read-only views, with no normal physics step dependency on
 ## Validation Checklist
 
 - [ ] For plan-only edits: no validation required.
-- [ ] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
+- [x] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
 - [ ] For SkullScope baseline/query changes: run `tools\validate_physics_deep.bat`.
 - [ ] For broad runtime integration changes: run `tools\validate_full.bat`.
 - [ ] For hot-path storage or iteration changes: run `tools\validate_perf.bat` and document any warnings.

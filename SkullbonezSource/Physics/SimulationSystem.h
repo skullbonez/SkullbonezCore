@@ -12,10 +12,13 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
+  PhysicsModelAccess: Temporary compatibility interface that lets the physics
+    world step legacy model-backed storage without naming GameModelCollection.
 
 Invariants:
-  - SimulationTickInput borrows GameModelCollection and callbacks only for the
-    duration of Tick.
+  - SimulationTickInput borrows physics step context only for the duration of Tick.
+  - SimulationSystem must not know which runtime object owns the concrete
+    physics world; Run supplies that adapter through PhysicsModelAccess.
   - Result deltas report what was committed this call; accumulator state remains
     private to SimulationSystem.
 
@@ -30,13 +33,26 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Physics
 {
-class GameModelCollection;
-}
+class PhysicsEngine;
+class PhysicsModelAccess;
+} // namespace Physics
 
 namespace Basics
 {
+struct SimulationPhysicsStep
+{
+    Physics::PhysicsEngine* engine = nullptr;
+    Physics::PhysicsModelAccess* modelAccess = nullptr;
+
+    // Returns true when both halves of the borrowed physics-step context are present.
+    bool IsBound() const;
+
+    // Advances one fixed physics step through the current engine and compatibility model access.
+    void Run( float deltaSeconds ) const;
+};
+
 struct SimulationTickInput
 {
     using PhysicsStepCallback = void ( * )( void* userData );
@@ -48,7 +64,7 @@ struct SimulationTickInput
     bool isFixedStep = false;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     bool isStepRequested = false;
-    GameObjects::GameModelCollection* models = nullptr;
+    SimulationPhysicsStep physicsStep;
     PhysicsStepCallback beforePhysicsStep = nullptr;
     void* beforePhysicsStepUserData = nullptr;
     PhysicsStepCallback afterPhysicsStep = nullptr;

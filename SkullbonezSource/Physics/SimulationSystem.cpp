@@ -25,8 +25,9 @@ Related:
 #include "SimulationSystem.h"
 
 #include "../Core/Common.h"
-#include "../GameObjects/GameModelCollection.h"
 #include "../Core/Profiler.h"
+#include "PhysicsEngine.h"
+#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,6 +38,19 @@ namespace
 {
 constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 }
+
+bool SimulationPhysicsStep::IsBound() const
+{
+    return engine != nullptr && modelAccess != nullptr;
+}
+
+
+void SimulationPhysicsStep::Run( float deltaSeconds ) const
+{
+    assert( IsBound() );
+    engine->Step( *modelAccess, deltaSeconds );
+}
+
 
 void SimulationSystem::Reset()
 {
@@ -61,7 +75,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     const bool shouldStepPhysics =
         input.physicsAdvance == PhysicsAdvanceState::Running ||
         ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld && input.isStepRequested );
-    const bool canStepPhysics = shouldStepPhysics && input.models;
+    const bool canStepPhysics = shouldStepPhysics && input.physicsStep.IsBound();
     if ( input.isFixedStep )
     {
         if ( !canStepPhysics )
@@ -91,7 +105,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
                 {
                     input.beforePhysicsStep( input.beforePhysicsStepUserData );
                 }
-                input.models->RunPhysics( PHYSICS_FIXED_DT );
+                input.physicsStep.Run( PHYSICS_FIXED_DT );
                 ++result.committedPhysicsTicks;
                 if ( input.afterPhysicsStep )
                 {
@@ -122,7 +136,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
             {
                 input.beforePhysicsStep( input.beforePhysicsStepUserData );
             }
-            input.models->RunPhysics( PHYSICS_FIXED_DT );
+            input.physicsStep.Run( PHYSICS_FIXED_DT );
             ++result.committedPhysicsTicks;
             if ( input.afterPhysicsStep )
             {

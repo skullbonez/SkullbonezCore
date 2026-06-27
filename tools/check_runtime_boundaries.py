@@ -159,11 +159,6 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
-        # SimulationSystem is a compatibility input boundary and is not used by
-        # the active PhysicsEngine/PhysicsWorld step path.
-        ( "SkullbonezSource/Physics/SimulationSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/SimulationSystem.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/SimulationSystem.h", "GameObjects::GameModelCollection* models = nullptr;" ),
     )
 )
 
