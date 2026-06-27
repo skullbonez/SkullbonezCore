@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; editable scene snapshot helper slice validated
+Status: Active architecture cleanup plan; scene tornado defaults helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the editable scene snapshot helper section below
+Validation for latest implementation slice: see the scene tornado defaults helper section below
 
 ## Goal
 
@@ -2276,6 +2276,78 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: `SaveCurrentSceneDefaults` still remains on `Run`;
 scene persistence ownership, render-host splitting, shared cine/path helper
 cleanup, and remaining scene load ownership remain active.
+
+## Scene Tornado Defaults Helper Slice
+
+This scene-runtime slice removed the active-scene tornado defaulting wrapper from
+`Run`. Scene load still decides when to reset tornado state, apply scene-authored
+systems, process CLI overrides, and sync to physics, but the basin-centered
+field-default policy is now file-local in `RunScene.cpp`.
+
+Deleted `Run.h` declaration:
+
+- `ApplyTornadoDefaultsForActiveScene`
+
+Deleted `Run::` definition:
+
+- `Run::ApplyTornadoDefaultsForActiveScene`
+
+New owner surface:
+
+- File-local `ApplyTornadoDefaultsForActiveScene(...)` helper in
+  `Runtime/Scene/RunScene.cpp`, with explicit `RunRuntimeSettings&`,
+  `WorldEnvironment&`, and `CinematicRenderConfig&` inputs.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 184 to 183.
+- New header and source guardrails reject
+  `ApplyTornadoDefaultsForActiveScene` declarations and
+  `Run::ApplyTornadoDefaultsForActiveScene` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The helper signature names the runtime
+  settings, world, and cinematic inputs needed to derive the field defaults.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial targeted Profile build caught a namespace qualification mismatch in
+  the file-local helper; the helper now uses the imported `TornadoFieldConfig`
+  type directly.
+- Targeted Profile build rerun: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_tornado_defaults_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors in 7.37s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_tornado_defaults_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.67s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_tornado_defaults_runtime_boundaries.log`;
+  passed with 0 errors in 1.66s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_tornado_defaults_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.16s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: `SyncTornadoFieldToPhysics` still remains on `Run`
+because scene load, CLI overrides, and UI input all call it; scene persistence,
+render-host splitting, shared cine/path helper cleanup, and remaining scene load
+ownership remain active.
 
 ## Rules
 

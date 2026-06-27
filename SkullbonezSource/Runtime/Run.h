@@ -334,7 +334,6 @@ class Run
     void ApplyUIWorldOverride( float gravity,
                                float fluidHeight,
                                float fluidDensity );                       // Live world/fluid scalar override from UI controls.
-    void ApplyTornadoDefaultsForActiveScene();                             // Centers the tornado around the active inner-water/basin region
     void SyncTornadoFieldToPhysics();                                      // Sends live tornado state to the physics collection
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.

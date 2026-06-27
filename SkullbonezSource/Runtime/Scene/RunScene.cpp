@@ -761,6 +761,22 @@ bool SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
                                               sceneState.flatSlopeX,
                                               sceneState.flatSlopeZ );
 }
+
+void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
+                                         WorldEnvironment& world,
+                                         const CinematicRenderConfig& cinematic )
+{
+    TornadoFieldConfig field = runtimeSettings.tornadoField;
+    const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
+
+    field.center = Vector3( cinematic.basinCenterX, world.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
+    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
+    field.height = (std::max)( 130.0f, field.radius * 0.66f );
+    field.inwardAcceleration = 150.0f;
+    field.swirlAcceleration = 185.0f;
+    field.liftAcceleration = 64.0f;
+    runtimeSettings.tornadoField = field;
+}
 } // namespace
 
 void Run::UpdateRequiredSceneContacts()
@@ -1465,7 +1481,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
         m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
-        ApplyTornadoDefaultsForActiveScene();
+        ApplyTornadoDefaultsForActiveScene( m_runtimeSettings, m_cWorldEnvironment, ActiveCinematicConfig() );
         if ( hasSceneTornadoSystem )
         {
             m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
@@ -2308,23 +2324,6 @@ void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDen
                                     gravity,
                                     fluidHeight,
                                     fluidDensity );
-}
-
-
-void Run::ApplyTornadoDefaultsForActiveScene()
-{
-    Physics::TornadoFieldConfig field = m_runtimeSettings.tornadoField;
-    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
-
-    field.center =
-        Vector3( cinematic.basinCenterX, m_cWorldEnvironment.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
-    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
-    field.height = (std::max)( 130.0f, field.radius * 0.66f );
-    field.inwardAcceleration = 150.0f;
-    field.swirlAcceleration = 185.0f;
-    field.liftAcceleration = 64.0f;
-    m_runtimeSettings.tornadoField = field;
 }
 
 
