@@ -1031,7 +1031,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
 
     if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplayLiveAdvanceHeld( false );
+        m_replayRuntime.SetLiveAdvanceHeld( false );
     }
     CancelReplayToolDragState();
 

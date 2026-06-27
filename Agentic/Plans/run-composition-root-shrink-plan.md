@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay inspection query ownership slice validated
+Status: Active architecture cleanup plan; replay live-advance ownership slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay inspection query ownership section below
+Validation for latest implementation slice: see the replay live-advance ownership section below
 
 ## Goal
 
@@ -4670,6 +4670,76 @@ Residual architecture risk: remaining `Run::LoadScene` setup phases remain
 active, along with replay timeline reset ownership, remaining replay
 tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
 slice only moved replay inspection query ownership out of the composition root.
+
+## Replay Live-Advance Ownership Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This replay-runtime slice removed the live-advance state wrapper from `Run.h`.
+`ReplayRuntime` now owns the `liveAdvanceHeld` state transition and clears
+simulation-pause camera ownership when live advance is released. `Run` call
+sites keep the existing scene-run, world-interaction-owner, and inspection
+camera transitions explicit around that replay state change.
+
+Deleted `Run.h` declarations:
+
+- `void SetReplayLiveAdvanceHeld( bool held );`
+
+Deleted `Run::` definitions:
+
+- `void Run::SetReplayLiveAdvanceHeld( bool held )`
+
+New owner surface:
+
+- `bool ReplayRuntime::SetLiveAdvanceHeld( bool held )`
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
+- `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
+- `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`
+- `SkullbonezSource/Runtime/Run.cpp`
+- `SkullbonezSource/Runtime/RunFrame.cpp`
+- `SkullbonezSource/Runtime/RunInput.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 140 to 139.
+- New header and source guardrails reject `SetReplayLiveAdvanceHeld`
+  declarations or `Run::SetReplayLiveAdvanceHeld` definitions from returning.
+
+Validation:
+
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\replay_live_advance_runtime_boundaries.log`;
+  passed with 0 errors in 3.4s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_live_advance_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.6s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_live_advance_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, Profile build, and
+  Profile/Debug readiness in 55.4s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_live_advance_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 29.0s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: remaining `Run::LoadScene` setup phases remain
+active, along with replay timeline reset ownership, remaining replay
+tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
+slice only moved replay live-advance state ownership out of the composition
+root.
 
 ## Rules
 

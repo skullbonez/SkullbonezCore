@@ -702,6 +702,25 @@ bool ReplayRuntime::ResetScrubberState()
     return shouldExitInspectionCamera;
 }
 
+bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
+{
+    if ( m_scrubber.liveAdvanceHeld == held )
+    {
+        if ( !held )
+        {
+            m_camera.ownsSimulationPause = false;
+        }
+        return false;
+    }
+
+    m_scrubber.liveAdvanceHeld = held;
+    if ( !held )
+    {
+        m_camera.ownsSimulationPause = false;
+    }
+    return true;
+}
+
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );

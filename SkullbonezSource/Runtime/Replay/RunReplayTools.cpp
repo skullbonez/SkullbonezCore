@@ -1523,59 +1523,6 @@ bool SaveReplayBufferFromScrubber( ReplayRuntime& replayRuntime, RunReplayTrack 
 
 } // namespace
 
-void Run::SetReplayLiveAdvanceHeld( bool held )
-{
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld == held )
-    {
-        return;
-    }
-
-    // Removing this marker until we can sort out avoiding hitting assert
-    // PROFILE_SCOPED( "Frame/Replay/SimulationPause" );
-
-    if ( held )
-    {
-        EnterInteractiveSceneRun();
-        if ( !IsReplayToolOwner( m_interaction.Owner() ) )
-        {
-            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                                InteractionExitReason::EnterReplay );
-        }
-        m_replayRuntime.Scrubber().liveAdvanceHeld = true;
-        if ( m_replayRuntime.ShouldUseInspectionCamera() )
-        {
-            EnterReplayInspectionCamera();
-        }
-        else
-        {
-            ExitReplayInspectionCamera();
-        }
-        return;
-    }
-
-    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
-    m_replayRuntime.Camera().ownsSimulationPause = false;
-    if ( m_replayRuntime.VelocityEdit().enabled )
-    {
-        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
-                                                            InteractionExitReason::EnterReplay );
-    }
-    else if ( !m_replayRuntime.Scrubber().historicalSamplePaused &&
-              m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
-    {
-        EnterInteractionForCameraMode( m_camera.mode );
-    }
-    if ( m_replayRuntime.ShouldUseInspectionCamera() )
-    {
-        EnterReplayInspectionCamera();
-    }
-    else
-    {
-        ExitReplayInspectionCamera();
-    }
-}
-
-
 void Run::EnterReplayInspectionCamera()
 {
     if ( !m_systems.cameras )
@@ -1974,6 +1921,47 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return true;
     }
 
+    auto updateReplayInspectionCamera = [&]()
+    {
+        if ( m_replayRuntime.ShouldUseInspectionCamera() )
+        {
+            EnterReplayInspectionCamera();
+        }
+        else
+        {
+            ExitReplayInspectionCamera();
+        }
+    };
+
+    auto setReplayLiveAdvanceHeld = [&]( bool held )
+    {
+        if ( !m_replayRuntime.SetLiveAdvanceHeld( held ) )
+        {
+            return;
+        }
+
+        if ( held )
+        {
+            EnterInteractiveSceneRun();
+            if ( !IsReplayToolOwner( m_interaction.Owner() ) )
+            {
+                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                    InteractionExitReason::EnterReplay );
+            }
+        }
+        else if ( m_replayRuntime.VelocityEdit().enabled )
+        {
+            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                InteractionExitReason::EnterReplay );
+        }
+        else if ( !m_replayRuntime.Scrubber().historicalSamplePaused &&
+                  m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::None )
+        {
+            EnterInteractionForCameraMode( m_camera.mode );
+        }
+        updateReplayInspectionCamera();
+    };
+
     auto setPredictionHorizonFromMouse = [&]( bool ensureReplayPredictionOwner )
     {
         EnterInteractiveSceneRun();
@@ -1996,7 +1984,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( solverToolsEnabled && leftPressed && canTakeMouse && overPauseButton &&
          m_replayRuntime.Scrubber().visibleUntil >= now )
     {
-        SetReplayLiveAdvanceHeld( !m_replayRuntime.Scrubber().liveAdvanceHeld );
+        setReplayLiveAdvanceHeld( !m_replayRuntime.Scrubber().liveAdvanceHeld );
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
@@ -2011,7 +1999,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             if ( enableVelocityEdit )
             {
                 EnterInteractiveSceneRun();
-                SetReplayLiveAdvanceHeld( true );
+                setReplayLiveAdvanceHeld( true );
                 SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
                                                                     InteractionExitReason::EnterReplay );
             }
@@ -2248,7 +2236,11 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         const bool hadReplayCameraFocus = m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None;
         if ( !m_replayRuntime.Scrubber().liveAdvanceHeld )
         {
-            SetReplayLiveAdvanceHeld( true );
+            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+            {
+                SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                    InteractionExitReason::EnterReplay );
+            }
             m_replayRuntime.Camera().ownsSimulationPause = true;
         }
         else if ( !hadReplayCameraFocus )
@@ -2800,7 +2792,19 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                                                        startAngle ) )
                 {
                     EnterInteractiveSceneRun();
-                    SetReplayLiveAdvanceHeld( true );
+                    if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+                    {
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                    {
+                        EnterReplayInspectionCamera();
+                    }
+                    else
+                    {
+                        ExitReplayInspectionCamera();
+                    }
                     m_replayRuntime.Prediction().enabled = true;
                     BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
                                             WorldInteractionOwner::ReplayVelocityEdit,
@@ -2835,7 +2839,19 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                                                         axisT ) )
                 {
                     EnterInteractiveSceneRun();
-                    SetReplayLiveAdvanceHeld( true );
+                    if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && !IsReplayToolOwner( m_interaction.Owner() ) )
+                    {
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                    {
+                        EnterReplayInspectionCamera();
+                    }
+                    else
+                    {
+                        ExitReplayInspectionCamera();
+                    }
                     m_replayRuntime.Prediction().enabled = true;
                     BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag,
                                             WorldInteractionOwner::ReplayVelocityEdit,

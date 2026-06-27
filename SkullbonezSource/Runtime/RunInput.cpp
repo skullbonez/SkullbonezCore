@@ -654,8 +654,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 {
     CancelReplayToolDragState();
 
-    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
-    m_replayRuntime.Camera().ownsSimulationPause = false;
+    m_replayRuntime.SetLiveAdvanceHeld( false );
     if ( m_replayRuntime.ResetScrubberState() )
     {
         ExitReplayInspectionCamera();
@@ -2015,7 +2014,17 @@ void Run::TakeInput()
                     if ( enableVelocityEdit )
                     {
                         EnterInteractiveSceneRun();
-                        SetReplayLiveAdvanceHeld( true );
+                        if ( m_replayRuntime.SetLiveAdvanceHeld( true ) )
+                        {
+                            if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                            {
+                                EnterReplayInspectionCamera();
+                            }
+                            else
+                            {
+                                ExitReplayInspectionCamera();
+                            }
+                        }
                         SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
                                                                             InteractionExitReason::EnterReplay );
                     }

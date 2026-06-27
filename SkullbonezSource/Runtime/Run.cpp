@@ -786,7 +786,7 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
     {
         if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
         {
-            SetReplayLiveAdvanceHeld( false );
+            m_replayRuntime.SetLiveAdvanceHeld( false );
         }
         CancelReplayToolDragState();
 
@@ -826,7 +826,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     CancelReplayToolDragState();
     if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplayLiveAdvanceHeld( false );
+        m_replayRuntime.SetLiveAdvanceHeld( false );
     }
     if ( m_replayRuntime.ResetScrubberState() )
     {

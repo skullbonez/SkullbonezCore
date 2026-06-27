@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 140
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 139
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -520,6 +520,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Query replay inspection state through ReplayRuntime.",
     ),
     (
+        "replay live-advance wrapper must stay out of Run.h",
+        r"\bSetReplayLiveAdvanceHeld\s*\(",
+        "Set replay live-advance state through ReplayRuntime.",
+    ),
+    (
         "replay scrubber reset wrapper must stay out of Run.h",
         r"\bResetReplayScrubber\s*\(",
         "Reset replay scrubber state through ReplayRuntime.",
@@ -771,6 +776,12 @@ RUN_REPLAY_INSPECTION_QUERY_SOURCE_RULE = (
     "Run replay inspection query wrappers are blocked",
     r"\bRun::ReplayInspection(?:MouseLook)?Active\s*\(",
     "Query replay inspection state through ReplayRuntime.",
+)
+
+RUN_REPLAY_LIVE_ADVANCE_SOURCE_RULE = (
+    "Run replay live-advance wrapper is blocked",
+    r"\bRun::SetReplayLiveAdvanceHeld\s*\(",
+    "Set replay live-advance state through ReplayRuntime.",
 )
 
 RUN_REPLAY_SCRUBBER_RESET_SOURCE_RULE = (
@@ -1705,6 +1716,24 @@ def check_run_replay_inspection_query_source_guardrails(repo: Path) -> list[Boun
         if path.suffix not in { ".cpp", ".h" }:
             continue
         errors.extend(check_run_replay_inspection_query_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_run_replay_live_advance_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_LIVE_ADVANCE_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_live_advance_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_replay_live_advance_source_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -2805,6 +2834,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay inspection query header helpers synthetic surface was not rejected")
 
+    old_replay_live_advance_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void SetReplayLiveAdvanceHeld( bool held );",
+    )
+    if not any(
+        error.message == "replay live-advance wrapper must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_live_advance_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay live-advance header helper synthetic surface was not rejected")
+
     old_replay_scrubber_reset_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        void ResetReplayScrubber();",
@@ -3737,6 +3780,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay inspection query source helpers synthetic surface was not rejected")
 
+    old_replay_live_advance_source_helper = "void Run::SetReplayLiveAdvanceHeld( bool held ) { }"
+    if not any(
+        error.message == "Run replay live-advance wrapper is blocked"
+        for error in check_run_replay_live_advance_source_guardrails_text(
+            Path("synthetic/RunReplayTools.cpp"),
+            old_replay_live_advance_source_helper,
+        )
+    ):
+        failures.append("replay live-advance source helper synthetic surface was not rejected")
+
     old_replay_scrubber_reset_source_helper = "void Run::ResetReplayScrubber() {}"
     if not any(
         error.message == "Run replay scrubber reset wrapper is blocked"
@@ -4420,6 +4473,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_restore_event_source_guardrails(repo))
     errors.extend(check_run_replay_inspection_camera_source_guardrails(repo))
     errors.extend(check_run_replay_inspection_query_source_guardrails(repo))
+    errors.extend(check_run_replay_live_advance_source_guardrails(repo))
     errors.extend(check_run_replay_scrubber_reset_source_guardrails(repo))
     errors.extend(check_run_replay_event_frame_cursor_source_guardrails(repo))
     errors.extend(check_run_replay_event_record_source_guardrails(repo))
