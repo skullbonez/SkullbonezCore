@@ -2441,12 +2441,15 @@ bool TryReplayVelocityAngularRayAngle( const ReplayRuntime& replayRuntime,
 }
 
 
-void Run::ApplyReplayVelocityEditToModel( int modelIndex,
-                                          const Vector3& linearVelocity,
-                                          const Vector3& angularVelocity )
+static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
+                                            SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                            int modelIndex,
+                                            const Vector3& linearVelocity,
+                                            const Vector3& angularVelocity,
+                                            double visibleUntil )
 {
     PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Apply" );
-    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    if ( modelIndex < 0 || modelIndex >= modelCollection.GetModelCount() )
     {
         return;
     }
@@ -2463,7 +2466,7 @@ void Run::ApplyReplayVelocityEditToModel( int modelIndex,
     clampedAngular.z =
         std::clamp( clampedAngular.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
 
-    GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+    GameModel& model = modelCollection.GetModelAtIndex( modelIndex );
     if ( model.IsFixed() )
     {
         return;
@@ -2474,12 +2477,12 @@ void Run::ApplyReplayVelocityEditToModel( int modelIndex,
     if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
          VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
     {
-        m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, modelIndex );
+        modelCollection.GetPhysicsEngine().WakeBody( modelCollection, modelIndex );
     }
-    m_cGameModelCollection.InvalidatePhysicsStreams();
-    m_replayRuntime.MarkPredictionDirty();
-    m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayRuntime.Scrubber().visible = true;
+    modelCollection.InvalidatePhysicsStreams();
+    replayRuntime.MarkPredictionDirty();
+    replayRuntime.Scrubber().visibleUntil = visibleUntil;
+    replayRuntime.Scrubber().visible = true;
 }
 
 
@@ -2546,7 +2549,12 @@ void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& 
             std::clamp( component, -REPLAY_VELOCITY_EDIT_LINEAR_MAX, REPLAY_VELOCITY_EDIT_LINEAR_MAX ) );
     }
 
-    ApplyReplayVelocityEditToModel( modelIndex, linearVelocity, angularVelocity );
+    ApplyReplayVelocityEditToModel( m_replayRuntime,
+                                    m_cGameModelCollection,
+                                    modelIndex,
+                                    linearVelocity,
+                                    angularVelocity,
+                                    m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS );
 }
 
 

@@ -433,9 +433,6 @@ class Run
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
     void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin,
                                       const Math::Vector::Vector3& rayDirection );
-    void ApplyReplayVelocityEditToModel( int modelIndex,
-                                         const Math::Vector::Vector3& linearVelocity,
-                                         const Math::Vector::Vector3& angularVelocity );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ArmLoadedReplayPresentationScrubber( float normalized );
     void ResetReplayScrubber();

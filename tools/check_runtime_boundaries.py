@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 203
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 202
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -403,6 +403,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Set replay velocity edit state through ReplayRuntime and keep interaction transitions at the call site.",
     ),
     (
+        "replay velocity apply helper must stay out of Run.h",
+        r"\bApplyReplayVelocityEditToModel\s*\(",
+        "Keep replay velocity model mutation helpers file-local or in ReplayRuntime.",
+    ),
+    (
         "replay overlay render helpers must stay out of Run.h",
         r"\bRenderReplay(?:Scrubber|CauseTree)Overlay\s*\(",
         "Draw replay overlays from RuntimeRenderHost or a replay-owned render service.",
@@ -519,6 +524,12 @@ RUN_REPLAY_VELOCITY_TOGGLE_SOURCE_RULE = (
     "Run replay velocity edit toggle helper is blocked",
     r"\bRun::SetReplayVelocityEditEnabled\s*\(",
     "Set replay velocity edit state through ReplayRuntime and keep interaction transitions at the call site.",
+)
+
+RUN_REPLAY_VELOCITY_APPLY_SOURCE_RULE = (
+    "Run replay velocity apply helper is blocked",
+    r"\bRun::ApplyReplayVelocityEditToModel\s*\(",
+    "Keep replay velocity model mutation helpers file-local or in ReplayRuntime instead of Run.",
 )
 
 RUN_REPLAY_OVERLAY_SOURCE_RULE = (
@@ -1106,6 +1117,24 @@ def check_run_replay_velocity_toggle_source_guardrails(repo: Path) -> list[Bound
     return errors
 
 
+def check_run_replay_velocity_apply_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_VELOCITY_APPLY_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_velocity_apply_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_replay_velocity_apply_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_run_replay_overlay_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_REPLAY_OVERLAY_SOURCE_RULE
@@ -1515,6 +1544,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay velocity edit toggle header helper synthetic surface was not rejected")
 
+    old_replay_velocity_apply_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void ApplyReplayVelocityEditToModel();",
+    )
+    if not any(
+        error.message == "replay velocity apply helper must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_velocity_apply_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay velocity apply header helper synthetic surface was not rejected")
+
     old_replay_scrubber_overlay_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        void RenderReplayScrubberOverlay();",
@@ -1907,6 +1950,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay velocity edit toggle source helper synthetic surface was not rejected")
 
+    old_replay_velocity_apply_source_helper = "void Run::ApplyReplayVelocityEditToModel() {}"
+    if not any(
+        error.message == "Run replay velocity apply helper is blocked"
+        for error in check_run_replay_velocity_apply_source_guardrails_text(
+            Path("synthetic/RunReplayTools.cpp"),
+            old_replay_velocity_apply_source_helper,
+        )
+    ):
+        failures.append("replay velocity apply source helper synthetic surface was not rejected")
+
     old_replay_scrubber_overlay_source_helper = "void Run::RenderReplayScrubberOverlay() {}"
     if not any(
         error.message == "Run replay overlay render helpers are blocked"
@@ -2252,6 +2305,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_velocity_target_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_hit_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_toggle_source_guardrails(repo))
+    errors.extend(check_run_replay_velocity_apply_source_guardrails(repo))
     errors.extend(check_run_replay_overlay_source_guardrails(repo))
     errors.extend(check_run_scene_reset_source_guardrails(repo))
     errors.extend(check_run_scene_queue_source_guardrails(repo))

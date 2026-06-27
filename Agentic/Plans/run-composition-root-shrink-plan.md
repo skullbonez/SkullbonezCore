@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay velocity edit toggle ownership slice validated
+Status: Active architecture cleanup plan; replay velocity apply helper file-local slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -1645,6 +1645,81 @@ Validation:
   passed project filters, runtime boundaries, Profile/Debug builds, DX12
   validation with 0 errors and matching screenshots, and byte-exact
   `physics_regression_solver.csv` in 24.88s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: velocity edit input/drag/drawing, camera focus
+activation, replay prediction frame generation, visualizer drawing, scrubber
+input, cause tree row UI, replay overlay construction, and the larger scene
+load/render-host splits still remain.
+
+## Replay Velocity Apply Helper File-Local Slice
+
+This replay slice removed the velocity-edit model-apply helper from `Run`. The
+helper is now a file-local function in `RunReplayTools.cpp` that explicitly
+borrows `ReplayRuntime`, `GameModelCollection`, target model index, velocity
+vectors, and the scrubber visibility deadline. The remaining `Run` drag method
+still owns ray interpretation and interaction/gesture state, while the helper
+keeps the velocity clamp, wake, physics-stream invalidation, prediction dirtying,
+and scrubber visibility update together without requiring a `Run.h` declaration.
+
+Deleted `Run.h` declaration:
+
+- `ApplyReplayVelocityEditToModel`
+
+Deleted `Run::` definition:
+
+- `Run::ApplyReplayVelocityEditToModel`
+
+New owner surface:
+
+- File-local `ApplyReplayVelocityEditToModel(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 203 to 202.
+- The `Run.h` rules reject `ApplyReplayVelocityEditToModel` from returning.
+- Runtime source guardrails reject `Run::ApplyReplayVelocityEditToModel`
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- Existing surrounding comments remain appropriate for this file-local helper
+  conversion; no new dense subsystem comment was required.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial targeted Profile builds failed while qualifying the borrowed model
+  collection parameter; the helper was corrected to use the full
+  `SkullbonezCore::GameObjects::GameModelCollection` type before final gates.
+- Targeted Profile build final: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_apply_helper_profile_build_final.log`;
+  passed with 0 warnings and 0 errors in 9.18s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_apply_helper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.45s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_velocity_apply_helper_runtime_boundaries.log`;
+  passed with 0 errors in 1.29s.
+- Interaction smoke: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_apply_helper_validate_interaction_clicks.log`;
+  passed the inspect-gizmo and replay-prediction click reports in 6.65s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_apply_helper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.02s.
 
 Rubber-duck review was intentionally deferred by explicit user instruction until
 the end of the remaining plan work. Do not move this plan to `Done/` until the
