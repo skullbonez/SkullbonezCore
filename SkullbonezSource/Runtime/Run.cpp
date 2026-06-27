@@ -109,9 +109,23 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.isLauncherCameraMode = []( void* user ) -> bool
     { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
     callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t
-    { return static_cast<Run*>( user )->TextureHandle( textureHash ); };
+    {
+        Run* run = static_cast<Run*>( user );
+        if ( !run->m_systems.textures )
+        {
+            throw std::runtime_error( "Texture collection is not initialised." );
+        }
+        return run->m_systems.textures->GetTextureHandle( textureHash );
+    };
     callbacks.selectRenderTexture = []( void* user, uint32_t textureHash )
-    { static_cast<Run*>( user )->SelectRenderTexture( textureHash ); };
+    {
+        Run* run = static_cast<Run*>( user );
+        if ( !run->m_systems.textures )
+        {
+            throw std::runtime_error( "Texture collection is not initialised." );
+        }
+        run->m_systems.textures->SelectTexture( textureHash );
+    };
     callbacks.windowScreenWidth = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenWidth(); };
     callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
@@ -511,28 +525,6 @@ std::string Run::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind,
     const SkullbonezCore::Assets::SourceAssetRecord& record =
         m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
     return record.resolvedPath;
-}
-
-
-TextureCollection& Run::Textures()
-{
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    return *m_systems.textures;
-}
-
-
-uint32_t Run::TextureHandle( uint32_t textureHash )
-{
-    return Textures().GetTextureHandle( textureHash );
-}
-
-
-void Run::SelectRenderTexture( uint32_t textureHash )
-{
-    Textures().SelectTexture( textureHash );
 }
 
 

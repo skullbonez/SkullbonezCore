@@ -300,9 +300,6 @@ class Run
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
         const;                                                             // Debug event log record for a named resource-lifetime phase.
-    Textures::TextureCollection& Textures();                               // Runtime texture registry accessor used by render passes
-    uint32_t TextureHandle( uint32_t textureHash );                        // Resolves a runtime texture hash to a renderer handle
-    void SelectRenderTexture( uint32_t textureHash );                      // Runtime texture hash selected for the default draw texture slot.
     int WindowScreenWidth() const;                                         // Client width, falling back to config before window init.
     int WindowScreenHeight() const;                                        // Client height, falling back to config before window init.
     void SetViewingOrientation();                                          // Camera-view setup for the current frame.

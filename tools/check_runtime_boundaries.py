@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 139
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 136
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -485,6 +485,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Keep replay render-state sampling scoped to the render frame or replay render helpers.",
     ),
     (
+        "render host texture wrappers must stay out of Run.h",
+        r"\b(?:Textures|TextureHandle|SelectRenderTexture)\s*\(",
+        "Route render-host texture access through RuntimeRenderHost callbacks.",
+    ),
+    (
         "replay launcher visual sample helpers must stay out of Run.h",
         r"\b(?:BuildReplayLauncherVisualSample|RestoreReplayLauncherVisualSample)\s*\(",
         "Build and restore replay launcher visual samples through RuntimeTools.",
@@ -746,6 +751,12 @@ RUN_REPLAY_SAMPLE_COMPARISON_SOURCE_RULE = (
     "Run replay sample comparison helper is blocked",
     r"\bRun::CompareLatestReplaySamples\s*\(",
     "Keep replay sample mismatch diagnostics file-local to replay capture.",
+)
+
+RUN_RENDER_HOST_TEXTURE_SOURCE_RULE = (
+    "Run render host texture wrappers are blocked",
+    r"\bRun::(?:Textures|TextureHandle|SelectRenderTexture)\s*\(",
+    "Route render-host texture access through RuntimeRenderHost callbacks.",
 )
 
 RUN_REPLAY_PRESENTATION_PICKER_SOURCE_RULE = (
@@ -1626,6 +1637,24 @@ def check_run_replay_sample_comparison_source_guardrails(repo: Path) -> list[Bou
         if path.suffix not in { ".cpp", ".h" }:
             continue
         errors.extend(check_run_replay_sample_comparison_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_run_render_host_texture_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_RENDER_HOST_TEXTURE_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_render_host_texture_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_render_host_texture_source_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -2762,6 +2791,23 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay sample comparison header helper synthetic surface was not rejected")
 
+    old_render_host_texture_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n"
+        "        Textures::TextureCollection& Textures();\n"
+        "        uint32_t TextureHandle( uint32_t textureHash );\n"
+        "        void SelectRenderTexture( uint32_t textureHash );",
+    )
+    if not any(
+        error.message == "render host texture wrappers must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_render_host_texture_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("render host texture header helpers synthetic surface was not rejected")
+
     old_replay_presentation_picker_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        bool PromptLoadReplayPresentationArtifact( HWND hwnd );",
@@ -3724,6 +3770,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay sample comparison source helper synthetic surface was not rejected")
 
+    old_render_host_texture_source_helper = (
+        "Textures::TextureCollection& Run::Textures() { throw; }\n"
+        "uint32_t Run::TextureHandle( uint32_t textureHash ) { return textureHash; }\n"
+        "void Run::SelectRenderTexture( uint32_t textureHash ) { (void)textureHash; }"
+    )
+    if not any(
+        error.message == "Run render host texture wrappers are blocked"
+        for error in check_run_render_host_texture_source_guardrails_text(
+            Path("synthetic/Run.cpp"),
+            old_render_host_texture_source_helper,
+        )
+    ):
+        failures.append("render host texture source helpers synthetic surface was not rejected")
+
     old_replay_presentation_picker_source_helper = "bool Run::PromptLoadReplayPresentationArtifact( HWND hwnd ) { return false; }"
     if not any(
         error.message == "Run replay presentation artifact picker is blocked"
@@ -4468,6 +4528,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_render_state_source_guardrails(repo))
     errors.extend(check_run_replay_launcher_visual_sample_source_guardrails(repo))
     errors.extend(check_run_replay_sample_comparison_source_guardrails(repo))
+    errors.extend(check_run_render_host_texture_source_guardrails(repo))
     errors.extend(check_run_replay_presentation_picker_source_guardrails(repo))
     errors.extend(check_run_replay_scrubber_save_source_guardrails(repo))
     errors.extend(check_run_replay_restore_event_source_guardrails(repo))

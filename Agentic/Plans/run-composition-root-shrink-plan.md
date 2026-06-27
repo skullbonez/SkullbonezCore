@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay live-advance ownership slice validated
+Status: Active architecture cleanup plan; render-host texture accessor slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay live-advance ownership section below
+Validation for latest implementation slice: see the render-host texture accessor section below
 
 ## Goal
 
@@ -4740,6 +4740,78 @@ active, along with replay timeline reset ownership, remaining replay
 tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
 slice only moved replay live-advance state ownership out of the composition
 root.
+
+## Render-Host Texture Accessor Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This render-host slice removed the private texture registry wrappers from
+`Run.h`. `BuildRuntimeRenderHostCallbacks()` now resolves and selects render
+textures directly through the borrowed runtime texture collection, preserving
+the old not-initialized failure path while no longer bouncing those callbacks
+through private `Run` methods.
+
+Deleted `Run.h` declarations:
+
+- `Textures::TextureCollection& Textures();`
+- `uint32_t TextureHandle( uint32_t textureHash );`
+- `void SelectRenderTexture( uint32_t textureHash );`
+
+Deleted `Run::` definitions:
+
+- `Textures::TextureCollection& Run::Textures()`
+- `uint32_t Run::TextureHandle( uint32_t textureHash )`
+- `void Run::SelectRenderTexture( uint32_t textureHash )`
+
+New owner surface:
+
+- `RuntimeRenderHostCallbacks::textureHandle` now reads `m_systems.textures`
+  directly.
+- `RuntimeRenderHostCallbacks::selectRenderTexture` now writes
+  `m_systems.textures` directly.
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Run.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 139 to 136.
+- New header and source guardrails reject `Textures`, `TextureHandle`, and
+  `SelectRenderTexture` declarations or `Run::` definitions from returning.
+
+Validation:
+
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\render_host_texture_accessors_runtime_boundaries.log`;
+  passed with 0 errors in 3.4s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\render_host_texture_accessors_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.5s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\render_host_texture_accessors_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, Profile build, and
+  Profile/Debug readiness in 53.6s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\render_host_texture_accessors_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.1s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: remaining `Run::LoadScene` setup phases remain
+active, along with replay timeline reset ownership, remaining replay
+tool/helper ownership, render-host splitting, render-host window-size wrappers,
+and shared cine/path cleanup. This slice only removed texture accessor callback
+bounces from the composition root.
 
 ## Rules
 
