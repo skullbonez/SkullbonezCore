@@ -335,15 +335,8 @@ class Run
     void ApplyUIWorldOverride( float gravity,
                                float fluidHeight,
                                float fluidDensity );                       // Live world/fluid scalar override from UI controls.
-    void ApplyConfiguredWorldEnvironment();                                // Restores engine.cfg world/fluid defaults for a fresh scene load.
-    void ApplyNoWaterOverride();                                           // Pushes fluid surface below the active terrain when requested
     void ApplyTornadoDefaultsForActiveScene();                             // Centers the tornado around the active inner-water/basin region
     void SyncTornadoFieldToPhysics();                                      // Sends live tornado state to the physics collection
-    void UseDefaultTerrain();                                              // Restores the normal height-map terrain when leaving analytic test scenes
-    void UseFlatSlopeTerrain( float baseY,
-                              float slopeX,
-                              float slopeZ );                              // Activates analytic flat-slope terrain for focused physics scenes
-    void UpdateWorldTerrainBounds();                                       // Keeps world/fluid helpers aligned with the active terrain bounds
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.

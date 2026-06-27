@@ -674,6 +674,68 @@ SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene
 {
     return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
 }
+
+void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
+{
+    if ( !terrain )
+    {
+        return;
+    }
+
+    XZBounds tb = terrain->GetXZBounds();
+    world.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+}
+
+void ApplyConfiguredWorldEnvironment( WorldEnvironment& world, const EngineConfig& cfg, Terrain* terrain )
+{
+    world = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    UpdateWorldTerrainBounds( world, terrain );
+}
+
+void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWater )
+{
+    if ( !noWater || !terrain )
+    {
+        return;
+    }
+
+    world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
+}
+
+void UseDefaultTerrain( RunSubsystemState& systems,
+                        WorldEnvironment& world,
+                        const std::string& terrainRawPath,
+                        IRenderBackend* renderer )
+{
+    if ( !systems.terrain || systems.isFlatSlopeTerrain )
+    {
+        if ( renderer )
+        {
+            renderer->FlushGPU();
+        }
+        systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
+        systems.isFlatSlopeTerrain = false;
+    }
+
+    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+}
+
+void UseFlatSlopeTerrain( RunSubsystemState& systems,
+                          WorldEnvironment& world,
+                          float baseY,
+                          float slopeX,
+                          float slopeZ,
+                          IRenderBackend* renderer )
+{
+    if ( renderer )
+    {
+        renderer->FlushGPU();
+    }
+    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ );
+    systems.isFlatSlopeTerrain = true;
+
+    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+}
 } // namespace
 
 void Run::UpdateRequiredSceneContacts()
@@ -940,9 +1002,13 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        UseDefaultTerrain();
-        ApplyConfiguredWorldEnvironment();
-        ApplyNoWaterOverride();
+        UseDefaultTerrain(
+            m_systems,
+            m_cWorldEnvironment,
+            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw ),
+            IsGfxReady() ? &Gfx() : nullptr );
+        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, Cfg(), m_systems.terrain.get() );
+        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
@@ -1203,15 +1269,24 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             SceneState().flatBaseY = scene.GetFlatBaseY();
             SceneState().flatSlopeX = scene.GetFlatSlopeX();
             SceneState().flatSlopeZ = scene.GetFlatSlopeZ();
-            UseFlatSlopeTerrain( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
+            UseFlatSlopeTerrain( m_systems,
+                                 m_cWorldEnvironment,
+                                 scene.GetFlatBaseY(),
+                                 scene.GetFlatSlopeX(),
+                                 scene.GetFlatSlopeZ(),
+                                 IsGfxReady() ? &Gfx() : nullptr );
         }
         else
         {
             SceneState().hasFlatSlope = false;
-            UseDefaultTerrain();
+            UseDefaultTerrain(
+                m_systems,
+                m_cWorldEnvironment,
+                ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw ),
+                IsGfxReady() ? &Gfx() : nullptr );
         }
 
-        ApplyConfiguredWorldEnvironment();
+        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, Cfg(), m_systems.terrain.get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
@@ -1219,9 +1294,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                     scene.GetWorldFluidDensity(),
                                                     Cfg().gasDensity,
                                                     scene.GetWorldGravity() );
-            UpdateWorldTerrainBounds();
+            UpdateWorldTerrainBounds( m_cWorldEnvironment, m_systems.terrain.get() );
         }
-        ApplyNoWaterOverride();
+        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
@@ -2231,25 +2306,6 @@ void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDen
 }
 
 
-void Run::ApplyConfiguredWorldEnvironment()
-{
-    const EngineConfig& cfg = Cfg();
-    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::ApplyNoWaterOverride()
-{
-    if ( !m_launchOptions.noWater || !m_systems.terrain )
-    {
-        return;
-    }
-
-    m_cWorldEnvironment.SetFluidSurfaceHeight( m_systems.terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
-}
-
-
 void Run::ApplyTornadoDefaultsForActiveScene()
 {
     Physics::TornadoFieldConfig field = m_runtimeSettings.tornadoField;
@@ -2271,47 +2327,4 @@ void Run::SyncTornadoFieldToPhysics()
 {
     m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
     m_cGameModelCollection.SetTornadoSystemConfig( m_runtimeSettings.tornadoSystem );
-}
-
-
-void Run::UseDefaultTerrain()
-{
-    if ( !m_systems.terrain || m_systems.isFlatSlopeTerrain )
-    {
-        if ( IsGfxReady() )
-        {
-            Gfx().FlushGPU();
-        }
-        const std::string terrainRawPath =
-            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
-        m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
-        m_systems.isFlatSlopeTerrain = false;
-    }
-
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ )
-{
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-    m_systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ );
-    m_systems.isFlatSlopeTerrain = true;
-
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::UpdateWorldTerrainBounds()
-{
-    if ( !m_systems.terrain )
-    {
-        return;
-    }
-
-    XZBounds tb = m_systems.terrain->GetXZBounds();
-    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 }

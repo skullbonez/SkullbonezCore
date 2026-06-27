@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; generated camera setup wrapper slice validated
+Status: Active architecture cleanup plan; scene terrain/world setup wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene context builder section below
+Validation for latest implementation slice: see the scene terrain/world setup wrapper section below
 
 ## Goal
 
@@ -1890,6 +1890,94 @@ Residual architecture risk: scene load still sequences terrain/world setup,
 teardown, generated and authored object population, UI override application,
 and replay reset from `Run`; render-host splitting, shared cine/path helper
 cleanup, and remaining replay tool/helper ownership remain active.
+
+## Scene Terrain/World Setup Wrapper Slice
+
+This scene-load slice removed the terrain and world setup wrappers from `Run`.
+Generated and authored scene loads now call file-local helpers in `RunScene.cpp`
+with explicit borrowed `RunSubsystemState`, `WorldEnvironment`, config, terrain,
+and optional renderer dependencies. The helper order preserves the old behavior:
+select or rebuild terrain, apply engine-config world defaults, apply authored
+scene world overrides when present, then apply the `--no-water` override.
+
+Deleted `Run.h` declarations:
+
+- `ApplyConfiguredWorldEnvironment`
+- `ApplyNoWaterOverride`
+- `UseDefaultTerrain`
+- `UseFlatSlopeTerrain`
+- `UpdateWorldTerrainBounds`
+
+Deleted `Run::` definitions:
+
+- `Run::ApplyConfiguredWorldEnvironment`
+- `Run::ApplyNoWaterOverride`
+- `Run::UseDefaultTerrain`
+- `Run::UseFlatSlopeTerrain`
+- `Run::UpdateWorldTerrainBounds`
+
+New owner surface:
+
+- File-local `ApplyConfiguredWorldEnvironment(...)`,
+  `ApplyNoWaterOverride(...)`, `UseDefaultTerrain(...)`,
+  `UseFlatSlopeTerrain(...)`, and `UpdateWorldTerrainBounds(...)` in
+  `Runtime/Scene/RunScene.cpp`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 197 to 192.
+- The `Run.h` rules reject the five terrain/world setup wrapper declarations
+  from returning.
+- Runtime source guardrails reject the five `Run::` terrain/world setup
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No new explanatory comments were added. Existing terrain/world scene-load
+  comments remain useful and the helper signatures now show the borrowed
+  dependencies directly.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial targeted Profile build failed because `Terrain::GetXZBounds()` is
+  non-const; the file-local helper parameters were corrected from
+  `const Terrain*` to `Terrain*` before final gates.
+- Targeted Profile build rerun: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_terrain_world_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors in 7.30s.
+- Initial `tools\validate_fast.bat` run stopped at formatting for
+  `RunScene.cpp`; that touched file was formatted directly with VS
+  `clang-format` before final gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_terrain_world_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.07s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_terrain_world_runtime_boundaries.log`;
+  passed with 0 errors in 1.43s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_terrain_world_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.77s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene load still sequences teardown, generated and
+authored object population, UI override application, tornado setup/sync, and
+replay reset from `Run`; render-host splitting, shared cine/path helper cleanup,
+and remaining replay tool/helper ownership remain active.
 
 ## Rules
 
