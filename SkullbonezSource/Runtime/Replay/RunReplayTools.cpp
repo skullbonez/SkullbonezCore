@@ -1802,7 +1802,10 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         CancelReplayToolDragState();
         if ( !loadedPresentation )
         {
-            ResetReplayScrubber();
+            if ( m_replayRuntime.ResetScrubberState() )
+            {
+                ExitReplayInspectionCamera();
+            }
         }
         m_replayRuntime.Prediction().checkboxHovered = false;
         m_replayRuntime.Prediction().ragdollVisualsHovered = false;

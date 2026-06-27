@@ -396,6 +396,7 @@ class ReplayRuntime
     void SetTrackPosition( RunReplayTrack track, float position );
     void SyncActiveTrackPosition();
     void SetAllTrackPositions( float position );
+    bool ResetScrubberState();
     float SolverPresentTrackPosition() const;
     static bool TimelineHasFuture( float presentT );
     static bool AtPresentTrackPosition( float position, float presentT );

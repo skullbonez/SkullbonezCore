@@ -641,7 +641,10 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 
     m_replayRuntime.Scrubber().liveAdvanceHeld = false;
     m_replayRuntime.Camera().ownsSimulationPause = false;
-    ResetReplayScrubber();
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
     m_replayRuntime.SetAllTrackPositions( 1.0f );
     m_replayRuntime.Scrubber().visible = false;
     m_replayRuntime.Scrubber().dragging = false;
@@ -1749,7 +1752,10 @@ void Run::TakeInput()
         CancelCameraLookGesture();
         CancelReplayToolDragState();
         Input::SetSystemCursorVisible( true );
-        ResetReplayScrubber();
+        if ( m_replayRuntime.ResetScrubberState() )
+        {
+            ExitReplayInspectionCamera();
+        }
         m_replayRuntime.Prediction().checkboxHovered = false;
         m_replayRuntime.Prediction().decreaseHovered = false;
         m_replayRuntime.Prediction().increaseHovered = false;

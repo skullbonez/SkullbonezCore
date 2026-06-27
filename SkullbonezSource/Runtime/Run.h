@@ -398,7 +398,6 @@ class Run
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
     void RenderReplayVelocityEditOverlay( RunEditorTracer& tracer );
     void ArmLoadedReplayPresentationScrubber( float normalized );
-    void ResetReplayScrubber();
     void SetReplayLiveAdvanceHeld( bool held );
     void EnterReplayInspectionCamera();
     void ExitReplayInspectionCamera();

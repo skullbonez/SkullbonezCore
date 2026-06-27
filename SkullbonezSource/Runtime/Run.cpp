@@ -737,7 +737,10 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
 {
     const ReplayRuntime::RecordingConfigResult replayConfig =
         m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath );
-    ResetReplayScrubber();
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
     if ( replayConfig.presentationStats.enabled )
     {
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
@@ -873,7 +876,10 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     {
         SetReplayLiveAdvanceHeld( false );
     }
-    ResetReplayScrubber();
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
     m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
     ClearReplayCameraFocus( true );
     m_replayRuntime.ClearPathVisualizerState();
@@ -1212,29 +1218,6 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     {
         ExitReplayInspectionCamera();
     }
-}
-
-
-void Run::ResetReplayScrubber()
-{
-    if ( m_replayRuntime.Camera().active && !m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        ExitReplayInspectionCamera();
-    }
-
-    const bool leftWasDown = m_replayRuntime.Scrubber().leftWasDown;
-    const bool restoreWasDown = m_replayRuntime.Scrubber().restoreWasDown;
-    const bool restoreConsumedThisFrame = m_replayRuntime.Scrubber().restoreConsumedThisFrame;
-    const bool liveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
-    const bool pauseRestoreFlyMode = m_replayRuntime.Scrubber().pauseRestoreFlyMode;
-    const bool pauseRestoreLauncherMode = m_replayRuntime.Scrubber().pauseRestoreLauncherMode;
-    m_replayRuntime.Scrubber() = RunReplayScrubberState{};
-    m_replayRuntime.Scrubber().leftWasDown = leftWasDown;
-    m_replayRuntime.Scrubber().restoreWasDown = restoreWasDown;
-    m_replayRuntime.Scrubber().restoreConsumedThisFrame = restoreConsumedThisFrame;
-    m_replayRuntime.Scrubber().liveAdvanceHeld = liveAdvanceHeld;
-    m_replayRuntime.Scrubber().pauseRestoreFlyMode = pauseRestoreFlyMode;
-    m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
 }
 
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )

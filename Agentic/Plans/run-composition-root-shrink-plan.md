@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay inspection camera update wrapper slice validated
+Status: Active architecture cleanup plan; replay scrubber reset wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay inspection camera update wrapper section below
+Validation for latest implementation slice: see the replay scrubber reset wrapper section below
 
 ## Goal
 
@@ -2980,6 +2980,83 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: solver apply/hash helpers, the remaining
 replay-inspection camera enter/exit and focus-control methods, and render-host
 splitting remain active; this slice only removed the narrow update wrapper.
+
+## Replay Scrubber Reset Wrapper Slice
+
+This replay scrubber slice removed the private scrubber reset wrapper from
+`Run`. The preserved-field reset now belongs to `ReplayRuntime`, while `Run`
+call sites explicitly perform the inspection-camera exit only when the replay
+runtime reports that the old wrapper would have exited.
+
+Deleted `Run.h` declarations:
+
+- `ResetReplayScrubber`
+
+Deleted `Run::` definitions:
+
+- `Run::ResetReplayScrubber`
+
+New owner surface:
+
+- `ReplayRuntime::ResetScrubberState()`
+
+Updated call sites:
+
+- `Run::SetReplayRecording`
+- `Run::ResetReplayTimelineForActiveScene`
+- `Run::ClearReplayInteractionForRuntimeTransition`
+- `Run::TakeInput`
+- `Run::TickReplayScrubberInput`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 170 to 169.
+- New header and source guardrails reject the removed replay scrubber reset
+  wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunInput.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The new replay runtime method keeps the
+  old reset preservation policy in one state-owner method.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_reset_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.54s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_reset_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.06s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_reset_runtime_boundaries.log`;
+  passed with 0 errors in 2.12s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_reset_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.58s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: solver apply/hash helpers, the remaining replay
+inspection camera enter/exit and focus-control methods, and render-host
+splitting remain active; this slice only moved scrubber reset state ownership.
 
 ## Rules
 

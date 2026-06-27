@@ -596,6 +596,25 @@ void ReplayRuntime::SetAllTrackPositions( float position )
     m_scrubber.position = clamped;
 }
 
+bool ReplayRuntime::ResetScrubberState()
+{
+    const bool shouldExitInspectionCamera = m_camera.active && !m_scrubber.liveAdvanceHeld;
+    const bool leftWasDown = m_scrubber.leftWasDown;
+    const bool restoreWasDown = m_scrubber.restoreWasDown;
+    const bool restoreConsumedThisFrame = m_scrubber.restoreConsumedThisFrame;
+    const bool liveAdvanceHeld = m_scrubber.liveAdvanceHeld;
+    const bool pauseRestoreFlyMode = m_scrubber.pauseRestoreFlyMode;
+    const bool pauseRestoreLauncherMode = m_scrubber.pauseRestoreLauncherMode;
+    m_scrubber = RunReplayScrubberState{};
+    m_scrubber.leftWasDown = leftWasDown;
+    m_scrubber.restoreWasDown = restoreWasDown;
+    m_scrubber.restoreConsumedThisFrame = restoreConsumedThisFrame;
+    m_scrubber.liveAdvanceHeld = liveAdvanceHeld;
+    m_scrubber.pauseRestoreFlyMode = pauseRestoreFlyMode;
+    m_scrubber.pauseRestoreLauncherMode = pauseRestoreLauncherMode;
+    return shouldExitInspectionCamera;
+}
+
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
