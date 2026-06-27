@@ -63,7 +63,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
-        std::vector<GameModel>& models = modelCollection.PhysicsModels();
+        std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
         int targetIndex = -1;
         for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
         {

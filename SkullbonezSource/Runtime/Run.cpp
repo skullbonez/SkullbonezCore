@@ -844,7 +844,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         return false;
     }
 
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( sample.bodies.size() > models.size() )
     {
         writeReason( "selected frame needs unavailable bodies" );

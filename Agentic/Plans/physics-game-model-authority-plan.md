@@ -13,6 +13,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Added project-filter and runtime-boundary guardrails so `MakePhysicsModelView` or `PhysicsModelView` cannot return unnoticed.
 - [x] 2026-06-27: Validated the deleted-view slice with `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_perf.bat`.
 - [x] 2026-06-27: Added a counted runtime-boundary allowlist so current `PhysicsModels()` compatibility callers are explicit and any new direct caller fails validation.
+- [x] 2026-06-28: Deleted the neutral `GameModelCollection::PhysicsModels()` API name; remaining vector borrowers now call explicit compatibility accessors.
 
 ## Goal
 
@@ -277,7 +278,7 @@ Only remove compatibility after callers have moved and validation has covered th
 
 - [x] Verify `MakePhysicsModelView()` was already deleted by the required first slice.
 - [x] Verify `PhysicsModelView` was already deleted by the required first slice.
-- [ ] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it.
+- [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on `GameModelCollection` after render callers migrate.
@@ -289,7 +290,7 @@ Only remove compatibility after callers have moved and validation has covered th
 Searches to run before declaring compatibility gone:
 
 - [x] `rg "MakePhysicsModelView" SkullbonezSource`
-- [ ] `rg "PhysicsModels\(" SkullbonezSource`
+- [x] `rg "PhysicsModels\(" SkullbonezSource`
 - [x] `rg "PhysicsModelView" SkullbonezSource`
 - [ ] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`

@@ -164,95 +164,10 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     )
 )
 
-# Counted allowlist: duplicate entries are intentional. They preserve the exact
-# current compatibility debt while failing any new direct PhysicsModels() call.
-PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
-    ( Path(path), normalize_boundary_line(line) )
-    for path, line in (
-        ( "SkullbonezSource/GameObjects/GameModelCollection.h", "std::vector<GameModel>& PhysicsModels();" ),
-        ( "SkullbonezSource/GameObjects/GameModelCollection.h", "const std::vector<GameModel>& PhysicsModels() const;" ),
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
-            "std::vector<GameModel>& GameModelCollection::PhysicsModels()",
-        ),
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
-            "const std::vector<GameModel>& GameModelCollection::PhysicsModels() const",
-        ),
-        (
-            "SkullbonezSource/Runtime/Run.cpp",
-            "std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
-            "std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
-            "std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-            "std::vector<GameModel>& physicsModels = models.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-            "std::vector<GameModel>& physicsModels = models.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl",
-            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
-        ),
-    )
-)
+# The old neutral PhysicsModels() name is fully blocked. Remaining vector
+# borrowers must use the explicit *ForCompatibility() accessors until stable
+# body/entity handles replace them.
+PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
 RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
     (
@@ -4797,21 +4712,18 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted PhysicsModelView synthetic surface was not rejected")
 
-    allowed_physics_models_path = Path("SkullbonezSource/Runtime/RunFrame.cpp")
-    allowed_physics_models_line = (
+    compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
-        "m_cGameModelCollection.PhysicsModels();"
+        "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
     )
-    synthetic_physics_models_allowlist = Counter(
-        { ( allowed_physics_models_path, normalize_boundary_line( allowed_physics_models_line ) ): 1 }
-    )
+    empty_physics_models_allowlist: Counter[tuple[Path, str]] = Counter()
     if check_physics_models_access_guardrails_text(
-        allowed_physics_models_path,
-        allowed_physics_models_line,
-        allowed_physics_models_path,
-        synthetic_physics_models_allowlist,
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        compatibility_physics_models_text,
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        empty_physics_models_allowlist,
     ):
-        failures.append("allowed PhysicsModels synthetic access failed")
+        failures.append("named PhysicsModels compatibility adapter was rejected")
 
     commented_physics_models_text = """
     // m_cGameModelCollection.PhysicsModels() is mentioned in a migration note only.
@@ -4824,18 +4736,18 @@ def run_self_tests() -> list[str]:
         Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
         commented_physics_models_text,
         Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-        synthetic_physics_models_allowlist,
+        empty_physics_models_allowlist,
     ):
         failures.append("comment-only PhysicsModels synthetic text was rejected")
 
-    duplicate_physics_models_access = allowed_physics_models_line + "\n" + allowed_physics_models_line
+    duplicate_physics_models_access = "auto& models = collection.PhysicsModels();\n" * 2
     if not any(
         error.message == "direct PhysicsModels() compatibility access is blocked"
         for error in check_physics_models_access_guardrails_text(
-            allowed_physics_models_path,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
             duplicate_physics_models_access,
-            allowed_physics_models_path,
-            synthetic_physics_models_allowlist,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            empty_physics_models_allowlist,
         )
     ):
         failures.append("duplicate PhysicsModels synthetic access was not rejected")
@@ -4847,7 +4759,7 @@ def run_self_tests() -> list[str]:
             Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
             new_physics_models_access,
             Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            synthetic_physics_models_allowlist,
+            empty_physics_models_allowlist,
         )
     ):
         failures.append("new PhysicsModels synthetic access was not rejected")

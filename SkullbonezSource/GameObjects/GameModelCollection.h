@@ -131,8 +131,10 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
     const GameModel* ModelData() const override;
     const std::vector<GameModel>& Models() const;
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
-    std::vector<GameModel>& PhysicsModels();
-    const std::vector<GameModel>& PhysicsModels() const;
+    // Compatibility: legacy replay/editor paths still borrow the model vector
+    // while body, collider, and render stores become authoritative.
+    std::vector<GameModel>& MutablePhysicsModelsForCompatibility();
+    const std::vector<GameModel>& PhysicsModelsForCompatibility() const;
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );

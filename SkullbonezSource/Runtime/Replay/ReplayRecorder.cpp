@@ -704,7 +704,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    std::vector<GameModel>& physicsModels = models.PhysicsModels();
+    std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();
     const std::size_t modelCount = physicsModels.size();
     sample.bodies.clear();
     sample.bodies.reserve( modelCount );
@@ -1080,7 +1080,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    std::vector<GameModel>& physicsModels = models.PhysicsModels();
+    std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();
     const std::size_t modelCount = physicsModels.size();
     sample.bodies.clear();
     sample.bodies.reserve( modelCount );

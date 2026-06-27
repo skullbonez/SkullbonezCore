@@ -166,7 +166,7 @@ void Run::ApplyMousePickupPhysicsStep()
     // Hazard: Pickup stores a frame-local model index. Revalidate against the
     // physics model vector on every step before restoring angular velocity or
     // applying the spring-like impulse.
-    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
          m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
     {
@@ -213,7 +213,7 @@ void Run::RestoreMousePickupAngularVelocity()
         return;
     }
 
-    std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+    std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
          m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
     {

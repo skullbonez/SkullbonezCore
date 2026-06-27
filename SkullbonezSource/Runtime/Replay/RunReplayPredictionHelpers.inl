@@ -1059,7 +1059,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
-    std::vector<GameModel>& models = modelCollection.PhysicsModels();
+    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
     const int modelCount = static_cast<int>( models.size() );
     outBodies.clear();
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
@@ -1107,7 +1107,7 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    std::vector<GameModel>& models = modelCollection.PhysicsModels();
+    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
     if ( bodies.size() != models.size() )
     {
         return false;
@@ -1142,7 +1142,7 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    std::vector<GameModel>& models = modelCollection.PhysicsModels();
+    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
     const int modelCount = static_cast<int>( models.size() );
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;

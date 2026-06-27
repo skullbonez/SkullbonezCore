@@ -672,7 +672,8 @@ void Run::TickReplayScrubProbe()
         throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay scrub probe selected an invalid live model index" );
@@ -967,7 +968,8 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay save probe loaded an invalid live model index" );
@@ -1101,7 +1103,8 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( selectedBody->modelIndex < 0 || selectedBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay load probe loaded an invalid model index" );
@@ -1626,7 +1629,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     auto checkpointTopologyMatchesLive = [&]() -> bool
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();
         if ( checkpoint->bodies.size() > models.size() )
         {
             return false;
@@ -1894,7 +1897,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 char message[1024] = {};
                 const ReplayPresentationSample* expectedPresentation =
                     FindReplayPresentationForFrame( presentationSamples, currentFrame );
-                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModels();
+                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();
                 if ( expectedPresentation && !expectedPresentation->bodies.empty() && !restoredModels.empty() )
                 {
                     const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];

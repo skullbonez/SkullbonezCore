@@ -438,13 +438,13 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 }
 
 
-std::vector<GameModel>& GameModelCollection::PhysicsModels()
+std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()
 {
     return m_gameModels;
 }
 
 
-const std::vector<GameModel>& GameModelCollection::PhysicsModels() const
+const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const
 {
     return m_gameModels;
 }
