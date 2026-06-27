@@ -48,6 +48,24 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
+                                              SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              SkullbonezCore::Environment::WorldEnvironment& world,
+                                              SkullbonezCore::UI::InGameUI& ui )
+{
+    return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
+                                                       models,
+                                                       world,
+                                                       systems.terrain.get(),
+                                                       *systems.cameras,
+                                                       *systems.window,
+                                                       ui,
+                                                       systems.skyBox } };
+}
+} // namespace
+
 // The cinematic settings can come from two places:
 //  1. a .scene.json file, when a test/preview scene is loaded, or
 //  2. the normal engine config, when the app is running without a scene override.
@@ -75,25 +93,6 @@ bool Run::IsCinematicRenderingEnabled() const
     // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
     // also stay off there. The UI text renderer handles that path by itself.
     return enabled && IsGfxReady() && !m_debug.isTextOnly;
-}
-
-
-RuntimeRenderServices Run::BuildRuntimeRenderServices()
-{
-    return RuntimeRenderServices{ *m_systems.textures,
-                                  m_cGameModelCollection,
-                                  m_cWorldEnvironment,
-                                  m_systems.terrain.get(),
-                                  *m_systems.cameras,
-                                  *m_systems.window,
-                                  m_UI,
-                                  m_systems.skyBox };
-}
-
-
-RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
-{
-    return RuntimeRenderInputs{ BuildRuntimeRenderServices() };
 }
 
 
@@ -465,14 +464,14 @@ void Run::Render()
 
     applyReplayRenderStateForFrame();
 
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
     restoreReplayRenderStateForFrame();
 }
 
 
 void Run::DrawPrimitives()
 {
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
 }
 
 

@@ -290,8 +290,6 @@ class Run
     void DrawPrimitives();                                                 // Thin compatibility wrapper around RuntimeRenderer::RenderFrame().
     RuntimeRenderHostBindings BuildRuntimeRenderHostBindings();
     RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
-    RuntimeRenderServices BuildRuntimeRenderServices();
-    RuntimeRenderInputs BuildRuntimeRenderInputs();
     CinematicRenderConfig& ActiveCinematicConfig();                        // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;            // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                              // True when the HDR/post stack should wrap the main scene
