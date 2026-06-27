@@ -1479,6 +1479,48 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 }
 
 
+bool SaveReplayBufferFromScrubber( ReplayRuntime& replayRuntime, RunReplayTrack track, double now )
+{
+    static int sReplaySeq = 0;
+    static int sSolverReplaySeq = 0;
+
+    char path[256] = {};
+    bool saved = false;
+    int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
+    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
+    {
+        saved = track == RunReplayTrack::Solver ? replayRuntime.SaveSolverReplay( path )
+                                                : replayRuntime.SavePresentationWithSolverHashes( path );
+    }
+
+    replayRuntime.Scrubber().saveMessageTrack = track;
+    if ( saved )
+    {
+        const char* fileName = strrchr( path, '\\' );
+        if ( !fileName )
+        {
+            fileName = strrchr( path, '/' );
+        }
+        fileName = fileName ? fileName + 1 : path;
+        sprintf_s( replayRuntime.Scrubber().saveMessage,
+                   sizeof( replayRuntime.Scrubber().saveMessage ),
+                   "SAVED %s",
+                   fileName );
+    }
+    else
+    {
+        sprintf_s( replayRuntime.Scrubber().saveMessage,
+                   sizeof( replayRuntime.Scrubber().saveMessage ),
+                   "REPLAY SAVE FAILED" );
+    }
+    replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
+    replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+    replayRuntime.Scrubber().visible = true;
+    return saved;
+}
+
+
 } // namespace
 
 void Run::SetReplayLiveAdvanceHeld( bool held )
@@ -2038,7 +2080,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         EnterInteractiveSceneRun();
-        SaveReplayBufferFromScrubber( RunReplayTrack::Presentation );
+        SaveReplayBufferFromScrubber( m_replayRuntime,
+                                      RunReplayTrack::Presentation,
+                                      m_timers.simulationTimer.GetTotalTime() );
         consumesMouse = true;
     }
     else if ( leftPressed && canTakeMouse && overLoadButton && m_replayRuntime.Scrubber().visibleUntil >= now )

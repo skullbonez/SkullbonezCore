@@ -1230,49 +1230,6 @@ void Run::ResetReplayScrubber()
     m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
 }
 
-bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
-{
-    static int sReplaySeq = 0;
-    static int sSolverReplaySeq = 0;
-
-    char path[256] = {};
-    bool saved = false;
-    int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
-    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
-    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
-    {
-        saved = track == RunReplayTrack::Solver ? m_replayRuntime.SaveSolverReplay( path )
-                                                : m_replayRuntime.SavePresentationWithSolverHashes( path );
-    }
-
-    const double now = m_timers.simulationTimer.GetTotalTime();
-    m_replayRuntime.Scrubber().saveMessageTrack = track;
-    if ( saved )
-    {
-        const char* fileName = strrchr( path, '\\' );
-        if ( !fileName )
-        {
-            fileName = strrchr( path, '/' );
-        }
-        fileName = fileName ? fileName + 1 : path;
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "SAVED %s",
-                   fileName );
-    }
-    else
-    {
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "REPLAY SAVE FAILED" );
-    }
-    m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-    m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayRuntime.Scrubber().visible = true;
-    return saved;
-}
-
-
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )

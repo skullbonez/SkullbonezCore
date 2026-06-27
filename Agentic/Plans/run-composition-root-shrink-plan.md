@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; tornado sync helper slice validated
+Status: Active architecture cleanup plan; replay scrubber save helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the tornado sync helper section below
+Validation for latest implementation slice: see the replay scrubber save helper section below
 
 ## Goal
 
@@ -2765,6 +2765,76 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: scene load setup phases and broad replay
 restore/apply helpers remain active; this slice only removed the narrow tornado
 settings-to-physics sync wrapper.
+
+## Replay Scrubber Save Helper Slice
+
+This replay scrubber slice removed the private replay-buffer save wrapper from
+`Run`. The helper is now file-local to `RunReplayTools.cpp` with explicit
+`ReplayRuntime&`, track, and timestamp inputs, colocated with the scrubber save
+button path that uses it.
+
+Deleted `Run.h` declarations:
+
+- `SaveReplayBufferFromScrubber`
+
+Deleted `Run::` definitions:
+
+- `Run::SaveReplayBufferFromScrubber`
+
+New owner surface:
+
+- File-local `SaveReplayBufferFromScrubber(...)` in
+  `Runtime/Replay/RunReplayTools.cpp`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 173 to 172.
+- New header and source guardrails reject the removed replay scrubber save
+  helper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The moved helper sits beside the scrubber
+  input branch that triggers replay saves.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_save_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.69s.
+- Initial `tools\validate_fast.bat` stopped at formatting for
+  `RunReplayTools.cpp`; that touched file was formatted directly with VS
+  `clang-format` before final gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_save_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 52.88s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_save_runtime_boundaries.log`;
+  passed with 0 errors in 1.98s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_scrubber_save_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.86s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay scrubber/camera state, replay restore/apply
+helpers, and render-host splitting remain active; this slice only localized the
+scrubber save-file helper.
 
 ## Rules
 
