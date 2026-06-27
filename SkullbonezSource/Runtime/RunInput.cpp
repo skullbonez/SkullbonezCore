@@ -3070,7 +3070,7 @@ bool Run::DrainRuntimeCommands()
         if ( command.type != RuntimeCommandType::None )
         {
             RecordReplayEvent( ReplayEventKind::RuntimeCommand,
-                               NextReplayEventFrameIndex(),
+                               m_replayRuntime.NextEventFrameIndex(),
                                ReplayRuntimeCommandFlags( command ),
                                static_cast<int32_t>( command.type ),
                                command.index,

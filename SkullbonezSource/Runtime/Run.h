@@ -342,7 +342,6 @@ class Run
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
-    ReplayFrameIndex NextReplayEventFrameIndex() const;                    // Event frame cursor matching the next captured physics tick.
     void RecordReplayEvent( ReplayEventKind kind,
                             ReplayFrameIndex frameIndex,
                             uint32_t flags,

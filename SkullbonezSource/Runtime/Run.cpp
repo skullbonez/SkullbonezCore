@@ -898,12 +898,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     m_solverReplayMismatch.suppressed = false;
 }
 
-ReplayFrameIndex Run::NextReplayEventFrameIndex() const
-{
-    return m_replayRuntime.NextEventFrameIndex();
-}
-
-
 void Run::RecordReplayEvent( ReplayEventKind kind,
                              ReplayFrameIndex frameIndex,
                              uint32_t flags,
@@ -940,7 +934,7 @@ void Run::RecordReplayWorldOverrideEvent( float previousGravity,
     HashReplayFloat( hash, fluidDensity );
 
     RecordReplayEvent( ReplayEventKind::WorldOverride,
-                       NextReplayEventFrameIndex(),
+                       m_replayRuntime.NextEventFrameIndex(),
                        flags,
                        ReplayFloatBitsSigned( gravity ),
                        ReplayFloatBitsSigned( fluidHeight ),
@@ -963,7 +957,7 @@ void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
     HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
 
     RecordReplayEvent( ReplayEventKind::LauncherConfig,
-                       NextReplayEventFrameIndex(),
+                       m_replayRuntime.NextEventFrameIndex(),
                        changedFlags,
                        ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
                        ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
@@ -1007,7 +1001,7 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
     const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
     const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
     RecordReplayEvent( ReplayEventKind::LauncherFire,
-                       NextReplayEventFrameIndex(),
+                       m_replayRuntime.NextEventFrameIndex(),
                        flags,
                        projectile ? 1 : 0,
                        ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
@@ -1098,7 +1092,7 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
     flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
 
     RecordReplayEvent( ReplayEventKind::EditorPlace,
-                       NextReplayEventFrameIndex(),
+                       m_replayRuntime.NextEventFrameIndex(),
                        flags,
                        objectType,
                        fixedObject ? 1 : 0,
@@ -1171,7 +1165,7 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex,
     HashReplayFloat( hash, scaleFactor );
 
     RecordReplayEvent( ReplayEventKind::EditorTransform,
-                       NextReplayEventFrameIndex(),
+                       m_replayRuntime.NextEventFrameIndex(),
                        changedFlags,
                        modelIndex,
                        static_cast<int32_t>( model.GetReplayBodyId() ),
