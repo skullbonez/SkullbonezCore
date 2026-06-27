@@ -681,7 +681,7 @@ void Run::SetTornadoOverride( bool enabled )
     {
         m_runtimeSettings.tornadoVisual.enabled = enabled;
     }
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
 }
 
 
@@ -689,7 +689,7 @@ void Run::SetTornadoVectorFieldOverride( bool enabled )
 {
     m_launchOptions.tornadoVectors = enabled;
     m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
 }
 
 

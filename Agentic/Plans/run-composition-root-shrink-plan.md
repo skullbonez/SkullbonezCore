@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay presentation picker helper slice validated
+Status: Active architecture cleanup plan; tornado sync helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay presentation picker helper section below
+Validation for latest implementation slice: see the tornado sync helper section below
 
 ## Goal
 
@@ -2697,6 +2697,74 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: replay restore/apply helpers, cross-file replay
 probe/hash helpers, and render-host splitting remain active; this slice only
 localized the UI prompt wrapper for loading presentation artifacts.
+
+## Tornado Sync Helper Slice
+
+This runtime/scene slice removed the private tornado physics sync wrapper from
+`Run`. The three existing sync points now call a `RunInternal` helper with
+explicit `GameModelCollection&` and `RunRuntimeSettings&` inputs, keeping the
+bridge between UI/CLI scene tornado settings and physics state out of `Run.h`.
+
+Deleted `Run.h` declarations:
+
+- `SyncTornadoFieldToPhysics`
+
+Deleted `Run::` definitions:
+
+- `Run::SyncTornadoFieldToPhysics`
+
+New owner surface:
+
+- `RunInternal::SyncTornadoRuntimeSettingsToPhysics(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 174 to 173.
+- New header and source guardrails reject the removed tornado physics sync
+  wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/RunInternal.h`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The helper name carries the bridge
+  contract and all call sites already sit in tornado setting update paths.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\tornado_sync_helper_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.98s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\tornado_sync_helper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.32s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\tornado_sync_helper_runtime_boundaries.log`;
+  passed with 0 errors in 1.90s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\tornado_sync_helper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.47s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene load setup phases and broad replay
+restore/apply helpers remain active; this slice only removed the narrow tornado
+settings-to-physics sync wrapper.
 
 ## Rules
 

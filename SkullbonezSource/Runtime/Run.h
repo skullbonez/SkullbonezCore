@@ -333,7 +333,6 @@ class Run
     void ApplyUIWorldOverride( float gravity,
                                float fluidHeight,
                                float fluidDensity );                       // Live world/fluid scalar override from UI controls.
-    void SyncTornadoFieldToPhysics();                                      // Sends live tornado state to the physics collection
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.

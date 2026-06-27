@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 174
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 173
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -331,6 +331,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "tornado defaults helper must stay out of Run.h",
         r"\bApplyTornadoDefaultsForActiveScene\s*\(",
         "Keep scene tornado default policy file-local or in Runtime/Scene helpers.",
+    ),
+    (
+        "tornado physics sync wrapper must stay out of Run.h",
+        r"\bSyncTornadoFieldToPhysics\s*\(",
+        "Sync tornado runtime settings to physics through an explicit helper.",
     ),
     (
         "scene runtime reset helpers must stay out of Run.h",
@@ -684,6 +689,12 @@ RUN_TORNADO_DEFAULTS_SOURCE_RULE = (
     "Run tornado defaults helper is blocked",
     r"\bRun::ApplyTornadoDefaultsForActiveScene\s*\(",
     "Keep scene tornado default policy file-local or in Runtime/Scene helpers.",
+)
+
+RUN_TORNADO_SYNC_SOURCE_RULE = (
+    "Run tornado physics sync wrapper is blocked",
+    r"\bRun::SyncTornadoFieldToPhysics\s*\(",
+    "Sync tornado runtime settings to physics through an explicit helper instead of Run.",
 )
 
 RUN_DIAGNOSTICS_SOURCE_RULE = (
@@ -1546,6 +1557,24 @@ def check_run_tornado_defaults_source_guardrails(repo: Path) -> list[BoundaryErr
     return errors
 
 
+def check_run_tornado_sync_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_TORNADO_SYNC_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_tornado_sync_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_tornado_sync_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_run_diagnostics_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_DIAGNOSTICS_SOURCE_RULE
@@ -2131,6 +2160,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("tornado defaults header helper synthetic surface was not rejected")
 
+    old_tornado_sync_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void SyncTornadoFieldToPhysics();",
+    )
+    if not any(
+        error.message == "tornado physics sync wrapper must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_tornado_sync_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("tornado sync header helper synthetic surface was not rejected")
+
     old_diagnostics_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        void LogPerfMemory( const char* checkpoint );",
@@ -2649,6 +2692,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("tornado defaults source synthetic surface was not rejected")
 
+    old_tornado_sync_source_helper = "void Run::SyncTornadoFieldToPhysics() {}"
+    if not any(
+        error.message == "Run tornado physics sync wrapper is blocked"
+        for error in check_run_tornado_sync_source_guardrails_text(
+            Path("synthetic/RunScene.cpp"),
+            old_tornado_sync_source_helper,
+        )
+    ):
+        failures.append("tornado sync source helper synthetic surface was not rejected")
+
     old_diagnostics_source_helper = "void Run::LogPerfMemory( const char* checkpoint ) {}"
     if not any(
         error.message == "Run diagnostics perf-memory wrappers are blocked"
@@ -2970,6 +3023,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_scene_terrain_world_source_guardrails(repo))
     errors.extend(check_run_editable_scene_snapshot_source_guardrails(repo))
     errors.extend(check_run_tornado_defaults_source_guardrails(repo))
+    errors.extend(check_run_tornado_sync_source_guardrails(repo))
     errors.extend(check_run_diagnostics_source_guardrails(repo))
     errors.extend(check_run_diagnostics_perf_tick_source_guardrails(repo))
     errors.extend(check_run_scene_perf_log_lifecycle_guardrails(repo))

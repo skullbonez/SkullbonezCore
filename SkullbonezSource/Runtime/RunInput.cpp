@@ -2565,7 +2565,7 @@ void Run::TakeInput()
         }
         if ( tornadoFieldChanged )
         {
-            SyncTornadoFieldToPhysics();
+            SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
         }
         if ( uiCommands.physics.toggleTerrainContactProbe )
         {

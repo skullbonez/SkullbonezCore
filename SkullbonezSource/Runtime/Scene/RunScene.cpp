@@ -1510,7 +1510,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_launchOptions.frameCountOverride > 0 )
     {
@@ -2324,11 +2324,4 @@ void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDen
                                     gravity,
                                     fluidHeight,
                                     fluidDensity );
-}
-
-
-void Run::SyncTornadoFieldToPhysics()
-{
-    m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
-    m_cGameModelCollection.SetTornadoSystemConfig( m_runtimeSettings.tornadoSystem );
 }

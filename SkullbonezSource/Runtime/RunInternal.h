@@ -99,6 +99,13 @@ inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repr
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
 
+inline void SyncTornadoRuntimeSettingsToPhysics( GameObjects::GameModelCollection& modelCollection,
+                                                 const RunRuntimeSettings& runtimeSettings )
+{
+    modelCollection.SetTornadoFieldConfig( runtimeSettings.tornadoField );
+    modelCollection.SetTornadoSystemConfig( runtimeSettings.tornadoSystem );
+}
+
 inline bool ReplayModelIsRagdollPart( const GameModel& model )
 {
     return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
