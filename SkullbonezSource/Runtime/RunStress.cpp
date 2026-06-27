@@ -17,6 +17,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RuntimeTuning.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -240,7 +241,7 @@ void Run::RunUIStressActions()
             const float fluidDensity = NextUIStressFloat( stress, 0.0f, 5.0f );
             if ( allowRuntimeChurn )
             {
-                ApplyUIWorldOverride( gravity, fluidHeight, fluidDensity );
+                ApplyUIWorldOverride( m_cWorldEnvironment, m_replayRuntime, gravity, fluidHeight, fluidDensity );
             }
             break;
         }

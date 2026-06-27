@@ -2781,7 +2781,9 @@ void Run::TakeInput()
             const float fluidDensity = uiCommands.water.requestWorldFluidDensity
                                            ? uiCommands.water.requestedWorldFluidDensity
                                            : m_cWorldEnvironment.GetFluidDensity();
-            ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings,

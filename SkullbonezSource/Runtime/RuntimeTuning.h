@@ -35,6 +35,11 @@ uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param );
 uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature );
 Math::Vector::Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic );
 void ApplyWorkerThreadCountOverride( int requestedWorkerThreads );
+void ApplyUIWorldOverride( WorldEnvironment& world,
+                           ReplayRuntime& replayRuntime,
+                           float gravity,
+                           float fluidHeight,
+                           float fluidDensity );
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,
                             RunSceneState& scene,
                             UICinematicParam param,

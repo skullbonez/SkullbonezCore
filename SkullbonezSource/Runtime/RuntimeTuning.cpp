@@ -25,6 +25,8 @@ Related:
 #include "RuntimeTuning.h"
 
 #include "../Core/WorkerPool.h"
+#include "../World/WorldEnvironment.h"
+#include "Replay/ReplayRuntime.h"
 
 #include <algorithm>
 #include <cmath>
@@ -203,6 +205,26 @@ void ApplyWorkerThreadCountOverride( int requestedWorkerThreads )
     {
         workerPool.Initialise( clampedWorkerThreads );
     }
+}
+
+void ApplyUIWorldOverride( WorldEnvironment& world,
+                           ReplayRuntime& replayRuntime,
+                           float gravity,
+                           float fluidHeight,
+                           float fluidDensity )
+{
+    const float previousGravity = world.GetGravity();
+    const float previousFluidHeight = world.GetFluidSurfaceHeight();
+    const float previousFluidDensity = world.GetFluidDensity();
+    world.SetGravity( gravity );
+    world.SetFluidSurfaceHeight( fluidHeight );
+    world.SetFluidDensity( fluidDensity );
+    replayRuntime.RecordWorldOverrideEvent( previousGravity,
+                                            previousFluidHeight,
+                                            previousFluidDensity,
+                                            gravity,
+                                            fluidHeight,
+                                            fluidDensity );
 }
 
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic,

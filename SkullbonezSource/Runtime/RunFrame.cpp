@@ -21,6 +21,7 @@ Related:
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
+#include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
 #include <cmath>
@@ -797,7 +798,9 @@ void Run::TickReplaySaveProbe()
         m_replaySaveProbe.eventCoverageInjected = true;
         const float currentGravity = m_cWorldEnvironment.GetGravity();
         const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
-        ApplyUIWorldOverride( probeGravity,
+        ApplyUIWorldOverride( m_cWorldEnvironment,
+                              m_replayRuntime,
+                              probeGravity,
                               m_cWorldEnvironment.GetFluidSurfaceHeight(),
                               m_cWorldEnvironment.GetFluidDensity() );
         m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );

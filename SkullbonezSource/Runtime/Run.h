@@ -320,9 +320,6 @@ class Run
         bool preserveRuntimeState = false );                               // Queue-indexed scene load; preserve flags keep selected runtime/UI state.
     void ApplyUIModelCountOverride( int count );                           // Rebuilds the active generated model pool from the UI slider
     void ApplyUISolverObjectCounts( int balls, int boxes );                // Rebuilds generated solver objects from exact UI counts
-    void ApplyUIWorldOverride( float gravity,
-                               float fluidHeight,
-                               float fluidDensity );                       // Live world/fluid scalar override from UI controls.
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.

@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene creation ownership slice validated
+Status: Active architecture cleanup plan; scene world override ownership slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene creation ownership section below
+Validation for latest implementation slice: see the scene world override ownership section below
 
 ## Goal
 
@@ -4444,6 +4444,76 @@ Residual architecture risk: remaining `Run::LoadScene` setup phases remain
 active, along with replay helper ownership, render-host splitting, and shared
 cine/path cleanup. This slice only moved starter-scene creation out of the
 composition root.
+
+## Scene World Override Ownership Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This runtime-tuning slice removed the live world/fluid override wrapper from
+`Run.h`. `RuntimeTuning` now owns the behavior with explicit
+`WorldEnvironment&` and `ReplayRuntime&` dependencies, preserving the same
+world mutation and replay event recording path for UI water controls, replay
+save-probe coverage, UI stress, and reset-preserve scene loads.
+
+Deleted `Run.h` declarations:
+
+- `void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );`
+
+Deleted `Run::` definitions:
+
+- `void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )`
+
+New owner surface:
+
+- `void ApplyUIWorldOverride( WorldEnvironment& world, ReplayRuntime& replayRuntime, float gravity, float fluidHeight, float fluidDensity )`
+
+Files changed:
+
+- `SkullbonezSource/Runtime/RuntimeTuning.cpp`
+- `SkullbonezSource/Runtime/RuntimeTuning.h`
+- `SkullbonezSource/Runtime/RunFrame.cpp`
+- `SkullbonezSource/Runtime/RunInput.cpp`
+- `SkullbonezSource/Runtime/RunStress.cpp`
+- `SkullbonezSource/Runtime/Scene/RunScene.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 145 to 144.
+- New header and source guardrails reject `ApplyUIWorldOverride` declarations
+  or `Run::ApplyUIWorldOverride` definitions from returning.
+
+Validation:
+
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\world_override_runtime_boundaries.log`;
+  passed with 0 errors in 3.5s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\world_override_profile_build.log`; passed
+  with 0 warnings and 0 errors in 39.8s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\world_override_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, Profile build, and
+  Profile/Debug readiness in 49.5s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\world_override_validate_full.log`; passed
+  project filters, runtime boundaries, Profile/Debug builds, DX12 validation
+  with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.6s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: remaining `Run::LoadScene` setup phases remain
+active, along with generated-model count overrides, solver-object count
+overrides, remaining replay helper ownership, render-host splitting, and shared
+cine/path cleanup. This slice only moved live world/fluid override ownership out
+of the composition root.
 
 ## Rules
 

@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../RuntimeTuning.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -673,7 +674,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            ApplyUIWorldOverride( resetSnapshot.worldGravity,
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
                                   resetSnapshot.worldFluidDensity );
         }
@@ -967,7 +970,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            ApplyUIWorldOverride( resetSnapshot.worldGravity,
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
                                   resetSnapshot.worldFluidDensity );
         }
@@ -1463,21 +1468,4 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
     }
     ResetReplayTimelineForActiveScene();
     PROFILE_SCHEDULE_RESET();
-}
-
-
-void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
-{
-    const float previousGravity = m_cWorldEnvironment.GetGravity();
-    const float previousFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    const float previousFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-    m_cWorldEnvironment.SetGravity( gravity );
-    m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
-    m_cWorldEnvironment.SetFluidDensity( fluidDensity );
-    m_replayRuntime.RecordWorldOverrideEvent( previousGravity,
-                                              previousFluidHeight,
-                                              previousFluidDensity,
-                                              gravity,
-                                              fluidHeight,
-                                              fluidDensity );
 }
