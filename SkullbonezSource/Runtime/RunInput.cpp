@@ -657,7 +657,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Prediction().increaseHovered = false;
     m_replayRuntime.Prediction().horizonHovered = false;
     m_replayRuntime.Prediction().horizonDragging = false;
-    ClearReplayPredictionCache();
+    m_replayRuntime.ClearPredictionCache();
 
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     m_replayRuntime.CauseTree().hoveredRow = -1;

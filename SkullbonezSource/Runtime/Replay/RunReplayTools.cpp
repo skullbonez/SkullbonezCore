@@ -1814,7 +1814,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         if ( nextSeconds != m_replayRuntime.Prediction().horizonSeconds )
         {
             m_replayRuntime.Prediction().horizonSeconds = nextSeconds;
-            MarkReplayPredictionDirty();
+            m_replayRuntime.MarkPredictionDirty();
         }
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
@@ -1841,7 +1841,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         m_replayRuntime.Prediction().ragdollVisualsEnabled = !m_replayRuntime.Prediction().ragdollVisualsEnabled;
-        ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
+        m_replayRuntime.ClearPredictionFutureNodeCache();
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
@@ -1883,9 +1883,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
                 m_replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
                 m_replayRuntime.Scrubber().historicalSamplePaused = false;
             }
-            ClearReplayPredictionCache();
+            m_replayRuntime.ClearPredictionCache();
         }
-        MarkReplayPredictionDirty();
+        m_replayRuntime.MarkPredictionDirty();
         m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
@@ -1986,36 +1986,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 void Run::ClearReplayPathVisualizer()
 {
     ClearReplayCameraFocus( true );
-    m_replayRuntime.PathVisualizer().hasTarget = false;
-    m_replayRuntime.PathVisualizer().targetId = ReplayBodyId{};
-    m_replayRuntime.PathVisualizer().targetModelIndex = -1;
-    m_replayRuntime.PathVisualizer().targetName[0] = '\0';
-    m_replayRuntime.PathVisualizer().futureNodes.clear();
-    m_replayRuntime.PathVisualizer().targets.clear();
-    m_replayRuntime.CauseTree().rows.clear();
-    m_replayRuntime.CauseTree().hoveredRow = -1;
-    m_replayRuntime.CauseTree().selectedRow = -1;
-    m_replayRuntime.CauseTree().scrollY = 0.0f;
-    ClearReplayPredictionCache();
-    MarkReplayPredictionDirty();
-}
-
-
-void Run::MarkReplayPredictionDirty()
-{
-    CancelReplayPredictionJob( false );
-    m_replayRuntime.Prediction().dirty = true;
-}
-
-
-void Run::ClearReplayPredictionCache()
-{
-    CancelReplayPredictionJob( true );
-    m_replayRuntime.Prediction().targetId = ReplayBodyId{};
-    m_replayRuntime.Prediction().sourceFrameIndex = 0;
-    m_replayRuntime.Prediction().sourceSolverHash = 0;
-    m_replayRuntime.Prediction().sourceSimulationSeconds = 0.0;
-    m_replayRuntime.Prediction().lastBuildTime = 0.0;
+    m_replayRuntime.ClearPathVisualizerState();
 }
 
 
@@ -2378,7 +2349,7 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
         m_replayRuntime.Prediction().horizonSeconds = std::clamp( m_replayRuntime.Prediction().horizonSeconds,
                                                                   REPLAY_PREDICTION_MIN_SECONDS,
                                                                   REPLAY_PREDICTION_MAX_SECONDS );
-        MarkReplayPredictionDirty();
+        m_replayRuntime.MarkPredictionDirty();
         m_replayRuntime.Scrubber().visibleUntil =
             m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
         m_replayRuntime.Scrubber().visible = true;
@@ -2611,7 +2582,7 @@ void Run::ApplyReplayVelocityEditToModel( int modelIndex,
         m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, modelIndex );
     }
     m_cGameModelCollection.InvalidatePhysicsStreams();
-    MarkReplayPredictionDirty();
+    m_replayRuntime.MarkPredictionDirty();
     m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
     m_replayRuntime.Scrubber().visible = true;
 }
@@ -2972,8 +2943,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         }
         ApplyPrimaryReplayPathTarget( m_replayRuntime.PathVisualizer(), pickedId, pickedIndex, target->name );
         m_replayRuntime.PathVisualizer().futureNodes.clear();
-        ClearReplayPredictionCache();
-        MarkReplayPredictionDirty();
+        m_replayRuntime.ClearPredictionCache();
+        m_replayRuntime.MarkPredictionDirty();
         return true;
     }
 
@@ -2982,26 +2953,6 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         ClearReplayPathVisualizer();
     }
     return false;
-}
-
-
-void Run::CancelReplayPredictionJob( bool clearSamples )
-{
-    m_replayRuntime.Prediction().building = false;
-    m_replayRuntime.Prediction().complete = false;
-    m_replayRuntime.Prediction().targetModelIndex = -1;
-    m_replayRuntime.Prediction().nextTick = 1;
-    m_replayRuntime.Prediction().targetTickCount = 0;
-    m_replayRuntime.Prediction().predictionBodies.clear();
-    m_replayRuntime.Prediction().liveRestoreBodies.clear();
-    m_replayRuntime.Prediction().predictionWorld = ReplaySolverWorldSnapshot();
-    m_replayRuntime.Prediction().liveRestoreWorld = ReplaySolverWorldSnapshot();
-    m_replayRuntime.Prediction().buildFrames.clear();
-    if ( clearSamples )
-    {
-        m_replayRuntime.Prediction().frames.clear();
-        ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
-    }
 }
 
 
@@ -3146,7 +3097,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
         return false;
     }
 
-    CancelReplayPredictionJob( false );
+    m_replayRuntime.CancelPredictionJob( false );
     m_replayRuntime.Prediction().targetId = m_replayRuntime.PathVisualizer().targetId;
     m_replayRuntime.Prediction().dirty = false;
 
@@ -3212,12 +3163,12 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
 
     if ( !CaptureReplayPredictionBodyState( m_replayRuntime.Prediction().predictionBodies ) )
     {
-        CancelReplayPredictionJob( true );
+        m_replayRuntime.CancelPredictionJob( true );
         return false;
     }
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        CancelReplayPredictionJob( true );
+        m_replayRuntime.CancelPredictionJob( true );
         m_replayRuntime.Prediction().dirty = true;
         return false;
     }
@@ -3226,7 +3177,7 @@ bool Run::BeginReplayPredictionJob( ReplayFrameIndex sourceFrameIndex,
                                                                            m_cGameModelCollection.GetModelCount() );
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        CancelReplayPredictionJob( true );
+        m_replayRuntime.CancelPredictionJob( true );
         m_replayRuntime.Prediction().dirty = true;
         return false;
     }
@@ -3256,7 +3207,7 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
     // must happen before the swap, or after the restore block below.
     if ( !CaptureReplayPredictionBodyState( m_replayRuntime.Prediction().liveRestoreBodies ) )
     {
-        CancelReplayPredictionJob( true );
+        m_replayRuntime.CancelPredictionJob( true );
         m_replayRuntime.Prediction().dirty = true;
         return false;
     }
@@ -3340,7 +3291,7 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
 
     if ( !jobApplied || !jobStateCaptured || !liveRestored )
     {
-        CancelReplayPredictionJob( true );
+        m_replayRuntime.CancelPredictionJob( true );
         m_replayRuntime.Prediction().dirty = true;
         return false;
     }
@@ -3351,7 +3302,7 @@ bool Run::StepReplayPredictionJob( const std::chrono::steady_clock::time_point& 
         m_replayRuntime.Prediction().complete = true;
         m_replayRuntime.Prediction().frames.swap( m_replayRuntime.Prediction().buildFrames );
         m_replayRuntime.Prediction().buildFrames.clear();
-        ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
+        m_replayRuntime.ClearPredictionFutureNodeCache();
         m_replayRuntime.Prediction().lastBuildTime = m_timers.simulationTimer.GetTotalTime();
     }
 
@@ -3368,7 +3319,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
     {
         if ( m_replayRuntime.Prediction().building )
         {
-            CancelReplayPredictionJob( true );
+            m_replayRuntime.CancelPredictionJob( true );
         }
         return;
     }
@@ -3420,7 +3371,7 @@ void Run::RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     if ( !m_replayRuntime.PathVisualizer().hasTarget || m_replayRuntime.PathVisualizer().targetId.value == 0 )
     {
-        ClearReplayPredictionFutureNodeCache( m_replayRuntime.Prediction() );
+        m_replayRuntime.ClearPredictionFutureNodeCache();
         if ( m_replayRuntime.Prediction().ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,

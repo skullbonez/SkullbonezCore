@@ -423,6 +423,68 @@ const std::vector<RunReplayPredictionFrame>& ReplayRuntime::ActivePredictionFram
     return ReplayRuntimeActivePredictionFrames( m_prediction );
 }
 
+void ReplayRuntime::ClearPredictionFutureNodeCache()
+{
+    m_prediction.futureNodes.clear();
+    m_prediction.futureNodesBuiltFrameCount = 0;
+    m_prediction.futureNodesBuiltContactIndex = 0;
+    m_prediction.futureNodesBuiltTargetId = ReplayBodyId{};
+    m_prediction.futureNodesBuiltRagdollVisuals = m_prediction.ragdollVisualsEnabled;
+    m_prediction.futureNodesBuiltFromBuildFrames = false;
+    m_prediction.futureNodesCacheValid = false;
+}
+
+void ReplayRuntime::CancelPredictionJob( bool clearSamples )
+{
+    m_prediction.building = false;
+    m_prediction.complete = false;
+    m_prediction.targetModelIndex = -1;
+    m_prediction.nextTick = 1;
+    m_prediction.targetTickCount = 0;
+    m_prediction.predictionBodies.clear();
+    m_prediction.liveRestoreBodies.clear();
+    m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
+    m_prediction.liveRestoreWorld = ReplaySolverWorldSnapshot();
+    m_prediction.buildFrames.clear();
+    if ( clearSamples )
+    {
+        m_prediction.frames.clear();
+        ClearPredictionFutureNodeCache();
+    }
+}
+
+void ReplayRuntime::ClearPredictionCache()
+{
+    CancelPredictionJob( true );
+    m_prediction.targetId = ReplayBodyId{};
+    m_prediction.sourceFrameIndex = 0;
+    m_prediction.sourceSolverHash = 0;
+    m_prediction.sourceSimulationSeconds = 0.0;
+    m_prediction.lastBuildTime = 0.0;
+}
+
+void ReplayRuntime::MarkPredictionDirty()
+{
+    CancelPredictionJob( false );
+    m_prediction.dirty = true;
+}
+
+void ReplayRuntime::ClearPathVisualizerState()
+{
+    m_pathVisualizer.hasTarget = false;
+    m_pathVisualizer.targetId = ReplayBodyId{};
+    m_pathVisualizer.targetModelIndex = -1;
+    m_pathVisualizer.targetName[0] = '\0';
+    m_pathVisualizer.futureNodes.clear();
+    m_pathVisualizer.targets.clear();
+    m_causeTree.rows.clear();
+    m_causeTree.hoveredRow = -1;
+    m_causeTree.selectedRow = -1;
+    m_causeTree.scrollY = 0.0f;
+    ClearPredictionCache();
+    MarkPredictionDirty();
+}
+
 RunReplayCauseTreeState& ReplayRuntime::CauseTree()
 {
     return m_causeTree;

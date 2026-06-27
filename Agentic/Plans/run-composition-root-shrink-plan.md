@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; launcher slices validated
+Status: Active architecture cleanup plan; replay prediction job-state slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -1120,6 +1120,83 @@ Residual architecture risk: `RuntimeRenderHost` is still broad and still has
 callback debt for editor/replay overlay presentation. Replay prediction job
 generation, scrubber input, cause tree rows, velocity editing, and replay
 overlay construction still live on `Run`.
+
+## Replay Prediction Job-State Owner Slice
+
+This replay slice moved replay prediction job/cache mutation out of `Run`.
+`ReplayRuntime` now owns prediction future-node cache clearing, job cancelation,
+cache invalidation, dirty marking, and path-visualizer state clearing. `Run`
+still owns the live input/render dispatchers that need camera, mouse-ray, model,
+physics, and tracer services, but those paths now ask `ReplayRuntime` to mutate
+replay prediction state instead of routing through private `Run` wrappers.
+
+Deleted `Run.h` declarations:
+
+- `MarkReplayPredictionDirty`
+- `ClearReplayPredictionCache`
+- `CancelReplayPredictionJob`
+
+Deleted `Run::` definitions:
+
+- `Run::MarkReplayPredictionDirty`
+- `Run::ClearReplayPredictionCache`
+- `Run::CancelReplayPredictionJob`
+
+New owner methods:
+
+- `ReplayRuntime::ClearPredictionFutureNodeCache()`
+- `ReplayRuntime::CancelPredictionJob(...)`
+- `ReplayRuntime::ClearPredictionCache()`
+- `ReplayRuntime::MarkPredictionDirty()`
+- `ReplayRuntime::ClearPathVisualizerState()`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 215 to 212.
+- The `Run.h` rules reject the removed prediction job-state helpers.
+- Runtime source guardrails reject `Run::MarkReplayPredictionDirty`,
+  `Run::ClearReplayPredictionCache`, and `Run::CancelReplayPredictionJob`
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_profile_build.log`;
+  passed with 0 warnings and 0 errors in 47.13s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.11s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_runtime_boundaries.log`;
+  passed with 0 errors in 0.91s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_validate_replay_v2_artifact.log`;
+  passed save, load, restore, generated-topology restore, replay query/export,
+  and physics-query checks in 22.49s. SkullScope/query accounting from the gate:
+  primary runtime trace 83,296 bytes, replay query trace 2,465 bytes, restore
+  failure trace 1,580 bytes, SQLite caches 204,800 bytes each, restore failure
+  query output 1,030 bytes, replay query output total 18,493 bytes, generated
+  topology runtime trace 189,763 bytes.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_validate_interaction_clicks.log`;
+  passed inspect-gizmo and replay-prediction click reports in 6.56s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_prediction_job_state_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.16s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay prediction frame generation, visualizer
+drawing, scrubber input, cause tree rows, velocity editing, and replay overlay
+construction still live on `Run`.
 
 ## Rules
 

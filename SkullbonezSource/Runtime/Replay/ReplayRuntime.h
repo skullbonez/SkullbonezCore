@@ -375,6 +375,11 @@ class ReplayRuntime
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
     const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
+    void ClearPredictionFutureNodeCache();
+    void CancelPredictionJob( bool clearSamples );
+    void ClearPredictionCache();
+    void MarkPredictionDirty();
+    void ClearPathVisualizerState();
 
     RunReplayCauseTreeState& CauseTree();
     const RunReplayCauseTreeState& CauseTree() const;
