@@ -1983,68 +1983,6 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 }
 
 
-bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPosition, float* outRadius ) const
-{
-    if ( id.value == 0 )
-    {
-        return false;
-    }
-
-    if ( outRadius )
-    {
-        *outRadius = 1.0f;
-    }
-
-    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
-    if ( m_replayRuntime.Prediction().enabled && !activePredictionFrames.empty() &&
-         m_replayRuntime.Prediction().targetId.value == m_replayRuntime.PathVisualizer().targetId.value )
-    {
-        if ( const RunReplayPredictionBodySample* body =
-                 FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
-        {
-            outPosition = body->position;
-            if ( outRadius && body->modelIndex >= 0 &&
-                 body->modelIndex < static_cast<int>( m_cGameModelCollection.Models().size() ) )
-            {
-                *outRadius =
-                    EditorModelRadius( m_cGameModelCollection.Models()[static_cast<std::size_t>( body->modelIndex )] );
-            }
-            return true;
-        }
-    }
-
-    if ( const ReplaySolverFrameSample* sample = m_replayRuntime.CurrentSolverScrubSample() )
-    {
-        if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
-        {
-            outPosition = body->position;
-            if ( outRadius && body->modelIndex >= 0 &&
-                 body->modelIndex < static_cast<int>( m_cGameModelCollection.Models().size() ) )
-            {
-                *outRadius =
-                    EditorModelRadius( m_cGameModelCollection.Models()[static_cast<std::size_t>( body->modelIndex )] );
-            }
-            return true;
-        }
-    }
-
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    for ( const GameModel& model : models )
-    {
-        if ( model.GetReplayBodyId() == id.value )
-        {
-            outPosition = model.GetPosition();
-            if ( outRadius )
-            {
-                *outRadius = EditorModelRadius( model );
-            }
-            return true;
-        }
-    }
-    return false;
-}
-
-
 bool Run::FocusReplayCauseTreeBody( ReplayBodyId id )
 {
     RunReplayCauseTreeRow row;
@@ -2064,26 +2002,38 @@ void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int
     switch ( row.kind )
     {
     case RunReplayCauseTreeRowKind::Body:
-        if ( !TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius ) )
+        if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                            m_cGameModelCollection.Models(),
+                                                            targetPosition,
+                                                            &targetRadius ) )
         {
             return;
         }
         focusKind = RunReplayCameraFocusKind::Body;
         break;
     case RunReplayCauseTreeRowKind::Manifold:
-        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                      m_cGameModelCollection.Models(),
+                                                      targetPosition,
+                                                      &targetRadius );
         targetPosition = row.point;
         targetRadius = (std::max)( targetRadius * 0.55f, 2.0f );
         focusKind = RunReplayCameraFocusKind::Manifold;
         break;
     case RunReplayCauseTreeRowKind::SolverRow:
-        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                      m_cGameModelCollection.Models(),
+                                                      targetPosition,
+                                                      &targetRadius );
         targetPosition = row.point;
         targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
         focusKind = RunReplayCameraFocusKind::SolverRow;
         break;
     case RunReplayCauseTreeRowKind::PredictionContact:
-        TryResolveReplayCauseTreeBodyPosition( row.id, targetPosition, &targetRadius );
+        m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                      m_cGameModelCollection.Models(),
+                                                      targetPosition,
+                                                      &targetRadius );
         targetPosition = row.point;
         targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
         focusKind = RunReplayCameraFocusKind::PredictionContact;

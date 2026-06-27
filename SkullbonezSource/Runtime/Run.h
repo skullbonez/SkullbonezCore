@@ -427,9 +427,6 @@ class Run
                                            double budgetMilliseconds );
     void RenderReplayPathVisualizer( RunEditorTracer& tracer );
     bool TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta );
-    bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
-                                                Math::Vector::Vector3& outPosition,
-                                                float* outRadius = nullptr ) const;
     bool FocusReplayCauseTreeBody( ReplayBodyId id );
     void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );
     void ClearReplayCameraFocus( bool restoreCamera );

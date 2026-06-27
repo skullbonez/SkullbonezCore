@@ -10,6 +10,8 @@ Mental model:
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
+  Cause tree row: UI row derived from retained solver contacts or prediction
+    future nodes.
   Hash log: Deterministic text stream that lets saved replay output be compared.
   Loaded presentation: Replay artifact data loaded from disk for scrub preview.
   Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
@@ -31,6 +33,7 @@ Related:
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Core/Profiler.h"
+#include "../../Physics/CollisionShape.h"
 
 #include <algorithm>
 #include <cmath>
@@ -45,6 +48,7 @@ constexpr float REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 constexpr float REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 
 using GameObjects::GameModel;
+using Math::CollisionDetection::GetShapeBoundingRadius;
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 using Physics::PhysicsPipelineRecord;
@@ -176,6 +180,24 @@ const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample&
         }
     }
     return nullptr;
+}
+
+const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
+                                                                   ReplayBodyId id )
+{
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.id.value == id.value )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+float ReplayRuntimeModelRadius( const GameModel& model )
+{
+    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
 }
 
 ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
@@ -1016,6 +1038,66 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
         (std::min)( frameCount - 1,
                     static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
     return &frames[frameIndex];
+}
+
+
+bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                                  const std::vector<GameObjects::GameModel>& models,
+                                                  Vector3& outPosition,
+                                                  float* outRadius ) const
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+
+    if ( outRadius )
+    {
+        *outRadius = 1.0f;
+    }
+
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = ActivePredictionFrames();
+    if ( m_prediction.enabled && !activePredictionFrames.empty() &&
+         m_prediction.targetId.value == m_pathVisualizer.targetId.value )
+    {
+        if ( const RunReplayPredictionBodySample* body =
+                 FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
+        {
+            outPosition = body->position;
+            if ( outRadius && body->modelIndex >= 0 && body->modelIndex < static_cast<int>( models.size() ) )
+            {
+                *outRadius = ReplayRuntimeModelRadius( models[static_cast<std::size_t>( body->modelIndex )] );
+            }
+            return true;
+        }
+    }
+
+    if ( const ReplaySolverFrameSample* sample = CurrentSolverScrubSample() )
+    {
+        if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
+        {
+            outPosition = body->position;
+            if ( outRadius && body->modelIndex >= 0 && body->modelIndex < static_cast<int>( models.size() ) )
+            {
+                *outRadius = ReplayRuntimeModelRadius( models[static_cast<std::size_t>( body->modelIndex )] );
+            }
+            return true;
+        }
+    }
+
+    for ( const GameModel& model : models )
+    {
+        if ( model.GetReplayBodyId() == id.value )
+        {
+            outPosition = model.GetPosition();
+            if ( outRadius )
+            {
+                *outRadius = ReplayRuntimeModelRadius( model );
+            }
+            return true;
+        }
+    }
+    return false;
 }
 
 

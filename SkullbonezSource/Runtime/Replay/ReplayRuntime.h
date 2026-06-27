@@ -12,6 +12,8 @@ Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
   Solver track: Physics-facing samples and snapshots used for deterministic
     inspection and rollback.
+  Cause tree: Replay contact graph used by the tool UI to explain which body or
+    contact caused another replay body to matter.
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -423,6 +425,10 @@ class ReplayRuntime
     const ReplayPresentationSample* CurrentScrubSample() const;
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
+    bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                       const std::vector<GameObjects::GameModel>& models,
+                                       Math::Vector::Vector3& outPosition,
+                                       float* outRadius ) const;
     bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;

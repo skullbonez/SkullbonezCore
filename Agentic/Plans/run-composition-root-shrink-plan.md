@@ -1276,6 +1276,97 @@ Residual architecture risk: replay prediction frame generation, visualizer
 drawing, scrubber input, cause tree rows, velocity editing, replay overlay
 construction, and the larger scene load/render-host splits still remain.
 
+## Replay Cause-Tree Body Lookup Owner Slice
+
+This replay slice moved the cause-tree body position/radius resolver out of
+`Run`. `ReplayRuntime` now owns the lookup policy across active prediction
+frames, retained solver scrub samples, and the live model fallback. `Run` still
+owns camera activation because that code reaches camera collections, input
+cursor state, and replay-inspection camera transitions.
+
+Deleted `Run.h` declaration:
+
+- `TryResolveReplayCauseTreeBodyPosition`
+
+Deleted `Run::` definition:
+
+- `Run::TryResolveReplayCauseTreeBodyPosition`
+
+New owner method:
+
+- `ReplayRuntime::ResolveCauseTreeBodyPosition(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 211 to 210.
+- The `Run.h` rules reject `TryResolveReplayCauseTreeBodyPosition` from
+  returning.
+- Runtime source guardrails reject `Run::TryResolveReplayCauseTreeBodyPosition`
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- `ReplayRuntime.cpp` and `ReplayRuntime.h` gained cause-tree glossary wording
+  because this slice moved cause-tree lookup behavior into that owner.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.67s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 93.88s. An initial pre-format fast run stopped on
+  `RunReplayTools.cpp`; the final gate above passed after formatting only that
+  touched file.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_runtime_boundaries.log`;
+  passed with 0 errors in 1.02s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_validate_replay_v2_artifact.log`;
+  passed save, load, restore, generated-topology restore, replay query/export,
+  and physics-query checks in 22.87s. SkullScope/query accounting from the gate:
+  primary runtime trace 83,296 bytes, replay query trace 2,465 bytes, restore
+  failure trace 1,580 bytes, SQLite caches 204,800 bytes each, restore failure
+  query output 1,030 bytes, replay query output total 18,493 bytes, generated
+  topology runtime trace 189,763 bytes.
+- SkullScope trace commands used by the replay artifact gate:
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_solver_one.scene.json --frames 120 --replay on --replay-seconds 1 --replay-save-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe_runtime.physicsdiag.ndjson`;
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_solver_one.scene.json --replay-restore-failure-file-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_restore_failure.physicsdiag.ndjson`;
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_generated_topology.scene.json --frames 120 --replay on --replay-seconds 1 --replay-save-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_generated_topology_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_generated_topology_runtime.physicsdiag.ndjson`;
+  `tools\replay_query.bat TestOutput\validation\replay_v2\replay_save_probe.skreplay export-skullscope --frames 0:5 --out TestOutput\validation\replay_v2\replay_save_probe.physicsdiag.ndjson --run-id replay_v2_artifact`.
+- SkullScope query commands used by the replay artifact gate:
+  `tools\physics_query.bat TestOutput\validation\replay_v2\replay_restore_failure.physicsdiag.ndjson restore --limit 4`;
+  `tools\physics_query.bat TestOutput\validation\replay_v2\replay_save_probe.physicsdiag.ndjson summary`.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_validate_interaction_clicks.log`;
+  passed inspect-gizmo and replay-prediction click reports in 6.48s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_cause_tree_lookup_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.56s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: camera focus activation, replay prediction frame
+generation, visualizer drawing, scrubber input, cause tree row UI, velocity
+editing, replay overlay construction, and the larger scene load/render-host
+splits still remain.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.
