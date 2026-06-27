@@ -16,6 +16,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Folded `VolumetricLightPass` and `ToneMapPass` into one cinematic post render graph so the graph owns their callback order and resource dependency.
 - [x] 2026-06-27: Moved `DebugOverlayPass` scheduling into a render graph callback and recorded callback ownership in executed frame graph diagnostics.
 - [x] 2026-06-27: Moved `TornadoVisualPass` scheduling into a render graph callback while preserving the pass body's no-draw result.
+- [x] 2026-06-28: Moved `UiTextPass` scheduling into a render graph callback; scene frame-graph diagnostics remain separate from this late overlay graph.
 
 ## Goal
 
@@ -129,6 +130,7 @@ Suggested migration order:
 - [x] `VolumetricLightPass`
 - [x] `DebugOverlayPass`
 - [x] `TornadoVisualPass`
+- [x] `UiTextPass`
 - [ ] Low-risk post-processing passes after tone map
 - [ ] Reflection or environment passes
 - [ ] Shadow passes

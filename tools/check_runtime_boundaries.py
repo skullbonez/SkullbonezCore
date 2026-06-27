@@ -75,7 +75,7 @@ IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
     r"GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
 )
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
-    r"\bm_(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass)\s*\.\s*Render\s*\("
+    r"\bm_(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render\s*\("
 )
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
@@ -2717,6 +2717,7 @@ def run_self_tests() -> list[str]:
         ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
         ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
         ExecuteCinematicPostThroughRenderGraph( frame );
+        ExecuteUiTextThroughRenderGraph( secondsPerFrame );
     }
     """
     if check_graph_owned_render_pass_scheduling_text(
@@ -2732,6 +2733,7 @@ def run_self_tests() -> list[str]:
         m_debugOverlayPass.Render( frame );
         m_volumetricPass.Render( frame );
         m_tonemapPass.Render( frame, false, true );
+        m_uiTextPass.Render( secondsPerFrame );
     }
     """
     if not any(

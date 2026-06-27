@@ -67,6 +67,12 @@ struct DebugOverlayGraphCallbackData
     const RenderFrameContext* frame = nullptr;
 };
 
+struct UiTextGraphCallbackData
+{
+    UiTextPass* uiTextPass = nullptr;
+    double secondsPerFrame = 0.0;
+};
+
 struct TornadoVisualGraphCallbackData
 {
     TornadoVisualPass* tornadoVisualPass = nullptr;
@@ -94,6 +100,16 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
         throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
     }
     data->debugOverlayPass->Render( { *data->frame } );
+}
+
+void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
+{
+    auto* data = static_cast<UiTextGraphCallbackData*>( userData );
+    if ( !data || !data->uiTextPass )
+    {
+        throw std::runtime_error( "UiTextPass graph callback missing execution data" );
+    }
+    data->uiTextPass->Render( data->secondsPerFrame );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -281,6 +297,34 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     result.tonemapCallbackOwned = executed.executedPassCount == expectedCallbacks;
     return result;
 }
+
+
+bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( double secondsPerFrame )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                               Rendering::RenderGraphQueueType::Graphics,
+                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    UiTextGraphCallbackData callbackData;
+    callbackData.uiTextPass = &m_uiTextPass;
+    callbackData.secondsPerFrame = secondsPerFrame;
+    graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+
+    // Invariant: UI/text always lands on the presentable backbuffer. Text-only
+    // mode skips world rendering before this point but still uses this callback
+    // path so the late overlay pass has one scheduling owner.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    return executed.executedPassCount == 1u;
+}
+
 
 RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                              bool cinematicRender,
@@ -589,7 +633,7 @@ bool RuntimeRenderer::ShouldRenderUiText() const
 
 void RuntimeRenderer::RenderUiText( double dSecondsPerFrame )
 {
-    m_uiTextPass.Render( dSecondsPerFrame );
+    (void)ExecuteUiTextThroughRenderGraph( dSecondsPerFrame );
 }
 
 
