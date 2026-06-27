@@ -53,6 +53,13 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+struct VolumetricGraphCallbackData
+{
+    VolumetricPass* volumetricPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+    bool rendered = false;
+};
+
 struct TonemapGraphCallbackData
 {
     TonemapPass* tonemapPass = nullptr;
@@ -60,6 +67,17 @@ struct TonemapGraphCallbackData
     bool sceneAlreadyUnbound = false;
     bool volumetricReady = false;
 };
+
+void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+                                     void* userData )
+{
+    auto* data = static_cast<VolumetricGraphCallbackData*>( userData );
+    if ( !data || !data->volumetricPass || !data->frame )
+    {
+        throw std::runtime_error( "VolumetricLightPass graph callback missing execution data" );
+    }
+    data->rendered = data->volumetricPass->Render( *data->frame );
+}
 
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
@@ -86,6 +104,50 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        systems.skyBox } };
 }
 } // namespace
+
+RuntimeRenderer::VolumetricGraphResult
+RuntimeRenderer::ExecuteVolumetricThroughRenderGraph( const RenderFrameContext& frame )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle sceneColor =
+        graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    const Rendering::RenderGraphResourceHandle sceneDepth =
+        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    // Invariant: framebuffer color targets rest in shader-resource state when
+    // they are not actively bound. VolumetricPass::Render transitions this
+    // texture to render-target state through FramebufferDX12::Bind().
+    const Rendering::RenderGraphResourceHandle volumetricLight =
+        graph.AddExternalResource( "VolumetricLight", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+
+    const uint32_t volumetricPass = graph.AddPass( "VolumetricLightPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddRead( volumetricPass, sceneColor, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( volumetricPass, sceneDepth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( volumetricPass, volumetricLight, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    VolumetricGraphCallbackData callbackData;
+    callbackData.volumetricPass = &m_volumetricPass;
+    callbackData.frame = &frame;
+    graph.SetPassCallback( volumetricPass,
+                           ExecuteVolumetricGraphCallback,
+                           &callbackData,
+                           true,
+                           "Frame/Render/VolumetricLight" );
+
+    // Invariant: the dry run checks declaration coverage without binding the
+    // half-resolution target. The execute pass below is the only draw path.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+
+    VolumetricGraphResult result;
+    result.rendered = executed.executedPassCount == 1u && callbackData.rendered;
+    result.callbackOwned = result.rendered;
+    return result;
+}
+
 
 bool RuntimeRenderer::ExecuteTonemapThroughRenderGraph( const RenderFrameContext& frame,
                                                         bool sceneAlreadyUnbound,
@@ -375,10 +437,13 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     m_debugOverlayPass.Render( { frame } );
 
     bool volumetricReady = false;
+    bool volumetricCallbackOwned = false;
     bool tonemapCallbackOwned = false;
     if ( useCinematicTarget )
     {
-        volumetricReady = m_volumetricPass.Render( frame );
+        const VolumetricGraphResult volumetricGraph = ExecuteVolumetricThroughRenderGraph( frame );
+        volumetricReady = volumetricGraph.rendered;
+        volumetricCallbackOwned = volumetricGraph.callbackOwned;
         tonemapCallbackOwned = ExecuteTonemapThroughRenderGraph( frame, volumetricReady, volumetricReady );
     }
 
@@ -396,6 +461,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
     frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
+    frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
     frameSnapshot.volumetricReady = volumetricReady;
     frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );

@@ -51,9 +51,16 @@ class RuntimeRenderer
     void RenderUiText( double dSecondsPerFrame );
 
   private:
+    struct VolumetricGraphResult
+    {
+        bool rendered = false;               // Volumetric target was produced and can be sampled by tonemap.
+        bool callbackOwned = false;          // Volumetric command recording ran through RenderGraph callback execution.
+    };
+
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
+    VolumetricGraphResult ExecuteVolumetricThroughRenderGraph( const RenderFrameContext& frame );
     bool
     ExecuteTonemapThroughRenderGraph( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
 

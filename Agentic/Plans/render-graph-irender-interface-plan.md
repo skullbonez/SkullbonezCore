@@ -11,6 +11,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Split DXR reflection calls out of `IRenderBackend` into `IRenderRayTracing`; migrated runtime reflection setup, dispatch, and debug preview callers.
 - [x] 2026-06-27: Added runtime boundary guardrails for direct `Gfx().DXR`-style calls and for reintroducing DXR declarations to `IRenderBackend.h`.
 - [x] 2026-06-27: Validated the raytracing-interface slice with `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and `tools\validate_full.bat`.
+- [x] 2026-06-27: Moved `VolumetricLightPass` command recording into the render graph callback path and marked callback ownership in frame graph diagnostics.
 
 ## Goal
 
@@ -103,25 +104,25 @@ Move one family at a time and validate the behavior before moving the next. The 
 
 Pass-family checklist, repeated for each selected family:
 
-- [ ] Identify the pass entry point and current direct scheduling path.
-- [ ] Identify every input resource.
-- [ ] Identify every output resource.
-- [ ] Identify every imported resource owner.
+- [x] Identify the pass entry point and current direct scheduling path.
+- [x] Identify every input resource.
+- [x] Identify every output resource.
+- [x] Identify every imported resource owner.
 - [ ] Identify every transient resource candidate.
-- [ ] Identify required resource states before and after the pass.
-- [ ] Identify CPU-side data dependencies and lifetime requirements.
-- [ ] Register the pass in the graph with complete read/write declarations.
-- [ ] Move pass execution into a graph callback.
-- [ ] Prove whether execution now goes through `Dx12RenderGraphExecutor`, or explicitly record any remaining callback-only/resource-transition handoff debt.
-- [ ] Remove or disable the old direct scheduling path for that pass.
-- [ ] Keep pass-specific resource setup outside the callback only when ownership requires it and document why.
-- [ ] Update graph diagnostics to include the pass.
-- [ ] Run the smallest focused build or launch needed to answer implementation questions while iterating.
-- [ ] Defer formal repository validation to the PR gate unless the user explicitly asks for it.
+- [x] Identify required resource states before and after the pass.
+- [x] Identify CPU-side data dependencies and lifetime requirements.
+- [x] Register the pass in the graph with complete read/write declarations.
+- [x] Move pass execution into a graph callback.
+- [x] Prove whether execution now goes through `Dx12RenderGraphExecutor`, or explicitly record any remaining callback-only/resource-transition handoff debt.
+- [x] Remove or disable the old direct scheduling path for that pass.
+- [x] Keep pass-specific resource setup outside the callback only when ownership requires it and document why.
+- [x] Update graph diagnostics to include the pass.
+- [x] Run the smallest focused build or launch needed to answer implementation questions while iterating.
+- [x] Defer formal repository validation to the PR gate unless the user explicitly asks for it.
 
 Suggested migration order:
 
-- [ ] `VolumetricLightPass`
+- [x] `VolumetricLightPass`
 - [ ] Low-risk post-processing passes after tone map
 - [ ] Reflection or environment passes
 - [ ] Shadow passes
@@ -134,12 +135,12 @@ Suggested migration order:
 
 Do-not-miss checklist:
 
-- [ ] Pass order is unchanged unless the behavior change is intentional and documented.
-- [ ] Every DX12 resource transition is either graph-owned or explicitly justified.
-- [ ] Clear/load/store behavior is preserved.
-- [ ] Resize behavior is preserved.
-- [ ] Screenshot timing remains deterministic.
-- [ ] DX12 validation output remains zero-error for renderer-validation slices.
+- [x] Pass order is unchanged unless the behavior change is intentional and documented.
+- [x] Every DX12 resource transition is either graph-owned or explicitly justified.
+- [x] Clear/load/store behavior is preserved.
+- [x] Resize behavior is preserved.
+- [x] Screenshot timing remains deterministic.
+- [x] DX12 validation output remains zero-error for renderer-validation slices.
 - [ ] Any visual baseline update is intentional, reviewed, and followed by `tools\validate_dx12_renderer.bat`.
 
 ## Phase 3 - Move Transient Resource Ownership into the Graph
@@ -235,7 +236,7 @@ Searches to run before declaring cleanup done:
 Repository validation scripts are PR/commit gates. Do not run them repeatedly while iterating unless the user explicitly asks for validation.
 
 - [ ] Documentation-only changes: no repository validation required.
-- [ ] Render graph pass migration: run `tools\validate_dx12_renderer.bat` before PR-bound commit.
+- [x] Render graph pass migration: run `tools\validate_dx12_renderer.bat` before PR-bound commit.
 - [ ] Transient resource allocation, resource barriers, descriptor lifetime, or render target ownership changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] Upload buffer, dynamic geometry, descriptor heap, or per-frame allocation changes: run `tools\validate_dx12_renderer.bat` and `tools\validate_perf.bat`.
 - [x] `IRenderBackend`, `RenderBackendDX12`, `Rendering/DX12/*`, or DXR reflection ownership/interface changes: run `tools\validate_dx12_renderer.bat`.
@@ -258,15 +259,15 @@ Review checklist:
 
 - [x] Inspect all touched source-bearing files with `Agentic/Skills/comment-style-audit/skill.md`.
 - [x] Run a focused source search for accidental direct backend access after interface migration.
-- [ ] Review resource lifetime against frame-lag/fence behavior.
-- [ ] Review pass declarations against actual resource reads and writes.
+- [x] Review resource lifetime against frame-lag/fence behavior.
+- [x] Review pass declarations against actual resource reads and writes.
 - [x] Review hot paths for new heap allocations.
 - [x] Ask for or perform an independent rubber-duck review before final PR-bound handoff if the slice changes resource barriers, pass ordering, or interface lifetime.
 
 ## Final Acceptance Checklist
 
 - [ ] Production pass scheduling is graph-owned for all targeted pass families.
-- [ ] The graph declares every read/write/imported/transient resource for migrated passes.
+- [x] The graph declares every read/write/imported/transient resource for migrated passes.
 - [ ] `Dx12RenderGraphExecutor` owns execution diagnostics and resource-state handling for migrated graph passes.
 - [ ] At least one low-risk transient resource is graph-owned before claiming resource lifetime migration.
 - [ ] `IRenderBackend` is reduced to a compatibility facade or deleted after callers migrate.
