@@ -49,6 +49,11 @@ namespace
 {
 constexpr float REPLAY_RUNTIME_SCRUBBER_LIVE_THRESHOLD = 0.995f;
 constexpr float REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON = 0.0035f;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
+constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
+constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
 using GameObjects::GameModel;
 using Math::CollisionDetection::GetShapeBoundingRadius;
@@ -60,6 +65,32 @@ using Physics::PhysicsPipelineStageName;
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+uint32_t ReplayRuntimeFloatBits( float value )
+{
+    uint32_t bits = 0;
+    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
+    std::memcpy( &bits, &value, sizeof( bits ) );
+    return bits;
+}
+
+int32_t ReplayRuntimeFloatBitsSigned( float value )
+{
+    const uint32_t bits = ReplayRuntimeFloatBits( value );
+    int32_t signedBits = 0;
+    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
+    return signedBits;
+}
+
+void ReplayRuntimeHashFloat( uint64_t& hash, float value )
+{
+    const uint32_t bits = ReplayRuntimeFloatBits( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
 }
 
 const ReplayPresentationSample*
@@ -1866,6 +1897,38 @@ void ReplayRuntime::RecordEvent( ReplayEventKind kind,
     input.data0 = data0;
     input.text = text;
     m_events.RecordEvent( input );
+}
+
+void ReplayRuntime::RecordWorldOverrideEvent( float previousGravity,
+                                              float previousFluidHeight,
+                                              float previousFluidDensity,
+                                              float gravity,
+                                              float fluidHeight,
+                                              float fluidDensity )
+{
+    uint32_t flags = 0;
+    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
+    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
+    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
+    if ( flags == 0 )
+    {
+        return;
+    }
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    ReplayRuntimeHashFloat( hash, gravity );
+    ReplayRuntimeHashFloat( hash, fluidHeight );
+    ReplayRuntimeHashFloat( hash, fluidDensity );
+
+    RecordEvent( ReplayEventKind::WorldOverride,
+                 NextEventFrameIndex(),
+                 flags,
+                 ReplayRuntimeFloatBitsSigned( gravity ),
+                 ReplayRuntimeFloatBitsSigned( fluidHeight ),
+                 ReplayRuntimeFloatBitsSigned( fluidDensity ),
+                 0,
+                 hash,
+                 "world_override" );
 }
 
 bool ReplayRuntime::SaveSolverReplay( const char* path ) const

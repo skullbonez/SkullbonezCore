@@ -2318,10 +2318,10 @@ void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDen
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
     m_cWorldEnvironment.SetFluidDensity( fluidDensity );
-    RecordReplayWorldOverrideEvent( previousGravity,
-                                    previousFluidHeight,
-                                    previousFluidDensity,
-                                    gravity,
-                                    fluidHeight,
-                                    fluidDensity );
+    m_replayRuntime.RecordWorldOverrideEvent( previousGravity,
+                                              previousFluidHeight,
+                                              previousFluidDensity,
+                                              gravity,
+                                              fluidHeight,
+                                              fluidDensity );
 }

@@ -455,6 +455,12 @@ class ReplayRuntime
                       int32_t value3,
                       uint64_t data0,
                       const char* text );
+    void RecordWorldOverrideEvent( float previousGravity,
+                                   float previousFluidHeight,
+                                   float previousFluidDensity,
+                                   float gravity,
+                                   float fluidHeight,
+                                   float fluidDensity );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 

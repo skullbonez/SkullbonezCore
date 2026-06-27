@@ -48,9 +48,6 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
@@ -927,39 +924,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
-}
-
-
-void Run::RecordReplayWorldOverrideEvent( float previousGravity,
-                                          float previousFluidHeight,
-                                          float previousFluidDensity,
-                                          float gravity,
-                                          float fluidHeight,
-                                          float fluidDensity )
-{
-    uint32_t flags = 0;
-    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
-    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
-    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
-    if ( flags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, gravity );
-    HashReplayFloat( hash, fluidHeight );
-    HashReplayFloat( hash, fluidDensity );
-
-    m_replayRuntime.RecordEvent( ReplayEventKind::WorldOverride,
-                                 m_replayRuntime.NextEventFrameIndex(),
-                                 flags,
-                                 ReplayFloatBitsSigned( gravity ),
-                                 ReplayFloatBitsSigned( fluidHeight ),
-                                 ReplayFloatBitsSigned( fluidDensity ),
-                                 0,
-                                 hash,
-                                 "world_override" );
 }
 
 
