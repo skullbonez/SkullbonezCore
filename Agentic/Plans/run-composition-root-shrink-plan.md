@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay event record wrapper slice validated
+Status: Active architecture cleanup plan; replay generated-scene config wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay event record wrapper section below
+Validation for latest implementation slice: see the replay generated-scene config wrapper section below
 
 ## Goal
 
@@ -3212,6 +3212,77 @@ Residual architecture risk: the remaining replay event payload packaging
 helpers, solver apply/hash helpers, replay inspection camera enter/exit and
 focus-control methods, and render-host splitting remain active; this slice only
 removed the narrow event append wrapper.
+
+## Replay Generated-Scene Config Wrapper Slice
+
+This replay generated-scene config slice removed the private `Run` helper that
+only served `ResetReplayTimelineForActiveScene`. The generated-scene config
+payload now stays local to timeline reset immediately after the timeline-start
+event append.
+
+Deleted `Run.h` declarations:
+
+- `RecordReplayGeneratedSceneConfigEvent`
+
+Deleted `Run::` definitions:
+
+- `Run::RecordReplayGeneratedSceneConfigEvent`
+
+Existing owner surface:
+
+- `ReplayRuntime::RecordEvent(...)`
+
+Updated call sites:
+
+- `Run::ResetReplayTimelineForActiveScene`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 167 to 166.
+- New header and source guardrails reject the removed replay generated-scene
+  config wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. The localized block preserves the existing payload
+  construction in the only caller.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_generated_scene_config_profile_build.log`;
+  passed with 0 warnings and 0 errors in 5.76s after formatting the touched
+  `Run.cpp` file.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_generated_scene_config_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 49.88s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_generated_scene_config_runtime_boundaries.log`;
+  passed with 0 errors in 2.25s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_generated_scene_config_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.87s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: the remaining replay event payload packaging
+helpers, solver apply/hash helpers, replay inspection camera enter/exit and
+focus-control methods, and render-host splitting remain active; this slice only
+removed the single-caller generated-scene config wrapper.
 
 ## Rules
 

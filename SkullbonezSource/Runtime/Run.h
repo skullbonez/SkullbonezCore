@@ -355,7 +355,6 @@ class Run
         const Math::Vector::Vector3& rayOrigin,
         const Math::Vector::Vector3& rayDirection,
         const Math::Vector::Vector3& cameraUp );                           // Records camera-derived launcher fire payloads.
-    void RecordReplayGeneratedSceneConfigEvent();                          // Records generated-scene object counts and seed metadata.
     void
     RecordReplayEditorPlaceEvent( int objectType,
                                   bool fixedObject,

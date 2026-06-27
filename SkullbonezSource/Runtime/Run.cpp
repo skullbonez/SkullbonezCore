@@ -893,10 +893,42 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replayRuntime.ResetTimeline( sceneLabel );
     m_replayRuntime.RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
-    RecordReplayGeneratedSceneConfigEvent();
+    if ( !( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 ) )
+    {
+        uint32_t flags = 0;
+        flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
+                     ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
+                     : 0u;
+        flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+        flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
+                     ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
+                     : 0u;
+        flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
+                   << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+
+        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+        HashReplayInt( hash, SceneState().modelCount );
+        HashReplayInt( hash, SceneState().solverBallCount );
+        HashReplayInt( hash, SceneState().solverBoxCount );
+        HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
+        HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+        HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+
+        m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
+                                     0,
+                                     flags,
+                                     SceneState().modelCount,
+                                     SceneState().solverBallCount,
+                                     SceneState().solverBoxCount,
+                                     static_cast<int32_t>( SceneState().rngSeed ),
+                                     hash,
+                                     "generated_scene_config" );
+    }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
 }
+
 
 void Run::RecordReplayWorldOverrideEvent( float previousGravity,
                                           float previousFluidHeight,
@@ -995,45 +1027,6 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
                                  m_cGameModelCollection.GetModelCount(),
                                  hash,
                                  payload );
-}
-
-
-void Run::RecordReplayGeneratedSceneConfigEvent()
-{
-    if ( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 )
-    {
-        return;
-    }
-
-    uint32_t flags = 0;
-    flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
-                 ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
-                 : 0u;
-    flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-    flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
-                 ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
-                 : 0u;
-    flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-               << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-             REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, SceneState().modelCount );
-    HashReplayInt( hash, SceneState().solverBallCount );
-    HashReplayInt( hash, SceneState().solverBoxCount );
-    HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-    HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
-    HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-
-    m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
-                                 0,
-                                 flags,
-                                 SceneState().modelCount,
-                                 SceneState().solverBallCount,
-                                 SceneState().solverBoxCount,
-                                 static_cast<int32_t>( SceneState().rngSeed ),
-                                 hash,
-                                 "generated_scene_config" );
 }
 
 
