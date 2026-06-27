@@ -46,6 +46,7 @@ struct RenderSceneSnapshot
     bool waterSamplesReflection = false; // Water sampled a non-zero reflection texture handle.
     bool tornadoVisualRendered = false;  // Sparse tornado production visual drew after water with depth write disabled.
     bool volumetricReady = false;        // Volumetric light target was produced for tonemap.
+    bool tonemapCallbackOwned = false;   // Tonemap command recording ran through the executable render graph.
 };
 
 } // namespace Rendering

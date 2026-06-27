@@ -41,8 +41,7 @@ namespace
 
 struct TestFailure : public std::runtime_error
 {
-    explicit TestFailure( const std::string& message )
-        : std::runtime_error( message )
+    explicit TestFailure( const std::string& message ) : std::runtime_error( message )
     {
     }
 };
@@ -63,12 +62,18 @@ void ExpectTrue( bool value, const char* expression, const char* file, int line 
 }
 
 template <typename T, typename U>
-void ExpectEqualImpl( const T& actual, const U& expected, const char* actualExpression, const char* expectedExpression, const char* file, int line )
+void ExpectEqualImpl( const T& actual,
+                      const U& expected,
+                      const char* actualExpression,
+                      const char* expectedExpression,
+                      const char* file,
+                      int line )
 {
     if ( !( actual == expected ) )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected " << expected;
+        out << "expected " << actualExpression << " == " << expectedExpression << ", actual " << actual << ", expected "
+            << expected;
         Fail( file, line, out.str() );
     }
 }
@@ -88,7 +93,8 @@ void ExpectThrows( const std::function<void()>& callback, const char* expression
 }
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
-#define EXPECT_EQ( actual, expected ) ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_EQ( actual, expected )                                                                                  \
+    ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
 #define EXPECT_THROWS( expression ) ExpectThrows( [&]() { expression; }, #expression, __FILE__, __LINE__ )
 
 struct TestCase
@@ -107,6 +113,21 @@ Dx12DescriptorAllocator MakeDescriptorAllocator()
                     8,
                     2 );
     return allocator;
+}
+
+struct RenderGraphCallbackTrace
+{
+    std::vector<std::string> labels;
+};
+
+void RecordRenderGraphCallback( const RenderGraphPassContext& context, void* userData )
+{
+    auto* trace = static_cast<RenderGraphCallbackTrace*>( userData );
+    if ( !trace )
+    {
+        throw std::runtime_error( "callback trace missing" );
+    }
+    trace->labels.push_back( context.debugLabel ? context.debugLabel : context.pass->name );
 }
 
 void TestDescriptorTransientRangeIsContiguous()
@@ -157,7 +178,8 @@ void TestDescriptorTransientRangeFailureIsAtomic()
 void TestRenderGraphSkipsUnknownInitialTransition()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle legacyTarget = graph.AddExternalResource( "LegacyTarget", RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle legacyTarget =
+        graph.AddExternalResource( "LegacyTarget", RenderGraphResourceAccess::Unknown );
 
     const uint32_t firstWriter = graph.AddPass( "FirstWriter" );
     graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
@@ -179,7 +201,8 @@ void TestRenderGraphSkipsUnknownInitialTransition()
 void TestRenderGraphExplicitInitialStateTransitions()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present );
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present );
 
     const uint32_t drawPass = graph.AddPass( "Draw" );
     graph.AddWrite( drawPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
@@ -202,7 +225,10 @@ void TestRenderGraphExplicitInitialStateTransitions()
 void TestRenderGraphTracksSubresourceTransitionsIndependently()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "MipTexture", RenderGraphResourceAccess::PixelShaderResource, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x6000u ) ) );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "MipTexture",
+                                   RenderGraphResourceAccess::PixelShaderResource,
+                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x6000u ) ) );
 
     const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
     graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
@@ -242,7 +268,8 @@ void TestRenderGraphTracksSubresourceTransitionsIndependently()
 void TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "UniformTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "UniformTexture", RenderGraphResourceAccess::PixelShaderResource );
 
     const uint32_t readMipOne = graph.AddPass( "ReadMipOne" );
     graph.AddRead( readMipOne, texture, RenderGraphResourceAccess::PixelShaderResource, 1u );
@@ -261,7 +288,8 @@ void TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition()
 void TestRenderGraphClearsSpecificStateWhenItReturnsToAllState()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "ReturnedTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "ReturnedTexture", RenderGraphResourceAccess::PixelShaderResource );
 
     const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
     graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
@@ -294,7 +322,8 @@ void TestRenderGraphClearsSpecificStateWhenItReturnsToAllState()
 void TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "MixedTexture", RenderGraphResourceAccess::PixelShaderResource );
 
     const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
     graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
@@ -308,7 +337,8 @@ void TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition()
 void TestRenderGraphRejectsUnknownPassAccess()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
     const uint32_t pass = graph.AddPass( "BadPass" );
 
     EXPECT_THROWS( graph.AddRead( pass, texture, RenderGraphResourceAccess::Unknown ) );
@@ -318,13 +348,93 @@ void TestRenderGraphRejectsUnknownPassAccess()
 void TestRenderGraphRejectsBadHandles()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle texture = graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle texture =
+        graph.AddExternalResource( "Texture", RenderGraphResourceAccess::PixelShaderResource );
     const uint32_t pass = graph.AddPass( "Pass" );
     RenderGraphResourceHandle badResource;
     badResource.index = texture.index + 100u;
 
     EXPECT_THROWS( graph.AddRead( pass, badResource, RenderGraphResourceAccess::PixelShaderResource ) );
     EXPECT_THROWS( graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget ) );
+}
+
+void TestRenderGraphExecutesCallbacksInPassOrder()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+
+    RenderGraphCallbackTrace trace;
+    const uint32_t firstPass = graph.AddPass( "FirstCallback" );
+    graph.AddWrite( firstPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback( firstPass, RecordRenderGraphCallback, &trace, true, "first" );
+
+    const uint32_t declarationOnlyPass = graph.AddPass( "DeclarationOnly" );
+    graph.AddWrite( declarationOnlyPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    const uint32_t secondPass = graph.AddPass( "SecondCallback" );
+    graph.AddWrite( secondPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback( secondPass, RecordRenderGraphCallback, &trace, true, "second" );
+
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
+
+    EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 2 ) );
+    EXPECT_EQ( result.declarationOnlyPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.executedPassCount, static_cast<size_t>( 2 ) );
+    EXPECT_EQ( trace.labels.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( trace.labels[0], std::string( "first" ) );
+    EXPECT_EQ( trace.labels[1], std::string( "second" ) );
+}
+
+void TestRenderGraphDryRunValidatesCallbacksWithoutExecuting()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle target =
+        graph.AddExternalResource( "Target", RenderGraphResourceAccess::RenderTarget );
+
+    RenderGraphCallbackTrace trace;
+    const uint32_t pass = graph.AddPass( "DryRunCallback" );
+    graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace, true, "dry-run" );
+
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
+
+    EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.dryRunValidatedPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.executedPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_TRUE( trace.labels.empty() );
+}
+
+void TestRenderGraphDisabledCallbackDoesNotExecute()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle target =
+        graph.AddExternalResource( "Target", RenderGraphResourceAccess::RenderTarget );
+
+    RenderGraphCallbackTrace trace;
+    const uint32_t pass = graph.AddPass( "DisabledCallback" );
+    graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace, false, "disabled" );
+
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
+
+    EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.disabledCallbackPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.executedPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_TRUE( trace.labels.empty() );
+}
+
+void TestRenderGraphRejectsCallbackWithoutResourceDeclarations()
+{
+    RenderGraph graph;
+    RenderGraphCallbackTrace trace;
+    const uint32_t pass = graph.AddPass( "MissingDeclarations" );
+    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace );
+
+    EXPECT_THROWS( graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun ) );
 }
 
 void TestDx12RenderGraphAccessMapsToDx12States()
@@ -340,8 +450,10 @@ void TestDx12RenderGraphAccessMapsToDx12States()
     EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::PixelShaderResource, state ) );
     EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
 
-    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state ) );
-    EXPECT_TRUE( state == ( D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
+    EXPECT_TRUE(
+        TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state ) );
+    EXPECT_TRUE( state ==
+                 ( D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
 
     EXPECT_TRUE( !TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::Unknown, state ) );
 }
@@ -351,7 +463,8 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
     const void* fakeBackbuffer = reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x1000u ) );
 
     RenderGraph graph;
-    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present, fakeBackbuffer );
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present, fakeBackbuffer );
 
     const uint32_t drawPass = graph.AddPass( "Draw" );
     graph.AddWrite( drawPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
@@ -384,7 +497,10 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
 void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle legacyTarget = graph.AddExternalResource( "LegacyTarget", RenderGraphResourceAccess::Unknown, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x2000u ) ) );
+    const RenderGraphResourceHandle legacyTarget =
+        graph.AddExternalResource( "LegacyTarget",
+                                   RenderGraphResourceAccess::Unknown,
+                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x2000u ) ) );
 
     const uint32_t firstWriter = graph.AddPass( "FirstWriter" );
     graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
@@ -401,7 +517,10 @@ void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
 void TestDx12RenderGraphExecutorIdentifiesUavAccess()
 {
     RenderGraph graph;
-    const RenderGraphResourceHandle reflection = graph.AddExternalResource( "Reflection", RenderGraphResourceAccess::PixelShaderResource, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x3000u ) ) );
+    const RenderGraphResourceHandle reflection =
+        graph.AddExternalResource( "Reflection",
+                                   RenderGraphResourceAccess::PixelShaderResource,
+                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x3000u ) ) );
 
     const uint32_t dispatchPass = graph.AddPass( "DispatchReflection", RenderGraphQueueType::Compute );
     graph.AddWrite( dispatchPass, reflection, RenderGraphResourceAccess::UnorderedAccess );
@@ -454,14 +573,25 @@ const TestCase kTests[] = {
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
-    { "Render graph tracks subresource transitions independently", TestRenderGraphTracksSubresourceTransitionsIndependently },
-    { "Render graph allows uniform specific then all-subresource transition", TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition },
-    { "Render graph clears specific state when it returns to all-state", TestRenderGraphClearsSpecificStateWhenItReturnsToAllState },
-    { "Render graph rejects mixed specific then all-subresource transition", TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition },
+    { "Render graph tracks subresource transitions independently",
+      TestRenderGraphTracksSubresourceTransitionsIndependently },
+    { "Render graph allows uniform specific then all-subresource transition",
+      TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition },
+    { "Render graph clears specific state when it returns to all-state",
+      TestRenderGraphClearsSpecificStateWhenItReturnsToAllState },
+    { "Render graph rejects mixed specific then all-subresource transition",
+      TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition },
     { "Render graph rejects Unknown pass access", TestRenderGraphRejectsUnknownPassAccess },
     { "Render graph rejects bad handles", TestRenderGraphRejectsBadHandles },
+    { "Render graph executes callbacks in pass order", TestRenderGraphExecutesCallbacksInPassOrder },
+    { "Render graph dry-run validates callbacks without executing",
+      TestRenderGraphDryRunValidatesCallbacksWithoutExecuting },
+    { "Render graph disabled callback does not execute", TestRenderGraphDisabledCallbackDoesNotExecute },
+    { "Render graph rejects callback without resource declarations",
+      TestRenderGraphRejectsCallbackWithoutResourceDeclarations },
     { "DX12 render graph access maps to DX12 states", TestDx12RenderGraphAccessMapsToDx12States },
-    { "DX12 render graph executor dry-runs backbuffer transitions", TestDx12RenderGraphExecutorDryRunBackbufferTransitions },
+    { "DX12 render graph executor dry-runs backbuffer transitions",
+      TestDx12RenderGraphExecutorDryRunBackbufferTransitions },
     { "DX12 render graph executor skips Unknown initial access", TestDx12RenderGraphExecutorSkipsUnknownInitialAccess },
     { "DX12 render graph executor identifies UAV access", TestDx12RenderGraphExecutorIdentifiesUavAccess },
     { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },

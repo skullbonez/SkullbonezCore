@@ -44,7 +44,16 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.reflectionUsedDxr == rhs.reflectionUsedDxr && lhs.objectOpaquePass == rhs.objectOpaquePass &&
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
-           lhs.waterSamplesReflection == rhs.waterSamplesReflection && lhs.volumetricReady == rhs.volumetricReady;
+           lhs.waterSamplesReflection == rhs.waterSamplesReflection && lhs.volumetricReady == rhs.volumetricReady &&
+           lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned;
+}
+
+
+void DiagnosticCallbackMarker( const RenderGraphPassContext& /*context*/, void* /*userData*/ )
+{
+    // Diagnostics build a fresh graph from the immutable frame snapshot after
+    // rendering. The no-op callback records ownership in the dump without
+    // reaching back into live runtime pass state.
 }
 
 
@@ -248,6 +257,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
             graph.AddRead( tonemapPass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
         }
         graph.AddWrite( tonemapPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+        if ( snapshot.tonemapCallbackOwned )
+        {
+            graph.SetPassCallback( tonemapPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Tonemap" );
+        }
     }
 
     const uint32_t presentPass = graph.AddPass( "Present" );
@@ -265,7 +278,8 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
-    out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n\n";
+    out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";
+    out << "tonemap_callback_owned=" << ( snapshot.tonemapCallbackOwned ? "true" : "false" ) << "\n\n";
     out << graph.DumpText();
     return out.str();
 }

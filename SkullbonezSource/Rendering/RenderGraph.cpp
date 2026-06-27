@@ -13,8 +13,8 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
-  - The graph records pass/resource intent and diagnostics; this slice does not
-    own GPU allocation or command execution.
+  - The graph records pass/resource intent, diagnostics, and optional callback
+    execution; it still does not own GPU resource allocation.
   - Pass resource accesses must name concrete states so DX12 barrier diagnostics
     can reason about transitions.
 
@@ -56,6 +56,20 @@ const char* ToString( RenderGraphBarrierPolicy policy )
         return "DiagnosticOnly";
     case RenderGraphBarrierPolicy::HandoffValidated:
         return "HandoffValidated";
+    default:
+        return "Unknown";
+    }
+}
+
+
+const char* ToString( RenderGraphPassExecutionOwner owner )
+{
+    switch ( owner )
+    {
+    case RenderGraphPassExecutionOwner::DeclarationOnly:
+        return "DeclarationOnly";
+    case RenderGraphPassExecutionOwner::Callback:
+        return "Callback";
     default:
         return "Unknown";
     }
@@ -136,11 +150,12 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
 
 uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, RenderGraphBarrierPolicy barrierPolicy )
 {
-    // A pass is a named unit of frame work. It does not record commands in this
-    // first slice. It records intent, so future code can compare pass order and
-    // resource uses before command recording starts.
+    // A pass is a named unit of frame work. Declaration-only passes record
+    // intent for diagnostics and barriers; callback-owned passes can later use
+    // the same pass index to record commands in graph order.
     RenderGraphPassDesc pass;
     pass.name = ( name && name[0] != '\0' ) ? name : "UnnamedPass";
+    pass.debugLabel = pass.name;
     pass.queue = queue;
     pass.barrierPolicy = barrierPolicy;
 
@@ -182,6 +197,30 @@ void RenderGraph::AddWrite( uint32_t passIndex,
 }
 
 
+void RenderGraph::SetPassCallback( uint32_t passIndex,
+                                   RenderGraphPassCallback callback,
+                                   void* userData,
+                                   bool enabled,
+                                   const char* debugLabel )
+{
+    // Concept: callback ownership is a pass-order contract, not a closure
+    // warehouse. A raw function pointer plus caller-owned userdata keeps the
+    // graph from allocating or retaining broad runtime state just to execute one
+    // pass body.
+    if ( callback == nullptr )
+    {
+        throw std::runtime_error( "RenderGraph callback pass requires a non-null callback" );
+    }
+
+    RenderGraphPassDesc& pass = CheckedPass( passIndex );
+    pass.executionOwner = RenderGraphPassExecutionOwner::Callback;
+    pass.callback = callback;
+    pass.callbackUserData = userData;
+    pass.callbackEnabled = enabled;
+    pass.debugLabel = ( debugLabel && debugLabel[0] != '\0' ) ? debugLabel : pass.name;
+}
+
+
 std::string RenderGraph::DumpText() const
 {
     // Human-readable dumps are an early diagnostic tool. Before a render graph
@@ -202,7 +241,13 @@ std::string RenderGraph::DumpText() const
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
         out << "  [" << passIndex << "] " << pass.name << " queue=" << ToString( pass.queue )
-            << " barriers=" << ToString( pass.barrierPolicy ) << "\n";
+            << " barriers=" << ToString( pass.barrierPolicy ) << " execution=" << ToString( pass.executionOwner );
+        if ( pass.executionOwner == RenderGraphPassExecutionOwner::Callback )
+        {
+            out << " callback_enabled=" << ( pass.callbackEnabled ? "true" : "false" )
+                << " debug_label=" << pass.debugLabel;
+        }
+        out << "\n";
 
         for ( const RenderGraphResourceUse& read : pass.reads )
         {
@@ -259,7 +304,7 @@ RenderGraphCompileResult RenderGraph::Compile() const
 {
     // This is the first deliberately simple graph compiler.
     //
-    // It does not record GPU commands. It does not allocate transient textures.
+    // It does not execute callbacks. It does not allocate transient textures.
     // It does not optimize away barriers or reason about async queues yet.
     //
     // What it does:
@@ -399,6 +444,53 @@ RenderGraphCompileResult RenderGraph::Compile() const
         }
     }
 
+    return result;
+}
+
+
+RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const
+{
+    RenderGraphCallbackExecutionResult result;
+    for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
+    {
+        const RenderGraphPassDesc& pass = m_passes[passIndex];
+        if ( pass.executionOwner != RenderGraphPassExecutionOwner::Callback )
+        {
+            ++result.declarationOnlyPassCount;
+            continue;
+        }
+
+        ++result.callbackPassCount;
+        if ( !pass.callbackEnabled )
+        {
+            ++result.disabledCallbackPassCount;
+            continue;
+        }
+        if ( pass.callback == nullptr )
+        {
+            throw std::runtime_error( "RenderGraph callback pass has no callback" );
+        }
+        if ( pass.reads.empty() && pass.writes.empty() )
+        {
+            throw std::runtime_error( "RenderGraph callback pass must declare at least one resource use" );
+        }
+
+        RenderGraphPassContext context;
+        context.graph = this;
+        context.pass = &pass;
+        context.passIndex = static_cast<uint32_t>( passIndex );
+        context.debugLabel = pass.debugLabel.c_str();
+        context.dryRun = mode == RenderGraphCallbackExecutionMode::DryRun;
+
+        if ( context.dryRun )
+        {
+            ++result.dryRunValidatedPassCount;
+            continue;
+        }
+
+        pass.callback( context, pass.callbackUserData );
+        ++result.executedPassCount;
+    }
     return result;
 }
 

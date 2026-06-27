@@ -54,6 +54,8 @@ class RuntimeRenderer
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
+    bool
+    ExecuteTonemapThroughRenderGraph( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
 
     RuntimeRenderHost& m_host;
     FullscreenQuadPass m_fullscreenQuadPass; // Shared full-screen vertex buffer pass used by sky/post effects.

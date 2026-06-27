@@ -39,7 +39,10 @@ Related:
 */
 #include "RunInternal.h"
 #include "RuntimeTuning.h"
+#include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderPipeline.h"
+
+#include <stdexcept>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -50,6 +53,24 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+struct TonemapGraphCallbackData
+{
+    TonemapPass* tonemapPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+    bool sceneAlreadyUnbound = false;
+    bool volumetricReady = false;
+};
+
+void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
+{
+    auto* data = static_cast<TonemapGraphCallbackData*>( userData );
+    if ( !data || !data->tonemapPass || !data->frame )
+    {
+        throw std::runtime_error( "ToneMapPass graph callback missing execution data" );
+    }
+    data->tonemapPass->Render( *data->frame, data->sceneAlreadyUnbound, data->volumetricReady );
+}
+
 RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::GameObjects::GameModelCollection& models,
                                               SkullbonezCore::Environment::WorldEnvironment& world,
@@ -65,6 +86,51 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        systems.skyBox } };
 }
 } // namespace
+
+bool RuntimeRenderer::ExecuteTonemapThroughRenderGraph( const RenderFrameContext& frame,
+                                                        bool sceneAlreadyUnbound,
+                                                        bool volumetricReady )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle sceneColor =
+        graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    const Rendering::RenderGraphResourceHandle sceneDepth =
+        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    const Rendering::RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+    Rendering::RenderGraphResourceHandle volumetricLight;
+    if ( volumetricReady )
+    {
+        volumetricLight =
+            graph.AddExternalResource( "VolumetricLight", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
+
+    const uint32_t tonemapPass = graph.AddPass( "ToneMapPass",
+                                                Rendering::RenderGraphQueueType::Graphics,
+                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddRead( tonemapPass, sceneColor, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( tonemapPass, sceneDepth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    if ( volumetricReady )
+    {
+        graph.AddRead( tonemapPass, volumetricLight, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
+    graph.AddWrite( tonemapPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    TonemapGraphCallbackData callbackData;
+    callbackData.tonemapPass = &m_tonemapPass;
+    callbackData.frame = &frame;
+    callbackData.sceneAlreadyUnbound = sceneAlreadyUnbound;
+    callbackData.volumetricReady = volumetricReady;
+    graph.SetPassCallback( tonemapPass, ExecuteTonemapGraphCallback, &callbackData, true, "Frame/Render/Tonemap" );
+
+    // Invariant: dry-run executes no draw code. It proves the callback-owned
+    // pass has resource declarations before the live callback records commands.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    return executed.executedPassCount == 1u;
+}
 
 RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                              bool cinematicRender,
@@ -309,10 +375,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     m_debugOverlayPass.Render( { frame } );
 
     bool volumetricReady = false;
+    bool tonemapCallbackOwned = false;
     if ( useCinematicTarget )
     {
         volumetricReady = m_volumetricPass.Render( frame );
-        m_tonemapPass.Render( frame, volumetricReady, volumetricReady );
+        tonemapCallbackOwned = ExecuteTonemapThroughRenderGraph( frame, volumetricReady, volumetricReady );
     }
 
     Rendering::RenderSceneSnapshot frameSnapshot;
@@ -330,6 +397,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
     frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
     frameSnapshot.volumetricReady = volumetricReady;
+    frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
 }
 
