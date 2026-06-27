@@ -615,231 +615,6 @@ void Run::CaptureReplayPhysicsStep()
 }
 
 
-bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
-{
-    if ( event.payloadVersion != 1 )
-    {
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event payload version" );
-        return false;
-    }
-
-    switch ( event.kind )
-    {
-    case ReplayEventKind::TimelineStart:
-        WriteReplayProbeReason( outReason, reasonSize, "ignored" );
-        return true;
-    case ReplayEventKind::RuntimeCommand:
-    {
-        const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
-        switch ( commandType )
-        {
-        case RuntimeCommandType::SaveScreenshot:
-        case RuntimeCommandType::SaveSceneDefaults:
-        case RuntimeCommandType::SaveRenderDefaults:
-        case RuntimeCommandType::SaveSkyDefaults:
-        case RuntimeCommandType::Quit:
-        case RuntimeCommandType::None:
-            WriteReplayProbeReason( outReason, reasonSize, "ignored non-solver runtime command" );
-            return true;
-        case RuntimeCommandType::ResetCurrentScene:
-        case RuntimeCommandType::LoadSceneIndex:
-        case RuntimeCommandType::LoadDemoScene:
-        case RuntimeCommandType::CreateScene:
-        case RuntimeCommandType::AdvanceScene:
-        default:
-            WriteReplayProbeReason( outReason, reasonSize, "unsupported runtime timeline mutation event" );
-            return false;
-        }
-    }
-    case ReplayEventKind::BranchRestore:
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported timeline mutation event" );
-        return false;
-    case ReplayEventKind::WorldOverride:
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
-        {
-            m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
-        }
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
-        {
-            m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
-        }
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
-        {
-            m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied world override" );
-        return true;
-    case ReplayEventKind::LauncherConfig:
-        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
-        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
-        WriteReplayProbeReason( outReason, reasonSize, "applied launcher config" );
-        return true;
-    case ReplayEventKind::LauncherFire:
-    {
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        Vector3 cameraUp;
-        if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid launcher fire payload" );
-            return false;
-        }
-        m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
-                                                    ? RunLauncherFireMode::Projectile
-                                                    : RunLauncherFireMode::Laser;
-        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
-        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
-        if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
-                                             m_cWorldEnvironment,
-                                             m_systems.terrain.get(),
-                                             ActiveGameModelCapacity(),
-                                             rayOrigin,
-                                             rayDirection,
-                                             cameraUp ) )
-        {
-            SceneState().modelCount = m_cGameModelCollection.GetModelCount();
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied launcher fire" );
-        return true;
-    }
-    case ReplayEventKind::GeneratedSceneConfig:
-        if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
-             SceneState().solverBoxCount != event.value2 ||
-             static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "generated scene config event does not match live state" );
-            return false;
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "verified generated scene config" );
-        return true;
-    case ReplayEventKind::EditorPlace:
-    {
-        Vector3 terrainPoint;
-        Vector3 placementScale;
-        float placementYawRadians = 0.0f;
-        if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor placement payload" );
-            return false;
-        }
-
-        const int modelCountBefore = m_cGameModelCollection.GetModelCount();
-        if ( event.value3 != modelCountBefore )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor placement model count precondition mismatch" );
-            return false;
-        }
-
-        const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
-        const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
-        const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
-        m_runtimeTools.Editor().placementScale = placementScale;
-        m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-        m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
-        EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
-                                                       m_cGameModelCollection,
-                                                       SceneState(),
-                                                       m_cWorldEnvironment,
-                                                       m_systems.terrain.get(),
-                                                       ActiveGameModelCapacity() };
-        EditorObjectPlacementRequest placementRequest{ event.value0,
-                                                       ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
-                                                       terrainPoint };
-        EditorObjectPlacementResult placementResult;
-        bool placed = false;
-        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
-        {
-            EnterInteractiveSceneRun();
-            placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
-        }
-        m_runtimeTools.Editor().placementScale = previousPlacementScale;
-        m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
-        m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
-        if ( !placed )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );
-            return false;
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied editor placement" );
-        return true;
-    }
-    case ReplayEventKind::EditorTransform:
-    {
-        if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "unsupported editor transform flags" );
-            return false;
-        }
-
-        Vector3 position;
-        Quaternion orientation;
-        float scaleFactor = 1.0f;
-        bool hasScaleFactor = false;
-        if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform payload" );
-            return false;
-        }
-        if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
-             ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
-               scaleFactor <= 0.0f ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform scale payload" );
-            return false;
-        }
-
-        if ( event.value2 != m_cGameModelCollection.GetModelCount() )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform model count precondition mismatch" );
-            return false;
-        }
-        if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform model index is out of range" );
-            return false;
-        }
-
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
-        if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform replay body id mismatch" );
-            return false;
-        }
-
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
-        {
-            model.SetPosition( position );
-        }
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
-        {
-            model.SetOrientation( orientation );
-        }
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
-        {
-            const CollisionShape baseShape = model.GetCollisionShape();
-            if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
-            {
-                WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor transform scale" );
-                return false;
-            }
-        }
-        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        if ( !model.IsFixed() )
-        {
-            m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
-        }
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-        WriteReplayProbeReason( outReason, reasonSize, "applied editor transform" );
-        return true;
-    }
-    default:
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
-        return false;
-    }
-}
-
-
 #ifdef _DEBUG
 void Run::TickReplayScrubProbe()
 {
@@ -1477,6 +1252,243 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return false;
     };
 
+    auto applyReplayEventForRestoreTarget =
+        [&]( const ReplayEventSample& event, char* eventOutReason, std::size_t eventReasonSize ) -> bool
+    {
+        if ( event.payloadVersion != 1 )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
+            return false;
+        }
+
+        switch ( event.kind )
+        {
+        case ReplayEventKind::TimelineStart:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored" );
+            return true;
+        case ReplayEventKind::RuntimeCommand:
+        {
+            const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
+            switch ( commandType )
+            {
+            case RuntimeCommandType::SaveScreenshot:
+            case RuntimeCommandType::SaveSceneDefaults:
+            case RuntimeCommandType::SaveRenderDefaults:
+            case RuntimeCommandType::SaveSkyDefaults:
+            case RuntimeCommandType::Quit:
+            case RuntimeCommandType::None:
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver runtime command" );
+                return true;
+            case RuntimeCommandType::ResetCurrentScene:
+            case RuntimeCommandType::LoadSceneIndex:
+            case RuntimeCommandType::LoadDemoScene:
+            case RuntimeCommandType::CreateScene:
+            case RuntimeCommandType::AdvanceScene:
+            default:
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "unsupported runtime timeline mutation event" );
+                return false;
+            }
+        }
+        case ReplayEventKind::BranchRestore:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
+            return false;
+        case ReplayEventKind::WorldOverride:
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
+            {
+                m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
+            }
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
+            {
+                m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
+            }
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
+            {
+                m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied world override" );
+            return true;
+        case ReplayEventKind::LauncherConfig:
+            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
+            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher config" );
+            return true;
+        case ReplayEventKind::LauncherFire:
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            Vector3 cameraUp;
+            if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid launcher fire payload" );
+                return false;
+            }
+            m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                                        ? RunLauncherFireMode::Projectile
+                                                        : RunLauncherFireMode::Laser;
+            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
+            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 ActiveGameModelCapacity(),
+                                                 rayOrigin,
+                                                 rayDirection,
+                                                 cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
+            return true;
+        }
+        case ReplayEventKind::GeneratedSceneConfig:
+            if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
+                 SceneState().solverBoxCount != event.value2 ||
+                 static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "generated scene config event does not match live state" );
+                return false;
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "verified generated scene config" );
+            return true;
+        case ReplayEventKind::EditorPlace:
+        {
+            Vector3 terrainPoint;
+            Vector3 placementScale;
+            float placementYawRadians = 0.0f;
+            if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor placement payload" );
+                return false;
+            }
+
+            const int modelCountBefore = m_cGameModelCollection.GetModelCount();
+            if ( event.value3 != modelCountBefore )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor placement model count precondition mismatch" );
+                return false;
+            }
+
+            const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
+            const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
+            const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
+            m_runtimeTools.Editor().placementScale = placementScale;
+            m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+            m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
+            EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                           m_cGameModelCollection,
+                                                           SceneState(),
+                                                           m_cWorldEnvironment,
+                                                           m_systems.terrain.get(),
+                                                           ActiveGameModelCapacity() };
+            EditorObjectPlacementRequest placementRequest{ event.value0,
+                                                           ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
+                                                           terrainPoint };
+            EditorObjectPlacementResult placementResult;
+            bool placed = false;
+            if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+            {
+                EnterInteractiveSceneRun();
+                placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+            }
+            m_runtimeTools.Editor().placementScale = previousPlacementScale;
+            m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
+            m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
+            if ( !placed )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "failed to replay editor placement" );
+                return false;
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor placement" );
+            return true;
+        }
+        case ReplayEventKind::EditorTransform:
+        {
+            if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported editor transform flags" );
+                return false;
+            }
+
+            Vector3 position;
+            Quaternion orientation;
+            float scaleFactor = 1.0f;
+            bool hasScaleFactor = false;
+            if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform payload" );
+                return false;
+            }
+            if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
+                 ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
+                   scaleFactor <= 0.0f ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform scale payload" );
+                return false;
+            }
+
+            if ( event.value2 != m_cGameModelCollection.GetModelCount() )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor transform model count precondition mismatch" );
+                return false;
+            }
+            if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor transform model index is out of range" );
+                return false;
+            }
+
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
+            if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
+                return false;
+            }
+
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
+            {
+                model.SetPosition( position );
+            }
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
+            {
+                model.SetOrientation( orientation );
+            }
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
+            {
+                const CollisionShape baseShape = model.GetCollisionShape();
+                if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
+                {
+                    WriteReplayProbeReason( eventOutReason,
+                                            eventReasonSize,
+                                            "failed to replay editor transform scale" );
+                    return false;
+                }
+            }
+            model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            if ( !model.IsFixed() )
+            {
+                m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
+            }
+            m_cGameModelCollection.InvalidatePhysicsStreams();
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
+            return true;
+        }
+        default:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
+            return false;
+        }
+    };
+
     if ( !path || path[0] == '\0' )
     {
         return failWithDiagnostic( "replay v2 target restore requires a v2 artifact path", target, checkpoint );
@@ -1798,7 +1810,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 }
 
                 char eventReason[160] = {};
-                if ( !ApplyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
+                if ( !applyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
                 {
                     char message[320] = {};
                     sprintf_s( message,

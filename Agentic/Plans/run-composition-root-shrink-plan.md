@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay scrubber save helper slice validated
+Status: Active architecture cleanup plan; replay restore event helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay scrubber save helper section below
+Validation for latest implementation slice: see the replay restore event helper section below
 
 ## Goal
 
@@ -2835,6 +2835,75 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: replay scrubber/camera state, replay restore/apply
 helpers, and render-host splitting remain active; this slice only localized the
 scrubber save-file helper.
+
+## Replay Restore Event Helper Slice
+
+This replay restore slice removed the private replay-event application wrapper
+from `Run`. The event application logic is now a scoped lambda inside
+`Run::RestoreReplayV2ArtifactTargetState`, colocated with the v2 target restore
+path that consumes replay events while applying checkpoint state.
+
+Deleted `Run.h` declarations:
+
+- `ApplyReplayEventForRestoreTarget`
+
+Deleted `Run::` definitions:
+
+- `Run::ApplyReplayEventForRestoreTarget`
+
+New owner surface:
+
+- Scoped `applyReplayEventForRestoreTarget` lambda in
+  `Run::RestoreReplayV2ArtifactTargetState`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 172 to 171.
+- New header and source guardrails reject the removed replay restore event
+  helper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The replay event logic remains beside the
+  v2 restore loop that applies serialized replay state.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_restore_event_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.55s.
+- Initial `tools\validate_fast.bat` stopped at formatting for `RunFrame.cpp`;
+  that touched file was formatted directly with VS `clang-format` before final
+  gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_restore_event_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 51.94s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_restore_event_runtime_boundaries.log`;
+  passed with 0 errors in 2.05s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_restore_event_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.70s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: solver apply/hash helpers, replay inspection/camera
+helpers, and render-host splitting remain active; this slice only localized the
+v2 target-restore event application helper.
 
 ## Rules
 

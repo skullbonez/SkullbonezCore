@@ -387,10 +387,6 @@ class Run
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.
     void RestoreMousePickupAngularVelocity();                              // Holds grabbed body angular velocity stable during drag.
     static void ApplyMousePickupPhysicsStepThunk( void* userData );
-    bool ApplyReplayEventForRestoreTarget(
-        const ReplayEventSample& event,
-        char* outReason,
-        std::size_t reasonSize );                                          // Applies loaded v2 event payloads without recording new replay rows.
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     // Prediction work shares the replay visualizer deadline. These calls may
     // leave prediction dirty/building so a later frame can resume without
