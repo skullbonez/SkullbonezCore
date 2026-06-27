@@ -14,6 +14,8 @@ Glossary:
     inspection and rollback.
   Cause tree: Replay contact graph used by the tool UI to explain which body or
     contact caused another replay body to matter.
+  Velocity edit: Replay tool that displays and edits linear/angular velocity on
+    the current path target.
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -429,6 +431,7 @@ class ReplayRuntime
                                        const std::vector<GameObjects::GameModel>& models,
                                        Math::Vector::Vector3& outPosition,
                                        float* outRadius ) const;
+    int ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const;
     bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;

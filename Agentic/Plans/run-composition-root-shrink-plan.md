@@ -1429,6 +1429,77 @@ generation, visualizer drawing, scrubber input, cause tree row UI, velocity
 editing, replay overlay construction, and the larger scene load/render-host
 splits still remain.
 
+## Replay Velocity Target Owner Slice
+
+This replay slice moved velocity-edit target model resolution out of `Run`.
+`ReplayRuntime` now owns the lookup policy for the current path visualizer
+target: use the cached model index only when its `ReplayBodyId` still matches,
+then fall back to scanning the borrowed model list. The remaining `Run`
+velocity-edit hit-testing and drawing code still borrows the resolved index
+because it needs ray geometry, model transforms, and tracer output.
+
+Deleted `Run.h` declaration:
+
+- `ResolveReplayVelocityEditModelIndex`
+
+Deleted `Run::` definition:
+
+- `Run::ResolveReplayVelocityEditModelIndex`
+
+New owner method:
+
+- `ReplayRuntime::ResolveVelocityEditModelIndex(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 209 to 208.
+- The `Run.h` rules reject `ResolveReplayVelocityEditModelIndex` from
+  returning.
+- Runtime source guardrails reject `Run::ResolveReplayVelocityEditModelIndex`
+  definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- `ReplayRuntime.cpp` and `ReplayRuntime.h` gained velocity-edit glossary
+  wording because this slice moved velocity target lookup into that owner.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_target_owner_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.19s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_target_owner_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 51.63s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_velocity_target_owner_runtime_boundaries.log`;
+  passed with 0 errors in 1.12s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_target_owner_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.76s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: velocity edit toggle/input/geometry/drawing,
+camera focus activation, replay prediction frame generation, visualizer drawing,
+scrubber input, cause tree row UI, replay overlay construction, and the larger
+scene load/render-host splits still remain.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

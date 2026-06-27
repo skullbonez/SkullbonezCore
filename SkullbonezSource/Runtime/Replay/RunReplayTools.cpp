@@ -2296,37 +2296,9 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
 }
 
 
-int Run::ResolveReplayVelocityEditModelIndex() const
-{
-    if ( !m_replayRuntime.PathVisualizer().hasTarget || m_replayRuntime.PathVisualizer().targetId.value == 0 )
-    {
-        return -1;
-    }
-
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const int cachedIndex = m_replayRuntime.PathVisualizer().targetModelIndex;
-    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) &&
-         models[static_cast<std::size_t>( cachedIndex )].GetReplayBodyId() ==
-             m_replayRuntime.PathVisualizer().targetId.value )
-    {
-        return cachedIndex;
-    }
-
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-    {
-        if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() ==
-             m_replayRuntime.PathVisualizer().targetId.value )
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-
 int Run::HitReplayVelocityLinearAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
 {
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return -1;
@@ -2362,7 +2334,7 @@ int Run::HitReplayVelocityLinearAxis( const Vector3& rayOrigin, const Vector3& r
 
 int Run::HitReplayVelocityAngularAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
 {
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return -1;
@@ -2416,7 +2388,7 @@ bool Run::TryReplayVelocityAxisRayParameter( int axis,
                                              const Vector3& rayDirection,
                                              float& outAxisT ) const
 {
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return false;
@@ -2444,7 +2416,7 @@ bool Run::TryReplayVelocityAngularRayAngle( int axis,
                                             const Vector3& rayDirection,
                                             float& outAngle ) const
 {
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return false;
@@ -2524,7 +2496,7 @@ void Run::ApplyReplayVelocityEditToModel( int modelIndex,
 
 void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() ||
          m_replayRuntime.VelocityEdit().activeAxis < 0 )
     {
@@ -2663,7 +2635,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     if ( !uiBlocksMouse && leftPressed )
     {
         const POINT mouse = Input::GetClientMouseCoordinates();
-        const int modelIndex = ResolveReplayVelocityEditModelIndex();
+        const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
         if ( modelIndex >= 0 && modelIndex < m_cGameModelCollection.GetModelCount() )
         {
             const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
@@ -2748,7 +2720,7 @@ void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
         return;
     }
 
-    const int modelIndex = ResolveReplayVelocityEditModelIndex();
+    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
     if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
     {
         return;
