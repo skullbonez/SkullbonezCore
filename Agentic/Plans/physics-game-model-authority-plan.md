@@ -12,6 +12,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Converted store refresh, step, wake, seed-asleep, immediate impulse, pending impulse, diagnostics, ragdoll, and sleep-island call paths away from `PhysicsModelView`.
 - [x] 2026-06-27: Added project-filter and runtime-boundary guardrails so `MakePhysicsModelView` or `PhysicsModelView` cannot return unnoticed.
 - [x] 2026-06-27: Validated the deleted-view slice with `tools\validate_fast.bat`, `tools\validate_physics.bat`, and `tools\validate_perf.bat`.
+- [x] 2026-06-27: Added a counted runtime-boundary allowlist so current `PhysicsModels()` compatibility callers are explicit and any new direct caller fails validation.
 
 ## Goal
 
@@ -281,7 +282,7 @@ Only remove compatibility after callers have moved and validation has covered th
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on `GameModelCollection` after render callers migrate.
 - [ ] Remove temporary allowlists that permitted compatibility reads or writes.
-- [ ] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
+- [x] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
 - [ ] Update comments and learning headers in every touched source-bearing file.
 - [ ] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
 

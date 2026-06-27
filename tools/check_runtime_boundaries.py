@@ -64,6 +64,7 @@ RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
 PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|PhysicsModelView)\b")
+PHYSICS_MODELS_ACCESS_PATTERN = re.compile(r"\bPhysicsModels\s*\(")
 DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
     r"ShutdownDXR|GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
@@ -160,6 +161,96 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/SimulationSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/SimulationSystem.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/SimulationSystem.h", "GameObjects::GameModelCollection* models = nullptr;" ),
+    )
+)
+
+# Counted allowlist: duplicate entries are intentional. They preserve the exact
+# current compatibility debt while failing any new direct PhysicsModels() call.
+PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    ( Path(path), normalize_boundary_line(line) )
+    for path, line in (
+        ( "SkullbonezSource/GameObjects/GameModelCollection.h", "std::vector<GameModel>& PhysicsModels();" ),
+        ( "SkullbonezSource/GameObjects/GameModelCollection.h", "const std::vector<GameModel>& PhysicsModels() const;" ),
+        (
+            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+            "std::vector<GameModel>& GameModelCollection::PhysicsModels()",
+        ),
+        (
+            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+            "const std::vector<GameModel>& GameModelCollection::PhysicsModels() const",
+        ),
+        (
+            "SkullbonezSource/Runtime/Run.cpp",
+            "std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
+            "std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
+            "std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+            "std::vector<GameModel>& physicsModels = models.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+            "std::vector<GameModel>& physicsModels = models.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl",
+            "std::vector<GameModel>& models = modelCollection.PhysicsModels();",
+        ),
     )
 )
 
@@ -1251,6 +1342,53 @@ def check_deleted_physics_model_view_guardrails(repo: Path) -> list[BoundaryErro
             if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
                 continue
             errors.extend(check_deleted_physics_model_view_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_models_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = PHYSICS_MODELS_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for line_no, line in enumerate(stripped.splitlines(), start=1):
+        if not PHYSICS_MODELS_ACCESS_PATTERN.search(line):
+            continue
+
+        normalized = normalize_boundary_line(line)
+        key = ( key_path, normalized )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_no,
+                    "direct PhysicsModels() compatibility access is blocked",
+                    "Use PhysicsModelAccess, stores, stable handles, or a named compatibility adapter instead.",
+                )
+            )
+
+    return errors
+
+
+def check_physics_models_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_physics_models_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
     return errors
 
 
@@ -4657,6 +4795,61 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted PhysicsModelView synthetic surface was not rejected")
 
+    allowed_physics_models_path = Path("SkullbonezSource/Runtime/RunFrame.cpp")
+    allowed_physics_models_line = (
+        "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
+        "m_cGameModelCollection.PhysicsModels();"
+    )
+    synthetic_physics_models_allowlist = Counter(
+        { ( allowed_physics_models_path, normalize_boundary_line( allowed_physics_models_line ) ): 1 }
+    )
+    if check_physics_models_access_guardrails_text(
+        allowed_physics_models_path,
+        allowed_physics_models_line,
+        allowed_physics_models_path,
+        synthetic_physics_models_allowlist,
+    ):
+        failures.append("allowed PhysicsModels synthetic access failed")
+
+    commented_physics_models_text = """
+    // m_cGameModelCollection.PhysicsModels() is mentioned in a migration note only.
+    /*
+       collection.PhysicsModels() appears in block comments too.
+    */
+    void UseStoresInstead();
+    """
+    if check_physics_models_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        commented_physics_models_text,
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        synthetic_physics_models_allowlist,
+    ):
+        failures.append("comment-only PhysicsModels synthetic text was rejected")
+
+    duplicate_physics_models_access = allowed_physics_models_line + "\n" + allowed_physics_models_line
+    if not any(
+        error.message == "direct PhysicsModels() compatibility access is blocked"
+        for error in check_physics_models_access_guardrails_text(
+            allowed_physics_models_path,
+            duplicate_physics_models_access,
+            allowed_physics_models_path,
+            synthetic_physics_models_allowlist,
+        )
+    ):
+        failures.append("duplicate PhysicsModels synthetic access was not rejected")
+
+    new_physics_models_access = "auto& models = collection.PhysicsModels();"
+    if not any(
+        error.message == "direct PhysicsModels() compatibility access is blocked"
+        for error in check_physics_models_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            new_physics_models_access,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            synthetic_physics_models_allowlist,
+        )
+    ):
+        failures.append("new PhysicsModels synthetic access was not rejected")
+
     return failures
 
 
@@ -4810,6 +5003,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
+    errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
