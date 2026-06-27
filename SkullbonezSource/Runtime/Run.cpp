@@ -31,6 +31,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
+#include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 
 #include <cmath>
@@ -153,7 +154,10 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
     callbacks.currentSceneBrowserIndex = []( void* user ) -> int
-    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
+    {
+        Run& run = *static_cast<Run*>( user );
+        return CurrentSceneBrowserIndex( run.m_sceneController, run.m_sceneBrowser );
+    };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
     { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
     callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*

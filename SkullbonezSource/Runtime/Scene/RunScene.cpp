@@ -1979,26 +1979,6 @@ void Run::RefreshSceneBrowserList()
 }
 
 
-int Run::CurrentSceneBrowserIndex() const
-{
-    const std::string* currentScenePath = m_sceneController.CurrentPath();
-    if ( !currentScenePath )
-    {
-        return -1;
-    }
-
-    const std::string currentPath = NormalizeScenePath( *currentScenePath );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
-    {
-        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == currentPath )
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-
 bool Run::CreateSceneFromUI( const char* requestedName )
 {
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool

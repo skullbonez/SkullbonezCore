@@ -75,6 +75,18 @@ int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const st
 } // namespace
 
 
+int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser )
+{
+    const std::string* currentScenePath = controller.CurrentPath();
+    if ( !currentScenePath )
+    {
+        return -1;
+    }
+
+    return SceneBrowserIndexForPath( sceneBrowser, *currentScenePath );
+}
+
+
 SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext& context,
                                                    int index,
                                                    bool suppressExitOnComplete,

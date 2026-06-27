@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay camera focus clear slice validated
+Status: Active architecture cleanup plan; scene browser index helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay camera focus clear section below
+Validation for latest implementation slice: see the scene browser index helper section below
 
 ## Goal
 
@@ -3890,6 +3890,83 @@ Residual architecture risk: `SetReplayLiveAdvanceHeld`, replay inspection camera
 enter/exit methods, solver apply/hash helpers, and render-host splitting remain
 active; this slice only moved replay camera focus clearing ownership to
 `ReplayRuntime`.
+
+## Scene Browser Index Helper Slice
+
+This shared scene-browser cleanup slice moved current-scene browser selection
+lookup from `Run` into `SceneRuntimeLoad`. Input navigation and the render-host
+callback now call `CurrentSceneBrowserIndex(m_sceneController, m_sceneBrowser)`
+directly, reusing the scene-runtime path normalization and browser index lookup
+logic instead of bouncing through a private `Run` wrapper.
+
+Deleted `Run.h` declarations:
+
+- `CurrentSceneBrowserIndex`
+
+Deleted `Run::` definitions:
+
+- `Run::CurrentSceneBrowserIndex`
+
+New owner surface:
+
+- `CurrentSceneBrowserIndex(const SceneController&, const RunSceneBrowserState&)` in
+  `Runtime/Scene/SceneRuntimeLoad.*`
+
+Updated call sites:
+
+- `Run::BuildRuntimeRenderHostCallbacks`
+- `Run::TakeInput`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 157 to 156.
+- New header and source guardrails reject the removed scene browser index
+  wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp`,
+  `SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h`,
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunInput.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. Existing browser-index behavior is preserved while
+  the path-normalization lookup now lives with the scene load helpers.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_browser_index_profile_build.log`;
+  passed with 0 warnings and 0 errors in 40.25s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_browser_index_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 49.77s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_browser_index_runtime_boundaries.log`;
+  passed with 0 errors in 2.75s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_browser_index_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.09s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene browser refresh, cinematic scene apply, scene
+creation, remaining `Run::LoadScene` setup phases, replay solver helpers, and
+render-host splitting remain active; this slice only moved current browser index
+selection lookup to scene runtime.
 
 ## Rules
 

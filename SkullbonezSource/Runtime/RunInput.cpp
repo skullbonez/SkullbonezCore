@@ -23,6 +23,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "RuntimePickService.h"
 #include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
@@ -2257,7 +2258,7 @@ void Run::TakeInput()
                                                           VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex();
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
             if ( !executeSceneControlAction(
                      m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
@@ -2277,7 +2278,7 @@ void Run::TakeInput()
                                                           VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex();
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
             if ( !executeSceneControlAction(
                      m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
@@ -2308,7 +2309,7 @@ void Run::TakeInput()
     int editorUnhandledWheelDelta = 0;
     if ( m_systems.window )
     {
-        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
+        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
         InGameUIInputResult UIResult =
             m_UI.UpdateInput( m_systems.window->m_sWindow,
                               static_cast<int>( m_systems.window->m_sWindowDimensions.x ),

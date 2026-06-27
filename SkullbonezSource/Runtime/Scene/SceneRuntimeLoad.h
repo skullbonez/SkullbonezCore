@@ -51,6 +51,7 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
                                                    int index,
                                                    bool suppressExitOnComplete,
                                                    bool preserveRuntimeState );
+int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
 
 } // namespace Basics
 } // namespace SkullbonezCore
