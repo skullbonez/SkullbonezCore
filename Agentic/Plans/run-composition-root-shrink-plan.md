@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay cause-tree camera activation helper slice validated
+Status: Active architecture cleanup plan; replay render-state helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay cause-tree camera activation helper section below
+Validation for latest implementation slice: see the replay render-state helper section below
 
 ## Goal
 
@@ -2418,6 +2418,78 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: cause-tree input, focus clearing, replay inspection
 camera state, replay overlay rendering, and render-host splitting still remain
 active `Run`/replay-tool boundaries.
+
+## Replay Render-State Helper Slice
+
+This render/replay slice removed the replay render-state wrapper cluster from
+`Run`. `Run::Render` is the only caller, so scrubbed-sample application,
+launcher visual backup/restore, and render-pose restore now live as scoped
+lambdas inside the render frame path.
+
+Deleted `Run.h` declarations:
+
+- `ApplyReplayRenderStateForFrame`
+- `RestoreReplayRenderStateForFrame`
+- `ApplyReplayLauncherVisualSampleForRender`
+- `RestoreReplayLauncherVisualForRender`
+
+Deleted `Run::` definitions:
+
+- `Run::ApplyReplayRenderStateForFrame`
+- `Run::RestoreReplayRenderStateForFrame`
+- `Run::ApplyReplayLauncherVisualSampleForRender`
+- `Run::RestoreReplayLauncherVisualForRender`
+
+New owner surface:
+
+- Scoped render-frame lambdas inside `Runtime/RunRender.cpp` `Run::Render`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 182 to 178.
+- New header and source guardrails reject the removed replay render-state helper
+  declarations and `Run::` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/RunRender.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The lambdas sit next to the render frame
+  that applies and restores temporary replay render state.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_render_state_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.70s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_render_state_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.80s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_render_state_runtime_boundaries.log`;
+  passed with 0 errors in 1.77s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_render_state_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.18s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: launcher visual sample build/restore still remains
+on `Run` because capture/replay restore paths outside render also use it;
+render-host splitting, replay overlay rendering, and shared replay camera state
+remain active.
 
 ## Rules
 

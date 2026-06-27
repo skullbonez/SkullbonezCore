@@ -78,57 +78,6 @@ bool Run::IsCinematicRenderingEnabled() const
 }
 
 
-void Run::ApplyReplayRenderStateForFrame()
-{
-    if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
-    {
-        m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
-    }
-    else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
-    {
-        m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
-    }
-    else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
-    {
-        m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
-        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-    }
-}
-
-
-void Run::RestoreReplayRenderStateForFrame()
-{
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    RestoreReplayLauncherVisualForRender();
-}
-
-
-void Run::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
-{
-    if ( m_replayRuntime.HasLauncherVisualBackup() )
-    {
-        return;
-    }
-
-    ReplayLauncherVisualSample liveSample;
-    BuildReplayLauncherVisualSample( liveSample );
-    m_replayRuntime.StoreLauncherVisualBackup( liveSample );
-    RestoreReplayLauncherVisualSample( sample );
-}
-
-
-void Run::RestoreReplayLauncherVisualForRender()
-{
-    if ( !m_replayRuntime.HasLauncherVisualBackup() )
-    {
-        return;
-    }
-
-    RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
-    m_replayRuntime.ClearLauncherVisualBackup();
-}
-
-
 RuntimeRenderServices Run::BuildRuntimeRenderServices()
 {
     return RuntimeRenderServices{ *m_systems.textures,
@@ -467,10 +416,57 @@ void Run::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    ApplyReplayRenderStateForFrame();
+    const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
+    {
+        if ( m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
+
+        ReplayLauncherVisualSample liveSample;
+        BuildReplayLauncherVisualSample( liveSample );
+        m_replayRuntime.StoreLauncherVisualBackup( liveSample );
+        RestoreReplayLauncherVisualSample( sample );
+    };
+
+    const auto restoreReplayLauncherVisualForRender = [&]()
+    {
+        if ( !m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
+
+        RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+        m_replayRuntime.ClearLauncherVisualBackup();
+    };
+
+    const auto applyReplayRenderStateForFrame = [&]()
+    {
+        if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
+        {
+            m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
+        }
+        else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
+        {
+            m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
+        }
+        else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
+        {
+            m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
+            applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
+        }
+    };
+
+    const auto restoreReplayRenderStateForFrame = [&]()
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        restoreReplayLauncherVisualForRender();
+    };
+
+    applyReplayRenderStateForFrame();
 
     m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
-    RestoreReplayRenderStateForFrame();
+    restoreReplayRenderStateForFrame();
 }
 
 

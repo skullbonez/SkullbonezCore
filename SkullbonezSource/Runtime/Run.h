@@ -418,10 +418,6 @@ class Run
                                                RunReplayV2TargetRestoreResult* outV2Result = nullptr,
                                                char* outReason = nullptr,
                                                std::size_t reasonSize = 0 );
-    void ApplyReplayRenderStateForFrame();
-    void RestoreReplayRenderStateForFrame();
-    void ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample );
-    void RestoreReplayLauncherVisualForRender();
     bool ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize );
     bool CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
                                          uint64_t& outSolverHash,
