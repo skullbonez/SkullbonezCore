@@ -1204,7 +1204,14 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     m_replayRuntime.Scrubber().mouseCaptured = false;
     m_replayRuntime.Scrubber().visible = true;
     m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    UpdateReplayInspectionCamera();
+    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
 }
 
 

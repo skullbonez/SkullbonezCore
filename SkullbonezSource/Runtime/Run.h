@@ -402,7 +402,6 @@ class Run
     void SetReplayLiveAdvanceHeld( bool held );
     void EnterReplayInspectionCamera();
     void ExitReplayInspectionCamera();
-    void UpdateReplayInspectionCamera();
     bool TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse );
     bool RestoreReplayScrubberSelectionAsLive( double now,
                                                RunReplayV2TargetRestoreResult* outV2Result = nullptr,

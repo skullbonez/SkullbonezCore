@@ -653,6 +653,12 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible
              m_scrubber.liveAdvanceHeld );
 }
 
+bool ReplayRuntime::ShouldUseInspectionCamera() const
+{
+    return m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld ||
+           m_camera.focusKind != RunReplayCameraFocusKind::None;
+}
+
 ReplayRuntime::RecordingConfigResult
 ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {

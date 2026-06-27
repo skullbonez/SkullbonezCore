@@ -403,6 +403,7 @@ class ReplayRuntime
     static float SolverNormalizedFromTrack( float position, float presentT );
     static float PredictionNormalizedFromTrack( float position, float presentT );
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
+    bool ShouldUseInspectionCamera() const;
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();

@@ -1542,7 +1542,14 @@ void Run::SetReplayLiveAdvanceHeld( bool held )
                                                                 InteractionExitReason::EnterReplay );
         }
         m_replayRuntime.Scrubber().liveAdvanceHeld = true;
-        UpdateReplayInspectionCamera();
+        if ( m_replayRuntime.ShouldUseInspectionCamera() )
+        {
+            EnterReplayInspectionCamera();
+        }
+        else
+        {
+            ExitReplayInspectionCamera();
+        }
         return;
     }
 
@@ -1558,7 +1565,14 @@ void Run::SetReplayLiveAdvanceHeld( bool held )
     {
         EnterInteractionForCameraMode( m_camera.mode );
     }
-    UpdateReplayInspectionCamera();
+    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
 }
 
 
@@ -1685,21 +1699,6 @@ void Run::ExitReplayInspectionCamera()
     Input::SetSystemCursorVisible( true );
     InputController::ResetMouseLook( m_camera );
 }
-
-
-void Run::UpdateReplayInspectionCamera()
-{
-    if ( m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
-         m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None )
-    {
-        EnterReplayInspectionCamera();
-    }
-    else
-    {
-        ExitReplayInspectionCamera();
-    }
-}
-
 
 bool Run::RestoreReplayScrubberSelectionAsLive( double now,
                                                 RunReplayV2TargetRestoreResult* outV2Result,
@@ -2166,7 +2165,14 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
         m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
         m_replayRuntime.Scrubber().visibleUntil >= now;
-    UpdateReplayInspectionCamera();
+    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
     return consumesMouse;
 }
 
@@ -2202,7 +2208,14 @@ void Run::ClearReplayCameraFocus( bool restoreCamera )
     }
     else
     {
-        UpdateReplayInspectionCamera();
+        if ( m_replayRuntime.ShouldUseInspectionCamera() )
+        {
+            EnterReplayInspectionCamera();
+        }
+        else
+        {
+            ExitReplayInspectionCamera();
+        }
     }
 }
 

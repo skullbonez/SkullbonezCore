@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay restore event helper slice validated
+Status: Active architecture cleanup plan; replay inspection camera update wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay restore event helper section below
+Validation for latest implementation slice: see the replay inspection camera update wrapper section below
 
 ## Goal
 
@@ -2904,6 +2904,82 @@ final rubber-duck pass is satisfied.
 Residual architecture risk: solver apply/hash helpers, replay inspection/camera
 helpers, and render-host splitting remain active; this slice only localized the
 v2 target-restore event application helper.
+
+## Replay Inspection Camera Update Wrapper Slice
+
+This replay inspection slice removed the private camera-update wrapper from
+`Run`. Replay camera activation is now driven by a replay-owned state predicate,
+and the remaining `Run` call sites choose `EnterReplayInspectionCamera` or
+`ExitReplayInspectionCamera` directly where interaction ownership is already
+being updated.
+
+Deleted `Run.h` declarations:
+
+- `UpdateReplayInspectionCamera`
+
+Deleted `Run::` definitions:
+
+- `Run::UpdateReplayInspectionCamera`
+
+New owner surface:
+
+- `ReplayRuntime::ShouldUseInspectionCamera()`
+
+Updated call sites:
+
+- `Run::ArmLoadedReplayPresentationScrubber`
+- `Run::SetReplayLiveAdvanceHeld`
+- `Run::TickReplayScrubberInput`
+- `Run::ClearReplayCameraFocus`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 171 to 170.
+- New header and source guardrails reject the removed replay inspection camera
+  update wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The predicate is short and named around
+  the replay-owned state decision.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_camera_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.49s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_camera_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 53.68s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_inspection_camera_runtime_boundaries.log`;
+  passed with 0 errors in 2.12s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_camera_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.51s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: solver apply/hash helpers, the remaining
+replay-inspection camera enter/exit and focus-control methods, and render-host
+splitting remain active; this slice only removed the narrow update wrapper.
 
 ## Rules
 
