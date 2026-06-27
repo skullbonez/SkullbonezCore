@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene context builder file-local slice validated
+Status: Active architecture cleanup plan; generated camera setup wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for latest implementation slice: see the scene context builder section below
 
@@ -1818,6 +1818,78 @@ Residual architecture risk: scene load still sequences teardown, generated and
 authored object population, UI override application, and replay reset from
 `Run`; render-host splitting, shared cine/path helper cleanup, and remaining
 replay tool/helper ownership remain active.
+
+## Generated Camera Setup Wrapper Slice
+
+This scene-load slice removed the thin generated-camera setup wrapper from
+`Run`. Generated demo scene loads now call
+`SceneGeneratedSetup::SetUpCameras(...)` directly from `RunScene.cpp` using the
+file-local generated camera context introduced by the previous slice.
+`RunRender.cpp` no longer owns a scene-load camera setup method.
+
+Deleted `Run.h` declaration:
+
+- `SetUpCameras`
+
+Deleted `Run::` definition:
+
+- `Run::SetUpCameras`
+
+New owner surface:
+
+- `RunScene.cpp` calls `SceneGeneratedSetup::SetUpCameras(...)` with
+  `BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain )`
+  at the generated-scene load site.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 198 to 197.
+- The `Run.h` rules reject `SetUpCameras` declarations from returning.
+- Runtime source guardrails reject `Run::SetUpCameras` definitions from
+  returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/RunRender.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No new explanatory comments were added. Existing render and scene comments
+  remain appropriate because this slice removes a wrapper and makes the
+  generated setup call explicit.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\generated_camera_setup_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.74s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\generated_camera_setup_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.45s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\generated_camera_setup_runtime_boundaries.log`;
+  passed with 0 errors in 1.38s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\generated_camera_setup_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.55s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene load still sequences terrain/world setup,
+teardown, generated and authored object population, UI override application,
+and replay reset from `Run`; render-host splitting, shared cine/path helper
+cleanup, and remaining replay tool/helper ownership remain active.
 
 ## Rules
 

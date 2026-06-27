@@ -276,7 +276,6 @@ class Run
     void CaptureAttachedCameraOrbit(
         const GameObjects::GameModel& model );                             // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
-    void SetUpCameras();                                                   // Creates generated-demo cameras when no scene file supplies them.
     void UpdateRequiredSceneContacts();                                    // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.
     void UpdateRequiredSceneBroadphaseXCells(

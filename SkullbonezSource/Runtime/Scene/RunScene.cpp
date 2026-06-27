@@ -953,7 +953,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
 
         SceneState().isSceneMode = false;
-        SetUpCameras();
+        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain ) );
         if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
             SceneGeneratedSetup::SetUpSolverObjects(
