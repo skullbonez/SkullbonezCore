@@ -1,3 +1,8 @@
+---
+name: comment-style-audit
+description: Audit SkullbonezCore source comments against the repository comment-style guide. Use when source-bearing files are edited, when a user asks to inspect comment quality, or when checking learning headers, invariants, hazards, lifetime notes, and comment-standard compliance.
+---
+
 # Comment Style Audit Skill
 
 Use this skill when asked to improve, audit, or refresh SkullbonezCore comments

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Carmack Test"
+  short_description: "Hard-nosed engine quality review"
+  default_prompt: "Use $carmack-test to run an evidence-backed, no-endorsement Carmack-style review of this engine's robustness, physics suitability, encapsulation, performance, and serious-title readiness."
