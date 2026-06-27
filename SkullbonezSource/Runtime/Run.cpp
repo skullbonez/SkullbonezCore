@@ -875,7 +875,8 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     }
     ResetReplayScrubber();
     m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    ClearReplayPathVisualizer();
+    ClearReplayCameraFocus( true );
+    m_replayRuntime.ClearPathVisualizerState();
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     if ( !m_replayRuntime.IsPresentationEnabled() )
     {
@@ -1188,7 +1189,8 @@ void Run::ArmLoadedReplayPresentationScrubber( float normalized )
     }
     CancelReplayToolDragState();
 
-    ClearReplayPathVisualizer();
+    ClearReplayCameraFocus( true );
+    m_replayRuntime.ClearPathVisualizerState();
     SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
                                                         InteractionExitReason::EnterReplay );
     m_replayRuntime.Prediction().enabled = false;

@@ -1983,13 +1983,6 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 }
 
 
-void Run::ClearReplayPathVisualizer()
-{
-    ClearReplayCameraFocus( true );
-    m_replayRuntime.ClearPathVisualizerState();
-}
-
-
 bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id, Vector3& outPosition, float* outRadius ) const
 {
     if ( id.value == 0 )
@@ -2317,7 +2310,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         }
         else if ( leftPressed )
         {
-            ClearReplayPathVisualizer();
+            ClearReplayCameraFocus( true );
+            m_replayRuntime.ClearPathVisualizerState();
         }
     }
 
@@ -2841,7 +2835,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     {
         if ( clearOnMiss )
         {
-            ClearReplayPathVisualizer();
+            ClearReplayCameraFocus( true );
+            m_replayRuntime.ClearPathVisualizerState();
         }
         return false;
     }
@@ -2950,7 +2945,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( clearOnMiss )
     {
-        ClearReplayPathVisualizer();
+        ClearReplayCameraFocus( true );
+        m_replayRuntime.ClearPathVisualizerState();
     }
     return false;
 }

@@ -1198,6 +1198,84 @@ Residual architecture risk: replay prediction frame generation, visualizer
 drawing, scrubber input, cause tree rows, velocity editing, and replay overlay
 construction still live on `Run`.
 
+## Replay Path-State Wrapper Removal Slice
+
+This replay slice deleted the remaining thin `Run` wrapper that only cleared the
+replay camera focus and replay path visualizer state. Callers now perform the
+focus clear at the call site and ask `ReplayRuntime` to clear the visualizer
+state directly, keeping path-state mutation owned by the replay runtime instead
+of by a private `Run` helper.
+
+Deleted `Run.h` declaration:
+
+- `ClearReplayPathVisualizer`
+
+Deleted `Run::` definition:
+
+- `Run::ClearReplayPathVisualizer`
+
+Updated direct owner flow:
+
+- `ResetReplayTimelineForActiveScene`, `ArmLoadedReplayPresentationScrubber`,
+  `ClearReplayInteractionForRuntimeTransition`, `TickReplayCauseTreeInput`, and
+  `TryPickReplayPathTargetFromMouse` now call `ClearReplayCameraFocus( true )`
+  followed by `m_replayRuntime.ClearPathVisualizerState()`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 212 to 211.
+- The `Run.h` rules reject `ClearReplayPathVisualizer` from returning.
+- Runtime source guardrails reject `Run::ClearReplayPathVisualizer` definitions
+  from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_profile_build.log`;
+  passed with 0 warnings and 0 errors in 41.97s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 49.63s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_runtime_boundaries.log`;
+  passed with 0 errors in 0.97s.
+- Replay artifact gate: `tools\validate_replay_v2_artifact.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_validate_replay_v2_artifact.log`;
+  passed save, load, restore, generated-topology restore, replay query/export,
+  and physics-query checks in 23.21s. SkullScope/query accounting from the gate:
+  primary runtime trace 83,296 bytes, replay query trace 2,465 bytes, restore
+  failure trace 1,580 bytes, SQLite caches 204,800 bytes each, restore failure
+  query output 1,030 bytes, replay query output total 18,493 bytes, generated
+  topology runtime trace 189,763 bytes.
+- SkullScope trace commands used by the replay artifact gate:
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_solver_one.scene.json --frames 120 --replay on --replay-seconds 1 --replay-save-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe_runtime.physicsdiag.ndjson`;
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_solver_one.scene.json --replay-restore-failure-file-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_save_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_restore_failure.physicsdiag.ndjson`;
+  `C:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/replay_v2_generated_topology.scene.json --frames 120 --replay on --replay-seconds 1 --replay-save-probe C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_generated_topology_probe.skreplay --physics-diag C:\SkullbonezCore\TestOutput\validation\replay_v2\replay_generated_topology_runtime.physicsdiag.ndjson`;
+  `tools\replay_query.bat TestOutput\validation\replay_v2\replay_save_probe.skreplay export-skullscope --frames 0:5 --out TestOutput\validation\replay_v2\replay_save_probe.physicsdiag.ndjson --run-id replay_v2_artifact`.
+- SkullScope query commands used by the replay artifact gate:
+  `tools\physics_query.bat TestOutput\validation\replay_v2\replay_restore_failure.physicsdiag.ndjson restore --limit 4`;
+  `tools\physics_query.bat TestOutput\validation\replay_v2\replay_save_probe.physicsdiag.ndjson summary`.
+- Interaction click gate: `tools\validate_interaction_clicks.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_validate_interaction_clicks.log`;
+  passed inspect-gizmo and replay-prediction click reports in 6.86s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_path_state_wrapper_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 23.35s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay prediction frame generation, visualizer
+drawing, scrubber input, cause tree rows, velocity editing, replay overlay
+construction, and the larger scene load/render-host splits still remain.
+
 ## Rules
 
 - Each implementation slice must remove a coherent cluster of `Run::` methods.

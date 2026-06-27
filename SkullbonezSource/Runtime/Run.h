@@ -410,7 +410,6 @@ class Run
         const ReplayEventSample& event,
         char* outReason,
         std::size_t reasonSize );                                          // Applies loaded v2 event payloads without recording new replay rows.
-    void ClearReplayPathVisualizer();
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     // Prediction work shares the replay visualizer deadline. These calls may
     // leave prediction dirty/building so a later frame can resume without
