@@ -153,7 +153,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const int modelIndex = context.models.GetModelCount();
             context.models.AddGameModel( std::move( gameModel ) );
-            context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
+            context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
         }
         else
         {
@@ -171,7 +171,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const int modelIndex = context.models.GetModelCount();
             context.models.AddGameModel( std::move( gameModel ) );
-            context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
+            context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
         }
     }
 }
@@ -235,7 +235,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.AddBoundingSphere( radius );
         const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( gameModel ) );
-        context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
+        context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
     }
 
     // --- Box pass ---
@@ -272,7 +272,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
         const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( gameModel ) );
-        context.physics.SetPendingBodyImpulse( context.models, modelIndex, force, forcePos );
+        context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
     }
 
     context.scene.modelCount = balls + boxes;

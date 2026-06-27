@@ -194,7 +194,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    modelCollection.GetPhysicsEngine().Step( modelCollection, PHYSICS_FIXED_DT );
+                    modelCollection.RunPhysics( PHYSICS_FIXED_DT );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
                                               modelCollection,

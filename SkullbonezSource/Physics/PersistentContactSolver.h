@@ -33,13 +33,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-}
-
 namespace Physics
 {
+class PhysicsModelView;
 struct PersistentContactSolverContext;
 
 struct PersistentContactCacheEntry
@@ -69,7 +65,7 @@ struct SolverBodyState
 class PersistentContactSolver
 {
   public:
-    void Solve( PersistentContactSolverContext& context, GameObjects::GameModelCollection& collection, float dt );
+    void Solve( PersistentContactSolverContext& context, PhysicsModelView& modelView, float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

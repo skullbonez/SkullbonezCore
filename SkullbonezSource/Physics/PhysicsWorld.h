@@ -36,8 +36,8 @@ Related:
 #include <utility>
 #include <vector>
 
-#include "../GameObjects/GameModel.h"
 #include "PersistentContactSolver.h"
+#include "PhysicsModelView.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "Debug/PhysicsDebugVisualizer.h"
 #include "Ragdoll.h"
@@ -50,7 +50,6 @@ namespace SkullbonezCore
 {
 namespace GameObjects
 {
-class GameModelCollection;
 struct GameModelBodyStream;
 } // namespace GameObjects
 
@@ -268,12 +267,12 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );
-    void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );
+    void RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
+    void SolvePersistentObjectContacts( PhysicsModelView& modelView, float dt );
 #ifdef _DEBUG
-    void EmitPhysicsDiagnosticsFrame( GameObjects::GameModelCollection& collection, float dt );
+    void EmitPhysicsDiagnosticsFrame( PhysicsModelView& modelView, float dt );
 #endif
-    void EmitPhysicsCollisionTime( GameObjects::GameModelCollection& collection,
+    void EmitPhysicsCollisionTime( PhysicsModelView& modelView,
                                    const char* type,
                                    int bodyA,
                                    int bodyB,
@@ -285,54 +284,51 @@ class PhysicsWorld
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool IsFullySubmergedBall( GameObjects::GameModelCollection& collection,
-                               const GameObjects::GameModelBodyStream& bodyStream,
-                               int index );
-    void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection,
+    bool
+    IsFullySubmergedBall( PhysicsModelView& modelView, const GameObjects::GameModelBodyStream& bodyStream, int index );
+    void LockUnderwaterSleeperIfReady( PhysicsModelView& modelView,
                                        PhysicsBodyStore& bodyStore,
                                        const GameObjects::GameModelBodyStream& bodyStream,
                                        int index );
-    bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection,
+    bool IsUnderwaterSleepLocked( PhysicsModelView& modelView,
                                   const GameObjects::GameModelBodyStream& bodyStream,
                                   int index );
     void MarkCollisionVisualContact( int index );
-    void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
-    void ApplyTornadoField( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );
-    void PropagateSleepSupport( GameObjects::GameModelCollection& collection );
+    void MarkFixedContact( PhysicsModelView& modelView, int index );
+    void ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
+    void PropagateSleepSupport( PhysicsModelView& modelView );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
-    bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection,
+    bool WakeDynamicBodyState( PhysicsModelView& modelView,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
-    void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection,
+    void WakeSleepVisualIsland( PhysicsModelView& modelView,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
                                 float dt,
                                 bool applyForces );
-    void WakePointJointIsland( GameObjects::GameModelCollection& collection,
+    void WakePointJointIsland( PhysicsModelView& modelView,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
-    void WakeRestingContactIsland( GameObjects::GameModelCollection& collection,
+    void WakeRestingContactIsland( PhysicsModelView& modelView,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
                                    bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
-    void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection,
-                                        PhysicsBodyStore& bodyStore,
-                                        float dt );
+    void WakePointJointConnectedBodies( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
 
   public:
     PhysicsWorld();
 
     void Clear();
-    void RunPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime );
-    void WakeModel( GameObjects::GameModelCollection& collection, int index );
-    void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
+    void RunPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float fChangeInTime );
+    void WakeModel( PhysicsModelView& modelView, int index );
+    void SeedModelAsleep( PhysicsModelView& modelView, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
@@ -358,9 +354,9 @@ class PhysicsWorld
     {
         MarkCollisionVisualContact( index );
     }
-    void MarkSolverFixedContact( GameObjects::GameModelCollection& collection, int index )
+    void MarkSolverFixedContact( PhysicsModelView& modelView, int index )
     {
-        MarkFixedContact( collection, index );
+        MarkFixedContact( modelView, index );
     }
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
@@ -403,8 +399,8 @@ struct PersistentContactSolverContext
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
     void MarkCollisionVisualContact( int index ) const;
-    void MarkFixedContact( GameObjects::GameModelCollection& collection, int index ) const;
-    void WakeModel( GameObjects::GameModelCollection& collection, int index ) const;
+    void MarkFixedContact( PhysicsModelView& modelView, int index ) const;
+    void WakeModel( PhysicsModelView& modelView, int index ) const;
 };
 
 struct SleepSupportPropagationContext

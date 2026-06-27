@@ -890,7 +890,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.SetAngularVelocity( body.angularVelocity );
         model.ClearImpulseForce();
     }
-    m_cGameModelCollection.GetPhysicsEngine().RefreshBodyStore( m_cGameModelCollection );
+    (void)m_cGameModelCollection.GetPhysicsBodyStore();
     m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(

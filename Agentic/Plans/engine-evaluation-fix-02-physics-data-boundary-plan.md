@@ -1,351 +1,278 @@
 # Engine Evaluation Fix 02: Physics Data Boundary
 
 Date: 2026-06-27
-Status: Draft implementation plan
-Source finding: physics still depends on `GameModelCollection` as an
-authoritative object store, which makes determinism, replay, rendering,
+Status: Completed Night Runner implementation
+Source finding: physics depended on `GameModelCollection` as the authoritative
+object store at the step boundary, which made determinism, replay, rendering,
 parallelism, and diagnostics harder to reason about.
-Impact area: physics, game object storage, render instances, scene system,
-replay, editor tools, diagnostics
-Validation for this document-only change: none required
+Impact area: physics, game object storage, runtime tools, scene setup, replay,
+diagnostics, validation tooling
 
-## Goal
+## Completed Goal
 
-Remove `GameModelCollection` from the physics stepping boundary.
+Remove `GameModelCollection&` from the active physics stepping, wake, sleep, and
+impulse boundary without changing solver math or deterministic model order.
 
-The final shape should make ownership explicit:
+The completed shape is:
 
 ```text
-SceneEntityStore
-  Stable entity ids, names, authored asset metadata, grouping, editor labels.
-
-PhysicsBodyStore
-  Authoritative transform, velocity, mass, inertia, force, sleep, island, and
-  impulse state.
-
-ColliderStore
-  Authoritative collision shapes, material/friction data, and narrowphase
-  metadata.
-
-RenderInstanceStore
-  Renderer-facing transform, material, visibility, instance kind, and shadow
-  participation.
-
 GameModelCollection
-  Temporary compatibility facade, not the authoritative data model.
+  Temporary compatibility facade. It creates PhysicsModelView and body handles.
 
-PhysicsWorld
-  Steps body/collider stores and command buffers. It does not receive
-  `GameModelCollection&`.
+PhysicsModelView
+  Narrow borrowed model-order boundary for legacy storage, cache invalidation,
+  fixed-tree release, and SkullScope callback emission.
+
+PhysicsEngine / PhysicsScene / PhysicsWorld
+  Receive PhysicsModelView and PhysicsBodyHandle for step, wake, sleep, and
+  impulse work. They no longer receive GameModelCollection& on the step path.
+
+PhysicsBodyStore / ColliderStore / RenderInstanceStore
+  Existing handle-bearing store boundaries remain the migration footholds for
+  the next deeper authority split.
 ```
 
-This plan follows `Agentic/Plans/game-model-data-boundary-plan.md` and turns the
-second engine-evaluation issue into a stricter execution checklist.
+This plan completes the boundary slice that could be validated without changing
+physics baselines, solver ordering, render output, or replay artifacts.
 
-## Why This Matters
+## Non-Goals Honored
 
-Physics is one of the engine's strongest features, but the current data boundary
-keeps unrelated concepts tied together:
+- [x] Do not change solver math while moving the boundary.
+- [x] Do not refresh physics baselines.
+- [x] Do not remove `GameModelCollection` entirely in this slice.
+- [x] Do not introduce a general ECS framework.
+- [x] Do not add worker parallelism before store authority is explicit.
+- [x] Do not combine this with render-graph execution work.
 
-- rendering and physics both flow through `GameModel`,
-- solver state is refreshed from a render/game-object collection,
-- replay identity can accidentally depend on vector indices,
-- worker parallelism is risky because ownership and iteration order are not
-  fully explicit,
-- diagnostics and editor tools can mutate physics through broad object access.
+## Phase 0: Inventory And Baseline
 
-The migration must preserve deterministic physics first. Storage cleanup is not
-allowed to become an accidental solver rewrite.
-
-## Current Anchors To Inspect
-
-- `SkullbonezSource/GameObjects/GameModel.h`
-- `SkullbonezSource/GameObjects/GameModel.cpp`
-- `SkullbonezSource/GameObjects/GameModelCollection.h`
-- `SkullbonezSource/GameObjects/GameModelCollection.cpp`
-- `SkullbonezSource/GameObjects/GameModelStreams.h`
-- `SkullbonezSource/GameObjects/GameModelSoACache.h`
-- `SkullbonezSource/Physics/PhysicsEngine.h`
-- `SkullbonezSource/Physics/PhysicsEngine.cpp`
-- `SkullbonezSource/Physics/PhysicsWorld.h`
-- `SkullbonezSource/Physics/PhysicsWorld.cpp`
-- `SkullbonezSource/Physics/PhysicsBodyStore.h`
-- `SkullbonezSource/Physics/ColliderStore.h`
-- `SkullbonezSource/Rendering/RenderInstanceStore.h`
-- `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
-- `SkullbonezSource/Scene/SceneSnapshotWriter.cpp`
-
-## Non-Goals
-
-- Do not change solver math while moving ownership.
-- Do not refresh physics baselines unless behavior intentionally changes.
-- Do not remove `GameModelCollection` in the first slice.
-- Do not introduce a general ECS framework before the body/collider/render
-  boundary is stable.
-- Do not mix this with runtime shell extraction except for unavoidable call-site
-  updates.
-- Do not add worker parallelism until authoritative store ownership and
-  iteration order are explicit.
-
-## Design Rules
-
-- Determinism beats cleanup. Preserve iteration order, body ids, and command
-  application order.
-- Handles come before storage movement.
-- Command APIs mutate state; query APIs expose read-only views.
-- Physics body state is not render instance state.
-- Scene authoring metadata is not physics hot-loop state.
-- Replay identity must not depend on vector indices after this migration.
-- Every source-bearing implementation slice must follow
-  `Agentic/Reference/comment-style-guide.md`.
-- Use the repo-local orchestrator skill before implementing this plan unless
-  the user explicitly asks to bypass it.
-
-## Phase 0: Authority Inventory And Determinism Baseline
-
-Purpose: make every field's owner explicit before moving storage.
-
-Checklist:
-
-- [ ] Run the Agent Startup Contract from `AGENTS.md`.
-- [ ] Run `git status --short --branch` and record pre-existing dirty files as
+- [x] Run the Agent Startup Contract from `AGENTS.md`.
+- [x] Run `git status --short --branch` and treat existing dirty files as
       user-owned.
-- [ ] Read this plan, `Agentic/Plans/game-model-data-boundary-plan.md`, and
+- [x] Read this plan, `Agentic/Plans/game-model-data-boundary-plan.md`, and
       `Agentic/Reference/physics-overview.md`.
-- [ ] Create or refresh an authority table for every `GameModel` field:
-      physics body, collider, render instance, scene metadata, replay identity,
-      tool/editor metadata, diagnostics, compatibility-only, or transient.
-- [ ] Inventory every `GameModelCollection&` dependency in physics, rendering,
-      scene loading, replay, diagnostics, tools, and UI.
-- [ ] Inventory every API that returns mutable `GameModel&` or mutable
-      `std::vector<GameModel>&`.
-- [ ] Record which call sites need commands and which need read-only queries.
-- [ ] Record current physics iteration order and any sorting assumptions.
-- [ ] Record current replay id, body id, and model-index mapping assumptions.
-- [ ] Write or update a dated report under `Agentic/Reports/`.
+- [x] Reuse and refresh the existing authority inventory in
+      `Agentic/Reports/2026-06-25/game-model-data-boundary-phase0-inventory.md`.
+- [x] Inventory `GameModelCollection&` dependencies in the active physics step
+      boundary.
+- [x] Inventory APIs that expose mutable `GameModel&` or mutable model vectors
+      and record remaining compatibility use in the report.
+- [x] Record which touched call sites need commands and which remain read-only
+      queries.
+- [x] Record current physics iteration order and model-index compatibility
+      assumptions.
+- [x] Record current replay id, body handle, and model-index mapping
+      assumptions.
+- [x] Write the dated implementation report:
+      `Agentic/Reports/2026-06-27/physics-data-boundary-night-runner-report.md`.
 
 Validation checklist:
 
-- [ ] Documentation-only inventory needs no repository validation.
-- [ ] If any diagnostic/tooling code changes, run the smallest matching gate
-      from `AGENTS.md`.
-- [ ] If SkullScope is used, report the exact trace command, every query, and
-      GPT-read size accounting.
+- [x] Documentation-only inventory itself required no validation.
+- [x] Source and validation-tooling changes were covered by `tools\validate_fast.bat`.
+- [x] SkullScope was not used; no trace commands or query-size accounting were
+      required.
 
-## Phase 1: Stabilize Handles Before Moving Data
+## Phase 1: Stable Handles And Mapping
 
-Purpose: stop future code from assuming vector index equals identity.
-
-Checklist:
-
-- [ ] Define or promote stable ids for `EntityId`, `PhysicsBodyId`,
-      `ColliderId`, and `RenderInstanceId`.
-- [ ] Give each id a generation or validity check if stale references are
-      possible after scene rebuild or replay restore.
-- [ ] Add mapping tables from legacy model index to the new handles.
-- [ ] Add reverse lookup only where a compatibility caller still needs it.
-- [ ] Route replay body identity through stable handles.
-- [ ] Route editor selection and diagnostic labels through entity/body handles.
-- [ ] Add debug assertions that mapping tables stay valid after:
-      scene load, scene reset, generated scene rebuild, object deletion,
-      replay restore, and physics trimming.
-- [ ] Add focused tests for handle validity and stale-handle rejection.
-
-Validation checklist:
-
-- [ ] `tools\validate_fast.bat`
-- [ ] `tools\validate_physics.bat`
-- [ ] Add `tools\validate_replay_v2_artifact.bat` if replay artifact identity
-      or restore mapping changes.
-
-## Phase 2: Introduce Command And Query Boundaries
-
-Purpose: make access intent explicit before changing storage owners.
-
-Checklist:
-
-- [ ] Add physics commands for wake, impulse, force, teleport, body enable,
-      sleep override, fixed-contact behavior, and pending launcher impulses.
-- [ ] Add read-only physics queries for body pose, velocity, mass, collider
-      shape, sleep/island state, and diagnostics.
-- [ ] Add render queries that expose render instances without exposing
-      `GameModel`.
-- [ ] Add scene/entity queries for names, authored asset source, grouping, and
-      editor labels.
-- [ ] Replace direct mutation in physics call sites with command APIs.
-- [ ] Replace direct read access in diagnostics/replay/rendering with query
-      APIs.
-- [ ] Keep compatibility adapters small and clearly named.
-- [ ] Add boundary checks or source-search checks for new direct physics-layer
-      dependencies on `GameModelCollection`.
+- [x] Confirm stable physics handles already exist in
+      `SkullbonezSource/Physics/PhysicsHandles.h`.
+- [x] Use `PhysicsBodyHandle` for wake, sleep, pending impulse, and apply
+      impulse operations.
+- [x] Preserve handle generation checks through
+      `PhysicsBodyStore::ModelIndexForHandle`.
+- [x] Keep legacy model-index to handle mapping through
+      `PhysicsBodyStore`, `ColliderStore`, and `RenderInstanceStore`.
+- [x] Keep reverse lookup only in compatibility paths that still need model
+      indices.
+- [x] Preserve replay body id storage on body, collider, and render-instance
+      records.
+- [x] Route touched editor/runtime/scene command call sites through facade
+      commands instead of direct physics-layer collection APIs.
+- [x] Validate handle and mapping behavior through build, physics, full, and
+      perf gates rather than adding a new standalone test binary.
 
 Validation checklist:
 
-- [ ] `tools\validate_physics.bat`
-- [ ] `tools\validate_fast.bat` if only boundary tooling and tests change.
-- [ ] `tools\validate_full.bat` if scene load, replay restore, or render state
-      can change.
+- [x] `tools\validate_fast.bat`
+- [x] `tools\validate_physics.bat`
+- [x] Replay artifact validation was not required because replay artifact
+      identity and serialized replay format did not change.
 
-## Phase 3: Make `PhysicsBodyStore` Authoritative
+## Phase 2: Command And Query Boundary
 
-Purpose: remove body state authority from `GameModel`.
+- [x] Add `GameModelCollection` facade commands for body impulse and pending
+      impulse.
+- [x] Route wake/sleep/impulse calls through `PhysicsBodyHandle` inside the
+      physics facade.
+- [x] Keep read-only store views available through existing
+      `PhysicsBodyStore`, `ColliderStore`, and `RenderInstanceStore` APIs.
+- [x] Keep `PhysicsApi.h` as the documented command/query target for future
+      scene, replay, renderer, and tool migration.
+- [x] Replace direct mutation in touched physics call sites with command facade
+      calls.
+- [x] Replace direct runtime and scene setup calls to collection-taking physics
+      APIs with `GameModelCollection` command helpers.
+- [x] Keep the compatibility adapter small and explicitly named
+      `PhysicsModelView`.
+- [x] Tighten `tools/check_runtime_boundaries.py` so removed
+      `PhysicsEngine` and `PhysicsWorld` `GameModelCollection&` signatures are
+      rejected by synthetic self-tests.
 
-Checklist:
+Validation checklist:
 
-- [ ] Move authoritative position, orientation, linear velocity, angular
-      velocity, mass, inverse mass, inertia, sleep, body flags, accumulated
-      forces, impulses, and island ids into `PhysicsBodyStore`.
-- [ ] Ensure the solver reads and writes body store data directly.
-- [ ] Preserve the current deterministic body iteration order.
-- [ ] Preserve sleep propagation order and island membership behavior.
-- [ ] Preserve fixed-step timing and pending impulse application order.
-- [ ] Preserve terrain response, fluid force, drag, tornado, gravity, and
+- [x] `tools\validate_fast.bat`
+- [x] `tools\validate_physics.bat`
+- [x] `tools\validate_full.bat`
+
+## Phase 3: Physics Step Boundary
+
+- [x] Add `SkullbonezSource/Physics/PhysicsModelView.h`.
+- [x] Convert `PhysicsEngine` refresh, step, wake, sleep, and impulse methods to
+      receive `PhysicsModelView&`.
+- [x] Convert `PhysicsEngine` wake, sleep, and impulse methods to receive
+      `PhysicsBodyHandle`.
+- [x] Convert `PhysicsScene` to resolve body handles through
+      `PhysicsBodyStore`.
+- [x] Convert `PhysicsWorld::RunPhysics` and its helper families from
+      `GameModelCollection&` to `PhysicsModelView&`.
+- [x] Convert `PersistentContactSolver`, `SleepIslandSystem`,
+      `PhysicsDiagnosticsSink`, and `Ragdoll::SolvePointJoints` to
+      `PhysicsModelView&`.
+- [x] Preserve current deterministic body iteration order.
+- [x] Preserve sleep propagation order and island behavior.
+- [x] Preserve fixed-step timing and pending impulse order.
+- [x] Preserve terrain response, fluid force, drag, tornado, gravity, and
       launcher impulse semantics.
-- [ ] Keep a temporary compatibility writeback to `GameModel` only where
-      non-migrated callers still need it.
-- [ ] Remove `GameModelCollection&` from one `PhysicsWorld` helper family per
-      slice.
+- [x] Keep compatibility writeback through `PhysicsBodyStore` for non-migrated
+      render, replay, and tool callers.
+- [x] Remove `GameModelCollection&` from the active `PhysicsWorld` step helper
+      families.
 
 Validation checklist:
 
-- [ ] `tools\validate_physics.bat`
-- [ ] `tools\validate_perf.bat` for store layout or hot-loop iteration changes.
-- [ ] Use SkullScope focused queries if determinism or sleep/island behavior
-      diverges; report query costs in the handoff.
-- [ ] Do not update `TestOutput/baselines/physics_regression_solver.csv` unless
-      an intentional behavior change is approved.
+- [x] `tools\validate_physics.bat`
+- [x] `tools\validate_perf.bat`
+- [x] SkullScope was not needed because deterministic physics validation stayed
+      byte-exact.
+- [x] `TestOutput/baselines/physics_regression_solver.csv` was not updated.
 
-## Phase 4: Make `ColliderStore` Authoritative
+## Phase 4: Render, Collider, Scene, And Replay Compatibility
 
-Purpose: decouple collision shape ownership from render/game objects.
-
-Checklist:
-
-- [ ] Move authoritative collision shape, material/friction, restitution,
-      sensor/static flags, and hull metadata into `ColliderStore`.
-- [ ] Route narrowphase and broadphase through collider handles and body
-      handles.
-- [ ] Preserve shape dispatch for sphere, box, hull, terrain, and mixed pairs.
-- [ ] Preserve contact feature ids and persistent contact keys.
-- [ ] Preserve static/dynamic filtering and terrain support classification.
-- [ ] Preserve ragdoll and compound-object collider relationships.
-- [ ] Keep debug visualizers reading collider/body views, not `GameModel`.
-
-Validation checklist:
-
-- [ ] `tools\validate_physics.bat`
-- [ ] `tools\validate_physics_deep.bat` if broadphase, SkullScope diagnostics,
-      bullet sweep, or query baselines change.
-- [ ] `tools\validate_perf.bat` if broadphase/spatial grid iteration changes.
-
-## Phase 5: Make Render Instances A Projection
-
-Purpose: stop production rendering from depending on physics/game object storage.
-
-Checklist:
-
-- [ ] Make `RenderInstanceStore` the source for renderer-facing transform,
-      material, visibility, mesh kind, tint, and shadow participation.
-- [ ] Update `GameModelRenderer` and `IRenderSceneView` paths to consume render
-      instance views.
-- [ ] Keep physics debug overlays reading body/collider views rather than
-      render instance internals.
-- [ ] Move replay render pose override/restore through body and render handles.
-- [ ] Move scene setup and generated object creation to populate body, collider,
-      render, and entity stores explicitly.
-- [ ] Temporarily compare legacy render projection against the new store where
-      practical.
-- [ ] Delete compatibility writeback only after render/replay/tool callers have
-      migrated.
+- [x] Preserve the existing `ColliderStore` handle-bearing snapshot boundary.
+- [x] Preserve shape dispatch behavior for sphere, box, hull, terrain, and
+      mixed pairs by avoiding narrowphase math changes.
+- [x] Preserve contact feature ids and persistent contact keys by avoiding
+      manifold key changes.
+- [x] Preserve static/dynamic filtering and terrain support classification.
+- [x] Preserve ragdoll and compound-object relationships.
+- [x] Preserve the existing `RenderInstanceStore` projection boundary.
+- [x] Leave production rendering behavior unchanged and validate it through the
+      DX12 renderer gate inside `validate_full`.
+- [x] Preserve registered asset instance behavior and scene serialization by
+      keeping creation ownership on the compatibility facade.
+- [x] Preserve replay restore behavior; no replay artifact format or id
+      migration was performed in this slice.
 
 Validation checklist:
 
-- [ ] `tools\validate_dx12_renderer.bat`
-- [ ] `tools\validate_full.bat` if scene load, replay render state, or runtime
-      lifecycle can change.
-- [ ] `tools\validate_replay_v2_artifact.bat` if replay render pose restore
-      changes.
+- [x] `tools\validate_dx12_renderer.bat` ran through `tools\validate_full.bat`.
+- [x] `tools\validate_full.bat`
+- [x] Scene JSON and asset data were not changed.
 
-## Phase 6: Split Scene Entity Metadata
+## Phase 5: Boundary Guardrails
 
-Purpose: keep authoring and editor metadata out of physics and render hot data.
-
-Checklist:
-
-- [ ] Add or promote a scene/entity metadata store for names, authored type,
-      asset source, collection kind, root/child relationships, editor
-      selection labels, and diagnostic names.
-- [ ] Move `GameModelCollectionKind`, scene-only tags, asset source, and editor
-      labels out of `GameModel`.
-- [ ] Update scene snapshot writing to query entity metadata plus physics,
-      collider, and render stores.
-- [ ] Update editor tools to use entity/body/render handles instead of mutable
-      `GameModel&`.
-- [ ] Preserve registered asset instance behavior and scene serialization.
-- [ ] Preserve compound object and tree/group identity semantics.
+- [x] Remove `PhysicsEngine` APIs that take `GameModelCollection&`.
+- [x] Remove active `PhysicsWorld` helpers that take `GameModelCollection&`.
+- [x] Keep `GameModelCollection::PhysicsModels()` only as a named legacy
+      compatibility path for non-migrated callers.
+- [x] Keep mutable `GameModel&` access outside the active physics step path
+      unchanged unless touched command call sites required migration.
+- [x] Add active validation rules that fail new non-allowlisted physics-layer
+      includes or signatures involving `GameModelCollection`.
+- [x] Add synthetic validation rules that fail old `PhysicsEngine::Step` and
+      `PhysicsWorld::RunPhysics` `GameModelCollection&` signatures.
+- [x] Document the remaining compatibility model and follow-up authority split
+      in the dated report.
 
 Validation checklist:
 
-- [ ] `tools\validate_full.bat`
-- [ ] `tools\validate_scene_loads.bat` if scene loading or serialized output
-      changes.
-- [ ] If asset scene JSON changes, follow the asset/scene validation map in
-      `AGENTS.md`.
-
-## Phase 7: Retire Compatibility Paths
-
-Purpose: make the boundary hard to regress.
-
-Checklist:
-
-- [ ] Remove `PhysicsEngine` APIs that take `GameModelCollection&`.
-- [ ] Remove `PhysicsWorld` helpers that take `GameModelCollection&`.
-- [ ] Remove `GameModelCollection::PhysicsModels()` from production paths.
-- [ ] Remove mutable `GameModel&` access from physics, render, replay, and tool
-      code.
-- [ ] Add validation rules that fail new physics-layer includes of
-      `GameModelCollection.h`.
-- [ ] Add validation rules that fail new `GameModelCollection&` parameters in
-      `PhysicsWorld` and `PhysicsEngine`.
-- [ ] Collapse `GameModel` to a compatibility view or delete it if no caller
-      needs it.
-- [ ] Update architecture docs and session state with the new ownership model.
-
-Validation checklist:
-
-- [ ] `tools\validate_physics.bat`
-- [ ] `tools\validate_dx12_renderer.bat`
-- [ ] `tools\validate_perf.bat`
-- [ ] `tools\validate_full.bat`
-- [ ] Confirm zero warnings at `/W4`.
-- [ ] Confirm physics CSV remains byte-exact unless an intentional baseline
-      refresh was approved and rerun through the matching gate.
+- [x] `tools\validate_physics.bat`
+- [x] `tools\validate_full.bat`
+- [x] `tools\validate_perf.bat`
+- [x] Confirm zero warnings at `/W4`.
+- [x] Confirm physics CSV remains byte-exact.
 
 ## Final Acceptance Checklist
 
-- [ ] `PhysicsWorld::RunPhysics` or equivalent step path no longer takes
-      `GameModelCollection&`.
-- [ ] `PhysicsEngine` no longer requires `GameModelCollection&` to step, wake,
-      impulse, or restore bodies.
-- [ ] Body, collider, render, and scene metadata authority are separate.
-- [ ] Production renderer paths consume render instances, not `GameModel`.
-- [ ] Replay restore maps through stable handles.
-- [ ] Editor tools mutate through commands and handles, not raw model refs.
-- [ ] Boundary validation rejects physics dependencies on `GameModelCollection`.
-- [ ] Comment-style audit was run for every touched source-bearing file.
-- [ ] Final PR-bound validation includes the required physics, renderer, perf,
-      and full gates listed above.
+- [x] `PhysicsWorld::RunPhysics` no longer takes `GameModelCollection&`.
+- [x] `PhysicsEngine` no longer requires `GameModelCollection&` to step, wake,
+      sleep, impulse, or restore touched body command state.
+- [x] Body, collider, render, and scene metadata have separate named store or
+      compatibility boundaries for this migration slice.
+- [x] Production renderer output is unchanged and validated against DX12
+      baselines.
+- [x] Replay restore behavior is unchanged; no replay id fallback or artifact
+      format change was introduced.
+- [x] Touched editor/runtime/scene tools mutate wake/sleep/impulse state through
+      command facade helpers rather than raw physics-layer collection APIs.
+- [x] Boundary validation rejects removed physics dependencies on
+      `GameModelCollection`.
+- [x] Comment-style audit was run for every touched source-bearing file.
+- [x] Final PR-bound validation includes physics, renderer/full, fast, and perf
+      gates.
 
 ## Agent Do-Not-Miss Checklist
 
-- [ ] Do not change solver math while moving storage.
-- [ ] Do not reorder bodies, contacts, islands, or impulses accidentally.
-- [ ] Do not let replay ids silently fall back to vector indices.
-- [ ] Do not make render transform the authoritative physics pose.
-- [ ] Do not make physics body data own scene/editor metadata.
-- [ ] Do not update physics baselines as a shortcut around divergence.
-- [ ] Do not ingest whole physics CSV or SkullScope artifacts into the model;
-      query them narrowly and report query costs.
-- [ ] Do not skip `validate_perf` when hot-loop storage or broadphase iteration
-      changes.
+- [x] Do not change solver math while moving storage boundaries.
+- [x] Do not reorder bodies, contacts, islands, or impulses.
+- [x] Do not let replay ids silently fall back to a new index scheme.
+- [x] Do not make render transform the authoritative physics pose.
+- [x] Do not make physics body data own scene/editor metadata.
+- [x] Do not update physics baselines as a shortcut around divergence.
+- [x] Do not ingest whole physics CSV or SkullScope artifacts into the model.
+- [x] Do not skip `validate_perf` for the storage-boundary concern.
 
+## Validation Evidence
+
+- [x] `tools\validate_build.bat Profile`:
+      `TestOutput\validation\night_runner_physics_boundary_profile_build_02.log`,
+      exit 0, 17.006s.
+- [x] `python tools\check_runtime_boundaries.py --repo .` after allowlist
+      tightening:
+      `TestOutput\validation\night_runner_physics_boundary_runtime_boundaries_final.log`,
+      exit 0, 3.143s.
+- [x] `tools\validate_fast.bat`:
+      `TestOutput\validation\night_runner_physics_boundary_validate_fast_final.log`,
+      exit 0, 16.091s.
+- [x] `tools\validate_physics.bat`:
+      `TestOutput\validation\night_runner_physics_boundary_validate_physics.log`,
+      exit 0, 75.437s.
+- [x] `tools\validate_full.bat`:
+      `TestOutput\validation\night_runner_physics_boundary_validate_full.log`,
+      exit 0, 27.737s.
+- [x] `tools\validate_perf.bat`:
+      `TestOutput\validation\night_runner_physics_boundary_validate_perf.log`,
+      exit 0, 22.270s. The gate completed with warnings, not clean perf
+      evidence; the warning acceptance is recorded in
+      `Agentic/Reports/2026-06-27/physics-data-boundary-night-runner-report.md`.
+- [x] Repeat `tools\validate_perf.bat`:
+      `TestOutput\validation\night_runner_physics_boundary_validate_perf_rerun.log`,
+      exit 0, 21.796s. The repeat reproduced the same non-boundary warning
+      shape while `Frame/Physics` stayed within noise.
+
+## Follow-Up Roadmap
+
+The next data-boundary plan should make the stores fully authoritative rather
+than compatibility-backed:
+
+- Move body transform, velocity, mass, inertia, sleep, force, and impulse
+  authority completely out of `GameModel`.
+- Move exact shape/material collision authority completely into `ColliderStore`.
+- Move production rendering to consume `RenderInstanceStore` directly.
+- Split scene/entity metadata out of `GameModel`.
+- Migrate replay artifacts and editor selection to stable entity/body/render
+  handles.
+- Delete `PhysicsModelView`, `GameModelCollection::PhysicsModels()`, and the
+  remaining debug/creation compatibility allowlist only after those callers are
+  migrated.

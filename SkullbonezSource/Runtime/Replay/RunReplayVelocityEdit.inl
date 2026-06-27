@@ -227,7 +227,7 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
     if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
          VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
     {
-        modelCollection.GetPhysicsEngine().WakeBody( modelCollection, modelIndex );
+        modelCollection.WakeModel( modelIndex );
     }
     modelCollection.InvalidatePhysicsStreams();
     replayRuntime.MarkPredictionDirty();

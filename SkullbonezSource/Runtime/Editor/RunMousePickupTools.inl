@@ -198,10 +198,9 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( m_cGameModelCollection,
-                                                                m_runtimeTools.MousePickup().modelIndex,
-                                                                impulse,
-                                                                SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    m_cGameModelCollection.ApplyBodyImpulse( m_runtimeTools.MousePickup().modelIndex,
+                                             impulse,
+                                             SkullbonezCore::Math::Vector::ZERO_VECTOR );
     m_cGameModelCollection.InvalidatePhysicsStreams();
     m_runtimeTools.MousePickup().lastImpulse = impulse;
 }

@@ -332,6 +332,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelView.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />

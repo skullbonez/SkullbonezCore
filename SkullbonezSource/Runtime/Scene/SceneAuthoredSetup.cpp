@@ -282,10 +282,9 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hasInitialImpulse )
         {
-            context.physics.SetPendingBodyImpulse( context.models,
-                                                   modelIndex,
-                                                   Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                                   Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
+            context.models.SetPendingBodyImpulse( modelIndex,
+                                                  Vector3( ball.forceX, ball.forceY, ball.forceZ ),
+                                                  Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
         }
     }
 
@@ -313,7 +312,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( bs.isSleeping && !bs.isFixed )
         {
-            context.physics.SeedBodyAsleep( context.models, modelIndex );
+            context.models.SeedModelAsleep( modelIndex );
         }
     }
 
@@ -374,7 +373,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( box.isSleeping && !box.isFixed )
         {
-            context.physics.SeedBodyAsleep( context.models, modelIndex );
+            context.models.SeedModelAsleep( modelIndex );
         }
     }
 
@@ -419,7 +418,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.physics.SeedBodyAsleep( context.models, modelIndex );
+            context.models.SeedModelAsleep( modelIndex );
         }
     }
 
@@ -451,7 +450,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.physics.SeedBodyAsleep( context.models, modelIndex );
+            context.models.SeedModelAsleep( modelIndex );
         }
     }
 

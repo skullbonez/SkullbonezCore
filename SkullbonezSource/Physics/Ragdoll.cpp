@@ -30,6 +30,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
+#include "PhysicsModelView.h"
 
 #include <algorithm>
 #include <cmath>
@@ -462,12 +463,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     {
         for ( int i = 0; i < PART_COUNT; ++i )
         {
-            physics.SeedBodyAsleep( collection, firstBody + i );
+            collection.SeedModelAsleep( firstBody + i );
         }
     }
 }
 
-void Ragdoll::SolvePointJoints( GameModelCollection& collection,
+void Ragdoll::SolvePointJoints( PhysicsModelView& modelView,
                                 PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
@@ -478,7 +479,7 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
         return;
     }
 
-    std::vector<GameModel>& models = collection.PhysicsModels();
+    std::vector<GameModel>& models = modelView.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const int modelCount = static_cast<int>( models.size() );
     const float invDt = 1.0f / dt;
@@ -580,5 +581,5 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
 
     ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
     bodyStore.WriteBackToModels( models );
-    collection.InvalidatePhysicsStreams();
+    modelView.InvalidatePhysicsStreams();
 }

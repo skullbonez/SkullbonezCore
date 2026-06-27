@@ -74,6 +74,8 @@ class GameModelCollection : public Rendering::IRenderSceneView
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
+    Physics::PhysicsModelView MakePhysicsModelView();
+    Physics::PhysicsBodyHandle BodyHandleForModelIndex( int index ) const;
 
   public:
     GameModelCollection();
@@ -148,6 +150,12 @@ class GameModelCollection : public Rendering::IRenderSceneView
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );
+    void ApplyBodyImpulse( int index,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
+    void SetPendingBodyImpulse( int index,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
     void AddPointJointConstraint( const Physics::PointJointConstraint& constraint );

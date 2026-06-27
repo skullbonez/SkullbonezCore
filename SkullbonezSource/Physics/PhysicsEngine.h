@@ -5,15 +5,15 @@ Purpose:
 
 Mental model:
   PhysicsEngine is the runtime-facing physics boundary. During migration it owns
-  PhysicsScene and forwards old GameModelCollection-backed operations in the
-  same order, so later scene/tool/replay callers can move to named physics
-  commands without touching solver internals directly.
+  PhysicsScene and forwards compatibility-view operations in the same order, so
+  later scene/tool/replay callers can move to named physics commands without
+  touching solver internals directly.
 
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
   internals.
   Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
-  Compatibility path: Transitional API that still accepts GameModelCollection.
+  Compatibility view: Transitional model-order view used while stores migrate.
 
 Invariants:
   - Forwarders must not reorder solver, store-refresh, replay, or diagnostics calls.
@@ -26,14 +26,11 @@ Related:
 */
 #pragma once
 
+#include "PhysicsModelView.h"
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-} // namespace GameObjects
 
 namespace Physics
 {
@@ -43,21 +40,21 @@ class PhysicsEngine
     PhysicsEngine() = default;
 
     void Clear();
-    void RefreshStores( GameObjects::GameModelCollection& collection );
-    void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );
-    void RefreshBodyStore( GameObjects::GameModelCollection& collection );
+    void RefreshStores( PhysicsModelView& modelView );
+    void RefreshPhysicsStores( PhysicsModelView& modelView );
+    void RefreshBodyStore( PhysicsModelView& modelView );
     void ClearPendingBodyImpulses();
-    void RefreshColliderStore( GameObjects::GameModelCollection& collection );
-    void RefreshRenderStore( GameObjects::GameModelCollection& collection );
-    void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
-    void WakeBody( GameObjects::GameModelCollection& collection, int bodyIndex );
-    void SeedBodyAsleep( GameObjects::GameModelCollection& collection, int bodyIndex );
-    void ApplyBodyImpulse( GameObjects::GameModelCollection& collection,
-                           int bodyIndex,
+    void RefreshColliderStore( PhysicsModelView& modelView );
+    void RefreshRenderStore( PhysicsModelView& modelView );
+    void Step( PhysicsModelView& modelView, float deltaSeconds );
+    void WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body );
+    void SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body );
+    void ApplyBodyImpulse( PhysicsModelView& modelView,
+                           PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection,
-                                int bodyIndex,
+    void SetPendingBodyImpulse( PhysicsModelView& modelView,
+                                PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );

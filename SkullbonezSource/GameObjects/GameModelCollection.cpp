@@ -28,6 +28,7 @@ Related:
 #include "GameModelCollection.h"
 
 #include "../Core/MainMemoryStats.h"
+#include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Rendering/GameModelRenderer.h"
@@ -164,6 +165,35 @@ void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
 
     gameModel.SetRuntimeCollection( GameModelCollectionKind::ReleasableTree, rootModelIndex, partIndex );
 }
+
+
+void ReleaseAttachedFixedTreePartsForPhysics( void* userData,
+                                              int sourceIndex,
+                                              const Vector3& seedLinearVelocity,
+                                              const Vector3& seedAngularVelocity )
+{
+    GameModelCollection* collection = static_cast<GameModelCollection*>( userData );
+    if ( collection )
+    {
+        collection->ReleaseAttachedFixedTreeParts( sourceIndex, seedLinearVelocity, seedAngularVelocity );
+    }
+}
+
+
+void EmitSkullScopeFrameForPhysics( void* userData, SkullbonezCore::GameObjects::SkullScope& scope, float dt )
+{
+#ifdef _DEBUG
+    GameModelCollection* collection = static_cast<GameModelCollection*>( userData );
+    if ( collection )
+    {
+        scope.EmitFrame( *collection, dt );
+    }
+#else
+    (void)userData;
+    (void)scope;
+    (void)dt;
+#endif
+}
 } // namespace
 
 
@@ -215,6 +245,22 @@ void GameModelCollection::InvalidateSoA()
     // body/render state, so mark the cache dirty and let the next hot-path user
     // rebuild it from the authoritative vector.
     m_soaCache.Invalidate();
+}
+
+
+SkullbonezCore::Physics::PhysicsModelView GameModelCollection::MakePhysicsModelView()
+{
+    return Physics::PhysicsModelView( m_gameModels,
+                                      m_soaCache,
+                                      this,
+                                      ReleaseAttachedFixedTreePartsForPhysics,
+                                      EmitSkullScopeFrameForPhysics );
+}
+
+
+SkullbonezCore::Physics::PhysicsBodyHandle GameModelCollection::BodyHandleForModelIndex( int index ) const
+{
+    return Physics::MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( index ) );
 }
 
 
@@ -489,21 +535,24 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    m_physicsEngine.RefreshBodyStore( *this );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.RefreshBodyStore( modelView );
     return m_physicsEngine.BodyStore();
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    m_physicsEngine.RefreshColliderStore( *this );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.RefreshColliderStore( modelView );
     return m_physicsEngine.Colliders();
 }
 
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    m_physicsEngine.RefreshRenderStore( *this );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.RefreshRenderStore( modelView );
     return m_physicsEngine.RenderInstances();
 }
 
@@ -608,19 +657,41 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    m_physicsEngine.Step( *this, fChangeInTime );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.Step( modelView, fChangeInTime );
 }
 
 
 void GameModelCollection::WakeModel( int index )
 {
-    m_physicsEngine.WakeBody( *this, index );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.WakeBody( modelView, BodyHandleForModelIndex( index ) );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    m_physicsEngine.SeedBodyAsleep( *this, index );
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.SeedBodyAsleep( modelView, BodyHandleForModelIndex( index ) );
+}
+
+
+void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localApplicationPoint )
+{
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.ApplyBodyImpulse( modelView, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
+}
+
+
+void GameModelCollection::SetPendingBodyImpulse( int index,
+                                                 const Vector3& impulse,
+                                                 const Vector3& localApplicationPoint )
+{
+    Physics::PhysicsModelView modelView = MakePhysicsModelView();
+    m_physicsEngine.SetPendingBodyImpulse( modelView,
+                                           BodyHandleForModelIndex( index ),
+                                           impulse,
+                                           localApplicationPoint );
 }
 
 

@@ -435,10 +435,9 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    collection.GetPhysicsEngine().ApplyBodyImpulse( collection,
-                                                    modelHitIndex,
-                                                    rayDirection * m_rayCastTest.impulseStrength,
-                                                    hitPoint - model.GetPosition() );
+    collection.ApplyBodyImpulse( modelHitIndex,
+                                 rayDirection * m_rayCastTest.impulseStrength,
+                                 hitPoint - model.GetPosition() );
     const float mass = (std::max)( 0.001f, model.GetMass() );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
     collection.ReleaseAttachedFixedTreeParts( modelHitIndex, rayDirection * releaseSpeed, Math::Vector::ZERO_VECTOR );
@@ -507,7 +506,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
 
     const int projectileIndex = collection.GetModelCount();
     collection.AddGameModel( std::move( projectile ) );
-    collection.GetPhysicsEngine().WakeBody( collection, projectileIndex );
+    collection.WakeModel( projectileIndex );
     return true;
 }
 

@@ -674,6 +674,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelView.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>

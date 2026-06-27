@@ -591,7 +591,7 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                    SkullbonezCore::Physics::PhysicsEngine& physics,
+                                    SkullbonezCore::Physics::PhysicsEngine&,
                                     int index,
                                     GameModel& model )
 {
@@ -602,7 +602,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     if ( !model.IsFixed() )
     {
-        physics.WakeBody( collection, index );
+        collection.WakeModel( index );
     }
 }
 

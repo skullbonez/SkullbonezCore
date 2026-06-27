@@ -10,7 +10,7 @@ Mental model:
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
   internals.
-  Store refresh: Deterministic copy between compatibility GameModel state and
+  Store refresh: Deterministic copy between compatibility model-view state and
   physics-owned body/collider/render stores.
   Replay restore: Replacement of live solver state from a saved replay sample.
 
@@ -24,13 +24,12 @@ Related:
 */
 #include "PhysicsEngine.h"
 
-#include "../GameObjects/GameModelCollection.h"
-
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
-using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsModelView;
 
 
 void PhysicsEngine::Clear()
@@ -39,21 +38,21 @@ void PhysicsEngine::Clear()
 }
 
 
-void PhysicsEngine::RefreshStores( GameModelCollection& collection )
+void PhysicsEngine::RefreshStores( PhysicsModelView& modelView )
 {
-    m_scene.RefreshStores( collection );
+    m_scene.RefreshStores( modelView );
 }
 
 
-void PhysicsEngine::RefreshPhysicsStores( GameModelCollection& collection )
+void PhysicsEngine::RefreshPhysicsStores( PhysicsModelView& modelView )
 {
-    m_scene.RefreshPhysicsStores( collection );
+    m_scene.RefreshPhysicsStores( modelView );
 }
 
 
-void PhysicsEngine::RefreshBodyStore( GameModelCollection& collection )
+void PhysicsEngine::RefreshBodyStore( PhysicsModelView& modelView )
 {
-    m_scene.RefreshBodyStore( collection );
+    m_scene.RefreshBodyStore( modelView );
 }
 
 
@@ -63,51 +62,51 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 }
 
 
-void PhysicsEngine::RefreshColliderStore( GameModelCollection& collection )
+void PhysicsEngine::RefreshColliderStore( PhysicsModelView& modelView )
 {
-    m_scene.RefreshColliderStore( collection );
+    m_scene.RefreshColliderStore( modelView );
 }
 
 
-void PhysicsEngine::RefreshRenderStore( GameModelCollection& collection )
+void PhysicsEngine::RefreshRenderStore( PhysicsModelView& modelView )
 {
-    m_scene.RefreshRenderStore( collection );
+    m_scene.RefreshRenderStore( modelView );
 }
 
 
-void PhysicsEngine::Step( GameModelCollection& collection, float deltaSeconds )
+void PhysicsEngine::Step( PhysicsModelView& modelView, float deltaSeconds )
 {
-    m_scene.RunPhysics( collection, deltaSeconds );
+    m_scene.RunPhysics( modelView, deltaSeconds );
 }
 
 
-void PhysicsEngine::WakeBody( GameModelCollection& collection, int bodyIndex )
+void PhysicsEngine::WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body )
 {
-    m_scene.WakeModel( collection, bodyIndex );
+    m_scene.WakeBody( modelView, body );
 }
 
 
-void PhysicsEngine::SeedBodyAsleep( GameModelCollection& collection, int bodyIndex )
+void PhysicsEngine::SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body )
 {
-    m_scene.SeedModelAsleep( collection, bodyIndex );
+    m_scene.SeedBodyAsleep( modelView, body );
 }
 
 
-void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection,
-                                      int bodyIndex,
+void PhysicsEngine::ApplyBodyImpulse( PhysicsModelView& modelView,
+                                      PhysicsBodyHandle body,
                                       const Math::Vector::Vector3& impulse,
                                       const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.ApplyBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
+    m_scene.ApplyBodyImpulse( modelView, body, impulse, localApplicationPoint );
 }
 
 
-void PhysicsEngine::SetPendingBodyImpulse( GameModelCollection& collection,
-                                           int bodyIndex,
+void PhysicsEngine::SetPendingBodyImpulse( PhysicsModelView& modelView,
+                                           PhysicsBodyHandle body,
                                            const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
+    m_scene.SetPendingBodyImpulse( modelView, body, impulse, localApplicationPoint );
 }
 
 
