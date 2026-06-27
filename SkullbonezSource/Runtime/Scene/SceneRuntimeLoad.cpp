@@ -10,6 +10,19 @@ Mental model:
   authored/generated setup, diagnostics, and render reinitialization behind the
   same scene-owned boundary.
 
+Glossary:
+  Load begin: Scene load phase that validates queue index, preserves optional
+    runtime state, and marks controller bookkeeping.
+  Scene browser: UI-facing list of scene files discovered on disk.
+  GPU (Graphics Processing Unit): Render device that must be flushed before old
+    scene resources are torn down.
+
+Invariants:
+  - GPU flush happens before caller-owned teardown can destroy scene resources.
+  - Browser paths and queue paths compare in normalized slash form.
+  - Preserve-runtime-state decisions are captured before controller load state
+    changes.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -84,6 +97,8 @@ int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const st
 
 void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
 {
+    // Concept: The browser owns three parallel arrays: normalized paths, display
+    // names, and stable c-string pointers into the display-name storage.
     sceneBrowser.paths.clear();
     sceneBrowser.names.clear();
     sceneBrowser.namePtrs.clear();
@@ -162,6 +177,8 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
     result.shouldPreserveRuntimeState = preserveRuntimeState && context.controller.HasCurrentEntry();
     if ( result.shouldPreserveRuntimeState )
     {
+        // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
+        // restore policy sees the live operator-owned state from the old run.
         result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( context.reset );
     }
     else
@@ -171,6 +188,8 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
 
     if ( context.renderer )
     {
+        // Hazard: Old scene resources may still be referenced by in-flight GPU
+        // work. Flush before the caller tears down models, buffers, or terrain.
         context.renderer->FlushGPU();
     }
 

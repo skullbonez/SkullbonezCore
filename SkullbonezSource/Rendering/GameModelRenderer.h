@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Methods translate model collections into render work; they do not own model
+    storage or backend lifetime.
+  - Shadow batch structs are CPU-side preparation data and must be submitted
+    through backend-facing helpers.
+
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.cpp
   - Agentic/Reference/comment-style-guide.md

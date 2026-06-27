@@ -13,6 +13,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Exactly one backend is active at a time and Gfx() is invalid before
+    SetGfxBackend succeeds.
+  - DestroyGfxBackend releases backend ownership; callers must not retain
+    references returned by Gfx() across teardown.
+
 Related:
   - SkullbonezSource/Rendering/IRenderBackend.h
   - Agentic/Reference/comment-style-guide.md

@@ -8,6 +8,13 @@ Mental model:
   RuntimeRenderHost service view. The declarations live outside Run so pass
   ownership stays with RuntimeRenderer instead of growing Run.h.
 
+Glossary:
+  Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
+  Frame context: Per-frame camera, projection, lighting, water, and scene view
+  bundle shared by passes.
+  Pass resources: Backend-owned objects such as framebuffers, shaders, and
+  vertex buffers used by a pass.
+
 Invariants:
   - Pass input/output structs borrow data for one frame only.
   - Pass constructors receive RuntimeRenderHost so non-render dependencies stay named.

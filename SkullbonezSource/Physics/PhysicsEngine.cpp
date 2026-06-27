@@ -7,6 +7,13 @@ Mental model:
   This file is intentionally boring migration glue. It gives runtime code one
   physics owner without changing PhysicsScene or PhysicsWorld execution order.
 
+Glossary:
+  Facade: Narrow public boundary that forwards commands while hiding solver
+  internals.
+  Store refresh: Deterministic copy between compatibility GameModel state and
+  physics-owned body/collider/render stores.
+  Replay restore: Replacement of live solver state from a saved replay sample.
+
 Invariants:
   - Step and replay restore forward directly to PhysicsScene.
   - Store refreshes keep their existing body/collider/render ordering.

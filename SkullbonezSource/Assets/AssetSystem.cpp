@@ -12,6 +12,13 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Logical asset names are stable scene/runtime contracts; re-registering an
+    existing name updates its record and generation instead of creating a second
+    identity.
+  - Resolved paths are derived from the data root at registration time so
+    callers do not mix relative and absolute asset lookup rules.
+
 Related:
   - SkullbonezSource/Assets/AssetSystem.h
   - Agentic/Reference/runtime-reference.md

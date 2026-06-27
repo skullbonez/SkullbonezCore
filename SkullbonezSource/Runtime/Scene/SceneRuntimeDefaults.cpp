@@ -8,6 +8,13 @@ Mental model:
   narrow file-rewrite operation over those structs, so callers pass the payloads
   directly instead of bouncing through private Run methods.
 
+Glossary:
+  engine.cfg: User-facing engine configuration file.
+  Render defaults: Ordinary and cinematic render settings persisted for future
+    launches.
+  Config rewrite: Read/modify/write operation that preserves unrelated lines
+    where possible.
+
 Invariants:
   - engine.cfg key spellings and numeric formatting are user-facing compatibility
     surface.
@@ -61,6 +68,8 @@ bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const 
 {
     const std::string lineText = std::string( key ) + " = " + value;
     bool replaced = false;
+    // Invariant: Keep the first occurrence in place and delete duplicate keys so
+    // engine.cfg remains deterministic after repeated Save Defaults actions.
     for ( std::size_t i = 0; i < lines.size(); )
     {
         if ( ConfigLineMatchesKey( lines[i], key ) )
@@ -166,6 +175,8 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
     }
 
     std::vector<std::string> insertLines;
+    // Why: Missing keys should land near their owning section when possible,
+    // preserving user comments and unrelated config ordering.
     const bool hasOrdinarySection =
         std::any_of( lines.begin(),
                      lines.end(),
@@ -246,6 +257,8 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 
 bool SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )
 {
+    // Concept: Saving ordinary defaults is a text rewrite, not a full config
+    // serialization. Unknown keys and comments must survive the round trip.
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
     std::vector<std::string> lines;
     if ( !LoadConfigLines( configPath, lines ) )

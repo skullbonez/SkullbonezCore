@@ -12,6 +12,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - File handles are opened lazily and owned by EngineLog until process exit or
+    FlushAll teardown.
+  - Release builds keep the interface shape but carry no FILE handle state.
+
 Related:
   - SkullbonezSource/Core/Log.cpp
   - Agentic/Reference/runtime-reference.md

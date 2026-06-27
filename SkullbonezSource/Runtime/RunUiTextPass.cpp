@@ -19,6 +19,11 @@ Invariants:
     before backend teardown.
   - Render flushes Text2d before returning, so callers do not inherit queued UI
     glyphs into later frame work.
+
+Related:
+  - SkullbonezSource/Runtime/RunInternal.h
+  - SkullbonezSource/UI/UI.h
+  - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
 #include "../Core/WorkerPool.h"

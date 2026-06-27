@@ -10,8 +10,20 @@ Mental model:
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Gizmo: World-space editor axes or rotation rings used to transform selected
+    models.
+  Placement preflight: Capacity and asset-availability check shared by the
+    "can place" query and the actual placement commit.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
+
+Invariants:
+  - Preview, preflight, and placement commit must use the same object-type,
+    scale, terrain, and asset rules.
+  - Gizmo group indices are frame-local model indices; any capacity or deletion
+    change must invalidate the captured group before applying transforms.
+  - Runtime editor traces are derived from current state and must not mutate
+    physics or selection ownership.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -70,6 +82,9 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 
+// Concept: Clip-space mouse coordinates become editor rays by unprojecting two
+// endpoints through the inverse view-projection matrix, then normalizing the
+// world-space segment between them.
 bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, float y, float z, Vector3& outWorld )
 {
     const float worldX = inverseViewProjection.m[0] * x + inverseViewProjection.m[4] * y +
@@ -2393,6 +2408,9 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
                                        const std::vector<GameModel>& models,
                                        bool allowRagdollGroup )
 {
+    // Lifetime: Drag state stores model indices and starting transforms for the
+    // current gesture only. A changed model count invalidates the group before
+    // movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
     if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= static_cast<int>( models.size() ) )
@@ -2445,6 +2463,9 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
                                     int index,
                                     GameModel& model )
 {
+    // Why: Direct editor transforms teleport the body. Clearing velocities and
+    // waking dynamic bodies prevents stale solver momentum from immediately
+    // dragging the authored pose away.
     model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     if ( !model.IsFixed() )
@@ -3781,6 +3802,9 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain,
 
     outPlacement.rayOrigin = rayOrigin;
     outPlacement.rayDirection = rayDirection;
+    // Concept: Terrain picking samples along the ray until it crosses from
+    // above terrain to below terrain, then bisects the last interval for a
+    // stable placement point without depending on renderer picking.
     constexpr float MAX_RAY_DISTANCE = 5000.0f;
     constexpr int RAY_STEPS = 192;
     bool hasPrevious = false;
@@ -3963,6 +3987,8 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
 
     if ( !terrainAlreadyIncludesAltitude )
     {
+        // Invariant: Placement altitude is applied before normal/orientation
+        // lookup so preview and commit agree about the authored terrain point.
         terrainPoint.y += static_cast<float>( context.editor.placementAltitudeSteps ) *
                           EditorPlacementAltitudeStepSize( objectType, context.editor.placementScale );
     }
@@ -4404,6 +4430,9 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.GetModelCount() );
     if ( groupCount > 0 )
     {
+        // Invariant: Group drags reuse the gesture-start transform snapshot for
+        // every member, so multi-part ragdolls move rigidly even if physics
+        // wakes during the drag.
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
@@ -4486,6 +4515,8 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
     const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.GetModelCount() );
     if ( groupCount > 0 )
     {
+        // Invariant: Rotation groups pivot around the captured selection
+        // center, not each part's own center, preserving the authored assembly.
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
@@ -4543,6 +4574,9 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
                                                                const EditorInteractionPreviewInput& input )
 {
     EditorInteractionPreviewResult result;
+    // Concept: Preview refresh is the editor's input-facing phase. It may alter
+    // hot axes and placement ghost state, while later overlay tracing only
+    // renders the state produced here.
     context.editor.placementPreviewVisible = false;
     context.editor.hotGizmoAxis = -1;
     context.editor.hotRotationAxis = -1;
@@ -4576,6 +4610,9 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
 
     if ( context.editor.selectedModelIndex >= context.models.GetModelCount() )
     {
+        // Invariant: Selection stores model indices. If the model array shrinks
+        // under editor or inspect mode, clear through the interaction command
+        // path instead of letting later gizmo code read a stale index.
         result.clearInvalidSelection = true;
         result.inspectSelectionScope = input.inspectGizmoActive;
         return result;
@@ -4596,6 +4633,9 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
 
 void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
 {
+    // Concept: Overlay trace building is a pure visual pass over editor state.
+    // It appends lines, ghosts, markers, and gizmos without claiming input or
+    // mutating physics.
     const float rayLinger = (std::max)( 0.0f, input.rayLingerSeconds );
     if ( rayLinger > 0.0f )
     {
@@ -4688,6 +4728,9 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
                                                       int& outType,
                                                       bool reportErrors )
 {
+    // Invariant: This preflight is the single capacity and asset-count gate
+    // for both CanPlace and Place. Add new multi-part object families here
+    // before adding their placement branch below.
     const int modelCount = context.models.GetModelCount();
     const int type = std::clamp( request.objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
@@ -4769,6 +4812,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
+        // Lifetime: The new model becomes owned by GameModelCollection here.
+        // Physics sleep state must be seeded immediately, while the returned
+        // placement result reports only the before/after count.
         model.SetFixed( modelFixed );
         const int index = context.models.GetModelCount();
         context.models.AddGameModel( std::move( model ) );

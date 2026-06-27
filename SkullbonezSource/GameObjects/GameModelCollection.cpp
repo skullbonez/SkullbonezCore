@@ -14,6 +14,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Model vector order is stable subsystem identity for physics stores, render
+    batches, replay ids, and scene snapshots.
+  - Any mutation that changes model state visible to hot streams must invalidate
+    or refresh the SoA cache before clients read it.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
   - Agentic/Reference/runtime-reference.md

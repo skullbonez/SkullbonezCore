@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Replay event payload bits are decoded without numeric conversion so saved
+    timelines reproduce exact float values.
+  - Frame work updates input, simulation, capture, rendering, and diagnostics
+    in a stable order used by validation and replay comparisons.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -57,6 +63,10 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
+
+// Concept: replay flags are compact wire-format fields. Keep these masks local
+// to decode logic so new replay payload versions do not inherit accidental UI
+// or runtime enum values.
 
 void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )
 {

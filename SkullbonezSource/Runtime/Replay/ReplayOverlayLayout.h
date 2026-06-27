@@ -8,6 +8,19 @@ Mental model:
   Replay input and replay drawing must agree on hit boxes. Keep geometry here
   so the runtime composition root does not own screen-space replay layout.
 
+Glossary:
+  Scrubber: Timeline control for seeking retained replay frames and future
+    prediction frames.
+  Track: Normalized timeline lane, either presentation or solver-backed.
+  Cause window: Resizable replay inspection panel that lists body/contact rows.
+  Hot zone: Bottom-screen hover strip that reveals replay controls.
+  UIRect: Pixel-space rectangle shared by hit testing and drawing.
+
+Invariants:
+  - Constants in this file shape both hit testing and rendering.
+  - Slider helpers clamp to valid normalized or seconds ranges before callers
+    mutate replay state.
+
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h

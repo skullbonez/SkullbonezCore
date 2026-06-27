@@ -171,6 +171,9 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
 
 uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 {
+    // Invariant: The content signature is the cache invalidation contract.
+    // Include every frame-data value that can change visible UI text, controls,
+    // preview resources, or hit-test-derived drawing.
     uint32_t hash = 2166136261u;
     hash = HashTextValue( hash, data.rendererName );
     hash = HashTextValue( hash, data.sceneName );
@@ -2911,6 +2914,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 {
     PROFILE_SCOPED( "Frame/UI/Input" );
     InGameUIInputResult result;
+    // Concept: UI input produces command intents and capture state. The run loop
+    // owns applying scene, physics, renderer, and editor mutations.
     editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
     (void)editorObjectType;
     cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
@@ -4032,6 +4037,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                                                  m_cameraModeCombo.IsOpen(),
                                                                  m_selectedRenderTargetPreview,
                                                                  m_activeSlider );
+    // Why: Most UI frames only move the window/scroll offset. Replaying cached
+    // draw commands keeps draw-call churn low while live render-target previews
+    // still rebuild every frame.
     m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
 

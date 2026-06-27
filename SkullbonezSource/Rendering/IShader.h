@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Shader implementations own backend binding details; callers set engine
+    constants and texture slots only through this interface.
+  - SetConstantBufferBytes returns false when a typed block does not match the
+    reflected shader contract, and the dependent draw should be skipped.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

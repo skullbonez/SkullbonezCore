@@ -8,6 +8,15 @@ Mental model:
   module owns the load-begin decision point: queue validation, runtime-state
   preservation, GPU flush-before-teardown, and SceneController load bookkeeping.
 
+Glossary:
+  Load begin: Scene load phase before teardown and object population.
+  Reset snapshot: Preserved operator-owned runtime state for interactive resets.
+  Scene browser: UI-facing list of available scene files.
+
+Invariants:
+  - BeginSceneRuntimeLoad returns intent/state; it does not populate the scene.
+  - Runtime state preservation must happen before SceneController begins load.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp
   - SkullbonezSource/Runtime/Scene/RunScene.cpp

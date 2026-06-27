@@ -8,6 +8,18 @@ Mental model:
   has not moved out of Run yet. Keep the mutation boundary explicit in
   SceneRuntimeResetContext until the remaining load phases are extracted.
 
+Glossary:
+  Reset snapshot: Copy of operator-owned runtime settings preserved across a
+    same-scene reset.
+  Operator-owned state: UI/debug/camera/runtime choices made during the current
+    run rather than authored scene defaults.
+  Suppress exit: Interactive-run flag that prevents automation from quitting.
+
+Invariants:
+  - Capture and restore must stay field-complete for every preserved setting.
+  - Restore clamps camera tracking to the rebuilt model count.
+  - Reset-to-defaults clears UI overrides instead of restoring them.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -25,6 +37,8 @@ namespace Basics
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneRuntimeResetContext& context )
 {
     SceneRuntimeResetSnapshot snapshot;
+    // Invariant: Capture every field restored below. Adding a new preserved
+    // runtime knob requires updating both sides of this snapshot contract.
     snapshot.runtimeSettings = context.runtimeSettings;
     snapshot.debug = context.debug;
     snapshot.isScenePhysics = context.scene.isScenePhysics;
@@ -63,6 +77,8 @@ void RestoreSceneRuntimeResetSnapshot( SceneRuntimeResetContext& context,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete )
 {
+    // Why: Interactive resets preserve the user's run-control choices, but
+    // suppressing exit also forces automation-safe non-exit behavior.
     context.runtimeSettings = snapshot.runtimeSettings;
     context.debug = snapshot.debug;
     context.scene.isScenePhysics = snapshot.isScenePhysics;
@@ -99,6 +115,8 @@ void RestoreSceneRuntimeResetSnapshot( SceneRuntimeResetContext& context,
 
 void ClearSceneRuntimeUIOverrides( SceneRuntimeResetContext& context )
 {
+    // Concept: Reset-to-defaults hands authority back to authored scene data by
+    // clearing UI-generated setup overrides.
     context.uiOverrides.timeScaleOverride = 0.0f;
     context.uiOverrides.modelCountOverride = -1;
     context.uiOverrides.solverBallCountOverride = -1;

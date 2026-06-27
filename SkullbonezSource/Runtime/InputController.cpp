@@ -13,6 +13,12 @@ Glossary:
   Mouse look: Camera mode where relative mouse movement rotates the view.
   Runtime command: Normalized input event consumed later by Run.
 
+Invariants:
+  - CaptureActionPress must be called once per frame for each action whose edge
+    is needed; the context stores previous down state.
+  - UI/focus blocking policy is resolved before commands are emitted so later
+    Run code can stay command-oriented.
+
 Related:
   - SkullbonezSource/Runtime/InputController.h
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -73,6 +79,8 @@ void RuntimeInputContext::SyncMouseButtons( bool leftDown, bool rightDown )
 
 bool RuntimeInputContext::CaptureActionPress( RuntimeInputAction action, int virtualKey )
 {
+    // Concept: this is edge detection, not command execution. Run decides what
+    // the normalized action means after all UI/focus gates have been applied.
     const bool isDown = Hardware::Input::IsKeyDown( virtualKey );
     if ( !IsActionMemoryValid( action ) )
     {

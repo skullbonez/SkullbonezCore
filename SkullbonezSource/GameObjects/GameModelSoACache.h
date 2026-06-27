@@ -14,6 +14,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Arrays are fixed to MAX_GAME_MODELS and activeCount names the valid prefix.
+  - Borrowed stream pointers are valid only until the owning collection mutates
+    or invalidates the cache.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelSoACache.cpp
   - Agentic/Reference/runtime-reference.md

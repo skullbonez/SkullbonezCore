@@ -12,6 +12,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
+  Descriptor, render-graph, and barrier expectations protect ownership and
+  synchronization contracts.
+
 Related:
   - AGENTS.md
   - Agentic/Reference/comment-style-guide.md

@@ -13,6 +13,12 @@ Glossary:
   Camera delta: Per-frame mouse movement accumulated before camera update.
   Runtime input event: Frame-local input state consumed by Run.
 
+Invariants:
+  - RuntimeInputAction order is shared by fixed-size arrays in
+    RuntimeInputContext and should only grow by appending before Count.
+  - RuntimeInputFrameState contains resolved per-frame policy; it must not own
+    persistent subsystem state.
+
 Related:
   - SkullbonezSource/Runtime/InputController.cpp
   - SkullbonezSource/Runtime/RunInput.cpp

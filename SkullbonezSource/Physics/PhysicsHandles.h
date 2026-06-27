@@ -9,6 +9,12 @@ Mental model:
   GameModelCollection storage. Generations make stale handles explicit once the
   authoritative physics facade starts allocating and recycling ids.
 
+Glossary:
+  Handle: Index plus generation pair used as opaque identity for physics-owned
+  storage.
+  Generation: Version counter that makes stale recycled handles detectable.
+  Scene object id: Stable scene/replay correlation id independent of storage.
+
 Invariants:
   - Index/generation handles are identity only; they do not expose storage.
   - PhysicsSceneObjectId value 0 is reserved for "not assigned".

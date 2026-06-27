@@ -14,6 +14,12 @@ Glossary:
   the main thread waits before merging results.
   Fence: Synchronization primitive used to wait for all queued chunks.
 
+Invariants:
+  - Worker-disabled mode runs work inline through the same public helpers so
+    validation can compare threaded and non-threaded behavior.
+  - Fork-join helpers capture the first worker exception and rethrow it on the
+    calling thread after every queued chunk has signaled its fence.
+
 Related:
   - SkullbonezSource/Core/WorkerPool.h
   - SkullbonezSource/Core/AmortizedTask.h
@@ -68,6 +74,8 @@ class FenceSignalGuard
 
     ~FenceSignalGuard()
     {
+        // Invariant: every queued chunk must release the join fence even when
+        // user work throws; exception propagation happens after the wait.
         if ( m_active )
         {
             m_fence.Signal();

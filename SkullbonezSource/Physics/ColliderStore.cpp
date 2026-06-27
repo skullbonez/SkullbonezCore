@@ -14,6 +14,12 @@ Glossary:
   Replay body id: Stable per-scene id used when replay and diagnostics name a
     physics body across frames.
 
+Invariants:
+  - Collider records stay in GameModelCollection model order so body/collider
+    handles share the same compatibility index.
+  - Refresh snapshots collision metadata only; model pose and solver state
+    remain owned elsewhere.
+
 Related:
   - SkullbonezSource/Physics/ColliderStore.h
 */
@@ -47,6 +53,8 @@ void ColliderStore::Clear()
 
 void ColliderStore::Refresh( std::vector<GameModel>& models )
 {
+    // Invariant: compatibility handles mirror model indices until the physics
+    // facade owns allocation. Do not sort or compact this store independently.
     m_colliders.resize( models.size() );
     m_modelColliderHandles.resize( models.size() );
     for ( std::size_t i = 0; i < models.size(); ++i )

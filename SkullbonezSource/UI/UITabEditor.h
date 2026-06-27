@@ -12,6 +12,10 @@ Glossary:
   Widget state: Per-control hover, press, selection, and text state retained
   across frames.
 
+Invariants:
+  - Object ids must stay aligned with runtime editor placement handling.
+  - UIEditorTabState owns widget state only; runtime owns scene mutation.
+
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
   - SkullbonezSource/Runtime/RunInput.cpp

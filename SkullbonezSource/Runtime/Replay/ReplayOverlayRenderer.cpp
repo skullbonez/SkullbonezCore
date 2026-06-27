@@ -7,6 +7,22 @@ Mental model:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   as replay input by using ReplayOverlayLayout helpers.
 
+Glossary:
+  UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
+  Scrubber: Replay timeline UI for retained samples, loaded artifacts, and
+    future prediction frames.
+  Cause tree: Contact/solver explanation view rooted at the selected replay
+    body.
+  Presentation sample: Render-only replay pose used for visual scrub previews.
+  Solver sample: Replay frame with solver snapshot data used for restore and
+    inspection.
+
+Invariants:
+  - Drawn controls must use ReplayOverlayLayout rectangles so input hit boxes
+    stay identical.
+  - Overlay rendering reads replay state only; replay mutation belongs to input
+    and runtime replay helpers.
+
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
@@ -27,10 +43,17 @@ namespace SkullbonezCore::Basics::ReplayOverlay
 {
 using Text::Text2d;
 
+// Concept: the replay overlay is a read-only projection of replay state.
+//
+// Input code owns mutations such as dragging, toggling prediction, and branch
+// creation. This pass samples the current state and turns it into UI quads and
+// text so rendering cannot accidentally advance or rewrite replay timelines.
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     ReplayRuntime& replayRuntime = context.replayRuntime;
+    // Why: the cause tree is an inspection tool, not a child of the scrubber.
+    // Draw it even when the scrubber itself is hidden by UI/editor policy.
     RenderReplayCauseTreeOverlay( context );
 
     if ( !replayRuntime.ShouldRenderScrubber( context.editorModeEnabled, context.uiVisible, context.uiMinimized ) )
@@ -51,6 +74,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const float t = std::clamp( replayRuntime.TrackPosition( activeTrack ), 0.0f, 1.0f );
     const float solverPresentT = loadedPresentation ? 1.0f : replayRuntime.SolverPresentTrackPosition();
+    // Concept: the solver track is split into retained history and generated
+    // future. Positions past the live marker draw prediction frames instead of
+    // retained solver samples.
     const bool futureTimelineVisible = !loadedPresentation && ReplayRuntime::TimelineHasFuture( solverPresentT );
     const bool futureSelected = !loadedPresentation && ReplayRuntime::TrackPositionIsFuture( t, solverPresentT );
     const float solverSampleT = ReplayRuntime::SolverNormalizedFromTrack( t, solverPresentT );
@@ -512,6 +538,9 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         return;
     }
 
+    // Invariant: row generation, scrolling, and drawing use the same mutable
+    // cause-tree state. Clamp window geometry before deriving visible rows so
+    // scroll offsets cannot point outside the rendered content.
     EnsureReplayCauseWindowPlacement( replayRuntime.CauseTree(), screenW, screenH );
     const UI::UIRect panel = ReplayCauseWindowRect( replayRuntime.CauseTree() );
     const UI::UIRect title = ReplayCauseWindowTitleRect( replayRuntime.CauseTree() );

@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Shared constants in this file are compile-time engine contracts; changing
+    capacities, tolerances, or fixed timestep values changes validation scope.
+  - Cfg() and Log() are convenience accessors only; ownership remains with the
+    singleton types declared in their own subsystem headers.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md

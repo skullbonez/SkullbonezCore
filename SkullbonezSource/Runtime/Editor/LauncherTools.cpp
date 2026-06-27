@@ -13,6 +13,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Launcher repro output is a debugging interface; key names and numeric
+    precision should stay stable unless every downstream consumer is updated.
+  - Target picking is read-only and must not perturb physics, selection, or
+    launcher shot history.
+
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
   - Agentic/Reference/runtime-reference.md
@@ -61,6 +67,9 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     float bestCrosshairDist = 0.0f;
     int bestIndex = -1;
 
+    // Concept: Repro target picking approximates each model as a bounding
+    // sphere around its current position, then chooses the nearest sphere
+    // pierced by the camera ray.
     int count = collection.GetModelCount();
     for ( int i = 0; i < count; ++i )
     {
@@ -243,6 +252,9 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
 
     time_t now = time( nullptr );
+    // Invariant: Snapshot keys are intentionally simple CSV-like rows. Keep
+    // names, order, and precision stable so copied repro blocks remain useful
+    // across debugging sessions and script revisions.
     fprintf( f, "\n=== LAUNCHER REPRO SNAPSHOT ===\n" );
     fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
     fprintf( f, "snapshot_file,%s\n", LAUNCHER_REPRO_SNAPSHOT_PATH );

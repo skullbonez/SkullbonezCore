@@ -9,6 +9,19 @@ Mental model:
   flags, and required-gate resolution while moving the construction algorithms
   out of Run.
 
+Glossary:
+  Authored scene: Parsed `.scene.json` data that explicitly names terrain,
+    cameras, objects, materials, constraints, and validation gates.
+  Required gate: Scene-authored condition that must be observed before a
+    validation run can complete.
+  Ragdoll part: One model body in the generated simple ragdoll assembly.
+
+Invariants:
+  - Scene object insertion order is validation-facing and must stay stable.
+  - Authored hull tokens resolve through the editor hull asset table for
+    compatibility with saved scenes.
+  - Gate state is initialized here but completed by frame/runtime observation.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -231,6 +244,9 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 
 void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene )
 {
+    // Invariant: Model insertion order follows scene schema sections. Runtime
+    // validation, saved editable scenes, and point-joint name resolution all
+    // depend on this deterministic order.
     context.sceneState.modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() +
                                     scene.GetBoxStateCount() + scene.GetConvexHullCount() +
                                     scene.GetConvexHullStateCount() +
@@ -253,7 +269,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetFixed( ball.isFixed );
         ApplyEditorPlacedSphereMaterial( gameModel );
 
-        // apply initial orientation if specified (euler angles in degrees, XYZ order)
+        // Concept: Authored init orientation is stored as Euler degrees in XYZ
+        // order, while snapshot state stores the final quaternion directly.
         if ( ball.hasInitOrient )
         {
             gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
@@ -406,9 +423,9 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         }
     }
 
-    // convex_hull_state entries: full dynamic state from an editable scene
-    // snapshot. The snapshot writer stores GameModel::GetPosition(), which is
-    // the simulated body/COM position, so do not add the authored hull COM here.
+    // Invariant: convex_hull_state entries come from editable scene snapshots.
+    // The writer stores GameModel::GetPosition(), the simulated body/COM
+    // position, so do not add the authored hull COM here.
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
@@ -486,6 +503,9 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
+        // Why: Material overrides are applied after all bodies exist so prefix
+        // and exact-name targets can hit authored objects, generated ragdolls,
+        // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
         for ( int modelIndex = 0; modelIndex < context.models.GetModelCount(); ++modelIndex )
         {
@@ -504,6 +524,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
 void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene )
 {
+    // Lifetime: Required contacts store body indices resolved for this load.
+    // Scene reloads must rebuild them because model storage is recreated.
     context.requiredContacts.clear();
     context.requiredContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
     const std::vector<GameModel>& models = context.models.Models();

@@ -8,6 +8,21 @@
 @rem   deterministic coverage available for collision, baseline, and diagnostic
 @rem   work that warrants the extra executable launches.
 @rem
+@rem Glossary:
+@rem   Deep physics validation: Broad deterministic physics sweep beyond the
+@rem   cheap core solver baseline.
+@rem   Collision-time log: CSV artifact for bullet sweep timing assertions.
+@rem
+@rem Invariants:
+@rem   - Debug build artifacts drive this gate so generated CSVs match committed
+@rem   baseline expectations.
+@rem   - Physics baseline refreshes must rerun this gate after writing updated
+@rem   artifacts.
+@rem
+@rem Related:
+@rem   - tools/validate_physics.bat
+@rem   - AGENTS.md
+@rem
 @echo off
 setlocal enabledelayedexpansion
 REM ===============================================================

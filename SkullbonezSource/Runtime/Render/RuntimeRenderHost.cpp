@@ -7,6 +7,19 @@ Mental model:
   RuntimeRenderHost is still a bridge, but bridge methods should draw from
   named runtime owners instead of callback-bouncing into Run.
 
+Glossary:
+  Render host: Borrowed service view used by render passes while Run remains
+  the broader composition root.
+  Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
+  Replay ghost: Transparent predicted-body draw used to preview replay future
+  path samples.
+
+Invariants:
+  - Host methods borrow runtime state and must not take ownership of models,
+    UI, replay, editor, or renderer resources.
+  - Replay ghost model indices are validated against the current model vector
+    before any draw request is submitted.
+
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h

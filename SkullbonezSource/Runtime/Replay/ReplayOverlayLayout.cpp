@@ -7,6 +7,17 @@ Mental model:
   Replay layout is a replay subsystem concern. Input hit boxes and drawn
   controls should stay mechanically identical by using the same helpers.
 
+Glossary:
+  Scrubber: Bottom-screen replay timeline control used for save/load, pause,
+    branch, prediction, and velocity-edit actions.
+  Cause window: Movable replay inspection panel that explains selected contact
+    and solver relationships.
+  UIRect: Pixel-space rectangle shared by hit testing and drawing.
+
+Invariants:
+  - Input and rendering must call these helpers for the same rectangles.
+  - Clamp movable overlay windows before drawing or hit testing them.
+
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
@@ -17,6 +28,11 @@ Related:
 
 namespace SkullbonezCore::Basics::ReplayOverlay
 {
+// Concept: replay overlay geometry is the contract between input and drawing.
+//
+// A replay control is only usable if the mouse hit box and drawn pixels agree.
+// Keep derived rectangles here instead of duplicating layout math in
+// RunReplayTools and ReplayOverlayRenderer.
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
 {
     const float width =
@@ -120,6 +136,9 @@ float ReplayPredictionHorizonT( float seconds )
 
 float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
 {
+    // Why: prediction seconds use a normalized slider, but the user drags in
+    // pixels. Clamp before scaling so mouse drift outside the slot cannot
+    // create an invalid future horizon.
     const float t =
         horizon.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - horizon.x ) / horizon.w, 0.0f, 1.0f ) : 1.0f;
     const float seconds =
@@ -210,6 +229,9 @@ float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
 
 void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
 {
+    // Invariant: the resize handle and title bar must remain reachable after a
+    // resolution change, or the inspection window can become permanently
+    // off-screen for the session.
     state.width = (std::max)( REPLAY_CAUSE_WINDOW_MIN_W,
                               (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
     state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,

@@ -14,6 +14,11 @@
 #   Replay v2: Chunked binary presentation .skreplay artifact.
 #   SkullScope slice: Bounded NDJSON exported from selected replay frames.
 #
+# Invariants:
+#   - Runtime-generated artifacts are validated through replay_query and
+#     physics_query rather than by hand-parsing every byte in validation logs.
+#   - Expected failure coverage must prove bad restore paths fail cleanly.
+#
 # Related:
 #   - tools/replay_query.py
 #   - tools/physics_query.py

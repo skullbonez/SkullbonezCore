@@ -8,6 +8,12 @@ Mental model:
   needs for one frame, not the entire Run object. These structs are references
   only; ownership stays with Run until later extraction phases move it.
 
+Glossary:
+  Render services: Borrowed references to systems required by render passes.
+  Render inputs: One-frame wrapper around the current render services.
+  Borrowed pointer: Nullable dependency that remains owned by Run or a scene
+  subsystem.
+
 Invariants:
   - RuntimeRenderInputs is rebuilt for the current render call and is not
     stored by render passes.

@@ -9,6 +9,20 @@ Mental model:
   preview state and append deterministic tool geometry to the shared tracer from
   explicit borrowed state.
 
+Glossary:
+  Preview state: Editor-owned placement or gizmo data refreshed from current
+    input before the render overlay is built.
+  Tool overlay trace: Deterministic line/ghost geometry appended for editor,
+    inspect, raycast, and mouse-pickup feedback.
+  UI (User Interface): Runtime panels that can claim mouse input before editor
+    tools see it.
+
+Invariants:
+  - Helpers borrow all mutable state through context structs; they do not cache
+    pointers or own runtime services.
+  - Preview updates may mutate editor state, but overlay tracing must be a
+    read-only projection of the current tool state.
+
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
   - SkullbonezSource/Runtime/Run.cpp

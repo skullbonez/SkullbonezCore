@@ -15,6 +15,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  Tests exercise RuntimeInteractionController policy without editor, replay,
+  renderer, or physics launches.
+  Gesture, owner, pointer capture, camera-look, and physics-advance transitions
+  must remain mutually consistent.
+
 Related:
   - AGENTS.md
   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md

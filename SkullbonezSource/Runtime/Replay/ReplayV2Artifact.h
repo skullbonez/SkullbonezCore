@@ -18,6 +18,8 @@ Glossary:
   Branch provenance chunk: Small records naming live timeline ancestry after a
     hash-verified restore creates a child branch.
   Chunk: A typed byte range in the replay file, found through the chunk table.
+  JSON (JavaScript Object Notation): Legacy text replay format kept for old
+    debugging workflows.
 
 Invariants:
   - V2 presentation artifacts are little-endian and chunk-table based.

@@ -16,6 +16,12 @@ Glossary:
     them.
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
 
+Invariants:
+  - Body records stay in GameModelCollection physics model order until the
+    facade owns allocation and id recycling.
+  - Pending impulses and sleep state are preserved across compatibility refresh
+    only when the refreshed handle still names the same model slot.
+
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
@@ -98,6 +104,8 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
         const PhysicsBodyHandle handle = MakeCompatibilityPhysicsBodyHandle( modelIndex );
         const bool preservePendingImpulse = record.handle == handle && record.hasPendingImpulse;
         const bool preserveSleeping = record.handle == handle && record.isSleeping;
+        // Why: refresh copies live compatibility state every frame, but a
+        // pending tool impulse and sleep seed are physics-owned one-shot state.
         const Vector3 pendingImpulse = record.pendingImpulse;
         const Vector3 pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
         record.handle = MakeCompatibilityPhysicsBodyHandle( modelIndex );

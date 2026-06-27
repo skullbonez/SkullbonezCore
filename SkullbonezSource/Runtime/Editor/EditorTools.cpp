@@ -169,6 +169,9 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = ClampEditorObjectType( objectType );
+    // Concept: Object families define the shape of the scale value. Trees and
+    // buildings ignore user scale, balls use one radius, hulls use hull-local
+    // factors, and boxes use world half extents.
     if ( EditorPlacementUsesTreeScaleLock( type ) )
     {
         return Vector3( 1.0f, 1.0f, 1.0f );
@@ -226,6 +229,9 @@ Vector3 EditorPlacementScaleFromGesture( int objectType,
 
 void ResetEditorUnfocusedInputState( EditorGizmoContext context )
 {
+    // Lifetime: Losing focus cancels gesture-owned state only. Persistent
+    // editor choices such as object type and static/dynamic placement survive
+    // so toggling focus does not rewrite the authoring mode.
     context.editor.viewportLookActive = false;
     context.editor.altShortcutWasDown = false;
     context.editor.tabShortcutWasDown = false;

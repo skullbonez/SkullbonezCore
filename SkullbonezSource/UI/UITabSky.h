@@ -8,6 +8,16 @@ Mental model:
   same cinematic UI commands as the broader Cine tab, but presents only the
   sky, cloud, ray, and palette controls.
 
+Glossary:
+  Sky feature: Toggle for sky, clouds, god rays, or volumetric lighting.
+  Sky slider: Focused cinematic parameter slider owned by this tab.
+  Active slider: Global UI drag id captured while the user drags a slider.
+
+Invariants:
+  - Slider and feature counts must match the specs in UITabSky.cpp.
+  - UISkyTabState owns widget state only; render config changes are command
+    intents handled by runtime code.
+
 Related:
   - SkullbonezSource/UI/UITabSky.cpp
   - SkullbonezSource/UI/UITabCinematic.h

@@ -15,6 +15,12 @@ Glossary:
   Side-channel log: Artifact written for diagnostics without changing runtime
   behavior.
 
+Invariants:
+  - Diagnostics may sample and flush artifacts, but must not mutate simulation
+    or render ownership.
+  - Large process-memory sampling is batched so diagnostics do not allocate or
+    block unpredictably inside a validation frame.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
   - Agentic/Reference/comment-style-guide.md
@@ -63,6 +69,8 @@ bool FlushWorkingSetQueryBatch( HANDLE process,
                                 uint64_t& privateWorkingSetBytes,
                                 uint64_t pageSize )
 {
+    // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
+    // whole sample. The caller tracks success separately from the byte count.
     if ( pages.empty() )
     {
         return true;

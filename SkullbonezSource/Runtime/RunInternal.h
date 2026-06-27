@@ -18,6 +18,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Types in this header are private to split Run implementation files; public
+    runtime contracts belong in narrower headers.
+  - Inline helpers may synchronize borrowed subsystem state, but they do not
+    own renderer, physics, UI, or replay lifetimes.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md

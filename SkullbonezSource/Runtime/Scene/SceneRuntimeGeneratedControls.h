@@ -8,6 +8,15 @@ Mental model:
   active scene selected. This module owns the deterministic rebuild mutation and
   returns the replay/profiler follow-up work the composition root still runs.
 
+Glossary:
+  Generated control: UI action that changes generated scene object counts.
+  Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
+  Model capacity: Active object capacity limit.
+
+Invariants:
+  - Helpers mutate generated scene/model state only through the context.
+  - Returned actions describe caller-owned follow-up work and must be honored.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp

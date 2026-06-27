@@ -12,6 +12,11 @@
 #   threading GameModelCollection into one more API. This check is intentionally
 #   small: it watches the boundaries named by the active architecture plans.
 #
+# Glossary:
+#   Composition root: Top-level owner that wires subsystems together.
+#   Boundary guardrail: Static check that blocks architecture drift.
+#   Allowlist: Explicit set of legacy references accepted during migration.
+#
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
 #   - Subsystems may borrow explicit service/context structs, but not store Run.

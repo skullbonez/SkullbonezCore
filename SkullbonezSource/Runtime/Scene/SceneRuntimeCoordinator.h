@@ -9,6 +9,14 @@ Mental model:
   returned control intents until later Phase 3 slices move generated and
   authored scene application behind scene-owned APIs.
 
+Glossary:
+  Control action: Explicit request for Run to load, clear automation, or apply
+    cinematic mode.
+  Scene browser path: Path discovered from the scenes directory and shown in
+    the UI browser.
+  Interactive scene run: User-owned scene flow where automation should not exit
+    the app.
+
 Invariants:
   - The coordinator does not own scene browser path storage.
   - The coordinator does not mutate renderer, physics, replay, or UI state

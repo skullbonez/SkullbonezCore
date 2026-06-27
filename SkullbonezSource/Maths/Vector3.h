@@ -18,6 +18,11 @@ Glossary:
   POD (Plain Old Data): Simple public data layout used here so old math and
   physics paths can pass vectors cheaply without accessor overhead.
 
+Invariants:
+  - Vector3 is a public-component POD-style math type; hot paths read and write
+    x, y, and z directly.
+  - ZERO_VECTOR is a shared value sentinel, not mutable global state.
+
 Related:
   - SkullbonezSource/Maths/Vector3.cpp
   - Agentic/Reference/comment-style-guide.md

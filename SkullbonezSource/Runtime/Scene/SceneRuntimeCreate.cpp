@@ -8,6 +8,13 @@ Mental model:
   a deterministic starter scene, refresh browser state, append the path to the
   scene queue, and ask the caller to load it interactively.
 
+Glossary:
+  Starter scene: Minimal `.scene.json` written for a newly created editable
+    scene.
+  Sanitized filename: User-provided scene name reduced to a bounded safe file
+    stem.
+  Scene queue action: Control intent returned so Run loads the new file.
+
 Invariants:
   - Starter scene JSON shape and field names are user-facing compatibility
     surface.
@@ -119,6 +126,8 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
         return false;
     }
 
+    // Invariant: Starter scene keys are the compatibility surface for newly
+    // editable scenes. Keep this shape aligned with TestScene parsing.
     Json scene;
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 1;
@@ -168,6 +177,8 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 SceneRuntimeControlAction CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName )
 {
+    // Concept: Creating a scene queues a load action instead of loading
+    // directly, keeping filesystem work separate from Run's scene side effects.
     const std::string cleanName = SanitizeSceneFileName( requestedName );
     if ( cleanName.empty() )
     {

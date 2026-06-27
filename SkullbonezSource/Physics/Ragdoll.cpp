@@ -8,6 +8,12 @@ Mental model:
   point-to-point constraint data. This keeps the hacky ragdoll feature isolated
   and leaves a clear migration path to a full constraint solver.
 
+Glossary:
+  Point joint: Constraint that keeps two local anchors near each other.
+  Slack: Allowed anchor separation before the solver pushes the bodies back
+  toward the constraint.
+  Neck swing limit: Special angular clamp applied to the head/torso joint.
+
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
@@ -108,6 +114,8 @@ float ClampRagdollScale( float scale )
 
 const SimplePartDef* SimpleParts()
 {
+    // Invariant: this table order is the prefab body index order and is paired
+    // with SimpleJoints plus SIMPLE_PART_COUNT.
     static const SimplePartDef parts[PART_COUNT] = {
         { "torso", Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f, 1.0f },
         { "head", Vector3( 0.0f, 17.25f, 0.0f ), Vector3( 1.2f, 1.2f, 1.2f ), 0.15f, 0.95f, 0.82f, 0.58f },

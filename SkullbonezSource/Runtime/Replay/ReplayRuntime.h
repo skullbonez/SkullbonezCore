@@ -14,6 +14,8 @@ Glossary:
     inspection and rollback.
   Cause tree: Replay contact graph used by the tool UI to explain which body or
     contact caused another replay body to matter.
+  UI (User Interface): Runtime controls and overlays that expose replay state
+    to the player or debugging workflow.
   Velocity edit: Replay tool that displays and edits linear/angular velocity on
     the current path target.
   Runtime state: UI and tool state that belongs to replay but is still consumed

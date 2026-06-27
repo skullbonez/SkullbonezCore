@@ -15,6 +15,11 @@
 #   Replay scrub: Selecting an older retained presentation sample for visual
 #   inspection while live simulation state can continue afterward.
 #
+# Invariants:
+#   - The script asserts relational facts from bounded queries, not a full raw
+#     trace baseline.
+#   - Debug executable and generated trace paths must exist before checks pass.
+#
 # Related:
 #   - AGENTS.md
 #   - Agentic/Reference/comment-style-guide.md

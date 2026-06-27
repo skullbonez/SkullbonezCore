@@ -15,6 +15,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Render graph handles are graph-local ids, not CPU pointers or GPU descriptor
+    handles.
+  - External resources are borrowed backend-owned resources; the graph records
+    usage intent without taking lifetime ownership.
+
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
   - Agentic/Reference/comment-style-guide.md

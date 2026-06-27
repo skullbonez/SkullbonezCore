@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Run delegates capture encoding to CaptureController so screenshot policy
+    stays separate from backend readback details.
+  - Capture requests use the active renderer only after the runtime backend has
+    been initialized.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

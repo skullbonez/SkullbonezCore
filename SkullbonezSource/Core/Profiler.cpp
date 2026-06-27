@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Marker identity is the full path plus hash; hash collisions abort because
+    merged timings would corrupt diagnostics.
+  - Begin/end nesting must balance before frame end for both CPU and GPU marker
+    rings.
+
 Related:
   - SkullbonezSource/Core/Profiler.h
   - Agentic/Reference/runtime-reference.md
@@ -121,6 +127,8 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
 
 int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 {
+    // Hazard: profiler overlays and CSVs rely on stable marker identity. A
+    // collision is surfaced immediately instead of silently merging samples.
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == hash )

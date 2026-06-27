@@ -98,6 +98,8 @@ bool IsMarkerExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState
 
 void ToggleMarker( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
+    // Invariant: Expanded profiler rows are tracked by marker hash in a bounded
+    // array so UI state survives marker reordering without heap churn.
     state.defaultExpansionApplied = true;
     for ( int i = 0; i < state.expandedHashCount; ++i )
     {
@@ -528,6 +530,8 @@ bool HandleContentClick( UIProfilerTabState& state,
                          int currentWorkerThreads,
                          int maxWorkerThreads )
 {
+    // Concept: The profiler tab owns UI expansion and slider preview state, but
+    // worker-thread changes are returned as commands for runtime code to apply.
     SetProfilerContentBounds( state, static_cast<float>( contentX ), static_cast<float>( contentY ), contentW );
     const int workerMax = (std::max)( 1, maxWorkerThreads );
     const int workerCount = std::clamp( currentWorkerThreads, 0, workerMax );
@@ -665,6 +669,8 @@ bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIIn
 
 void PushPerformanceHistogramSample( UIProfilerTabState& state, float cpuMs, float gpuMs )
 {
+    // Invariant: Histogram samples are a fixed ring buffer; clamp outliers so
+    // one bad frame does not permanently flatten the visible chart scale.
     cpuMs = std::clamp( cpuMs, 0.0f, 250.0f );
     gpuMs = std::clamp( gpuMs, 0.0f, 250.0f );
 

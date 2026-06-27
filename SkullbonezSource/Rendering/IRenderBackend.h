@@ -26,6 +26,12 @@ Glossary:
   GPU VA (GPU Virtual Address): Device address used by DXR geometry records.
   VB (Vertex Buffer): GPU buffer containing vertex attributes for a mesh.
 
+Invariants:
+  - This contract stays in engine terms; native DX12 descriptors, barriers, and
+    command-list details remain backend-private.
+  - Texture, mesh, shader, framebuffer, and capture handles are valid only for
+    the active backend lifetime.
+
 Related:
   - SkullbonezSource/Rendering/IRenderBackend.cpp
   - Agentic/Reference/comment-style-guide.md

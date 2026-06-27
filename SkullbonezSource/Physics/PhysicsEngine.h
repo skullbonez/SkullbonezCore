@@ -9,6 +9,12 @@ Mental model:
   same order, so later scene/tool/replay callers can move to named physics
   commands without touching solver internals directly.
 
+Glossary:
+  Facade: Narrow public boundary that forwards commands while hiding solver
+  internals.
+  Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
+  Compatibility path: Transitional API that still accepts GameModelCollection.
+
 Invariants:
   - Forwarders must not reorder solver, store-refresh, replay, or diagnostics calls.
   - PhysicsScene and PhysicsWorld remain implementation details behind this facade.

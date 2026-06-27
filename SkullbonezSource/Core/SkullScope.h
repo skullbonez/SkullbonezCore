@@ -12,6 +12,12 @@ Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
 
+Invariants:
+  - SkullScope state is debug-only and records run-local counters, not global
+    engine state.
+  - SetPath and SetRunId reset derived state so a new trace cannot inherit
+    penetration-window counters from a previous run.
+
 Related:
   - SkullbonezSource/Core/SkullScope.cpp
   - Agentic/Reference/comment-style-guide.md

@@ -13,6 +13,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - This file arbitrates ownership before mutating world state; UI, editor,
+    replay, launcher, and camera modes must not all consume the same gesture.
+  - Camera vectors are normalized defensively because scene and replay targets
+    may be absent, stale, or degenerate for a frame.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -73,6 +79,9 @@ bool IsFiniteVector( const Vector3& v )
 
 bool TryNormalizeVector( Vector3& v )
 {
+    // Hazard: attachment and replay camera targets can briefly collapse to a
+    // zero-length vector after a reset or stale body recovery. Callers must use
+    // a fallback instead of feeding NaNs into camera matrices.
     if ( !IsFiniteVector( v ) )
     {
         return false;

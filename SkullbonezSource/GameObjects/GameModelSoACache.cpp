@@ -14,6 +14,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - GameModel remains authoritative; this cache is disposable derived data.
+  - Body data and model matrices have independent validity because physics and
+    rendering do not always need the same fields.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelSoACache.h
   - Agentic/Reference/runtime-reference.md

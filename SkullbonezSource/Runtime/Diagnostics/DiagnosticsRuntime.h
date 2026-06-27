@@ -125,6 +125,8 @@ class DiagnosticsRuntime
     void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
 #endif
 
+    // Invariant: UI stress state is deterministic scene-driven input churn.
+    // Keep it cheap and seed-based so validation can reproduce failures.
     struct UIStressState
     {
         bool enabled = false;                       // Deterministic scene-driven UI stress runner

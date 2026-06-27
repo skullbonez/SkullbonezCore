@@ -14,6 +14,11 @@
 @rem   SkullScope slice: Bounded NDJSON exported from a replay window for
 @rem   physics_query import.
 @rem
+@rem Invariants:
+@rem   - The Debug executable is rebuilt before replay artifact probes run.
+@rem   - Validation passes only after check_replay_v2_artifact.py verifies save,
+@rem   load, query, and expected restore-failure behavior.
+@rem
 @rem Related:
 @rem   - tools/replay_query.py
 @rem   - AGENTS.md

@@ -1,4 +1,25 @@
 @echo off
+REM File: tools\validate_interaction_clicks.bat
+REM Purpose:
+REM   Validate scripted runtime interaction clicks for inspect gizmo and replay
+REM   prediction workflows.
+REM
+REM Mental model:
+REM   This is a focused UI/runtime interaction gate. It builds Profile, runs
+REM   deterministic interaction scripts, and writes reports/screenshots for the
+REM   two covered click paths.
+REM
+REM Glossary:
+REM   Interaction script: JSON input sequence consumed by the runtime.
+REM   Interaction report: JSON artifact describing what the scripted click did.
+REM
+REM Invariants:
+REM   - The script fails on any build or executable error.
+REM   - Reports are written under TestOutput\interaction for review.
+REM
+REM Related:
+REM   - AGENTS.md
+REM   - SkullbonezData\interaction
 setlocal
 
 set ROOT=%~dp0..

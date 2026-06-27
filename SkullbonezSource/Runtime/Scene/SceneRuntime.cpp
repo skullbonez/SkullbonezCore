@@ -14,6 +14,12 @@ Glossary:
   Scene-run state: Counters, flags, and overrides that describe the currently
   loaded scene.
 
+Invariants:
+  - Queue paths are normalized with forward slashes for comparisons.
+  - Generated demo scenes are represented by an empty queue path.
+  - Cinematic deck detection is filename-based and must match browser/load
+    helpers.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
   - Agentic/Reference/runtime-reference.md
@@ -63,6 +69,8 @@ bool IsCineScenePath( const std::string& path )
 
 void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults )
 {
+    // Lifetime: This clears per-load runtime state only. Queue position, scene
+    // paths, and manual reset counts stay with SceneRuntime/SceneController.
     isScenePhysics = true;
     isSceneText = true;
     targetFrameCount = -1;

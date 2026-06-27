@@ -13,6 +13,12 @@ Glossary:
   Solver sample: Physics-facing state retained for rollback and diagnostics.
   Hash log: Deterministic per-sample digest stream used to compare replay output.
   Retention window: Maximum in-memory duration retained by the ring buffers.
+  CPU (Central Processing Unit): Host-side work; recording must not add GPU or
+    renderer resource ownership.
+  GPU (Graphics Processing Unit): Rendering device; recorders should not own or
+    mutate GPU resources.
+  UI (User Interface): Runtime controls and overlays; recorders observe state
+    but never mutate UI state.
 
 Invariants:
   - Recording observes committed state and never advances simulation.
@@ -592,6 +598,10 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
 
 bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 {
+    // Concept: the recorder is a bounded ring buffer plus optional hash log.
+    //
+    // Configuration resets all retained samples because changing retention or
+    // checkpoint cadence changes the meaning of every normalized scrub offset.
     m_config = config;
     m_config.retentionSeconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
     m_config.checkpointIntervalFrames = (std::max)( 1, m_config.checkpointIntervalFrames );
@@ -657,6 +667,9 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     ReplayPresentationSample& sample = AcquireSampleSlot();
+    // Invariant: frameIndex is recorder-local monotonic time. Even when older
+    // ring-buffer slots are evicted, saved branches and hash logs still compare
+    // frames by this increasing index.
     sample.frameIndex = m_nextFrameIndex++;
     sample.branch = NormalizeBranchInfo( input.branch );
     sample.eventCursor = input.eventCursor;
@@ -727,6 +740,9 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     const std::vector<int>& sleepIslandIds = models.GetSleepIslandVisualIds();
 
     uint64_t hash = FNV64_OFFSET;
+    // Concept: presentation hashes summarize what the viewer would need to see
+    // and diagnose a frame. They intentionally include world state, body poses,
+    // contact summaries, and pipeline counts rather than raw memory addresses.
     hash = HashWorld( hash, sample.world );
     hash = HashInt( hash, static_cast<int>( modelCount ) );
     hash = HashInt( hash, static_cast<int>( sample.contactCount ) );
@@ -863,6 +879,8 @@ const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normal
 
 ReplayPresentationSample& ReplayRecorder::AcquireSampleSlot()
 {
+    // Lifetime: returned references stay valid only until a future capture
+    // wraps the ring buffer onto the same slot.
     if ( m_sampleCount < m_samples.size() )
     {
         const std::size_t index = ( m_sampleHead + m_sampleCount ) % m_samples.size();
@@ -896,6 +914,8 @@ void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sam
     }
 
     ReplayCheckpointSummary& checkpoint = m_checkpoints[index];
+    // Why: checkpoints keep cheap seek/diagnostic facts beside the dense
+    // samples. Full solver restore data lives in solver replay artifacts.
     checkpoint.frameIndex = sample.frameIndex;
     checkpoint.eventCursor = sample.eventCursor;
     checkpoint.simulationSeconds = sample.simulationSeconds;
@@ -927,6 +947,9 @@ void ReplayRecorder::WriteHashLogRow( const ReplayPresentationSample& sample )
         return;
     }
 
+    // Invariant: hash-log columns are external validation surface. Keep order,
+    // precision, and hex formatting stable unless replay tooling is updated in
+    // the same change.
     char line[256] = {};
     sprintf_s( line,
                sizeof( line ),

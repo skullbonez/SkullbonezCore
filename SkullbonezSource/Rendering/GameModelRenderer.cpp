@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - GameModelRenderer consumes collection render streams; GameModelCollection
+    remains the owner of model order and lifetime.
+  - Shadow caster preparation may run worker-side, but draw submission remains
+    on the render thread through RenderHelper/Gfx().
+
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
   - Agentic/Reference/comment-style-guide.md
@@ -55,6 +61,8 @@ bool IsPineVisualMaterial( const RenderMaterial& material )
 
 RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool box )
 {
+    // Why: fixed-contact highlights are render-only feedback. They must not
+    // mutate the model's stored material or physics release policy.
     RenderMaterial material = model.GetRenderMaterial();
     const float hit = model.GetFixedContactHighlightAlpha();
     if ( hit <= 0.0f )

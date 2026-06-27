@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Process-local Win32 input accumulators are drained into InputState at frame
+    boundaries; stale mouse deltas must not leak across focus/UI transitions.
+  - ShowCursor is normalized through helper loops because Win32 exposes a
+    reference counter, not a simple visible/hidden boolean.
+
 Related:
   - SkullbonezSource/Runtime/Input.h
   - Agentic/Reference/runtime-reference.md
@@ -26,6 +32,8 @@ using namespace SkullbonezCore::Basics;
 
 namespace
 {
+// Lifetime: Win32 callbacks and frame polling share these process-local
+// accumulators. The run loop owns when values are sampled and reset.
 int g_mouseWheelDelta = 0;
 bool g_systemCursorVisibleRequested = false;
 long g_rawMouseDeltaX = 0;

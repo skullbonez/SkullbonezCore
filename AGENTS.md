@@ -68,9 +68,18 @@ Comment quality is part of completion, not a follow-up nicety.
   explicit checklist plan under `Agentic/Plans/` that lists every tracked source
   file in scope. Use `git ls-files`, not `rg`, for the inventory because ignored
   directory names such as `Physics/Debug` can still contain tracked source.
+- The checklist is the source of truth for comment-pass completion. It must
+  include one checkbox per tracked source-bearing file in the scoped inventory
+  (`.cpp`, `.h`, `.hpp`, `.inl`, `.hlsl`, and substantial `.py`/`.bat`/`.ps1`
+  tools when they are in scope). Do not report a subsystem as complete from a
+  sample, directory glance, or search result alone.
 - Tick a checklist item only after the file has been inspected against the
   guide. If a file is intentionally deferred, leave it unchecked and add a
   reason; never silently skip a file.
+- A checked item means the file has both the required learning-header sections
+  and any nearby `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`
+  comments needed by the guide for non-obvious code. Missing either part keeps
+  the item unchecked.
 - Before final reporting on a comment pass, rerun the scoped `git ls-files`
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files

@@ -14,6 +14,11 @@ Glossary:
   Lock graph: Directed graph of observed "held before acquired" relationships.
   Debug build: Configuration where validation asserts are active.
 
+Invariants:
+  - TrackedMutex must match std::mutex lock/try_lock/unlock semantics for
+    callers; validation is extra instrumentation, not a new locking policy.
+  - Lock ids are stable for the lifetime of each TrackedMutex instance.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h

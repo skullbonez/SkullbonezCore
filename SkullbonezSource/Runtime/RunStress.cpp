@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - UI stress randomness is deterministic from UIStressState so crashes can be
+    reproduced from the same launch options.
+  - Runtime churn remains disabled in this sweep unless the matching render and
+    physics validation gates are intentionally selected.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md

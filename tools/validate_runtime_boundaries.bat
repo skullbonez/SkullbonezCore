@@ -9,6 +9,14 @@
 @rem   composition root, catches extracted subsystem state creeping back in, and
 @rem   blocks new physics dependencies on the legacy GameModelCollection owner.
 @rem
+@rem Glossary:
+@rem   Boundary guardrail: Static check that blocks architecture drift.
+@rem   Composition root: Top-level owner that wires subsystems together.
+@rem
+@rem Invariants:
+@rem   - The batch wrapper delegates analysis to check_runtime_boundaries.py.
+@rem   - The Python script exit code is propagated as the gate result.
+@rem
 @rem Related:
 @rem   - Agentic/Plans/runtime-run-decomposition-plan.md
 @rem   - Agentic/Plans/engine-architecture-next-steps-plan.md

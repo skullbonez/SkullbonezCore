@@ -2,6 +2,30 @@
 File: SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp
 Purpose:
   Provides the runtime diagnostics ownership boundary.
+
+Mental model:
+  Run asks DiagnosticsRuntime for capture, performance, memory, and physics
+  diagnostic work. This file mostly forwards to the underlying controllers, but
+  owns the memory snapshot cache and the shutdown memory-dump artifact.
+
+Glossary:
+  Artifact path: Stable validation/debug output path written for tools or
+    command-line flags.
+  Reconciled memory: Tracked engine bytes plus any process memory not accounted
+    for by replay or model collection snapshots.
+  SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
+  JSON (JavaScript Object Notation): Text artifact format used for memory dumps.
+
+Invariants:
+  - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
+    stay in RuntimeDiagnostics or CaptureController unless this file owns them.
+  - Memory sampling is cached for UI reads and forced only for explicit dumps.
+  - Debug-only physics diagnostics stay behind _DEBUG.
+
+Related:
+  - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
+  - SkullbonezSource/Runtime/DiagnosticsController.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 */
 #include "DiagnosticsRuntime.h"
 
@@ -23,6 +47,8 @@ constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
 
 void WriteJsonString( FILE* file, const char* value )
 {
+    // Concept: Memory dumps are written without a JSON library, so this helper
+    // is the narrow escaping boundary for user-controlled checkpoint/path text.
     fputc( '"', file );
     if ( value )
     {
@@ -150,6 +176,9 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
         return m_mainMemoryStats;
     }
 
+    // Concept: The UI wants cheap repeated reads, while shutdown dumps need a
+    // fresh sample. Build one reconciled snapshot, then cache it with the sample
+    // timestamp.
     MainMemoryStats stats;
     stats.sampleTimeSeconds = nowSeconds;
     stats.process = RuntimeDiagnostics::SampleProcessMemory();
@@ -158,6 +187,9 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     if ( stats.process.available )
     {
+        // Why: Task Manager numbers include memory not tracked by replay or
+        // GameModelCollection. The reconciliation fields make that gap explicit
+        // instead of hiding it in the engine bucket.
         if ( stats.process.taskManagerBytes >= stats.trackedEngineBytes )
         {
             stats.unattributedProcessBytes = stats.process.taskManagerBytes - stats.trackedEngineBytes;
@@ -232,6 +264,8 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
         return false;
     }
 
+    // Invariant: skullbonez.main_memory.v1 is a script-facing artifact schema.
+    // Add fields compatibly or bump the schema if a consumer must change.
     fputs( "{\n  \"schema\": \"skullbonez.main_memory.v1\",\n  \"checkpoint\": ", file );
     WriteJsonString( file, checkpoint && checkpoint[0] != '\0' ? checkpoint : "shutdown" );
     fprintf( file,
@@ -406,6 +440,8 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( GameObjects::GameModelColle
                                                      const char* scenePath,
                                                      const char* rendererName )
 {
+    // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
+    // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
                                                     models,
                                                     scene,
@@ -487,6 +523,9 @@ void DiagnosticsRuntime::LogReplayRestoreResult( const RunSceneState& scene,
                                                  bool fallbackRestored,
                                                  const char* failureReason )
 {
+    // Invariant: Replay restore diagnostics are forwarded with their exact
+    // hashes, counts, and flags so SkullScope queries can distinguish checkpoint
+    // restores from fallback restores.
     RuntimeDiagnostics::LogReplayRestoreResult( m_diagnostics.PhysicsDiagnostics(),
                                                 scene,
                                                 restoreSource,

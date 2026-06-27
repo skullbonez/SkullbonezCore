@@ -930,12 +930,20 @@ ReplayFrameIndex ReplayRuntime::NextEventFrameIndex() const
 
 void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 {
+    // Invariant: presentation, solver, and event timelines share the same
+    // branch and event cursor for this frame. Save/export code depends on that
+    // alignment when it pairs visual frames with restore checkpoints.
     input.branch = m_branch;
     input.eventCursor = m_events.GetStats().nextSequence;
     m_presentation.CaptureFrame( input );
     m_solver.CaptureFrame( input );
 }
 
+// Concept: render replay poses are temporary model overrides.
+//
+// Scrubbing should affect only the pixels drawn for this frame. The helpers
+// below back up live model transforms, apply replay or prediction poses, then
+// RestoreRenderPose puts the live scene back before simulation continues.
 bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                       const ReplayPresentationSample& sample )
 {
@@ -986,6 +994,9 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
         backup.position = models[i].GetPosition();
         backup.orientation = models[i].GetOrientation();
         m_renderPoseBackups.push_back( backup );
+        // Why: loaded artifacts may not contain every live body. Move unmatched
+        // bodies out of view instead of letting unrelated live geometry appear
+        // inside the scrubbed replay frame.
         models[i].SetPosition( hiddenReplayPosition );
     }
 
@@ -1132,6 +1143,9 @@ void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collect
         model.SetPosition( backup.position );
         model.SetOrientation( backup.orientation );
     }
+    // Lifetime: backups are single-frame state. Leaving them populated after a
+    // restore would let a later overlay restore stale transforms over live
+    // simulation state.
     m_renderPoseBackups.clear();
     collection.InvalidatePhysicsStreams();
 }
@@ -1196,6 +1210,9 @@ bool ReplayRuntime::IsScrubPaused() const
 
 const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
 {
+    // Concept: a scrub sample is available only when the active track is paused
+    // away from live time. Live presentation should continue drawing the live
+    // scene instead of borrowing old retained samples.
     if ( m_scrubber.activeTrack != RunReplayTrack::Presentation )
     {
         return nullptr;
@@ -1237,6 +1254,9 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 
 const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() const
 {
+    // Concept: prediction frames extend the solver track past the present
+    // marker. They are not retained history, so only the future side of the
+    // normalized track can resolve to a prediction frame.
     if ( m_scrubber.activeTrack != RunReplayTrack::Solver || !m_scrubber.historicalSamplePaused ||
          !m_prediction.enabled || ActivePredictionFrames().size() < 2 )
     {
@@ -1365,6 +1385,9 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
     if ( m_causeTree.rows.capacity() < estimatedRows )
     {
+        // Why: the renderer calls this every frame while the window is visible.
+        // Reserve for the current graph shape so row rebuilds do not turn the
+        // inspection overlay into an allocation-heavy hot path.
         m_causeTree.rows.reserve( estimatedRows );
     }
 
@@ -1772,6 +1795,9 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObje
         (std::max)( static_cast<std::size_t>( 1 ),
                     ( lastIndex + REPLAY_PREDICTION_GHOST_MAX_FRAMES - 1 ) / REPLAY_PREDICTION_GHOST_MAX_FRAMES );
     const ReplayFrameIndex lastFrame = frames.back().frameIndex;
+    // Concept: ghost requests are sparse future poses, not a second full replay
+    // render. Sample at a bounded stride so ragdoll prediction stays readable
+    // and cheap even when the future buffer contains many physics frames.
     m_predictionGhostDrawRequests.reserve( (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) *
                                            models.size() );
 

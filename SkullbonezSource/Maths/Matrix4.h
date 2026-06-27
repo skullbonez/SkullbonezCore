@@ -14,6 +14,11 @@ Glossary:
   DX12 (DirectX 12): The production renderer API; its projection path expects
   normalized depth in the [0,1] range.
 
+Invariants:
+  - Matrix memory is column-major: Data() returns the shader-facing layout.
+  - Legacy projection helpers keep old depth conventions, while ZeroToOne
+    helpers are the DX12 render path contract.
+
 Related:
   - SkullbonezSource/Maths/Matrix4.cpp
   - Agentic/Reference/comment-style-guide.md

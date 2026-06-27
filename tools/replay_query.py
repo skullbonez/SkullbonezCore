@@ -1,4 +1,28 @@
 #!/usr/bin/env python3
+#
+# File: tools/replay_query.py
+# Purpose:
+#   Query chunked Skullbonez replay v2 artifacts without loading the full binary
+#   artifact into GPT or validation output.
+#
+# Mental model:
+#   Replay artifacts are chunked binary files. This script reads only the
+#   requested tables or ranges and emits bounded text/JSON summaries for
+#   validation, debugging, and agent analysis.
+#
+# Glossary:
+#   Replay v2 artifact: Chunked binary presentation .skreplay file.
+#   Chunk table: Header directory that names each stored replay section.
+#   SkullScope slice: Bounded NDJSON export derived from selected replay frames.
+#
+# Invariants:
+#   - Binary struct layouts must match the runtime replay writer.
+#   - Query commands must stay bounded; callers should not dump whole artifacts
+#     into model context.
+#
+# Related:
+#   - tools/replay_query.bat
+#   - tools/check_replay_v2_artifact.py
 """Query chunked Skullbonez replay v2 artifacts without loading them into GPT."""
 
 from __future__ import annotations

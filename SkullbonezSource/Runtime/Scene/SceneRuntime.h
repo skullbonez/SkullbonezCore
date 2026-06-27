@@ -14,6 +14,13 @@ Glossary:
   Cinematic deck: A queue of concept/cinematic scenes cycled as one authored
   visual look set.
 
+Invariants:
+  - `RunSceneState::ResetForLoad` resets per-load state but preserves queue and
+    manual-run ownership held by SceneRuntime/SceneController.
+  - Empty scene paths mean generated demo scene and are not filesystem paths.
+  - Runtime cinematic UI overrides live in scene state until explicitly saved or
+    reset.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
   - SkullbonezSource/Runtime/Run.cpp

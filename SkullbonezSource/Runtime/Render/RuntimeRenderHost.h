@@ -8,6 +8,13 @@ Mental model:
   explicit bridge to runtime services while later phases continue moving editor,
   scene, and UI presentation behind narrower services.
 
+Glossary:
+  Render host: Borrowed service view used by render passes while Run remains
+  the broader composition root.
+  Binding: Pointer set that connects host methods to current runtime owners.
+  Callback: Transitional function pointer used for behavior still implemented
+  on Run.
+
 Invariants:
   - RuntimeRenderHost does not own the referenced state.
   - All references must outlive RuntimeRenderer and its passes.

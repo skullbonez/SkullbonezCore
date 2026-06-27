@@ -7,6 +7,28 @@ Mental model:
   RuntimeTools is the Phase 6 compatibility boundary. Existing Run methods can
   still execute launcher/tool behavior, but launcher state and render feedback
   ownership live here instead of directly on Run.
+
+Glossary:
+  Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
+    data that persists between frames.
+  Replay visual sample: Compact snapshot of tool visuals restored while replay
+    scrubbing so debug feedback follows recorded frames.
+  Gizmo drag group: Bounded set of selected model indices transformed as one
+    editor gesture.
+  Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
+    the oldest slots.
+
+Invariants:
+  - RuntimeTools owns transient tool state only; world, model, terrain, camera,
+    and physics services are borrowed through method parameters.
+  - Fixed-capacity arrays must stay bounded and replay-restorable.
+  - Stored model indices are frame-local references and must be validated before
+    use after model collection edits.
+
+Related:
+  - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
+  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 */
 #pragma once
 
@@ -68,6 +90,8 @@ struct RunRayCastTestState
 {
     static constexpr std::size_t MAX_LINES = 64;
 
+    // Invariant: Ray lines are a visual ring buffer. Recording/replay restores
+    // the cursor and line payload, so wrap behavior is part of the replay ABI.
     std::array<RunRayCastTestLine, MAX_LINES> lines = {};
     int nextLine = 0;
     RunLauncherFireMode fireMode = RunLauncherFireMode::Laser;
@@ -155,6 +179,8 @@ struct RunEditorPlacementState
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::CollisionDetection::CollisionShape gizmoDragStartShape;
+    // Lifetime: Drag-group indices and start transforms are valid only for the
+    // active gesture that captured them.
     int gizmoDragGroupCount = 0;
     std::array<int, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupIndices = {};
     std::array<Math::Vector::Vector3, GIZMO_DRAG_GROUP_CAPACITY> gizmoDragGroupStartPositions = {};

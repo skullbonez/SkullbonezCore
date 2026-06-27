@@ -15,6 +15,11 @@
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
+@rem Invariants:
+@rem   - The Debug executable is rebuilt before replay scrub probes run.
+@rem   - Validation passes only after check_replay_scrub_regression.py verifies
+@rem   the generated SkullScope traces.
+@rem
 @rem Related:
 @rem   - AGENTS.md
 @rem   - Agentic/Reference/comment-style-guide.md

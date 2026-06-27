@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Capture only succeeds through a backend that explicitly supports
+    back-buffer readback and returns positive dimensions.
+  - Capture automation reports the completion action separately from the side
+    effect so Run can decide whether to quit, advance, or hold.
+
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.h
   - Agentic/Reference/comment-style-guide.md
@@ -48,6 +54,9 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 
 void WriteExact( FILE* file, const void* data, size_t size, const char* path )
 {
+    // Invariant: validation screenshots are binary artifacts; a short write is
+    // a failed capture, not a partial success that downstream comparisons can
+    // safely inspect.
     if ( size == 0 )
     {
         return;
@@ -67,6 +76,8 @@ void WriteExact( FILE* file, const void* data, size_t size, const char* path )
 
 RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCaptureAutomation automationWhenHeadless )
 {
+    // Why: interactive captures should keep the window available for inspection,
+    // while validation launches need an explicit automation policy to finish.
     return isInteractiveRun ? RuntimeCaptureAutomation::HoldInteractive : automationWhenHeadless;
 }
 

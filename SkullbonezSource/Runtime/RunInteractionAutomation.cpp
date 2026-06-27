@@ -2,6 +2,29 @@
 File: SkullbonezSource/Runtime/RunInteractionAutomation.cpp
 Purpose:
   Drives deterministic runtime world-click scripts through the normal input path.
+
+Mental model:
+  Interaction automation is a validation driver. It asks the same picking,
+  replay, camera, and world-input code that an operator would use, then writes a
+  compact JSON report for the test harness.
+
+Glossary:
+  World click: Automation request that projects a screen-space click into the
+  scene and routes it through the active runtime owner.
+  Prediction target: Replay body selected for future-path diagnostics.
+  Automation report: JSON side-channel describing what the scripted interaction
+  observed without mutating validation baselines directly.
+
+Invariants:
+  - Scripts must exercise normal runtime routing, not bypass tool ownership or
+    replay state with hidden direct mutations.
+  - Reported samples are snapshots of already-owned runtime state; this file
+    must not become a second owner for replay or picker lifetimes.
+
+Related:
+  - SkullbonezSource/Runtime/RuntimePickService.h
+  - SkullbonezSource/Runtime/RuntimeInteractionController.h
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "RunInternal.h"
 #include "Replay/ReplayOverlayLayout.h"
@@ -55,6 +78,9 @@ bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
                                       Vector3* outFirst = nullptr,
                                       Vector3* outLast = nullptr )
 {
+    // Concept: automation reports compare the first and last prediction sample
+    // for the selected replay body. Missing target data is a clean "not ready",
+    // not an error state for the running scene.
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
     const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
     if ( targetId.value == 0 || activePredictionFrames.empty() )

@@ -12,6 +12,11 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Texture slots are fixed-size legacy storage keyed by legacy hash.
+  - backendHandle values belong to the active renderer and must be deleted or
+    rebuilt when the backend is destroyed or reset.
+
 Related:
   - SkullbonezSource/Assets/TextureCollection.h
   - Agentic/Reference/comment-style-guide.md
@@ -93,6 +98,8 @@ int TextureCollection::FindFreeSlot() const
 
 void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
 {
+    // Lifetime: the collection stores renderer-neutral ids, but the backend
+    // owns the actual GPU texture object behind each handle.
     if ( texture.backendHandle )
     {
         Gfx().DeleteTexture( texture.backendHandle );

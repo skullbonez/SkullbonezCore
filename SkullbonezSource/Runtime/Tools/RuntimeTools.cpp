@@ -2,6 +2,32 @@
 File: SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
 Purpose:
   Provides the runtime tool state ownership boundary.
+
+Mental model:
+  Run routes input and passes borrowed world services here. RuntimeTools mutates
+  only tool-owned state, launcher-created projectiles, and explicit physics
+  targets selected by the current tool action.
+
+Glossary:
+  Launcher ray: Camera-centered tool ray used for laser impulses, projectile
+    aim, and raycast visualization.
+  Replay visual sample: Snapshot of launcher lines and laser shots used by
+    replay scrubbing.
+  Contact release: Rule that lets selected fixed authored props become dynamic
+    after a strong enough launcher impulse.
+
+Invariants:
+  - Raycast and laser histories are fixed-capacity replay state; preserve cursor
+    wrap behavior and restore clamping.
+  - Terrain/model hit tests pick the closest valid hit without changing world
+    state.
+  - Projectile creation must respect the active model capacity before adding to
+    GameModelCollection.
+
+Related:
+  - SkullbonezSource/Runtime/Tools/RuntimeTools.h
+  - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 */
 #include "RuntimeTools.h"
 
@@ -86,6 +112,8 @@ void RuntimeTools::AddRayCastTestLine( const Math::Vector::Vector3& start, const
         return;
     }
 
+    // Invariant: The line history is intentionally bounded; replay restores the
+    // same cursor so overwriting the oldest slot is observable tool state.
     RunRayCastTestLine& line =
         m_rayCastTest.lines[static_cast<std::size_t>( m_rayCastTest.nextLine ) % RunRayCastTestState::MAX_LINES];
     line.start = start;
@@ -114,6 +142,9 @@ void RuntimeTools::TickRayCastTestLines( float dt )
 
 void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
+    // Concept: Replay captures visible launcher/tool feedback separately from
+    // physics state so scrubbed frames can redraw rays and laser afterimages
+    // without re-firing the tool.
     outSample = ReplayLauncherVisualSample();
     outSample.nextRayLine = m_rayCastTest.nextLine;
     outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile
@@ -148,6 +179,8 @@ void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisual
         line.active = sample.rayLines[i].active;
         line.hit = sample.rayLines[i].hit;
     }
+    // Invariant: Older or malformed replay samples may carry out-of-range
+    // cursors; clamp by modulo instead of trusting serialized state.
     m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
     if ( m_rayCastTest.nextLine < 0 )
     {
@@ -171,6 +204,9 @@ bool RuntimeTools::TryRayCastTestHit( const std::vector<GameObjects::GameModel>&
     outIndex = -1;
     outT = maxDistance;
 
+    // Concept: Launcher model picking uses bounding spheres, not exact mesh
+    // intersections. It is the broad, deterministic tool hit result used for
+    // impulses and visual feedback.
     for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
     {
         const GameObjects::GameModel& model = models[static_cast<size_t>( i )];
@@ -204,6 +240,9 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain,
     float previousT = 0.0f;
     float previousDiff = 0.0f;
 
+    // Why: Terrain has no dedicated runtime ray query here, so the launcher
+    // walks the ray and bisects the first terrain crossing to keep laser and
+    // projectile aim consistent.
     for ( int step = 0; step <= RAY_STEPS; ++step )
     {
         const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
@@ -326,6 +365,8 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     const bool hit = modelHit || terrainHit;
     const float hitT = terrainIsClosest ? terrainHitT : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Math::Vector::Vector3 visualEnd = rayOrigin + rayDirection * hitT;
+    // Concept: The laser always records visual feedback; only a closest model
+    // hit below turns into a physics impulse.
     m_laser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
@@ -337,6 +378,9 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     GameObjects::GameModel& model = collection.GetModelAtIndex( modelHitIndex );
     if ( model.IsFixed() )
     {
+        // Hazard: Fixed authored props are released only through their contact
+        // release policy; bypassing this gate would make decorative assets
+        // unexpectedly dynamic.
         if ( !model.ReleasesFromFixedOnContact() ||
              m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
         {
@@ -385,6 +429,9 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
                            ? terrainHitT
                            : ( modelHit ? modelHitT : RAY_CAST_TEST_VISUAL_MISS_DISTANCE );
     const Math::Vector::Vector3 aimPoint = rayOrigin + rayDirection * hitT;
+    // Concept: Projectiles spawn slightly in front of and below the camera,
+    // then aim at the same closest model/terrain point that the laser would
+    // visualize.
     Math::Vector::Vector3 up = cameraUp;
     const float upLenSq = Math::Vector::VectorMagSquared( up );
     up = upLenSq > TOLERANCE * TOLERANCE ? up * ( 1.0f / sqrtf( upLenSq ) ) : Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );

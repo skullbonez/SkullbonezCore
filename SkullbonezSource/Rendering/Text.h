@@ -19,6 +19,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Text2d owns static backend handles for the active font and batch buffers;
+    DeleteFont must run before backend teardown.
+  - Render2dText/BatchQuad enqueue CPU-side vertices, and FlushText/FlushQuads
+    are the draw boundaries for those queues.
+
 Related:
   - SkullbonezSource/Rendering/Text.cpp
   - Agentic/Reference/comment-style-guide.md

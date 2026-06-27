@@ -18,6 +18,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Interface users see opaque texture handles only; native render-target and
+    depth descriptors stay inside the backend implementation.
+  - Width, height, and color format describe the active resources and must agree
+    with any recreated backend attachments.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

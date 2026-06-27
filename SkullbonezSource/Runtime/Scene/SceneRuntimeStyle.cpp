@@ -8,6 +8,17 @@ Mental model:
   renderable objects, apply material overrides, and merge authored cinematic
   fields over engine defaults without rebuilding the current scene.
 
+Glossary:
+  Style scene: Authored scene used only as a material/cinematic style source.
+  Cinematic override: Bitmask-selected render fields layered over defaults.
+  Material override: Authored material/tint applied to matching live models.
+
+Invariants:
+  - Style application mutates render-facing state only; it does not rebuild
+    physics bodies or scene queues.
+  - Ragdoll part matching uses suffix names and must stay compatible with
+    authored generated ragdolls.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -96,6 +107,8 @@ bool IsSimpleRagdollPartName( const char* name )
 
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
+    // Invariant: Simple ragdoll parts keep their authored body materials; broad
+    // style targets apply to ordinary scene bodies only.
     if ( IsSimpleRagdollPartName( model.GetName() ) )
     {
         return false;
@@ -156,6 +169,8 @@ void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleSc
 
 void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source )
 {
+    // Concept: The mask is the compatibility boundary for authored cinematic
+    // scenes; unset fields continue to inherit engine/default UI state.
 #define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                         \
     if ( ( mask & ( bit ) ) != 0 )                                                                                     \
     {                                                                                                                  \

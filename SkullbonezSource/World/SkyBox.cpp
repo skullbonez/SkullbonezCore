@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - SkyBox owns renderer-facing face meshes and shader resources for the active
+    backend, but it borrows the texture registry.
+  - Face order and texture hashes must stay paired so cube sides do not swap
+    during renderer rebuilds.
+
 Related:
   - SkullbonezSource/World/SkyBox.h
   - Agentic/Reference/comment-style-guide.md

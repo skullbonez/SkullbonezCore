@@ -8,6 +8,17 @@ Mental model:
   closest-hit behavior so future selection, replay, and tool changes have one
   policy surface instead of several ad hoc loops.
 
+Glossary:
+  Pick ray: World-space ray projected from the current screen-space pointer.
+  Pick purpose: Tool-specific policy for interpreting candidate hits.
+  RayT: Distance along the pick ray to the candidate hit.
+
+Invariants:
+  - The service never stores model references; results are frame-local indices
+    that callers must revalidate before use.
+  - Manipulator pickup ignores fixed bodies, while selection-style purposes may
+    return any closest model.
+
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.h
 */
@@ -75,6 +86,8 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
     case RuntimePickPurpose::ReplayPathTarget:
         break;
     case RuntimePickPurpose::ManipulatorPickup:
+        // Why: the manipulator needs a physical grab target, so fixed bodies
+        // are filtered before the broader closest-hit selection policy below.
         for ( int i = 0; i < static_cast<int>( request.models->size() ); ++i )
         {
             const GameObjects::GameModel& model = ( *request.models )[static_cast<std::size_t>( i )];

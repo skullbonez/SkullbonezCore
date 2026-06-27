@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Primitive coordinates, winding, normals, and UVs are shared geometry
+    contracts for normal rendering and collision visualization.
+  - Emitters write CPU vertices only; each renderer owns its final GPU layout
+    and instance payload.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

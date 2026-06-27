@@ -16,6 +16,12 @@ Glossary:
   Deterministic merge: Main-thread combine step that consumes worker chunks in a
   stable order so validation output remains reproducible.
 
+Invariants:
+  - WorkerChunkRange uses half-open ranges [begin, end), and chunkIndex is the
+    deterministic merge order.
+  - ParallelCollectOrdered lets workers build local output only; mergeChunk runs
+    on the caller thread in chunk order.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - Agentic/Plans/physics-shadow-worker-parallelization-plan.md

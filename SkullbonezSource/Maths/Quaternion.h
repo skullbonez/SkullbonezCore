@@ -18,6 +18,11 @@ Glossary:
   Euler decomposition: Splitting rotation into ordered X/Y/Z angles; this file
   avoids depending on that order for incremental angular displacement.
 
+Invariants:
+  - IDENTITY_QUATERNION is the no-rotation sentinel and must stay (0,0,0,1).
+  - Operator multiplication follows the engine convention documented in
+    Quaternion.cpp; do not silently swap it to library/Hamilton order.
+
 Related:
   - SkullbonezSource/Maths/Quaternion.cpp
   - Agentic/Reference/comment-style-guide.md

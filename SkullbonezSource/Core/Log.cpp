@@ -16,6 +16,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Debug logs are opened in binary mode so newline bytes stay byte-exact for
+    validation artifacts.
+  - Release builds keep the logging API callable but compile the side effects
+    away.
+
 Related:
   - SkullbonezSource/Core/Log.h
   - Agentic/Reference/runtime-reference.md

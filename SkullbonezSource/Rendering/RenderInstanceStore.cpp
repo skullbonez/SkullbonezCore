@@ -15,6 +15,12 @@ Glossary:
     shaders, textures, or descriptor rows.
   Replay body id: Stable per-scene id shared with physics/replay records.
 
+Invariants:
+  - Records stay in GameModelCollection model order and compatibility handles
+    mirror model indices.
+  - Refresh snapshots CPU draw intent only; it does not create or destroy GPU
+    resources.
+
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
@@ -47,6 +53,8 @@ void RenderInstanceStore::Clear()
 
 void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
 {
+    // Invariant: render instance handles intentionally mirror model slots until
+    // a future renderer-facing allocation owner replaces compatibility ids.
     m_instances.resize( models.size() );
     m_modelInstanceHandles.resize( models.size() );
     for ( std::size_t i = 0; i < models.size(); ++i )

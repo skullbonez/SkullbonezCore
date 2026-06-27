@@ -13,6 +13,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - RuntimePickRequest borrows the model vector for one call; the service does
+    not retain it.
+  - RuntimePickResult.modelIndex is only valid against the same model vector and
+    frame that produced the result.
+
 Related:
   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp

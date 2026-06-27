@@ -9,6 +9,17 @@ Mental model:
   world input before the new mode starts so Run can clear old mouse capture,
   hover, drag, and replay/editor affordances before applying the new mode.
 
+Glossary:
+  Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
+  Owner: The tool or subsystem currently allowed to consume world input.
+  Gesture: Active pointer operation that owns capture until it ends.
+  Physics advance: Per-frame policy that decides whether the physics step runs.
+
+Invariants:
+  - RuntimeInteractionTransition is a diff record; callers must compare previous
+    and current fields instead of inferring cleanup from the requested command.
+  - Gesture and pointer-capture state must be cleared together on mode changes.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
   - SkullbonezSource/Runtime/RunInput.cpp

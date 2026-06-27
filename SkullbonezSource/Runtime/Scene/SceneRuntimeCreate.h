@@ -8,6 +8,15 @@ Mental model:
   filename cleanup, starter file authoring, browser refresh, and queue action
   needed to load the new scene.
 
+Glossary:
+  Starter scene: Minimal editable scene file generated from UI input.
+  Scene browser: UI-facing list of available scene files.
+  Control action: Explicit scene load request returned to the caller.
+
+Invariants:
+  - The create helper writes scene files but does not perform the actual load.
+  - Context borrows controller/browser state for the duration of the call only.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h

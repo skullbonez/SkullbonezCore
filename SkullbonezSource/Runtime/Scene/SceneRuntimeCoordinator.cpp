@@ -9,6 +9,17 @@ Mental model:
   population, world setup, replay reset, and renderer rebuild responsibilities
   out of Run.
 
+Glossary:
+  Browser scene: Scene path discovered from `SkullbonezData/scenes`.
+  Control intent: Small return object that tells Run which scene side effect to
+    perform next.
+  Cinematic deck: Queue range of cinematic/concept scene paths.
+
+Invariants:
+  - Coordinator methods return intents; they do not load scenes directly.
+  - Browser-to-queue matching uses normalized path strings.
+  - Cinematic deck navigation must match SceneRuntime's filename rules.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
   - SkullbonezSource/Runtime/Scene/SceneController.h

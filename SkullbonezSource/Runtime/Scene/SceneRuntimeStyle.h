@@ -8,6 +8,15 @@ Mental model:
   without rebuilding the active simulation. The caller still owns when a user
   action makes a run interactive; this module owns applying the style payload.
 
+Glossary:
+  Cinematic override: Bitmask-selected render fields layered over defaults.
+  Style scene: Authored scene used as material/cinematic source data.
+  Live style: Runtime object/material changes applied without reloading.
+
+Invariants:
+  - Helpers do not create or destroy scene models.
+  - Context borrows active cinematic and model state only for the call.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
   - SkullbonezSource/Runtime/Scene/RunScene.cpp

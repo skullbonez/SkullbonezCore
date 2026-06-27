@@ -9,6 +9,19 @@ Mental model:
   resource aggregate. Narrower owners should move state out of this file over
   time; this header is a staging boundary, not a destination for new features.
 
+Glossary:
+  State shelf: Run-owned aggregate that groups related fields while split
+  implementation files are being decomposed.
+  Runtime setting: Live toggle or tuning value applied while a scene is running.
+  Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
+  the Run composition root.
+
+Invariants:
+  - Owning state should use value members or smart pointers; raw pointers here
+    are borrowed subsystem links and must be validated before use.
+  - Settings that affect deterministic physics must be synchronized through the
+    explicit helpers instead of being read independently by multiple owners.
+
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/RunInternal.h

@@ -9,6 +9,14 @@ Mental model:
   supplies the live world/model/camera services while later scene phases move
   more load state into scene-owned coordinators.
 
+Glossary:
+  Generated scene: Runtime-created demo scene with deterministic cameras and
+    model placement.
+  Object type override: Command-line/runtime option that forces generated
+    objects to all balls or all boxes.
+  Solver object: Exact-count validation object used by deterministic physics
+    scenes.
+
 Invariants:
   - The setup helpers preserve the existing MSVC-compatible RNG sequence.
   - Context structs borrow state; they do not own scene, world, terrain, model,
