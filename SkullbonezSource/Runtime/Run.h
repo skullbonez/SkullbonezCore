@@ -369,8 +369,6 @@ class Run
                                       const GameObjects::GameModel& model,
                                       int scaleAxis,
                                       float scaleFactor );                 // Records committed editor transform/scale gizmo changes.
-    void CaptureReplayPhysicsStep();                                       // Capture-only hook after one committed fixed physics tick.
-    static void CaptureReplayPhysicsStepThunk( void* userData );
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
     static void AfterPhysicsStepThunk( void* userData );
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.

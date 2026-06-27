@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay generated-scene config wrapper slice validated
+Status: Active architecture cleanup plan; replay physics capture wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay generated-scene config wrapper section below
+Validation for latest implementation slice: see the replay physics capture wrapper section below
 
 ## Goal
 
@@ -3283,6 +3283,74 @@ Residual architecture risk: the remaining replay event payload packaging
 helpers, solver apply/hash helpers, replay inspection camera enter/exit and
 focus-control methods, and render-host splitting remain active; this slice only
 removed the single-caller generated-scene config wrapper.
+
+## Replay Physics Capture Wrapper Slice
+
+This replay physics capture slice removed the private capture-only hook and its
+unused thunk from `Run`. `AfterPhysicsStep` now performs the replay capture
+directly after mouse-pickup angular-velocity restoration, preserving the old
+capture-enabled guard and debug replay probe timing.
+
+Deleted `Run.h` declarations:
+
+- `CaptureReplayPhysicsStep`
+- `CaptureReplayPhysicsStepThunk`
+
+Deleted `Run::` definitions:
+
+- `Run::CaptureReplayPhysicsStep`
+- `Run::CaptureReplayPhysicsStepThunk`
+
+Retained owner surface:
+
+- `Run::AfterPhysicsStep`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 166 to 164.
+- New header and source guardrails reject the removed replay physics capture
+  wrapper and thunk declarations and `Run::` definitions from returning.
+- Synthetic self-tests cover both removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. The inlined block keeps the old profiler scope and
+  debug probe calls in the capture-enabled branch.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_physics_capture_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.58s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_physics_capture_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.73s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_physics_capture_runtime_boundaries.log`;
+  passed with 0 errors in 2.44s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_physics_capture_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.72s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: the remaining replay event payload packaging
+helpers, solver apply/hash helpers, replay inspection camera enter/exit and
+focus-control methods, and render-host splitting remain active; this slice only
+collapsed the replay capture hook into the post-physics step.
 
 ## Rules
 

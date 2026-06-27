@@ -544,16 +544,6 @@ void Run::TickPhysics( double secondsPerFrame )
 }
 
 
-void Run::CaptureReplayPhysicsStepThunk( void* userData )
-{
-    Run* run = static_cast<Run*>( userData );
-    if ( run )
-    {
-        run->CaptureReplayPhysicsStep();
-    }
-}
-
-
 void Run::AfterPhysicsStepThunk( void* userData )
 {
     Run* run = static_cast<Run*>( userData );
@@ -579,14 +569,6 @@ void Run::AfterPhysicsStep()
     RestoreMousePickupAngularVelocity();
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
-        CaptureReplayPhysicsStep();
-    }
-}
-
-
-void Run::CaptureReplayPhysicsStep()
-{
-    {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
         ReplayLauncherVisualSample launcherVisual;
         m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
@@ -606,12 +588,12 @@ void Run::CaptureReplayPhysicsStep()
         input.launcherVisual = &launcherVisual;
         m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
-    }
 #ifdef _DEBUG
-    TickReplayScrubProbe();
-    TickReplayRestoreProbe();
-    TickReplaySaveProbe();
+        TickReplayScrubProbe();
+        TickReplayRestoreProbe();
+        TickReplaySaveProbe();
 #endif
+    }
 }
 
 
