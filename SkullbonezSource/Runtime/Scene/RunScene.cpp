@@ -200,12 +200,6 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
-bool IsSceneJsonFile( const std::filesystem::path& path )
-{
-    const std::string name = path.filename().string();
-    return name.size() > 11 && name.compare( name.size() - 11, 11, ".scene.json" ) == 0;
-}
-
 bool IsSceneNameChar( char value )
 {
     return ( value >= 'a' && value <= 'z' ) || ( value >= 'A' && value <= 'Z' ) || ( value >= '0' && value <= '9' ) ||
@@ -1934,51 +1928,6 @@ bool Run::SaveSkyDefaults()
 }
 
 
-void Run::RefreshSceneBrowserList()
-{
-    m_sceneBrowser.paths.clear();
-    m_sceneBrowser.names.clear();
-    m_sceneBrowser.namePtrs.clear();
-
-    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
-    try
-    {
-        if ( !std::filesystem::exists( sceneDir ) )
-        {
-            return;
-        }
-
-        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
-        {
-            if ( !entry.is_regular_file() || !IsSceneJsonFile( entry.path() ) )
-            {
-                continue;
-            }
-            m_sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
-        }
-    }
-    catch ( const std::filesystem::filesystem_error& e )
-    {
-        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
-        m_sceneBrowser.paths.clear();
-    }
-
-    std::sort( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() );
-    m_sceneBrowser.paths.erase( std::unique( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() ),
-                                m_sceneBrowser.paths.end() );
-    m_sceneBrowser.names.reserve( m_sceneBrowser.paths.size() );
-    m_sceneBrowser.namePtrs.reserve( m_sceneBrowser.paths.size() );
-    for ( const std::string& path : m_sceneBrowser.paths )
-    {
-        m_sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
-    }
-    for ( const std::string& name : m_sceneBrowser.names )
-    {
-        m_sceneBrowser.namePtrs.push_back( name.c_str() );
-    }
-}
-
-
 bool Run::CreateSceneFromUI( const char* requestedName )
 {
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
@@ -2032,7 +1981,7 @@ bool Run::CreateSceneFromUI( const char* requestedName )
         return false;
     }
 
-    RefreshSceneBrowserList();
+    RefreshSceneBrowserList( m_sceneBrowser );
     const std::string normalizedPath = NormalizeScenePath( scenePath.generic_string() );
     for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
     {

@@ -180,7 +180,7 @@ Run::Run( std::vector<std::string> sceneQueue )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
-    RefreshSceneBrowserList();
+    RefreshSceneBrowserList( m_sceneBrowser );
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;

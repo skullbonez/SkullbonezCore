@@ -312,7 +312,6 @@ class Run
     bool SaveCurrentSceneDefaults();                                       // UI-controlled scene defaults persisted to the active scene file.
     bool SaveRenderDefaults();                                             // Ordinary Render-tab values persisted to engine.cfg.
     bool SaveSkyDefaults();                                                // Sky-tab cinematic values persisted to engine.cfg.
-    void RefreshSceneBrowserList();                                        // Discovers scene files available to the in-game scene dropdown
     bool CreateSceneFromUI( const char* requestedName );                   // Creates and loads a flat starter scene from the Scene tab.
     bool ApplyCinematicModeFromBrowserIndex( int index );                  // Live cine/concept style change; leaves scene objects intact.
     void ApplyLiveStyleScene( const TestScene& styleScene );               // Style-only cinematic/material JSON; no object rebuild.

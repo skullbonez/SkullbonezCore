@@ -22,6 +22,7 @@ Related:
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 
 namespace SkullbonezCore
 {
@@ -60,6 +61,12 @@ std::string NormalizeScenePath( const std::string& path )
     return normalized;
 }
 
+bool IsSceneJsonFile( const std::filesystem::path& path )
+{
+    const std::string name = path.filename().string();
+    return name.size() > 11 && name.compare( name.size() - 11, 11, ".scene.json" ) == 0;
+}
+
 int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const std::string& scenePath )
 {
     const std::string normalizedScenePath = NormalizeScenePath( scenePath );
@@ -73,6 +80,51 @@ int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const st
     return -1;
 }
 } // namespace
+
+
+void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser )
+{
+    sceneBrowser.paths.clear();
+    sceneBrowser.names.clear();
+    sceneBrowser.namePtrs.clear();
+
+    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
+    try
+    {
+        if ( !std::filesystem::exists( sceneDir ) )
+        {
+            return;
+        }
+
+        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
+        {
+            if ( !entry.is_regular_file() || !IsSceneJsonFile( entry.path() ) )
+            {
+                continue;
+            }
+            sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
+        }
+    }
+    catch ( const std::filesystem::filesystem_error& e )
+    {
+        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
+        sceneBrowser.paths.clear();
+    }
+
+    std::sort( sceneBrowser.paths.begin(), sceneBrowser.paths.end() );
+    sceneBrowser.paths.erase( std::unique( sceneBrowser.paths.begin(), sceneBrowser.paths.end() ),
+                              sceneBrowser.paths.end() );
+    sceneBrowser.names.reserve( sceneBrowser.paths.size() );
+    sceneBrowser.namePtrs.reserve( sceneBrowser.paths.size() );
+    for ( const std::string& path : sceneBrowser.paths )
+    {
+        sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
+    }
+    for ( const std::string& name : sceneBrowser.names )
+    {
+        sceneBrowser.namePtrs.push_back( name.c_str() );
+    }
+}
 
 
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser )

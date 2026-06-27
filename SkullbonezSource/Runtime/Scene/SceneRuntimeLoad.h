@@ -51,6 +51,7 @@ SceneRuntimeLoadBeginResult BeginSceneRuntimeLoad( SceneRuntimeLoadBeginContext&
                                                    int index,
                                                    bool suppressExitOnComplete,
                                                    bool preserveRuntimeState );
+void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
 
 } // namespace Basics
