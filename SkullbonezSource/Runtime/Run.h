@@ -407,9 +407,6 @@ class Run
                                    const std::chrono::steady_clock::time_point& budgetStart,
                                    double budgetMilliseconds );
     bool StepReplayPredictionJob( const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds );
-    bool CaptureReplayPredictionBodyState( std::vector<RunReplayPredictionBodyBackup>& outBodies );
-    bool ApplyReplayPredictionBodyState( const std::vector<RunReplayPredictionBodyBackup>& bodies );
-    void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );
     void RenderReplayPredictionVisualizer( RunEditorTracer& tracer,
                                            const std::chrono::steady_clock::time_point& budgetStart,
                                            double budgetMilliseconds );
