@@ -390,8 +390,6 @@ class Run
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.
     void RestoreMousePickupAngularVelocity();                              // Holds grabbed body angular velocity stable during drag.
     static void ApplyMousePickupPhysicsStepThunk( void* userData );
-    void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
-    void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     bool ApplyReplayEventForRestoreTarget(
         const ReplayEventSample& event,
         char* outReason,

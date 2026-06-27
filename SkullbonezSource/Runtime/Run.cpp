@@ -1273,34 +1273,6 @@ bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
 }
 
 
-void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
-{
-    m_runtimeTools.RayCastTest().lines = {};
-    const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
-    for ( std::size_t i = 0; i < lineCount; ++i )
-    {
-        RunRayCastTestLine& line = m_runtimeTools.RayCastTest().lines[i];
-        line.start = sample.rayLines[i].start;
-        line.end = sample.rayLines[i].end;
-        line.ageSeconds = sample.rayLines[i].ageSeconds;
-        line.active = sample.rayLines[i].active;
-        line.hit = sample.rayLines[i].hit;
-    }
-    m_runtimeTools.RayCastTest().nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
-    if ( m_runtimeTools.RayCastTest().nextLine < 0 )
-    {
-        m_runtimeTools.RayCastTest().nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
-    }
-    m_runtimeTools.RayCastTest().fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile
-                                                ? RunLauncherFireMode::Projectile
-                                                : RunLauncherFireMode::Laser;
-    m_runtimeTools.RayCastTest().visualizeRays = sample.visualizeRays;
-    m_runtimeTools.RayCastTest().impulseStrength = sample.impulseStrength;
-    m_runtimeTools.RayCastTest().projectileSpeed = sample.projectileSpeed;
-    m_runtimeTools.Laser().RestoreShots( sample.laserShots, sample.nextLaserShot );
-}
-
-
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
     auto writeReason = [outReason, reasonSize]( const char* message )
@@ -1405,7 +1377,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         m_systems.cameras->SetCamera();
     }
 
-    RestoreReplayLauncherVisualSample( sample.launcherVisual );
+    m_runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
     writeReason( "applied" );
     return true;
 }
@@ -1427,7 +1399,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     }
 
     ReplayLauncherVisualSample launcherVisual;
-    BuildReplayLauncherVisualSample( launcherVisual );
+    m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
     input.branch = reference.branch;

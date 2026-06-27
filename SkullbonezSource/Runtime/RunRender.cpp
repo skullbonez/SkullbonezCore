@@ -424,9 +424,9 @@ void Run::Render()
         }
 
         ReplayLauncherVisualSample liveSample;
-        BuildReplayLauncherVisualSample( liveSample );
+        m_runtimeTools.BuildReplayLauncherVisualSample( liveSample );
         m_replayRuntime.StoreLauncherVisualBackup( liveSample );
-        RestoreReplayLauncherVisualSample( sample );
+        m_runtimeTools.RestoreReplayLauncherVisualSample( sample );
     };
 
     const auto restoreReplayLauncherVisualForRender = [&]()
@@ -436,7 +436,7 @@ void Run::Render()
             return;
         }
 
-        RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+        m_runtimeTools.RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
         m_replayRuntime.ClearLauncherVisualBackup();
     };
 

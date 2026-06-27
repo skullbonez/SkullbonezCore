@@ -9,6 +9,7 @@ Purpose:
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/CollisionShape.h"
 #include "../CameraCollection.h"
+#include "../Replay/ReplayRecorder.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -109,6 +110,55 @@ void RuntimeTools::TickRayCastTestLines( float dt )
             line.ageSeconds += dt;
         }
     }
+}
+
+void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
+{
+    outSample = ReplayLauncherVisualSample();
+    outSample.nextRayLine = m_rayCastTest.nextLine;
+    outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile
+                                                                                   : ReplayLauncherFireMode::Laser;
+    outSample.visualizeRays = m_rayCastTest.visualizeRays;
+    outSample.impulseStrength = m_rayCastTest.impulseStrength;
+    outSample.projectileSpeed = m_rayCastTest.projectileSpeed;
+    outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        ReplayRayCastLineSample sample;
+        sample.start = line.start;
+        sample.end = line.end;
+        sample.ageSeconds = line.ageSeconds;
+        sample.active = line.active;
+        sample.hit = line.hit;
+        outSample.rayLines.push_back( sample );
+    }
+    m_laser.CaptureShots( outSample.laserShots, outSample.nextLaserShot );
+}
+
+void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
+{
+    m_rayCastTest.lines = {};
+    const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
+    for ( std::size_t i = 0; i < lineCount; ++i )
+    {
+        RunRayCastTestLine& line = m_rayCastTest.lines[i];
+        line.start = sample.rayLines[i].start;
+        line.end = sample.rayLines[i].end;
+        line.ageSeconds = sample.rayLines[i].ageSeconds;
+        line.active = sample.rayLines[i].active;
+        line.hit = sample.rayLines[i].hit;
+    }
+    m_rayCastTest.nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
+    if ( m_rayCastTest.nextLine < 0 )
+    {
+        m_rayCastTest.nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
+    }
+    m_rayCastTest.fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile ? RunLauncherFireMode::Projectile
+                                                                                   : RunLauncherFireMode::Laser;
+    m_rayCastTest.visualizeRays = sample.visualizeRays;
+    m_rayCastTest.impulseStrength = sample.impulseStrength;
+    m_rayCastTest.projectileSpeed = sample.projectileSpeed;
+    m_laser.RestoreShots( sample.laserShots, sample.nextLaserShot );
 }
 
 bool RuntimeTools::TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,

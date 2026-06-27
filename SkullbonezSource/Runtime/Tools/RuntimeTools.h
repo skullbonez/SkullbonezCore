@@ -47,6 +47,7 @@ struct RunDebugState;
 struct RunLaunchOptions;
 struct RunRuntimeSettings;
 struct RunSceneState;
+struct ReplayLauncherVisualSample;
 
 struct RunRayCastTestLine
 {
@@ -231,6 +232,8 @@ class RuntimeTools
     void ClearRayCastTestLines();
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );
     void TickRayCastTestLines( float dt );
+    void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
+    void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,

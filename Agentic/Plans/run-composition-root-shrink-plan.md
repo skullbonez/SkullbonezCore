@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay render-state helper slice validated
+Status: Active architecture cleanup plan; replay launcher visual sample helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay render-state helper section below
+Validation for latest implementation slice: see the replay launcher visual sample helper section below
 
 ## Goal
 
@@ -2490,6 +2490,81 @@ Residual architecture risk: launcher visual sample build/restore still remains
 on `Run` because capture/replay restore paths outside render also use it;
 render-host splitting, replay overlay rendering, and shared replay camera state
 remain active.
+
+## Replay Launcher Visual Sample Helper Slice
+
+This replay/launcher slice moved launcher visual sample build/restore ownership
+from `Run` into `RuntimeTools`, which already owns ray-test line state and laser
+shot state. Capture, restore, and render paths now call `m_runtimeTools` instead
+of private `Run` wrappers.
+
+Deleted `Run.h` declarations:
+
+- `BuildReplayLauncherVisualSample`
+- `RestoreReplayLauncherVisualSample`
+
+Deleted `Run::` definitions:
+
+- `Run::BuildReplayLauncherVisualSample`
+- `Run::RestoreReplayLauncherVisualSample`
+
+New owner methods:
+
+- `RuntimeTools::BuildReplayLauncherVisualSample(...) const`
+- `RuntimeTools::RestoreReplayLauncherVisualSample(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 178 to 176.
+- New header and source guardrails reject the removed replay launcher visual
+  sample helper declarations and `Run::` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Tools/RuntimeTools.h`,
+  `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/RunRender.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The moved methods sit beside the
+  ray-test and laser state they capture and restore.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_visual_runtime_tools_profile_build.log`;
+  passed with 0 warnings and 0 errors in 42.67s.
+- Initial `tools\validate_fast.bat` run stopped at formatting for
+  `RuntimeTools.cpp`; that touched file was formatted directly with VS
+  `clang-format` before final gates.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_visual_runtime_tools_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 54.47s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_launcher_visual_runtime_tools_runtime_boundaries.log`;
+  passed with 0 errors in 1.85s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_visual_runtime_tools_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.54s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: replay restore/apply helpers and render-host
+splitting remain active; this slice only moved the launcher visual state
+snapshot/restore surface to the state owner.
 
 ## Rules
 

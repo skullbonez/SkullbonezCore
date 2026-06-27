@@ -547,7 +547,7 @@ void Run::CaptureReplayPhysicsStep()
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
         ReplayLauncherVisualSample launcherVisual;
-        BuildReplayLauncherVisualSample( launcherVisual );
+        m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
@@ -572,30 +572,6 @@ void Run::CaptureReplayPhysicsStep()
 #endif
 }
 
-
-void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
-{
-    outSample = ReplayLauncherVisualSample();
-    outSample.nextRayLine = m_runtimeTools.RayCastTest().nextLine;
-    outSample.fireMode = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile
-                             ? ReplayLauncherFireMode::Projectile
-                             : ReplayLauncherFireMode::Laser;
-    outSample.visualizeRays = m_runtimeTools.RayCastTest().visualizeRays;
-    outSample.impulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
-    outSample.projectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
-    outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
-    {
-        ReplayRayCastLineSample sample;
-        sample.start = line.start;
-        sample.end = line.end;
-        sample.ageSeconds = line.ageSeconds;
-        sample.active = line.active;
-        sample.hit = line.hit;
-        outSample.rayLines.push_back( sample );
-    }
-    m_runtimeTools.Laser().CaptureShots( outSample.laserShots, outSample.nextLaserShot );
-}
 
 bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
 {
