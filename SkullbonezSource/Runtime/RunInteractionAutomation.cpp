@@ -694,8 +694,8 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::ClickReplayControl:
             if ( strcmp( action.text, "predict" ) == 0 )
             {
-                const int screenW = WindowScreenWidth();
-                const int screenH = WindowScreenHeight();
+                const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
                 const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
                 const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
                 if ( screenW > 0 && screenH > 0 && solverToolsEnabled )

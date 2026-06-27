@@ -126,8 +126,16 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
         }
         run->m_systems.textures->SelectTexture( textureHash );
     };
-    callbacks.windowScreenWidth = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenWidth(); };
-    callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
+    callbacks.windowScreenWidth = []( void* user ) -> int
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeWindowScreenWidth( run->m_systems, Cfg() );
+    };
+    callbacks.windowScreenHeight = []( void* user ) -> int
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeWindowScreenHeight( run->m_systems, Cfg() );
+    };
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
     callbacks.renderEditorOverlay = []( void* user,
@@ -525,18 +533,6 @@ std::string Run::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind,
     const SkullbonezCore::Assets::SourceAssetRecord& record =
         m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
     return record.resolvedPath;
-}
-
-
-int Run::WindowScreenWidth() const
-{
-    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
-}
-
-
-int Run::WindowScreenHeight() const
-{
-    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
 }
 
 

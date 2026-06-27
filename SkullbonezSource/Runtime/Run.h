@@ -298,8 +298,6 @@ class Run
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
         const;                                                             // Debug event log record for a named resource-lifetime phase.
-    int WindowScreenWidth() const;                                         // Client width, falling back to config before window init.
-    int WindowScreenHeight() const;                                        // Client height, falling back to config before window init.
     void SetViewingOrientation();                                          // Camera-view setup for the current frame.
     void SaveScreenshot( const char* path );                               // Backbuffer capture path; current encoder writes BMP files.
     bool SaveCurrentSceneDefaults();                                       // UI-controlled scene defaults persisted to the active scene file.

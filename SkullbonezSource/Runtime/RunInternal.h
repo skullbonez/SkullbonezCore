@@ -149,6 +149,16 @@ inline void DrawUITestPattern( int screenW, int screenH )
     Text::Text2d::FlushQuads();
 }
 
+inline int RuntimeWindowScreenWidth( const RunSubsystemState& systems, const EngineConfig& config )
+{
+    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.x ) : config.window.screenX;
+}
+
+inline int RuntimeWindowScreenHeight( const RunSubsystemState& systems, const EngineConfig& config )
+{
+    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.y ) : config.window.screenY;
+}
+
 inline const char* FileNameFromPath( const char* path )
 {
     if ( !path )

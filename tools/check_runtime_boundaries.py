@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 134
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 132
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -493,6 +493,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "render input builders must stay out of Run.h",
         r"\bBuildRuntimeRender(?:Services|Inputs)\s*\(",
         "Keep render input assembly local to Runtime/RunRender.cpp.",
+    ),
+    (
+        "runtime window-size wrappers must stay out of Run.h",
+        r"\bWindowScreen(?:Width|Height)\s*\(",
+        "Use RunInternal runtime window-size helpers with explicit subsystem/config inputs.",
     ),
     (
         "replay launcher visual sample helpers must stay out of Run.h",
