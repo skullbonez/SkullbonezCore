@@ -410,15 +410,18 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
         snapshot.pointer.button = RuntimePointerButton::Right;
     }
 
-    snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                        Input::IsKeyDown( VK_SPACE ),
-                                                        m_replayRuntime.IsScrubPaused(),
-                                                        m_replayRuntime.Scrubber().liveAdvanceHeld,
-                                                        mouseEdges.rightDown,
-                                                        m_runtimeTools.Editor().viewportLookActive,
-                                                        ReplayInspectionMouseLookActive(),
-                                                        false,
-                                                        SceneState().timeScale };
+    snapshot.frameInput =
+        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                      Input::IsKeyDown( VK_SPACE ),
+                                      m_replayRuntime.IsScrubPaused(),
+                                      m_replayRuntime.Scrubber().liveAdvanceHeld,
+                                      mouseEdges.rightDown,
+                                      m_runtimeTools.Editor().viewportLookActive,
+                                      m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                                                 m_UI.WantsNativeMouseCursor(),
+                                                                                 m_UI.BlocksCameraMouse() ),
+                                      false,
+                                      SceneState().timeScale };
     return snapshot;
 }
 
@@ -643,7 +646,7 @@ bool Run::HasActiveEditorInteractionState() const
 bool Run::InspectGizmoInteractionActive() const
 {
     return !m_runtimeTools.Editor().editorModeEnabled && m_camera.mode == RunCameraMode::Inspect &&
-           !ReplayInspectionActive();
+           !m_replayRuntime.InspectionActive();
 }
 
 
@@ -1648,20 +1651,6 @@ void Run::CycleCameraMode()
 }
 
 
-bool Run::ReplayInspectionActive() const
-{
-    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().historicalSamplePaused ||
-           m_replayRuntime.Scrubber().liveAdvanceHeld;
-}
-
-
-bool Run::ReplayInspectionMouseLookActive() const
-{
-    return ReplayInspectionActive() && Input::IsRightMouseDown() && !m_UI.WantsNativeMouseCursor() &&
-           !m_UI.BlocksCameraMouse();
-}
-
-
 bool Run::MouseLookOwnsCursor() const
 {
     if ( !Input::IsAppFocused() )
@@ -1679,9 +1668,12 @@ bool Run::MouseLookOwnsCursor() const
         return m_runtimeTools.Editor().viewportLookActive || Input::IsRightMouseDown();
     }
 
-    if ( ReplayInspectionActive() )
+    if ( m_replayRuntime.InspectionActive() )
     {
-        return ReplayInspectionMouseLookActive() || Input::IsRightMouseDown();
+        return m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                          m_UI.WantsNativeMouseCursor(),
+                                                          m_UI.BlocksCameraMouse() ) ||
+               Input::IsRightMouseDown();
     }
 
     return Input::IsRightMouseDown();

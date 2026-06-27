@@ -223,8 +223,6 @@ class Run
     bool HasActiveReplayInteractionState() const;                          // True when replay owns transient input or historical presentation.
     bool HasActiveEditorInteractionState() const;                          // True when editor owns placement/gizmo/input state.
     bool InspectGizmoInteractionActive() const;                            // True when Inspect owns live transform-gizmo interaction.
-    bool ReplayInspectionActive() const;                                   // True when replay owns inspection camera semantics.
-    bool ReplayInspectionMouseLookActive() const;                          // True when replay inspection is consuming mouse-look.
     bool MouseLookOwnsCursor() const;                                      // True while RMB/editor/replay mouse-look temporarily owns the cursor.
     bool ShouldHideNativeCursor() const;                                   // True when the current tool mode should hide the Windows cursor.
     void ApplyCursorOwnership();                                           // Applies current cursor ownership to the system cursor.

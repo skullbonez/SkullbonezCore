@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene generated control ownership slice validated
+Status: Active architecture cleanup plan; replay inspection query ownership slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene generated control ownership section below
+Validation for latest implementation slice: see the replay inspection query ownership section below
 
 ## Goal
 
@@ -4599,6 +4599,77 @@ active, along with replay timeline reset ownership, remaining replay
 tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
 slice only moved live generated-object UI rebuild ownership out of the
 composition root.
+
+## Replay Inspection Query Ownership Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This replay-runtime slice removed the inspection activity query wrappers from
+`Run.h`. `ReplayRuntime` now owns the inspection-active and inspection
+mouse-look predicates, with `Run` passing in the current right-mouse and UI
+cursor-blocking state where that policy needs input/UI context.
+
+Deleted `Run.h` declarations:
+
+- `bool ReplayInspectionActive() const;`
+- `bool ReplayInspectionMouseLookActive() const;`
+
+Deleted `Run::` definitions:
+
+- `bool Run::ReplayInspectionActive() const`
+- `bool Run::ReplayInspectionMouseLookActive() const`
+
+New owner surface:
+
+- `bool ReplayRuntime::InspectionActive() const`
+- `bool ReplayRuntime::InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const`
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`
+- `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`
+- `SkullbonezSource/Runtime/RunFrame.cpp`
+- `SkullbonezSource/Runtime/RunInput.cpp`
+- `SkullbonezSource/Runtime/Editor/RunEditorTools.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 142 to 140.
+- New header and source guardrails reject `ReplayInspectionActive` and
+  `ReplayInspectionMouseLookActive` declarations or `Run::` definitions from
+  returning.
+
+Validation:
+
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_queries_runtime_boundaries.log`;
+  passed with 0 errors in 3.5s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_queries_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.4s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_queries_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, Profile build, and
+  Profile/Debug readiness in 16.6s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_inspection_queries_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.1s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: remaining `Run::LoadScene` setup phases remain
+active, along with replay timeline reset ownership, remaining replay
+tool/helper ownership, render-host splitting, and shared cine/path cleanup. This
+slice only moved replay inspection query ownership out of the composition root.
 
 ## Rules
 

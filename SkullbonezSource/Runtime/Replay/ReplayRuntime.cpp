@@ -765,6 +765,18 @@ bool ReplayRuntime::ShouldUseInspectionCamera() const
            m_camera.focusKind != RunReplayCameraFocusKind::None;
 }
 
+bool ReplayRuntime::InspectionActive() const
+{
+    return m_camera.active || m_scrubber.historicalSamplePaused || m_scrubber.liveAdvanceHeld;
+}
+
+bool ReplayRuntime::InspectionMouseLookActive( bool rightMouseDown,
+                                               bool uiWantsNativeCursor,
+                                               bool uiBlocksCameraMouse ) const
+{
+    return InspectionActive() && rightMouseDown && !uiWantsNativeCursor && !uiBlocksCameraMouse;
+}
+
 bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now )
 {
     if ( !HasLoadedPresentation() )

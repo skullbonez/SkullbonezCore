@@ -513,16 +513,18 @@ void Run::TickPhysics( double secondsPerFrame )
 #else
     constexpr bool physicsCapture = false;
 #endif
-    const RuntimeInteractionFramePolicy policy =
-        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                                      stepRequested,
-                                                                      false,
-                                                                      replayLiveAdvanceHeld,
-                                                                      Input::IsRightMouseDown(),
-                                                                      m_runtimeTools.Editor().viewportLookActive,
-                                                                      ReplayInspectionMouseLookActive(),
-                                                                      physicsCapture,
-                                                                      SceneState().timeScale } );
+    const RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
+        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                      stepRequested,
+                                      false,
+                                      replayLiveAdvanceHeld,
+                                      Input::IsRightMouseDown(),
+                                      m_runtimeTools.Editor().viewportLookActive,
+                                      m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                                                 m_UI.WantsNativeMouseCursor(),
+                                                                                 m_UI.BlocksCameraMouse() ),
+                                      physicsCapture,
+                                      SceneState().timeScale } );
     const bool manipulatorPhysics = policy.manipulatorActive;
     const SimulationTickResult tick = m_simulation.Tick(
         SimulationTickInput{ secondsPerFrame,

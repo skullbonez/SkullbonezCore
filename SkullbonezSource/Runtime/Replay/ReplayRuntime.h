@@ -405,6 +405,8 @@ class ReplayRuntime
     static float PredictionNormalizedFromTrack( float position, float presentT );
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
     bool ShouldUseInspectionCamera() const;
+    bool InspectionActive() const;
+    bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;
     bool ArmLoadedPresentationScrubber( float normalized, double now );
     void ClearCameraFocusForRestore();
 
