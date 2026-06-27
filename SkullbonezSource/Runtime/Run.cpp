@@ -232,7 +232,11 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        WriteMainMemoryDump( "shutdown" );
+        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
+                                                  m_cGameModelCollection,
+                                                  SceneState(),
+                                                  "shutdown",
+                                                  m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     m_replayRuntime.FlushHashLogs();

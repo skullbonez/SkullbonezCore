@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene runtime style helper slice validated
+Status: Active architecture cleanup plan; diagnostics memory-dump wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene runtime style helper section below
+Validation for latest implementation slice: see the diagnostics memory-dump wrapper section below
 
 ## Goal
 
@@ -4143,6 +4143,73 @@ Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
 phases, duplicated cine/path helpers, replay solver helpers, and render-host
 splitting remain active; this slice only moved live style and cinematic style
 application ownership to scene runtime.
+
+## Diagnostics Memory-Dump Wrapper Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This diagnostics slice removed the private `Run` shutdown memory-dump wrapper.
+Shutdown now calls `DiagnosticsRuntime::WriteMainMemoryDump(...)` directly with
+the existing replay, model collection, scene state, checkpoint, and simulation
+time inputs. The behavior is unchanged, but memory-dump policy is no longer
+hidden behind a `Run.h` declaration.
+
+Deleted `Run.h` declaration:
+
+- `bool WriteMainMemoryDump( const char* checkpoint );`
+
+Deleted `Run::` definition:
+
+- `bool Run::WriteMainMemoryDump( const char* checkpoint )`
+
+New owner surface:
+
+- `DiagnosticsRuntime::WriteMainMemoryDump(...)` remains the owner of
+  CLI-requested main-memory JSON output.
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Run.cpp`
+- `SkullbonezSource/Runtime/RunCapture.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 152 to 151.
+- New header and source guardrails reject `WriteMainMemoryDump` wrapper
+  declarations or `Run::WriteMainMemoryDump` definitions from returning.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\diagnostics_memory_dump_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.8s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\diagnostics_memory_dump_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 49.3s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\diagnostics_memory_dump_runtime_boundaries.log`;
+  passed with 0 errors in 2.9s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\diagnostics_memory_dump_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.9s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
+phases, duplicated cine/path helpers, replay solver helpers, replay
+pause/inspection camera helper ownership, and render-host splitting remain
+active; this slice only removed a diagnostics forwarding wrapper.
 
 ## Rules
 

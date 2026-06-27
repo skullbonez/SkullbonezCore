@@ -29,13 +29,3 @@ void Run::SaveScreenshot( const char* path )
 {
     CaptureController::SaveBackbufferBmp( Gfx(), path );
 }
-
-
-bool Run::WriteMainMemoryDump( const char* checkpoint )
-{
-    return m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
-                                                     m_cGameModelCollection,
-                                                     SceneState(),
-                                                     checkpoint,
-                                                     m_timers.simulationTimer.GetTotalTime() );
-}
