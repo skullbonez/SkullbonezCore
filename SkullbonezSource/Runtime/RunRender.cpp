@@ -67,6 +67,24 @@ struct DebugOverlayGraphCallbackData
     const RenderFrameContext* frame = nullptr;
 };
 
+struct TornadoVisualGraphCallbackData
+{
+    TornadoVisualPass* tornadoVisualPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+    bool rendered = false;
+};
+
+void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+                                        void* userData )
+{
+    auto* data = static_cast<TornadoVisualGraphCallbackData*>( userData );
+    if ( !data || !data->tornadoVisualPass || !data->frame )
+    {
+        throw std::runtime_error( "TornadoVisualPass graph callback missing execution data" );
+    }
+    data->rendered = data->tornadoVisualPass->Render( { *data->frame } );
+}
+
 void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                        void* userData )
 {
@@ -114,6 +132,47 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        systems.skyBox } };
 }
 } // namespace
+
+RuntimeRenderer::GraphPassResult
+RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle colorTarget =
+        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+                                   Rendering::RenderGraphResourceAccess::RenderTarget );
+    const Rendering::RenderGraphResourceHandle depthTarget =
+        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+                                   Rendering::RenderGraphResourceAccess::DepthWrite );
+
+    const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass",
+                                                Rendering::RenderGraphQueueType::Graphics,
+                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddWrite( tornadoPass, colorTarget, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( tornadoPass, depthTarget, Rendering::RenderGraphResourceAccess::DepthWrite );
+
+    TornadoVisualGraphCallbackData callbackData;
+    callbackData.tornadoVisualPass = &m_tornadoVisualPass;
+    callbackData.frame = &frame;
+    graph.SetPassCallback( tornadoPass,
+                           ExecuteTornadoVisualGraphCallback,
+                           &callbackData,
+                           true,
+                           "Frame/Render/TornadoVisual" );
+
+    // Invariant: TornadoVisualPass may skip drawing after rebuilding its
+    // transient vertex list. Callback ownership is still true when the graph
+    // schedules that decision point in frame order.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+
+    GraphPassResult result;
+    result.rendered = callbackData.rendered;
+    result.callbackOwned = executed.executedPassCount == 1u;
+    return result;
+}
+
 
 bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
 {
@@ -434,7 +493,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                           host.m_debug.isWaterFreezeDebug,
                           host.m_debug.frozenWaterTime } );
 
-    const bool tornadoVisualRendered = m_tornadoVisualPass.Render( { frame } );
+    const GraphPassResult tornadoVisualGraph = ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
 
     if ( debugTransparentBodyPass )
     {
@@ -489,7 +548,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
-    frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
+    frameSnapshot.tornadoVisualRendered = tornadoVisualGraph.rendered;
+    frameSnapshot.tornadoVisualCallbackOwned = tornadoVisualGraph.callbackOwned;
     frameSnapshot.debugOverlayCallbackOwned = debugOverlayCallbackOwned;
     frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
     frameSnapshot.volumetricReady = volumetricReady;

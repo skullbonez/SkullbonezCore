@@ -45,6 +45,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
            lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.tornadoVisualCallbackOwned == rhs.tornadoVisualCallbackOwned &&
            lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
            lhs.volumetricCallbackOwned == rhs.volumetricCallbackOwned && lhs.volumetricReady == rhs.volumetricReady &&
            lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned;
@@ -222,10 +223,14 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         addTargetWrite( waterPass );
     }
 
-    if ( snapshot.tornadoVisualRendered )
+    if ( snapshot.tornadoVisualRendered || snapshot.tornadoVisualCallbackOwned )
     {
         const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass" );
         addTargetWrite( tornadoPass );
+        if ( snapshot.tornadoVisualCallbackOwned )
+        {
+            graph.SetPassCallback( tornadoPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/TornadoVisual" );
+        }
     }
 
     if ( snapshot.objectTransparentPass )
@@ -292,6 +297,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
+    out << "tornado_visual_callback_owned=" << ( snapshot.tornadoVisualCallbackOwned ? "true" : "false" ) << "\n";
     out << "debug_overlay_callback_owned=" << ( snapshot.debugOverlayCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";

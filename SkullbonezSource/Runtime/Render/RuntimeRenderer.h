@@ -57,10 +57,16 @@ class RuntimeRenderer
         bool volumetricCallbackOwned = false; // Volumetric command recording ran through RenderGraph callback execution.
         bool tonemapCallbackOwned = false;    // Tonemap command recording ran through RenderGraph callback execution.
     };
+    struct GraphPassResult
+    {
+        bool rendered = false;                // Pass body produced visible output.
+        bool callbackOwned = false;           // Pass scheduling ran through RenderGraph callback execution.
+    };
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
+    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
 

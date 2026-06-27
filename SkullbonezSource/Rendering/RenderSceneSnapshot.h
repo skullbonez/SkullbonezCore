@@ -34,21 +34,22 @@ namespace Rendering
 
 struct RenderSceneSnapshot
 {
-    bool cinematicRender = false;           // True when cinematic rendering was requested for this frame.
-    bool useCinematicTarget = false;        // True when HDR scene color/depth targets were actually used.
-    bool terrainShadowValid = false;        // Terrain shadow map was produced and available to receivers.
-    bool objectShadowValid = false;         // Object shadow map was produced and available to receivers.
-    bool reflectionUsedDxr = false;         // Reflection came from the DXR dispatch instead of the raster target.
-    bool objectOpaquePass = false;          // Opaque body pass executed before terrain/water.
-    bool objectTransparentPass = false;     // Transparent body pass executed after water.
-    bool terrainPassRendered = false;       // Terrain pass actually drew terrain this frame.
-    bool waterPassRendered = false;         // Water pass actually drew fluid this frame.
-    bool waterSamplesReflection = false;    // Water sampled a non-zero reflection texture handle.
-    bool tornadoVisualRendered = false;     // Sparse tornado production visual drew after water with depth write disabled.
-    bool debugOverlayCallbackOwned = false; // Debug overlay scheduling ran through the executable render graph.
-    bool volumetricCallbackOwned = false;   // Volumetric command recording ran through the executable render graph.
-    bool volumetricReady = false;           // Volumetric light target was produced for tonemap.
-    bool tonemapCallbackOwned = false;      // Tonemap command recording ran through the executable render graph.
+    bool cinematicRender = false;            // True when cinematic rendering was requested for this frame.
+    bool useCinematicTarget = false;         // True when HDR scene color/depth targets were actually used.
+    bool terrainShadowValid = false;         // Terrain shadow map was produced and available to receivers.
+    bool objectShadowValid = false;          // Object shadow map was produced and available to receivers.
+    bool reflectionUsedDxr = false;          // Reflection came from the DXR dispatch instead of the raster target.
+    bool objectOpaquePass = false;           // Opaque body pass executed before terrain/water.
+    bool objectTransparentPass = false;      // Transparent body pass executed after water.
+    bool terrainPassRendered = false;        // Terrain pass actually drew terrain this frame.
+    bool waterPassRendered = false;          // Water pass actually drew fluid this frame.
+    bool waterSamplesReflection = false;     // Water sampled a non-zero reflection texture handle.
+    bool tornadoVisualRendered = false;      // Sparse tornado production visual drew after water with depth write disabled.
+    bool tornadoVisualCallbackOwned = false; // Tornado visual scheduling ran through the executable render graph.
+    bool debugOverlayCallbackOwned = false;  // Debug overlay scheduling ran through the executable render graph.
+    bool volumetricCallbackOwned = false;    // Volumetric command recording ran through the executable render graph.
+    bool volumetricReady = false;            // Volumetric light target was produced for tonemap.
+    bool tonemapCallbackOwned = false;       // Tonemap command recording ran through the executable render graph.
 };
 
 } // namespace Rendering
