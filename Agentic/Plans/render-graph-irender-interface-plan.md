@@ -14,6 +14,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Moved `VolumetricLightPass` command recording into the render graph callback path and marked callback ownership in frame graph diagnostics.
 - [x] 2026-06-27: Added a runtime-boundary guardrail blocking direct `VolumetricLightPass`/`ToneMapPass` scheduling after graph callback migration.
 - [x] 2026-06-27: Folded `VolumetricLightPass` and `ToneMapPass` into one cinematic post render graph so the graph owns their callback order and resource dependency.
+- [x] 2026-06-27: Moved `DebugOverlayPass` scheduling into a render graph callback and recorded callback ownership in executed frame graph diagnostics.
 
 ## Goal
 
@@ -125,6 +126,7 @@ Pass-family checklist, repeated for each selected family:
 Suggested migration order:
 
 - [x] `VolumetricLightPass`
+- [x] `DebugOverlayPass`
 - [ ] Low-risk post-processing passes after tone map
 - [ ] Reflection or environment passes
 - [ ] Shadow passes

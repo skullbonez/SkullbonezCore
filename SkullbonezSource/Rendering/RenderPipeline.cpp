@@ -45,6 +45,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
            lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
            lhs.volumetricCallbackOwned == rhs.volumetricCallbackOwned && lhs.volumetricReady == rhs.volumetricReady &&
            lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned;
 }
@@ -239,6 +240,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
 
     const uint32_t debugPass = graph.AddPass( "DebugOverlayPass" );
     addTargetWrite( debugPass );
+    if ( snapshot.debugOverlayCallbackOwned )
+    {
+        graph.SetPassCallback( debugPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/DebugOverlay" );
+    }
 
     if ( snapshot.useCinematicTarget && snapshot.volumetricReady )
     {
@@ -287,6 +292,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
+    out << "debug_overlay_callback_owned=" << ( snapshot.debugOverlayCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";
     out << "tonemap_callback_owned=" << ( snapshot.tonemapCallbackOwned ? "true" : "false" ) << "\n\n";

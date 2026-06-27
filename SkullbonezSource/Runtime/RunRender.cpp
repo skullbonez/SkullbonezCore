@@ -61,6 +61,23 @@ struct CinematicPostGraphCallbackData
     bool volumetricRendered = false;
 };
 
+struct DebugOverlayGraphCallbackData
+{
+    DebugOverlayPass* debugOverlayPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+};
+
+void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+                                       void* userData )
+{
+    auto* data = static_cast<DebugOverlayGraphCallbackData*>( userData );
+    if ( !data || !data->debugOverlayPass || !data->frame )
+    {
+        throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
+    }
+    data->debugOverlayPass->Render( { *data->frame } );
+}
+
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                      void* userData )
 {
@@ -97,6 +114,42 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        systems.skyBox } };
 }
 } // namespace
+
+bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle colorTarget =
+        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+                                   Rendering::RenderGraphResourceAccess::RenderTarget );
+    const Rendering::RenderGraphResourceHandle depthTarget =
+        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+                                   Rendering::RenderGraphResourceAccess::DepthWrite );
+
+    const uint32_t debugPass = graph.AddPass( "DebugOverlayPass",
+                                              Rendering::RenderGraphQueueType::Graphics,
+                                              Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddWrite( debugPass, colorTarget, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( debugPass, depthTarget, Rendering::RenderGraphResourceAccess::DepthWrite );
+
+    DebugOverlayGraphCallbackData callbackData;
+    callbackData.debugOverlayPass = &m_debugOverlayPass;
+    callbackData.frame = &frame;
+    graph.SetPassCallback( debugPass,
+                           ExecuteDebugOverlayGraphCallback,
+                           &callbackData,
+                           true,
+                           "Frame/Render/DebugOverlay" );
+
+    // Invariant: debug overlays are optional inside the pass body, but the pass
+    // scheduling itself is now graph-owned every frame so direct runtime calls
+    // cannot creep back beside post-processing callbacks.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    return executed.executedPassCount == 1u;
+}
+
 
 RuntimeRenderer::CinematicPostGraphResult
 RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame )
@@ -410,7 +463,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     host.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
 
-    m_debugOverlayPass.Render( { frame } );
+    const bool debugOverlayCallbackOwned = ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
 
     bool volumetricReady = false;
     bool volumetricCallbackOwned = false;
@@ -437,6 +490,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
     frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
+    frameSnapshot.debugOverlayCallbackOwned = debugOverlayCallbackOwned;
     frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
     frameSnapshot.volumetricReady = volumetricReady;
     frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
