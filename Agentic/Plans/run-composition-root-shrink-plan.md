@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; diagnostics memory-dump wrapper slice validated
+Status: Active architecture cleanup plan; UI stress RNG helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the diagnostics memory-dump wrapper section below
+Validation for latest implementation slice: see the UI stress RNG helper section below
 
 ## Goal
 
@@ -4210,6 +4210,86 @@ Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
 phases, duplicated cine/path helpers, replay solver helpers, replay
 pause/inspection camera helper ownership, and render-host splitting remain
 active; this slice only removed a diagnostics forwarding wrapper.
+
+## UI Stress RNG Helper Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This diagnostics/stress slice removed deterministic UI-stress RNG helpers from
+`Run.h`. The LCG and int/float helper functions are now file-local in
+`RunStress.cpp` and operate on the diagnostics-owned
+`DiagnosticsRuntime::UIStressState` passed explicitly from
+`Run::RunUIStressActions()`. The PRNG update formula and call order are
+unchanged.
+
+Deleted `Run.h` declarations:
+
+- `unsigned int NextUIStressRandom();`
+- `int NextUIStressInt( int maxExclusive );`
+- `float NextUIStressFloat( float minValue, float maxValue );`
+
+Deleted `Run::` definitions:
+
+- `unsigned int Run::NextUIStressRandom()`
+- `int Run::NextUIStressInt( int maxExclusive )`
+- `float Run::NextUIStressFloat( float minValue, float maxValue )`
+
+New owner surface:
+
+- File-local `NextUIStressRandom(UIStressState&)`,
+  `NextUIStressInt(UIStressState&, int)`, and
+  `NextUIStressFloat(UIStressState&, float, float)` keep deterministic stress
+  RNG mechanics next to `Run::RunUIStressActions()` while the state remains in
+  `DiagnosticsRuntime`.
+
+Files changed:
+
+- `SkullbonezSource/Runtime/RunStress.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `tools/check_runtime_boundaries.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 151 to 148.
+- New header and source guardrails reject `NextUIStressRandom`,
+  `NextUIStressInt`, and `NextUIStressFloat` declarations or `Run::`
+  definitions from returning.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\ui_stress_rng_profile_build.log`; passed
+  with 0 warnings and 0 errors in 39.8s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\ui_stress_rng_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, and Profile/Debug builds in
+  50.3s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at `TestOutput\validation\agent_logs\ui_stress_rng_runtime_boundaries.log`;
+  passed with 0 errors in 2.9s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\ui_stress_rng_validate_full.log`; passed
+  project filters, runtime boundaries, Profile/Debug builds, DX12 validation
+  with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.8s.
+- UI stress gate: `tools\validate_ui_stress.bat`, logged at
+  `TestOutput\validation\agent_logs\ui_stress_rng_validate_ui_stress.log`;
+  passed with DX12 validation errors 0 in 16.8s.
+- Demo stress gate: `tools\validate_demo_stress.bat`, logged at
+  `TestOutput\validation\agent_logs\ui_stress_rng_validate_demo_stress.log`;
+  passed with DX12 validation errors 0 in 17.6s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
+phases, duplicated cine/path helpers, replay solver helpers, replay
+pause/inspection camera helper ownership, and render-host splitting remain
+active; this slice only removed deterministic UI-stress RNG helper declarations.
 
 ## Rules
 

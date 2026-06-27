@@ -330,9 +330,6 @@ class Run
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
     // Tight light-space frame for nearby object receivers.
     // Depth casters requested from the sun view.
-    unsigned int NextUIStressRandom();
-    int NextUIStressInt( int maxExclusive );
-    float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
