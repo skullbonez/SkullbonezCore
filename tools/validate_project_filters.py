@@ -94,7 +94,7 @@ PHYSICS_PREFIXES = (
     "PhysicsEngine",
     "PhysicsHandles",
     "PhysicsMass",
-    "PhysicsModelView",
+    "PhysicsModelAccess",
     "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",

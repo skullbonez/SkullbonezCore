@@ -30,7 +30,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -298,7 +298,7 @@ bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
 }
 
 
-bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
+bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
                            PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            const std::vector<uint8_t>& sleepState )
@@ -468,7 +468,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     }
 }
 
-void Ragdoll::SolvePointJoints( PhysicsModelView& modelView,
+void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
                                 PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
@@ -479,7 +479,7 @@ void Ragdoll::SolvePointJoints( PhysicsModelView& modelView,
         return;
     }
 
-    std::vector<GameModel>& models = modelView.Models();
+    auto models = modelAccess.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const int modelCount = static_cast<int>( models.size() );
     const float invDt = 1.0f / dt;
@@ -581,5 +581,5 @@ void Ragdoll::SolvePointJoints( PhysicsModelView& modelView,
 
     ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
     bodyStore.WriteBackToModels( models );
-    modelView.InvalidatePhysicsStreams();
+    modelAccess.InvalidatePhysicsStreams();
 }

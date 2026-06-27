@@ -26,14 +26,14 @@ Related:
 */
 #include "SleepIslandSystem.h"
 
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 
 
-void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelView& modelView )
+void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelAccess& modelAccess )
 {
     // Concept: support propagates upward through a stack.
     //
@@ -41,7 +41,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
     // B can be considered supported too. Repeating that rule lets a whole tower
     // become one stable sleep island instead of requiring every object to touch
     // terrain directly.
-    const std::vector<GameModel>& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     auto& m_sleepState = context.sleepState;
     auto& m_sleepSupportEdges = context.sleepSupportEdges;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;

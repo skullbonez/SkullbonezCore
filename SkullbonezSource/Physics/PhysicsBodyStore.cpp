@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
+#include "PhysicsModelAccess.h"
 
 #include <cstddef>
 
@@ -92,6 +93,12 @@ void PhysicsBodyStore::Refresh( std::vector<GameModel>& models, const std::vecto
 }
 
 
+void PhysicsBodyStore::Refresh( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
+{
+    LoadFromModelAccess( modelAccess, sleepStates );
+}
+
+
 void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
 {
     m_bodies.resize( models.size() );
@@ -131,6 +138,57 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
+void PhysicsBodyStore::LoadFromModels( PhysicsModelMutableRange models, const std::vector<uint8_t>& sleepStates )
+{
+    const int modelCount = models.Count();
+    m_bodies.resize( static_cast<std::size_t>( modelCount ) );
+    m_modelBodyHandles.resize( static_cast<std::size_t>( modelCount ) );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        GameModel& model = models[static_cast<std::size_t>( i )];
+        PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
+        const uint32_t modelIndex = static_cast<uint32_t>( i );
+        const PhysicsBodyHandle handle = MakeCompatibilityPhysicsBodyHandle( modelIndex );
+        const bool preservePendingImpulse = record.handle == handle && record.hasPendingImpulse;
+        const bool preserveSleeping = record.handle == handle && record.isSleeping;
+        const Vector3 pendingImpulse = record.pendingImpulse;
+        const Vector3 pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
+        record.handle = handle;
+        record.legacyModelIndex = i;
+        record.replayBodyId = model.GetReplayBodyId();
+        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+        CaptureMutableBodyState( model, record );
+        if ( preservePendingImpulse )
+        {
+            record.pendingImpulse = pendingImpulse;
+            record.pendingImpulseApplicationPoint = pendingImpulseApplicationPoint;
+            record.hasPendingImpulse = true;
+        }
+        else
+        {
+            record.pendingImpulse = ZERO_VECTOR;
+            record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+            record.hasPendingImpulse = false;
+        }
+        record.isSleeping = preserveSleeping || ( i < static_cast<int>( sleepStates.size() ) &&
+                                                  sleepStates[static_cast<std::size_t>( i )] != 0 );
+        m_modelBodyHandles[static_cast<std::size_t>( i )] = record.handle;
+    }
+}
+
+
+void PhysicsBodyStore::LoadFromModels( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
+{
+    LoadFromModelAccess( modelAccess, sleepStates );
+}
+
+
+void PhysicsBodyStore::LoadFromModelAccess( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
+{
+    LoadFromModels( modelAccess.Models(), sleepStates );
+}
+
+
 void PhysicsBodyStore::ClearPendingImpulses()
 {
     for ( PhysicsBodyRecord& record : m_bodies )
@@ -152,6 +210,22 @@ void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
 }
 
 
+void PhysicsBodyStore::WriteBackToModels( PhysicsModelMutableRange models ) const
+{
+    const int modelCount = (std::min)( models.Count(), Count() );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        WriteBackToModelAt( models, i );
+    }
+}
+
+
+void PhysicsBodyStore::WriteBackToModels( PhysicsModelAccess& modelAccess ) const
+{
+    WriteBackToModelAccess( modelAccess );
+}
+
+
 void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int modelIndex ) const
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) ||
@@ -165,6 +239,36 @@ void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int m
 }
 
 
+void PhysicsBodyStore::WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= models.Count() || modelIndex >= static_cast<int>( m_bodies.size() ) )
+    {
+        return;
+    }
+
+    WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( modelIndex )],
+                                     models[static_cast<std::size_t>( modelIndex )] );
+}
+
+
+void PhysicsBodyStore::WriteBackToModelAt( PhysicsModelAccess& modelAccess, int modelIndex ) const
+{
+    WriteBackToModelAccessAt( modelAccess, modelIndex );
+}
+
+
+void PhysicsBodyStore::WriteBackToModelAccess( PhysicsModelAccess& modelAccess ) const
+{
+    WriteBackToModels( modelAccess.Models() );
+}
+
+
+void PhysicsBodyStore::WriteBackToModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex ) const
+{
+    WriteBackToModelAt( modelAccess.Models(), modelIndex );
+}
+
+
 void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models, int modelIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
@@ -174,6 +278,30 @@ void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& m
     }
 
     CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
+}
+
+
+void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || modelIndex < 0 || modelIndex >= models.Count() )
+    {
+        return;
+    }
+
+    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
+}
+
+
+void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    CaptureMutableStateFromModelAccessAt( modelAccess, modelIndex );
+}
+
+
+void PhysicsBodyStore::CaptureMutableStateFromModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    CaptureMutableStateFromModelAt( modelAccess.Models(), modelIndex );
 }
 
 
@@ -357,6 +485,23 @@ bool PhysicsBodyStore::IntegrateBodyPose( std::vector<GameModel>& models, int mo
 }
 
 
+bool PhysicsBodyStore::IntegrateBodyPose( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || modelIndex < 0 || modelIndex >= models.Count() || record->isFixed || record->isSleeping ||
+         deltaSeconds <= 0.0f )
+    {
+        return false;
+    }
+
+    WriteBackToModelAt( models, modelIndex );
+    GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    model.UpdatePosition( deltaSeconds );
+    CaptureMutableBodyState( model, *record );
+    return true;
+}
+
+
 bool PhysicsBodyStore::ApplyCompatibilityForces( std::vector<GameModel>& models, int modelIndex, float deltaSeconds )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
@@ -373,4 +518,35 @@ bool PhysicsBodyStore::ApplyCompatibilityForces( std::vector<GameModel>& models,
     record->pendingImpulseApplicationPoint = ZERO_VECTOR;
     record->hasPendingImpulse = false;
     return true;
+}
+
+
+bool PhysicsBodyStore::ApplyCompatibilityForces( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || modelIndex < 0 || modelIndex >= models.Count() || record->isFixed )
+    {
+        return false;
+    }
+
+    WriteBackToModelAt( models, modelIndex );
+    GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    model.ApplyForces( deltaSeconds );
+    CaptureMutableBodyState( model, *record );
+    record->pendingImpulse = ZERO_VECTOR;
+    record->pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record->hasPendingImpulse = false;
+    return true;
+}
+
+
+bool PhysicsBodyStore::IntegrateBodyPose( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds )
+{
+    return IntegrateBodyPose( modelAccess.Models(), modelIndex, deltaSeconds );
+}
+
+
+bool PhysicsBodyStore::ApplyCompatibilityForces( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds )
+{
+    return ApplyCompatibilityForces( modelAccess.Models(), modelIndex, deltaSeconds );
 }

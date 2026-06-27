@@ -35,7 +35,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
-using SkullbonezCore::Physics::PhysicsModelView;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
@@ -48,27 +48,26 @@ void PhysicsScene::Clear()
 }
 
 
-void PhysicsScene::RefreshStores( PhysicsModelView& modelView )
+void PhysicsScene::RefreshStores( PhysicsModelAccess& modelAccess )
 {
-    RefreshPhysicsStores( modelView );
-    RefreshRenderStore( modelView );
+    RefreshPhysicsStores( modelAccess );
+    RefreshRenderStore( modelAccess );
 }
 
 
-void PhysicsScene::RefreshPhysicsStores( PhysicsModelView& modelView )
+void PhysicsScene::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
 {
-    RefreshBodyStore( modelView );
-    RefreshColliderStore( modelView );
+    RefreshBodyStore( modelAccess );
+    RefreshColliderStore( modelAccess );
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( modelView.Count() );
+    ValidatePhysicsStoreMappings( modelAccess.ModelCount() );
 #endif
 }
 
 
-void PhysicsScene::RefreshBodyStore( PhysicsModelView& modelView )
+void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = modelView.Models();
-    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
 }
 
 
@@ -78,19 +77,17 @@ void PhysicsScene::ClearPendingBodyImpulses()
 }
 
 
-void PhysicsScene::RefreshColliderStore( PhysicsModelView& modelView )
+void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = modelView.Models();
-    m_colliderStore.Refresh( models );
+    m_colliderStore.Refresh( modelAccess );
 }
 
 
-void PhysicsScene::RefreshRenderStore( PhysicsModelView& modelView )
+void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = modelView.Models();
-    m_renderInstanceStore.Refresh( models );
+    m_renderInstanceStore.Refresh( modelAccess );
 #ifdef _DEBUG
-    ValidateRenderStoreMappings( static_cast<int>( models.size() ) );
+    ValidateRenderStoreMappings( modelAccess.ModelCount() );
 #endif
 }
 
@@ -147,62 +144,61 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsScene::RunPhysics( PhysicsModelView& modelView, float fChangeInTime )
+void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = modelView.Models();
-    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
-    m_world.RunPhysics( modelView, m_bodyStore, fChangeInTime );
+    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    m_world.RunPhysics( modelAccess, m_bodyStore, fChangeInTime );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModels( models );
+    m_bodyStore.WriteBackToModelAccess( modelAccess );
 }
 
 
-void PhysicsScene::WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body )
+void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelView );
+    RefreshBodyStore( modelAccess );
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
         return;
     }
     m_bodyStore.WakeBody( index );
-    m_world.WakeModel( modelView, index );
+    m_world.WakeModel( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAt( modelView.Models(), index );
+    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
 }
 
 
-void PhysicsScene::SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body )
+void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelView );
+    RefreshBodyStore( modelAccess );
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
         return;
     }
     m_bodyStore.SeedBodyAsleep( index );
-    m_world.SeedModelAsleep( modelView, index );
+    m_world.SeedModelAsleep( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAt( modelView.Models(), index );
+    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
 }
 
 
-void PhysicsScene::ApplyBodyImpulse( PhysicsModelView& modelView,
+void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                                      PhysicsBodyHandle body,
                                      const Math::Vector::Vector3& impulse,
                                      const Math::Vector::Vector3& localApplicationPoint )
 {
-    SetPendingBodyImpulse( modelView, body, impulse, localApplicationPoint );
-    WakeBody( modelView, body );
+    SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    WakeBody( modelAccess, body );
 }
 
 
-void PhysicsScene::SetPendingBodyImpulse( PhysicsModelView& modelView,
+void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                           PhysicsBodyHandle body,
                                           const Math::Vector::Vector3& impulse,
                                           const Math::Vector::Vector3& localApplicationPoint )
 {
-    RefreshBodyStore( modelView );
+    RefreshBodyStore( modelAccess );
     const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
     if ( bodyIndex < 0 )
     {
@@ -210,8 +206,8 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelView& modelView,
     }
     if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
     {
-        m_bodyStore.WriteBackToModelAt( modelView.Models(), bodyIndex );
-        modelView.InvalidatePhysicsStreams();
+        m_bodyStore.WriteBackToModelAccessAt( modelAccess, bodyIndex );
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 

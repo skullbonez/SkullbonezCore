@@ -29,7 +29,7 @@ Related:
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 #include "../Rendering/RenderInstanceStore.h"
 
@@ -43,20 +43,20 @@ class PhysicsScene
     PhysicsScene() = default;
 
     void Clear();
-    void RefreshStores( PhysicsModelView& modelView );
-    void RefreshPhysicsStores( PhysicsModelView& modelView );
-    void RefreshBodyStore( PhysicsModelView& modelView );
+    void RefreshStores( PhysicsModelAccess& modelAccess );
+    void RefreshPhysicsStores( PhysicsModelAccess& modelAccess );
+    void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void ClearPendingBodyImpulses();
-    void RefreshColliderStore( PhysicsModelView& modelView );
-    void RefreshRenderStore( PhysicsModelView& modelView );
-    void RunPhysics( PhysicsModelView& modelView, float fChangeInTime );
-    void WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body );
-    void SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body );
-    void ApplyBodyImpulse( PhysicsModelView& modelView,
+    void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    void RefreshRenderStore( PhysicsModelAccess& modelAccess );
+    void RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime );
+    void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                            PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( PhysicsModelView& modelView,
+    void SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                 PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );

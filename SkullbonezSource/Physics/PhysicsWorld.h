@@ -37,7 +37,7 @@ Related:
 #include <vector>
 
 #include "PersistentContactSolver.h"
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "Debug/PhysicsDebugVisualizer.h"
 #include "Ragdoll.h"
@@ -267,12 +267,12 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
-    void SolvePersistentObjectContacts( PhysicsModelView& modelView, float dt );
+    void RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt );
+    void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
 #ifdef _DEBUG
-    void EmitPhysicsDiagnosticsFrame( PhysicsModelView& modelView, float dt );
+    void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt );
 #endif
-    void EmitPhysicsCollisionTime( PhysicsModelView& modelView,
+    void EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
                                    const char* type,
                                    int bodyA,
                                    int bodyB,
@@ -284,51 +284,52 @@ class PhysicsWorld
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool
-    IsFullySubmergedBall( PhysicsModelView& modelView, const GameObjects::GameModelBodyStream& bodyStream, int index );
-    void LockUnderwaterSleeperIfReady( PhysicsModelView& modelView,
+    bool IsFullySubmergedBall( PhysicsModelAccess& modelAccess,
+                               const GameObjects::GameModelBodyStream& bodyStream,
+                               int index );
+    void LockUnderwaterSleeperIfReady( PhysicsModelAccess& modelAccess,
                                        PhysicsBodyStore& bodyStore,
                                        const GameObjects::GameModelBodyStream& bodyStream,
                                        int index );
-    bool IsUnderwaterSleepLocked( PhysicsModelView& modelView,
+    bool IsUnderwaterSleepLocked( PhysicsModelAccess& modelAccess,
                                   const GameObjects::GameModelBodyStream& bodyStream,
                                   int index );
     void MarkCollisionVisualContact( int index );
-    void MarkFixedContact( PhysicsModelView& modelView, int index );
-    void ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
-    void PropagateSleepSupport( PhysicsModelView& modelView );
+    void MarkFixedContact( PhysicsModelAccess& modelAccess, int index );
+    void ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt );
+    void PropagateSleepSupport( PhysicsModelAccess& modelAccess );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
-    bool WakeDynamicBodyState( PhysicsModelView& modelView,
+    bool WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
-    void WakeSleepVisualIsland( PhysicsModelView& modelView,
+    void WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
                                 float dt,
                                 bool applyForces );
-    void WakePointJointIsland( PhysicsModelView& modelView,
+    void WakePointJointIsland( PhysicsModelAccess& modelAccess,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
-    void WakeRestingContactIsland( PhysicsModelView& modelView,
+    void WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
                                    bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
-    void WakePointJointConnectedBodies( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt );
+    void WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt );
 
   public:
     PhysicsWorld();
 
     void Clear();
-    void RunPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float fChangeInTime );
-    void WakeModel( PhysicsModelView& modelView, int index );
-    void SeedModelAsleep( PhysicsModelView& modelView, int index );
+    void RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float fChangeInTime );
+    void WakeModel( PhysicsModelAccess& modelAccess, int index );
+    void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
@@ -354,9 +355,9 @@ class PhysicsWorld
     {
         MarkCollisionVisualContact( index );
     }
-    void MarkSolverFixedContact( PhysicsModelView& modelView, int index )
+    void MarkSolverFixedContact( PhysicsModelAccess& modelAccess, int index )
     {
-        MarkFixedContact( modelView, index );
+        MarkFixedContact( modelAccess, index );
     }
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
@@ -399,8 +400,8 @@ struct PersistentContactSolverContext
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
     void MarkCollisionVisualContact( int index ) const;
-    void MarkFixedContact( PhysicsModelView& modelView, int index ) const;
-    void WakeModel( PhysicsModelView& modelView, int index ) const;
+    void MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const;
+    void WakeModel( PhysicsModelAccess& modelAccess, int index ) const;
 };
 
 struct SleepSupportPropagationContext

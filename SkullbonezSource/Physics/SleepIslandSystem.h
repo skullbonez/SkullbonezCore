@@ -30,13 +30,13 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-class PhysicsModelView;
+class PhysicsModelAccess;
 struct SleepSupportPropagationContext;
 
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelView& modelView );
+    void PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelAccess& modelAccess );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

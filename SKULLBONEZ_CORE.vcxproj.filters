@@ -674,7 +674,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelView.h">
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelAccess.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">

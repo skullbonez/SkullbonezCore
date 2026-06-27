@@ -167,33 +167,6 @@ void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
 }
 
 
-void ReleaseAttachedFixedTreePartsForPhysics( void* userData,
-                                              int sourceIndex,
-                                              const Vector3& seedLinearVelocity,
-                                              const Vector3& seedAngularVelocity )
-{
-    GameModelCollection* collection = static_cast<GameModelCollection*>( userData );
-    if ( collection )
-    {
-        collection->ReleaseAttachedFixedTreeParts( sourceIndex, seedLinearVelocity, seedAngularVelocity );
-    }
-}
-
-
-void EmitSkullScopeFrameForPhysics( void* userData, SkullbonezCore::GameObjects::SkullScope& scope, float dt )
-{
-#ifdef _DEBUG
-    GameModelCollection* collection = static_cast<GameModelCollection*>( userData );
-    if ( collection )
-    {
-        scope.EmitFrame( *collection, dt );
-    }
-#else
-    (void)userData;
-    (void)scope;
-    (void)dt;
-#endif
-}
 } // namespace
 
 
@@ -245,16 +218,6 @@ void GameModelCollection::InvalidateSoA()
     // body/render state, so mark the cache dirty and let the next hot-path user
     // rebuild it from the authoritative vector.
     m_soaCache.Invalidate();
-}
-
-
-SkullbonezCore::Physics::PhysicsModelView GameModelCollection::MakePhysicsModelView()
-{
-    return Physics::PhysicsModelView( m_gameModels,
-                                      m_soaCache,
-                                      this,
-                                      ReleaseAttachedFixedTreePartsForPhysics,
-                                      EmitSkullScopeFrameForPhysics );
 }
 
 
@@ -426,6 +389,24 @@ int GameModelCollection::GetModelCount() const
 }
 
 
+int GameModelCollection::ModelCount() const
+{
+    return GetModelCount();
+}
+
+
+GameModel* GameModelCollection::MutableModelData()
+{
+    return m_gameModels.data();
+}
+
+
+const GameModel* GameModelCollection::ModelData() const
+{
+    return m_gameModels.data();
+}
+
+
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
     return m_gameModels;
@@ -515,6 +496,12 @@ GameModelBodyStream GameModelCollection::GetBodyStream()
 }
 
 
+GameModelBodyStream GameModelCollection::GetPhysicsBodyStream()
+{
+    return GetBodyStream();
+}
+
+
 GameModelRenderStream GameModelCollection::GetRenderStream()
 {
     return GameModelStreamProvider::GetRenderStream( m_soaCache, m_gameModels );
@@ -535,24 +522,21 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.RefreshBodyStore( modelView );
+    m_physicsEngine.RefreshBodyStore( *this );
     return m_physicsEngine.BodyStore();
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.RefreshColliderStore( modelView );
+    m_physicsEngine.RefreshColliderStore( *this );
     return m_physicsEngine.Colliders();
 }
 
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.RefreshRenderStore( modelView );
+    m_physicsEngine.RefreshRenderStore( *this );
     return m_physicsEngine.RenderInstances();
 }
 
@@ -600,6 +584,17 @@ double GameModelCollection::GetSceneKineticEnergy()
 void GameModelCollection::InvalidatePhysicsStreams()
 {
     InvalidateSoA();
+}
+
+
+void GameModelCollection::EmitSkullScopeFrame( SkullbonezCore::GameObjects::SkullScope& scope, float dt )
+{
+#ifdef _DEBUG
+    scope.EmitFrame( *this, dt );
+#else
+    (void)scope;
+    (void)dt;
+#endif
 }
 
 
@@ -657,29 +652,25 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.Step( modelView, fChangeInTime );
+    m_physicsEngine.Step( *this, fChangeInTime );
 }
 
 
 void GameModelCollection::WakeModel( int index )
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.WakeBody( modelView, BodyHandleForModelIndex( index ) );
+    m_physicsEngine.WakeBody( *this, BodyHandleForModelIndex( index ) );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.SeedBodyAsleep( modelView, BodyHandleForModelIndex( index ) );
+    m_physicsEngine.SeedBodyAsleep( *this, BodyHandleForModelIndex( index ) );
 }
 
 
 void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localApplicationPoint )
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.ApplyBodyImpulse( modelView, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
+    m_physicsEngine.ApplyBodyImpulse( *this, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
 }
 
 
@@ -687,11 +678,7 @@ void GameModelCollection::SetPendingBodyImpulse( int index,
                                                  const Vector3& impulse,
                                                  const Vector3& localApplicationPoint )
 {
-    Physics::PhysicsModelView modelView = MakePhysicsModelView();
-    m_physicsEngine.SetPendingBodyImpulse( modelView,
-                                           BodyHandleForModelIndex( index ),
-                                           impulse,
-                                           localApplicationPoint );
+    m_physicsEngine.SetPendingBodyImpulse( *this, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
 }
 
 

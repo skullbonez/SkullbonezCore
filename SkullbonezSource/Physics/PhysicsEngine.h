@@ -26,7 +26,7 @@ Related:
 */
 #pragma once
 
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsScene.h"
 
 namespace SkullbonezCore
@@ -40,20 +40,20 @@ class PhysicsEngine
     PhysicsEngine() = default;
 
     void Clear();
-    void RefreshStores( PhysicsModelView& modelView );
-    void RefreshPhysicsStores( PhysicsModelView& modelView );
-    void RefreshBodyStore( PhysicsModelView& modelView );
+    void RefreshStores( PhysicsModelAccess& modelAccess );
+    void RefreshPhysicsStores( PhysicsModelAccess& modelAccess );
+    void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void ClearPendingBodyImpulses();
-    void RefreshColliderStore( PhysicsModelView& modelView );
-    void RefreshRenderStore( PhysicsModelView& modelView );
-    void Step( PhysicsModelView& modelView, float deltaSeconds );
-    void WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body );
-    void SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body );
-    void ApplyBodyImpulse( PhysicsModelView& modelView,
+    void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    void RefreshRenderStore( PhysicsModelAccess& modelAccess );
+    void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                            PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( PhysicsModelView& modelView,
+    void SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                 PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );

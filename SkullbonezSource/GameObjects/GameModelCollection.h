@@ -36,6 +36,7 @@ Related:
 #include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsModelAccess.h"
 #include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -65,7 +66,7 @@ class GameModelRenderer;
     dedicated collaborators, while older runtime tools still use model-indexed
     accessors until their APIs are moved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection : public Rendering::IRenderSceneView
+class GameModelCollection : public Rendering::IRenderSceneView, public Physics::PhysicsModelAccess
 {
   private:
     std::vector<GameModel> m_gameModels;
@@ -74,7 +75,6 @@ class GameModelCollection : public Rendering::IRenderSceneView
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
-    Physics::PhysicsModelView MakePhysicsModelView();
     Physics::PhysicsBodyHandle BodyHandleForModelIndex( int index ) const;
 
   public:
@@ -126,6 +126,9 @@ class GameModelCollection : public Rendering::IRenderSceneView
                             float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
+    int ModelCount() const override;
+    GameModel* MutableModelData() override;
+    const GameModel* ModelData() const override;
     const std::vector<GameModel>& Models() const;
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     std::vector<GameModel>& PhysicsModels();
@@ -142,11 +145,13 @@ class GameModelCollection : public Rendering::IRenderSceneView
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    void InvalidatePhysicsStreams();
-    void ReleaseAttachedFixedTreeParts(
-        int sourceIndex,
-        const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes/releases same-tree parts at or above a break point.
+    GameModelBodyStream GetPhysicsBodyStream() override;
+    void InvalidatePhysicsStreams() override;
+    void ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                        const Math::Vector::Vector3& seedLinearVelocity,
+                                        const Math::Vector::Vector3& seedAngularVelocity )
+        override; // Wakes/releases same-tree parts at or above a break point.
+    void EmitSkullScopeFrame( SkullScope& scope, float dt ) override;
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );

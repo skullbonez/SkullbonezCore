@@ -35,7 +35,7 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-class PhysicsModelView;
+class PhysicsModelAccess;
 struct PersistentContactSolverContext;
 
 struct PersistentContactCacheEntry
@@ -65,7 +65,7 @@ struct SolverBodyState
 class PersistentContactSolver
 {
   public:
-    void Solve( PersistentContactSolverContext& context, PhysicsModelView& modelView, float dt );
+    void Solve( PersistentContactSolverContext& context, PhysicsModelAccess& modelAccess, float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

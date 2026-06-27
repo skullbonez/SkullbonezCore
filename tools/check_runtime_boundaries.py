@@ -52,6 +52,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
+PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|PhysicsModelView)\b")
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -126,7 +127,7 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
         # Creation still lives on the legacy scene/model facade; the solver
-        # path uses PhysicsModelView and handles after creation.
+        # path uses PhysicsModelAccess and handles after creation.
         ( "SkullbonezSource/Physics/Ragdoll.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
@@ -1198,6 +1199,31 @@ def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryE
                 path.relative_to(repo),
             )
         )
+    return errors
+
+
+def check_deleted_physics_model_view_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_DELETED_MODEL_VIEW_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted PhysicsModelView boundary is blocked",
+                "Use PhysicsModelAccess plus stores/handles instead of recreating MakePhysicsModelView or PhysicsModelView.",
+            )
+        )
+    return errors
+
+
+def check_deleted_physics_model_view_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for root in (repo / PHYSICS_ROOT, repo / Path("SkullbonezSource/GameObjects")):
+        for path in sorted(root.rglob("*")):
+            if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+                continue
+            errors.extend(check_deleted_physics_model_view_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -4444,6 +4470,19 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old PhysicsWorld collection step synthetic surface was not rejected")
 
+    deleted_model_view_text = """
+    void GameModelCollection::MakePhysicsModelView();
+    class PhysicsModelView;
+    """
+    if not any(
+        error.message == "deleted PhysicsModelView boundary is blocked"
+        for error in check_deleted_physics_model_view_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.h"),
+            deleted_model_view_text,
+        )
+    ):
+        failures.append("deleted PhysicsModelView synthetic surface was not rejected")
+
     return failures
 
 
@@ -4596,6 +4635,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
+    errors.extend(check_deleted_physics_model_view_guardrails(repo))
     return errors
 
 

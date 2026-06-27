@@ -29,7 +29,7 @@ using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
-using SkullbonezCore::Physics::PhysicsModelView;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 
 
 void PhysicsEngine::Clear()
@@ -38,21 +38,21 @@ void PhysicsEngine::Clear()
 }
 
 
-void PhysicsEngine::RefreshStores( PhysicsModelView& modelView )
+void PhysicsEngine::RefreshStores( PhysicsModelAccess& modelAccess )
 {
-    m_scene.RefreshStores( modelView );
+    m_scene.RefreshStores( modelAccess );
 }
 
 
-void PhysicsEngine::RefreshPhysicsStores( PhysicsModelView& modelView )
+void PhysicsEngine::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
 {
-    m_scene.RefreshPhysicsStores( modelView );
+    m_scene.RefreshPhysicsStores( modelAccess );
 }
 
 
-void PhysicsEngine::RefreshBodyStore( PhysicsModelView& modelView )
+void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
-    m_scene.RefreshBodyStore( modelView );
+    m_scene.RefreshBodyStore( modelAccess );
 }
 
 
@@ -62,51 +62,51 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 }
 
 
-void PhysicsEngine::RefreshColliderStore( PhysicsModelView& modelView )
+void PhysicsEngine::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    m_scene.RefreshColliderStore( modelView );
+    m_scene.RefreshColliderStore( modelAccess );
 }
 
 
-void PhysicsEngine::RefreshRenderStore( PhysicsModelView& modelView )
+void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    m_scene.RefreshRenderStore( modelView );
+    m_scene.RefreshRenderStore( modelAccess );
 }
 
 
-void PhysicsEngine::Step( PhysicsModelView& modelView, float deltaSeconds )
+void PhysicsEngine::Step( PhysicsModelAccess& modelAccess, float deltaSeconds )
 {
-    m_scene.RunPhysics( modelView, deltaSeconds );
+    m_scene.RunPhysics( modelAccess, deltaSeconds );
 }
 
 
-void PhysicsEngine::WakeBody( PhysicsModelView& modelView, PhysicsBodyHandle body )
+void PhysicsEngine::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    m_scene.WakeBody( modelView, body );
+    m_scene.WakeBody( modelAccess, body );
 }
 
 
-void PhysicsEngine::SeedBodyAsleep( PhysicsModelView& modelView, PhysicsBodyHandle body )
+void PhysicsEngine::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    m_scene.SeedBodyAsleep( modelView, body );
+    m_scene.SeedBodyAsleep( modelAccess, body );
 }
 
 
-void PhysicsEngine::ApplyBodyImpulse( PhysicsModelView& modelView,
+void PhysicsEngine::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                                       PhysicsBodyHandle body,
                                       const Math::Vector::Vector3& impulse,
                                       const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.ApplyBodyImpulse( modelView, body, impulse, localApplicationPoint );
+    m_scene.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
 }
 
 
-void PhysicsEngine::SetPendingBodyImpulse( PhysicsModelView& modelView,
+void PhysicsEngine::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                            PhysicsBodyHandle body,
                                            const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.SetPendingBodyImpulse( modelView, body, impulse, localApplicationPoint );
+    m_scene.SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
 }
 
 

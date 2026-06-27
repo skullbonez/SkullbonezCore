@@ -34,7 +34,7 @@ Related:
 #include "PhysicsWorld.h"
 
 #include "../Core/Config.h"
-#include "PhysicsModelView.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsBodyStore.h"
 #include "ObjectContactManifold.h"
 #include "../Core/Profiler.h"
@@ -441,9 +441,11 @@ void PhysicsWorld::EnsureUnderwaterSleepLockBuffer( int modelCount )
 }
 
 
-bool PhysicsWorld::IsFullySubmergedBall( PhysicsModelView& modelView, const GameModelBodyStream& bodyStream, int index )
+bool PhysicsWorld::IsFullySubmergedBall( PhysicsModelAccess& modelAccess,
+                                         const GameModelBodyStream& bodyStream,
+                                         int index )
 {
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_gameModels.size() ) ||
          bodyStream.isFixed[index] || bodyStream.isBox[index] )
     {
@@ -454,16 +456,16 @@ bool PhysicsWorld::IsFullySubmergedBall( PhysicsModelView& modelView, const Game
 }
 
 
-void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelView& modelView,
+void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelAccess& modelAccess,
                                                  PhysicsBodyStore& bodyStore,
                                                  const GameModelBodyStream& bodyStream,
                                                  int index )
 {
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     EnsureUnderwaterSleepLockBuffer( bodyStream.count );
     if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_sleepState.size() ) ||
          !m_sleepState[index] || m_underwaterSleepLocked[index] ||
-         !IsFullySubmergedBall( modelView, bodyStream, index ) )
+         !IsFullySubmergedBall( modelAccess, bodyStream, index ) )
     {
         return;
     }
@@ -484,11 +486,11 @@ void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelView& modelView,
 }
 
 
-bool PhysicsWorld::IsUnderwaterSleepLocked( PhysicsModelView& modelView,
+bool PhysicsWorld::IsUnderwaterSleepLocked( PhysicsModelAccess& modelAccess,
                                             const GameModelBodyStream& bodyStream,
                                             int index )
 {
-    (void)modelView;
+    (void)modelAccess;
     EnsureUnderwaterSleepLockBuffer( bodyStream.count );
     if ( index < 0 || index >= bodyStream.count )
     {
@@ -513,9 +515,9 @@ void PhysicsWorld::MarkCollisionVisualContact( int index )
 }
 
 
-void PhysicsWorld::MarkFixedContact( PhysicsModelView& modelView, int index )
+void PhysicsWorld::MarkFixedContact( PhysicsModelAccess& modelAccess, int index )
 {
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
     {
         return;
@@ -575,15 +577,15 @@ void PersistentContactSolverContext::MarkCollisionVisualContact( int index ) con
 }
 
 
-void PersistentContactSolverContext::MarkFixedContact( PhysicsModelView& modelView, int index ) const
+void PersistentContactSolverContext::MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const
 {
-    world.MarkSolverFixedContact( modelView, index );
+    world.MarkSolverFixedContact( modelAccess, index );
 }
 
 
-void PersistentContactSolverContext::WakeModel( PhysicsModelView& modelView, int index ) const
+void PersistentContactSolverContext::WakeModel( PhysicsModelAccess& modelAccess, int index ) const
 {
-    world.WakeModel( modelView, index );
+    world.WakeModel( modelAccess, index );
 }
 
 
@@ -626,7 +628,7 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 }
 
 
-void PhysicsWorld::RunPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float fChangeInTime )
+void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float fChangeInTime )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -640,7 +642,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bo
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     const int modelCount = static_cast<int>( m_gameModels.size() );
     bodyStore.WriteBackToModels( m_gameModels );
     EnsureCollisionVisualBuffers( modelCount );
@@ -693,26 +695,26 @@ void PhysicsWorld::RunPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bo
         }
     }
 
-    (void)modelView.GetBodyStream();
-    RunSolverPhysics( modelView, bodyStore, fChangeInTime );
+    (void)modelAccess.GetBodyStream();
+    RunSolverPhysics( modelAccess, bodyStore, fChangeInTime );
     bodyStore.CopySleepStatesFrom( m_sleepState );
 
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
     {
-        m_diagnostics.EmitRegressionLog( *this, modelView );
+        m_diagnostics.EmitRegressionLog( *this, modelAccess );
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
-        m_diagnostics.EmitFrame( modelView, fChangeInTime );
+        m_diagnostics.EmitFrame( modelAccess, fChangeInTime );
     }
 #endif
 
-    modelView.InvalidatePhysicsStreams();
+    modelAccess.InvalidatePhysicsStreams();
 }
 
 
-void PhysicsWorld::WakeModel( PhysicsModelView& modelView, int index )
+void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
 {
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     if ( index >= 0 && index < static_cast<int>( m_gameModels.size() ) && m_gameModels[index].IsFixed() )
     {
         return;
@@ -732,9 +734,9 @@ void PhysicsWorld::WakeModel( PhysicsModelView& modelView, int index )
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        GameModelBodyStream bodyStream = modelView.GetBodyStream();
+        GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
         if ( !m_underwaterSleepLocked[index] && m_sleepState[index] &&
-             IsFullySubmergedBall( modelView, bodyStream, index ) )
+             IsFullySubmergedBall( modelAccess, bodyStream, index ) )
         {
             m_underwaterSleepLocked[index] = 1;
             if ( index < static_cast<int>( m_timeRemaining.size() ) )
@@ -743,29 +745,29 @@ void PhysicsWorld::WakeModel( PhysicsModelView& modelView, int index )
             }
             return;
         }
-        if ( IsUnderwaterSleepLocked( modelView, bodyStream, index ) )
+        if ( IsUnderwaterSleepLocked( modelAccess, bodyStream, index ) )
         {
             return;
         }
     }
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        modelView.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( modelView, nullptr, index, 0.0f, false );
-        WakePointJointIsland( modelView, nullptr, index, 0.0f, false );
-        WakeRestingContactIsland( modelView, nullptr, index, 0.0f, false );
+        modelAccess.InvalidatePhysicsStreams();
+        WakeSleepVisualIsland( modelAccess, nullptr, index, 0.0f, false );
+        WakePointJointIsland( modelAccess, nullptr, index, 0.0f, false );
+        WakeRestingContactIsland( modelAccess, nullptr, index, 0.0f, false );
     }
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelView& modelView, int index )
+void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
 {
     if ( !m_sleepEnabled )
     {
         return;
     }
 
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) || m_gameModels[index].IsFixed() )
     {
         return;
@@ -792,7 +794,7 @@ void PhysicsWorld::SeedModelAsleep( PhysicsModelView& modelView, int index )
     }
     EnsureUnderwaterSleepLockBuffer( modelCount );
 
-    modelView.InvalidatePhysicsStreams();
+    modelAccess.InvalidatePhysicsStreams();
     m_sleepState[index] = 1;
     m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );
     m_underwaterSleepLocked[index] = 0;
@@ -823,7 +825,7 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
-void PhysicsWorld::ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt )
+void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt )
 {
     const TornadoFieldConfig& config = m_tornadoField.GetConfig();
     const float step = (std::max)( 0.0f, dt );
@@ -839,7 +841,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodySt
     }
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
-    auto& m_gameModels = modelView.Models();
+    auto m_gameModels = modelAccess.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     auto sampleAcceleration =
         [&]( const Vector3& position, TornadoFieldConfig& outBestConfig, float& outBestAccelerationSq ) -> Vector3
@@ -898,8 +900,8 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodySt
             record.linearVelocity = seedLinearVelocity;
             record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
             bodyStore.WriteBackToModelAt( m_gameModels, i );
-            WakeModel( modelView, i );
-            modelView.ReleaseAttachedFixedTreeParts(
+            WakeModel( modelAccess, i );
+            modelAccess.ReleaseAttachedFixedTreeParts(
                 i,
                 seedLinearVelocity,
                 Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) );
@@ -909,16 +911,16 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelView& modelView, PhysicsBodySt
     if ( releasedFixedParts )
     {
         bodyStore.LoadFromModels( m_gameModels, m_sleepState );
-        modelView.InvalidatePhysicsStreams();
+        modelAccess.InvalidatePhysicsStreams();
     }
 
-    const GameModelBodyStream bodyStream = modelView.GetBodyStream();
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
     EnsureTornadoStateBuffers( modelCount );
 
     auto applyTornadoAt = [&]( int i )
     {
-        if ( bodyStream.isFixed[i] || IsUnderwaterSleepLocked( modelView, bodyStream, i ) )
+        if ( bodyStream.isFixed[i] || IsUnderwaterSleepLocked( modelAccess, bodyStream, i ) )
         {
             m_tornadoCaptureSeconds[i] = 0.0f;
             m_tornadoEjectCooldownSeconds[i] = 0.0f;
@@ -1106,18 +1108,18 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 }
 
 
-void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelView& modelView, float dt )
+void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt )
 {
     if ( m_diagnosticsSuppressed )
     {
         return;
     }
-    m_diagnostics.EmitFrame( modelView, dt );
+    m_diagnostics.EmitFrame( modelAccess, dt );
 }
 #endif
 
 
-void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelView& modelView,
+void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
                                              const char* type,
                                              int bodyA,
                                              int bodyB,
@@ -1130,14 +1132,14 @@ void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelView& modelView,
         return;
     }
 #endif
-    m_diagnostics.EmitCollisionTime( modelView, type, bodyA, bodyB, collisionTime, availableTime );
+    m_diagnostics.EmitCollisionTime( modelAccess, type, bodyA, bodyB, collisionTime, availableTime );
 }
 
 
-void PhysicsWorld::PropagateSleepSupport( PhysicsModelView& modelView )
+void PhysicsWorld::PropagateSleepSupport( PhysicsModelAccess& modelAccess )
 {
     SleepSupportPropagationContext context = CreateSleepSupportPropagationContext();
-    m_sleepIslandSystem.PropagateSupport( context, modelView );
+    m_sleepIslandSystem.PropagateSupport( context, modelAccess );
 }
 
 
@@ -1193,13 +1195,13 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 }
 
 
-bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelView& modelView,
+bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
                                          bool applyForces )
 {
-    auto& models = modelView.Models();
+    auto models = modelAccess.Models();
     if ( index < 0 || index >= static_cast<int>( models.size() ) || models[index].IsFixed() ||
          index >= static_cast<int>( m_sleepState.size() ) )
     {
@@ -1255,7 +1257,7 @@ bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelView& modelView,
 }
 
 
-void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelView& modelView,
+void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
                                           PhysicsBodyStore* bodyStore,
                                           int index,
                                           float dt,
@@ -1278,23 +1280,23 @@ void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelView& modelView,
         {
             if ( m_sleepIslandVisualId[i] == visualId )
             {
-                changed = WakeDynamicBodyState( modelView, bodyStore, i, dt, applyForces ) || changed;
+                changed = WakeDynamicBodyState( modelAccess, bodyStore, i, dt, applyForces ) || changed;
             }
         }
     }
     else
     {
-        changed = WakeDynamicBodyState( modelView, bodyStore, index, dt, applyForces );
+        changed = WakeDynamicBodyState( modelAccess, bodyStore, index, dt, applyForces );
     }
 
     if ( changed )
     {
-        modelView.InvalidatePhysicsStreams();
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
 
-void PhysicsWorld::WakePointJointIsland( PhysicsModelView& modelView,
+void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -1303,7 +1305,7 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelView& modelView,
     // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
     // treats the sleepers as temporary static anchors. Wake the whole constraint
     // component so later point-joint impulses are applied to the same live island.
-    auto& models = modelView.Models();
+    auto models = modelAccess.Models();
     const int modelCount = static_cast<int>( models.size() );
     if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
          index >= static_cast<int>( m_sleepState.size() ) )
@@ -1385,30 +1387,30 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelView& modelView,
         {
             continue;
         }
-        changed = WakeDynamicBodyState( modelView, bodyStore, i, dt, applyForces ) || changed;
+        changed = WakeDynamicBodyState( modelAccess, bodyStore, i, dt, applyForces ) || changed;
     }
 
     if ( changed )
     {
-        modelView.InvalidatePhysicsStreams();
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
 
-void PhysicsWorld::WakeRestingContactIsland( PhysicsModelView& modelView,
+void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
                                              PhysicsBodyStore* bodyStore,
                                              int index,
                                              float dt,
                                              bool applyForces )
 {
-    auto& models = modelView.Models();
+    auto models = modelAccess.Models();
     const int modelCount = static_cast<int>( models.size() );
     if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
     }
 
-    GameModelBodyStream bodyStream = modelView.GetBodyStream();
+    GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
     std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
     std::vector<int> wakeQueue;
@@ -1457,7 +1459,7 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelView& modelView,
             {
                 continue;
             }
-            if ( IsUnderwaterSleepLocked( modelView, bodyStream, candidate ) )
+            if ( IsUnderwaterSleepLocked( modelAccess, bodyStream, candidate ) )
             {
                 continue;
             }
@@ -1468,13 +1470,13 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelView& modelView,
 
             visited[static_cast<size_t>( candidate )] = 1;
             wakeQueue.push_back( candidate );
-            changed = WakeDynamicBodyState( modelView, bodyStore, candidate, dt, applyForces ) || changed;
+            changed = WakeDynamicBodyState( modelAccess, bodyStore, candidate, dt, applyForces ) || changed;
         }
     }
 
     if ( changed )
     {
-        modelView.InvalidatePhysicsStreams();
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
@@ -1506,14 +1508,16 @@ bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
 }
 
 
-void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt )
+void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess,
+                                                  PhysicsBodyStore& bodyStore,
+                                                  float dt )
 {
     if ( m_pointJointConstraints.empty() || static_cast<int>( m_sleepState.size() ) <= 0 )
     {
         return;
     }
 
-    auto& models = modelView.Models();
+    auto models = modelAccess.Models();
     const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
     const int modelCount = static_cast<int>( models.size() );
     m_sleepIslandParent.assign( modelCount, 0 );
@@ -1610,21 +1614,21 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelView& modelView, P
         const int root = findIsland( i );
         if ( m_sleepIslandHasAwake[root] != 0 && m_sleepIslandCanSleep[root] != 0 )
         {
-            changed = WakeDynamicBodyState( modelView, &bodyStore, i, dt, true ) || changed;
+            changed = WakeDynamicBodyState( modelAccess, &bodyStore, i, dt, true ) || changed;
         }
     }
 
     if ( changed )
     {
-        modelView.InvalidatePhysicsStreams();
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
 
-void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodyStore& bodyStore, float dt )
+void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt )
 {
-    auto& m_gameModels = modelView.Models();
-    const GameModelBodyStream bodyStream = modelView.GetBodyStream();
+    auto m_gameModels = modelAccess.Models();
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
 
@@ -1649,7 +1653,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
     {
         if ( m_sleepState[x] )
         {
-            LockUnderwaterSleeperIfReady( modelView, bodyStore, bodyStream, x );
+            LockUnderwaterSleeperIfReady( modelAccess, bodyStore, bodyStream, x );
         }
     }
 
@@ -1688,7 +1692,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    ApplyTornadoField( modelView, bodyStore, dt );
+    ApplyTornadoField( modelAccess, bodyStore, dt );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
@@ -1908,7 +1912,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
         // next tick. Applying forces immediately keeps gravity and other forces
         // consistent with an awake body that was never asleep.
         if ( sleepingIndex < 0 || sleepingIndex >= modelCount || bodyStream.isFixed[sleepingIndex] ||
-             !m_sleepState[sleepingIndex] || IsUnderwaterSleepLocked( modelView, bodyStream, sleepingIndex ) )
+             !m_sleepState[sleepingIndex] || IsUnderwaterSleepLocked( modelAccess, bodyStream, sleepingIndex ) )
         {
             return;
         }
@@ -2077,7 +2081,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
         }
         if ( event.emitCollisionTime )
         {
-            EmitPhysicsCollisionTime( modelView,
+            EmitPhysicsCollisionTime( modelAccess,
                                       "object",
                                       event.collisionTimeBodyA,
                                       event.collisionTimeBodyB,
@@ -2109,7 +2113,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
             // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
-                const bool sleepingLocked = IsUnderwaterSleepLocked( modelView, bodyStream, x );
+                const bool sleepingLocked = IsUnderwaterSleepLocked( modelAccess, bodyStream, x );
                 if ( !hasWakeEnergy( y ) )
                 {
                     return;
@@ -2170,7 +2174,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
             }
             else if ( m_sleepState[y] && !m_sleepState[x] )
             {
-                const bool sleepingLocked = IsUnderwaterSleepLocked( modelView, bodyStream, y );
+                const bool sleepingLocked = IsUnderwaterSleepLocked( modelAccess, bodyStream, y );
                 if ( !hasWakeEnergy( x ) )
                 {
                     return;
@@ -2487,7 +2491,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
             record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
             record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
             RecordPhysicsPipelineStage( record );
-            EmitPhysicsCollisionTime( modelView, "terrain", x, -1, colTime, availableTime );
+            EmitPhysicsCollisionTime( modelAccess, "terrain", x, -1, colTime, availableTime );
 
             if ( hasManifold )
             {
@@ -2540,13 +2544,13 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
     PROFILE_END( "Frame/Physics/Terrain" );
 
     PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext( bodyStore );
-    m_contactSolver.Solve( solverContext, modelView, dt );
-    WakePointJointConnectedBodies( modelView, bodyStore, dt );
-    Ragdoll::SolvePointJoints( modelView, bodyStore, m_pointJointConstraints, m_sleepState, dt );
+    m_contactSolver.Solve( solverContext, modelAccess, dt );
+    WakePointJointConnectedBodies( modelAccess, bodyStore, dt );
+    Ragdoll::SolvePointJoints( modelAccess, bodyStore, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
-    PropagateSleepSupport( modelView );
+    PropagateSleepSupport( modelAccess );
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
@@ -2964,7 +2968,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelView& modelView, PhysicsBodySto
             bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
             bodyRecords[static_cast<size_t>( x )].isSleeping = true;
             bodyStore.WriteBackToModelAt( m_gameModels, x );
-            LockUnderwaterSleeperIfReady( modelView, bodyStore, bodyStream, x );
+            LockUnderwaterSleeperIfReady( modelAccess, bodyStore, bodyStream, x );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

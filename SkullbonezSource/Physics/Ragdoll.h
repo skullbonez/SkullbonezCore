@@ -50,7 +50,7 @@ namespace Physics
 {
 class PhysicsEngine;
 class PhysicsBodyStore;
-class PhysicsModelView;
+class PhysicsModelAccess;
 
 struct PointJointConstraint
 {
@@ -98,7 +98,7 @@ class Ragdoll
                                    Environment::WorldEnvironment& worldEnvironment,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
-    static void SolvePointJoints( PhysicsModelView& modelView,
+    static void SolvePointJoints( PhysicsModelAccess& modelAccess,
                                   PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,
