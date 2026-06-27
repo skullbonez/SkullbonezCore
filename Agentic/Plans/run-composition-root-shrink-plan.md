@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; UI stress RNG helper slice validated
+Status: Active architecture cleanup plan; scene defaults persistence slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the UI stress RNG helper section below
+Validation for latest implementation slice: see the scene defaults persistence section below
 
 ## Goal
 
@@ -4290,6 +4290,84 @@ Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
 phases, duplicated cine/path helpers, replay solver helpers, replay
 pause/inspection camera helper ownership, and render-host splitting remain
 active; this slice only removed deterministic UI-stress RNG helper declarations.
+
+## Scene Defaults Persistence Slice
+
+Status: Implemented and validated on `nightrunner-26th-July`.
+
+This scene-runtime slice removed Render-tab and Sky-tab `engine.cfg`
+persistence wrappers from `Run.h`. `RunInput` now passes the explicit
+`OrdinaryRenderConfig` and active `CinematicRenderConfig` payloads to
+`SceneRuntimeDefaults`, which owns the config-file line replacement, duplicate
+key cleanup, missing-key append policy, and existing numeric formatting.
+
+Deleted `Run.h` declarations:
+
+- `bool SaveRenderDefaults();`
+- `bool SaveSkyDefaults();`
+
+Deleted `Run::` definitions:
+
+- `bool Run::SaveRenderDefaults()`
+- `bool Run::SaveSkyDefaults()`
+
+New owner surface:
+
+- `SaveRenderDefaults( const OrdinaryRenderConfig& ordinary )`
+- `SaveSkyDefaults( const CinematicRenderConfig& cinematic )`
+
+Files changed:
+
+- `SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp`
+- `SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h`
+- `SkullbonezSource/Runtime/RunInput.cpp`
+- `SkullbonezSource/Runtime/Scene/RunScene.cpp`
+- `SkullbonezSource/Runtime/Run.h`
+- `SKULLBONEZ_CORE.vcxproj`
+- `SKULLBONEZ_CORE.vcxproj.filters`
+- `tools/check_runtime_boundaries.py`
+- `tools/validate_project_filters.py`
+- `Agentic/Plans/run-composition-root-shrink-plan.md`
+- `Agentic/SessionState.md`
+
+Guardrails:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method ratchet
+  from 148 to 146.
+- New header and source guardrails reject `SaveRenderDefaults` and
+  `SaveSkyDefaults` declarations or `Run::` definitions from returning.
+- `tools/validate_project_filters.py` now recognizes `SceneRuntimeDefaults` as a
+  runtime scene module prefix.
+
+Validation:
+
+- Direct project-filter gate: `python tools\validate_project_filters.py`, logged
+  at `TestOutput\validation\agent_logs\scene_defaults_project_filters.log`;
+  passed with 0 errors in 0.8s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\scene_defaults_runtime_boundaries.log`;
+  passed with 0 errors in 3.1s.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_defaults_profile_build.log`; passed
+  with 0 warnings and 0 errors in 40.7s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_defaults_validate_fast.log`; passed
+  formatting, project filters, runtime boundaries, and Profile/Debug builds in
+  51.1s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_defaults_validate_full.log`; passed
+  project filters, runtime boundaries, Profile/Debug builds, DX12 validation
+  with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.7s.
+
+Rubber-duck review remains intentionally deferred by explicit user instruction
+until the end of the remaining plan work. Do not move this plan to `Done/` until
+the final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene creation and remaining `Run::LoadScene` setup
+phases remain active, along with replay helper ownership, render-host splitting,
+and shared cine/path cleanup. This slice only moved default persistence out of
+the composition root.
 
 ## Rules
 

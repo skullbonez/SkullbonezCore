@@ -23,6 +23,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "RuntimePickService.h"
 #include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeDefaults.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "../UI/UIInput.h"
@@ -3083,10 +3084,10 @@ bool Run::DrainRuntimeCommands()
             SaveCurrentSceneDefaults();
             break;
         case RuntimeCommandType::SaveRenderDefaults:
-            SaveRenderDefaults();
+            SaveRenderDefaults( Cfg().ordinaryRender );
             break;
         case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults();
+            SaveSkyDefaults( ActiveCinematicConfig() );
             break;
         case RuntimeCommandType::AdvanceScene:
             if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
