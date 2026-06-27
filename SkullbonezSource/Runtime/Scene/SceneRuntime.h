@@ -38,6 +38,20 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+// Concept: Lifecycle events mark scene-owned load boundaries so policy can move
+// behind SceneRuntime without changing Run's process-level sequencing.
+enum class SceneRuntimeLifecycleEvent
+{
+    None,
+    BeforeSceneUnload,
+    AfterSceneCleared,
+    BeforeScenePopulate,
+    AfterScenePopulate,
+    AfterSceneActivated,
+};
+
+const char* SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event );
+
 struct RunSceneState
 {
     void ResetForLoad( const CinematicRenderConfig&
@@ -101,6 +115,8 @@ class SceneRuntime
     const std::vector<std::string>& Queue() const;
 
     void BeginLoad( int index );
+    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
+    SceneRuntimeLifecycleEvent LastLifecycleEvent() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;
@@ -111,6 +127,7 @@ class SceneRuntime
   private:
     RunSceneState m_state;
     std::vector<std::string> m_queue;
+    SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

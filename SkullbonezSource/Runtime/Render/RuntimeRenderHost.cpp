@@ -28,17 +28,78 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderPasses.h"
 
+#include "../../Assets/TextureCollection.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Rendering/Helper.h"
+#include "../RunInternal.h"
+#include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../RunState.h"
+#include "../Scene/SceneRuntimeLoad.h"
+#include "../Window.h"
 
 #include <cstddef>
+#include <stdexcept>
 #include <variant>
 #include <vector>
 
 using namespace SkullbonezCore::Basics;
+
+CinematicRenderConfig& RuntimeRenderHost::ActiveCinematicConfig() const
+{
+    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), Cfg() );
+}
+
+bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
+{
+    return RunInternal::RuntimeCinematicRenderingEnabled( m_sceneController.State(),
+                                                          Cfg(),
+                                                          m_launchOptions,
+                                                          m_debug,
+                                                          IsGfxReady() );
+}
+
+bool RuntimeRenderHost::IsLauncherCameraMode() const
+{
+    return m_camera.mode == RunCameraMode::Launcher;
+}
+
+uint32_t RuntimeRenderHost::TextureHandle( uint32_t textureHash ) const
+{
+    // Hazard: render passes ask for texture handles before drawing, but tools
+    // and headless validations can temporarily run without a texture collection.
+    // Fail loudly instead of returning a sentinel that would mask a bad binding.
+    if ( !m_systems.textures )
+    {
+        throw std::runtime_error( "Texture collection is not initialised." );
+    }
+    return m_systems.textures->GetTextureHandle( textureHash );
+}
+
+void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
+{
+    if ( !m_systems.textures )
+    {
+        throw std::runtime_error( "Texture collection is not initialised." );
+    }
+    m_systems.textures->SelectTexture( textureHash );
+}
+
+int RuntimeRenderHost::WindowScreenWidth() const
+{
+    return RunInternal::RuntimeWindowScreenWidth( m_systems, Cfg() );
+}
+
+int RuntimeRenderHost::WindowScreenHeight() const
+{
+    return RunInternal::RuntimeWindowScreenHeight( m_systems, Cfg() );
+}
+
+const RunSceneState& RuntimeRenderHost::SceneState() const
+{
+    return m_sceneController.State();
+}
 
 ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayRenderContext() const
 {
@@ -60,6 +121,26 @@ void RuntimeRenderHost::RenderReplayScrubberOverlay() const
 void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const
 {
     ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext() );
+}
+
+int RuntimeRenderHost::CurrentSceneBrowserIndex() const
+{
+    return SkullbonezCore::Basics::CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
+}
+
+bool RuntimeRenderHost::ToolHasSelectionOverlayWork() const
+{
+    return m_runtimeTools.HasSelectionOverlayWork( m_cGameModelCollection.GetModelCount(), m_camera.mode );
+}
+
+bool RuntimeRenderHost::ToolHasMousePickupOverlayWork() const
+{
+    return m_runtimeTools.HasMousePickupOverlayWork( m_cGameModelCollection.GetModelCount() );
+}
+
+MainMemoryStats RuntimeRenderHost::RefreshMainMemoryStats( double nowSeconds ) const
+{
+    return m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime, m_cGameModelCollection, nowSeconds, false );
 }
 
 void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame,

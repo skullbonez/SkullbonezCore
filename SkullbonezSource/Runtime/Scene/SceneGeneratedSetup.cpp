@@ -278,5 +278,42 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
     context.scene.modelCount = balls + boxes;
 }
 
+
+bool SceneGeneratedSetup::TrySetUpRequestedModels( SceneGeneratedModelContext context,
+                                                   const SceneGeneratedPopulationRequest& request,
+                                                   bool useDefaultWhenNoRequest )
+{
+    // Concept: Generated population policy belongs beside the deterministic
+    // spawn algorithms. Run supplies state; this helper decides which generated
+    // mode is authoritative for this load.
+    if ( request.uiSolverBallCountOverride >= 0 || request.uiSolverBoxCountOverride >= 0 )
+    {
+        SetUpSolverObjects( context,
+                            (std::max)( 0, request.uiSolverBallCountOverride ),
+                            (std::max)( 0, request.uiSolverBoxCountOverride ) );
+        return true;
+    }
+
+    if ( request.uiModelCountOverride >= 0 )
+    {
+        SetUpGameModels( context, request.uiModelCountOverride );
+        return true;
+    }
+
+    if ( request.sceneSolverBallCount > 0 || request.sceneSolverBoxCount > 0 )
+    {
+        SetUpSolverObjects( context, request.sceneSolverBallCount, request.sceneSolverBoxCount );
+        return true;
+    }
+
+    if ( useDefaultWhenNoRequest )
+    {
+        SetUpGameModels( context, request.defaultModelCount );
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace Basics
 } // namespace SkullbonezCore

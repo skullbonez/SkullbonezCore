@@ -400,6 +400,12 @@ class ReplayRuntime
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
     bool SetLiveAdvanceHeld( bool held );
+    // Concept: Render/input code asks replay-owned state for intent-level
+    // predicates instead of reading scrubber, path, focus, or velocity structs.
+    bool LiveAdvanceHeld() const;
+    bool HasPathVisualizerTarget() const;
+    bool HasCameraFocus() const;
+    bool VelocityEditActive() const;
     float SolverPresentTrackPosition() const;
     static bool TimelineHasFuture( float presentT );
     static bool AtPresentTrackPosition( float position, float presentT );

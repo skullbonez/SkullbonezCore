@@ -260,7 +260,7 @@ void Run::TickLiveStyleControl()
             const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath );
             ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
                                                            SceneState(),
-                                                           m_sceneBrowser,
+                                                           m_sceneController.Browser(),
                                                            m_cGameModelCollection,
                                                            RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                            m_defaultCinematicRender },

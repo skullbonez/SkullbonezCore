@@ -73,27 +73,26 @@ void HashReplayInt( uint64_t& hash, int32_t value )
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
-    bindings.systems = &m_systems;
-    bindings.debug = &m_debug;
-    bindings.timers = &m_timers;
-    bindings.runtimeSettings = &m_runtimeSettings;
-    bindings.gameModelCollection = &m_cGameModelCollection;
-    bindings.worldEnvironment = &m_cWorldEnvironment;
-    bindings.collisionVisualizer = &m_collisionVisualizer;
-    bindings.broadphaseVisualizer = &m_broadphaseVisualizer;
-    bindings.physicsDebugVisualizer = &m_physicsDebugVisualizer;
-    bindings.dxrReflectionTransforms = &m_dxrReflectionTransforms;
-    bindings.rayCastTest = &m_runtimeTools.RayCastTest();
-    bindings.editor = &m_runtimeTools.Editor();
-    bindings.mousePickup = &m_runtimeTools.MousePickup();
-    bindings.replayRuntime = &m_replayRuntime;
-    bindings.launcherLaser = &m_runtimeTools.Laser();
-    bindings.ui = &m_UI;
-    bindings.runtimeInput = &m_runtimeInput;
-    bindings.camera = &m_camera;
-    bindings.runtimeViewModel = &m_runtimeViewModel;
-    bindings.sceneController = &m_sceneController;
-    bindings.sceneBrowser = &m_sceneBrowser;
+    bindings.runtime.systems = &m_systems;
+    bindings.runtime.launchOptions = &m_launchOptions;
+    bindings.runtime.runtimeSettings = &m_runtimeSettings;
+    bindings.world.gameModelCollection = &m_cGameModelCollection;
+    bindings.world.worldEnvironment = &m_cWorldEnvironment;
+    bindings.world.collisionVisualizer = &m_collisionVisualizer;
+    bindings.world.broadphaseVisualizer = &m_broadphaseVisualizer;
+    bindings.world.physicsDebugVisualizer = &m_physicsDebugVisualizer;
+    bindings.world.dxrReflectionTransforms = &m_dxrReflectionTransforms;
+    bindings.scene.sceneController = &m_sceneController;
+    bindings.scene.sceneBrowser = &m_sceneController.Browser();
+    bindings.replayOverlay.replayRuntime = &m_replayRuntime;
+    bindings.toolOverlay.tools = &m_runtimeTools;
+    bindings.ui.ui = &m_UI;
+    bindings.ui.runtimeInput = &m_runtimeInput;
+    bindings.ui.camera = &m_camera;
+    bindings.ui.runtimeViewModel = &m_runtimeViewModel;
+    bindings.diagnostics.diagnosticsRuntime = &m_diagnosticsRuntime;
+    bindings.diagnostics.debug = &m_debug;
+    bindings.diagnostics.timers = &m_timers;
     return bindings;
 }
 
@@ -102,50 +101,6 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 {
     RuntimeRenderHostCallbacks callbacks;
     callbacks.user = this;
-    callbacks.activeCinematicConfig = []( void* user ) -> CinematicRenderConfig&
-    {
-        Run* run = static_cast<Run*>( user );
-        return RuntimeActiveCinematicConfig( run->SceneState(), Cfg() );
-    };
-    callbacks.isCinematicRenderingEnabled = []( void* user ) -> bool
-    {
-        Run* run = static_cast<Run*>( user );
-        return RuntimeCinematicRenderingEnabled( run->SceneState(),
-                                                 Cfg(),
-                                                 run->m_launchOptions,
-                                                 run->m_debug,
-                                                 IsGfxReady() );
-    };
-    callbacks.isLauncherCameraMode = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
-    callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t
-    {
-        Run* run = static_cast<Run*>( user );
-        if ( !run->m_systems.textures )
-        {
-            throw std::runtime_error( "Texture collection is not initialised." );
-        }
-        return run->m_systems.textures->GetTextureHandle( textureHash );
-    };
-    callbacks.selectRenderTexture = []( void* user, uint32_t textureHash )
-    {
-        Run* run = static_cast<Run*>( user );
-        if ( !run->m_systems.textures )
-        {
-            throw std::runtime_error( "Texture collection is not initialised." );
-        }
-        run->m_systems.textures->SelectTexture( textureHash );
-    };
-    callbacks.windowScreenWidth = []( void* user ) -> int
-    {
-        Run* run = static_cast<Run*>( user );
-        return RuntimeWindowScreenWidth( run->m_systems, Cfg() );
-    };
-    callbacks.windowScreenHeight = []( void* user ) -> int
-    {
-        Run* run = static_cast<Run*>( user );
-        return RuntimeWindowScreenHeight( run->m_systems, Cfg() );
-    };
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
     callbacks.renderEditorOverlay = []( void* user,
@@ -184,24 +139,10 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
         run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
-    callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
-    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
-    {
-        Run& run = *static_cast<Run*>( user );
-        return CurrentSceneBrowserIndex( run.m_sceneController, run.m_sceneBrowser );
-    };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
     { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
     callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
     { return static_cast<Run*>( user )->CameraModeLabel( mode ); };
-    callbacks.refreshMainMemoryStats = []( void* user, double nowSeconds ) -> MainMemoryStats
-    {
-        Run& run = *static_cast<Run*>( user );
-        return run.m_diagnosticsRuntime.RefreshMainMemoryStats( run.m_replayRuntime,
-                                                                run.m_cGameModelCollection,
-                                                                nowSeconds,
-                                                                false );
-    };
     return callbacks;
 }
 
@@ -212,7 +153,7 @@ Run::Run( std::vector<std::string> sceneQueue )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
-    RefreshSceneBrowserList( m_sceneBrowser );
+    RefreshSceneBrowserList( m_sceneController.Browser() );
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
@@ -850,8 +791,9 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
                      ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
                      : 0u;
-        flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-        flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
+        flags |= m_sceneController.UIOverrides().modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+        flags |= ( m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                   m_sceneController.UIOverrides().solverBoxCountOverride >= 0 )
                      ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
                      : 0u;
         flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )

@@ -64,6 +64,7 @@ class InGameUI;
 namespace Basics
 {
 class LauncherLaser;
+class DiagnosticsRuntime;
 class RuntimeInputContext;
 class SceneController;
 enum class RunCameraMode;
@@ -74,6 +75,7 @@ struct ReplaySolverFrameSample;
 struct RunCameraState;
 struct RunDebugState;
 struct RunEditorPlacementState;
+struct RunLaunchOptions;
 struct RunMousePickupState;
 struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
@@ -89,119 +91,122 @@ namespace ReplayOverlay
 struct ReplayOverlayRenderContext;
 }
 
-struct RuntimeRenderHostBindings
+// Concept: Render passes borrow grouped views from the runtime shell. The groups
+// make new dependencies choose an owning view instead of growing one flat bag.
+struct RenderRuntimeView
 {
     RunSubsystemState* systems = nullptr;
-    RunDebugState* debug = nullptr;
-    RunTimerState* timers = nullptr;
+    const RunLaunchOptions* launchOptions = nullptr;
     RunRuntimeSettings* runtimeSettings = nullptr;
+};
+
+struct RenderWorldView
+{
     GameObjects::GameModelCollection* gameModelCollection = nullptr;
     Environment::WorldEnvironment* worldEnvironment = nullptr;
     Physics::CollisionVisualizer* collisionVisualizer = nullptr;
     Physics::BroadphaseVisualizer* broadphaseVisualizer = nullptr;
     Physics::PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
     std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;
-    RunRayCastTestState* rayCastTest = nullptr;
-    RunEditorPlacementState* editor = nullptr;
-    RunMousePickupState* mousePickup = nullptr;
-    ReplayRuntime* replayRuntime = nullptr;
-    LauncherLaser* launcherLaser = nullptr;
-    UI::InGameUI* ui = nullptr;
-    RuntimeInputContext* runtimeInput = nullptr;
-    RunCameraState* camera = nullptr;
-    RuntimeViewModel* runtimeViewModel = nullptr;
+};
+
+struct RenderSceneView
+{
     SceneController* sceneController = nullptr;
     RunSceneBrowserState* sceneBrowser = nullptr;
 };
 
+struct RenderReplayOverlayView
+{
+    ReplayRuntime* replayRuntime = nullptr;
+};
+
+struct RenderToolOverlayView
+{
+    RuntimeTools* tools = nullptr;
+};
+
+struct RenderUiView
+{
+    UI::InGameUI* ui = nullptr;
+    RuntimeInputContext* runtimeInput = nullptr;
+    RunCameraState* camera = nullptr;
+    RuntimeViewModel* runtimeViewModel = nullptr;
+};
+
+struct RenderDiagnosticsView
+{
+    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
+    RunDebugState* debug = nullptr;
+    RunTimerState* timers = nullptr;
+};
+
+struct RuntimeRenderHostBindings
+{
+    RenderRuntimeView runtime;
+    RenderWorldView world;
+    RenderSceneView scene;
+    RenderReplayOverlayView replayOverlay;
+    RenderToolOverlayView toolOverlay;
+    RenderUiView ui;
+    RenderDiagnosticsView diagnostics;
+};
+
 struct RuntimeRenderHostCallbacks
 {
-    using ActiveCinematicConfigFn = CinematicRenderConfig& (*)( void* user );
-    using BoolFn = bool ( * )( void* user );
-    using TextureHandleFn = uint32_t ( * )( void* user, uint32_t textureHash );
-    using SelectRenderTextureFn = void ( * )( void* user, uint32_t textureHash );
-    using IntFn = int ( * )( void* user );
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
     using RenderEditorOverlayFn = void ( * )( void* user,
                                               const Math::Transformation::Matrix4& viewProjection,
                                               const Math::Vector::Vector3& cameraEye,
                                               const Math::Vector::Vector3& cameraUp );
     using VoidFn = void ( * )( void* user );
-    using SceneStateFn = const RunSceneState& (*)( void* user );
     using CameraModeEnabledMaskFn = uint32_t ( * )( void* user );
     using CameraModeLabelFn = const char* (*)( void* user, RunCameraMode mode );
-    using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );
 
     void* user = nullptr;
-    ActiveCinematicConfigFn activeCinematicConfig = nullptr;
-    BoolFn isCinematicRenderingEnabled = nullptr;
-    BoolFn isLauncherCameraMode = nullptr;
-    TextureHandleFn textureHandle = nullptr;
-    SelectRenderTextureFn selectRenderTexture = nullptr;
-    IntFn windowScreenWidth = nullptr;
-    IntFn windowScreenHeight = nullptr;
     LogLifecycleStepFn logRenderResourceLifecycleStep = nullptr;
     RenderEditorOverlayFn renderEditorOverlay = nullptr;
     VoidFn refreshRuntimeViewModel = nullptr;
-    SceneStateFn sceneState = nullptr;
-    IntFn currentSceneBrowserIndex = nullptr;
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
     CameraModeLabelFn cameraModeLabel = nullptr;
-    MainMemoryStatsFn refreshMainMemoryStats = nullptr;
 };
 
 class RuntimeRenderHost
 {
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_systems( *bindings.systems ), m_debug( *bindings.debug ), m_timers( *bindings.timers ),
-          m_runtimeSettings( *bindings.runtimeSettings ), m_cGameModelCollection( *bindings.gameModelCollection ),
-          m_cWorldEnvironment( *bindings.worldEnvironment ), m_collisionVisualizer( *bindings.collisionVisualizer ),
-          m_broadphaseVisualizer( *bindings.broadphaseVisualizer ),
-          m_physicsDebugVisualizer( *bindings.physicsDebugVisualizer ),
-          m_dxrReflectionTransforms( *bindings.dxrReflectionTransforms ), m_rayCastTest( *bindings.rayCastTest ),
-          m_editor( *bindings.editor ), m_mousePickup( *bindings.mousePickup ),
-          m_replayRuntime( *bindings.replayRuntime ), m_launcherLaser( *bindings.launcherLaser ), m_UI( *bindings.ui ),
-          m_runtimeInput( *bindings.runtimeInput ), m_camera( *bindings.camera ),
-          m_runtimeViewModel( *bindings.runtimeViewModel ), m_sceneController( *bindings.sceneController ),
-          m_sceneBrowser( *bindings.sceneBrowser ), m_callbacks( callbacks )
+        : m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
+          m_timers( *bindings.diagnostics.timers ), m_launchOptions( *bindings.runtime.launchOptions ),
+          m_runtimeSettings( *bindings.runtime.runtimeSettings ),
+          m_cGameModelCollection( *bindings.world.gameModelCollection ),
+          m_cWorldEnvironment( *bindings.world.worldEnvironment ),
+          m_collisionVisualizer( *bindings.world.collisionVisualizer ),
+          m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
+          m_physicsDebugVisualizer( *bindings.world.physicsDebugVisualizer ),
+          m_dxrReflectionTransforms( *bindings.world.dxrReflectionTransforms ),
+          m_runtimeTools( *bindings.toolOverlay.tools ), m_rayCastTest( m_runtimeTools.RayCastTest() ),
+          m_editor( m_runtimeTools.Editor() ), m_mousePickup( m_runtimeTools.MousePickup() ),
+          m_replayRuntime( *bindings.replayOverlay.replayRuntime ), m_launcherLaser( m_runtimeTools.Laser() ),
+          m_UI( *bindings.ui.ui ), m_runtimeInput( *bindings.ui.runtimeInput ), m_camera( *bindings.ui.camera ),
+          m_runtimeViewModel( *bindings.ui.runtimeViewModel ), m_sceneController( *bindings.scene.sceneController ),
+          m_sceneBrowser( *bindings.scene.sceneBrowser ),
+          m_diagnosticsRuntime( *bindings.diagnostics.diagnosticsRuntime ), m_callbacks( callbacks )
     {
     }
 
-    CinematicRenderConfig& ActiveCinematicConfig() const
-    {
-        return m_callbacks.activeCinematicConfig( m_callbacks.user );
-    }
+    CinematicRenderConfig& ActiveCinematicConfig() const;
 
-    bool IsCinematicRenderingEnabled() const
-    {
-        return m_callbacks.isCinematicRenderingEnabled( m_callbacks.user );
-    }
+    bool IsCinematicRenderingEnabled() const;
 
-    bool IsLauncherCameraMode() const
-    {
-        return m_callbacks.isLauncherCameraMode( m_callbacks.user );
-    }
+    bool IsLauncherCameraMode() const;
 
-    uint32_t TextureHandle( uint32_t textureHash ) const
-    {
-        return m_callbacks.textureHandle( m_callbacks.user, textureHash );
-    }
+    uint32_t TextureHandle( uint32_t textureHash ) const;
 
-    void SelectRenderTexture( uint32_t textureHash ) const
-    {
-        m_callbacks.selectRenderTexture( m_callbacks.user, textureHash );
-    }
+    void SelectRenderTexture( uint32_t textureHash ) const;
 
-    int WindowScreenWidth() const
-    {
-        return m_callbacks.windowScreenWidth( m_callbacks.user );
-    }
+    int WindowScreenWidth() const;
 
-    int WindowScreenHeight() const
-    {
-        return m_callbacks.windowScreenHeight( m_callbacks.user );
-    }
+    int WindowScreenHeight() const;
 
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
     {
@@ -235,22 +240,55 @@ class RuntimeRenderHost
         m_callbacks.refreshRuntimeViewModel( m_callbacks.user );
     }
 
-    const RunSceneState& SceneState() const
-    {
-        return m_callbacks.sceneState( m_callbacks.user );
-    }
+    const RunSceneState& SceneState() const;
 
     bool ShouldRenderReplayScrubber() const
     {
         return m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() );
     }
 
+    bool ReplayLiveAdvanceHeld() const
+    {
+        return m_replayRuntime.LiveAdvanceHeld();
+    }
+
+    bool ReplayPathVisualizerHasTarget() const
+    {
+        return m_replayRuntime.HasPathVisualizerTarget();
+    }
+
+    bool ReplayHasCameraFocus() const
+    {
+        return m_replayRuntime.HasCameraFocus();
+    }
+
+    bool ReplayVelocityEditActive() const
+    {
+        return m_replayRuntime.VelocityEditActive();
+    }
+
+    bool ToolHasLingeredRayCastLine( float maxAgeSeconds ) const
+    {
+        return m_runtimeTools.HasLingeredRayCastLine( maxAgeSeconds );
+    }
+
+    bool ToolHasSelectionOverlayWork() const;
+
+    bool ToolHasMousePickupOverlayWork() const;
+
+    bool ToolHasLauncherShots() const
+    {
+        return m_runtimeTools.HasLauncherShots();
+    }
+
+    const char* LauncherFireModeLabel() const
+    {
+        return m_runtimeTools.LauncherFireModeLabel();
+    }
+
     void RenderReplayScrubberOverlay() const;
 
-    int CurrentSceneBrowserIndex() const
-    {
-        return m_callbacks.currentSceneBrowserIndex( m_callbacks.user );
-    }
+    int CurrentSceneBrowserIndex() const;
 
     uint32_t CameraModeEnabledMask() const
     {
@@ -262,11 +300,7 @@ class RuntimeRenderHost
         return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
     }
 
-    MainMemoryStats RefreshMainMemoryStats( double nowSeconds ) const
-    {
-        return m_callbacks.refreshMainMemoryStats ? m_callbacks.refreshMainMemoryStats( m_callbacks.user, nowSeconds )
-                                                  : MainMemoryStats();
-    }
+    MainMemoryStats RefreshMainMemoryStats( double nowSeconds ) const;
 
     bool BuildReplayFocusModelMask() const
     {
@@ -280,6 +314,7 @@ class RuntimeRenderHost
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
     RunTimerState& m_timers;
+    const RunLaunchOptions& m_launchOptions;
     RunRuntimeSettings& m_runtimeSettings;
     GameObjects::GameModelCollection& m_cGameModelCollection;
     Environment::WorldEnvironment& m_cWorldEnvironment;
@@ -287,6 +322,7 @@ class RuntimeRenderHost
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::array<float, MAX_GAME_MODELS * 16>& m_dxrReflectionTransforms;
+    RuntimeTools& m_runtimeTools;
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;
     RunMousePickupState& m_mousePickup;
@@ -298,6 +334,7 @@ class RuntimeRenderHost
     RuntimeViewModel& m_runtimeViewModel;
     SceneController& m_sceneController;
     RunSceneBrowserState& m_sceneBrowser;
+    DiagnosticsRuntime& m_diagnosticsRuntime;
 
   private:
     ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext() const;

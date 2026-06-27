@@ -79,12 +79,27 @@ struct SceneGeneratedModelContext
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 };
 
+struct SceneGeneratedPopulationRequest
+{
+    // Concept: One request captures the generated-scene source of authority:
+    // UI exact counts, scene-authored solver counts, or demo defaults.
+    int uiModelCountOverride = -1;
+    int uiSolverBallCountOverride = -1;
+    int uiSolverBoxCountOverride = -1;
+    int sceneSolverBallCount = 0;
+    int sceneSolverBoxCount = 0;
+    int defaultModelCount = 0;
+};
+
 class SceneGeneratedSetup
 {
   public:
     static void SetUpCameras( SceneGeneratedCameraContext context );
     static void SetUpGameModels( SceneGeneratedModelContext context, int count );
     static void SetUpSolverObjects( SceneGeneratedModelContext context, int balls, int boxes );
+    static bool TrySetUpRequestedModels( SceneGeneratedModelContext context,
+                                         const SceneGeneratedPopulationRequest& request,
+                                         bool useDefaultWhenNoRequest );
 };
 
 } // namespace Basics

@@ -67,6 +67,27 @@ bool IsCineScenePath( const std::string& path )
 } // namespace
 
 
+const char* SkullbonezCore::Basics::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
+{
+    switch ( event )
+    {
+    case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
+        return "BeforeSceneUnload";
+    case SceneRuntimeLifecycleEvent::AfterSceneCleared:
+        return "AfterSceneCleared";
+    case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
+        return "BeforeScenePopulate";
+    case SceneRuntimeLifecycleEvent::AfterScenePopulate:
+        return "AfterScenePopulate";
+    case SceneRuntimeLifecycleEvent::AfterSceneActivated:
+        return "AfterSceneActivated";
+    case SceneRuntimeLifecycleEvent::None:
+    default:
+        return "None";
+    }
+}
+
+
 void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults )
 {
     // Lifetime: This clears per-load runtime state only. Queue position, scene
@@ -169,6 +190,21 @@ void SceneRuntime::BeginLoad( int index )
 {
     m_state.currentSceneIndex = index;
     ++m_state.loadCount;
+}
+
+
+void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
+{
+    // Concept: Scene lifecycle names live with scene runtime ownership. Run can
+    // still perform broad side effects, but call sites now mark which phase a
+    // future owner API should absorb.
+    m_lastLifecycleEvent = event;
+}
+
+
+SceneRuntimeLifecycleEvent SceneRuntime::LastLifecycleEvent() const
+{
+    return m_lastLifecycleEvent;
 }
 
 

@@ -47,7 +47,7 @@ bool UiTextPass::ShouldRender() const
 {
     return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
            m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
-           m_host.ShouldRenderReplayScrubber() || m_host.m_replayRuntime.PathVisualizer().hasTarget ||
+           m_host.ShouldRenderReplayScrubber() || m_host.ReplayPathVisualizerHasTarget() ||
            ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
 }
 
@@ -201,8 +201,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
         Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
         Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
-        const char* fireModeLabel =
-            m_host.m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
+        const char* fireModeLabel = m_host.LauncherFireModeLabel();
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
         Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );

@@ -202,7 +202,7 @@ struct ShadowPassInputs
 struct ShadowPassOutput
 {
     // Borrowed pointers into ShadowPassResources. Receivers must consume
-    // them during the same DrawPrimitives() call; ShadowPass resource
+    // them during the same RuntimeRenderer::RenderFrame() call; ShadowPass resource
     // release and the next frame both invalidate them.
     const Rendering::ShadowFrameData* terrainShadow = nullptr;
     const Rendering::ShadowFrameData* objectShadow = nullptr;
@@ -282,7 +282,7 @@ class SceneTargetPass
 
     Builds terrain/object shadow maps before receiver passes run. It owns
     the shadow targets and the per-frame receiver payloads that terrain and
-    object shaders borrow for the rest of DrawPrimitives().
+    object shaders borrow for the rest of RuntimeRenderer::RenderFrame().
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShadowPass
 {

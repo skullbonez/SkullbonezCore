@@ -27,6 +27,7 @@ Related:
 #include "Editor/EditorTools.h"
 #include "InputController.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "RuntimeInteractionCommands.h"
 #include "RuntimePickService.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
@@ -2264,7 +2265,7 @@ void Run::TakeInput()
                 return ApplyCinematicModeFromBrowserIndex(
                     SceneRuntimeStyleContext{ m_launchOptions,
                                               SceneState(),
-                                              m_sceneBrowser,
+                                              m_sceneController.Browser(),
                                               m_cGameModelCollection,
                                               RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                               m_defaultCinematicRender },
@@ -2280,18 +2281,19 @@ void Run::TakeInput()
                                                           VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
+            const int currentSceneBrowserIndex =
+                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            if ( !executeSceneControlAction(
-                     m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
-                                                                    m_sceneBrowser.paths,
-                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
-                                                                    currentSceneBrowserIndex,
-                                                                    isCinematicTabActive ) ) )
+            if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                     -1,
+                     m_sceneController.Browser().paths,
+                     m_sceneController.Browser().selectedCineModeSceneIndex,
+                     currentSceneBrowserIndex,
+                     isCinematicTabActive ) ) )
             {
                 executeSceneControlAction(
                     m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1,
-                                                                     m_sceneBrowser.paths,
+                                                                     m_sceneController.Browser().paths,
                                                                      currentSceneBrowserIndex ) );
             }
         }
@@ -2300,18 +2302,19 @@ void Run::TakeInput()
                                                           VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
+            const int currentSceneBrowserIndex =
+                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            if ( !executeSceneControlAction(
-                     m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
-                                                                    m_sceneBrowser.paths,
-                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
-                                                                    currentSceneBrowserIndex,
-                                                                    isCinematicTabActive ) ) )
+            if ( !executeSceneControlAction( m_sceneCoordinator.ApplyAdjacentCinematicMode(
+                     1,
+                     m_sceneController.Browser().paths,
+                     m_sceneController.Browser().selectedCineModeSceneIndex,
+                     currentSceneBrowserIndex,
+                     isCinematicTabActive ) ) )
             {
                 executeSceneControlAction(
                     m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1,
-                                                                     m_sceneBrowser.paths,
+                                                                     m_sceneController.Browser().paths,
                                                                      currentSceneBrowserIndex ) );
             }
         }
@@ -2331,22 +2334,23 @@ void Run::TakeInput()
     int editorUnhandledWheelDelta = 0;
     if ( m_systems.window )
     {
-        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
-        InGameUIInputResult UIResult =
-            m_UI.UpdateInput( m_systems.window->m_sWindow,
-                              static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
-                              static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
-                              m_timers.simulationTimer.GetTotalTime(),
-                              m_runtimeTools.Editor().editorModeEnabled,
-                              m_runtimeTools.Editor().placementModeEnabled,
-                              m_runtimeTools.Editor().placeStaticObject,
-                              m_runtimeTools.Editor().autoTerrainAlign,
-                              m_runtimeTools.Editor().objectType,
-                              static_cast<int>( m_camera.mode ),
-                              CameraModeEnabledMask(),
-                              m_sceneBrowser.namePtrs.empty() ? nullptr : m_sceneBrowser.namePtrs.data(),
-                              static_cast<int>( m_sceneBrowser.namePtrs.size() ),
-                              selectedSceneBrowserIndex );
+        const int selectedSceneBrowserIndex =
+            CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
+        InGameUIInputResult UIResult = m_UI.UpdateInput(
+            m_systems.window->m_sWindow,
+            static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
+            static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
+            m_timers.simulationTimer.GetTotalTime(),
+            m_runtimeTools.Editor().editorModeEnabled,
+            m_runtimeTools.Editor().placementModeEnabled,
+            m_runtimeTools.Editor().placeStaticObject,
+            m_runtimeTools.Editor().autoTerrainAlign,
+            m_runtimeTools.Editor().objectType,
+            static_cast<int>( m_camera.mode ),
+            CameraModeEnabledMask(),
+            m_sceneController.Browser().namePtrs.empty() ? nullptr : m_sceneController.Browser().namePtrs.data(),
+            static_cast<int>( m_sceneController.Browser().namePtrs.size() ),
+            selectedSceneBrowserIndex );
         editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
         const InGameUICommands& uiCommands = UIResult.commands;
         if ( uiCommands.ui.userInteracted )
@@ -2702,9 +2706,9 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
-            m_sceneUIOverrides.timeScaleOverride =
+            m_sceneController.UIOverrides().timeScaleOverride =
                 std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-            SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
+            SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetTimeScale, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSeed > 0 )
@@ -2756,7 +2760,7 @@ void Run::TakeInput()
         const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
         {
             return SceneRuntimeGeneratedControlContext{ SceneState(),
-                                                        m_sceneUIOverrides,
+                                                        m_sceneController.UIOverrides(),
                                                         m_camera,
                                                         m_sceneController,
                                                         Cfg(),
@@ -2795,8 +2799,9 @@ void Run::TakeInput()
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
-            const int boxes = m_sceneUIOverrides.solverBoxCountOverride >= 0 ? m_sceneUIOverrides.solverBoxCountOverride
-                                                                             : SceneState().solverBoxCount;
+            const int boxes = m_sceneController.UIOverrides().solverBoxCountOverride >= 0
+                                  ? m_sceneController.UIOverrides().solverBoxCountOverride
+                                  : SceneState().solverBoxCount;
             executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
                 makeSceneGeneratedControlContext(),
                 std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ),
@@ -2806,8 +2811,8 @@ void Run::TakeInput()
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
             const int modelCapacity = ActiveGameModelCapacity();
-            const int balls = m_sceneUIOverrides.solverBallCountOverride >= 0
-                                  ? m_sceneUIOverrides.solverBallCountOverride
+            const int balls = m_sceneController.UIOverrides().solverBallCountOverride >= 0
+                                  ? m_sceneController.UIOverrides().solverBallCountOverride
                                   : SceneState().solverBallCount;
             executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
                 makeSceneGeneratedControlContext(),
@@ -2864,7 +2869,7 @@ void Run::TakeInput()
             ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
@@ -3090,7 +3095,7 @@ bool Run::DrainRuntimeCommands()
             return ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
@@ -3110,7 +3115,7 @@ bool Run::DrainRuntimeCommands()
         {
         case RuntimeCommandType::LoadSceneIndex:
             executeSceneControlAction(
-                m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneBrowser.paths ) );
+                m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneController.Browser().paths ) );
             break;
         case RuntimeCommandType::LoadDemoScene:
             executeSceneControlAction( m_sceneCoordinator.LoadDemoSceneFromUI() );
@@ -3123,7 +3128,7 @@ bool Run::DrainRuntimeCommands()
             break;
         case RuntimeCommandType::CreateScene:
             executeSceneControlAction(
-                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneBrowser },
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
                                    command.text.c_str() ) );
             break;
         case RuntimeCommandType::SaveScreenshot:

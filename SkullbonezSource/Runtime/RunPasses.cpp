@@ -1268,7 +1268,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
         m_hasLiveVisualTime = true;
     }
-    else if ( !useReplayTime && !m_host.m_replayRuntime.Scrubber().liveAdvanceHeld )
+    else if ( !useReplayTime && !m_host.ReplayLiveAdvanceHeld() )
     {
         m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
     }
@@ -1625,47 +1625,29 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     }
 
     const float rayLinger = (std::max)( 0.0f, m_host.m_debug.physicsDebugContactLinger );
-    if ( rayLinger > 0.0f )
-    {
-        for ( const RunRayCastTestLine& line : m_host.m_rayCastTest.lines )
-        {
-            if ( line.active && line.ageSeconds < rayLinger )
-            {
-                return true;
-            }
-        }
-    }
-
-    const bool selectedModelValid = m_host.m_editor.selectedModelIndex >= 0 &&
-                                    m_host.m_editor.selectedModelIndex < m_host.m_cGameModelCollection.GetModelCount();
-    const bool placementPreview = m_host.m_editor.editorModeEnabled && m_host.m_editor.placementModeEnabled &&
-                                  m_host.m_editor.placementPreviewVisible;
-    const bool editorSelection =
-        m_host.m_editor.editorModeEnabled && !m_host.m_editor.placementModeEnabled && selectedModelValid;
-    const bool inspectSelection =
-        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Inspect && selectedModelValid;
-    const bool attachSelection =
-        !m_host.m_editor.editorModeEnabled && m_host.m_camera.mode == RunCameraMode::Attach && selectedModelValid;
-    if ( placementPreview || editorSelection || inspectSelection || attachSelection )
-    {
-        return true;
-    }
-    if ( m_host.m_mousePickup.active && m_host.m_mousePickup.modelIndex >= 0 &&
-         m_host.m_mousePickup.modelIndex < m_host.m_cGameModelCollection.GetModelCount() )
+    if ( m_host.ToolHasLingeredRayCastLine( rayLinger ) )
     {
         return true;
     }
 
-    if ( m_host.m_replayRuntime.PathVisualizer().hasTarget ||
-         m_host.m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None )
+    if ( m_host.ToolHasSelectionOverlayWork() )
     {
         return true;
     }
-    if ( m_host.m_replayRuntime.VelocityEdit().enabled && !m_host.m_editor.editorModeEnabled )
+    if ( m_host.ToolHasMousePickupOverlayWork() )
     {
         return true;
     }
-    return m_host.m_launcherLaser.HasActiveShots();
+
+    if ( m_host.ReplayPathVisualizerHasTarget() || m_host.ReplayHasCameraFocus() )
+    {
+        return true;
+    }
+    if ( m_host.ReplayVelocityEditActive() && !m_host.m_editor.editorModeEnabled )
+    {
+        return true;
+    }
+    return m_host.ToolHasLauncherShots();
 }
 
 

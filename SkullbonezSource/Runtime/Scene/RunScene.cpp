@@ -29,6 +29,7 @@ Related:
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
+#include "SceneRuntimeUiOptions.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/Ragdoll.h"
@@ -549,18 +550,19 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     SceneRuntimeResetContext resetContext{ m_runtimeSettings,
                                            m_debug,
                                            SceneState(),
-                                           m_sceneUIOverrides,
+                                           m_sceneController.UIOverrides(),
                                            m_camera,
                                            m_cWorldEnvironment,
                                            m_physicsDebugVisualizer };
     SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
                                                    resetContext,
-                                                   m_sceneBrowser,
+                                                   m_sceneController.Browser(),
                                                    IsGfxReady() ? &Gfx() : nullptr,
                                                    m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload );
     const SceneRuntimeLoadBeginResult loadBegin =
         BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
     if ( !loadBegin.shouldLoad )
@@ -652,6 +654,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     bool hasSceneTornadoSystem = false;
     TornadoSystemConfig sceneTornadoSystem;
 
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate );
+
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
@@ -683,35 +688,24 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
         SceneState().isSceneMode = false;
         SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain ) );
-        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
-        {
-            SceneGeneratedSetup::SetUpSolverObjects(
-                BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
-                                                 m_cWorldEnvironment,
-                                                 m_systems.terrain.get(),
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                 m_launchOptions.generatedObjectTypeOverride ),
-                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
-        }
-        else
-        {
-            SceneGeneratedSetup::SetUpGameModels(
-                BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
-                                                 m_cWorldEnvironment,
-                                                 m_systems.terrain.get(),
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                 m_launchOptions.generatedObjectTypeOverride ),
-                m_sceneUIOverrides.modelCountOverride >= 0 ? m_sceneUIOverrides.modelCountOverride
-                                                           : DEFAULT_GAME_MODELS );
-        }
+        SceneGeneratedSetup::TrySetUpRequestedModels(
+            BuildSceneGeneratedModelContext( SceneState(),
+                                             Cfg(),
+                                             m_cWorldEnvironment,
+                                             m_systems.terrain.get(),
+                                             m_cGameModelCollection,
+                                             m_cGameModelCollection.GetPhysicsEngine(),
+                                             m_launchOptions.generatedObjectTypeOverride ),
+            SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
+                                             m_sceneController.UIOverrides().solverBallCountOverride,
+                                             m_sceneController.UIOverrides().solverBoxCountOverride,
+                                             0,
+                                             0,
+                                             DEFAULT_GAME_MODELS },
+            true );
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
                                                               SceneState(),
-                                                              m_sceneBrowser,
+                                                              m_sceneController.Browser(),
                                                               m_cGameModelCollection,
                                                               RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                               m_defaultCinematicRender } );
@@ -787,134 +781,16 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 #ifdef _DEBUG
         isAutomationScene = isAutomationScene || m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
-        if ( !preserveUIState )
-        {
-            if ( !UIOptions.hasVisible )
-            {
-                if ( isAutomationScene && !UIOptions.hasSettings )
-                {
-                    m_UI.SetVisible( false, UINow );
-                }
-                else if ( !UIOptions.hasSettings )
-                {
-                    if ( !m_UI.IsVisible() )
-                    {
-                        m_UI.SetVisible( true, UINow );
-                    }
-                    m_UI.SetMinimized( true, UINow );
-                }
-                else if ( !m_UI.IsVisible() )
-                {
-                    m_UI.SetVisible( true, UINow );
-                }
-            }
-            if ( UIOptions.hasWindowRect )
-            {
-                m_UI.SetWindowBounds( UIOptions.windowX, UIOptions.windowY, UIOptions.windowW, UIOptions.windowH );
-                if ( !UIOptions.hasMinimized )
-                {
-                    m_UI.SetMinimized( false, UINow );
-                }
-            }
-            if ( UIOptions.hasActiveTab )
-            {
-                m_UI.SetActiveTab( static_cast<InGameUITab>( UIOptions.activeTab ) );
-            }
-            if ( UIOptions.hasBlur )
-            {
-                m_UI.SetBlurEnabled( UIOptions.blurEnabled );
-            }
-            if ( UIOptions.hasProfilerExpandAll )
-            {
-                m_UI.SetProfilerExpandAll( UIOptions.profilerExpandAll );
-            }
-            if ( UIOptions.hasProfilerTimeline )
-            {
-                m_UI.SetProfilerTimelineEnabled( UIOptions.profilerTimeline );
-            }
-            if ( UIOptions.hasPerformanceHistogram )
-            {
-                m_UI.SetPerformanceHistogramEnabled( UIOptions.performanceHistogram );
-            }
-            if ( UIOptions.hasHitboxOverlay )
-            {
-                m_UI.SetHitboxOverlayEnabled( UIOptions.hitboxOverlay );
-            }
-            if ( UIOptions.hasRendererComboOpen )
-            {
-                m_UI.SetRendererComboOpen( UIOptions.rendererComboOpen );
-            }
-            if ( UIOptions.hasWaterComboOpen )
-            {
-                m_UI.SetWaterComboOpen( UIOptions.waterComboOpen );
-            }
-            if ( UIOptions.hasSceneComboOpen )
-            {
-                m_UI.SetSceneComboOpen( UIOptions.sceneComboOpen );
-            }
-            if ( UIOptions.hasSceneFilter )
-            {
-                m_UI.SetSceneFilter( UIOptions.sceneFilter );
-            }
-            if ( UIOptions.hasScrollY )
-            {
-                m_UI.SetScrollY( UIOptions.scrollY );
-            }
-            m_UI.SetMouseOverride( UIOptions.hasMouseOverride, UIOptions.mouseX, UIOptions.mouseY );
-            if ( UIOptions.hasVisible )
-            {
-                m_UI.SetVisible( UIOptions.isVisible, UINow );
-            }
-            if ( UIOptions.hasMinimized )
-            {
-                m_UI.SetMinimized( UIOptions.isMinimized, 0.0 );
-            }
-            if ( UIOptions.hasTestPattern )
-            {
-                m_debug.isUITestPattern = UIOptions.testPatternEnabled;
-            }
-        }
-        if ( UIOptions.hasStress )
-        {
-            m_diagnosticsRuntime.UIStress().enabled = UIOptions.stressEnabled;
-        }
-        if ( UIOptions.hasStressSeed )
-        {
-            m_diagnosticsRuntime.UIStress().randomState = UIOptions.stressSeed;
-        }
-        if ( UIOptions.hasStressActions )
-        {
-            m_diagnosticsRuntime.UIStress().actionsPerFrame = std::clamp( UIOptions.stressActionsPerFrame, 1, 32 );
-        }
+        ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext{ m_UI,
+                                                                  m_diagnosticsRuntime,
+                                                                  m_debug,
+                                                                  UINow,
+                                                                  preserveUIState,
+                                                                  isAutomationScene },
+                                    UIOptions );
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        m_diagnosticsRuntime.Capture().Screenshot().screenshotFrame = scene.GetScreenshotFrame();
-        m_diagnosticsRuntime.Capture().Screenshot().screenshotMs = scene.GetScreenshotMs();
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit =
-            suppressAutomationExit ? false : scene.IsScreenshotAndExit();
-
-        if ( scene.GetScreenshotPath()[0] != '\0' )
-        {
-            strcpy_s( m_diagnosticsRuntime.Capture().Screenshot().screenshotPath,
-                      sizeof( m_diagnosticsRuntime.Capture().Screenshot().screenshotPath ),
-                      scene.GetScreenshotPath() );
-        }
-        // Interval capture: create output directory
-        m_diagnosticsRuntime.Capture().Screenshot().screenshotInterval = scene.GetScreenshotInterval();
-        if ( scene.GetScreenshotDir()[0] != '\0' )
-        {
-            strcpy_s( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir,
-                      sizeof( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir ),
-                      scene.GetScreenshotDir() );
-            CreateDirectoryA( m_diagnosticsRuntime.Capture().Screenshot().screenshotDir, nullptr );
-        }
-
-        // Perf test: open CSV log file
-        const char* pPerfPath = scene.GetPerfLogPath();
-        if ( pPerfPath[0] != '\0' )
-        {
-            m_diagnosticsRuntime.OpenScenePerfLog( pPerfPath, sPerfPass );
-        }
+        m_diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, sPerfPass );
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
@@ -980,46 +856,22 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_systems.cameras, *m_systems.terrain ),
                                           scene );
 
-        if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
-        {
-            SceneGeneratedSetup::SetUpSolverObjects(
-                BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
-                                                 m_cWorldEnvironment,
-                                                 m_systems.terrain.get(),
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                 m_launchOptions.generatedObjectTypeOverride ),
-                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
-        }
-        else if ( m_sceneUIOverrides.modelCountOverride >= 0 )
-        {
-            SceneGeneratedSetup::SetUpGameModels(
-                BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
-                                                 m_cWorldEnvironment,
-                                                 m_systems.terrain.get(),
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                 m_launchOptions.generatedObjectTypeOverride ),
-                m_sceneUIOverrides.modelCountOverride );
-        }
-        else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
-        {
-            // Exact-count solver spawn — explicit ball/box split for benchmarks.
-            SceneGeneratedSetup::SetUpSolverObjects(
-                BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
-                                                 m_cWorldEnvironment,
-                                                 m_systems.terrain.get(),
-                                                 m_cGameModelCollection,
-                                                 m_cGameModelCollection.GetPhysicsEngine(),
-                                                 m_launchOptions.generatedObjectTypeOverride ),
-                scene.GetSolverBallCount(),
-                scene.GetSolverBoxCount() );
-        }
-        else
+        const bool generatedModelsApplied = SceneGeneratedSetup::TrySetUpRequestedModels(
+            BuildSceneGeneratedModelContext( SceneState(),
+                                             Cfg(),
+                                             m_cWorldEnvironment,
+                                             m_systems.terrain.get(),
+                                             m_cGameModelCollection,
+                                             m_cGameModelCollection.GetPhysicsEngine(),
+                                             m_launchOptions.generatedObjectTypeOverride ),
+            SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
+                                             m_sceneController.UIOverrides().solverBallCountOverride,
+                                             m_sceneController.UIOverrides().solverBoxCountOverride,
+                                             scene.GetSolverBallCount(),
+                                             scene.GetSolverBoxCount(),
+                                             0 },
+            false );
+        if ( !generatedModelsApplied )
         {
             SceneAuthoredSetup::SetUpGameModels(
                 BuildSceneAuthoredModelContext( SceneState(),
@@ -1031,7 +883,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                 m_requiredBroadphaseXCells ),
                 scene );
         }
-
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_cGameModelCollection.SetPhysicsRegressionLogPath(
@@ -1088,6 +939,8 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
     }
 
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate );
+
     if ( shouldPreserveRuntimeState )
     {
         RestoreSceneRuntimeResetSnapshot( resetContext, resetSnapshot, suppressExitOnComplete );
@@ -1098,9 +951,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         SceneState().timeScale = m_launchOptions.timeScaleOverride;
     }
-    if ( m_sceneUIOverrides.timeScaleOverride > 0.0f )
+    if ( m_sceneController.UIOverrides().timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
+        SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
     }
     if ( m_launchOptions.fixedStep )
     {
@@ -1243,6 +1096,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                            ActiveGameModelCapacity() );
         }
     }
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated );
 }
 
 
@@ -1350,13 +1204,14 @@ bool Run::SaveCurrentSceneDefaults()
     world["fluidDensity"] = m_cWorldEnvironment.GetFluidDensity();
     SetTouchedCinematicSceneProperties( root, SceneState().uiCinematicOverrideMask, SceneState().cinematicRender );
 
-    if ( m_sceneUIOverrides.modelCountOverride >= 0 )
+    if ( m_sceneController.UIOverrides().modelCountOverride >= 0 )
     {
-        simulation["solverBalls"] = m_sceneUIOverrides.modelCountOverride;
+        simulation["solverBalls"] = m_sceneController.UIOverrides().modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
     else if ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 ||
-              m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
+              m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+              m_sceneController.UIOverrides().solverBoxCountOverride >= 0 )
     {
         simulation["solverBalls"] = SceneState().solverBallCount;
         simulation["solverBoxes"] = SceneState().solverBoxCount;

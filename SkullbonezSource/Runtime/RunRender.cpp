@@ -8,8 +8,8 @@ Mental model:
   the same order the image is produced.
 
 Glossary:
-  Render pass: Named slice of DrawPrimitives() with explicit inputs, outputs,
-  and resource ownership.
+  Render pass: Named slice of RuntimeRenderer::RenderFrame() with explicit
+  inputs, outputs, and resource ownership.
   DXR (DirectX Raytracing): DX12 API used here for optional raytraced water
   reflection dispatch.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -436,12 +436,6 @@ void Run::Render()
 
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
     restoreReplayRenderStateForFrame();
-}
-
-
-void Run::DrawPrimitives()
-{
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
 }
 
 

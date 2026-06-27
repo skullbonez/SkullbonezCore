@@ -76,39 +76,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-enum class RuntimeInteractionCommandType
-{
-    None,
-    SetEditorSelection
-};
-
-enum class RuntimeInteractionSelectionScope
-{
-    Editor,
-    Inspect
-};
-
-struct RuntimeInteractionCommand
-{
-    RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
-    int modelIndex = -1;
-    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
-    bool claimSelectionOwner = true;
-};
-
-enum class RuntimeInteractionEventType
-{
-    None,
-    SelectionChanged
-};
-
-struct RuntimeInteractionEvent
-{
-    RuntimeInteractionEventType type = RuntimeInteractionEventType::None;
-    int previousModelIndex = -1;
-    int modelIndex = -1;
-    RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
-};
+struct RuntimeInteractionCommand;
+struct RuntimeInteractionEvent;
 
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -119,17 +88,16 @@ class Run
 {
 
   private:
-    // Composition-root state: these members either own a top-level subsystem for
+    // Concept: Run is the process composition root. These members either own a
+    // top-level subsystem for
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
-    RunSceneBrowserState m_sceneBrowser;                                   // Discovered scene paths and live cine/concept selection.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RunStartupState m_startup;                                             // engine.cfg startup capacity/thread defaults restored by demo resets.
-    RunSceneUIOverrideState m_sceneUIOverrides;                            // Live Scene-tab overrides preserved across reset when requested.
 
     // Subsystem owners below are ordered by lifetime dependency. EngineContext
     // and render-host bindings borrow from these objects; they do not own them.
@@ -287,7 +255,6 @@ class Run
                                         const char* logicalName,
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
                                                                            // source asset identity for rebuilds.
-    void DrawPrimitives();                                                 // Thin compatibility wrapper around RuntimeRenderer::RenderFrame().
     RuntimeRenderHostBindings BuildRuntimeRenderHostBindings();
     RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
     void ReleaseBackendOwnedRenderResources(

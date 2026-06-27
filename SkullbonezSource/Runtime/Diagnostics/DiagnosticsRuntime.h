@@ -31,6 +31,7 @@ namespace SkullbonezCore
 namespace Basics
 {
 class ReplayRuntime;
+class TestScene;
 
 class DiagnosticsRuntime
 {
@@ -50,6 +51,7 @@ class DiagnosticsRuntime
     void ResetPerfLogForSceneLoad();
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
+    void ApplySceneAutomationOptions( const TestScene& scene, bool suppressAutomationExit, int perfPass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,

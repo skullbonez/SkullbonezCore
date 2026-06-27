@@ -721,6 +721,26 @@ bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
     return true;
 }
 
+bool ReplayRuntime::LiveAdvanceHeld() const
+{
+    return m_scrubber.liveAdvanceHeld;
+}
+
+bool ReplayRuntime::HasPathVisualizerTarget() const
+{
+    return m_pathVisualizer.hasTarget;
+}
+
+bool ReplayRuntime::HasCameraFocus() const
+{
+    return m_camera.focusKind != RunReplayCameraFocusKind::None;
+}
+
+bool ReplayRuntime::VelocityEditActive() const
+{
+    return m_velocityEdit.enabled;
+}
+
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );

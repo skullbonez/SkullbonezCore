@@ -140,6 +140,51 @@ void RuntimeTools::TickRayCastTestLines( float dt )
     }
 }
 
+bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
+{
+    if ( maxAgeSeconds <= 0.0f )
+    {
+        return false;
+    }
+
+    for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
+    {
+        if ( line.active && line.ageSeconds < maxAgeSeconds )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RuntimeTools::HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const
+{
+    const bool selectedModelValid = m_editor.selectedModelIndex >= 0 && m_editor.selectedModelIndex < modelCount;
+    const bool placementPreview =
+        m_editor.editorModeEnabled && m_editor.placementModeEnabled && m_editor.placementPreviewVisible;
+    const bool editorSelection = m_editor.editorModeEnabled && !m_editor.placementModeEnabled && selectedModelValid;
+    const bool inspectSelection =
+        !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Inspect && selectedModelValid;
+    const bool attachSelection =
+        !m_editor.editorModeEnabled && cameraMode == RunCameraMode::Attach && selectedModelValid;
+    return placementPreview || editorSelection || inspectSelection || attachSelection;
+}
+
+bool RuntimeTools::HasMousePickupOverlayWork( int modelCount ) const
+{
+    return m_mousePickup.active && m_mousePickup.modelIndex >= 0 && m_mousePickup.modelIndex < modelCount;
+}
+
+bool RuntimeTools::HasLauncherShots() const
+{
+    return m_laser.HasActiveShots();
+}
+
+const char* RuntimeTools::LauncherFireModeLabel() const
+{
+    return m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? "PROJECTILE" : "LASER";
+}
+
 void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
 {
     // Concept: Replay captures visible launcher/tool feedback separately from

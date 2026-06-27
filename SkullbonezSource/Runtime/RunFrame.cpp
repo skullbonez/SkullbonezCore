@@ -1709,9 +1709,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
         m_launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-        m_sceneUIOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
-        m_sceneUIOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-        m_sceneUIOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+        m_sceneController.UIOverrides().modelCountOverride = uiModelCount ? event.value0 : -1;
+        m_sceneController.UIOverrides().solverBallCountOverride =
+            uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+        m_sceneController.UIOverrides().solverBoxCountOverride =
+            uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
         if ( exactSolverCounts || uiSolverCounts )
         {
@@ -2241,7 +2243,7 @@ bool Run::TickScreenshots()
             return ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
@@ -2391,7 +2393,7 @@ bool Run::TickSceneAdvance()
             return ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },

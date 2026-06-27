@@ -232,6 +232,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -716,6 +719,24 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.inl">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\LockOrderValidator.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -756,6 +777,9 @@
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h">
+      <Filter>Header Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
@@ -824,6 +848,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h">
       <Filter>Header Files\Runtime</Filter>
     </ClInclude>
@@ -849,6 +876,27 @@
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionHelpers.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionVisualizer.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.inl">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.inl">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h">
@@ -999,6 +1047,9 @@
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UI.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIEditorMiniPalette.inl">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h">

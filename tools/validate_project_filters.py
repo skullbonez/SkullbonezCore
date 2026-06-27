@@ -49,9 +49,13 @@ STYLE_FILTER = "Style Files"
 PROJECT_FILTER = "Project Files"
 SHADER_FILTER = "Resource Files\\HLSL"
 SOURCE_PROJECT_ROOT = "SkullbonezSource"
+# Concept: `.inl` files are source-bearing include slices, not build units.
+# Keep them as ClInclude items so Visual Studio shows ownership splits while
+# the including `.cpp` preserves linkage and compile order.
 SOURCE_PROJECT_SUFFIX_TYPES = {
     ".cpp": "ClCompile",
     ".h": "ClInclude",
+    ".inl": "ClInclude",
 }
 
 MATH_PREFIXES = (
@@ -179,6 +183,7 @@ RUNTIME_PREFIXES = (
     "RuntimeCameraMode",
     "RuntimeDiagnostics",
     "RuntimeFileWriter",
+    "RuntimeInteractionCommands",
     "RuntimeInteractionController",
     "RuntimePickService",
     "RuntimeTuning",
@@ -200,6 +205,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeLoad",
     "SceneRuntimeReset",
     "SceneRuntimeStyle",
+    "SceneRuntimeUiOptions",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
@@ -210,7 +216,14 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayRuntime",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",
+    "RunReplayCauseTreeTools",
+    "RunReplayImportExport",
+    "RunReplayPredictionHelpers",
+    "RunReplayPredictionVisualizer",
+    "RunReplayQueryTools",
+    "RunReplayScrubberTools",
     "RunReplayTools",
+    "RunReplayVelocityEdit",
 )
 
 RUNTIME_RENDER_PREFIXES = (
@@ -227,7 +240,13 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorHullAssets",
     "LauncherLaser",
     "LauncherTools",
+    "RunEditorGizmoTools",
+    "RunEditorObjectPlacement",
+    "RunEditorOverlayTools",
+    "RunEditorPlacementAssets",
+    "RunEditorTracer",
     "RunEditorTools",
+    "RunMousePickupTools",
 )
 
 RUNTIME_TOOLS_PREFIXES = (

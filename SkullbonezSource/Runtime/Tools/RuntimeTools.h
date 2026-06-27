@@ -258,6 +258,11 @@ class RuntimeTools
     void ClearRayCastTestLines();
     void AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit );
     void TickRayCastTestLines( float dt );
+    bool HasLingeredRayCastLine( float maxAgeSeconds ) const;
+    bool HasSelectionOverlayWork( int modelCount, RunCameraMode cameraMode ) const;
+    bool HasMousePickupOverlayWork( int modelCount ) const;
+    bool HasLauncherShots() const;
+    const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
     bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,

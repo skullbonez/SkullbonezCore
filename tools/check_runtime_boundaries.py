@@ -1068,65 +1068,72 @@ ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS = {
 }
 
 ALLOWED_RENDER_HOST_BINDINGS = {
-    "systems",
-    "debug",
-    "timers",
-    "runtimeSettings",
-    "gameModelCollection",
-    "worldEnvironment",
-    "collisionVisualizer",
-    "broadphaseVisualizer",
-    "physicsDebugVisualizer",
-    "dxrReflectionTransforms",
-    "rayCastTest",
-    "editor",
-    "mousePickup",
-    "replayRuntime",
-    "launcherLaser",
+    "runtime",
+    "world",
+    "scene",
+    "replayOverlay",
+    "toolOverlay",
     "ui",
-    "runtimeInput",
-    "camera",
-    "runtimeViewModel",
-    "sceneController",
-    "sceneBrowser",
+    "diagnostics",
+}
+
+# Concept: RuntimeRenderHost views are narrow borrowed seams, not escape hatches.
+# Each view gets its own field allowlist so broad state cannot hide under a
+# legitimate top-level binding root.
+ALLOWED_RENDER_HOST_VIEW_FIELDS = {
+    "RenderRuntimeView": {
+        "systems",
+        "launchOptions",
+        "runtimeSettings",
+    },
+    "RenderWorldView": {
+        "gameModelCollection",
+        "worldEnvironment",
+        "collisionVisualizer",
+        "broadphaseVisualizer",
+        "physicsDebugVisualizer",
+        "dxrReflectionTransforms",
+    },
+    "RenderSceneView": {
+        "sceneController",
+        "sceneBrowser",
+    },
+    "RenderReplayOverlayView": {
+        "replayRuntime",
+    },
+    "RenderToolOverlayView": {
+        "tools",
+    },
+    "RenderUiView": {
+        "ui",
+        "runtimeInput",
+        "camera",
+        "runtimeViewModel",
+    },
+    "RenderDiagnosticsView": {
+        "diagnosticsRuntime",
+        "debug",
+        "timers",
+    },
 }
 
 ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS = {
-    "ActiveCinematicConfigFn",
-    "BoolFn",
-    "TextureHandleFn",
-    "SelectRenderTextureFn",
-    "IntFn",
     "LogLifecycleStepFn",
     "RenderEditorOverlayFn",
     "VoidFn",
-    "SceneStateFn",
     "CameraModeEnabledMaskFn",
     "CameraModeLabelFn",
-    "MainMemoryStatsFn",
 }
 
-ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = {
-    "ActiveCinematicConfigFn",
-}
+ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = set()
 
 ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "user",
-    "activeCinematicConfig",
-    "isCinematicRenderingEnabled",
-    "isLauncherCameraMode",
-    "textureHandle",
-    "selectRenderTexture",
-    "windowScreenWidth",
-    "windowScreenHeight",
     "logRenderResourceLifecycleStep",
     "renderEditorOverlay",
     "refreshRuntimeViewModel",
-    "sceneState",
-    "currentSceneBrowserIndex",
     "cameraModeEnabledMask",
     "cameraModeLabel",
-    "refreshMainMemoryStats",
 }
 
 
@@ -1377,6 +1384,23 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
 
+    for view_name, allowed_fields in ALLOWED_RENDER_HOST_VIEW_FIELDS.items():
+        view = extract_struct_body(stripped, view_name)
+        if view is None:
+            continue
+
+        body_start, body = view
+        for field_name, local_offset in render_host_member_declarations(body):
+            if field_name not in allowed_fields:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        f"new {view_name} fields are blocked",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: add render host dependencies through an owner-specific API and update the view allowlist deliberately.",
+                    )
+                )
+
     bindings = extract_struct_body(stripped, "RuntimeRenderHostBindings")
     if bindings is not None:
         body_start, body = bindings
@@ -1387,7 +1411,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostBindings fields are blocked",
-                        "Split render-facing state into a narrow view instead of growing RuntimeRenderHost.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: split render-facing state into a narrow view instead of growing RuntimeRenderHost.",
                     )
                 )
 
@@ -1401,7 +1425,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostCallbacks typedefs are blocked",
-                        "Move the callback behind a subsystem-owned service before wiring render host access.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: move the callback behind a subsystem-owned service before wiring render host access.",
                     )
                 )
             if (
@@ -1423,7 +1447,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostCallbacks fields are blocked",
-                        "Narrow the render service surface instead of adding another Run callback.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: narrow the render service surface instead of adding another Run callback.",
                     )
                 )
 
@@ -2549,18 +2573,62 @@ def run_self_tests() -> list[str]:
     )
 
     allowed_host = """
-    struct RuntimeRenderHostBindings
+    struct RenderRuntimeView
     {
         RunSubsystemState* systems = nullptr;
+        const RunLaunchOptions* launchOptions = nullptr;
+        RunRuntimeSettings* runtimeSettings = nullptr;
+    };
+    struct RenderWorldView
+    {
+        GameModelCollection* gameModelCollection = nullptr;
+        WorldEnvironment* worldEnvironment = nullptr;
+        CollisionVisualizer* collisionVisualizer = nullptr;
+        BroadphaseVisualizer* broadphaseVisualizer = nullptr;
+        PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
+        std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;
+    };
+    struct RenderSceneView
+    {
+        SceneController* sceneController = nullptr;
+        RunSceneBrowserState* sceneBrowser = nullptr;
+    };
+    struct RenderReplayOverlayView
+    {
+        ReplayRuntime* replayRuntime = nullptr;
+    };
+    struct RenderToolOverlayView
+    {
+        RuntimeTools* tools = nullptr;
+    };
+    struct RenderUiView
+    {
+        InGameUI* ui = nullptr;
+        RuntimeInputContext* runtimeInput = nullptr;
+        RunCameraState* camera = nullptr;
+        RuntimeViewModel* runtimeViewModel = nullptr;
+    };
+    struct RenderDiagnosticsView
+    {
+        DiagnosticsRuntime* diagnosticsRuntime = nullptr;
         RunDebugState* debug = nullptr;
+        RunTimerState* timers = nullptr;
+    };
+    struct RuntimeRenderHostBindings
+    {
+        RenderRuntimeView runtime;
+        RenderWorldView world;
+        RenderSceneView scene;
+        RenderReplayOverlayView replayOverlay;
+        RenderToolOverlayView toolOverlay;
+        RenderUiView ui;
+        RenderDiagnosticsView diagnostics;
     };
     struct RuntimeRenderHostCallbacks
     {
-        using ActiveCinematicConfigFn = CinematicRenderConfig& (*)( void* user );
-        using BoolFn = bool ( * )( void* user );
+        using VoidFn = void ( * )( void* user );
         void* user = nullptr;
-        ActiveCinematicConfigFn activeCinematicConfig = nullptr;
-        BoolFn isLauncherCameraMode = nullptr;
+        VoidFn refreshRuntimeViewModel = nullptr;
     };
     """
     if check_runtime_render_host_guardrails_text(synthetic_path, allowed_host):
@@ -3533,8 +3601,8 @@ def run_self_tests() -> list[str]:
         failures.append("RunInternal cinematic override helper synthetic surface was not rejected")
 
     new_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunSceneState* newSceneState = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3543,8 +3611,8 @@ def run_self_tests() -> list[str]:
         failures.append("new RuntimeRenderHostBindings synthetic field was not rejected")
 
     bare_new_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunSceneState* bareSceneState;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunSceneState* bareSceneState;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3553,8 +3621,8 @@ def run_self_tests() -> list[str]:
         failures.append("bare RuntimeRenderHostBindings synthetic field was not rejected")
 
     old_replay_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunReplayScrubberState* replayScrubber = nullptr;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunReplayScrubberState* replayScrubber = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3562,9 +3630,40 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RuntimeRenderHost replay binding synthetic field was not rejected")
 
+    nested_world_binding = allowed_host.replace(
+        "std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;",
+        "std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;\n"
+        "        RunMousePickupState* mousePickup = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderWorldView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_world_binding)
+    ):
+        failures.append("new RenderWorldView synthetic field was not rejected")
+
+    nested_replay_binding = allowed_host.replace(
+        "ReplayRuntime* replayRuntime = nullptr;",
+        "ReplayRuntime* replayRuntime = nullptr;\n        RunReplayScrubberState* scrubber = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderReplayOverlayView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_replay_binding)
+    ):
+        failures.append("new RenderReplayOverlayView synthetic field was not rejected")
+
+    nested_diagnostics_binding = allowed_host.replace(
+        "RunTimerState* timers = nullptr;",
+        "RunTimerState* timers = nullptr;\n        RunPerfLogState* perfLog = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderDiagnosticsView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_diagnostics_binding)
+    ):
+        failures.append("new RenderDiagnosticsView synthetic field was not rejected")
+
     new_callback = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn newRenderCallback = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn newRenderCallback = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3572,9 +3671,29 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("new RuntimeRenderHostCallbacks synthetic field was not rejected")
 
+    old_main_memory_callback_typedef = allowed_host.replace(
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_typedef)
+    ):
+        failures.append("old RuntimeRenderHost main-memory callback typedef was not rejected")
+
+    old_main_memory_callback_field = allowed_host.replace(
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        MainMemoryStatsFn refreshMainMemoryStats = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_field)
+    ):
+        failures.append("old RuntimeRenderHost main-memory callback field was not rejected")
+
     old_scrubber_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn shouldRenderReplayScrubber = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn shouldRenderReplayScrubber = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3583,8 +3702,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
 
     old_replay_scrubber_overlay_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3596,8 +3715,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay scrubber overlay callback field was not rejected")
 
     old_prediction_ghost_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3606,8 +3725,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay prediction ghost callback field was not rejected")
 
     mutable_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
     )
     mutable_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_callback)
     if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in mutable_errors):
@@ -3616,8 +3735,8 @@ def run_self_tests() -> list[str]:
         failures.append("mutable RuntimeRenderHostCallbacks synthetic return was not rejected")
 
     mutable_pointer_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
     )
     pointer_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_pointer_callback)
     if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in pointer_errors):
@@ -3626,8 +3745,8 @@ def run_self_tests() -> list[str]:
         failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
 
     old_replay_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
@@ -3636,8 +3755,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay callback typedef was not rejected")
 
     old_prediction_ghost_callback_typedef = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n"
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n"
         "        using ReplayPredictionGhostsFn = void ( * )( void* user, const RenderFrameContext& frame );",
     )
     if not any(

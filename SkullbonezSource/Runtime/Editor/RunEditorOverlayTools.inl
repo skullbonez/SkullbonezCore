@@ -1,0 +1,172 @@
+/*
+File: SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl
+Purpose:
+  Builds editor hover, placement-preview, and gizmo overlay traces.
+
+Mental model:
+  Overlay trace work is presentation of editor state. It computes hover axes and
+  preview markers without owning the model collection or committing placement.
+
+Glossary:
+  Preview: Non-authoritative placement or selection feedback before a click.
+  Overlay trace: Frame-local line/shape instructions consumed by RunEditorTracer.
+
+Invariants:
+  - Overlay building must not mutate scene objects.
+  - Hover state is recomputed every frame from the current mouse ray.
+
+Related:
+  - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
+  - SkullbonezSource/Runtime/Editor/RunEditorTracer.inl
+*/
+namespace SkullbonezCore
+{
+namespace Basics
+{
+namespace RunInternal
+{
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
+                                                               const EditorInteractionPreviewInput& input )
+{
+    EditorInteractionPreviewResult result;
+    // Concept: Preview refresh is the editor's input-facing phase. It may alter
+    // hot axes and placement ghost state, while later overlay tracing only
+    // renders the state produced here.
+    context.editor.placementPreviewVisible = false;
+    context.editor.hotGizmoAxis = -1;
+    context.editor.hotRotationAxis = -1;
+
+    if ( input.uiBlocksCameraMouse || context.editor.viewportLookActive )
+    {
+        return result;
+    }
+
+    if ( !context.editor.editorModeEnabled && !input.inspectGizmoActive )
+    {
+        return result;
+    }
+
+    if ( context.editor.editorModeEnabled && context.editor.placementModeEnabled )
+    {
+        EditorTerrainPlacement terrainPlacement;
+        const EditorTerrainPlacement* terrainPlacementForPreview = nullptr;
+        if ( !context.editor.placementScaleActive && input.hasMouseRay &&
+             TryGetEditorTerrainPlacement( context.terrain,
+                                           input.mouseRayOrigin,
+                                           input.mouseRayDirection,
+                                           terrainPlacement ) )
+        {
+            terrainPlacementForPreview = &terrainPlacement;
+        }
+        context.editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( { context.editor, context.terrain },
+                                                                                  context.editor.objectType,
+                                                                                  terrainPlacementForPreview );
+    }
+
+    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() )
+    {
+        // Invariant: Selection stores model indices. If the model array shrinks
+        // under editor or inspect mode, clear through the interaction command
+        // path instead of letting later gizmo code read a stale index.
+        result.clearInvalidSelection = true;
+        result.inspectSelectionScope = input.inspectGizmoActive;
+        return result;
+    }
+
+    if ( context.editor.selectedModelIndex >= 0 && !context.editor.gizmoDragActive &&
+         !context.editor.placementModeEnabled && input.hasMouseRay )
+    {
+        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.interaction },
+                                  input.mouseRayOrigin,
+                                  input.mouseRayDirection,
+                                  input.scaleMode );
+    }
+
+    return result;
+}
+
+
+void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+{
+    // Concept: Overlay trace building is a pure visual pass over editor state.
+    // It appends lines, ghosts, markers, and gizmos without claiming input or
+    // mutating physics.
+    const float rayLinger = (std::max)( 0.0f, input.rayLingerSeconds );
+    if ( rayLinger > 0.0f )
+    {
+        for ( const RunRayCastTestLine& line : context.rayCastTest.lines )
+        {
+            if ( line.active && line.ageSeconds < rayLinger )
+            {
+                context.tracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );
+            }
+        }
+    }
+
+    if ( context.editor.editorModeEnabled && context.editor.placementModeEnabled &&
+         context.editor.placementPreviewVisible )
+    {
+        context.tracer.AddPlacementRay( context.editor.placementRayOrigin, context.editor.placementRayHit );
+        context.tracer.AddPlacementGhost( context.editor.objectType,
+                                          context.editor.placementCenter,
+                                          context.editor.placementTerrainPoint,
+                                          context.editor.placementScale,
+                                          context.editor.placementOrientation );
+    }
+
+    if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
+         context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.GetModelCount() )
+    {
+        const std::vector<GameModel>& models = context.models.Models();
+        Vector3 gizmoOrigin;
+        float radius = 1.0f;
+        EditorGizmoGroupIndices groupIndices = {};
+        int groupCount = 0;
+        const bool scaleMode = context.editor.gizmoDragIsScale || input.scaleMode;
+        if ( TryGetEditorSelectionFrame( models,
+                                         context.editor.selectedModelIndex,
+                                         gizmoOrigin,
+                                         radius,
+                                         &groupIndices,
+                                         &groupCount ) )
+        {
+            for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
+            {
+                context.tracer.AddSelectionOutline(
+                    models[static_cast<std::size_t>( groupIndices[static_cast<std::size_t>( groupIndex )] )] );
+            }
+            context.tracer.AddGizmo( gizmoOrigin,
+                                     radius,
+                                     context.editor.hotGizmoAxis,
+                                     context.editor.hotRotationAxis,
+                                     context.editor.activeGizmoAxis,
+                                     context.editor.gizmoDragIsRotation,
+                                     scaleMode,
+                                     context.editor.gizmoDragIsScale );
+        }
+    }
+
+    if ( context.mousePickup.active && context.mousePickup.modelIndex >= 0 &&
+         context.mousePickup.modelIndex < context.models.GetModelCount() )
+    {
+        const GameModel& grabbed = context.models.Models()[static_cast<size_t>( context.mousePickup.modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + context.mousePickup.grabOffset;
+        context.tracer.AddSelectionOutline( grabbed );
+        context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+        context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
+                                               context.mousePickup.planeNormal,
+                                               0.1f,
+                                               0.95f,
+                                               1.0f );
+        context.tracer.AddReplayImpulseVector( grabPoint, context.mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+    }
+
+    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.GetModelCount() )
+    {
+        const GameModel& target = context.models.Models()[static_cast<size_t>( input.attachedCameraTargetIndex )];
+        context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
+    }
+}
+} // namespace RunInternal
+} // namespace Basics
+} // namespace SkullbonezCore

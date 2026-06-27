@@ -1,7 +1,7 @@
 # Engine Evaluation Fix 01: Runtime Ownership Concentration
 
 Date: 2026-06-27
-Status: Draft implementation plan
+Status: Completed implementation plan
 Source finding: the engine is still too centralized; `Run`, `RuntimeRenderHost`,
 `GameModelCollection`, and several large runtime/UI files carry too much
 behavioral responsibility.
@@ -99,31 +99,31 @@ Purpose: prevent agents from cutting by file size instead of ownership.
 
 Checklist:
 
-- [ ] Run the Agent Startup Contract from `AGENTS.md`.
-- [ ] Run `git status --short --branch` and record pre-existing dirty files as
+- [x] Run the Agent Startup Contract from `AGENTS.md`.
+- [x] Run `git status --short --branch` and record pre-existing dirty files as
       user-owned.
-- [ ] Read this plan, `Agentic/Plans/run-shell-extraction-plan.md`, and
+- [x] Read this plan, `Agentic/Plans/run-shell-extraction-plan.md`, and
       `Agentic/Plans/architecture_pass_2026-06-02.md`.
-- [ ] Generate a fresh largest-file list for `SkullbonezSource/Runtime`,
+- [x] Generate a fresh largest-file list for `SkullbonezSource/Runtime`,
       `SkullbonezSource/UI`, and `SkullbonezSource/Scene`.
-- [ ] Inventory every `Run` data member and classify it as:
+- [x] Inventory every `Run` data member and classify it as:
       process lifetime, scene, simulation, renderer, replay, tools,
       diagnostics, UI, compatibility, or should-be-removed.
-- [ ] Inventory every `RuntimeRenderHostBindings` field and classify it as:
+- [x] Inventory every `RuntimeRenderHostBindings` field and classify it as:
       render world view, replay overlay view, tool overlay view, UI view,
       diagnostics view, or obsolete bridge.
-- [ ] Search for trivial `Run::*` wrappers that only forward to subsystem
+- [x] Search for trivial `Run::*` wrappers that only forward to subsystem
       methods.
-- [ ] Search for subsystem files that store or include `Run` directly.
-- [ ] Write or update a dated report under `Agentic/Reports/` with the
+- [x] Search for subsystem files that store or include `Run` directly.
+- [x] Write or update a dated report under `Agentic/Reports/` with the
       ownership map and line-count baseline.
 
 Validation checklist:
 
-- [ ] Documentation-only inventory needs no repository validation.
-- [ ] If boundary tooling changes during this phase, run
+- [x] Documentation-only inventory needs no repository validation.
+- [x] If boundary tooling changes during this phase, run
       `tools\validate_fast.bat`.
-- [ ] If `tools/check_runtime_boundaries.py` changes, also run
+- [x] If `tools/check_runtime_boundaries.py` changes, also run
       `tools\validate_select.bat runtime-boundaries`.
 
 ## Phase 1: Harden Runtime Boundary Guardrails
@@ -132,22 +132,22 @@ Purpose: make regressions fail before large movement begins.
 
 Checklist:
 
-- [ ] Extend `tools/check_runtime_boundaries.py` to reject new stored `Run*` or
+- [x] Extend `tools/check_runtime_boundaries.py` to reject new stored `Run*` or
       `Run&` fields in runtime subsystem headers.
-- [ ] Add a guardrail for growth of broad render-host bindings unless the
+- [x] Add a guardrail for growth of broad render-host bindings unless the
       change is explicitly allowlisted with a dated reason.
-- [ ] Add a guardrail for new `Run` forwarding wrappers that only delegate to a
+- [x] Add a guardrail for new `Run` forwarding wrappers that only delegate to a
       subsystem.
-- [ ] Add synthetic positive and negative tests for each new guardrail.
-- [ ] Make the guardrail output name the owning plan and offending file.
-- [ ] Update `Agentic/README.md` or this plan only if the validation entry point
+- [x] Add synthetic positive and negative tests for each new guardrail.
+- [x] Make the guardrail output name the owning plan and offending file.
+- [x] Update `Agentic/README.md` or this plan only if the validation entry point
       changes.
 
 Validation checklist:
 
-- [ ] `tools\validate_fast.bat`
-- [ ] `tools\validate_select.bat runtime-boundaries`
-- [ ] Confirm failures identify file, line or symbol, and the violated rule.
+- [x] `tools\validate_fast.bat`
+- [x] `tools\validate_select.bat runtime-boundaries`
+- [x] Confirm failures identify file, line or symbol, and the violated rule.
 
 ## Phase 2: Narrow Render Host Services
 
@@ -155,27 +155,27 @@ Purpose: remove the broad render-time view of runtime internals.
 
 Checklist:
 
-- [ ] Split `RuntimeRenderHostBindings` into smaller render-facing views:
+- [x] Split `RuntimeRenderHostBindings` into smaller render-facing views:
       `RenderWorldView`, `RenderSceneView`, `RenderReplayOverlayView`,
       `RenderToolOverlayView`, `RenderUiView`, and `RenderDiagnosticsView`.
-- [ ] Move replay overlay state queries behind `ReplayRuntime` methods.
-- [ ] Move editor, manipulator, launcher, and tracer overlay queries behind
+- [x] Move replay overlay state queries behind `ReplayRuntime` methods.
+- [x] Move editor, manipulator, launcher, and tracer overlay queries behind
       `RuntimeTools` methods.
-- [ ] Move screenshot/perf/diagnostic render inputs behind `DiagnosticsRuntime`
+- [x] Move screenshot/perf/diagnostic render inputs behind `DiagnosticsRuntime`
       or a diagnostics view.
-- [ ] Make pass code consume immutable or narrowly mutable views, not broad
+- [x] Make pass code consume immutable or narrowly mutable views, not broad
       state bags.
-- [ ] Delete each migrated field from the broad binding struct in the same
+- [x] Delete each migrated field from the broad binding struct in the same
       slice that migrates its call sites.
-- [ ] Update boundary tests so new broad binding fields fail validation.
+- [x] Update boundary tests so new broad binding fields fail validation.
 
 Validation checklist:
 
-- [ ] `tools\validate_dx12_renderer.bat`
-- [ ] `tools\validate_full.bat` if scene, replay, tool, UI, or lifecycle order
+- [x] `tools\validate_dx12_renderer.bat`
+- [x] `tools\validate_full.bat` if scene, replay, tool, UI, or lifecycle order
       can change.
-- [ ] Confirm `dx12_validation.txt` has zero errors.
-- [ ] Confirm screenshot baselines match or document an intentional visual
+- [x] Confirm `dx12_validation.txt` has zero errors.
+- [x] Confirm screenshot baselines match or document an intentional visual
       baseline update.
 
 ## Phase 3: Move Remaining Scene Lifecycle Decisions Out Of `Run`
@@ -184,28 +184,28 @@ Purpose: make scene load/reset/advance policy live in scene runtime code.
 
 Checklist:
 
-- [ ] Identify the remaining scene lifecycle decisions still made directly in
+- [x] Identify the remaining scene lifecycle decisions still made directly in
       `Run` or `RunScene.cpp`.
-- [ ] Define explicit lifecycle events:
+- [x] Define explicit lifecycle events:
       `BeforeSceneUnload`, `AfterSceneCleared`, `BeforeScenePopulate`,
       `AfterScenePopulate`, and `AfterSceneActivated`.
-- [ ] Move scene queue/index validation into scene runtime ownership.
-- [ ] Move preserve/clear reset-state selection into scene runtime ownership.
-- [ ] Move adjacent-scene, browser, cinematic deck, generated-scene, and
+- [x] Move scene queue/index validation into scene runtime ownership.
+- [x] Move preserve/clear reset-state selection into scene runtime ownership.
+- [x] Move adjacent-scene, browser, cinematic deck, generated-scene, and
       scene UI override decisions behind scene-owned APIs.
-- [ ] Keep process-level sequencing in `Run`, but move policy and side effects
+- [x] Keep process-level sequencing in `Run`, but move policy and side effects
       to scene runtime helpers.
-- [ ] Delete compatibility wrappers after call sites use scene APIs directly.
-- [ ] Add boundary checks for removed wrapper names where practical.
+- [x] Delete compatibility wrappers after call sites use scene APIs directly.
+- [x] Add boundary checks for removed wrapper names where practical.
 
 Validation checklist:
 
-- [ ] `tools\validate_full.bat`
-- [ ] If only boundary tooling and no runtime behavior changed, use
+- [x] `tools\validate_full.bat`
+- [x] If only boundary tooling and no runtime behavior changed, use
       `tools\validate_fast.bat` plus `tools\validate_select.bat runtime-boundaries`.
-- [ ] Confirm Profile and Debug builds are warning-free.
-- [ ] Confirm DX12 renderer validation reports zero InfoQueue errors.
-- [ ] Confirm `physics_regression_solver.csv` is byte-exact.
+- [x] Confirm Profile and Debug builds are warning-free.
+- [x] Confirm DX12 renderer validation reports zero InfoQueue errors.
+- [x] Confirm `physics_regression_solver.csv` is byte-exact.
 
 ## Phase 4: Move Tool, Replay, And Diagnostics Decisions To Owners
 
@@ -214,23 +214,23 @@ Purpose: end the pattern where state has moved but decisions still live in
 
 Checklist:
 
-- [ ] Move replay scrub, prediction, focus mask, ghost overlay, and replay
+- [x] Move replay scrub, prediction, focus mask, ghost overlay, and replay
       launcher-visual decisions behind `ReplayRuntime`.
-- [ ] Move editor placement, manipulator, mouse-pickup, ray-test, launcher, and
+- [x] Move editor placement, manipulator, mouse-pickup, ray-test, launcher, and
       tool overlay frame decisions behind `RuntimeTools`.
-- [ ] Move screenshot automation, perf log lifecycle, stress diagnostics, and
+- [x] Move screenshot automation, perf log lifecycle, stress diagnostics, and
       SkullScope entry points behind `DiagnosticsRuntime`.
-- [ ] Replace direct mutation from input/UI paths with command structs or narrow
+- [x] Replace direct mutation from input/UI paths with command structs or narrow
       owner methods.
-- [ ] Remove compatibility accessors after each route is migrated.
-- [ ] Verify owner APIs express intent, not raw mutable field access.
+- [x] Remove compatibility accessors after each route is migrated.
+- [x] Verify owner APIs express intent, not raw mutable field access.
 
 Validation checklist:
 
-- [ ] `tools\validate_full.bat`
-- [ ] Add `tools\validate_interaction_clicks.bat` if editor/replay/launcher
+- [x] `tools\validate_full.bat`
+- [x] Add `tools\validate_interaction_clicks.bat` if editor/replay/launcher
       interaction semantics can change.
-- [ ] Add `tools\validate_ui_stress.bat` or `tools\validate_demo_stress.bat`
+- [x] Add `tools\validate_ui_stress.bat` or `tools\validate_demo_stress.bat`
       only when the touched path needs stress evidence.
 
 ## Phase 5: Decompose Large UI And Runtime Tool Files By Ownership
@@ -239,52 +239,52 @@ Purpose: reduce file concentration only after ownership is clear.
 
 Checklist:
 
-- [ ] Split `UI.cpp` by durable widget/tab ownership, not arbitrary line count.
-- [ ] Split `RunEditorTools.cpp` into editor placement, gizmo, manipulator,
+- [x] Split `UI.cpp` by durable widget/tab ownership, not arbitrary line count.
+- [x] Split `RunEditorTools.cpp` into editor placement, gizmo, manipulator,
       launcher, and overlay modules where ownership already exists.
-- [ ] Split `RunReplayTools.cpp` into replay import/export/query/scrub modules
+- [x] Split `RunReplayTools.cpp` into replay import/export/query/scrub modules
       only after `ReplayRuntime` owns the behavior.
-- [ ] Keep includes local and avoid creating a new umbrella header with every
+- [x] Keep includes local and avoid creating a new umbrella header with every
       runtime dependency.
-- [ ] Add or update project-filter validation rules for any new source files.
-- [ ] Apply the repository comment standard to every touched source-bearing
+- [x] Add or update project-filter validation rules for any new source files.
+- [x] Apply the repository comment standard to every touched source-bearing
       file.
-- [ ] Run the comment-style audit skill on every touched source-bearing file
+- [x] Run the comment-style audit skill on every touched source-bearing file
       before reporting done.
 
 Validation checklist:
 
-- [ ] `tools\validate_fast.bat` for mechanical splits with no behavior change.
-- [ ] `tools\validate_full.bat` if runtime behavior, scene load, replay, or UI
+- [x] `tools\validate_fast.bat` for mechanical splits with no behavior change.
+- [x] `tools\validate_full.bat` if runtime behavior, scene load, replay, or UI
       behavior can change.
-- [ ] `tools\validate_ui.bat` or focused UI validation if UI behavior changes.
-- [ ] Direct `tools\validate_project_filters.bat` if new `.cpp` or `.h` files
+- [x] `tools\validate_ui.bat` or focused UI validation if UI behavior changes.
+- [x] Direct `tools\validate_project_filters.bat` if new `.cpp` or `.h` files
       are added.
 
 ## Final Acceptance Checklist
 
-- [ ] `Run.h` is visibly smaller and mostly process-lifetime composition state.
-- [ ] `RuntimeRenderHostBindings` is removed or reduced to narrow immutable
+- [x] `Run.h` is visibly smaller and mostly process-lifetime composition state.
+- [x] `RuntimeRenderHostBindings` is removed or reduced to narrow immutable
       render-facing views.
-- [ ] New replay, tool, scene, diagnostics, or UI behavior no longer requires a
+- [x] New replay, tool, scene, diagnostics, or UI behavior no longer requires a
       new `Run::*` wrapper.
-- [ ] Boundary validation rejects broad runtime regressions.
-- [ ] Large files were split by ownership, not just by line count.
-- [ ] Every touched source-bearing file was inspected with the comment-style
+- [x] Boundary validation rejects broad runtime regressions.
+- [x] Large files were split by ownership, not just by line count.
+- [x] Every touched source-bearing file was inspected with the comment-style
       audit skill.
-- [ ] Final PR-bound work ran the narrowest required gate, normally
+- [x] Final PR-bound work ran the narrowest required gate, normally
       `tools\validate_full.bat` for this plan.
-- [ ] Final handoff reports commands, elapsed times, validation output summary,
+- [x] Final handoff reports commands, elapsed times, validation output summary,
       and any intentionally deferred files or wrappers.
 
 ## Agent Do-Not-Miss Checklist
 
-- [ ] Do not overwrite or format unrelated dirty files.
-- [ ] Do not store `Run` inside a subsystem to make extraction easier.
-- [ ] Do not move ownership and behavior-changing policy in the same large diff.
-- [ ] Do not weaken runtime-boundary checks to make a slice pass.
-- [ ] Do not claim validation success without command output.
-- [ ] Do not skip comment-style audit for touched `.cpp`, `.h`, `.hpp`, `.inl`,
+- [x] Do not overwrite or format unrelated dirty files.
+- [x] Do not store `Run` inside a subsystem to make extraction easier.
+- [x] Do not move ownership and behavior-changing policy in the same large diff.
+- [x] Do not weaken runtime-boundary checks to make a slice pass.
+- [x] Do not claim validation success without command output.
+- [x] Do not skip comment-style audit for touched `.cpp`, `.h`, `.hpp`, `.inl`,
       `.hlsl`, or substantial tool scripts.
-- [ ] Do not merge this with physics storage or graph callback work.
+- [x] Do not merge this with physics storage or graph callback work.
 
