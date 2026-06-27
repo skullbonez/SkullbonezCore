@@ -342,15 +342,6 @@ class Run
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
-    void RecordReplayEvent( ReplayEventKind kind,
-                            ReplayFrameIndex frameIndex,
-                            uint32_t flags,
-                            int32_t value0,
-                            int32_t value1,
-                            int32_t value2,
-                            int32_t value3,
-                            uint64_t data0,
-                            const char* text );                            // Appends a bounded v2 event-stream row when replay is active.
     void RecordReplayWorldOverrideEvent(
         float previousGravity,
         float previousFluidHeight,

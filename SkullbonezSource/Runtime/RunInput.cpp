@@ -3069,15 +3069,16 @@ bool Run::DrainRuntimeCommands()
         }
         if ( command.type != RuntimeCommandType::None )
         {
-            RecordReplayEvent( ReplayEventKind::RuntimeCommand,
-                               m_replayRuntime.NextEventFrameIndex(),
-                               ReplayRuntimeCommandFlags( command ),
-                               static_cast<int32_t>( command.type ),
-                               command.index,
-                               0,
-                               0,
-                               0,
-                               command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
+            m_replayRuntime.RecordEvent(
+                ReplayEventKind::RuntimeCommand,
+                m_replayRuntime.NextEventFrameIndex(),
+                ReplayRuntimeCommandFlags( command ),
+                static_cast<int32_t>( command.type ),
+                command.index,
+                0,
+                0,
+                0,
+                command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
         }
     }
 

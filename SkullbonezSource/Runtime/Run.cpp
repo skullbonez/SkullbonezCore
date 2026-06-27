@@ -892,25 +892,11 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     const std::string* scenePath = m_sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replayRuntime.ResetTimeline( sceneLabel );
-    RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    m_replayRuntime.RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
     RecordReplayGeneratedSceneConfigEvent();
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
 }
-
-void Run::RecordReplayEvent( ReplayEventKind kind,
-                             ReplayFrameIndex frameIndex,
-                             uint32_t flags,
-                             int32_t value0,
-                             int32_t value1,
-                             int32_t value2,
-                             int32_t value3,
-                             uint64_t data0,
-                             const char* text )
-{
-    m_replayRuntime.RecordEvent( kind, frameIndex, flags, value0, value1, value2, value3, data0, text );
-}
-
 
 void Run::RecordReplayWorldOverrideEvent( float previousGravity,
                                           float previousFluidHeight,
@@ -933,15 +919,15 @@ void Run::RecordReplayWorldOverrideEvent( float previousGravity,
     HashReplayFloat( hash, fluidHeight );
     HashReplayFloat( hash, fluidDensity );
 
-    RecordReplayEvent( ReplayEventKind::WorldOverride,
-                       m_replayRuntime.NextEventFrameIndex(),
-                       flags,
-                       ReplayFloatBitsSigned( gravity ),
-                       ReplayFloatBitsSigned( fluidHeight ),
-                       ReplayFloatBitsSigned( fluidDensity ),
-                       0,
-                       hash,
-                       "world_override" );
+    m_replayRuntime.RecordEvent( ReplayEventKind::WorldOverride,
+                                 m_replayRuntime.NextEventFrameIndex(),
+                                 flags,
+                                 ReplayFloatBitsSigned( gravity ),
+                                 ReplayFloatBitsSigned( fluidHeight ),
+                                 ReplayFloatBitsSigned( fluidDensity ),
+                                 0,
+                                 hash,
+                                 "world_override" );
 }
 
 
@@ -956,15 +942,15 @@ void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
     HashReplayFloat( hash, m_runtimeTools.RayCastTest().impulseStrength );
     HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
 
-    RecordReplayEvent( ReplayEventKind::LauncherConfig,
-                       m_replayRuntime.NextEventFrameIndex(),
-                       changedFlags,
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                       0,
-                       0,
-                       hash,
-                       "launcher_config" );
+    m_replayRuntime.RecordEvent( ReplayEventKind::LauncherConfig,
+                                 m_replayRuntime.NextEventFrameIndex(),
+                                 changedFlags,
+                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
+                                 0,
+                                 0,
+                                 hash,
+                                 "launcher_config" );
 }
 
 
@@ -1000,15 +986,15 @@ void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
 
     const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
     const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
-    RecordReplayEvent( ReplayEventKind::LauncherFire,
-                       m_replayRuntime.NextEventFrameIndex(),
-                       flags,
-                       projectile ? 1 : 0,
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                       m_cGameModelCollection.GetModelCount(),
-                       hash,
-                       payload );
+    m_replayRuntime.RecordEvent( ReplayEventKind::LauncherFire,
+                                 m_replayRuntime.NextEventFrameIndex(),
+                                 flags,
+                                 projectile ? 1 : 0,
+                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
+                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
+                                 m_cGameModelCollection.GetModelCount(),
+                                 hash,
+                                 payload );
 }
 
 
@@ -1039,15 +1025,15 @@ void Run::RecordReplayGeneratedSceneConfigEvent()
     HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
     HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
-    RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
-                       0,
-                       flags,
-                       SceneState().modelCount,
-                       SceneState().solverBallCount,
-                       SceneState().solverBoxCount,
-                       static_cast<int32_t>( SceneState().rngSeed ),
-                       hash,
-                       "generated_scene_config" );
+    m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
+                                 0,
+                                 flags,
+                                 SceneState().modelCount,
+                                 SceneState().solverBallCount,
+                                 SceneState().solverBoxCount,
+                                 static_cast<int32_t>( SceneState().rngSeed ),
+                                 hash,
+                                 "generated_scene_config" );
 }
 
 
@@ -1091,15 +1077,15 @@ void Run::RecordReplayEditorPlaceEvent( int objectType,
     flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
     flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
 
-    RecordReplayEvent( ReplayEventKind::EditorPlace,
-                       m_replayRuntime.NextEventFrameIndex(),
-                       flags,
-                       objectType,
-                       fixedObject ? 1 : 0,
-                       terrainAlign ? 1 : 0,
-                       modelCountBefore,
-                       hash,
-                       payload );
+    m_replayRuntime.RecordEvent( ReplayEventKind::EditorPlace,
+                                 m_replayRuntime.NextEventFrameIndex(),
+                                 flags,
+                                 objectType,
+                                 fixedObject ? 1 : 0,
+                                 terrainAlign ? 1 : 0,
+                                 modelCountBefore,
+                                 hash,
+                                 payload );
 }
 
 
@@ -1164,15 +1150,15 @@ void Run::RecordReplayEditorTransformEvent( int modelIndex,
     HashReplayFloat( hash, qw );
     HashReplayFloat( hash, scaleFactor );
 
-    RecordReplayEvent( ReplayEventKind::EditorTransform,
-                       m_replayRuntime.NextEventFrameIndex(),
-                       changedFlags,
-                       modelIndex,
-                       static_cast<int32_t>( model.GetReplayBodyId() ),
-                       m_cGameModelCollection.GetModelCount(),
-                       scaleAxis,
-                       hash,
-                       payload );
+    m_replayRuntime.RecordEvent( ReplayEventKind::EditorTransform,
+                                 m_replayRuntime.NextEventFrameIndex(),
+                                 changedFlags,
+                                 modelIndex,
+                                 static_cast<int32_t>( model.GetReplayBodyId() ),
+                                 m_cGameModelCollection.GetModelCount(),
+                                 scaleAxis,
+                                 hash,
+                                 payload );
 }
 
 
@@ -1451,15 +1437,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     restoredBranch.sourceSolverHash = sample.solverHash;
     m_replayRuntime.Branch() = restoredBranch;
     ResetReplayTimelineForActiveScene( true );
-    RecordReplayEvent( ReplayEventKind::BranchRestore,
-                       0,
-                       0,
-                       static_cast<int32_t>( parentBranchId ),
-                       sample.sceneFrame,
-                       0,
-                       0,
-                       sample.solverHash,
-                       "hash-verified solver restore" );
+    m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
+                                 0,
+                                 0,
+                                 static_cast<int32_t>( parentBranchId ),
+                                 sample.sceneFrame,
+                                 0,
+                                 0,
+                                 sample.solverHash,
+                                 "hash-verified solver restore" );
     writeReason( "restored hash match" );
     return true;
 }

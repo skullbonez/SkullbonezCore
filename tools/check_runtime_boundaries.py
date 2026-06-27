@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 168
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 167
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -480,6 +480,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Read replay event frame cursors from ReplayRuntime.",
     ),
     (
+        "replay event record wrapper must stay out of Run.h",
+        r"\bRecordReplayEvent\s*\(",
+        "Append replay events through ReplayRuntime.",
+    ),
+    (
         "replay velocity target lookup helpers must stay out of Run.h",
         r"\bResolveReplayVelocityEditModelIndex\s*\(",
         "Resolve replay velocity edit targets through ReplayRuntime.",
@@ -671,6 +676,12 @@ RUN_REPLAY_EVENT_FRAME_CURSOR_SOURCE_RULE = (
     "Run replay event frame cursor wrapper is blocked",
     r"\bRun::NextReplayEventFrameIndex\s*\(",
     "Read replay event frame cursors from ReplayRuntime.",
+)
+
+RUN_REPLAY_EVENT_RECORD_SOURCE_RULE = (
+    "Run replay event record wrapper is blocked",
+    r"\bRun::RecordReplayEvent\s*\(",
+    "Append replay events through ReplayRuntime.",
 )
 
 RUN_REPLAY_VELOCITY_TARGET_SOURCE_RULE = (
@@ -1486,6 +1497,24 @@ def check_run_replay_event_frame_cursor_source_guardrails(repo: Path) -> list[Bo
     return errors
 
 
+def check_run_replay_event_record_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_REPLAY_EVENT_RECORD_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_replay_event_record_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_replay_event_record_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_run_replay_velocity_target_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_REPLAY_VELOCITY_TARGET_SOURCE_RULE
@@ -2201,6 +2230,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay event frame cursor header helper synthetic surface was not rejected")
 
+    old_replay_event_record_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        void RecordReplayEvent( ReplayEventKind kind );",
+    )
+    if not any(
+        error.message == "replay event record wrapper must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_replay_event_record_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("replay event record header helper synthetic surface was not rejected")
+
     old_replay_velocity_target_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        int ResolveReplayVelocityEditModelIndex() const;",
@@ -2830,6 +2873,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("replay event frame cursor source helper synthetic surface was not rejected")
 
+    old_replay_event_record_source_helper = "void Run::RecordReplayEvent( ReplayEventKind kind ) { }"
+    if not any(
+        error.message == "Run replay event record wrapper is blocked"
+        for error in check_run_replay_event_record_source_guardrails_text(
+            Path("synthetic/Run.cpp"),
+            old_replay_event_record_source_helper,
+        )
+    ):
+        failures.append("replay event record source helper synthetic surface was not rejected")
+
     old_replay_velocity_target_source_helper = "int Run::ResolveReplayVelocityEditModelIndex() const { return -1; }"
     if not any(
         error.message == "Run replay velocity target lookup helpers are blocked"
@@ -3284,6 +3337,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_inspection_camera_source_guardrails(repo))
     errors.extend(check_run_replay_scrubber_reset_source_guardrails(repo))
     errors.extend(check_run_replay_event_frame_cursor_source_guardrails(repo))
+    errors.extend(check_run_replay_event_record_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_target_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_hit_source_guardrails(repo))
     errors.extend(check_run_replay_velocity_toggle_source_guardrails(repo))

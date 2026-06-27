@@ -2023,15 +2023,15 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         restoredBranch.sourceSolverHash = target->solverHash;
         m_replayRuntime.Branch() = restoredBranch;
         ResetReplayTimelineForActiveScene( true );
-        RecordReplayEvent( ReplayEventKind::BranchRestore,
-                           0,
-                           0,
-                           static_cast<int32_t>( parentBranchId ),
-                           target->sceneFrame,
-                           0,
-                           0,
-                           target->solverHash,
-                           "hash-verified v2 file restore" );
+        m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
+                                     0,
+                                     0,
+                                     static_cast<int32_t>( parentBranchId ),
+                                     target->sceneFrame,
+                                     0,
+                                     0,
+                                     target->solverHash,
+                                     "hash-verified v2 file restore" );
         outResult.branchId = restoredBranch.branchId;
         outResult.parentBranchId = parentBranchId;
         outResult.madeLiveBranch = true;
