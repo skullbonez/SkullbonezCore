@@ -1029,7 +1029,8 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
     CancelReplayToolDragState();
 
-    ClearReplayCameraFocus( true );
+    m_replayRuntime.ClearCameraFocusForRestore();
+    ExitReplayInspectionCamera();
     const bool armed = m_replayRuntime.ArmLoadedPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ),
                                                                       m_timers.simulationTimer.GetTotalTime() );
     if ( !armed )

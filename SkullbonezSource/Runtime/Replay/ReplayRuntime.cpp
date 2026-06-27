@@ -787,6 +787,32 @@ bool ReplayRuntime::ArmLoadedPresentationScrubber( float normalized, double now 
     return true;
 }
 
+void ReplayRuntime::ClearCameraFocusForRestore()
+{
+    m_camera.focusKind = RunReplayCameraFocusKind::None;
+    m_camera.focusedId = ReplayBodyId{};
+    m_camera.counterpartId = ReplayBodyId{};
+    m_camera.focusedRow = -1;
+    m_camera.focusRowKind = RunReplayCauseTreeRowKind::Body;
+    m_camera.focusModelIndex = -1;
+    m_camera.focusCounterpartModelIndex = -1;
+    m_camera.focusContactIndex = -1;
+    m_camera.focusSolverRowIndex = -1;
+    m_camera.focusFeatureId = 0;
+    m_camera.focusTerrain = false;
+    m_camera.targetPoint = Math::Vector::ZERO_VECTOR;
+    m_camera.targetNormal = Vector3( 0.0f, 1.0f, 0.0f );
+    m_camera.impulseVector = Math::Vector::ZERO_VECTOR;
+    m_causeTree.focusedId = ReplayBodyId{};
+    m_causeTree.selectedRow = -1;
+
+    if ( m_camera.ownsSimulationPause && m_scrubber.liveAdvanceHeld && !m_scrubber.historicalSamplePaused )
+    {
+        m_scrubber.liveAdvanceHeld = false;
+    }
+    m_camera.ownsSimulationPause = false;
+}
+
 ReplayRuntime::RecordingConfigResult
 ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {

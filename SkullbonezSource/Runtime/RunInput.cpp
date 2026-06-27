@@ -661,7 +661,8 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Scrubber().saveHovered = false;
     m_replayRuntime.Scrubber().loadHovered = false;
 
-    ClearReplayCameraFocus( true );
+    m_replayRuntime.ClearCameraFocusForRestore();
+    ExitReplayInspectionCamera();
     m_replayRuntime.ClearPathVisualizerState();
     m_replayRuntime.Prediction().enabled = false;
     m_replayRuntime.Prediction().checkboxHovered = false;

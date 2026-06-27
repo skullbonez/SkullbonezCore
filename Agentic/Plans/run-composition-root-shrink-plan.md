@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay loaded-presentation scrubber arming slice validated
+Status: Active architecture cleanup plan; replay camera focus clear slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay loaded-presentation scrubber arming section below
+Validation for latest implementation slice: see the replay camera focus clear section below
 
 ## Goal
 
@@ -3808,6 +3808,88 @@ Residual architecture risk: `SetReplayLiveAdvanceHeld`, replay inspection
 camera enter/exit and focus-control methods, solver apply/hash helpers, and
 render-host splitting remain active; this slice only moved loaded-presentation
 scrubber state ownership to `ReplayRuntime`.
+
+## Replay Camera Focus Clear Slice
+
+This replay camera slice moved focus-state clearing from `Run` into
+`ReplayRuntime`. Runtime transition, replay artifact load, debug replay load
+probe, cause-tree miss, and replay path miss call sites now clear replay-owned
+camera/cause-tree focus state with `ReplayRuntime::ClearCameraFocusForRestore()`
+and keep the `Run` camera exit call explicit at the composition boundary.
+
+Deleted `Run.h` declarations:
+
+- `ClearReplayCameraFocus`
+
+Deleted `Run::` definitions:
+
+- `Run::ClearReplayCameraFocus`
+
+New owner surface:
+
+- `ReplayRuntime::ClearCameraFocusForRestore()`
+
+Updated call sites:
+
+- `Run::ClearReplayInteractionForRuntimeTransition`
+- `Run::LoadReplayPresentationArtifact`
+- `Run::ResetReplayTimelineForActiveScene`
+- `Run::VerifyLoadedReplayPresentationProbe`
+- `Run::TickReplayCauseTreeInput`
+- `Run::TryPickReplayPathTargetFromMouse`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 158 to 157.
+- New header and source guardrails reject the removed replay camera focus clear
+  wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. Existing replay focus clear behavior is preserved:
+  replay-owned focus and pause ownership state is reset in `ReplayRuntime`, and
+  `Run` still exits the inspection camera through the existing camera path.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_camera_focus_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.61s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_camera_focus_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 54.40s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_camera_focus_runtime_boundaries.log`;
+  passed with 0 errors in 2.69s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_camera_focus_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 28.11s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: `SetReplayLiveAdvanceHeld`, replay inspection camera
+enter/exit methods, solver apply/hash helpers, and render-host splitting remain
+active; this slice only moved replay camera focus clearing ownership to
+`ReplayRuntime`.
 
 ## Rules
 

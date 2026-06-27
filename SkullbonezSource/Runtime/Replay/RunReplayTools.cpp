@@ -2180,49 +2180,6 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 }
 
 
-void Run::ClearReplayCameraFocus( bool restoreCamera )
-{
-    m_replayRuntime.Camera().focusKind = RunReplayCameraFocusKind::None;
-    m_replayRuntime.Camera().focusedId = ReplayBodyId{};
-    m_replayRuntime.Camera().counterpartId = ReplayBodyId{};
-    m_replayRuntime.Camera().focusedRow = -1;
-    m_replayRuntime.Camera().focusRowKind = RunReplayCauseTreeRowKind::Body;
-    m_replayRuntime.Camera().focusModelIndex = -1;
-    m_replayRuntime.Camera().focusCounterpartModelIndex = -1;
-    m_replayRuntime.Camera().focusContactIndex = -1;
-    m_replayRuntime.Camera().focusSolverRowIndex = -1;
-    m_replayRuntime.Camera().focusFeatureId = 0;
-    m_replayRuntime.Camera().focusTerrain = false;
-    m_replayRuntime.Camera().targetPoint = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    m_replayRuntime.Camera().targetNormal = Vector3( 0.0f, 1.0f, 0.0f );
-    m_replayRuntime.Camera().impulseVector = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    m_replayRuntime.CauseTree().focusedId = ReplayBodyId{};
-    m_replayRuntime.CauseTree().selectedRow = -1;
-
-    if ( restoreCamera )
-    {
-        if ( m_replayRuntime.Camera().ownsSimulationPause && m_replayRuntime.Scrubber().liveAdvanceHeld &&
-             !m_replayRuntime.Scrubber().historicalSamplePaused )
-        {
-            m_replayRuntime.Scrubber().liveAdvanceHeld = false;
-        }
-        m_replayRuntime.Camera().ownsSimulationPause = false;
-        ExitReplayInspectionCamera();
-    }
-    else
-    {
-        if ( m_replayRuntime.ShouldUseInspectionCamera() )
-        {
-            EnterReplayInspectionCamera();
-        }
-        else
-        {
-            ExitReplayInspectionCamera();
-        }
-    }
-}
-
-
 bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelta )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
@@ -2454,7 +2411,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         }
         else if ( leftPressed )
         {
-            ClearReplayCameraFocus( true );
+            m_replayRuntime.ClearCameraFocusForRestore();
+            ExitReplayInspectionCamera();
             m_replayRuntime.ClearPathVisualizerState();
         }
     }
@@ -2943,7 +2901,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     {
         if ( clearOnMiss )
         {
-            ClearReplayCameraFocus( true );
+            m_replayRuntime.ClearCameraFocusForRestore();
+            ExitReplayInspectionCamera();
             m_replayRuntime.ClearPathVisualizerState();
         }
         return false;
@@ -3053,7 +3012,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( clearOnMiss )
     {
-        ClearReplayCameraFocus( true );
+        m_replayRuntime.ClearCameraFocusForRestore();
+        ExitReplayInspectionCamera();
         m_replayRuntime.ClearPathVisualizerState();
     }
     return false;

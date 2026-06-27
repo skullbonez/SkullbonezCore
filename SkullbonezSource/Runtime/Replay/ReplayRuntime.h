@@ -406,6 +406,7 @@ class ReplayRuntime
     bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
     bool ShouldUseInspectionCamera() const;
     bool ArmLoadedPresentationScrubber( float normalized, double now );
+    void ClearCameraFocusForRestore();
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();
