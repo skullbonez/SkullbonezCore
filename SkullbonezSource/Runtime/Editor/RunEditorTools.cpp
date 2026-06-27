@@ -2835,13 +2835,13 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
                     if ( placementResult.placed )
                     {
-                        RecordReplayEditorPlaceEvent( placementResult.objectType,
-                                                      placementResult.fixedObject,
-                                                      placementResult.autoTerrainAlign,
-                                                      placementResult.modelCountBefore,
-                                                      placementResult.terrainPoint,
-                                                      placementResult.placementScale,
-                                                      placementResult.placementYawRadians );
+                        m_replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
+                                                                placementResult.fixedObject,
+                                                                placementResult.autoTerrainAlign,
+                                                                placementResult.modelCountBefore,
+                                                                placementResult.terrainPoint,
+                                                                placementResult.placementScale,
+                                                                placementResult.placementYawRadians );
 
                         RuntimeInteractionCommand command;
                         command.type = RuntimeInteractionCommandType::SetEditorSelection;

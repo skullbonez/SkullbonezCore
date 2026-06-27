@@ -48,8 +48,6 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {
-constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
-constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
@@ -923,58 +921,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
-}
-
-
-void Run::RecordReplayEditorPlaceEvent( int objectType,
-                                        bool fixedObject,
-                                        bool terrainAlign,
-                                        int modelCountBefore,
-                                        const Vector3& terrainPoint,
-                                        const Vector3& placementScale,
-                                        float placementYawRadians )
-{
-    char payload[80] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, terrainPoint );
-    AppendReplayVectorHex( cursor, remaining, placementScale );
-    AppendReplayFloatHex( cursor, remaining, placementYawRadians );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, objectType );
-    HashReplayInt( hash, fixedObject ? 1 : 0 );
-    HashReplayInt( hash, terrainAlign ? 1 : 0 );
-    HashReplayInt( hash, modelCountBefore );
-    HashReplayFloat( hash, terrainPoint.x );
-    HashReplayFloat( hash, terrainPoint.y );
-    HashReplayFloat( hash, terrainPoint.z );
-    HashReplayFloat( hash, placementScale.x );
-    HashReplayFloat( hash, placementScale.y );
-    HashReplayFloat( hash, placementScale.z );
-    HashReplayFloat( hash, placementYawRadians );
-
-    uint32_t flags = 0;
-    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
-    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
-
-    m_replayRuntime.RecordEvent( ReplayEventKind::EditorPlace,
-                                 m_replayRuntime.NextEventFrameIndex(),
-                                 flags,
-                                 objectType,
-                                 fixedObject ? 1 : 0,
-                                 terrainAlign ? 1 : 0,
-                                 modelCountBefore,
-                                 hash,
-                                 payload );
 }
 
 

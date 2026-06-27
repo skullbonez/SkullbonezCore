@@ -817,13 +817,13 @@ void Run::TickReplaySaveProbe()
         }
         if ( placementResult.placed )
         {
-            RecordReplayEditorPlaceEvent( placementResult.objectType,
-                                          placementResult.fixedObject,
-                                          placementResult.autoTerrainAlign,
-                                          placementResult.modelCountBefore,
-                                          placementResult.terrainPoint,
-                                          placementResult.placementScale,
-                                          placementResult.placementYawRadians );
+            m_replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
+                                                    placementResult.fixedObject,
+                                                    placementResult.autoTerrainAlign,
+                                                    placementResult.modelCountBefore,
+                                                    placementResult.terrainPoint,
+                                                    placementResult.placementScale,
+                                                    placementResult.placementYawRadians );
             GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
             placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
             Quaternion placedOrientation = placedModel.GetOrientation();

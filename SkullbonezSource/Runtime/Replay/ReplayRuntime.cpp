@@ -53,6 +53,8 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
+constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -87,6 +89,16 @@ int32_t ReplayRuntimeFloatBitsSigned( float value )
 void ReplayRuntimeHashFloat( uint64_t& hash, float value )
 {
     const uint32_t bits = ReplayRuntimeFloatBits( value );
+    for ( int shift = 0; shift < 32; shift += 8 )
+    {
+        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
+        hash *= REPLAY_EVENT_FNV_PRIME;
+    }
+}
+
+void ReplayRuntimeHashInt( uint64_t& hash, int32_t value )
+{
+    const uint32_t bits = static_cast<uint32_t>( value );
     for ( int shift = 0; shift < 32; shift += 8 )
     {
         hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
@@ -2021,6 +2033,57 @@ void ReplayRuntime::RecordLauncherFireEvent( const Vector3& rayOrigin,
                  ReplayRuntimeFloatBitsSigned( impulseStrength ),
                  ReplayRuntimeFloatBitsSigned( projectileSpeed ),
                  modelCount,
+                 hash,
+                 payload );
+}
+
+void ReplayRuntime::RecordEditorPlaceEvent( int objectType,
+                                            bool fixedObject,
+                                            bool terrainAlign,
+                                            int modelCountBefore,
+                                            const Vector3& terrainPoint,
+                                            const Vector3& placementScale,
+                                            float placementYawRadians )
+{
+    char payload[80] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    ReplayRuntimeAppendVectorHex( cursor, remaining, terrainPoint );
+    ReplayRuntimeAppendVectorHex( cursor, remaining, placementScale );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, placementYawRadians );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    ReplayRuntimeHashInt( hash, objectType );
+    ReplayRuntimeHashInt( hash, fixedObject ? 1 : 0 );
+    ReplayRuntimeHashInt( hash, terrainAlign ? 1 : 0 );
+    ReplayRuntimeHashInt( hash, modelCountBefore );
+    ReplayRuntimeHashFloat( hash, terrainPoint.x );
+    ReplayRuntimeHashFloat( hash, terrainPoint.y );
+    ReplayRuntimeHashFloat( hash, terrainPoint.z );
+    ReplayRuntimeHashFloat( hash, placementScale.x );
+    ReplayRuntimeHashFloat( hash, placementScale.y );
+    ReplayRuntimeHashFloat( hash, placementScale.z );
+    ReplayRuntimeHashFloat( hash, placementYawRadians );
+
+    uint32_t flags = 0;
+    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
+    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
+
+    RecordEvent( ReplayEventKind::EditorPlace,
+                 NextEventFrameIndex(),
+                 flags,
+                 objectType,
+                 fixedObject ? 1 : 0,
+                 terrainAlign ? 1 : 0,
+                 modelCountBefore,
                  hash,
                  payload );
 }

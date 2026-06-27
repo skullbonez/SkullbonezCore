@@ -469,6 +469,13 @@ class ReplayRuntime
                                   float impulseStrength,
                                   float projectileSpeed,
                                   int modelCount );
+    void RecordEditorPlaceEvent( int objectType,
+                                 bool fixedObject,
+                                 bool terrainAlign,
+                                 int modelCountBefore,
+                                 const Math::Vector::Vector3& terrainPoint,
+                                 const Math::Vector::Vector3& placementScale,
+                                 float placementYawRadians );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 

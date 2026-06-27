@@ -343,14 +343,6 @@ class Run
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
     void
-    RecordReplayEditorPlaceEvent( int objectType,
-                                  bool fixedObject,
-                                  bool terrainAlign,
-                                  int modelCountBefore,
-                                  const Math::Vector::Vector3& terrainPoint,
-                                  const Math::Vector::Vector3& placementScale,
-                                  float placementYawRadians );             // Records editor placement commits for saved v2 replay.
-    void
     RecordReplayEditorTransformEvent( int modelIndex,
                                       uint32_t changedFlags,
                                       const GameObjects::GameModel& model,
