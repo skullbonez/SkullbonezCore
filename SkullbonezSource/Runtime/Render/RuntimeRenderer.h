@@ -51,33 +51,32 @@ class RuntimeRenderer
     void RenderUiText( double dSecondsPerFrame );
 
   private:
-    struct VolumetricGraphResult
+    struct CinematicPostGraphResult
     {
-        bool rendered = false;               // Volumetric target was produced and can be sampled by tonemap.
-        bool callbackOwned = false;          // Volumetric command recording ran through RenderGraph callback execution.
+        bool volumetricReady = false;         // Volumetric target was produced and can be sampled by tonemap.
+        bool volumetricCallbackOwned = false; // Volumetric command recording ran through RenderGraph callback execution.
+        bool tonemapCallbackOwned = false;    // Tonemap command recording ran through RenderGraph callback execution.
     };
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
-    VolumetricGraphResult ExecuteVolumetricThroughRenderGraph( const RenderFrameContext& frame );
-    bool
-    ExecuteTonemapThroughRenderGraph( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
+    CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
 
     RuntimeRenderHost& m_host;
-    FullscreenQuadPass m_fullscreenQuadPass; // Shared full-screen vertex buffer pass used by sky/post effects.
-    SkyPass m_skyPass;                       // Background sky pass, reused by reflection and scene target passes.
-    SceneTargetPass m_sceneTargetPass;       // Cinematic HDR scene-target begin/release pass.
-    ShadowPass m_shadowPass;                 // Terrain/object shadow-map producer pass.
-    ReflectionPass m_reflectionPass;         // Water reflection texture producer pass.
-    ObjectPass m_objectPass;                 // Production body and collision-solid pass.
-    TerrainPass m_terrainPass;               // Terrain material/shadow receiver pass.
-    WaterPass m_waterPass;                   // Calm/ocean water pass.
-    TornadoVisualPass m_tornadoVisualPass;   // Sparse alpha tornado shell/dust pass.
-    DebugOverlayPass m_debugOverlayPass;     // Broadphase and physics debug overlay pass.
-    VolumetricPass m_volumetricPass;         // Half-resolution cinematic light-shaft pass.
-    TonemapPass m_tonemapPass;               // HDR-to-backbuffer resolve pass.
-    UiTextPass m_uiTextPass;                 // HUD/UI/text pass.
+    FullscreenQuadPass m_fullscreenQuadPass;  // Shared full-screen vertex buffer pass used by sky/post effects.
+    SkyPass m_skyPass;                        // Background sky pass, reused by reflection and scene target passes.
+    SceneTargetPass m_sceneTargetPass;        // Cinematic HDR scene-target begin/release pass.
+    ShadowPass m_shadowPass;                  // Terrain/object shadow-map producer pass.
+    ReflectionPass m_reflectionPass;          // Water reflection texture producer pass.
+    ObjectPass m_objectPass;                  // Production body and collision-solid pass.
+    TerrainPass m_terrainPass;                // Terrain material/shadow receiver pass.
+    WaterPass m_waterPass;                    // Calm/ocean water pass.
+    TornadoVisualPass m_tornadoVisualPass;    // Sparse alpha tornado shell/dust pass.
+    DebugOverlayPass m_debugOverlayPass;      // Broadphase and physics debug overlay pass.
+    VolumetricPass m_volumetricPass;          // Half-resolution cinematic light-shaft pass.
+    TonemapPass m_tonemapPass;                // HDR-to-backbuffer resolve pass.
+    UiTextPass m_uiTextPass;                  // HUD/UI/text pass.
 };
 } // namespace Basics
 } // namespace SkullbonezCore

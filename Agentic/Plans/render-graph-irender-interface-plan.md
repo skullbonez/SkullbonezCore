@@ -13,6 +13,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Validated the raytracing-interface slice with `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and `tools\validate_full.bat`.
 - [x] 2026-06-27: Moved `VolumetricLightPass` command recording into the render graph callback path and marked callback ownership in frame graph diagnostics.
 - [x] 2026-06-27: Added a runtime-boundary guardrail blocking direct `VolumetricLightPass`/`ToneMapPass` scheduling after graph callback migration.
+- [x] 2026-06-27: Folded `VolumetricLightPass` and `ToneMapPass` into one cinematic post render graph so the graph owns their callback order and resource dependency.
 
 ## Goal
 
@@ -95,9 +96,9 @@ Before moving more passes, make pass declaration and diagnostics difficult to mi
 
 Done when:
 
-- [ ] A migrated pass can be reviewed from its graph declarations without reading unrelated runtime scheduling code.
+- [x] A migrated pass can be reviewed from its graph declarations without reading unrelated runtime scheduling code.
 - [ ] The executor can report what it executed and which resources each pass touched.
-- [ ] A forgotten read or write declaration is detectable before it becomes a subtle DX12 hazard.
+- [x] A callback-owned pass with no declared graph resource handoff is detectable before it becomes a subtle DX12 hazard.
 
 ## Phase 2 - Move Runtime Pass Families into Graph Callback Ownership
 

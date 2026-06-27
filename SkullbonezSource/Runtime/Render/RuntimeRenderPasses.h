@@ -469,6 +469,7 @@ class VolumetricPass
 
     void EnsureGpuResources( const RenderFrameContext& frame );
     void ReleaseGpuResources();
+    bool CanRender( const RenderFrameContext& frame ) const;
     bool Render( const RenderFrameContext& frame );
 
   private:

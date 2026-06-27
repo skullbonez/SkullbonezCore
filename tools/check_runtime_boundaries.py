@@ -2661,8 +2661,7 @@ def run_self_tests() -> list[str]:
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
     {
-        ExecuteVolumetricThroughRenderGraph( frame );
-        ExecuteTonemapThroughRenderGraph( frame, volumetricReady, volumetricReady );
+        ExecuteCinematicPostThroughRenderGraph( frame );
     }
     """
     if check_graph_owned_render_pass_scheduling_text(

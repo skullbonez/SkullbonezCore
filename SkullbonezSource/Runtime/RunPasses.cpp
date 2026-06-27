@@ -1713,17 +1713,28 @@ void VolumetricPass::ReleaseGpuResources()
 }
 
 
+bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
+{
+    const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
+    const CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
+    const VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
+    const FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
+    return frame.cinematicEnabled && cinematic.volumetricLightingEnabled && scene.hdrTarget && volumetric.target &&
+           volumetric.shader && fullscreen.quadVB != 0;
+}
+
+
 bool VolumetricPass::Render( const RenderFrameContext& frame )
 {
+    if ( !CanRender( frame ) )
+    {
+        return false;
+    }
+
     const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
     CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
     FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( !cinematic.volumetricLightingEnabled || !scene.hdrTarget || !volumetric.target || !volumetric.shader ||
-         fullscreen.quadVB == 0 )
-    {
-        return false;
-    }
 
     const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
