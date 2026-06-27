@@ -457,7 +457,14 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
         Vector3 cameraUp;
         if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
         {
-            RecordReplayLauncherFireEvent( rayOrigin, rayDirection, cameraUp );
+            m_replayRuntime.RecordLauncherFireEvent(
+                rayOrigin,
+                rayDirection,
+                cameraUp,
+                m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
+                m_runtimeTools.RayCastTest().impulseStrength,
+                m_runtimeTools.RayCastTest().projectileSpeed,
+                m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),

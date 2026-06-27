@@ -48,7 +48,6 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {
-constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
@@ -924,50 +923,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
-}
-
-
-void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
-                                         const Vector3& rayDirection,
-                                         const Vector3& cameraUp )
-{
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, rayOrigin );
-    AppendReplayVectorHex( cursor, remaining, rayDirection );
-    AppendReplayVectorHex( cursor, remaining, cameraUp );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, rayOrigin.x );
-    HashReplayFloat( hash, rayOrigin.y );
-    HashReplayFloat( hash, rayOrigin.z );
-    HashReplayFloat( hash, rayDirection.x );
-    HashReplayFloat( hash, rayDirection.y );
-    HashReplayFloat( hash, rayDirection.z );
-    HashReplayFloat( hash, cameraUp.x );
-    HashReplayFloat( hash, cameraUp.y );
-    HashReplayFloat( hash, cameraUp.z );
-
-    const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
-    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
-    m_replayRuntime.RecordEvent( ReplayEventKind::LauncherFire,
-                                 m_replayRuntime.NextEventFrameIndex(),
-                                 flags,
-                                 projectile ? 1 : 0,
-                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                                 ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                                 m_cGameModelCollection.GetModelCount(),
-                                 hash,
-                                 payload );
 }
 
 

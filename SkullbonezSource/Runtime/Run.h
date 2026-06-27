@@ -342,10 +342,6 @@ class Run
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
-    void RecordReplayLauncherFireEvent(
-        const Math::Vector::Vector3& rayOrigin,
-        const Math::Vector::Vector3& rayDirection,
-        const Math::Vector::Vector3& cameraUp );                           // Records camera-derived launcher fire payloads.
     void
     RecordReplayEditorPlaceEvent( int objectType,
                                   bool fixedObject,

@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay launcher config event wrapper slice validated
+Status: Active architecture cleanup plan; replay launcher fire event wrapper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay launcher config event wrapper section below
+Validation for latest implementation slice: see the replay launcher fire event wrapper section below
 
 ## Goal
 
@@ -3501,6 +3501,82 @@ packaging helpers, solver apply/hash helpers, replay inspection camera
 enter/exit and focus-control methods, and render-host splitting remain active;
 this slice only moved launcher config event payload ownership to
 `ReplayRuntime`.
+
+## Replay Launcher Fire Event Wrapper Slice
+
+This replay launcher fire slice moved the camera-ray fire event payload from
+`Run` into `ReplayRuntime`. Runtime input and the replay-save probe now pass the
+ray, fire mode, launcher scalars, and pre-fire model count to the replay owner,
+which builds the `ray9:` payload, flags, float-bit values, event-frame cursor,
+and FNV hash.
+
+Deleted `Run.h` declarations:
+
+- `RecordReplayLauncherFireEvent`
+
+Deleted `Run::` definitions:
+
+- `Run::RecordReplayLauncherFireEvent`
+
+New owner surface:
+
+- `ReplayRuntime::RecordLauncherFireEvent(...)`
+
+Updated call sites:
+
+- `Run::TakeInput`
+- `Run::TickReplaySaveProbe`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 162 to 161.
+- New header and source guardrails reject the removed replay launcher fire event
+  wrapper declaration and `Run::` definition from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp`,
+  `SkullbonezSource/Runtime/Replay/ReplayRuntime.h`,
+  `SkullbonezSource/Runtime/Run.cpp`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`, and
+  `tools/check_runtime_boundaries.py`.
+- No comments were added. The moved replay runtime method preserves the previous
+  launcher fire event semantics and payload shape.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_fire_profile_build.log`;
+  passed with 0 warnings and 0 errors in 44.34s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_fire_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 54.58s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_launcher_fire_runtime_boundaries.log`;
+  passed with 0 errors in 2.50s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_launcher_fire_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.14s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: the remaining editor event payload packaging
+helpers, solver apply/hash helpers, replay inspection camera enter/exit and
+focus-control methods, and render-host splitting remain active; this slice only
+moved launcher fire event payload ownership to `ReplayRuntime`.
 
 ## Rules
 

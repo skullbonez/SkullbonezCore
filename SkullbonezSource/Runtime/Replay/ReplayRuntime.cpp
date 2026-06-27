@@ -52,6 +52,7 @@ constexpr float REPLAY_RUNTIME_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
+constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -91,6 +92,31 @@ void ReplayRuntimeHashFloat( uint64_t& hash, float value )
         hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
         hash *= REPLAY_EVENT_FNV_PRIME;
     }
+}
+
+void ReplayRuntimeAppendFloatHex( char*& cursor, std::size_t& remaining, float value )
+{
+    if ( remaining == 0 )
+    {
+        return;
+    }
+
+    const int written = std::snprintf( cursor, remaining, "%08X", ReplayRuntimeFloatBits( value ) );
+    if ( written < 0 )
+    {
+        cursor[0] = '\0';
+        return;
+    }
+    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
+    cursor += consumed;
+    remaining -= consumed;
+}
+
+void ReplayRuntimeAppendVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
+{
+    ReplayRuntimeAppendFloatHex( cursor, remaining, value.x );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, value.y );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, value.z );
 }
 
 const ReplayPresentationSample*
@@ -1951,6 +1977,52 @@ void ReplayRuntime::RecordLauncherConfigEvent( uint32_t changedFlags, float impu
                  0,
                  hash,
                  "launcher_config" );
+}
+
+void ReplayRuntime::RecordLauncherFireEvent( const Vector3& rayOrigin,
+                                             const Vector3& rayDirection,
+                                             const Vector3& cameraUp,
+                                             bool projectile,
+                                             float impulseStrength,
+                                             float projectileSpeed,
+                                             int modelCount )
+{
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    ReplayRuntimeAppendVectorHex( cursor, remaining, rayOrigin );
+    ReplayRuntimeAppendVectorHex( cursor, remaining, rayDirection );
+    ReplayRuntimeAppendVectorHex( cursor, remaining, cameraUp );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    ReplayRuntimeHashFloat( hash, rayOrigin.x );
+    ReplayRuntimeHashFloat( hash, rayOrigin.y );
+    ReplayRuntimeHashFloat( hash, rayOrigin.z );
+    ReplayRuntimeHashFloat( hash, rayDirection.x );
+    ReplayRuntimeHashFloat( hash, rayDirection.y );
+    ReplayRuntimeHashFloat( hash, rayDirection.z );
+    ReplayRuntimeHashFloat( hash, cameraUp.x );
+    ReplayRuntimeHashFloat( hash, cameraUp.y );
+    ReplayRuntimeHashFloat( hash, cameraUp.z );
+
+    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
+    RecordEvent( ReplayEventKind::LauncherFire,
+                 NextEventFrameIndex(),
+                 flags,
+                 projectile ? 1 : 0,
+                 ReplayRuntimeFloatBitsSigned( impulseStrength ),
+                 ReplayRuntimeFloatBitsSigned( projectileSpeed ),
+                 modelCount,
+                 hash,
+                 payload );
 }
 
 bool ReplayRuntime::SaveSolverReplay( const char* path ) const

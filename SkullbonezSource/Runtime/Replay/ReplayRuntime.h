@@ -462,6 +462,13 @@ class ReplayRuntime
                                    float fluidHeight,
                                    float fluidDensity );
     void RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
+    void RecordLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
+                                  const Math::Vector::Vector3& rayDirection,
+                                  const Math::Vector::Vector3& cameraUp,
+                                  bool projectile,
+                                  float impulseStrength,
+                                  float projectileSpeed,
+                                  int modelCount );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
