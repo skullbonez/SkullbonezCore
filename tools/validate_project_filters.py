@@ -196,6 +196,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeCoordinator",
     "SceneRuntimeLoad",
     "SceneRuntimeReset",
+    "SceneRuntimeStyle",
 )
 
 RUNTIME_REPLAY_PREFIXES = (

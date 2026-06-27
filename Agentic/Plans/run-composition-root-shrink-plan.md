@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; scene browser refresh helper slice validated
+Status: Active architecture cleanup plan; scene runtime style helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the scene browser refresh helper section below
+Validation for latest implementation slice: see the scene runtime style helper section below
 
 ## Goal
 
@@ -4041,6 +4041,108 @@ Residual architecture risk: cinematic scene apply, scene creation, remaining
 `Run::LoadScene` setup phases, replay solver helpers, and render-host splitting
 remain active; this slice only moved scene-browser refresh ownership to scene
 runtime.
+
+## Scene Runtime Style Helper Slice
+
+This scene style cleanup slice moved live style and cinematic mode application
+out of `Run` into `Runtime/Scene/SceneRuntimeStyle.*`. The new helper owns
+cinematic override merging, object-material reset/application, browser-index
+cinematic style selection, and generated-demo hero style application through an
+explicit `SceneRuntimeStyleContext`.
+
+Deleted `Run.h` declarations:
+
+- `ApplyCinematicModeFromBrowserIndex`
+- `ApplyLiveStyleScene`
+- `ApplyDemoHeroStyleOverride`
+
+Deleted `Run::` definitions:
+
+- `Run::ApplyCinematicModeFromBrowserIndex`
+- `Run::ApplyLiveStyleScene`
+- `Run::ApplyDemoHeroStyleOverride`
+
+New owner surface:
+
+- `SceneRuntimeStyleContext`
+- `ApplyCinematicSceneOverrides(...)`
+- `ApplyCinematicModeFromBrowserIndex(SceneRuntimeStyleContext, int)`
+- `ApplyLiveStyleScene(SceneRuntimeStyleContext, const TestScene&)`
+- `ApplyDemoHeroStyleOverride(SceneRuntimeStyleContext)`
+
+Updated call sites:
+
+- `Run::LoadScene`
+- `Run::CreateSceneFromUI`
+- `Run::TakeInput`
+- `Run::DrainRuntimeCommands`
+- `Run::TickScreenshots`
+- `Run::TickSceneAdvance`
+- `Run::TickLiveStyleControl`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 155 to 152.
+- New header and source guardrails reject the removed scene style wrapper
+  declarations and `Run::` definitions from returning.
+- A new `RunInternal.h` guard rejects `ApplyCinematicSceneOverrides` from
+  moving back into shared Run internals.
+- `tools/validate_project_filters.py` now recognizes `SceneRuntimeStyle.*` under
+  `Runtime\Scene`.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp`,
+  `SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h`,
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/RunInput.cpp`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/RunLiveStyle.cpp`,
+  `SkullbonezSource/Runtime/RunInternal.h`,
+  `SkullbonezSource/Runtime/Run.h`,
+  `tools/check_runtime_boundaries.py`, and
+  `tools/validate_project_filters.py`.
+- New module file headers follow the repo's source-file documentation pattern.
+  No behavior-explaining inline comments were added.
+
+Validation:
+
+- Initial targeted Profile build failed in 39.5s because
+  `SceneRuntimeStyle.h` included `RunState.h` but not the full
+  `RunSceneState` definition from `SceneRuntime.h`; fixed by including
+  `SceneRuntime.h`.
+- Targeted Profile build rerun: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_runtime_style_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors in 17.0s.
+- Initial fast gate stopped in 4.4s because only
+  `SceneRuntimeStyle.cpp` needed clang-format; fixed by formatting that file and
+  `SceneRuntimeStyle.h` directly with the repo clang-format.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_runtime_style_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 62.5s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py`, logged at
+  `TestOutput\validation\agent_logs\scene_runtime_style_runtime_boundaries.log`;
+  passed with 0 errors in 3.1s.
+- Project-filter gate: `python tools\validate_project_filters.py`, logged at
+  `TestOutput\validation\agent_logs\scene_runtime_style_project_filters.log`;
+  passed with 0 errors in 1.0s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_runtime_style_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 27.5s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene creation, remaining `Run::LoadScene` setup
+phases, duplicated cine/path helpers, replay solver helpers, and render-host
+splitting remain active; this slice only moved live style and cinematic style
+application ownership to scene runtime.
 
 ## Rules
 

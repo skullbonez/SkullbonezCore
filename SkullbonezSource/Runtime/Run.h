@@ -313,9 +313,6 @@ class Run
     bool SaveRenderDefaults();                                             // Ordinary Render-tab values persisted to engine.cfg.
     bool SaveSkyDefaults();                                                // Sky-tab cinematic values persisted to engine.cfg.
     bool CreateSceneFromUI( const char* requestedName );                   // Creates and loads a flat starter scene from the Scene tab.
-    bool ApplyCinematicModeFromBrowserIndex( int index );                  // Live cine/concept style change; leaves scene objects intact.
-    void ApplyLiveStyleScene( const TestScene& styleScene );               // Style-only cinematic/material JSON; no object rebuild.
-    void ApplyDemoHeroStyleOverride();                                     // Low-poly hero style override for generated demo mode.
     void EnterInteractiveSceneRun();                                       // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                   // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                  // Keep the current scene alive after interactive automation completes

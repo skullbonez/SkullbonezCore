@@ -17,6 +17,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Scene/SceneRuntimeStyle.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -249,7 +250,13 @@ void Run::TickLiveStyleControl()
         try
         {
             const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath );
-            ApplyLiveStyleScene( styleScene );
+            ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
+                                                           SceneState(),
+                                                           m_sceneBrowser,
+                                                           m_cGameModelCollection,
+                                                           ActiveCinematicConfig(),
+                                                           m_defaultCinematicRender },
+                                 styleScene );
             ++m_liveStyle.styleApplyCount;
             WriteStatus( m_liveStyle, "style_applied", m_liveStyle.stylePath );
             printf( "[style-harness] Applied %s\n", m_liveStyle.stylePath );

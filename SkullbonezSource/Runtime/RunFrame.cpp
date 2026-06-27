@@ -21,6 +21,7 @@ Related:
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
+#include "Scene/SceneRuntimeStyle.h"
 
 #include <cmath>
 #include <cstdint>
@@ -2221,7 +2222,14 @@ bool Run::TickScreenshots()
                        action.preserveRuntimeState );
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            return ApplyCinematicModeFromBrowserIndex( action.index );
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                                 SceneState(),
+                                                                                 m_sceneBrowser,
+                                                                                 m_cGameModelCollection,
+                                                                                 ActiveCinematicConfig(),
+                                                                                 m_defaultCinematicRender },
+                                                       action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
@@ -2363,7 +2371,14 @@ bool Run::TickSceneAdvance()
                        action.preserveRuntimeState );
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            return ApplyCinematicModeFromBrowserIndex( action.index );
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                                 SceneState(),
+                                                                                 m_sceneBrowser,
+                                                                                 m_cGameModelCollection,
+                                                                                 ActiveCinematicConfig(),
+                                                                                 m_defaultCinematicRender },
+                                                       action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }

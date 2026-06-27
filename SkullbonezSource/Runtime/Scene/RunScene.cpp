@@ -27,6 +27,7 @@ Related:
 #include "../RunInternal.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
+#include "SceneRuntimeStyle.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/Ragdoll.h"
@@ -79,99 +80,6 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
     return orientation;
 }
 
-
-bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
-{
-    if ( !name || !suffix )
-    {
-        return false;
-    }
-    const size_t nameLength = strlen( name );
-    const size_t suffixLength = strlen( suffix );
-    if ( nameLength <= suffixLength || name[nameLength - suffixLength - 1] != '_' )
-    {
-        return false;
-    }
-    return strcmp( name + nameLength - suffixLength, suffix ) == 0;
-}
-
-
-bool IsSimpleRagdollPartName( const char* name )
-{
-    static const char* partSuffixes[] = {
-        "torso",
-        "head",
-        "upper_arm_l",
-        "lower_arm_l",
-        "upper_arm_r",
-        "lower_arm_r",
-        "upper_leg_l",
-        "lower_leg_l",
-        "upper_leg_r",
-        "lower_leg_r",
-    };
-    for ( const char* suffix : partSuffixes )
-    {
-        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-bool TryGetSimpleRagdollPartPrefixLength( const char* name, const char* suffix, size_t& outPrefixLength )
-{
-    outPrefixLength = 0;
-    if ( !SceneNameEndsWithPartSuffix( name, suffix ) )
-    {
-        return false;
-    }
-
-    outPrefixLength = strlen( name ) - strlen( suffix );
-    return true;
-}
-
-
-bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
-{
-    size_t torsoPrefixLength = 0;
-    size_t headPrefixLength = 0;
-    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) &&
-           TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) &&
-           torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
-}
-
-
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
-{
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
-    {
-        return false;
-    }
-    if ( strcmp( material.target, "all" ) == 0 )
-    {
-        return true;
-    }
-    if ( strcmp( material.target, "balls" ) == 0 )
-    {
-        return model.IsSphere();
-    }
-    if ( strcmp( material.target, "boxes" ) == 0 )
-    {
-        return model.IsBox();
-    }
-    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
-    {
-        return model.IsConvexHull();
-    }
-    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
-    {
-        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
-    }
-    return strcmp( material.target, model.GetName() ) == 0;
-}
 
 bool SceneNameStartsWith( const char* name, const char* prefix )
 {
@@ -1081,7 +989,12 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                 m_sceneUIOverrides.modelCountOverride >= 0 ? m_sceneUIOverrides.modelCountOverride
                                                            : DEFAULT_GAME_MODELS );
         }
-        ApplyDemoHeroStyleOverride();
+        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
+                                                              SceneState(),
+                                                              m_sceneBrowser,
+                                                              m_cGameModelCollection,
+                                                              ActiveCinematicConfig(),
+                                                              m_defaultCinematicRender } );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1950,7 +1863,14 @@ bool Run::CreateSceneFromUI( const char* requestedName )
                        action.preserveRuntimeState );
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            return ApplyCinematicModeFromBrowserIndex( action.index );
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                                 SceneState(),
+                                                                                 m_sceneBrowser,
+                                                                                 m_cGameModelCollection,
+                                                                                 ActiveCinematicConfig(),
+                                                                                 m_defaultCinematicRender },
+                                                       action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
@@ -1995,147 +1915,6 @@ bool Run::CreateSceneFromUI( const char* requestedName )
     EnterInteractiveSceneRun();
     LoadScene( m_sceneController.Append( normalizedPath ), true, true );
     return true;
-}
-
-
-bool Run::ApplyCinematicModeFromBrowserIndex( int index )
-{
-    EnterInteractiveSceneRun();
-    m_launchOptions.hasCinematicRenderingOverride = false;
-
-    auto resetObjectMaterials = [&]()
-    {
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( !IsSimpleRagdollPartName( model.GetName() ) )
-            {
-                model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
-            }
-        }
-    };
-
-    auto applyObjectMaterials = [&]( const TestScene& styleScene )
-    {
-        resetObjectMaterials();
-        for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
-        {
-            const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-            for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-            {
-                GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-                if ( SceneMaterialTargetMatches( material, model ) )
-                {
-                    model.SetRenderMaterial( material.material );
-                }
-            }
-        }
-    };
-
-    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    if ( index < 0 )
-    {
-        cinematic = m_defaultCinematicRender;
-        if ( SceneState().isSceneMode )
-        {
-            SceneState().hasCinematicRenderingOverride = false;
-            SceneState().isCinematicRenderingEnabled = cinematic.enabled;
-            SceneState().hasCinematicExposure = false;
-            SceneState().cinematicExposure = cinematic.exposure;
-            SceneState().hasCinematicGamma = false;
-            SceneState().cinematicGamma = cinematic.gamma;
-            SceneState().cinematicOverrideMask = 0;
-            SceneState().uiCinematicOverrideMask = 0;
-        }
-        resetObjectMaterials();
-        m_sceneBrowser.selectedCineModeSceneIndex = -1;
-        return true;
-    }
-
-    if ( index >= static_cast<int>( m_sceneBrowser.paths.size() ) || !IsCineScenePath( m_sceneBrowser.paths[index] ) )
-    {
-        return false;
-    }
-
-    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowser.paths[index].c_str() );
-    cinematic = m_defaultCinematicRender;
-    ApplyCinematicSceneOverrides( cinematic,
-                                  lookScene.GetCinematicOverrideMask(),
-                                  lookScene.GetCinematicRenderConfig() );
-    if ( SceneState().isSceneMode )
-    {
-        SceneState().hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
-        SceneState().isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
-        SceneState().hasCinematicExposure = lookScene.HasCinematicExposure();
-        SceneState().cinematicExposure = lookScene.GetCinematicExposure();
-        SceneState().hasCinematicGamma = lookScene.HasCinematicGamma();
-        SceneState().cinematicGamma = lookScene.GetCinematicGamma();
-        SceneState().cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
-        SceneState().uiCinematicOverrideMask = 0;
-    }
-    applyObjectMaterials( lookScene );
-    m_sceneBrowser.selectedCineModeSceneIndex = index;
-    return true;
-}
-
-
-void Run::ApplyLiveStyleScene( const TestScene& styleScene )
-{
-    m_launchOptions.hasCinematicRenderingOverride = false;
-
-    for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-    {
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-        if ( !IsSimpleRagdollPartName( model.GetName() ) )
-        {
-            model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
-        }
-    }
-
-    for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
-    {
-        const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
-            {
-                model.SetRenderMaterial( material.material );
-            }
-        }
-    }
-
-    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    cinematic = m_defaultCinematicRender;
-    ApplyCinematicSceneOverrides( cinematic,
-                                  styleScene.GetCinematicOverrideMask(),
-                                  styleScene.GetCinematicRenderConfig() );
-    if ( SceneState().isSceneMode )
-    {
-        SceneState().hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
-        SceneState().isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
-        SceneState().hasCinematicExposure = styleScene.HasCinematicExposure();
-        SceneState().cinematicExposure = styleScene.GetCinematicExposure();
-        SceneState().hasCinematicGamma = styleScene.HasCinematicGamma();
-        SceneState().cinematicGamma = styleScene.GetCinematicGamma();
-        SceneState().cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
-        SceneState().uiCinematicOverrideMask = 0;
-    }
-    m_sceneBrowser.selectedCineModeSceneIndex = -1;
-}
-
-
-void Run::ApplyDemoHeroStyleOverride()
-{
-    if ( !m_launchOptions.demoHeroStyle || SceneState().isSceneMode )
-    {
-        return;
-    }
-
-    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
-    ApplyLiveStyleScene( styleScene );
-    printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
 }
 
 

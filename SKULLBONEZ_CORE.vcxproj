@@ -173,6 +173,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
@@ -366,6 +367,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h" />
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h" />
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h" />

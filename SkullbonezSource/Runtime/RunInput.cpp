@@ -24,6 +24,7 @@ Related:
 #include "RuntimePickService.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeLoad.h"
+#include "Scene/SceneRuntimeStyle.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
@@ -2246,7 +2247,14 @@ void Run::TakeInput()
                            action.preserveRuntimeState );
                 return true;
             case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-                return ApplyCinematicModeFromBrowserIndex( action.index );
+                EnterInteractiveSceneRun();
+                return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                                     SceneState(),
+                                                                                     m_sceneBrowser,
+                                                                                     m_cGameModelCollection,
+                                                                                     ActiveCinematicConfig(),
+                                                                                     m_defaultCinematicRender },
+                                                           action.index );
             case SceneRuntimeControlActionType::None:
                 return false;
             }
@@ -2803,7 +2811,14 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
-            ApplyCinematicModeFromBrowserIndex( uiCommands.cinematic.requestedModeSceneIndex );
+            EnterInteractiveSceneRun();
+            ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                          SceneState(),
+                                                                          m_sceneBrowser,
+                                                                          m_cGameModelCollection,
+                                                                          ActiveCinematicConfig(),
+                                                                          m_defaultCinematicRender },
+                                                uiCommands.cinematic.requestedModeSceneIndex );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
@@ -3021,7 +3036,14 @@ bool Run::DrainRuntimeCommands()
                        action.preserveRuntimeState );
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
-            return ApplyCinematicModeFromBrowserIndex( action.index );
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
+                                                                                 SceneState(),
+                                                                                 m_sceneBrowser,
+                                                                                 m_cGameModelCollection,
+                                                                                 ActiveCinematicConfig(),
+                                                                                 m_defaultCinematicRender },
+                                                       action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
