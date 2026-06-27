@@ -841,10 +841,11 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
-            RecordReplayEditorTransformEvent(
+            m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
                 placedModel,
+                m_cGameModelCollection.GetModelCount(),
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
         }

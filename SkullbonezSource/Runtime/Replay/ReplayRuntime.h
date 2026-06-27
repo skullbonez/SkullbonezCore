@@ -476,6 +476,12 @@ class ReplayRuntime
                                  const Math::Vector::Vector3& terrainPoint,
                                  const Math::Vector::Vector3& placementScale,
                                  float placementYawRadians );
+    void RecordEditorTransformEvent( int modelIndex,
+                                     uint32_t changedFlags,
+                                     const GameObjects::GameModel& model,
+                                     int modelCount,
+                                     int scaleAxis,
+                                     float scaleFactor );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 

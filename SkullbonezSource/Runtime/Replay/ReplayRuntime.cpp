@@ -55,6 +55,9 @@ constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
 constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
 constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -129,6 +132,21 @@ void ReplayRuntimeAppendVectorHex( char*& cursor, std::size_t& remaining, const 
     ReplayRuntimeAppendFloatHex( cursor, remaining, value.x );
     ReplayRuntimeAppendFloatHex( cursor, remaining, value.y );
     ReplayRuntimeAppendFloatHex( cursor, remaining, value.z );
+}
+
+void ReplayRuntimeAppendQuaternionHex( char*& cursor,
+                                       std::size_t& remaining,
+                                       const Math::Orientation::Quaternion& value )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    value.GetComponents( x, y, z, w );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, x );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, y );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, z );
+    ReplayRuntimeAppendFloatHex( cursor, remaining, w );
 }
 
 const ReplayPresentationSample*
@@ -2084,6 +2102,79 @@ void ReplayRuntime::RecordEditorPlaceEvent( int objectType,
                  fixedObject ? 1 : 0,
                  terrainAlign ? 1 : 0,
                  modelCountBefore,
+                 hash,
+                 payload );
+}
+
+void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
+                                                uint32_t changedFlags,
+                                                const GameModel& model,
+                                                int modelCount,
+                                                int scaleAxis,
+                                                float scaleFactor )
+{
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
+    if ( changedFlags == 0 )
+    {
+        return;
+    }
+    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
+    {
+        scaleAxis = -1;
+        scaleFactor = 1.0f;
+    }
+    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
+    {
+        return;
+    }
+
+    char payload[96] = {};
+    char* cursor = payload;
+    std::size_t remaining = sizeof( payload );
+    const int prefixWritten =
+        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
+    if ( prefixWritten > 0 )
+    {
+        const std::size_t consumed =
+            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
+        cursor += consumed;
+        remaining -= consumed;
+    }
+    ReplayRuntimeAppendVectorHex( cursor, remaining, model.GetPosition() );
+    ReplayRuntimeAppendQuaternionHex( cursor, remaining, model.GetOrientation() );
+    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
+    {
+        ReplayRuntimeAppendFloatHex( cursor, remaining, scaleFactor );
+    }
+
+    float qx = 0.0f;
+    float qy = 0.0f;
+    float qz = 0.0f;
+    float qw = 1.0f;
+    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+
+    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+    ReplayRuntimeHashInt( hash, modelIndex );
+    ReplayRuntimeHashInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
+    ReplayRuntimeHashInt( hash, modelCount );
+    ReplayRuntimeHashInt( hash, static_cast<int32_t>( changedFlags ) );
+    ReplayRuntimeHashInt( hash, scaleAxis );
+    ReplayRuntimeHashFloat( hash, model.GetPosition().x );
+    ReplayRuntimeHashFloat( hash, model.GetPosition().y );
+    ReplayRuntimeHashFloat( hash, model.GetPosition().z );
+    ReplayRuntimeHashFloat( hash, qx );
+    ReplayRuntimeHashFloat( hash, qy );
+    ReplayRuntimeHashFloat( hash, qz );
+    ReplayRuntimeHashFloat( hash, qw );
+    ReplayRuntimeHashFloat( hash, scaleFactor );
+
+    RecordEvent( ReplayEventKind::EditorTransform,
+                 NextEventFrameIndex(),
+                 changedFlags,
+                 modelIndex,
+                 static_cast<int32_t>( model.GetReplayBodyId() ),
+                 modelCount,
+                 scaleAxis,
                  hash,
                  payload );
 }

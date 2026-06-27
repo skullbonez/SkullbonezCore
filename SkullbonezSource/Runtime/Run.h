@@ -342,12 +342,6 @@ class Run
     void RunUIStressActions();
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
-    void
-    RecordReplayEditorTransformEvent( int modelIndex,
-                                      uint32_t changedFlags,
-                                      const GameObjects::GameModel& model,
-                                      int scaleAxis,
-                                      float scaleFactor );                 // Records committed editor transform/scale gizmo changes.
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
     static void AfterPhysicsStepThunk( void* userData );
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.

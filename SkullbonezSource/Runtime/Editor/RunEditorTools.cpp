@@ -2908,11 +2908,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                         scaleFactor )
                             ? REPLAY_EDITOR_TRANSFORM_SCALE
                             : 0u;
-                    RecordReplayEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                      changedFlags,
-                                                      model,
-                                                      scaleAxis,
-                                                      scaleFactor );
+                    m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
+                                                                changedFlags,
+                                                                model,
+                                                                m_cGameModelCollection.GetModelCount(),
+                                                                scaleAxis,
+                                                                scaleFactor );
                 }
                 else
                 {
@@ -2940,7 +2941,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                         .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                                     ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                     : 0u;
-                            RecordReplayEditorTransformEvent( modelIndex, changedFlags, groupModel, -1, 1.0f );
+                            m_replayRuntime.RecordEditorTransformEvent( modelIndex,
+                                                                        changedFlags,
+                                                                        groupModel,
+                                                                        m_cGameModelCollection.GetModelCount(),
+                                                                        -1,
+                                                                        1.0f );
                         }
                     }
                     else
@@ -2954,11 +2960,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                   m_runtimeTools.Editor().gizmoDragStartOrientation )
                                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                             : 0u;
-                        RecordReplayEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                          changedFlags,
-                                                          model,
-                                                          -1,
-                                                          1.0f );
+                        m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
+                                                                    changedFlags,
+                                                                    model,
+                                                                    m_cGameModelCollection.GetModelCount(),
+                                                                    -1,
+                                                                    1.0f );
                     }
                 }
             }

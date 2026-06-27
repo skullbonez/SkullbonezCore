@@ -48,9 +48,6 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -58,32 +55,6 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
-
-uint32_t ReplayFloatBits( float value )
-{
-    uint32_t bits = 0;
-    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
-    std::memcpy( &bits, &value, sizeof( bits ) );
-    return bits;
-}
-
-int32_t ReplayFloatBitsSigned( float value )
-{
-    const uint32_t bits = ReplayFloatBits( value );
-    int32_t signedBits = 0;
-    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
-    return signedBits;
-}
-
-void HashReplayFloat( uint64_t& hash, float value )
-{
-    const uint32_t bits = ReplayFloatBits( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
 
 void HashReplayInt( uint64_t& hash, int32_t value )
 {
@@ -93,45 +64,6 @@ void HashReplayInt( uint64_t& hash, int32_t value )
         hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
         hash *= REPLAY_EVENT_FNV_PRIME;
     }
-}
-
-void AppendReplayFloatHex( char*& cursor, std::size_t& remaining, float value )
-{
-    if ( remaining == 0 )
-    {
-        return;
-    }
-
-    const int written = std::snprintf( cursor, remaining, "%08X", ReplayFloatBits( value ) );
-    if ( written < 0 )
-    {
-        cursor[0] = '\0';
-        return;
-    }
-    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
-    cursor += consumed;
-    remaining -= consumed;
-}
-
-void AppendReplayVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
-{
-    AppendReplayFloatHex( cursor, remaining, value.x );
-    AppendReplayFloatHex( cursor, remaining, value.y );
-    AppendReplayFloatHex( cursor, remaining, value.z );
-}
-
-
-void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Quaternion& value )
-{
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-    float w = 1.0f;
-    value.GetComponents( x, y, z, w );
-    AppendReplayFloatHex( cursor, remaining, x );
-    AppendReplayFloatHex( cursor, remaining, y );
-    AppendReplayFloatHex( cursor, remaining, z );
-    AppendReplayFloatHex( cursor, remaining, w );
 }
 
 } // namespace
@@ -921,79 +853,6 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
-}
-
-
-void Run::RecordReplayEditorTransformEvent( int modelIndex,
-                                            uint32_t changedFlags,
-                                            const GameModel& model,
-                                            int scaleAxis,
-                                            float scaleFactor )
-{
-    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
-    {
-        scaleAxis = -1;
-        scaleFactor = 1.0f;
-    }
-    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
-    {
-        return;
-    }
-
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten =
-        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, model.GetPosition() );
-    AppendReplayQuaternionHex( cursor, remaining, model.GetOrientation() );
-    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
-    {
-        AppendReplayFloatHex( cursor, remaining, scaleFactor );
-    }
-
-    float qx = 0.0f;
-    float qy = 0.0f;
-    float qz = 0.0f;
-    float qw = 1.0f;
-    model.GetOrientation().GetComponents( qx, qy, qz, qw );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, modelIndex );
-    HashReplayInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
-    HashReplayInt( hash, m_cGameModelCollection.GetModelCount() );
-    HashReplayInt( hash, static_cast<int32_t>( changedFlags ) );
-    HashReplayInt( hash, scaleAxis );
-    HashReplayFloat( hash, model.GetPosition().x );
-    HashReplayFloat( hash, model.GetPosition().y );
-    HashReplayFloat( hash, model.GetPosition().z );
-    HashReplayFloat( hash, qx );
-    HashReplayFloat( hash, qy );
-    HashReplayFloat( hash, qz );
-    HashReplayFloat( hash, qw );
-    HashReplayFloat( hash, scaleFactor );
-
-    m_replayRuntime.RecordEvent( ReplayEventKind::EditorTransform,
-                                 m_replayRuntime.NextEventFrameIndex(),
-                                 changedFlags,
-                                 modelIndex,
-                                 static_cast<int32_t>( model.GetReplayBodyId() ),
-                                 m_cGameModelCollection.GetModelCount(),
-                                 scaleAxis,
-                                 hash,
-                                 payload );
 }
 
 
