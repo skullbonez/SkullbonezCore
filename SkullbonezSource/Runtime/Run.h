@@ -312,7 +312,6 @@ class Run
     bool SaveReplayBufferFromScrubber( RunReplayTrack track );             // Writes one retained in-memory replay track to replays/.
     bool PromptLoadReplayPresentationArtifact( HWND hwnd );                // Open a .skreplay picker for a v2 scrub source.
     bool SaveCurrentSceneDefaults();                                       // UI-controlled scene defaults persisted to the active scene file.
-    bool SaveCurrentEditableSceneSnapshot();                               // UI-created scenes persist live models plus starter-scene defaults.
     bool SaveRenderDefaults();                                             // Ordinary Render-tab values persisted to engine.cfg.
     bool SaveSkyDefaults();                                                // Sky-tab cinematic values persisted to engine.cfg.
     void RefreshSceneBrowserList();                                        // Discovers scene files available to the in-game scene dropdown

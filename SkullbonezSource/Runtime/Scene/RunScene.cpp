@@ -736,6 +736,31 @@ void UseFlatSlopeTerrain( RunSubsystemState& systems,
 
     UpdateWorldTerrainBounds( world, systems.terrain.get() );
 }
+
+bool SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
+                                       const RunSceneState& sceneState,
+                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       WorldEnvironment& world,
+                                       CameraCollection& cameras,
+                                       bool waterHidden,
+                                       bool terrainHidden )
+{
+    return modelCollection.SaveSceneSnapshot( scenePath.c_str(),
+                                              sceneState.isScenePhysics,
+                                              sceneState.isSceneText,
+                                              world,
+                                              cameras.GetCameraTranslation(),
+                                              cameras.GetCameraView(),
+                                              cameras.GetCameraUp(),
+                                              true,
+                                              sceneState.isFixedStep,
+                                              waterHidden,
+                                              terrainHidden,
+                                              sceneState.hasFlatSlope,
+                                              sceneState.flatBaseY,
+                                              sceneState.flatSlopeX,
+                                              sceneState.flatSlopeZ );
+}
 } // namespace
 
 void Run::UpdateRequiredSceneContacts()
@@ -1574,32 +1599,6 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 }
 
 
-bool Run::SaveCurrentEditableSceneSnapshot()
-{
-    const std::string* scenePath = m_sceneController.CurrentPath();
-    if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
-    {
-        return false;
-    }
-
-    return m_cGameModelCollection.SaveSceneSnapshot( scenePath->c_str(),
-                                                     SceneState().isScenePhysics,
-                                                     SceneState().isSceneText,
-                                                     m_cWorldEnvironment,
-                                                     m_systems.cameras->GetCameraTranslation(),
-                                                     m_systems.cameras->GetCameraView(),
-                                                     m_systems.cameras->GetCameraUp(),
-                                                     true,
-                                                     SceneState().isFixedStep,
-                                                     m_debug.isWaterHidden,
-                                                     m_debug.isTerrainHidden,
-                                                     SceneState().hasFlatSlope,
-                                                     SceneState().flatBaseY,
-                                                     SceneState().flatSlopeX,
-                                                     SceneState().flatSlopeZ );
-}
-
-
 bool Run::SaveCurrentSceneDefaults()
 {
     const std::string* scenePath = m_sceneController.CurrentPath();
@@ -1609,7 +1608,13 @@ bool Run::SaveCurrentSceneDefaults()
     }
     if ( SceneState().isEditableScene )
     {
-        return SaveCurrentEditableSceneSnapshot();
+        return SaveCurrentEditableSceneSnapshot( *scenePath,
+                                                 SceneState(),
+                                                 m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 *m_systems.cameras,
+                                                 m_debug.isWaterHidden,
+                                                 m_debug.isTerrainHidden );
     }
 
     std::ifstream input( *scenePath );

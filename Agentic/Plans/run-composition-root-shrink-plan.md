@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay velocity drag helper slice validated
+Status: Active architecture cleanup plan; editable scene snapshot helper slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for latest implementation slice: see the replay velocity drag helper section below
+Validation for latest implementation slice: see the editable scene snapshot helper section below
 
 ## Goal
 
@@ -2204,6 +2204,77 @@ final rubber-duck pass is satisfied.
 
 Residual architecture risk: replay overlay rendering and cause-tree camera focus
 helpers still remain on `Run`; render-host splitting, shared cine/path helper
+cleanup, and remaining scene load ownership remain active.
+
+## Editable Scene Snapshot Helper Slice
+
+This scene-runtime slice removed the editable-scene snapshot persistence wrapper
+from `Run`. `SaveCurrentSceneDefaults` still owns the UI-facing command, but the
+editable scene snapshot write now goes through a file-local helper in
+`RunScene.cpp` with explicit scene, model, world, camera, and debug-hidden state
+inputs.
+
+Deleted `Run.h` declaration:
+
+- `SaveCurrentEditableSceneSnapshot`
+
+Deleted `Run::` definition:
+
+- `Run::SaveCurrentEditableSceneSnapshot`
+
+New owner surface:
+
+- File-local `SaveCurrentEditableSceneSnapshot(...)` helper in
+  `Runtime/Scene/RunScene.cpp`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 185 to 184.
+- New header and source guardrails reject
+  `SaveCurrentEditableSceneSnapshot` declarations and
+  `Run::SaveCurrentEditableSceneSnapshot` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- No explanatory comments were added. The helper signature exposes the borrowed
+  scene, model, world, camera, and visibility dependencies directly.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial targeted Profile build caught a constness mismatch because
+  `GameModelCollection::SaveSceneSnapshot` expects mutable `WorldEnvironment&`;
+  the helper now accepts `WorldEnvironment&`.
+- Targeted Profile build rerun: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\editable_scene_snapshot_profile_build_rerun.log`;
+  passed with 0 warnings and 0 errors in 7.35s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\editable_scene_snapshot_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 47.65s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\editable_scene_snapshot_runtime_boundaries.log`;
+  passed with 0 errors in 1.58s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\editable_scene_snapshot_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.38s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: `SaveCurrentSceneDefaults` still remains on `Run`;
+scene persistence ownership, render-host splitting, shared cine/path helper
 cleanup, and remaining scene load ownership remain active.
 
 ## Rules
