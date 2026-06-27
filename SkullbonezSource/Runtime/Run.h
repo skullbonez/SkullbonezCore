@@ -290,9 +290,6 @@ class Run
     void DrawPrimitives();                                                 // Thin compatibility wrapper around RuntimeRenderer::RenderFrame().
     RuntimeRenderHostBindings BuildRuntimeRenderHostBindings();
     RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
-    CinematicRenderConfig& ActiveCinematicConfig();                        // Mutable cinematic style config for the active scene/run
-    const CinematicRenderConfig& ActiveCinematicConfig() const;            // Read-only cinematic style config for the active scene/run
-    bool IsCinematicRenderingEnabled() const;                              // True when the HDR/post stack should wrap the main scene
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
     void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records

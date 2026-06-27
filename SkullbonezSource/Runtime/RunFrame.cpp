@@ -2228,13 +2228,14 @@ bool Run::TickScreenshots()
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                 SceneState(),
-                                                                                 m_sceneBrowser,
-                                                                                 m_cGameModelCollection,
-                                                                                 ActiveCinematicConfig(),
-                                                                                 m_defaultCinematicRender },
-                                                       action.index );
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
@@ -2377,13 +2378,14 @@ bool Run::TickSceneAdvance()
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                 SceneState(),
-                                                                                 m_sceneBrowser,
-                                                                                 m_cGameModelCollection,
-                                                                                 ActiveCinematicConfig(),
-                                                                                 m_defaultCinematicRender },
-                                                       action.index );
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }

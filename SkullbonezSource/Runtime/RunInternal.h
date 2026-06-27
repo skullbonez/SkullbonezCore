@@ -159,6 +159,29 @@ inline int RuntimeWindowScreenHeight( const RunSubsystemState& systems, const En
     return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.y ) : config.window.screenY;
 }
 
+inline CinematicRenderConfig& RuntimeActiveCinematicConfig( RunSceneState& scene, EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+inline const CinematicRenderConfig& RuntimeActiveCinematicConfig( const RunSceneState& scene,
+                                                                  const EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+inline bool RuntimeCinematicRenderingEnabled( const RunSceneState& scene,
+                                              const EngineConfig& config,
+                                              const RunLaunchOptions& launchOptions,
+                                              const RunDebugState& debug,
+                                              bool gfxReady )
+{
+    const bool enabled = launchOptions.hasCinematicRenderingOverride
+                             ? launchOptions.cinematicRendering
+                             : RuntimeActiveCinematicConfig( scene, config ).enabled;
+    return enabled && gfxReady && !debug.isTextOnly;
+}
+
 inline const char* FileNameFromPath( const char* path )
 {
     if ( !path )

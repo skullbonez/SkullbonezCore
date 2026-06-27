@@ -2252,13 +2252,14 @@ void Run::TakeInput()
                 return true;
             case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
                 EnterInteractiveSceneRun();
-                return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                     SceneState(),
-                                                                                     m_sceneBrowser,
-                                                                                     m_cGameModelCollection,
-                                                                                     ActiveCinematicConfig(),
-                                                                                     m_defaultCinematicRender },
-                                                           action.index );
+                return ApplyCinematicModeFromBrowserIndex(
+                    SceneRuntimeStyleContext{ m_launchOptions,
+                                              SceneState(),
+                                              m_sceneBrowser,
+                                              m_cGameModelCollection,
+                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                              m_defaultCinematicRender },
+                    action.index );
             case SceneRuntimeControlActionType::None:
                 return false;
             }
@@ -2637,11 +2638,13 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            if ( IsCinematicRenderingEnabled() )
+            if ( RuntimeCinematicRenderingEnabled( SceneState(), Cfg(), m_launchOptions, m_debug, IsGfxReady() ) )
             {
-                const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
+                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled;
                 m_launchOptions.hasCinematicShadowsOverride = false;
-                SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
+                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                                  SceneState(),
+                                                  !shadowsActive );
             }
             else
             {
@@ -2826,7 +2829,7 @@ void Run::TakeInput()
         {
             // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
             // the runtime toggle become the new source of truth after launch.
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             const bool currentlyEnabled =
                 m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
@@ -2849,18 +2852,19 @@ void Run::TakeInput()
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
             EnterInteractiveSceneRun();
-            ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                          SceneState(),
-                                                                          m_sceneBrowser,
-                                                                          m_cGameModelCollection,
-                                                                          ActiveCinematicConfig(),
-                                                                          m_defaultCinematicRender },
-                                                uiCommands.cinematic.requestedModeSceneIndex );
+            ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                uiCommands.cinematic.requestedModeSceneIndex );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
                 m_launchOptions.hasCinematicShadowsOverride = false;
@@ -2871,7 +2875,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             ApplyCinematicUIParam( cinematic,
                                    SceneState(),
                                    uiCommands.cinematic.requestedParam,
@@ -3074,13 +3078,14 @@ bool Run::DrainRuntimeCommands()
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                 SceneState(),
-                                                                                 m_sceneBrowser,
-                                                                                 m_cGameModelCollection,
-                                                                                 ActiveCinematicConfig(),
-                                                                                 m_defaultCinematicRender },
-                                                       action.index );
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
@@ -3125,7 +3130,7 @@ bool Run::DrainRuntimeCommands()
             SaveRenderDefaults( Cfg().ordinaryRender );
             break;
         case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults( ActiveCinematicConfig() );
+            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
             break;
         case RuntimeCommandType::AdvanceScene:
             if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),

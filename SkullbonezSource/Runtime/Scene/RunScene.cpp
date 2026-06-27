@@ -713,7 +713,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                               SceneState(),
                                                               m_sceneBrowser,
                                                               m_cGameModelCollection,
-                                                              ActiveCinematicConfig(),
+                                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                               m_defaultCinematicRender } );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
@@ -1110,7 +1110,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
         m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
-        ApplyTornadoDefaultsForActiveScene( m_runtimeSettings, m_cWorldEnvironment, ActiveCinematicConfig() );
+        ApplyTornadoDefaultsForActiveScene( m_runtimeSettings,
+                                            m_cWorldEnvironment,
+                                            RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
         if ( hasSceneTornadoSystem )
         {
             m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
@@ -1156,7 +1158,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
     if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveCinematicConfig().shadowsEnabled = m_launchOptions.cinematicShadows;
+        RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
     if ( m_launchOptions.hasPhysicsDebugFlagsOverride )

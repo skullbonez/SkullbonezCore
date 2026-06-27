@@ -254,7 +254,7 @@ void Run::TickLiveStyleControl()
                                                            SceneState(),
                                                            m_sceneBrowser,
                                                            m_cGameModelCollection,
-                                                           ActiveCinematicConfig(),
+                                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                            m_defaultCinematicRender },
                                  styleScene );
             ++m_liveStyle.styleApplyCount;

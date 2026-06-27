@@ -103,9 +103,19 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     RuntimeRenderHostCallbacks callbacks;
     callbacks.user = this;
     callbacks.activeCinematicConfig = []( void* user ) -> CinematicRenderConfig&
-    { return static_cast<Run*>( user )->ActiveCinematicConfig(); };
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeActiveCinematicConfig( run->SceneState(), Cfg() );
+    };
     callbacks.isCinematicRenderingEnabled = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->IsCinematicRenderingEnabled(); };
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeCinematicRenderingEnabled( run->SceneState(),
+                                                 Cfg(),
+                                                 run->m_launchOptions,
+                                                 run->m_debug,
+                                                 IsGfxReady() );
+    };
     callbacks.isLauncherCameraMode = []( void* user ) -> bool
     { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
     callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t

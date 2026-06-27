@@ -66,36 +66,6 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
 }
 } // namespace
 
-// The cinematic settings can come from two places:
-//  1. a .scene.json file, when a test/preview scene is loaded, or
-//  2. the normal engine config, when the app is running without a scene override.
-// This helper hides that choice so the render code below can just ask for "the
-// current cinematic look" without caring where it was authored.
-CinematicRenderConfig& Run::ActiveCinematicConfig()
-{
-    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
-}
-
-
-const CinematicRenderConfig& Run::ActiveCinematicConfig() const
-{
-    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
-}
-
-
-bool Run::IsCinematicRenderingEnabled() const
-{
-    // Command line switches win over config/scene values. That lets us launch
-    // the same scene in plain mode or cinematic mode while debugging.
-    const bool enabled = m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering
-                                                                       : ActiveCinematicConfig().enabled;
-
-    // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
-    // also stay off there. The UI text renderer handles that path by itself.
-    return enabled && IsGfxReady() && !m_debug.isTextOnly;
-}
-
-
 RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                              bool cinematicRender,
                                                              const CinematicRenderConfig& renderConfig ) const
