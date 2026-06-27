@@ -432,18 +432,6 @@ class Run
     void RenderReplayCauseFocusOverlay( RunEditorTracer& tracer );
     void SetReplayVelocityEditEnabled( bool enabled );
     bool TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse );
-    int HitReplayVelocityLinearAxis( const Math::Vector::Vector3& rayOrigin,
-                                     const Math::Vector::Vector3& rayDirection ) const;
-    int HitReplayVelocityAngularAxis( const Math::Vector::Vector3& rayOrigin,
-                                      const Math::Vector::Vector3& rayDirection ) const;
-    bool TryReplayVelocityAxisRayParameter( int axis,
-                                            const Math::Vector::Vector3& rayOrigin,
-                                            const Math::Vector::Vector3& rayDirection,
-                                            float& outAxisT ) const;
-    bool TryReplayVelocityAngularRayAngle( int axis,
-                                           const Math::Vector::Vector3& rayOrigin,
-                                           const Math::Vector::Vector3& rayDirection,
-                                           float& outAngle ) const;
     void ApplyReplayVelocityEditDrag( const Math::Vector::Vector3& rayOrigin,
                                       const Math::Vector::Vector3& rayDirection );
     void ApplyReplayVelocityEditToModel( int modelIndex,

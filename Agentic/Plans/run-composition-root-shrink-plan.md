@@ -1,7 +1,7 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay prediction job-state slice validated
+Status: Active architecture cleanup plan; replay velocity hit helper file-local slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
 Validation for this document-only change: none required
 
@@ -1496,6 +1496,83 @@ the end of the remaining plan work. Do not move this plan to `Done/` until the
 final rubber-duck pass is satisfied.
 
 Residual architecture risk: velocity edit toggle/input/geometry/drawing,
+camera focus activation, replay prediction frame generation, visualizer drawing,
+scrubber input, cause tree row UI, replay overlay construction, and the larger
+scene load/render-host splits still remain.
+
+## Replay Velocity Hit Helper File-Local Slice
+
+This replay slice removed the velocity-edit hit and ray-parameter helpers from
+`Run`. The helpers are now file-local functions in `RunReplayTools.cpp` that
+borrow `ReplayRuntime` and the current model list explicitly, while the public
+`Run` replay input and drag methods remain the composition-root adapters for
+window input, camera rays, and model mutation.
+
+Deleted `Run.h` declarations:
+
+- `HitReplayVelocityLinearAxis`
+- `HitReplayVelocityAngularAxis`
+- `TryReplayVelocityAxisRayParameter`
+- `TryReplayVelocityAngularRayAngle`
+
+Deleted `Run::` definitions:
+
+- `Run::HitReplayVelocityLinearAxis`
+- `Run::HitReplayVelocityAngularAxis`
+- `Run::TryReplayVelocityAxisRayParameter`
+- `Run::TryReplayVelocityAngularRayAngle`
+
+New owner surface:
+
+- File-local `HitReplayVelocityLinearAxis(...)`
+- File-local `HitReplayVelocityAngularAxis(...)`
+- File-local `TryReplayVelocityAxisRayParameter(...)`
+- File-local `TryReplayVelocityAngularRayAngle(...)`
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 208 to 204.
+- The `Run.h` rules reject the replay velocity hit and ray-parameter helper
+  names from returning.
+- Runtime source guardrails reject `Run::HitReplayVelocity...` and
+  `Run::TryReplayVelocity...` definitions from returning.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and `tools/check_runtime_boundaries.py`.
+- Existing surrounding comments remain appropriate for this file-local helper
+  conversion; no new dense subsystem comment was required.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_hit_helpers_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.41s.
+- Fast gate: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_hit_helpers_validate_fast.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 48.27s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\replay_velocity_hit_helpers_runtime_boundaries.log`;
+  passed with 0 errors in 1.17s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\replay_velocity_hit_helpers_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 25.51s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: velocity edit toggle/input/drawing,
 camera focus activation, replay prediction frame generation, visualizer drawing,
 scrubber input, cause tree row UI, replay overlay construction, and the larger
 scene load/render-host splits still remain.

@@ -2296,15 +2296,18 @@ void Run::SetReplayVelocityEditEnabled( bool enabled )
 }
 
 
-int Run::HitReplayVelocityLinearAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+int HitReplayVelocityLinearAxis( const ReplayRuntime& replayRuntime,
+                                 const std::vector<GameModel>& models,
+                                 const Vector3& rayOrigin,
+                                 const Vector3& rayDirection )
 {
-    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
-    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( models );
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
     {
         return -1;
     }
 
-    const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
     if ( model.IsFixed() )
     {
         return -1;
@@ -2332,15 +2335,18 @@ int Run::HitReplayVelocityLinearAxis( const Vector3& rayOrigin, const Vector3& r
 }
 
 
-int Run::HitReplayVelocityAngularAxis( const Vector3& rayOrigin, const Vector3& rayDirection ) const
+int HitReplayVelocityAngularAxis( const ReplayRuntime& replayRuntime,
+                                  const std::vector<GameModel>& models,
+                                  const Vector3& rayOrigin,
+                                  const Vector3& rayDirection )
 {
-    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
-    if ( modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( models );
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
     {
         return -1;
     }
 
-    const GameModel& model = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )];
+    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
     if ( model.IsFixed() )
     {
         return -1;
@@ -2383,18 +2389,20 @@ int Run::HitReplayVelocityAngularAxis( const Vector3& rayOrigin, const Vector3& 
 }
 
 
-bool Run::TryReplayVelocityAxisRayParameter( int axis,
-                                             const Vector3& rayOrigin,
-                                             const Vector3& rayDirection,
-                                             float& outAxisT ) const
+bool TryReplayVelocityAxisRayParameter( const ReplayRuntime& replayRuntime,
+                                        const std::vector<GameModel>& models,
+                                        int axis,
+                                        const Vector3& rayOrigin,
+                                        const Vector3& rayDirection,
+                                        float& outAxisT )
 {
-    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
-    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( models );
+    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
     {
         return false;
     }
 
-    const Vector3 axisOrigin = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )].GetPosition();
+    const Vector3 axisOrigin = models[static_cast<std::size_t>( modelIndex )].GetPosition();
     const Vector3 axisVector = EditorAxisVector( axis );
     const Vector3 w = axisOrigin - rayOrigin;
     const float b = axisVector * rayDirection;
@@ -2411,18 +2419,20 @@ bool Run::TryReplayVelocityAxisRayParameter( int axis,
 }
 
 
-bool Run::TryReplayVelocityAngularRayAngle( int axis,
-                                            const Vector3& rayOrigin,
-                                            const Vector3& rayDirection,
-                                            float& outAngle ) const
+bool TryReplayVelocityAngularRayAngle( const ReplayRuntime& replayRuntime,
+                                       const std::vector<GameModel>& models,
+                                       int axis,
+                                       const Vector3& rayOrigin,
+                                       const Vector3& rayDirection,
+                                       float& outAngle )
 {
-    const int modelIndex = m_replayRuntime.ResolveVelocityEditModelIndex( m_cGameModelCollection.Models() );
-    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= m_cGameModelCollection.GetModelCount() )
+    const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( models );
+    if ( axis < 0 || axis > 2 || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
     {
         return false;
     }
 
-    const Vector3 origin = m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )].GetPosition();
+    const Vector3 origin = models[static_cast<std::size_t>( modelIndex )].GetPosition();
     const Vector3 normal = EditorAxisVector( axis );
     const float denom = normal * rayDirection;
     if ( fabsf( denom ) <= 1e-4f )
@@ -2517,7 +2527,9 @@ void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& 
     if ( m_replayRuntime.VelocityEdit().draggingAngular )
     {
         float currentAngle = 0.0f;
-        if ( !TryReplayVelocityAngularRayAngle( m_replayRuntime.VelocityEdit().activeAxis,
+        if ( !TryReplayVelocityAngularRayAngle( m_replayRuntime,
+                                                m_cGameModelCollection.Models(),
+                                                m_replayRuntime.VelocityEdit().activeAxis,
                                                 rayOrigin,
                                                 rayDirection,
                                                 currentAngle ) )
@@ -2536,7 +2548,9 @@ void Run::ApplyReplayVelocityEditDrag( const Vector3& rayOrigin, const Vector3& 
     else
     {
         float axisT = 0.0f;
-        if ( !TryReplayVelocityAxisRayParameter( m_replayRuntime.VelocityEdit().activeAxis,
+        if ( !TryReplayVelocityAxisRayParameter( m_replayRuntime,
+                                                 m_cGameModelCollection.Models(),
+                                                 m_replayRuntime.VelocityEdit().activeAxis,
                                                  rayOrigin,
                                                  rayDirection,
                                                  axisT ) )
@@ -2626,11 +2640,13 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     }
 
     m_replayRuntime.VelocityEdit().hotAngularAxis =
-        uiBlocksMouse ? -1 : HitReplayVelocityAngularAxis( rayOrigin, rayDirection );
+        uiBlocksMouse
+            ? -1
+            : HitReplayVelocityAngularAxis( m_replayRuntime, m_cGameModelCollection.Models(), rayOrigin, rayDirection );
     m_replayRuntime.VelocityEdit().hotLinearAxis =
         ( uiBlocksMouse || m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             ? -1
-            : HitReplayVelocityLinearAxis( rayOrigin, rayDirection );
+            : HitReplayVelocityLinearAxis( m_replayRuntime, m_cGameModelCollection.Models(), rayOrigin, rayDirection );
 
     if ( !uiBlocksMouse && leftPressed )
     {
@@ -2642,7 +2658,9 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
                 float startAngle = 0.0f;
-                if ( TryReplayVelocityAngularRayAngle( m_replayRuntime.VelocityEdit().hotAngularAxis,
+                if ( TryReplayVelocityAngularRayAngle( m_replayRuntime,
+                                                       m_cGameModelCollection.Models(),
+                                                       m_replayRuntime.VelocityEdit().hotAngularAxis,
                                                        rayOrigin,
                                                        rayDirection,
                                                        startAngle ) )
@@ -2675,7 +2693,9 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
             else if ( m_replayRuntime.VelocityEdit().hotLinearAxis >= 0 )
             {
                 float axisT = 0.0f;
-                if ( TryReplayVelocityAxisRayParameter( m_replayRuntime.VelocityEdit().hotLinearAxis,
+                if ( TryReplayVelocityAxisRayParameter( m_replayRuntime,
+                                                        m_cGameModelCollection.Models(),
+                                                        m_replayRuntime.VelocityEdit().hotLinearAxis,
                                                         rayOrigin,
                                                         rayDirection,
                                                         axisT ) )
