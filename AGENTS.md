@@ -47,6 +47,37 @@ bypass it.
 3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
 4. If unrelated dirty files are present, leave them alone. Do not overwrite,
    revert, stage, or format user-owned changes unless explicitly requested.
+5. For any source-bearing file you edit (`.cpp`, `.h`, `.hpp`, `.inl`,
+   `.hlsl`, or substantial tool scripts), apply the comment standard in
+   `Agentic/Reference/comment-style-guide.md`. A learning header alone is not
+   enough: dense or risky code also needs nearby `Concept:`, `Why:`,
+   `Invariant:`, `Lifetime:`, or `Hazard:` comments where the guide calls for
+   them.
+
+## Comment Quality Gate
+
+Comment quality is part of completion, not a follow-up nicety.
+
+- If a task touches source for meaningful work, inspect every touched
+  source-bearing file with `Agentic/Skills/comment-style-audit/skill.md` before
+  reporting done.
+- Do not treat "file has a learning header" as full compliance. The body of the
+  file must also teach local vocabulary, non-obvious ownership/lifetime rules,
+  invariants, hazards, units, and validation-sensitive behavior.
+- For a subsystem or full-repository comment pass, first create or update an
+  explicit checklist plan under `Agentic/Plans/` that lists every tracked source
+  file in scope. Use `git ls-files`, not `rg`, for the inventory because ignored
+  directory names such as `Physics/Debug` can still contain tracked source.
+- Tick a checklist item only after the file has been inspected against the
+  guide. If a file is intentionally deferred, leave it unchecked and add a
+  reason; never silently skip a file.
+- Before final reporting on a comment pass, rerun the scoped `git ls-files`
+  inventory and reconcile it against the checklist. The final answer or handoff
+  must include the checklist path, checked count, deferred count, and any files
+  still unchecked.
+- Comment-only source edits count as documentation-only for repository
+  validation, provided the diff is strictly comments/docs. If code behavior
+  changes accidentally, stop and switch to the validation map below.
 
 ## After Editing
 
@@ -68,6 +99,7 @@ perf, UI, and stress validation only when the change actually needs them:
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | Broad or uncertain scope | `tools\validate_full.bat` | 2 exe launches |
 | Unsure what to run at the PR gate | `tools\agent_validate.bat` | 2 exe launches |
+| Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
 
 Profiling marker or platform-profiler changes must also run:
 

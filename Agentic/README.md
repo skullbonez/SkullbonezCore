@@ -21,6 +21,9 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 ## Comment Quality
 
 - `Reference/comment-style-guide.md` defines the repository comment standard.
+- `Plans/comment-style-remediation-plan.md` tracks the repository-wide
+  subsystem checklist. Use it for full or subsystem comment remediation, and
+  reconcile it against `git ls-files` before reporting completion.
 - `Reference/render-backend-portability-contract.md` defines the future
   Vulkan/Metal portability seam now that DX12 is the only active renderer.
 - `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
