@@ -1,9 +1,9 @@
 # Run Composition Root Shrink Plan
 
 Date: 2026-06-26
-Status: Active architecture cleanup plan; replay velocity apply helper file-local slice validated
+Status: Active architecture cleanup plan; scene context builder file-local slice validated
 Impact area: runtime architecture, editor tools, replay tools, scene runtime, render host boundaries
-Validation for this document-only change: none required
+Validation for latest implementation slice: see the scene context builder section below
 
 ## Goal
 
@@ -1729,6 +1729,95 @@ Residual architecture risk: velocity edit input/drag/drawing, camera focus
 activation, replay prediction frame generation, visualizer drawing, scrubber
 input, cause tree row UI, replay overlay construction, and the larger scene
 load/render-host splits still remain.
+
+## Scene Context Builder File-Local Slice
+
+This scene-load slice removed the scene setup context builders from `Run.h`.
+Generated and authored scene setup still receive the same camera, terrain,
+scene state, config, world, model collection, physics engine, required-contact,
+and object-type override dependencies, but the builder functions are now
+anonymous-namespace helpers in the source files that need them instead of
+private `Run` wrappers.
+
+Deleted `Run.h` declarations:
+
+- `BuildSceneAuthoredCameraContext`
+- `BuildSceneAuthoredModelContext`
+- `BuildSceneGeneratedCameraContext`
+- `BuildSceneGeneratedModelContext`
+
+Deleted `Run::` definitions:
+
+- `Run::BuildSceneAuthoredCameraContext`
+- `Run::BuildSceneAuthoredModelContext`
+- `Run::BuildSceneGeneratedCameraContext`
+- `Run::BuildSceneGeneratedModelContext`
+
+New owner surface:
+
+- File-local `BuildSceneAuthoredCameraContext(...)` and
+  `BuildSceneAuthoredModelContext(...)` in `Runtime/Scene/RunScene.cpp`.
+- File-local `BuildSceneGeneratedModelContext(...)` in
+  `Runtime/Scene/RunScene.cpp` and `Runtime/RunFrame.cpp`.
+- File-local `BuildSceneGeneratedCameraContext(...)` in
+  `Runtime/Scene/RunScene.cpp` and `Runtime/RunRender.cpp`.
+
+Boundary/tooling guard:
+
+- `tools/check_runtime_boundaries.py` lowers the `Run.h` private-method
+  ratchet from 202 to 198.
+- The `Run.h` rules reject `BuildSceneAuthoredCameraContext`,
+  `BuildSceneAuthoredModelContext`, `BuildSceneGeneratedCameraContext`, and
+  `BuildSceneGeneratedModelContext` declarations from returning.
+- Runtime source guardrails reject `Run::BuildScene...Context` definitions from
+  returning while still allowing file-local helpers with explicit borrowed
+  dependencies.
+- Synthetic self-tests cover the removed header and source surfaces.
+
+Comment-style audit:
+
+- Touched source-bearing files inspected:
+  `SkullbonezSource/Runtime/Scene/RunScene.cpp`,
+  `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/RunRender.cpp`,
+  `SkullbonezSource/Runtime/Run.h`, and
+  `tools/check_runtime_boundaries.py`.
+- The slice adds no new explanatory comments. Existing scene/replay/render
+  comments remain focused on ownership and behavior, and the new helper shape
+  is explicit in function signatures.
+- No subsystem-wide checklist was required; this was a touched-file audit, not
+  a comment remediation pass.
+
+Validation:
+
+- Initial `tools\validate_fast.bat` run stopped at formatting for
+  `RunFrame.cpp` and `RunScene.cpp`; those touched files were formatted
+  directly with VS `clang-format` before final gates.
+- Targeted Profile build: `tools\validate_build.bat Profile`, logged at
+  `TestOutput\validation\agent_logs\scene_context_builders_profile_build.log`;
+  passed with 0 warnings and 0 errors in 39.78s.
+- Fast gate rerun: `tools\validate_fast.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_context_builders_validate_fast_rerun.log`;
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds in 55.08s.
+- Runtime boundary gate: `python tools\check_runtime_boundaries.py --repo .`,
+  logged at
+  `TestOutput\validation\agent_logs\scene_context_builders_runtime_boundaries.log`;
+  passed with 0 errors in 1.32s.
+- Broad gate: `tools\validate_full.bat`, logged at
+  `TestOutput\validation\agent_logs\scene_context_builders_validate_full.log`;
+  passed project filters, runtime boundaries, Profile/Debug builds, DX12
+  validation with 0 errors and matching screenshots, and byte-exact
+  `physics_regression_solver.csv` in 26.64s.
+
+Rubber-duck review was intentionally deferred by explicit user instruction until
+the end of the remaining plan work. Do not move this plan to `Done/` until the
+final rubber-duck pass is satisfied.
+
+Residual architecture risk: scene load still sequences teardown, generated and
+authored object population, UI override application, and replay reset from
+`Run`; render-host splitting, shared cine/path helper cleanup, and remaining
+replay tool/helper ownership remain active.
 
 ## Rules
 

@@ -186,10 +186,6 @@ class Run
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
     bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const;
     bool DrainRuntimeCommands();                                           // Applies queued runtime/tool command intents at the frame boundary.
-    SceneAuthoredCameraContext BuildSceneAuthoredCameraContext();
-    SceneAuthoredModelContext BuildSceneAuthoredModelContext();
-    SceneGeneratedCameraContext BuildSceneGeneratedCameraContext();
-    SceneGeneratedModelContext BuildSceneGeneratedModelContext();
     void StepPhysicsPipelineStage( int direction );                        // direction is a left/right cursor step for pipeline visualization.
     void UpdateRuntimeInputModeAfterAction(
         RuntimeInputAction action,

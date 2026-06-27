@@ -47,7 +47,7 @@ FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
-MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 202
+MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 198
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
     r"(?:[A-Za-z_][\w:]*)\s*\([^;{}]*\)\s*(?:const\s*)?"
@@ -307,6 +307,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         "Call SceneGeneratedSetup or SceneAuthoredSetup through explicit context builders.",
     ),
     (
+        "scene context builders must stay out of Run.h",
+        r"\bBuildScene(?:Authored|Generated)(?:Camera|Model)Context\s*\(",
+        "Keep scene setup contexts file-local with explicit borrowed dependencies.",
+    ),
+    (
         "scene runtime reset helpers must stay out of Run.h",
         r"\b(?:CaptureSceneRuntimeResetSnapshot|RestoreSceneRuntimeResetSnapshot|ClearSceneRuntimeUIOverrides)\s*\(",
         "Keep scene reload preserve/reset policy in Runtime/Scene scene runtime helpers.",
@@ -548,6 +553,12 @@ RUN_SCENE_QUEUE_SOURCE_RULE = (
     "Run scene queue wrappers are blocked",
     r"\bRun::(?:HasSceneQueueEntry|HasCurrentSceneQueueEntry|CurrentSceneQueuePath)\s*\(",
     "Use SceneController/SceneRuntime accessors directly while scene load ownership moves out of Run.",
+)
+
+RUN_SCENE_CONTEXT_BUILDER_SOURCE_RULE = (
+    "Run scene context builders are blocked",
+    r"\bRun::BuildScene(?:Authored|Generated)(?:Camera|Model)Context\s*\(",
+    "Keep scene setup contexts file-local with explicit borrowed dependencies.",
 )
 
 RUN_DIAGNOSTICS_SOURCE_RULE = (
@@ -1189,6 +1200,24 @@ def check_run_scene_queue_source_guardrails(repo: Path) -> list[BoundaryError]:
     return errors
 
 
+def check_run_scene_context_builder_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    message, pattern, detail = RUN_SCENE_CONTEXT_BUILDER_SOURCE_RULE
+    return [
+        BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
+        for match in re.finditer(pattern, stripped)
+    ]
+
+
+def check_run_scene_context_builder_source_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / RUNTIME_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h" }:
+            continue
+        errors.extend(check_run_scene_context_builder_source_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_run_diagnostics_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_DIAGNOSTICS_SOURCE_RULE
@@ -1606,6 +1635,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("scene queue header wrapper synthetic surface was not rejected")
 
+    old_scene_context_builder_header_helper = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        SceneGeneratedModelContext BuildSceneGeneratedModelContext();",
+    )
+    if not any(
+        error.message == "scene context builders must stay out of Run.h"
+        for error in check_text_rules(
+            Path("synthetic/Run.h"),
+            old_scene_context_builder_header_helper,
+            RUN_HEADER_RULES,
+        )
+    ):
+        failures.append("scene context builder header synthetic surface was not rejected")
+
     old_diagnostics_header_helper = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        void LogPerfMemory( const char* checkpoint );",
@@ -2000,6 +2043,16 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("scene queue source wrapper synthetic surface was not rejected")
 
+    old_scene_context_builder_source_helper = "SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext() { return {}; }"
+    if not any(
+        error.message == "Run scene context builders are blocked"
+        for error in check_run_scene_context_builder_source_guardrails_text(
+            Path("synthetic/RunScene.cpp"),
+            old_scene_context_builder_source_helper,
+        )
+    ):
+        failures.append("scene context builder source synthetic surface was not rejected")
+
     old_diagnostics_source_helper = "void Run::LogPerfMemory( const char* checkpoint ) {}"
     if not any(
         error.message == "Run diagnostics perf-memory wrappers are blocked"
@@ -2309,6 +2362,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_replay_overlay_source_guardrails(repo))
     errors.extend(check_run_scene_reset_source_guardrails(repo))
     errors.extend(check_run_scene_queue_source_guardrails(repo))
+    errors.extend(check_run_scene_context_builder_source_guardrails(repo))
     errors.extend(check_run_diagnostics_source_guardrails(repo))
     errors.extend(check_run_diagnostics_perf_tick_source_guardrails(repo))
     errors.extend(check_run_scene_perf_log_lifecycle_guardrails(repo))

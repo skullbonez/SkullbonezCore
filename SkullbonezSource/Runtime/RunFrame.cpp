@@ -56,6 +56,17 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+                                                            const EngineConfig& config,
+                                                            SkullbonezCore::Environment::WorldEnvironment& world,
+                                                            SkullbonezCore::Geometry::Terrain* terrain,
+                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            GeneratedObjectTypeOverride objectTypeOverride )
+{
+    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
+}
+
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
     uint32_t bits = 0;
@@ -1686,11 +1697,28 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
         if ( exactSolverCounts || uiSolverCounts )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), event.value1, event.value2 );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                event.value1,
+                event.value2 );
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), event.value0 );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
 

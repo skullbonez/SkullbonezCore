@@ -633,39 +633,48 @@ void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::ve
     const size_t insertIndex = CinematicConfigInsertIndex( lines );
     lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
 }
+
+SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+                                                            SkullbonezCore::Geometry::Terrain& terrain )
+{
+    return SceneAuthoredCameraContext{ cameras, terrain };
+}
+
+SceneAuthoredModelContext
+BuildSceneAuthoredModelContext( RunSceneState& sceneState,
+                                SkullbonezCore::Environment::WorldEnvironment& world,
+                                SkullbonezCore::Geometry::Terrain* terrain,
+                                SkullbonezCore::GameObjects::GameModelCollection& models,
+                                SkullbonezCore::Physics::PhysicsEngine& physics,
+                                std::vector<RunRequiredContactState>& requiredContacts,
+                                std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells )
+{
+    return SceneAuthoredModelContext{ sceneState,
+                                      world,
+                                      terrain,
+                                      models,
+                                      physics,
+                                      requiredContacts,
+                                      requiredBroadphaseXCells };
+}
+
+SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+                                                              SkullbonezCore::Geometry::Terrain& terrain )
+{
+    return SceneGeneratedCameraContext{ cameras, terrain };
+}
+
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+                                                            const EngineConfig& config,
+                                                            SkullbonezCore::Environment::WorldEnvironment& world,
+                                                            SkullbonezCore::Geometry::Terrain* terrain,
+                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            GeneratedObjectTypeOverride objectTypeOverride )
+{
+    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
+}
 } // namespace
-
-SceneAuthoredCameraContext Run::BuildSceneAuthoredCameraContext()
-{
-    return SceneAuthoredCameraContext{ m_systems.cameras, *m_systems.terrain };
-}
-
-SceneAuthoredModelContext Run::BuildSceneAuthoredModelContext()
-{
-    return SceneAuthoredModelContext{ SceneState(),
-                                      m_cWorldEnvironment,
-                                      m_systems.terrain.get(),
-                                      m_cGameModelCollection,
-                                      m_cGameModelCollection.GetPhysicsEngine(),
-                                      m_requiredSceneContacts,
-                                      m_requiredBroadphaseXCells };
-}
-
-SceneGeneratedCameraContext Run::BuildSceneGeneratedCameraContext()
-{
-    return SceneGeneratedCameraContext{ m_systems.cameras, *m_systems.terrain };
-}
-
-SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
-{
-    return SceneGeneratedModelContext{ SceneState(),
-                                       Cfg(),
-                                       m_cWorldEnvironment,
-                                       m_systems.terrain.get(),
-                                       m_cGameModelCollection,
-                                       m_cGameModelCollection.GetPhysicsEngine(),
-                                       m_launchOptions.generatedObjectTypeOverride };
-}
 
 void Run::UpdateRequiredSceneContacts()
 {
@@ -947,16 +956,29 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         SetUpCameras();
         if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
-                                                  m_sceneUIOverrides.modelCountOverride >= 0
-                                                      ? m_sceneUIOverrides.modelCountOverride
-                                                      : DEFAULT_GAME_MODELS );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                m_sceneUIOverrides.modelCountOverride >= 0 ? m_sceneUIOverrides.modelCountOverride
+                                                           : DEFAULT_GAME_MODELS );
         }
         ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
@@ -1210,29 +1232,59 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_systems.cameras, *m_systems.terrain ),
+                                          scene );
 
         if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else if ( m_sceneUIOverrides.modelCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
-                                                  m_sceneUIOverrides.modelCountOverride );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                m_sceneUIOverrides.modelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     scene.GetSolverBallCount(),
-                                                     scene.GetSolverBoxCount() );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                scene.GetSolverBallCount(),
+                scene.GetSolverBoxCount() );
         }
         else
         {
-            SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
+            SceneAuthoredSetup::SetUpGameModels(
+                BuildSceneAuthoredModelContext( SceneState(),
+                                                m_cWorldEnvironment,
+                                                m_systems.terrain.get(),
+                                                m_cGameModelCollection,
+                                                m_cGameModelCollection.GetPhysicsEngine(),
+                                                m_requiredSceneContacts,
+                                                m_requiredBroadphaseXCells ),
+                scene );
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
@@ -2092,7 +2144,15 @@ void Run::ApplyUIModelCountOverride( int count )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_sceneUIOverrides.modelCountOverride );
+    SceneGeneratedSetup::SetUpGameModels(
+        BuildSceneGeneratedModelContext( SceneState(),
+                                         Cfg(),
+                                         m_cWorldEnvironment,
+                                         m_systems.terrain.get(),
+                                         m_cGameModelCollection,
+                                         m_cGameModelCollection.GetPhysicsEngine(),
+                                         m_launchOptions.generatedObjectTypeOverride ),
+        m_sceneUIOverrides.modelCountOverride );
     if ( m_camera.trackBallIndex >= m_sceneUIOverrides.modelCountOverride )
     {
         m_camera.trackBallIndex = m_sceneUIOverrides.modelCountOverride - 1;
@@ -2131,9 +2191,16 @@ void Run::ApplyUISolverObjectCounts( int balls, int boxes )
 
     const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
     SceneState().rngState = seed;
-    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                             m_sceneUIOverrides.solverBallCountOverride,
-                                             m_sceneUIOverrides.solverBoxCountOverride );
+    SceneGeneratedSetup::SetUpSolverObjects(
+        BuildSceneGeneratedModelContext( SceneState(),
+                                         Cfg(),
+                                         m_cWorldEnvironment,
+                                         m_systems.terrain.get(),
+                                         m_cGameModelCollection,
+                                         m_cGameModelCollection.GetPhysicsEngine(),
+                                         m_launchOptions.generatedObjectTypeOverride ),
+        m_sceneUIOverrides.solverBallCountOverride,
+        m_sceneUIOverrides.solverBoxCountOverride );
     if ( SceneState().modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;

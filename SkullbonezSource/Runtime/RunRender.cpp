@@ -48,6 +48,15 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+                                                              SkullbonezCore::Geometry::Terrain& terrain )
+{
+    return SceneGeneratedCameraContext{ cameras, terrain };
+}
+} // namespace
+
 // The cinematic settings can come from two places:
 //  1. a .scene.json file, when a test/preview scene is loaded, or
 //  2. the normal engine config, when the app is running without a scene override.
@@ -482,7 +491,7 @@ void Run::DrawPrimitives()
 
 void Run::SetUpCameras()
 {
-    SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext() );
+    SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain ) );
 }
 
 
